@@ -28,10 +28,12 @@ This module states no level: every cell is an evidence constant of a module of t
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import replace
 from types import MappingProxyType
 
 from fenolite.backends.altium import (
     binary,
+    draftsman,
     hierarchy,
     import_evidence,
     lower,
@@ -49,7 +51,7 @@ from fenolite.backends.altium.read import pcb as read_pcb
 from fenolite.backends.altium.read import pcblib as read_pcblib
 from fenolite.backends.altium.read import project as read_project
 from fenolite.backends.altium.read import sch as read_sch
-from fenolite.backends.base import MatrixRow
+from fenolite.backends.base import MatrixRow, VersionEvidence
 from fenolite.core.evidence import Evidence
 
 NAME = "altium"
@@ -58,6 +60,7 @@ SCHEMATIC_READ = Evidence.combine(read_sch.EVIDENCE, IMPORT)
 WRITE = ("write",)
 
 RAW_MATRIX: tuple[MatrixRow, ...] = (
+    MatrixRow(NAME, draftsman.DRAFTSMAN_KIND, write=draftsman.EVIDENCE, experimental=WRITE),
     MatrixRow(NAME, project.HARNESS_KIND, write=hierarchy.EVIDENCE, experimental=WRITE),
     MatrixRow(NAME, outjob.OUTJOB_KIND, write=outjob.EVIDENCE, experimental=WRITE),
     MatrixRow(
@@ -117,6 +120,7 @@ _HIERARCHY_READBACK = (
     "tests/unit/backends/altium/test_readback.py::test_hierarchy_sample_reads_back_in_both_forms"
 )
 OWN_READBACK: dict[str, str] = {
+    draftsman.DRAFTSMAN_KIND: "tests/unit/backends/altium/test_draftsman_write.py::test_readback",
     project.HARNESS_KIND: _HIERARCHY_READBACK,
     outjob.OUTJOB_KIND: "tests/unit/backends/altium/test_outjob_write.py::test_readback",
     project.PCBDOC_KIND: (
@@ -134,7 +138,34 @@ OWN_READBACK: dict[str, str] = {
 These tests use Fenolite's readers and do not replace a native kit or corpus oracle.
 """
 
-MATRIX, GRADUATION_MISSING = decisions(RAW_MATRIX, OWN_READBACK)
+_GRADUATED, GRADUATION_MISSING = decisions(RAW_MATRIX, OWN_READBACK)
+
+# Current kit-labelled hypotheses of these cells cite the published run. This records that scope
+# at the generic cell's existing level, never promoting an arbitrary file to a native kit verdict.
+KIT_VERSION = "AD 24.5"
+KIT_TOOL = "Altium Designer 24.5"
+KIT_SOURCE = "2026-11-05-e28d0bb1"
+KIT_WRITE_KINDS = frozenset(
+    {
+        outjob.OUTJOB_KIND,
+        project.PCBDOC_KIND,
+        "altium_prjpcb",
+        schdot.SCHDOT_KIND,
+        "altium_schdoc_ascii",
+        "altium_schdoc_binary",
+        project.SCHLIB_KIND,
+    }
+)
+
+
+def _versioned(row: MatrixRow) -> MatrixRow:
+    if row.kind not in KIT_WRITE_KINDS or row.write is None:
+        return row
+    scope = VersionEvidence(KIT_VERSION, KIT_TOOL, row.write.level, KIT_SOURCE)
+    return replace(row, versions={"write": (scope,)})
+
+
+MATRIX = tuple(_versioned(row) for row in _GRADUATED)
 
 RT_A1_NOTE = "RT-A1 (H-A-VER-RTA1): every typed stream gives equal records after an encode and a read"
 ROUND_TRIP_NOTES: Mapping[str, str] = MappingProxyType(

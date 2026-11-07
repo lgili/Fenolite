@@ -91,7 +91,15 @@ def test_template_footprints_vendored(tmp_path: Path) -> None:
         )
     )
     d = blink()
-    out = build_design(to_model(d), placements(d), name=d.name, copper=2, resolver=resolver, target=10)
+    out = build_design(
+        to_model(d),
+        placements(d),
+        name=d.name,
+        copper=2,
+        resolver=resolver,
+        target=10,
+        schematic_layout="readable",
+    )
     assert out.summary["libraries"]["Mini:Mini_R_0603"] == "template"  # type: ignore[index]
     reference = global_build(tmp_path / "g")
     assert {k: v for k, v in out.files.items() if k.startswith("lib/") or k == "fp-lib-table"} == {

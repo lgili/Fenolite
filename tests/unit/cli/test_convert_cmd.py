@@ -7,7 +7,9 @@ from __future__ import annotations
 
 import dataclasses
 import shutil
+import sys
 from pathlib import Path
+from unittest import mock
 
 import _schema
 import pytest
@@ -19,6 +21,7 @@ from fenolite.convert import to_altium
 from fenolite.convert.direction import Options, Written
 from fenolite.convert.sources import SourceProject
 from fenolite.core.coords import Point
+from fenolite.geometry.errors import BackendUnavailable
 
 KEYS = ["source", "target", "files", "report", "equivalence", "experimental", "plan", "plan_id"]
 
@@ -208,3 +211,25 @@ def test_altium_pour_option(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
     assert code == 0, error
     (row,) = [r for r in envelope["result"]["report"]["rows"] if r["kind"] == "zone-fill"]
     assert [r["reason"] for r in row["reasons"]] == [to_altium.CHANGES["zone-fill"]]
+
+
+def test_default_pour_without_the_geo_extra_refuses(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Scenario "The geo extra is missing" (change c0436): the default pour mode ``computed`` exits 6 with
+    ``FEN-6001`` and a hint naming the extra and ``--altium-pour outline``, and plans nothing; ``outline``
+    converts with no ``altium.pour-unavailable`` warning. The API raises ``BackendUnavailable``."""
+    with mock.patch.dict(sys.modules, {"pyclipper": None}):
+        code, envelope, error, _ = run(
+            monkeypatch, tmp_path, "convert", str(TWO_LAYER), "--to", "altium", "--out", "out", "--dry-run"
+        )
+        assert code == 6 and error["code"] == "FEN-6001" and error["where"] == "--altium-pour"
+        assert "the default --altium-pour computed" in error["message"]
+        assert "fenolite[geo]" in error["hint"] and "--altium-pour outline" in error["hint"]
+        assert not envelope.get("result")
+        with pytest.raises(BackendUnavailable):
+            convert_package.convert_project(TWO_LAYER, to="altium")
+        code, envelope, error, _ = run(
+            monkeypatch, tmp_path, "convert", str(TWO_LAYER), "--to", "altium", "--out", "out", "--dry-run",
+            "--altium-pour", "outline",
+        )  # fmt: skip
+    assert code == 0, error
+    assert not [i for i in envelope["issues"] if i["code"] == "altium.pour-unavailable"]

@@ -293,9 +293,11 @@ def test_a_connect_pad_differs_only_in_the_solder_mask() -> None:
     assert record_of(pad(kind="connect", drill=None)).mask_modes == (0, 0)
 
 
-def test_unnamed_pad_is_left_out_of_a_library() -> None:
-    """A library footprint cannot hold a pad without a number: it is dropped, not refused, and not kept."""
-    check = pcblib.check_footprint(definition(pad(number="")), {})
+def test_unnamed_pad_is_kept_in_a_library() -> None:
+    """A library footprint keeps a pad without a number, with an empty name (change c0433): Altium saves
+    component pads without a name (``pcb-records.md``, "Free pads as holes")."""
+    unnamed = pad(number="")
+    check = pcblib.check_footprint(definition(unnamed), {})
     assert check.refusal is None
-    assert check.pads == ()
-    assert any("no number" in note for note in check.dropped)
+    assert check.pads == (unnamed,)
+    assert not any("no number" in note for note in check.dropped)

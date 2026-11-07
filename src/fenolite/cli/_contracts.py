@@ -1,0 +1,120 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Fenolite contributors
+"""The device records and part classes that ``fenolite build``, ``fenolite check`` and ``fenolite roles``
+inject into the stage ``circuit.rules`` (change c0253; capability verification-loop, "Device records injected
+into the circuit stage"; ``docs/contracts.md``).
+
+``checks`` imports neither ``catalog`` nor ``roles``, so the commands resolve each component's
+``fenolite.device`` id here (the design's own records, then ``devices/*.toml`` of the project folder, then the
+shipped ``Fenolite:`` devices: the order of ``fenolite.dsl.devices``) and classify the parts with the one
+classifier, ``fenolite.roles.classify``, with the classes the user states.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from pathlib import Path
+
+from fenolite.catalog.devices import shipped_devices
+from fenolite.catalog.records import LibraryTree, load_tree
+from fenolite.catalog.vendored import load_vendored, overlay
+from fenolite.core.errors import FormatError, Issue
+from fenolite.model.design import Design
+from fenolite.model.library import DeviceDef
+from fenolite.pick.rows import PROPOSED_DIR
+from fenolite.roles.classify import classify
+
+DEVICE_PROPERTY = "fenolite.device"
+DEVICES_DIR = "devices"
+
+
+def devices_of(
+    model: Design,
+    folder: Path | None = None,
+    records: Mapping[str, DeviceDef] | None = None,
+    *,
+    issues: list[Issue] | None = None,
+) -> dict[str, DeviceDef]:
+    """The record of each device id the model's components name: from ``records`` (the design's own and the
+    build's), then the ``devices/`` folder of ``folder``, then that of its parent (a build folder beside the
+    script, ``--out <script folder>/build``), then vendored records, then shipped devices. An id no source
+    holds is left out, and the stage counts its parts in ``circuit.rating-missing``; a malformed project
+    file is left out the same way."""
+    wanted = {
+        c.properties[DEVICE_PROPERTY] for c in model.circuit.components if DEVICE_PROPERTY in c.properties
+    }
+    if not wanted:
+        return {}
+    found: dict[str, DeviceDef] = {key: value for key, value in (records or {}).items() if key in wanted}
+    places = () if folder is None else (folder, folder.parent)
+    authored: dict[Path, LibraryTree] = {}
+    for place in places:
+        try:
+            project = load_tree(place / DEVICES_DIR, exclude=(PROPOSED_DIR,))
+        except FormatError:
+            project = LibraryTree()
+        authored[place] = project
+        for device in project.devices():
+            if device.id in wanted:
+                found.setdefault(device.id, device)
+    for place in places:
+        try:
+            tree, findings = overlay(authored[place], load_vendored(place))
+        except FormatError:
+            continue
+        if issues is not None:
+            issues.extend(findings)
+        # Keep explicit authored facts even when conflicting items cannot supply vendored facts.
+        unambiguous = authored[place] if any(finding.severity == "error" for finding in findings) else tree
+        for device in unambiguous.devices():
+            if device.id in wanted:
+                found.setdefault(device.id, device)
+    for device in shipped_devices():
+        if device.id in wanted:
+            found.setdefault(device.id, device)
+    missing = wanted - set(found)
+    if missing:
+        # Family selections are materialized device records too. Reconstruct only
+        # the named records from the same public families after reading the model.
+        from fenolite.pick.rows import Row, folder_rows, shipped_rows
+
+        rows: list[Row] = []
+        for place in () if folder is None else (folder, folder.parent):
+            try:
+                # Only reviewed, flat project records. proposed/ is not a source of facts.
+                rows.extend(folder_rows(place / DEVICES_DIR, DEVICES_DIR, devices=tuple(sorted(missing))))
+            except FormatError:
+                continue
+        rows.extend(shipped_rows())
+        for row in rows:
+            if row.device in missing:
+                found.setdefault(row.device, row.record)
+    return dict(sorted(found.items()))
+
+
+def device_classes(model: Design, devices: Mapping[str, DeviceDef] | None) -> dict[str, str]:
+    """The ``class`` of each component's device record, by reference (change c0274): the evidence that
+    ``roles.classify`` weighs right after the user's class."""
+    found: dict[str, str] = {}
+    for component in model.circuit.components:
+        record = (devices or {}).get(component.properties.get(DEVICE_PROPERTY, ""))
+        if record is not None and record.cls:
+            found[component.ref] = record.cls
+    return found
+
+
+def classes_of(model: Design, devices: Mapping[str, DeviceDef] | None = None) -> dict[str, str]:
+    """The class of each component id by ``fenolite.roles.classify`` with the classes the user states in the
+    model (``design.part_class``, confirmed classes) and the ``class`` of the device records ``devices``
+    (by device id; change c0274)."""
+    roles = model.rules.roles if model.rules is not None else None
+    user = roles.classes if roles is not None else ()
+    by_ref = classify(model.circuit, user=user, device_classes=device_classes(model, devices))
+    return {
+        component.id: by_ref[component.ref].cls
+        for component in model.circuit.components
+        if component.ref in by_ref
+    }
+
+
+__all__ = ["classes_of", "device_classes", "devices_of"]

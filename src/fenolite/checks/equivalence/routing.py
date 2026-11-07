@@ -30,6 +30,7 @@ from fenolite.core.coords import Point, Size
 from fenolite.geometry import Arc as GeoArc
 from fenolite.geometry import GeometryError, Thick, Transform, touch_groups
 from fenolite.geometry import arc_length as _arc_length
+from fenolite.model import graphicnets
 from fenolite.model.board import Board, FootprintInstance, Pad
 from fenolite.model.design import Design
 
@@ -387,10 +388,12 @@ def has_copper(design: Design) -> bool:
 @dataclass(frozen=True, slots=True)
 class NetPairing:
     """The nets that level 2 pairs: each pair of net ids ``(a, b)`` whose blocks of ``REF-PIN`` elements
-    are equal, and the elements both sides hold (those of the components that level 1 compared)."""
+    are equal, the elements both sides hold (those of the components that level 1 compared), and the
+    elements that only one side holds (change c0444): a pad that a conversion lost, say."""
 
     pairs: tuple[tuple[str, str], ...] = ()
     elements: frozenset[str] = frozenset()
+    one_sided: frozenset[str] = frozenset()
 
 
 def pair_nets(a: Design, b: Design, refs: Sequence[str]) -> NetPairing:
@@ -421,7 +424,7 @@ def pair_nets(a: Design, b: Design, refs: Sequence[str]) -> NetPairing:
         if block and other is not None and other not in taken:
             pairs.append((net, other))
             taken.add(other)
-    return NetPairing(tuple(pairs), common)
+    return NetPairing(tuple(pairs), common, frozenset(numbered_a ^ numbered_b))
 
 
 # --- one net on one side ---------------------------------------------------------------------------
@@ -462,13 +465,22 @@ class NetRouting:
         return Counter({pads: found.count for pads, found in self.joined.items() if pads})
 
 
-def net_routing(name: str, held: Sequence[Piece], elements: frozenset[str], unfilled: bool) -> NetRouting:
-    """The pieces ``held`` of a net as level 5 compares them: only the pads of ``elements`` count."""
+def net_routing(
+    name: str,
+    held: Sequence[Piece],
+    elements: frozenset[str],
+    unfilled: bool,
+    one_sided: frozenset[str] = frozenset(),
+) -> NetRouting:
+    """The pieces ``held`` of a net as level 5 compares them: the pads of ``elements`` count, and a pad of
+    ``one_sided`` (held by this side only) counts in a piece that holds copper (change c0444). A track,
+    arc, via or fill that reaches a pad the other side lacks then joins a pad set the other side does not
+    hold: the other side's copper ends at nothing there."""
     count: Counter[tuple[str, ...]] = Counter()
     vias: dict[tuple[str, ...], Counter[str]] = defaultdict(Counter)
     lengths: dict[tuple[str, ...], Counter[str]] = defaultdict(Counter)
     for piece in held:
-        pads = tuple(pad for pad in piece.pads if pad in elements)
+        pads = tuple(pad for pad in piece.pads if pad in elements or (piece.copper and pad in one_sided))
         if not pads and not piece.copper:
             continue  # a pad of a component that is not compared, with nothing on it
         count[pads] += 1
@@ -600,6 +612,126 @@ NOTICES = frozenset({"route-stub", "route-unjudged"})
 # --- end of the rule -------------------------------------------------------------------------------
 
 
+_ORIGIN = Point(0, 0)
+NO_NET_PLACE = "(no net)"
+"""Where a ``copper-no-net`` difference is located, followed by ``:`` and the span of its layer."""
+StrayPiece = tuple[str, str, int, tuple[Point, ...]]
+"""A piece of copper without a net (change c0439): ``(span, form, width, points)``. A track or a line is a
+``segment`` of its sorted ends; a filled rectangle or polygon a ``region`` of its sorted corners; an arc an
+``arc`` of its three points; a circle an ``arc`` of its centre and its edge point."""
+
+
+def _sorted_points(points: Sequence[Point]) -> tuple[Point, ...]:
+    return tuple(sorted(points, key=lambda p: (p.x, p.y)))
+
+
+def stray_copper(design: Design) -> list[StrayPiece]:
+    """The copper of ``design``'s board that holds no net (change c0439): its tracks and arcs without a net
+    and its graphics on a copper layer without a net, footprints' own graphics left out. Such copper joins
+    whatever it touches, so a side that holds more of it than the other may short nets that level 5 sees as
+    equal: a polygon cut-out written as copper, a copper shape that lost its net. A graphic of a KiCad board
+    keeps its net in its KiCad slot, which the KiCad backend's hook of ``fenolite.model.graphicnets`` reads
+    first (no backend is imported here)."""
+    board = graphicnets.with_graphic_nets(design).board
+    if board is None:
+        return []
+    spans = span_names(board)
+    found: list[StrayPiece] = []
+    for track in board.tracks:
+        if track.net_id is None and track.layer in spans:
+            found.append(
+                (spans[track.layer], "segment", track.width, _sorted_points((track.start, track.end)))
+            )
+    for arc in board.arcs:
+        if arc.net_id is None and arc.layer in spans:
+            ends = (arc.start, arc.mid, arc.end)
+            found.append(
+                (
+                    spans[arc.layer],
+                    "arc",
+                    arc.width,
+                    ends if (arc.start.x, arc.start.y) <= (arc.end.x, arc.end.y) else ends[::-1],
+                )
+            )
+    for graphic in board.graphics:
+        if graphic.net_id is not None or graphic.layer not in spans:
+            continue
+        span, points = spans[graphic.layer], graphic.points
+        if graphic.kind == "rect" and len(points) == 2:
+            s, e = points
+            points = (s, Point(e.x, s.y), e, Point(s.x, e.y))
+        if graphic.kind in ("rect", "polygon") and graphic.filled:
+            found.append((span, "region", 0, _sorted_points(points)))
+        elif graphic.kind in ("rect", "polygon"):
+            for index, point in enumerate(points):
+                found.append(
+                    (
+                        span,
+                        "segment",
+                        graphic.width,
+                        _sorted_points((point, points[(index + 1) % len(points)])),
+                    )
+                )
+        elif graphic.kind == "line":
+            found.append((span, "segment", graphic.width, _sorted_points(points)))
+        else:
+            found.append((span, "arc", graphic.width, tuple(points)))
+    return sorted(found, key=_stray_order)
+
+
+def _stray_order(piece: StrayPiece) -> tuple[object, ...]:
+    return (_span_rank(piece[0]), piece[1], piece[2], [(q.x, q.y) for q in piece[3]])
+
+
+def _same_stray(a: StrayPiece, b: StrayPiece, tolerances: Tolerances) -> bool:
+    return (
+        a[:2] == b[:2]
+        and abs(a[2] - b[2]) <= tolerances.length_nm
+        and len(a[3]) == len(b[3])
+        and all(
+            abs(p.x - q.x) <= tolerances.length_nm and abs(p.y - q.y) <= tolerances.length_nm
+            for p, q in zip(a[3], b[3], strict=True)
+        )
+    )
+
+
+def _stray_text(piece: StrayPiece) -> str:
+    _, form, width, points = piece
+    return f"{form} width {width} at " + " ".join(f"{p.x},{p.y}" for p in points)
+
+
+def stray_differences(
+    a: Design, b: Design, tolerances: Tolerances, shift: Point = _ORIGIN
+) -> list[Difference]:
+    """One ``copper-no-net`` difference per piece of ``stray_copper`` that one side holds and no piece of the
+    other matches within the length tolerance (change c0439), located at ``(no net):<span>``. Side ``b``'s
+    pieces are moved by minus ``shift``, the translation level 4 removed, as level 7 moves its shapes: a
+    board written in another frame holds the same copper elsewhere. A piece a side holds twice is one piece:
+    the copper is the same, and KiCad's importer writes a doubled track once (lote-27)."""
+    left = sorted(set(stray_copper(a)), key=_stray_order)
+    right = sorted(
+        {
+            (span, form, width, tuple(Point(p.x - shift.x, p.y - shift.y) for p in points))
+            for span, form, width, points in stray_copper(b)
+        },
+        key=_stray_order,
+    )
+    unmatched: list[StrayPiece] = []
+    for piece in left:
+        found = next((k for k, held in enumerate(right) if _same_stray(piece, held, tolerances)), None)
+        if found is None:
+            unmatched.append(piece)
+        else:
+            del right[found]
+    field = _FIELD["copper-no-net"]
+    return [
+        Difference(LEVEL, "copper-no-net", f"{NO_NET_PLACE}:{p[0]}", field, _stray_text(p), "")
+        for p in unmatched
+    ] + [
+        Difference(LEVEL, "copper-no-net", f"{NO_NET_PLACE}:{p[0]}", field, "", _stray_text(p)) for p in right
+    ]
+
+
 def _located(net: str, pads: Sequence[str]) -> str:
     return f"{net}:{pads_text(pads)}" if pads else net
 
@@ -610,10 +742,12 @@ def level_routing(
     pairing: NetPairing,
     tolerances: Tolerances = EXACT,
     rule: Sequence[Step] = DEFAULT_RULE,
+    shift: Point = _ORIGIN,
 ) -> LevelResult:
     """Level 5 over the net pairs of ``pairing``: each net that holds copper on a side is judged by the
     steps of ``rule`` in order, and every finding is located by the net's name on side ``a`` and the pads
-    of its pad set. Nets on which neither side holds copper, and nets in no pair, are not compared; the
+    of its pad set. ``shift`` is the translation level 4 removed from side ``b`` (``stray_differences``).
+    Nets on which neither side holds copper, and nets in no pair, are not compared; the
     summary counts them."""
     held_a, held_b = pieces(a), pieces(b)
     names_a = {net.id: net.name for net in a.circuit.nets}
@@ -623,9 +757,15 @@ def level_routing(
     totals = {key: {"a": 0, "b": 0} for key in ("pieces", "vias", "length")}
     for net_a, net_b in pairing.pairs:
         one = net_routing(
-            names_a.get(net_a, net_a), held_a.get(net_a, ()), pairing.elements, net_a in held_a.unfilled_nets
+            names_a.get(net_a, net_a),
+            held_a.get(net_a, ()),
+            pairing.elements,
+            net_a in held_a.unfilled_nets,
+            pairing.one_sided,
         )
-        other = net_routing("", held_b.get(net_b, ()), pairing.elements, net_b in held_b.unfilled_nets)
+        other = net_routing(
+            "", held_b.get(net_b, ()), pairing.elements, net_b in held_b.unfilled_nets, pairing.one_sided
+        )
         if not one.copper and not other.copper:
             continue
         compared += 1
@@ -642,6 +782,7 @@ def level_routing(
                 (notices if step.kind in NOTICES else differences).append(found)
             if findings and step.final:
                 break
+    differences += stray_differences(a, b, tolerances, shift)
     paired_a, paired_b = {pair[0] for pair in pairing.pairs}, {pair[1] for pair in pairing.pairs}
 
     def loose(held: NetPieces, paired: set[str]) -> int:
@@ -680,5 +821,7 @@ __all__ = [
     "pieces",
     "routed_equal",
     "span_names",
+    "stray_copper",
+    "stray_differences",
     "track_length",
 ]

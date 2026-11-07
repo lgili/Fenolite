@@ -44,6 +44,7 @@ HYPOTHESES = (
     "H-A-IMP-BODY-Z",
     "H-A-IMP-SYMFRAME",
     "H-A-IMP-FPGFX",
+    "H-A-IMP-OUTLINE-ARC",
 )
 """Every ``H-A-IMP-*`` row of ``docs/hypotheses.md``."""
 RETIRED_HYPOTHESES = ("H-A-IMP-RPT-ANNOT",)
@@ -55,6 +56,7 @@ LEVELS: dict[str, Level] = dict.fromkeys(HYPOTHESES, Level.INFERRED) | {
     "H-A-IMP-RPT-FORMAT": Level.INFERRED,
     "H-A-IMP-SCOPE": Level.CORPUS_VERIFIED,
     "H-A-IMP-LINK": Level.CORPUS_VERIFIED,
+    "H-A-IMP-OUTLINE-ARC": Level.CORPUS_VERIFIED,
     "H-A-IMP-FRAME": Level.ORACLE_VERIFIED,
     "H-A-IMP-LAYERS": Level.ORACLE_VERIFIED,
     "H-A-IMP-ZONE": Level.ORACLE_VERIFIED,

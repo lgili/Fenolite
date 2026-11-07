@@ -17,7 +17,7 @@ import hashlib
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from fenolite.backends.kicad.plot import DEFAULT_HEIGHT, DEFAULT_WIDTH, VIEWS, plot_view
+from fenolite.backends.kicad.plot import DEFAULT_HEIGHT, DEFAULT_WIDTH, VIEWS, PageMode, board_page, plot_view
 from fenolite.backends.kicad.projectset import project_set, resolve_board
 from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli._kicadtool import DEFAULT_TIMEOUT, board_format, preflight
@@ -48,6 +48,13 @@ def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--width", type=int, default=DEFAULT_WIDTH, metavar="PX", help="PNG width (1600)")
     parser.add_argument("--height", type=int, default=DEFAULT_HEIGHT, metavar="PX", help="PNG height (1200)")
     parser.add_argument(
+        "--page",
+        choices=("auto", "sheet", "board"),
+        default="auto",
+        help="the page of the SVG plots: the drawing sheet, the board area alone, or auto (the board area "
+        "when the board lies outside the sheet)",
+    )
+    parser.add_argument(
         "--manifest", action="store_true", help=f"also add the views to {manifest.FILE_NAME} in DIR"
     )
     parser.add_argument("--kicad-cli", dest="kicad_cli", metavar="PATH", help="the kicad-cli to run")
@@ -59,16 +66,20 @@ def _register(parser: argparse.ArgumentParser) -> None:
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
     kinds = [kind for kind in ("svg", "png") if getattr(args, kind)]
-    if args.region is not None:
+    if args.layers is not None and kinds:
+        raise CliError("FEN-2001", "--layers filters the model render", where="--layers")
+    if args.region is not None or args.net:
         if kinds:
             raise CliError(
                 "FEN-2001",
                 f"--region draws {REGION_FILE} from the model; --svg and --png plot through kicad-cli",
-                where="--region",
+                where="--net" if args.net else "--region",
                 hint="run the region and the plots as two commands",
             )
         return run_region(args, ctx)
-    for option in ("nets", "open", "grid", "cut", "cut_width", "cut_clearance"):
+    if Path(args.path).suffix == ".py":
+        raise CliError("FEN-2001", "a design script needs --region or --net", where="PATH")
+    for option in ("layers", "nets", "open", "grid", "cut", "cut_width", "cut_clearance"):
         if getattr(args, option):
             flag = "--" + option.replace("_", "-")
             raise CliError(
@@ -92,11 +103,12 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     writes: list[PlannedWrite] = []
     views: list[dict[str, Any]] = []
     out = PurePosixPath(Path(args.out).as_posix())
+    page: PageMode = args.page if args.page != "auto" else board_page(board.read_text(encoding="utf-8"))
     for name, view in sorted(VIEWS.items()):
         if view.kind not in kinds:
             continue
         ctx.progress.step(name)
-        data, message = plot_view(cli, name, board, others, width=args.width, height=args.height)
+        data, message = plot_view(cli, name, board, others, width=args.width, height=args.height, page=page)
         ctx.progress.done(name, detail="failed" if data is None else "plotted")
         if data is None:
             issues.append(issue("render.failed", f"{name} was not produced: {message}", where=name))
@@ -128,7 +140,13 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         writes = list(merged)
         issues += refused
     return Result(
-        result={"board": project.board, "out": str(args.out), "views": views, "tool_version": version},
+        result={
+            "board": project.board,
+            "out": str(args.out),
+            "views": views,
+            "svg_page": page if "svg" in kinds else None,
+            "tool_version": version,
+        },
         issues=tuple(issues),
         evidence=dataclasses.replace(EVIDENCE, oracle=f"kicad-cli {version}"),
         input=InputRef(

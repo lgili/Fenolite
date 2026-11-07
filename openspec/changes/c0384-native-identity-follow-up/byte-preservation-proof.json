@@ -1,0 +1,101 @@
+{
+  "base": "1169f10d",
+  "boards": {
+    "complex_hierarchy": {
+      "build_exit": [
+        0,
+        0
+      ],
+      "build_tree_differences": [],
+      "fill_carrier_written": false,
+      "import_exit": [
+        0,
+        0
+      ],
+      "import_tree_differences": [],
+      "source_files_unchanged": true
+    },
+    "interf_u": {
+      "build_exit": [
+        0,
+        0
+      ],
+      "build_tree_differences": [],
+      "fill_carrier_written": false,
+      "import_exit": [
+        0,
+        0
+      ],
+      "import_tree_differences": [],
+      "source_files_unchanged": true
+    },
+    "microwave": {
+      "build_exit": [
+        0,
+        0
+      ],
+      "build_tree_differences": [],
+      "fill_carrier_written": false,
+      "import_exit": [
+        0,
+        0
+      ],
+      "import_tree_differences": [],
+      "source_files_unchanged": true
+    },
+    "pic_programmer": {
+      "build_exit": [
+        7,
+        7
+      ],
+      "build_tree_differences": [],
+      "fill_carrier_written": false,
+      "import_exit": [
+        0,
+        0
+      ],
+      "import_tree_differences": [],
+      "note": "build refuses a lossy write (exit 7) on both sides; no build bytes to compare",
+      "source_files_unchanged": true
+    },
+    "royalblue54L_feather": {
+      "build_exit": [
+        0,
+        0
+      ],
+      "build_tree_differences": [
+        ".fenolite/build.json",
+        "RoyalBlue54L-Feather.kicad_pcb"
+      ],
+      "build_tree_differences_without_carrier": [],
+      "fill_carrier_written": true,
+      "import_exit": [
+        0,
+        0
+      ],
+      "import_tree_differences": [
+        "native/fill.cache.json"
+      ],
+      "source_files_unchanged": true,
+      "tip_build_without_carrier_exit": 0
+    }
+  },
+  "boards_origin": "public KiCad 10.0.6 demos",
+  "claims": [
+    "sources are byte-identical after both runs",
+    "an import without ordinary fill caches writes the same tree as base",
+    "a build without the carrier writes the same bytes as base",
+    "only the carrier changes the build: the board's carried fills and the build receipt"
+  ],
+  "commands": [
+    "fenolite import <copy>/<project>.kicad_pro --to python --out <side>/proj (dry-run, then --confirm --plan)",
+    "fenolite build <side>/proj/design.py --out <side>/gen --kicad-version 9 (dry-run, then --confirm --plan)",
+    "the tip build again after moving native/fill.cache.json away, when the import wrote one"
+  ],
+  "fixed": {
+    "seed": "7",
+    "timestamp": "2026-11-05T00:00:00Z"
+  },
+  "head": "89312d5f",
+  "schema": "fenolite.c0384.byte-preservation-proof.v0"
+}

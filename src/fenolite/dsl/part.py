@@ -5,26 +5,42 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from fractions import Fraction
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal, cast
 
 from fenolite.core.coords import Point
+from fenolite.core.partquery import PREFIXES as QUERY_PREFIXES
+from fenolite.core.partquery import SYMBOLS as QUERY_SYMBOLS
+from fenolite.core.partquery import PartQuery
 from fenolite.core.units import Nm, Udeg
+from fenolite.dsl._sites import record
 from fenolite.dsl.errors import DslError
-from fenolite.dsl.quantity import Quantity
+from fenolite.dsl.quantity import RATIO, SIGNED, Quantity, Range
+from fenolite.dsl.relative import Edges, LiveRequest, check_frame, parse_request
 from fenolite.dsl.units import as_nm, as_udeg
-from fenolite.model.board import MechanicalIntent
+from fenolite.model.board import FootprintOverrides, MechanicalIntent, ModelRef
+from fenolite.model.library import DeviceDef
+
+_SCALE = re.compile(r"^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$")
+"""A scale of ``Part.model``: a decimal string, no exponent, no sign (change c0277)."""
 
 if TYPE_CHECKING:
     from fenolite.dsl.design import Design
+    from fenolite.dsl.devices import Origin
     from fenolite.dsl.intents import AnchorRef, PadRef
     from fenolite.dsl.module import Container
+    from fenolite.dsl.portnets import Group, PortHandle
+    from fenolite.dsl.take import TakenInterface
+    from fenolite.dsl.topology import Chain
 
 Side = Literal["top", "bottom"]
 NAME = re.compile(r"[A-Za-z0-9_.+-]+")
-"""Module names and refs."""
+"""Module names, part names and refs."""
+PREFIX = re.compile(r"[A-Z][A-Z_]*")
+"""Reference prefixes (``prefix=``)."""
 RESERVED_PROPERTIES: frozenset[str] = frozenset(
     {"Reference", "Value", "Footprint", "Datasheet", "Description"}
 )
@@ -33,7 +49,7 @@ two, the others are fields of the footprint library (``docs/dsl.md``, "User prop
 RESERVED_PREFIXES: tuple[str, ...] = ("fenolite.", "ki_")
 """Property-name prefixes a part cannot use: Fenolite's namespace and KiCad's own names."""
 FIELD_NAMES: tuple[str, ...] = ("Reference", "Value")
-"""The footprint fields a script can place (``docs/dsl.md``, "Field placement")."""
+"""Conventional placeable fields; declared user properties are also accepted (``docs/dsl.md``)."""
 FIELD_LAYERS: tuple[str, ...] = ("silk", "fab")
 FIELD_SIDES: tuple[str, ...] = ("top", "bottom", "left", "right")
 FIELD_JUSTIFY: tuple[str, ...] = (
@@ -79,6 +95,15 @@ def _properties(ref: str, properties: object) -> Mapping[str, str]:
     return MappingProxyType({name: names[name] for name in sorted(names)})
 
 
+def catalog_prefix(lib_id: str) -> str | None:
+    """The ``reference`` of the ``Fenolite:`` catalog symbol ``lib_id``, or ``None`` for another symbol."""
+    if not lib_id.startswith("Fenolite:"):
+        return None
+    from fenolite.catalog import symbol_reference
+
+    return symbol_reference(lib_id)
+
+
 def check_name(value: object, what: str) -> str:
     if not isinstance(value, str) or not NAME.fullmatch(value):
         raise DslError(f"{what} {value!r} must match {NAME.pattern}")
@@ -88,12 +113,18 @@ def check_name(value: object, what: str) -> str:
 class Net:
     """A net, named globally and literally; a module-local net is named by the script."""
 
+    deferred = False
+    """True for a port net (``fenolite.dsl.portnets``), whose name is fixed only by ``to_model``."""
+
     def __init__(self, name: str) -> None:
         if not isinstance(name, str) or not name or name != name.strip():  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"a net name must be a non-empty string without surrounding spaces, not {name!r}")
         self.name = name
         self.design: Design | None = None
         self.netclass: str | None = None
+        record(self, "Net", self.name)
+        self.group: Group | None = None
+        """The port nets this net is bound to (change c0251); ``None`` until it is bound to one."""
 
     def __repr__(self) -> str:
         return f"Net({self.name!r})"
@@ -124,6 +155,8 @@ class Request:
 
 
 PAD_ZONE_CONNECTIONS = ("solid", "thermal", "none", "thru_hole_only")
+PAD_EDIT_FIELDS: tuple[str, ...] = ("at", "size", "rotation", "shape", "drill", "mask_margin", "paste_margin")
+"""The pad fields ``Part.edit_pad`` replaces (change c0277)."""
 """The values of ``Pad.zone_connection`` (``docs/design-model.md``)."""
 
 
@@ -161,6 +194,10 @@ class FieldRequest:
     outside: str | None = None
     gap: Nm | None = None
     locked: bool = False
+    bold: bool | None = None
+    italic: bool | None = None
+    face: str | None = None
+    """The field's font (change c0277): ``None`` keeps the footprint's."""
 
 
 @dataclass(frozen=True)
@@ -169,6 +206,12 @@ class PinHandle:
 
     part: Part
     designator: str
+
+    def __rshift__(self, other: object) -> Chain:
+        """Start an ordered topology chain, or fan out to a tuple of pins."""
+        from fenolite.dsl.topology import chain
+
+        return chain(self, other)
 
 
 def pads_of(value: str | Sequence[str]) -> tuple[str, ...]:
@@ -182,33 +225,196 @@ def pad_pairs(pad_map: Mapping[str, str | Sequence[str]]) -> tuple[tuple[str, st
     return tuple((pin, pad) for pin in sorted(pad_map) for pad in pads_of(pad_map[pin]))
 
 
-class Part:
-    """A component: reference, symbol lib id, optional footprint lib id, value and user properties."""
+def _value_range(ref: str, value: Range) -> Range:
+    """``value`` when it can be a part value: a unit of ``Quantity``, a nominal, two bounds, no negative
+    bound of an unsigned unit, and a model form within the exponent limit; else ``DslError``."""
+    from fenolite.dsl.convert import range_to_model
+
+    if value.unit == RATIO:
+        raise DslError(f"part {ref}: the value {value.text()} is a ratio; a part value needs a unit")
+    if value.low is None or value.high is None:
+        raise DslError(f"part {ref}: the value {value.text()} is unbounded; a part value needs two bounds")
+    if value.nominal_value is None:
+        raise DslError(f"part {ref}: the value {value.text()} has no nominal; a part value needs a nominal")
+    if value.low < 0 and value.unit not in SIGNED:
+        raise DslError(f"part {ref}: the value {value.text()} has a negative bound in {value.unit}")
+    try:
+        range_to_model(value)
+    except DslError as exc:
+        raise DslError(f"part {ref}: {exc}") from exc
+    return value
+
+
+def _device_properties(ref: str, device: DeviceDef, user: Mapping[str, str]) -> Mapping[str, str]:
+    """The user properties of a device part merged with ``Manufacturer``, ``MPN`` and the device's own
+    properties; a user property of one of those names (after ``str.casefold``) with another value is
+    refused (``docs/devices.md``, "Parts from devices")."""
+    given = {"Manufacturer": device.manufacturer, "MPN": device.mpn, **device.properties}
+    merged = {name: value for name, value in given.items() if value}
+    folded = {name.casefold(): name for name in merged}
+    out = dict(merged)
+    for name, value in user.items():
+        own = folded.get(name.casefold())
+        if own is None:
+            out[name] = value
+        elif merged[own] != value:
+            raise DslError(
+                f"part {ref}: property {name!r} = {value!r} conflicts with the device {device.id}, whose "
+                f"{own} is {merged[own]!r}; a different {own} is a different device"
+            )
+    return MappingProxyType({name: out[name] for name in sorted(out)})
+
+
+class Part(Edges):
+    """A component: reference, symbol lib id, optional footprint lib id, value and user properties; or a
+    reference and a device id, which gives the rest (``docs/devices.md``). Its edges (``part.left``,
+    ``part.center_y``, ...) are placement references (change c0255). ``bom_only=True`` declares a pinless
+    purchasing accessory on the schematic and canonical BOM, with no board footprint or placement."""
+
+    device: DeviceDef | None
+    """The device of a part made with ``device=``; ``None`` for any other part."""
+    device_origin: Origin | None
+    """Where the device came from: ``authored`` (the design or the project) or ``builtin``."""
+    device_overrides: bool
+    """Whether the part's device is a project device that has the id of a shipped one."""
 
     def __init__(
         self,
-        ref: str,
-        lib_id: str,
+        ref: str | None = None,
+        lib_id: str | None = None,
         footprint: str | None = None,
-        value: str | Quantity = "",
+        value: str | Quantity | Range | None = None,
         *,
+        name: str | None = None,
+        prefix: str | None = None,
+        device: str | PartQuery | None = None,
         properties: Mapping[str, str] | None = None,
         pad_map: Mapping[str, str | Sequence[str]] | None = None,
         height: object = None,
+        dnp: bool = False,
+        board_only: bool = False,
+        footprint_definition: str = "",
+        bom_only: bool = False,
     ) -> None:
-        self.ref = check_name(ref, "ref")
+        if not isinstance(bom_only, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"part {ref or name}: bom_only must be a bool, not {bom_only!r}")
+        if bom_only and (
+            board_only or device is not None or pad_map or height is not None or footprint_definition
+        ):
+            raise DslError(
+                f"part {ref or name}: bom_only excludes board_only, device, pad_map, height "
+                "and footprint_definition"
+            )
+        self.bom_only = bom_only
+        self.value_empty = isinstance(value, str) and value == ""
+        """The script gave ``value=""``: the build keeps the value empty instead of taking the Value of the
+        symbol, which a part without ``value=`` takes (change c0364)."""
+        if not isinstance(board_only, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"part {ref or name}: board_only must be a bool, not {board_only!r}")
+        self.board_only = board_only
+        """The part is on the board only (change c0277): no symbol in the schematic, KiCad's ``board_only``
+        attribute on its footprint, and a ref that is free text (``docs/dsl.md``, "Board-only parts")."""
+        self.explicit_ref: str | None = None if ref is None else self._checked_ref(ref)
+        """The ref the script wrote, or ``None``: the build then assigns one (``docs/dsl.md``, "Reference
+        designators and the design lock")."""
+        self.assigned: str | None = None
+        """The ref the build assigned to a part without an explicit ref (``to_model``)."""
+        self.name: str | None = None if name is None else check_name(name, "part name")
+        if board_only and ref is None:
+            raise DslError(f"part {name}: a board-only part takes its ref as written; give ref")
+        if board_only and self.name is None and not NAME.fullmatch(cast(str, ref)):
+            raise DslError(
+                f"part {ref!r}: a board-only part whose ref is not a name of {NAME.pattern} needs name="
+            )
+        if prefix is not None and (not isinstance(prefix, str) or not PREFIX.fullmatch(prefix)):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"part prefix {prefix!r} must match {PREFIX.pattern}")
+        query = device if isinstance(device, PartQuery) else None
+        label = ref or name or prefix or lib_id or (query.kind if query is not None else device)
+        if not isinstance(footprint_definition, str):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"part {label}: footprint_definition must be a string")
+        if footprint_definition and (footprint is None or lib_id is None or device is not None):
+            raise DslError(
+                f"part {label}: footprint_definition requires explicit lib_id and footprint; "
+                "do not give it with device="
+            )
+        self.device: DeviceDef | None = None
+        self.device_origin: Origin | None = None
+        self.device_overrides = False
+        self.call_query: PartQuery | None = query
+        """The query of a part made with ``device=resistor(...)`` (change c0254), as the call gave it; the
+        build picks its device. ``query`` reads it with the defaults merged."""
+        if (lib_id is None) == (device is None):
+            raise DslError(f"part {label}: give exactly one of lib_id and device")
+        if query is not None:
+            for field_name, given in (("footprint", footprint), ("pad_map", pad_map), ("value", value)):
+                if given is not None:
+                    raise DslError(
+                        f"part {label}: a query part takes its {field_name} from the row the build picks; "
+                        f"do not give {field_name} with device={query.kind}(...)"
+                    )
+            lib_id = QUERY_SYMBOLS[query.kind]
+            if prefix is None:
+                prefix = QUERY_PREFIXES[query.kind]
+            value = query.value_text
+            device = None
+        elif device is not None:
+            from fenolite.dsl.devices import resolve
+
+            for field_name, given in (("footprint", footprint), ("pad_map", pad_map)):
+                if given is not None:
+                    raise DslError(
+                        f"part {label}: the device names the {field_name}; do not give {field_name} with "
+                        "device="
+                    )
+            found = resolve(device)
+            self.device, self.device_origin, self.device_overrides = (
+                found.device,
+                found.origin,
+                found.overrides,
+            )
+            lib_id, footprint = found.symbol or found.device.symbol, found.device.footprint
+            pad_map = {
+                pin: tuple(pad for owner, pad in found.device.pad_map if owner == pin)
+                for pin in dict.fromkeys(owner for owner, _ in found.device.pad_map)
+            }
+            if value is None:
+                value = found.device.value
+            if prefix is None and found.device.ref_prefix:
+                prefix = found.device.ref_prefix  # the device's prefix feeds the lock (change c0249)
+        if value is None:
+            value = ""
         if not isinstance(lib_id, str) or not lib_id:  # pyright: ignore[reportUnnecessaryIsInstance]
-            raise DslError(f"part {ref}: lib_id must be a non-empty string")
-        if footprint is not None and (not isinstance(footprint, str) or not footprint):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"part {label}: lib_id must be a non-empty string")
+        self.prefix: str | None = prefix if prefix is not None else catalog_prefix(lib_id)
+        """The reference prefix: ``prefix=``, else the ``reference`` of a ``Fenolite:`` catalog symbol."""
+        if self.explicit_ref is None and self.prefix is None:
+            raise DslError(
+                f"part {label}: give a ref, a prefix or a device; {lib_id} is not a catalog symbol, so its "
+                "reference prefix is unknown"
+            )
+        ref = cast(str, label)
+        if footprint is not None and (
+            not isinstance(footprint, str) or (not footprint and not footprint_definition)  # pyright: ignore[reportUnnecessaryIsInstance]
+        ):
             raise DslError(f"part {ref}: footprint must be a non-empty string or None")
+        #: The exact range of the value when it was given as a ``Range`` (change c0246); else ``None``.
+        self.value_range: Range | None = None
+        if isinstance(value, Range):
+            self.value_range = _value_range(ref, value)
+            value = Quantity(value.unit, cast(Fraction, value.nominal_value)).text()
         if isinstance(value, Quantity):
             value = value.text()
         if not isinstance(value, str):  # pyright: ignore[reportUnnecessaryIsInstance]
-            raise DslError(f"part {ref}: value must be a string or a Quantity")
+            raise DslError(f"part {ref}: value must be a string, a Quantity or a Range")
         self.lib_id = lib_id
         self.footprint = footprint
+        self.footprint_definition = footprint_definition
+        """An explicit KiCad geometry definition; ``footprint`` keeps the native name (change c0318).
+        Empty uses ordinary resolution. Requires an explicit symbol and footprint, rather than device=."""
         self.value = value
         self.properties: Mapping[str, str] = _properties(ref, properties)
+        if self.device is not None:
+            self.properties = _device_properties(ref, self.device, self.properties)
         if pad_map is None:
             pad_map = {}
         if not isinstance(pad_map, Mapping):  # pyright: ignore[reportUnnecessaryIsInstance]
@@ -245,23 +451,90 @@ class Part:
             self.height = as_nm(height, name=f"part {ref}: height")
             if self.height <= 0:
                 raise DslError(f"part {ref}: height must be above 0")
+        if not isinstance(dnp, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"part {ref}: dnp must be a bool, not {dnp!r}")
+        self.verbatim_items: dict[str, str] = {}
+        """The text of each ``verbatim()`` call of this part by key, in call order (change c0277)."""
+        self.dnp = dnp
+        """The part is not populated (change c0277): its symbol is marked, and its footprint takes the
+        ``dnp`` attribute."""
         self.parent: Container | None = None
         self.request: Request | None = None
+        self.relative: LiveRequest | None = None
+        """The relative request of ``place()`` with a reference (change c0255), resolved by the build."""
+        self.turn: tuple[Udeg, Side] | None = None
+        """``place(rot=..., side=...)`` without a position: a layout strategy places the part, turned."""
         self.field_requests: dict[str, FieldRequest] = {}
+        self.model_refs: list[ModelRef] = []
+        self.overrides: FootprintOverrides | None = None
+        self.pad_edits: list[tuple[str, dict[str, object]]] = []
         """The field placement requests of ``field()``, by field name."""
         self.pad_zone_requests: dict[tuple[str, int | None], PadZoneRequest] = {}
         """The requests of ``zone_connection()``, by pad number and index."""
         self.connections: dict[str, Net] = {}
+        record(self, "Part", self.label)
+        self.ports: dict[str, PortHandle] = {}
+        """The device ports of this part that the script reached (``port``; change c0252), by name."""
         self.no_connects: set[str] = set()
         """Designators marked as intentionally unconnected, as written (``no_connect``)."""
+        self.two_terminal = False
+        """Set when the part is used through its ends ``a`` and ``b`` (or a connection helper): the build
+        then checks that its symbol has exactly two pins (``build.not-two-terminal``; change c0247)."""
+        self.unused_request: frozenset[str] | None = None
+        """The ``keep`` designators of ``unused_no_connect()``, as written; ``None`` without a request."""
+
+    def verbatim(self, key: str, text: str) -> None:
+        """One child of this part's footprint kept as KiCad text (change c0277); the DSL does not parse it.
+        The build checks it and writes it in the placed footprint (``docs/dsl.md``, "Verbatim items")."""
+        from fenolite.dsl.items import DRAWING_KEY
+
+        what = f"part {self.label}: verbatim {key!r}"
+        if not isinstance(key, str) or not DRAWING_KEY.fullmatch(key):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: the key must match {DRAWING_KEY.pattern}")
+        if key in self.verbatim_items:
+            raise DslError(f"{what}: the key is already used")
+        if not isinstance(text, str) or not text.strip():  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: text must be a non-empty string, not {text!r}")
+        self.verbatim_items[key] = text
+
+    @property
+    def ref(self) -> str | None:
+        """The explicit ref, or the ref the build assigned (``to_model``); ``None`` before that."""
+        return self.explicit_ref if self.explicit_ref is not None else self.assigned
+
+    @ref.setter
+    def ref(self, value: str | None) -> None:
+        """Setting a ref makes it the part's explicit ref (``None`` removes it)."""
+        self.explicit_ref = None if value is None else self._checked_ref(value)
+
+    def _checked_ref(self, value: object) -> str:
+        """``value`` as a ref: a name of ``NAME``, or for a board-only part any printable text without
+        surrounding spaces, the empty text included (``REF**``, ``STITCH1`` shared by many vias)."""
+        if not self.board_only:
+            return check_name(value, "ref")
+        if not isinstance(value, str) or not value.isprintable() or value != value.strip():
+            raise DslError(
+                f"ref {value!r} of a board-only part must be printable text without surrounding spaces"
+            )
+        return value
+
+    @property
+    def key(self) -> str:
+        """The last segment of the path: ``name``, else the explicit ref, else the reference prefix."""
+        return cast(str, self.name or self.explicit_ref or self.prefix)
+
+    @property
+    def label(self) -> str:
+        """The part as messages name it: its ref when known, else its path."""
+        return self.ref if self.ref is not None else self.path
 
     @property
     def path(self) -> str:
         from fenolite.dsl.module import Module
 
         if isinstance(self.parent, Module):
-            return f"{self.parent.path}/{self.ref}"
-        return self.ref
+            return f"{self.parent.path}/{self.key}"
+        return self.key
 
     @property
     def design(self) -> Design | None:
@@ -269,18 +542,129 @@ class Part:
         return None if parent is None else parent.design
 
     def __getitem__(self, designator: str | int) -> PinHandle:
+        if self.bom_only:
+            raise DslError(f"part {self.label}: a BOM-only part has no electrical pins")
         if isinstance(designator, bool) or not isinstance(designator, (str, int)):  # pyright: ignore[reportUnnecessaryIsInstance]
-            raise DslError(f"part {self.ref}: a designator is a pin number or name, not {designator!r}")
+            raise DslError(f"part {self.label}: a designator is a pin number or name, not {designator!r}")
         text = str(designator)
         if not text:
-            raise DslError(f"part {self.ref}: empty designator")
+            raise DslError(f"part {self.label}: empty designator")
+        if self.device is not None:
+            from fenolite.dsl.devices import designator as checked
+
+            text = checked(self, self.device, text)
+        elif self.call_query is not None:
+            from fenolite.dsl.query import query_pin
+
+            text = query_pin(self, text)
         return PinHandle(self, text)
+
+    @property
+    def query(self) -> PartQuery | None:
+        """The effective query of a query part (the defaults merged into the call, change c0254), or
+        ``None``; ``r.query.text()`` is the canonical text the design lock compares."""
+        if self.call_query is None:
+            return None
+        from fenolite.dsl.query import effective
+
+        return effective(self)
+
+    def _end(self, index: int) -> PinHandle:
+        """The pin handle of end ``index`` (0 is ``a``, 1 is ``b``): symbol pins ``1`` and ``2``. This is the
+        one lookup of the ends; a catalog device that names its ends (change c0248) gives its functions."""
+        from fenolite.dsl.devices import end_handle
+
+        named = end_handle(self, index)
+        return named if named is not None else self[str(index + 1)]
+
+    @property
+    def a(self) -> PinHandle:
+        """The first end of a two-pin part (pin ``1``); using it marks the part ``two_terminal``."""
+        self.two_terminal = True
+        return self._end(0)
+
+    @property
+    def b(self) -> PinHandle:
+        """The second end of a two-pin part (pin ``2``); using it marks the part ``two_terminal``."""
+        self.two_terminal = True
+        return self._end(1)
+
+    def unused_no_connect(self, *, keep: Iterable[str | int] = ()) -> None:
+        """Ask the build to mark every pin of this part that is open when it runs as not connected, except
+        the designators of ``keep`` (pin numbers or names, as written), pins of type ``no_connect`` and
+        must-connect pins: an open ``power_in`` pin stops the build with ``build.must-connect-unconnected``
+        (``docs/dsl.md``, "Connection helpers"). Once per part; ``connect`` and ``no_connect`` stay
+        allowed after it."""
+        if self.unused_request is not None:
+            raise DslError(f"part {self.ref}: unused_no_connect() is already requested")
+        if isinstance(keep, (str, bytes)) or not isinstance(keep, Iterable):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"part {self.ref}: keep is a tuple of designators, not {keep!r}")
+        kept: set[str] = set()
+        for designator in cast("Iterable[object]", keep):
+            if isinstance(designator, bool) or not isinstance(designator, (str, int)) or not str(designator):
+                raise DslError(
+                    f"part {self.ref}: a keep designator is a pin number or name, not {designator!r}"
+                )
+            kept.add(str(designator))
+        self.unused_request = frozenset(kept)
+
+    def port(self, name: str) -> PortHandle:
+        """The interface port ``name`` that the part's device declares (``[[interfaces]]``, change c0252):
+        a ``PortHandle`` whose members are the part's pins, through port nets owned by the part's path."""
+        from fenolite.dsl.devices import device_port
+
+        return device_port(self, name)
+
+    def take(
+        self,
+        kind: object,
+        *,
+        name: str | None = None,
+        option: str | None = None,
+        pins: Mapping[str, object] | None = None,
+    ) -> TakenInterface:
+        """Take one interface of ``kind`` (``I2C``, ``SPI``, ``UART``, ``USB2``, ``DiffPair`` or ``"pin"``)
+        from the options of the part's device; the build chooses its pins (``docs/pins.md``; change c0257).
+        The take key is ``name``, else ``<kind>#<n>``; ``option`` and ``pins`` narrow the alternatives."""
+        from fenolite.dsl.take import take
+
+        return take(self, kind, name=name, option=option, pins=pins)
+
+    def __getattr__(self, name: str) -> PinHandle | PortHandle:
+        """A device port (change c0252) or a function of a device part read as an attribute (``u1.vdd``,
+        ``u1.VIN``); reached only for names that ``Part`` does not define, so every attribute of the part
+        wins."""
+        if name.startswith("_"):
+            raise AttributeError(name)
+        device = self.__dict__.get("device")
+        if device is None:
+            raise AttributeError(f"{type(self).__name__!r} object has no attribute {name!r}")
+        if any(found.name == name for found in device.interfaces):
+            return self.port(name)
+        from fenolite.dsl.devices import designator as checked
+
+        return PinHandle(self, checked(self, device, name))
+
+    def __dir__(self) -> list[str]:
+        names = set(super().__dir__())
+        if self.device is not None:
+            from fenolite.dsl.devices import attribute_names
+
+            names |= set(attribute_names(self.device, set(dir(type(self)))))
+        return sorted(names)
 
     def pad(self, number: str | int, *, index: int | None = None) -> PadRef:
         """The pads of this part numbered ``number``, for a copper intent; ``index`` picks one of several
-        pads sharing the number (the build takes the nearest otherwise)."""
+        pads sharing the number (the build takes the nearest otherwise). On a device part ``number`` may
+        also be a function: its first pad in map order, or the ``index``-th."""
         from fenolite.dsl.intents import pad_ref
 
+        if self.device is not None and isinstance(number, str):
+            from fenolite.dsl.devices import function_pad
+
+            pad = function_pad(self, self.device, number, index)
+            if pad is not None:
+                return pad_ref(self, pad, None)
         return pad_ref(self, number, index)
 
     def at(self, dx: object = None, dy: object = None) -> AnchorRef:
@@ -295,28 +679,189 @@ class Part:
 
     def place(
         self,
-        x: object,
-        y: object,
+        x: object = None,
+        y: object = None,
         rot: int | str | float = 0,
         side: str = "top",
         locked: bool = False,
         *,
         anchor: MechanicalIntent | None = None,
+        right_of: object = None,
+        left_of: object = None,
+        above: object = None,
+        below: object = None,
+        gap: object = None,
+        align: str | None = None,
+        left: object = None,
+        right: object = None,
+        top: object = None,
+        bottom: object = None,
+        center_x: object = None,
+        center_y: object = None,
+        by: object = None,
     ) -> None:
-        """Request a placement in the board frame (origin at the outline's top-left corner, Y down)."""
-        if self.request is not None:
-            raise DslError(f"part {self.ref} is already placed")
+        """Request a placement in the board frame (origin at the outline's top-left corner, Y down), or in
+        the frame of the block that holds the part.
+
+        Besides ``x, y`` a placement may name references (``docs/dsl.md``, "Relative placement"): the
+        relations ``right_of``, ``left_of``, ``above`` and ``below`` with ``gap`` and ``align``; the edge
+        keys ``left``, ``right``, ``top``, ``bottom``, ``center_x`` and ``center_y`` (a length or an edge
+        expression such as ``board.left + mm(2)``); and ``by=part.pad(n)``, which places the part by one of
+        its pads. Such a request is recorded and resolved by the build. ``place(rot=90)`` alone turns a
+        part that a layout strategy places."""
+        if self.bom_only:
+            raise DslError(f"part {self.label}: a BOM-only part has no physical placement")
+        if self.request is not None or self.relative is not None or self.turn is not None:
+            raise DslError(f"part {self.label} is already placed")
         if side not in ("top", "bottom"):
-            raise DslError(f"part {self.ref}: side must be 'top' or 'bottom', not {side!r}")
+            raise DslError(f"part {self.label}: side must be 'top' or 'bottom', not {side!r}")
         if not isinstance(locked, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
-            raise DslError(f"part {self.ref}: locked must be a bool")
+            raise DslError(f"part {self.label}: locked must be a bool")
         if anchor is not None and not locked:
-            raise DslError(f"part {self.ref}: an anchor requires locked=True")
+            raise DslError(f"part {self.label}: an anchor requires locked=True")
         if anchor is not None and not isinstance(anchor, MechanicalIntent):  # pyright: ignore[reportUnnecessaryIsInstance]
-            raise DslError(f"part {self.ref}: anchor must be MechanicalIntent")
+            raise DslError(f"part {self.label}: anchor must be MechanicalIntent")
+        keys = {
+            "right_of": right_of, "left_of": left_of, "above": above, "below": below, "left": left,
+            "right": right, "top": top, "bottom": bottom, "center_x": center_x, "center_y": center_y,
+        }  # fmt: skip
+        what = f"part {self.label}"
+        live = parse_request(
+            what, x=x, y=y, rot=rot, side=side, locked=locked, keys=keys, gap=gap, align=align, by=by,
+            by_owner=self,
+        )  # fmt: skip
+        if live is not None:
+            if anchor is not None:
+                raise DslError(f"{what}: an anchor belongs to an absolute placement (x, y)")
+            check_frame(self, what, live)
+            self.relative = live
+            return
+        if x is None and y is None:
+            if locked:
+                raise DslError(f"{what}: locked=True needs a position (x, y, or a reference)")
+            self.turn = (as_udeg(rot, name="rot"), side)
+            return
+        if x is None or y is None:
+            raise DslError(f"{what}: nothing sets the {'X' if x is None else 'Y'} axis; give x and y")
         self.request = Request(
             as_nm(x, name="x"), as_nm(y, name="y"), as_udeg(rot, name="rot"), side, locked, anchor
         )
+
+    def override(
+        self,
+        *,
+        clearance: object = None,
+        mask_margin: object = None,
+        paste_margin: object = None,
+        paste_ratio: int | None = None,
+        zone_connection: str | None = None,
+        thermal_gap: object = None,
+        thermal_spoke_width: object = None,
+    ) -> None:
+        """Footprint-level settings of this part's instance (change c0277), once per part: the clearance of
+        its pads, the solder-mask and paste margins, the paste ratio (parts per million of the pad size, may
+        be negative), the zone connection (``solid``, ``thermal``, ``none`` or ``thru_hole_only``) and the
+        thermal relief. ``None`` keeps what the footprint says; the library footprint is unchanged."""
+        what = f"part {self.label}: override"
+        if self.overrides is not None:
+            raise DslError(f"{what}: called once per part")
+        lengths: dict[str, Nm | None] = {}
+        given = {
+            "clearance": clearance, "mask_margin": mask_margin, "paste_margin": paste_margin,
+            "thermal_gap": thermal_gap, "thermal_spoke_width": thermal_spoke_width,
+        }  # fmt: skip
+        for label, value in given.items():
+            lengths[label] = None if value is None else as_nm(value, name=f"{what}: {label}")
+        for label in ("clearance", "thermal_gap", "thermal_spoke_width"):
+            if lengths[label] is not None and lengths[label] <= 0:  # type: ignore[operator]
+                raise DslError(f"{what}: {label} must be positive")
+        ratio: object = paste_ratio
+        if ratio is not None and (
+            isinstance(ratio, bool) or not isinstance(ratio, int) or abs(ratio) > 1_000_000  # pyright: ignore[reportUnnecessaryIsInstance]
+        ):
+            raise DslError(f"{what}: paste_ratio must be an int of parts per million, not {paste_ratio!r}")
+        if zone_connection is not None and zone_connection not in PAD_ZONE_CONNECTIONS:
+            names = ", ".join(PAD_ZONE_CONNECTIONS)
+            raise DslError(f"{what}: zone_connection must be one of {names}, not {zone_connection!r}")
+        found = FootprintOverrides(
+            clearance=lengths["clearance"], mask_margin=lengths["mask_margin"],
+            paste_margin=lengths["paste_margin"], paste_ratio=paste_ratio,
+            zone_connection=zone_connection,  # type: ignore[arg-type]
+            thermal_gap=lengths["thermal_gap"], thermal_spoke_width=lengths["thermal_spoke_width"],
+        )  # fmt: skip
+        if found == FootprintOverrides():
+            raise DslError(f"{what}: the call sets nothing")
+        self.overrides = found
+
+    def edit_pad(self, number: str | int, **fields: object) -> None:
+        """Replace fields of every pad numbered ``number`` of this part's instance only (change c0277): ``at``
+        and ``size`` (pairs of lengths in the footprint frame), ``rotation`` (degrees, footprint-relative),
+        ``shape`` (``circle``, ``rect``, ``oval`` or ``roundrect``), ``drill``, ``mask_margin`` and
+        ``paste_margin``. A number the footprint does not hold is ``build.pad-unknown``; the library
+        footprint is unchanged."""
+        what = f"part {self.label}: edit_pad({number!r})"
+        name = str(number)
+        if not name or isinstance(number, bool):
+            raise DslError(f"{what}: a pad number is a non-empty string or an int")
+        unknown = sorted(set(fields) - set(PAD_EDIT_FIELDS))
+        if unknown or not fields:
+            raise DslError(
+                f"{what}: fields are some of {', '.join(PAD_EDIT_FIELDS)}, not {unknown or 'none'}"
+            )
+        values: dict[str, object] = {}
+        for key, value in fields.items():
+            if key in ("at", "size"):
+                if not isinstance(value, tuple) or len(value) != 2:  # pyright: ignore[reportUnknownArgumentType]
+                    raise DslError(f"{what}: {key} must be an (x, y) pair of lengths")
+                pair = (as_nm(value[0], name=f"{what}: {key}"), as_nm(value[1], name=f"{what}: {key}"))  # pyright: ignore[reportUnknownArgumentType]
+                if key == "size" and (pair[0] <= 0 or pair[1] <= 0):
+                    raise DslError(f"{what}: size must be positive")
+                values[key] = pair
+            elif key == "rotation":
+                values[key] = as_udeg(value, name=f"{what}: rotation")
+            elif key == "shape":
+                if value not in ("circle", "rect", "oval", "roundrect"):
+                    raise DslError(f"{what}: shape must be circle, rect, oval or roundrect, not {value!r}")
+                values[key] = value
+            else:
+                found = as_nm(value, name=f"{what}: {key}")
+                if key == "drill" and found <= 0:
+                    raise DslError(f"{what}: drill must be positive")
+                values[key] = found
+        if any(n == name for n, _ in self.pad_edits):
+            raise DslError(f"{what}: the pad is already edited")
+        self.pad_edits.append((name, values))
+
+    def model(
+        self,
+        name: str,
+        *,
+        offset: tuple[object, object, object] = (0, 0, 0),
+        rotation: tuple[object, object, object] = (0, 0, 0),
+        scale: tuple[str, str, str] = ("1", "1", "1"),
+        hidden: bool = False,
+    ) -> None:
+        """Add a 3D model to this part's footprint instance (change c0277); one call per model, and any call
+        replaces the footprint's own models for this part. ``name`` is a reference only (a path, or
+        ``${KICAD10_3DMODEL_DIR}/…``): nothing is read. ``offset`` holds lengths (0 is accepted as no
+        offset), ``rotation`` angles in degrees, ``scale`` positive decimal strings."""
+        what = f"part {self.label}: model"
+        if not isinstance(name, str) or not name.strip() or not name.isprintable():  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: name must be a model path, not {name!r}")
+        if not isinstance(hidden, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: hidden must be a bool, not {hidden!r}")
+        triples = {"offset": offset, "rotation": rotation, "scale": scale}
+        for label, value in triples.items():
+            if not isinstance(value, tuple) or len(value) != 3:  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise DslError(f"{what}: {label} must be an (x, y, z) triple, not {value!r}")
+        lengths = tuple(
+            0 if v == 0 and not isinstance(v, bool) else as_nm(v, name=f"{what}: offset") for v in offset
+        )
+        angles = tuple(as_udeg(v, name=f"{what}: rotation") for v in rotation)
+        for factor in scale:
+            if not isinstance(factor, str) or not _SCALE.fullmatch(factor) or float(factor) <= 0:  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise DslError(f"{what}: scale holds positive decimal strings such as '1', not {factor!r}")
+        self.model_refs.append(ModelRef(name, lengths, angles, scale, hidden))  # type: ignore[arg-type]
 
     def field(
         self,
@@ -333,19 +878,30 @@ class Part:
         outside: str | None = None,
         gap: object = None,
         locked: bool = False,
+        bold: bool | None = None,
+        italic: bool | None = None,
+        face: str | None = None,
     ) -> None:
-        """Request a placement of the footprint field ``name`` (``Reference`` or ``Value``), once per name.
+        """Request placement of Reference, Value or a declared user property, once per name.
+        ``bold``, ``italic`` and ``face`` set the field's font (change c0277); ``None`` keeps the footprint's.
 
         ``dx`` and ``dy`` are lengths in the board frame from the part's placement point and ``rot`` is the
         field's angle on the board, so "2.5 mm above the part, horizontal" stays true when the part
         turns. ``outside`` puts the field beside the courtyard on one side instead; ``gap`` is its
         distance. ``locked`` makes the request win over a field edited in KiCad (``docs/lens.md``).
         """
-        what = f"part {self.ref}: field {name!r}"
-        if name not in FIELD_NAMES:
-            raise DslError(f"{what}: only {' and '.join(FIELD_NAMES)} can be placed")
+        what = f"part {self.label}: field {name!r}"
+        if not isinstance(name, str) or (name not in FIELD_NAMES and name not in self.properties):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(
+                f"{what}: only {' and '.join(FIELD_NAMES)} or a declared user property can be placed"
+            )
         if name in self.field_requests:
-            raise DslError(f"part {self.ref}: field {name} already has a placement request")
+            raise DslError(f"part {self.label}: field {name} already has a placement request")
+        for label, flag in (("bold", bold), ("italic", italic)):
+            if flag is not None and not isinstance(flag, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise DslError(f"{what}: {label} must be a bool, not {flag!r}")
+        if face is not None and (not isinstance(face, str) or not face.strip() or not face.isprintable()):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: face must be a font name such as 'KiCad Font', not {face!r}")
         for label, flag in (("visible", visible), ("locked", locked)):
             if flag is not None and not isinstance(flag, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
                 raise DslError(f"{what}: {label} must be a bool, not {flag!r}")
@@ -392,6 +948,9 @@ class Part:
             outside,
             lengths["gap"],
             locked,
+            bold,
+            italic,
+            face,
         )
         if request == FieldRequest(name, locked=locked):
             raise DslError(f"{what}: the request sets nothing")
@@ -405,9 +964,9 @@ class Part:
         number, in the footprint's pad order. On a rebuild a setting made in KiCad wins unless the
         request is ``locked`` (``docs/lens.md``)."""
         if isinstance(number, bool) or not isinstance(number, (str, int)) or str(number) == "":  # pyright: ignore[reportUnnecessaryIsInstance]
-            raise DslError(f"part {self.ref}: a pad number is a non-empty str or an int, not {number!r}")
+            raise DslError(f"part {self.label}: a pad number is a non-empty str or an int, not {number!r}")
         text = str(number)
-        what = f"part {self.ref}: zone connection of pad {text}"
+        what = f"part {self.label}: zone connection of pad {text}"
         if index is not None and (isinstance(index, bool) or not isinstance(index, int) or index < 0):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"{what}: index is None or a non-negative int, not {index!r}")
         if connection not in PAD_ZONE_CONNECTIONS:
@@ -418,11 +977,11 @@ class Part:
             raise DslError(f"{what}: locked must be a bool, not {locked!r}")
         if (text, index) in self.pad_zone_requests:
             where = "" if index is None else f" index {index}"
-            raise DslError(f"part {self.ref}: pad {text}{where} already has a zone connection request")
+            raise DslError(f"part {self.label}: pad {text}{where} already has a zone connection request")
         taken = [key for key in self.pad_zone_requests if key[0] == text]
         if taken and (index is None or any(key[1] is None for key in taken)):
             raise DslError(
-                f"part {self.ref}: pad {text} has a zone connection request with an index and one without: "
+                f"part {self.label}: pad {text} has a zone connection request with an index and one without: "
                 "the two would name the same pad"
             )
         self.pad_zone_requests[(text, index)] = PadZoneRequest(text, index, connection, locked)
@@ -431,35 +990,62 @@ class Part:
         return f"Part({self.ref!r}, {self.lib_id!r})"
 
 
-def connect(net: Net, *pins: PinHandle) -> Net:
-    """Join each pin to ``net``; one designator of one part on two nets is refused."""
-    if not isinstance(net, Net):  # pyright: ignore[reportUnnecessaryIsInstance]
+def connect(net: object, *pins: object) -> Net:
+    """Join each pin to ``net``; one designator of one part on two nets is refused.
+
+    ``net`` is a ``Net``, a port net, a net-like port or a net-like interface (a ``Rail``, a ``Ground`` or a
+    ``Logic``, change c0252); a pin argument may also be a port net, a net-like port or a compatible net-like
+    interface, which binds it to ``net`` (``docs/dsl.md``, "Port nets"). When every argument is an
+    interface or a port, whole interfaces are joined member by member (``fenolite.dsl.rails``)."""
+    from fenolite.dsl.interfaces import Interface
+    from fenolite.dsl.portnets import PortHandle, PortNet, as_net, join, same_net
+
+    if pins and all(isinstance(item, Interface | PortHandle) for item in (net, *pins)):
+        from fenolite.dsl.rails import connect_interfaces
+
+        return connect_interfaces((net, *pins))
+    first = as_net(net, what="connect()")
+    if first is None:
         raise DslError(f"connect() needs a Net first, not {net!r}")
+    if any(isinstance(pin, Interface | PortHandle) for pin in pins):
+        from fenolite.dsl.rails import check_net_like
+
+        for pin in pins:
+            if isinstance(pin, Interface | PortHandle):
+                check_net_like(net, pin)
     for pin in pins:
-        if not isinstance(pin, PinHandle):  # pyright: ignore[reportUnnecessaryIsInstance]
+        if isinstance(pin, (PortNet, PortHandle, Interface)):
+            join(first, cast(Net, as_net(pin, what="connect()")))
+            continue
+        if not isinstance(pin, PinHandle):
             raise DslError(f"connect() takes pins such as part['1'], not {pin!r}")
         current = pin.part.connections.get(pin.designator)
-        if current is not None and current is not net:
+        if isinstance(current, PortNet) and current.port.owner is pin.part and not same_net(current, first):
+            join(first, current)  # a pin of a device port (change c0252): the port net joins the net
+            current = first
+        if current is not None and not same_net(current, first):
             raise DslError(
-                f"pin {pin.part.ref} {pin.designator} is already on net {current.name}; "
-                f"cannot join {net.name}"
+                f"pin {pin.part.label} {pin.designator} is already on net {current.name}; "
+                f"cannot join {first.name}"
             )
         if pin.designator in pin.part.no_connects:
             raise DslError(
-                f"pin {pin.part.ref} {pin.designator} is marked as not connected; cannot join {net.name}"
+                f"pin {pin.part.label} {pin.designator} is marked as not connected; cannot join {first.name}"
             )
-        pin.part.connections[pin.designator] = net
+        if current is None:
+            pin.part.connections[pin.designator] = first
         design = pin.part.design
         if design is not None:
-            design.register_net(net)
-    return net
+            design.register_net(first)
+    return first
 
 
 def no_connect(*pins: PinHandle) -> None:
     """Mark each pin as intentionally unconnected; a designator that is on a net is refused.
 
     The designators are kept as written in ``Part.no_connects``; a build resolves them to pin numbers.
-    Nothing is marked when one argument is refused.
+    Nothing is marked when one argument is refused. ``Part.unused_no_connect()`` asks the build to mark the
+    open pins of a part; the marks it resolves are marks of this kind, and no mark can be removed.
     """
     for pin in pins:
         if not isinstance(pin, PinHandle):  # pyright: ignore[reportUnnecessaryIsInstance]
@@ -467,7 +1053,7 @@ def no_connect(*pins: PinHandle) -> None:
         net = pin.part.connections.get(pin.designator)
         if net is not None:
             raise DslError(
-                f"pin {pin.part.ref} {pin.designator} is on net {net.name}; cannot mark it as not connected"
+                f"pin {pin.part.label} {pin.designator} is on net {net.name}; cannot mark it as not connected"
             )
     for pin in pins:
         pin.part.no_connects.add(pin.designator)
@@ -479,6 +1065,7 @@ __all__ = [
     "FIELD_NAMES",
     "FIELD_SIDES",
     "NAME",
+    "PREFIX",
     "FieldRequest",
     "PAD_ZONE_CONNECTIONS",
     "PadZoneRequest",
@@ -488,6 +1075,7 @@ __all__ = [
     "Placement",
     "Request",
     "Side",
+    "catalog_prefix",
     "check_name",
     "connect",
     "no_connect",

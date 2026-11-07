@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.snapshot.v1",
+  "title": "SnapshotFile",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "fenolite.snapshot.v1"
+    },
+    "source": {
+      "type": "string"
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/FileDigest"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "source",
+    "files"
+  ],
+  "$defs": {
+    "FileDigest": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "size": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "size"
+      ]
+    }
+  }
+}

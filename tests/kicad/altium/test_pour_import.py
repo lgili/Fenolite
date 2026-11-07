@@ -21,6 +21,7 @@ from pathlib import Path
 import pytest
 from _altium_pour import FILENAME, Board, clearance, pad, track, via, zone
 from _kicad import oracle_env
+from _pour_import_geometry import matched_zones, within_written_boundary_band
 from _resources import kicad_cli, kicad_cli_major
 
 from fenolite.analysis.fills import unfracture
@@ -102,19 +103,15 @@ def test_kicad_imports_the_pour() -> None:
     clipper = ClipperBackend()
     poured = [p for p in result.polygons if p.poured and p.pieces]
     assert len(poured) == 2
-    for pour in poured:
-        (zone_found,) = [
-            z
-            for z in board.board.zones
-            if z.layers == (pour.layer,) and names.get(z.net_id or "") == pour.net
-        ]
+    for zone_found, pour in matched_zones(board.board.zones, names, result.polygons):
+        if not pour.poured or not pour.pieces:
+            continue  # matched_zones already proves refused/empty zones hold NO native fills.
         fills: list[Polygon] = []
         for fill in zone_found.fills:
             found = unfracture(fill.polygon)
             assert found is not None
             fills.append(_moved(Polygon(found[0], found[1]), corner))
         written = [_moved(piece, mine) for piece in pour.pieces]
-        assert len(fills) == len(written), pour.layer
         difference = sum(area(p) for p in clipper.xor(fills, written))
         boundary = sum(
             abs(a.x - b.x) + abs(a.y - b.y)
@@ -123,3 +120,14 @@ def test_kicad_imports_the_pour() -> None:
             for a, b in zip(ring, (*ring[1:], ring[0]), strict=True)
         )
         assert difference <= TOLERANCE_NM * boundary, (pour.layer, float(difference), boundary)
+        counts = {
+            "layer": pour.layer,
+            "written_pieces": len(written),
+            "written_holes": sum(len(piece.holes) for piece in written),
+            "native_fills": len(fills),
+            "native_holes": sum(len(piece.holes) for piece in fills),
+            "xor_area_nm2": str(difference),
+            "xor_limit_nm2": TOLERANCE_NM * boundary,
+        }
+        assert within_written_boundary_band(written, fills), counts
+        print(json.dumps(counts, sort_keys=True))

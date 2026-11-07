@@ -1,0 +1,493 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.result.ready.v1",
+  "title": "ReadyResult",
+  "type": "object",
+  "properties": {
+    "plan": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolPlan"
+      }
+    },
+    "plan_id": {
+      "type": "string"
+    },
+    "issues_summary": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolIssueSummary"
+      }
+    },
+    "recovery": {
+      "$ref": "#/$defs/ProtocolRecovery"
+    },
+    "page": {
+      "$ref": "#/$defs/ProtocolPage"
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ReadyChecksItem"
+      }
+    },
+    "complete": {
+      "type": "boolean"
+    },
+    "counts": {
+      "$ref": "#/$defs/ReadyCounts"
+    },
+    "project": {
+      "$ref": "#/$defs/ReadyProject"
+    },
+    "ready": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "AcceptedDrc": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "comment": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "reported": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "type",
+        "items",
+        "comment",
+        "state",
+        "reported"
+      ]
+    },
+    "DrcLimit": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "reported": {
+          "type": "integer"
+        },
+        "limit": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "type",
+        "reported",
+        "limit"
+      ]
+    },
+    "Evidence": {
+      "description": "A level plus the oracle that produced it and the hypotheses it depends on.",
+      "type": "object",
+      "properties": {
+        "level": {
+          "enum": [
+            "ALTIUM-VERIFIED(kit)",
+            "KICAD-VERIFIED",
+            "ORACLE-VERIFIED",
+            "CORPUS-VERIFIED",
+            "ALTIUM-VERIFIED(author-report)",
+            "INFERRED",
+            "UNKNOWN",
+            "UNVERIFIED"
+          ]
+        },
+        "oracle": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hypotheses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "level",
+        "oracle",
+        "hypotheses"
+      ]
+    },
+    "PowerNet": {
+      "description": "A power net: its name, why it is one (``interface`` or ``pin-type``), its declared width",
+      "type": "object",
+      "properties": {
+        "net": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "zones": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "net",
+        "source",
+        "width",
+        "zones"
+      ]
+    },
+    "ProtocolIssueSummary": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "by_severity": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "counts indexed by severity"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "count",
+        "by_severity"
+      ]
+    },
+    "ProtocolPage": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "next": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "limit",
+        "offset",
+        "total",
+        "next"
+      ]
+    },
+    "ProtocolPlan": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "overwrite": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "kind",
+        "bytes",
+        "sha256",
+        "overwrite"
+      ]
+    },
+    "ProtocolRecovery": {
+      "type": "object",
+      "properties": {
+        "failed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "preserved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "failed",
+        "preserved"
+      ]
+    },
+    "ReadyChecksItem": {
+      "type": "object",
+      "properties": {
+        "evidence": {
+          "$ref": "#/$defs/Evidence"
+        },
+        "name": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "summary": {
+          "$ref": "#/$defs/ReadyChecksItemSummary"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "evidence",
+        "name",
+        "reason",
+        "status",
+        "summary"
+      ]
+    },
+    "ReadyChecksItemSummary": {
+      "type": "object",
+      "properties": {
+        "accepted": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AcceptedDrc"
+          }
+        },
+        "by_severity": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "by_type": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "canary": {
+          "type": "string"
+        },
+        "canary_reason": {
+          "type": "string"
+        },
+        "canary_removed": {
+          "type": "integer"
+        },
+        "connections": {
+          "type": "integer"
+        },
+        "excluded": {
+          "type": "integer"
+        },
+        "exclusions": {
+          "$ref": "#/$defs/ReadyChecksItemSummaryExclusions"
+        },
+        "footprint": {
+          "type": "integer"
+        },
+        "ignored_checks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "limits": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/DrcLimit"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "nets": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/PowerNet"
+              }
+            }
+          ]
+        },
+        "parity": {
+          "type": "integer"
+        },
+        "parity_judged": {
+          "type": "boolean"
+        },
+        "pins": {
+          "type": "integer"
+        },
+        "sheets": {
+          "type": "integer"
+        },
+        "tool_version": {
+          "type": "string"
+        },
+        "tool_writes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "types": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "unconnected": {
+          "type": "integer"
+        },
+        "value": {
+          "type": "integer"
+        },
+        "violations": {
+          "type": "integer"
+        },
+        "violations_judged": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true
+    },
+    "ReadyChecksItemSummaryExclusions": {
+      "type": "object",
+      "properties": {
+        "live": {
+          "type": "integer"
+        },
+        "stale": {
+          "type": "integer"
+        },
+        "stored": {
+          "type": "integer"
+        },
+        "unjudged": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "live",
+        "stale",
+        "stored",
+        "unjudged"
+      ]
+    },
+    "ReadyCounts": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "integer"
+        },
+        "info": {
+          "type": "integer"
+        },
+        "warning": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "error",
+        "info",
+        "warning"
+      ]
+    },
+    "ReadyProject": {
+      "type": "object",
+      "properties": {
+        "board": {
+          "type": "string"
+        },
+        "built": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "board",
+        "built"
+      ]
+    }
+  }
+}

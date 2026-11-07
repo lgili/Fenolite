@@ -46,7 +46,10 @@ RUN_FLAGS = (
 )
 """The flags that change how a run happens, not what it plans: they take no part in a plan id."""
 PLAN_KEEP = 16
-"""The store keeps at most this many plans."""
+"""The store keeps at most this many plans of one working folder (change c0403: before, of every project on
+the machine, so other projects' dry runs dropped a plan under review)."""
+PLAN_KEEP_ALL = 128
+"""The store keeps at most this many plans in all."""
 PLAN_BYTES = 512 * 1024 * 1024
 """The store keeps at most this many bytes of planned files."""
 PLAN_DAYS = 7
@@ -155,9 +158,19 @@ def _stored(root: Path) -> list[tuple[float, str, Path]]:
     return sorted(found)
 
 
+def _cwd(folder: Path) -> str | None:
+    """The working folder a staged plan was made in, ``None`` when its record cannot be read."""
+    try:
+        return str(json.loads((folder / META).read_text(encoding="utf-8"))["cwd"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+
 def prune(root: Path, *, keep: str = "", now: float | None = None) -> list[str]:
-    """Drop the plans older than ``PLAN_DAYS``, then the oldest until at most ``PLAN_KEEP`` plans and
-    ``PLAN_BYTES`` bytes remain; the plan ``keep`` is never dropped. Returns the ids dropped."""
+    """Drop the plans older than ``PLAN_DAYS``; then, oldest first, the plans of the working folder of
+    ``keep`` beyond ``PLAN_KEEP``, and any plan while more than ``PLAN_KEEP_ALL`` plans or ``PLAN_BYTES``
+    bytes remain. The plan ``keep`` is never dropped. Returns the ids dropped (change c0403: the count
+    is per working folder, so another project's dry runs do not drop a plan under review)."""
     moment = time.time() if now is None else now
     dropped: list[str] = []
     stored = _stored(root)
@@ -166,11 +179,13 @@ def prune(root: Path, *, keep: str = "", now: float | None = None) -> list[str]:
             shutil.rmtree(folder, ignore_errors=True)
             dropped.append(name)
             stored.remove((stamp, name, folder))
+    owners = {name: _cwd(folder) for _, name, folder in stored}
+    own = owners.get(keep)
     sizes = {name: _size(folder) for _, name, folder in stored}
     for stamp, name, folder in list(stored):
-        if len(stored) <= PLAN_KEEP and sum(sizes.values()) <= PLAN_BYTES:
-            break
-        if name == keep:
+        mine = sum(1 for _, other, _ in stored if owners[other] == own)
+        crowded = own is not None and owners[name] == own and mine > PLAN_KEEP
+        if name == keep or not (crowded or len(stored) > PLAN_KEEP_ALL or sum(sizes.values()) > PLAN_BYTES):
             continue
         shutil.rmtree(folder, ignore_errors=True)
         dropped.append(name)

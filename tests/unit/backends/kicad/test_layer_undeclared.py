@@ -28,6 +28,10 @@ def test_census_committed_boards() -> None:
     assert checked > 20
 
 
+GENERATORS = {"examples/routing/acceptance.py"}
+"""Example tools that write design scripts and bind no ``design`` themselves (change c0370)."""
+
+
 def test_census_examples_and_scripts() -> None:
     import dataclasses
 
@@ -41,13 +45,16 @@ def test_census_examples_and_scripts() -> None:
     for path in paths:
         # Only executable design scripts, not import-only support modules.
         text = path.read_text()
-        if "Design(" not in text:
+        if "Design(" not in text or path.relative_to(ROOT).as_posix() in GENERATORS:
             continue
         script = run_design_script(path).design
         design = to_model(script)
         if design.board is not None:
-            # The build installs exactly this table before resolving footprints.
-            board = dataclasses.replace(design.board, layers=created_layers(script.copper))
+            # The build keeps the model's declared user layers beside its created table (c0277).
+            declared = [layer for layer in design.board.layers if layer.name.startswith("User.")]
+            board = dataclasses.replace(
+                design.board, layers=created_layers(script.copper, len(declared), script.user_layer_aliases)
+            )
             assert not undeclared_layers(board), path.relative_to(ROOT)
             checked += 1
     assert checked >= 8

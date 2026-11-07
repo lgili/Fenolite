@@ -222,9 +222,17 @@ def test_via_sizes_from_the_class_or_missing() -> None:
 def test_bad_sizes() -> None:
     blink = built_blink()
     _refused(blink, track("k", end("R1", 1), at(30, 9), width=0), "kicad.copper.bad-size", "width")
-    _refused(blink, via("v", at(20, 20), drill=mm(0.6)), "kicad.copper.bad-size", "not smaller")
+    _refused(blink, via("v", at(20, 20), drill=mm(0.7)), "kicad.copper.bad-size", "larger than the diameter")
     _refused(blink, via("v", at(20, 20), diameter=-1), "kicad.copper.bad-size")
     _refused(blink, via("v", at(20, 20), drill=0), "kicad.copper.bad-size")
+
+
+def test_a_via_without_a_ring() -> None:
+    """A drill equal to the diameter is a via without a ring, which a source document can hold (change
+    c0426): it is built as it is."""
+    result, found = _resolve(built_blink(), via("v", at(20, 20), drill=mm(0.6)))
+    (made,) = _copper(result)[1]
+    assert found == [] and (made.diameter, made.drill) == (mm(0.6), mm(0.6))
 
 
 # -- nets

@@ -1,0 +1,42 @@
+{
+  "runtime_TAB_changed": false,
+  "source_core": "7caf71a2",
+  "runtime_mirror_fix": "c65280a9",
+  "proposal_only": true,
+  "authored_cases": 16,
+  "production_import_RED": 16,
+  "production_plan_or_output": false,
+  "authored_regression_test_RED": 2,
+  "value_profile": "ASCII TAB and LF in printable native custom value only; names/Part.properties unchanged",
+  "exact_typed_field_equality": 16,
+  "exact_derived_FootprintDef_value_equality": 16,
+  "byte_identical_native_model_writer_PCBS": 16,
+  "strict_model_1_to_7_equal": 16,
+  "strict_model_excluded": 0,
+  "native_versions": [
+    "9.0.9",
+    "10.0.6"
+  ],
+  "native_representatives": 4,
+  "native_full_L8_and_S_equal": 4,
+  "native_svg": "Four original/native-model-writer SVG pairs have identical entire XML except root title filename/date metadata; rawSVG retained.",
+  "native_svg_layers": [
+    "F.Fab",
+    "B.Fab",
+    "F.SilkS",
+    "B.SilkS"
+  ],
+  "value_tamper": "Exact independent source/derived native-value equality detects TAB-to-space alteration in16cases; existing strict1\u20137 does NOT compare Component.properties value; no such detection claimed.",
+  "limits": [
+    "Representation proof only: production importer remains RED/no implementation.",
+    "No native GUI save/reopen, DRC/ERC quality or human review claimed.",
+    "Full production import/build/native/default/CI proofs required after approval.",
+    "Initial external probe errors are preserved: field.text typo, provenance path mismatch, invalid --strict with S; corrected probes above are actual runs."
+  ],
+  "files": {
+    "matrix.json": "c6aa246805a4ae7f609adb8f5ca15a69effbd84562e38cacb130d5515648e801",
+    "derived-definition-value-proof.json": "5273cdc63b324517ca8785421cec38bdace0c982a208595f11c1f29840f04aeb",
+    "native-9-v2.json": "5c50115f1fea8cdf4cd2ea93379c6d3975b0ff85d0be00bb013def6dc05c1777",
+    "native-10-v2.json": "2dd9c44caf34ddaffa44b9758767e3ec69ec84da8b0f06ec636c24845ad72239"
+  }
+}

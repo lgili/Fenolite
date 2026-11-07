@@ -43,7 +43,9 @@ def component_body(
         reasons.append("unproved or different projection side")
     if overall is not None and standoff is not None and overall < standoff:
         reasons.append("overall height below standoff")
-    if record.properties.text("MODEL.MODELTYPE") not in ("", "0", "1"):
+    # 0 extruded, 1 generic model, 2 cylinder, 3 sphere (S-1604). A cylinder or sphere keeps its record's
+    # outline, the square around it, so its volume is a box that holds the shape between the two heights.
+    if record.properties.text("MODEL.MODELTYPE") not in ("", "0", "1", "2", "3"):
         reasons.append("unsupported model type")
     if reasons:
         ctx.issues.append(

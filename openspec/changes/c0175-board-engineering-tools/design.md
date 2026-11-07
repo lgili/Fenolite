@@ -349,6 +349,6 @@ Each package may be split into its own change with the next free id when its tur
 
 ## Open questions
 
-1. Should `tidy` and `silk` be subcommands of one `fenolite edit`, or stay separate commands? The recommendation is to keep them separate, one subject each, as the existing commands are.
-2. Should the rows `[[decoupling]]` and `[[body_copper]]` of the requirements file get a schema version step, or stay optional keys of `fenolite.requirements.v0`, as c0115 did? The recommendation is optional keys.
-3. Should package 9's lock-file listing include tools other than KiCad in this change, or only once a public source for each pattern is registered? The recommendation is the latter.
+1. Should `tidy` and `silk` be subcommands of one `fenolite edit`, or stay separate commands? The recommendation is to keep them separate, one subject each, as the existing commands are. **Decided 2026-11-01 under the continuation authorization: keep the separate commands.**
+2. Should the rows `[[decoupling]]` and `[[body_copper]]` of the requirements file get a schema version step, or stay optional keys of `fenolite.requirements.v0`, as c0115 did? The recommendation is optional keys. **Decided 2026-11-01 under the continuation authorization: retain optional keys of v0.**
+3. Should package 9's lock-file listing include tools other than KiCad in this change, or only once a public source for each pattern is registered? The recommendation is the latter. **Decided 2026-11-01 under the continuation authorization: add each pattern only after its public source is registered.**

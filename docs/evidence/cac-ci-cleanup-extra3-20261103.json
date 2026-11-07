@@ -1,0 +1,66 @@
+{
+  "CI_rerun_push_or_cancel": false,
+  "UTC": "2026-11-03T23:18:25.461929+00:00",
+  "artifact_count": 30,
+  "artifact_total_bytes": 69335748,
+  "artifact_total_members": 1280,
+  "authorized_scope": "Maintainer requested deletion of failed/cancelled CI runs; preserve available evidence and explicit unavailable logs",
+  "deleted_only_reviewed_terminal_runs": true,
+  "deletion_does_not_mean_CI_passed": true,
+  "external_complete_manifest_sha256": "e075e39036be4683001d72e40f5ba676936e5b2e80fdcbe6598d21159ad269b3",
+  "external_complete_receipt_sha256": "e006318a183df74238eb621b05752e6e3484dc820f8cab5799edd32b75c17435",
+  "independent_retention_audit_sha256": "b87e52d946bd075d438746d9f89ff6eb80f3e8af0afc5d613eacb11171fff84f",
+  "logs_zip_total_bytes": 1231175,
+  "post_cleanup_failed_or_cancelled_counts": {
+    "lgili/Fenolite": 0,
+    "lgili/fenolite-library": 0
+  },
+  "repository": "lgili/Fenolite",
+  "retained_top_job_log_count": 54,
+  "runs": [
+    {
+      "all_non_skipped_job_logs_retained": false,
+      "artifact_count": 17,
+      "delete_HTTP": 204,
+      "evidence_indisponibility_recorded": true,
+      "head_sha": "ad50f350dcb4caa2d03dfc3d64af25ffae06bc06",
+      "original_conclusion": "failure",
+      "retained_top_job_logs": 19,
+      "retention_class": "AVAILABLE_EXECUTED_JOB_LOGS_RETAINED_WITH_NO_RUNNER_JOB_404",
+      "run_attempt": 1,
+      "run_id": 41719443567,
+      "verify_HTTP": 404
+    },
+    {
+      "all_non_skipped_job_logs_retained": true,
+      "artifact_count": 6,
+      "delete_HTTP": 204,
+      "evidence_indisponibility_recorded": false,
+      "head_sha": "c4fd499308542bfb805bc0d3934c23c3caf8178c",
+      "original_conclusion": "cancelled",
+      "retained_top_job_logs": 18,
+      "retention_class": "ALL_NON_SKIPPED_JOB_LOGS_RETAINED",
+      "run_attempt": 1,
+      "run_id": 41717667385,
+      "verify_HTTP": 404
+    },
+    {
+      "all_non_skipped_job_logs_retained": false,
+      "artifact_count": 7,
+      "delete_HTTP": 204,
+      "evidence_indisponibility_recorded": true,
+      "head_sha": "b0ddf25f2383f81b47a46ff56187a414650c4bc6",
+      "original_conclusion": "cancelled",
+      "retained_top_job_logs": 17,
+      "retention_class": "AVAILABLE_LOGS_RETAINED_WITH_STARTED_JOB_404_GAP",
+      "run_attempt": 1,
+      "run_id": 41715402200,
+      "verify_HTTP": 404
+    }
+  ],
+  "schema": "fenolite.extra3-CI-cleanup.v1",
+  "unavailable_log_notes": [
+    "41719443567/macOS:runner_id0,0steps,job logs404; metadata retained; no full log claimed",
+    "41715402200/macOS:assigned runner,8successful steps and Tests started,job logs404 and absent from run ZIP; metadata/steps/HTTP404 retained; NOT fully captured and NOT unexecuted"
+  ]
+}

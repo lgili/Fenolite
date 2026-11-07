@@ -1,0 +1,14 @@
+# Design lock written by fenolite build. Review changes in git; hand edits are honoured.
+schema = "fenolite.lock.v0"
+design = "sensor_rails"
+
+[refs]
+"C1" = "C1"
+"J1" = "J1"
+"R1" = "R1"
+"R2" = "R2"
+"U2" = "U2"
+"U3" = "U3"
+"buck/C_IN" = "C2"
+"buck/C_OUT" = "C3"
+"buck/U" = "U1"

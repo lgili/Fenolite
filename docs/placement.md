@@ -100,12 +100,19 @@ outline as rings. All predicates are exact integer geometry.
 | `place.no-outline` | info | the board has no closed outline; only overlaps and keep-outs are judged |
 
 In `fenolite build` every placement issue is at most a warning: a build never refuses for placement.
-In `fenolite place` an error refuses the write unless `--force` is given. The rule findings
+In `fenolite place` an error refuses the write unless `--force` is given. Only the findings the move makes
+are judged (change c0432): the check also runs on the board before the moves, and an error found there too,
+with the same code, `where` and message, on parts the command did not move, is `place.existing` (warning).
+A board converted from Altium often has such findings, parts in a cut-out or courtyards that overlap, and
+they no longer refuse every move. `result.legality` still counts the findings of the layout by their own
+codes. The rule findings
 (`placement.too-far`, `placement.rule-unresolved`, `placement.rule-skipped`) are no legality codes: `place`
 and `build` report them as warnings at most ("Placement rules" below).
 
 The other codes of `fenolite place` are `place.no-definition`, `place.locked` and `place.unknown-ref`
-(errors), and `place.no-room`, `place.copper-left` and `place.script-locked` (warnings); the table in
+(errors), and `place.no-room`, `place.copper-left`, `place.script-locked` and `place.existing` (warnings).
+A converted or imported board keeps each part's lock, so its parts are often `place.locked`; `--force`
+moves them. The table in
 `docs/cli-contract.md` lists all of them.
 
 What the check does not judge:
@@ -403,9 +410,11 @@ fenolite place build/board --shift U1,C1,C2,C3,C4 --by 1mm,-1mm --confirm
    measured against the move of its old position: farther than 1 µm is `place.group-failed`.
 2. **Copper.** Each joined group of a net (tracks, arcs, vias and pads, without fills) that holds a pad of
    the group and no other pad moves with it, and each zone whose stored fill joins pads of the group only
-   (its fill moves too: `place.fill-stale`). Copper that joins the group to another part stays, as for
-   `--move` (`place.copper-left`). Copper is not moved because a part "owns" it: the model has no owner
-   of copper.
+   (its fill moves too: `place.fill-stale`). The copper on the group's pads is dragged (change c0432): a
+   via that touches a pad of the group and no pad of another part moves with it, and the end of a track
+   that touches a pad of the group or such a via moves too, its other end staying, so the track stretches.
+   An arc that joins the group to another part stays (`place.copper-left`), as all copper does for
+   `--move`.
 3. **Checks.** The copper check with the project's rules compares the board before and after; a new
    finding is `place.group-failed` and nothing is written. The legality check judges the layout as for
    every strategy.
@@ -418,6 +427,35 @@ fenolite place build/board --shift U1,C1,C2,C3,C4 --by 1mm,-1mm --confirm
 
 The evidence is `INFERRED` (`H-G-GROUP-MOVE` and the rows of the copper check); `H-K-GROUP-DRC` records
 that KiCad's DRC finds nothing new on a turned module of the bench.
+
+## Placement in code
+
+A script can place parts without coordinates (change c0255; `docs/dsl.md`, "Relative placement" and "Block
+layout"). Unlike the strategies of `fenolite place`, which move footprints on a built board, these are
+resolved by `fenolite build` before it writes: `fenolite.placement.relative.resolve` turns every relative
+request, block pose and frame strategy into integer nanometres, and `fenolite.placement.strategies.arrange`
+lays out the boxes of a frame.
+
+- **Boxes.** A part's box is `footprint_extent` (the courtyard box, else the pad boxes) turned by its
+  rotation and mirrored for the bottom side; with `by=` the box of that pad. A turn other than a quarter
+  turn takes the bounds rounded outward (`Transform.apply_bbox`); a centre is `(a + b) // 2`.
+- **Frames.** The top and each block instance are frames. Each is resolved in its own coordinates, innermost
+  first: absolute requests, then the frame's strategy or block reuse, then the relative requests in
+  topological order of their references, ties by path. A block's box is the union of its placed items;
+  its pose puts its frame into the parent's. World positions are the poses composed top-down; a turned
+  position rounds half to even.
+- **Strategies.** `row` and `column` from `at`, `gap` apart, aligned on start edges, centres or end edges;
+  `grid` in cells of the largest box plus `gap`; `pack` in shelves within a width, tallest first, a box
+  wider than the width on a shelf of its own (`layout.strategy-overflow`). Creation order, no search.
+- **Against the board.** The resolution is the code side of the precedence (`docs/lens.md`, "Placement
+  precedence"); it is resolved again against the placements that the board or `edits.toml` decided, so a
+  follower follows its reference. Block poses are resolved from the code alone.
+- **Evidence.** `INFERRED` with `H-G-REL-RESOLVE`: a resolved position satisfies its request exactly,
+  measured on the written board by the same box function (`tests/unit/cli/test_build_relative.py`); the
+  KiCad read-back of `examples/relative/` on targets 9 and 10 holds every relation within 1 nm.
+- **Codes.** `layout.relative-cycle` (error), `layout.relative-unresolved`, `layout.strategy-overflow`
+  (warnings), `layout.block-moved` (info) and, for a block reuse, `reuse.port-unmapped` (error),
+  `reuse.unknown-part` (warning) and `reuse.no-fit` (error) (`docs/cli-contract.md`, "build").
 
 ## How a placement survives a build
 
@@ -475,3 +513,25 @@ the board and both SVGs with receipts. `--force` is refused. The previews query 
 readback, show layer copper, holes, locks and optional conservative extents, and reflect the bottom
 view once globally. Through-hole copper appears on both faces. Existing manual/grid modes retain
 their contract.
+
+## Block layouts
+
+A versioned `fenolite.block-layout.v0` TOML file stores exact part positions and copper in the block
+frame: `b.layout(reuse="layouts/divider.toml", copper=True)` makes it the body's level 5 layout;
+`inst.layout(...)` overrides the body's choice. The footprint set and pad numbers must match the
+`parts_digest`; a mismatch gives `reuse.layout-stale` and stages the children. A changed local net map
+places the parts and omits copper (`reuse.layout-nets`). Another block id or major version refuses the
+build (`reuse.layout-block`). An older compatible layout applies with `reuse.layout-older`.
+The file format is documented in [block-layout.md](formats/fenolite/block-layout.md).
+
+`inst.place(mm(10), mm(8), side="bottom")` mirrors the entire block about its local vertical axis,
+then applies its turn and translation. Every child flips side; layout copper maps through the same
+transform, with front/back and inner copper layers mirrored through the stack. Changing the side of
+a kept block pose carries its parts and the copper joined only to their pads (`layout.block-moved`).
+
+Capture from a bench script with one laid-out block instance and every external net bound to a port:
+`fenolite blocks capture out --instance dut -o layouts/divider.toml --dry-run --json`, review the plan,
+then repeat with `--confirm --plan ID`. The command uses the recorded pose or `--origin anchor
+--anchor top`, selects copper joined only to that instance and checks a 1 µm fit round trip. Copper that
+joins outside pads stays out with `blocks.capture-copper-left`. It never edits the Python block; add
+the `b.layout(reuse=...)` line explicitly. See [the example](../examples/blocks/layouts.py).

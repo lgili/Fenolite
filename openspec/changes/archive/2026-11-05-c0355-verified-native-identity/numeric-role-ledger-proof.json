@@ -1,0 +1,39 @@
+{
+  "artifacts": {
+    "erc-matrix-role-canary-v1.py": "0f0566c8e9881df5dd92b496d4a44830401ef2aed6ea6d83d61ef784040b6579",
+    "erc-matrix-role-canary-v1/interpreted-report-proof-v2.json": "221032b9ac8086d9279ee7998e1d1474ef95a259d48b3ee294a538ba1d87069d",
+    "fp-zone-glyph-role-canary-v1.py": "7952fb3031b342c104d03761c5ddc60aa367fb319ba59f8972652bd6c1fe2ea0",
+    "fp-zone-glyph-role-canary-v1/summary.json": "f8a184e310dd4805253c9f5b035d0cb318494a3c502b4e2cf05ebe0f3215caee",
+    "fp-zone-glyph-role-canary-v1/translation-5-7/proof.json": "37e991d780f9703fa67d735fc03fc3a4d709dfe5246163fd75b5a2c8f4c46488",
+    "glyph-cache-translation-v2.py": "b7c9589248ff2cacd16172b73344f6b08e5802867683084fe7e5cfbf13a28acd",
+    "royal-role-ledger-v4.json": "c279ecec06998fa09f653bbe253b17ced77c892cdb1033faf49905db669a684b",
+    "royal-role-ledger-v4.py": "b1602ed7d361e338a4a39e8104fb208ca51a3174017c4bfc5472130a53dc9cd9"
+  },
+  "current_ledger": {
+    "generated": {
+      "pcb_invalid_known_instances": 0,
+      "pcb_unknown_numeric_occurrences": 0,
+      "project_invalid_known_instances": 0,
+      "project_unknown_paths": 343
+    },
+    "source": {
+      "pcb_invalid_known_instances": 0,
+      "pcb_unknown_numeric_occurrences": 10,
+      "project_invalid_known_instances": 0,
+      "project_unknown_paths": 335
+    }
+  },
+  "focused_tests": {
+    "authored_four_no_net_native10_cases_passed": 4,
+    "native_elapsed_seconds": 17.76,
+    "unit_passed": 46
+  },
+  "remaining_blockers": [
+    "10 source PCB Plot numeric occurrences",
+    "335 source and343 generated project unknown key paths",
+    "complete cross-companion numeric reference closure",
+    "coordinator review before any Royal renumbering"
+  ],
+  "renumbering_admitted": false,
+  "scope": "TEST-ONLY incomplete numeric-role inventory; no Royal mutation, native rerun, renumbering or production admission"
+}

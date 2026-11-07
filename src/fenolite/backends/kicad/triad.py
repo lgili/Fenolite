@@ -13,9 +13,10 @@ from __future__ import annotations
 
 from collections.abc import Collection
 
+from fenolite.backends.kicad import verbatim as verbatimlib
 from fenolite.backends.kicad.lowering import lower_rules
 from fenolite.backends.kicad.pcb import write_board
-from fenolite.backends.kicad.pro import apply_sheet_keys, synthesize_project, update_project
+from fenolite.backends.kicad.pro import NativeNetContext, apply_sheet_keys, synthesize_project, update_project
 from fenolite.backends.kicad.resolver import Edit
 from fenolite.backends.kicad.tuning import apply_profile_keys
 from fenolite.backends.kicad.versions import DEFAULT_TARGET
@@ -33,6 +34,8 @@ def write_triad(
     name: str,
     target: int = DEFAULT_TARGET,
     existing_project: str | None = None,
+    preserve_minimums: bool = False,
+    _native_context: NativeNetContext | None = None,
     renamed_nets: Collection[str] = (),
     schematic: bool = False,
     allow_lossy: bool = False,
@@ -50,8 +53,11 @@ def write_triad(
     board = write_board(design, target=target, allow_lossy=allow_lossy, downgrade=downgrade, edits=edits)
     found += board.issues
     rules = design.rules if design.rules is not None else RuleSet(id=derived_id("rst", "fenolite", "empty"))
-    lowered = lower_rules(rules, target=target, allow_lossy=allow_lossy)
+    lowered = lower_rules(rules, target=target, allow_lossy=allow_lossy, design=design)
     found += lowered.issues
+    rules_text = verbatimlib.with_rules(
+        lowered.text, design.board, target, allow_lossy=allow_lossy, issues=found
+    )
     if existing_project is None:
         project = synthesize_project(
             design, target=target, board_name=name, allow_lossy=allow_lossy, issues=found
@@ -60,6 +66,8 @@ def write_triad(
         project = update_project(
             existing_project,
             design,
+            preserve_minimums=preserve_minimums,
+            _native_context=_native_context,
             target=target,
             allow_lossy=allow_lossy,
             issues=found,
@@ -72,7 +80,7 @@ def write_triad(
     project = apply_profile_keys(project, design, target=target, issues=found)
     if issues is not None:
         issues.extend(found)
-    return {f"{name}.kicad_pcb": board.text, f"{name}.kicad_pro": project, f"{name}.kicad_dru": lowered.text}
+    return {f"{name}.kicad_pcb": board.text, f"{name}.kicad_pro": project, f"{name}.kicad_dru": rules_text}
 
 
 __all__ = ["TRIAD_SUFFIXES", "write_triad"]

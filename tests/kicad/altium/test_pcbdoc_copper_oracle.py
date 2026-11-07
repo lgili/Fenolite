@@ -11,9 +11,10 @@ so every position is compared relative to the outline's corner, within 10 nm. ``
 What the import cannot show, and so is not compared here:
 
 - **Net classes and rules.** ``pcb import`` writes no project file, and KiCad 10 keeps net classes there.
-- **A plane's net.** KiCad maps the stack by chain position: a plane of the chain becomes a copper layer of
-  type ``power``. It makes zones only from split-plane records, and Fenolite writes none, so the net of
-  the plane is not in the imported board.
+- **A plane's connection.** KiCad maps the stack by chain position: a plane of the chain becomes a copper
+  layer of type ``power``. It makes zones only from split-plane records; since change c0389 the writer
+  adds one per plane, so the plane's net comes back as an unfilled zone over the outline, while the plane
+  rules have no counterpart in the import.
 
 A pass checks only what KiCad's importer reads; it settles no Altium row.
 """
@@ -200,6 +201,9 @@ def check_copper(name: str) -> None:
         for layer in zone.layers
         if layer not in planes
     ]
+    assert model.board.outline is not None
+    edge = [relative(p, here) for p in model.board.outline.points]
+    wanted += [(layer, net, edge) for layer, net in planes.items()]  # the split planes (change c0389)
     assert len(board.zones) == len(wanted)
     for layer, net, outline in wanted:
         found_zones = [
@@ -234,8 +238,8 @@ def test_import_of_the_routed_sample() -> None:
 def test_import_of_the_plane_variant() -> None:
     """Scenario "Import of the plane variant": ``In1.Cu`` is a ``power`` layer by its position in the chain,
     and the variant's track on ``In2.Cu`` (written on Mid-Layer 2) is found with its net and ends. The
-    plane's net is not imported (see the module text)."""
-    check_import("plane", tracks=5, vias=3, zones=1, plane_warnings=15)
+    plane's split plane comes back as an unfilled ``GND`` zone over the outline on ``In1.Cu``."""
+    check_import("plane", tracks=5, vias=3, zones=2, plane_warnings=15)
     assert layer_rows("plane") == [
         ("F.Cu", "signal"),
         ("In1.Cu", "power"),
@@ -250,7 +254,8 @@ def test_import_of_the_plane_variant() -> None:
         (t.layer, nets.get(t.net_id or "")) for t in result.board.board.tracks if t.layer.startswith("In")
     ]
     assert inner == [("In2.Cu", "LED_A")]
-    assert not [z for z in result.board.board.zones if "In1.Cu" in z.layers]
+    plane = [nets.get(z.net_id or "") for z in result.board.board.zones if "In1.Cu" in z.layers]
+    assert plane == ["GND"]
 
 
 def test_zone_priority_of_the_sample_and_of_a_higher_zone() -> None:

@@ -1,0 +1,582 @@
+{
+  "artifact_sha256": {
+    "additional-callers-v1/capture.py": "c0cd58225c084823433db0e45f640fb70bb5857df549c77c1dae733cb99e6062",
+    "additional-callers-v1/conflict-analysis-v1.json": "43ca75b1f990ddadcf63e647d9b44eada3b1cb31a15273d13c9fb69fe63f6b01",
+    "additional-callers-v1/receipt.json": "602f105c119b8f96fc805a4e2ba530c0884f34e51a1687c21d91307da5401d4d",
+    "bulk-repair-pilot-v1/probe.log": "b1e9e20b55b5ee215ff9adf7427662f6405d1521b53405e13345f601c0cf6e0f",
+    "bulk-repair-pilot-v1/probe.py": "c0c6d9e94f4842ded092e8f464d1f71e54cc8af26950e53fcca01924bc386325",
+    "bulk-repair-pilot-v1/receipt.json": "30493e4126bea4d661565a318e72c0c80a26893af8141827f6eae4ee93763aac",
+    "bulk-repair-pilot-v1/verification-receipt.json": "bb6ac1e317a17512379350ba03baff8339429572025ea7806019b7b3f6ba8f43",
+    "bulk-repair-pilot-v1/verification.log": "8ad27872b551608ee0dd3a9bd58635e7db8e982d4d805c02bfefbc32c6072aec",
+    "bulk-repair-pilot-v1/verify.py": "21bbaac1b451eed26920243901a05fcbdc3185c6191af7f585945a103e213365"
+  },
+  "capture_summary": [
+    {
+      "case": "case-0.json",
+      "conflicts": 13,
+      "conflicts_without_variable": 0,
+      "exact_loops": 273,
+      "input_edges": 4809,
+      "proper_crossings": 13,
+      "raw_sha256": "d337e2c5e2127f1efcfab600f9a20892e357cbd1440e8480aead23acbee54daa",
+      "test": "tests/unit/backends/altium/test_lower.py::test_own_document_is_written_from_its_model[board6/board6.PcbDoc] (call)",
+      "variables": 13,
+      "variables_per_loop": {
+        "10": 2,
+        "244": 3,
+        "265": 2,
+        "47": 6
+      }
+    },
+    {
+      "case": "case-1.json",
+      "conflicts": 46,
+      "conflicts_without_variable": 0,
+      "exact_loops": 119,
+      "input_edges": 2501,
+      "proper_crossings": 46,
+      "raw_sha256": "eeac839c0aa174bcc32bc2b7f30728fe72bf4b72b65925c85ea287f0643d1eae",
+      "test": "tests/unit/roles/test_copper_backends.py::test_same_copper_from_both_builds[buck_shunt-good] (call)",
+      "variables": 45,
+      "variables_per_loop": {
+        "47": 21,
+        "53": 6,
+        "68": 9,
+        "81": 1,
+        "92": 8
+      }
+    },
+    {
+      "case": "case-2.json",
+      "conflicts": 52,
+      "conflicts_without_variable": 0,
+      "exact_loops": 149,
+      "input_edges": 2915,
+      "proper_crossings": 52,
+      "raw_sha256": "55cb275730528791b23ffdf78a40cba240a9ac49eb2ac240c385e29fb761f8db",
+      "test": "tests/unit/roles/test_copper_backends.py::test_same_copper_from_both_builds[half_bridge-good] (call)",
+      "variables": 53,
+      "variables_per_loop": {
+        "109": 1,
+        "131": 8,
+        "138": 10,
+        "14": 4,
+        "143": 8,
+        "148": 8,
+        "28": 8,
+        "46": 2,
+        "74": 3,
+        "93": 1
+      }
+    },
+    {
+      "case": "case-3.json",
+      "conflicts": 8,
+      "conflicts_without_variable": 0,
+      "exact_loops": 12,
+      "input_edges": 229,
+      "proper_crossings": 8,
+      "raw_sha256": "0cb0105187d0314db5f673762d2e3b9c36a4193a0a62ddb1adecddcdf1cb624c",
+      "test": "tests/unit/roles/test_copper_backends.py::test_same_copper_from_both_builds[bms-good] (call)",
+      "variables": 8,
+      "variables_per_loop": {
+        "11": 8
+      }
+    },
+    {
+      "case": "case-4.json",
+      "conflicts": 39,
+      "conflicts_without_variable": 0,
+      "exact_loops": 236,
+      "input_edges": 4493,
+      "proper_crossings": 37,
+      "raw_sha256": "7de0b660d876fa175884814df194c19feda7584f6edaa65c0098edbbc519f5fc",
+      "test": "tests/unit/backends/altium/test_part_s.py::test_part_s_kit (call)",
+      "variables": 41,
+      "variables_per_loop": {
+        "150": 4,
+        "199": 11,
+        "235": 2,
+        "36": 14,
+        "83": 10
+      }
+    },
+    {
+      "case": "case-5.json",
+      "conflicts": 13,
+      "conflicts_without_variable": 0,
+      "exact_loops": 273,
+      "input_edges": 4809,
+      "proper_crossings": 13,
+      "raw_sha256": "eec27485f949158aca8c20e1842ed3caeb5870ac868cff77deb0db8efa02320f",
+      "test": "tests/unit/backends/altium/test_part_g.py::test_part_g_files (call)",
+      "variables": 13,
+      "variables_per_loop": {
+        "10": 2,
+        "244": 3,
+        "265": 2,
+        "47": 6
+      }
+    }
+  ],
+  "ci_native_acceptance_pending": true,
+  "full_fast_pending": true,
+  "independent_audit": {
+    "interval_gap_negative_rejected": true,
+    "rows": [
+      {
+        "case": 0,
+        "independently_checked_continuous_leaves": 3153,
+        "lost_boundaries": 265,
+        "omitted_nodes": 13,
+        "protected_vertices": 2319,
+        "raw_sha256": "af3141ccd66445750ac8a2dfb06bb974c9965dd24857f56156fc96aa2472ebe1",
+        "retained_loops": 8,
+        "test": "tests/unit/backends/altium/test_lower.py::test_own_document_is_written_from_its_model[board6/board6.PcbDoc] (call)",
+        "witness_sha256": "82a83cf6edce5203939e4a22521bf6ac30f255cf2a4074e6678a7563adbf791f"
+      },
+      {
+        "case": 1,
+        "independently_checked_continuous_leaves": 783,
+        "lost_boundaries": 35,
+        "omitted_nodes": 5,
+        "protected_vertices": 390,
+        "raw_sha256": "a70f600c4f0fa647f77d6b220f211ced5ec0d48b5c0cb68637034335acd52ded",
+        "retained_loops": 4,
+        "test": "tests/unit/backends/altium/test_lower.py::test_own_document_is_written_from_its_model[board6/board6.PcbDoc] (call)",
+        "witness_sha256": "fb2986c993f51def5d6f78d76330ab3bd5b13f268f403d504a76e65d61393364"
+      },
+      {
+        "case": 2,
+        "independently_checked_continuous_leaves": 3694,
+        "lost_boundaries": 111,
+        "omitted_nodes": 45,
+        "protected_vertices": 1606,
+        "raw_sha256": "3a32df227b66201d23d746379c6e70818e87f8c310c32662ff8d06febc0f0019",
+        "retained_loops": 8,
+        "test": "tests/unit/roles/test_copper_backends.py::test_same_copper_from_both_builds[buck_shunt-good] (call)",
+        "witness_sha256": "0bd5230af8af77ac251731aee53a5676f3e0ab750c7b178836448606e275fe49"
+      },
+      {
+        "case": 3,
+        "independently_checked_continuous_leaves": 3694,
+        "lost_boundaries": 111,
+        "omitted_nodes": 45,
+        "protected_vertices": 1606,
+        "raw_sha256": "3a32df227b66201d23d746379c6e70818e87f8c310c32662ff8d06febc0f0019",
+        "retained_loops": 8,
+        "test": "tests/unit/roles/test_copper_backends.py::test_same_copper_from_both_builds[buck_shunt-good] (call)",
+        "verified_duplicate_of": 2,
+        "witness_sha256": "0bd5230af8af77ac251731aee53a5676f3e0ab750c7b178836448606e275fe49"
+      },
+      {
+        "case": 4,
+        "independently_checked_continuous_leaves": 5081,
+        "lost_boundaries": 137,
+        "omitted_nodes": 53,
+        "protected_vertices": 1922,
+        "raw_sha256": "867d9f0438950e0a8909e198f23e07e5dded2efb32278550e6676fbb964c41d7",
+        "retained_loops": 12,
+        "test": "tests/unit/roles/test_copper_backends.py::test_same_copper_from_both_builds[half_bridge-good] (call)",
+        "witness_sha256": "a1c3ba2dcbe6497e1f5d68ded7ea5daed083c056b50a2c8b6c23668201889296"
+      },
+      {
+        "case": 5,
+        "independently_checked_continuous_leaves": 5081,
+        "lost_boundaries": 137,
+        "omitted_nodes": 53,
+        "protected_vertices": 1922,
+        "raw_sha256": "867d9f0438950e0a8909e198f23e07e5dded2efb32278550e6676fbb964c41d7",
+        "retained_loops": 12,
+        "test": "tests/unit/roles/test_copper_backends.py::test_same_copper_from_both_builds[half_bridge-good] (call)",
+        "verified_duplicate_of": 4,
+        "witness_sha256": "a1c3ba2dcbe6497e1f5d68ded7ea5daed083c056b50a2c8b6c23668201889296"
+      },
+      {
+        "case": 6,
+        "independently_checked_continuous_leaves": 512,
+        "lost_boundaries": 10,
+        "omitted_nodes": 8,
+        "protected_vertices": 165,
+        "raw_sha256": "dc2eef698c20d962419587430fd38219bf4273984c3b2b7f46f560ce57d2793a",
+        "retained_loops": 2,
+        "test": "tests/unit/roles/test_copper_backends.py::test_same_copper_from_both_builds[bms-good] (call)",
+        "witness_sha256": "bbe697c7ab150bde4ba037ed583d2dc3c92ed38e02cdb80c39a0b388e783ed06"
+      },
+      {
+        "case": 7,
+        "independently_checked_continuous_leaves": 3980,
+        "lost_boundaries": 69,
+        "omitted_nodes": 53,
+        "protected_vertices": 1389,
+        "raw_sha256": "b31a450e1c1fb0c26f17cb127691329d69e6ac95cd98a6bef0de833f266f624d",
+        "retained_loops": 8,
+        "test": "tests/unit/roles/test_copper_backends.py::test_same_copper_from_both_builds[bms-good] (call)",
+        "witness_sha256": "3c74d9b96759b3903ee36a5b0f83480e05e42128200b346d1a15e998120e6963"
+      },
+      {
+        "case": 8,
+        "independently_checked_continuous_leaves": 512,
+        "lost_boundaries": 10,
+        "omitted_nodes": 8,
+        "protected_vertices": 165,
+        "raw_sha256": "dc2eef698c20d962419587430fd38219bf4273984c3b2b7f46f560ce57d2793a",
+        "retained_loops": 2,
+        "test": "tests/unit/roles/test_copper_backends.py::test_same_copper_from_both_builds[bms-good] (call)",
+        "verified_duplicate_of": 6,
+        "witness_sha256": "bbe697c7ab150bde4ba037ed583d2dc3c92ed38e02cdb80c39a0b388e783ed06"
+      },
+      {
+        "case": 9,
+        "independently_checked_continuous_leaves": 3980,
+        "lost_boundaries": 69,
+        "omitted_nodes": 53,
+        "protected_vertices": 1389,
+        "raw_sha256": "b31a450e1c1fb0c26f17cb127691329d69e6ac95cd98a6bef0de833f266f624d",
+        "retained_loops": 8,
+        "test": "tests/unit/roles/test_copper_backends.py::test_same_copper_from_both_builds[bms-good] (call)",
+        "verified_duplicate_of": 7,
+        "witness_sha256": "3c74d9b96759b3903ee36a5b0f83480e05e42128200b346d1a15e998120e6963"
+      },
+      {
+        "case": 10,
+        "independently_checked_continuous_leaves": 6974,
+        "lost_boundaries": 229,
+        "omitted_nodes": 41,
+        "protected_vertices": 2944,
+        "raw_sha256": "12a793935fd6f589d5323843597d0526213accd68180160a412c40d8ad2108b8",
+        "retained_loops": 7,
+        "test": "tests/unit/backends/altium/test_part_s.py::test_part_s_kit (call)",
+        "witness_sha256": "a370255d3878c0586b41ea2c65a920731149eee7cb5d849d151e3de775b7def3"
+      },
+      {
+        "case": 11,
+        "independently_checked_continuous_leaves": 3153,
+        "lost_boundaries": 265,
+        "omitted_nodes": 13,
+        "protected_vertices": 2319,
+        "raw_sha256": "e805f3da5f5f0f3a69de4f1c074142738cccca022ce40675ba975c7acfae274b",
+        "retained_loops": 8,
+        "test": "tests/unit/backends/altium/test_part_g.py::test_part_g_files (call)",
+        "verified_duplicate_of": 0,
+        "witness_sha256": "82a83cf6edce5203939e4a22521bf6ac30f255cf2a4074e6678a7563adbf791f"
+      },
+      {
+        "case": 12,
+        "independently_checked_continuous_leaves": 783,
+        "lost_boundaries": 35,
+        "omitted_nodes": 5,
+        "protected_vertices": 390,
+        "raw_sha256": "f302557934e688c41523982ac4142d536dc4314f466571b1c8fd1ec598185d6c",
+        "retained_loops": 4,
+        "test": "tests/unit/backends/altium/test_part_g.py::test_part_g_files (call)",
+        "verified_duplicate_of": 1,
+        "witness_sha256": "fb2986c993f51def5d6f78d76330ab3bd5b13f268f403d504a76e65d61393364"
+      },
+      {
+        "case": 13,
+        "independently_checked_continuous_leaves": 3153,
+        "lost_boundaries": 265,
+        "omitted_nodes": 13,
+        "protected_vertices": 2319,
+        "raw_sha256": "e805f3da5f5f0f3a69de4f1c074142738cccca022ce40675ba975c7acfae274b",
+        "retained_loops": 8,
+        "test": "tests/unit/backends/altium/test_part_g.py::test_part_g_files (call)",
+        "verified_duplicate_of": 0,
+        "witness_sha256": "82a83cf6edce5203939e4a22521bf6ac30f255cf2a4074e6678a7563adbf791f"
+      },
+      {
+        "case": 14,
+        "independently_checked_continuous_leaves": 783,
+        "lost_boundaries": 35,
+        "omitted_nodes": 5,
+        "protected_vertices": 390,
+        "raw_sha256": "f302557934e688c41523982ac4142d536dc4314f466571b1c8fd1ec598185d6c",
+        "retained_loops": 4,
+        "test": "tests/unit/backends/altium/test_part_g.py::test_part_g_files (call)",
+        "verified_duplicate_of": 1,
+        "witness_sha256": "fb2986c993f51def5d6f78d76330ab3bd5b13f268f403d504a76e65d61393364"
+      },
+      {
+        "case": 15,
+        "independently_checked_continuous_leaves": 3153,
+        "lost_boundaries": 265,
+        "omitted_nodes": 13,
+        "protected_vertices": 2319,
+        "raw_sha256": "e805f3da5f5f0f3a69de4f1c074142738cccca022ce40675ba975c7acfae274b",
+        "retained_loops": 8,
+        "test": "tests/unit/backends/altium/test_part_g.py::test_part_g_files (call)",
+        "verified_duplicate_of": 0,
+        "witness_sha256": "82a83cf6edce5203939e4a22521bf6ac30f255cf2a4074e6678a7563adbf791f"
+      },
+      {
+        "case": 16,
+        "independently_checked_continuous_leaves": 783,
+        "lost_boundaries": 35,
+        "omitted_nodes": 5,
+        "protected_vertices": 390,
+        "raw_sha256": "f302557934e688c41523982ac4142d536dc4314f466571b1c8fd1ec598185d6c",
+        "retained_loops": 4,
+        "test": "tests/unit/backends/altium/test_part_g.py::test_part_g_files (call)",
+        "verified_duplicate_of": 1,
+        "witness_sha256": "fb2986c993f51def5d6f78d76330ab3bd5b13f268f403d504a76e65d61393364"
+      },
+      {
+        "case": 17,
+        "independently_checked_continuous_leaves": 3153,
+        "lost_boundaries": 265,
+        "omitted_nodes": 13,
+        "protected_vertices": 2319,
+        "raw_sha256": "e805f3da5f5f0f3a69de4f1c074142738cccca022ce40675ba975c7acfae274b",
+        "retained_loops": 8,
+        "test": "tests/unit/backends/altium/test_part_g.py::test_part_g_files (call)",
+        "verified_duplicate_of": 0,
+        "witness_sha256": "82a83cf6edce5203939e4a22521bf6ac30f255cf2a4074e6678a7563adbf791f"
+      },
+      {
+        "case": 18,
+        "independently_checked_continuous_leaves": 783,
+        "lost_boundaries": 35,
+        "omitted_nodes": 5,
+        "protected_vertices": 390,
+        "raw_sha256": "f302557934e688c41523982ac4142d536dc4314f466571b1c8fd1ec598185d6c",
+        "retained_loops": 4,
+        "test": "tests/unit/backends/altium/test_part_g.py::test_part_g_files (call)",
+        "verified_duplicate_of": 1,
+        "witness_sha256": "fb2986c993f51def5d6f78d76330ab3bd5b13f268f403d504a76e65d61393364"
+      }
+    ],
+    "scope": "separately generated covers for the actual candidate bytes, not captured runtime intervals",
+    "script_sha256": "21bbaac1b451eed26920243901a05fcbdc3185c6191af7f585945a103e213365",
+    "seconds": 11.37614016700536,
+    "source_commit": "7a3fe984464dfc56dcfe9e2d292d130a1bdc3274",
+    "status": "independent-replay-policy-source-topology-continuous-proof-passed"
+  },
+  "pilot": {
+    "hooks_restored": true,
+    "no_tolerance_or_certificate_changes": true,
+    "production_unchanged": true,
+    "proposal_count_per_cut": 1,
+    "proposal_node_cap": 256,
+    "pytest_exit": 0,
+    "records": [
+      {
+        "conflicts": 13,
+        "input_edges": 4809,
+        "omitted_nodes": 13,
+        "output_sha256": "9187db183ff929617d959bc0ad04de610d4aaf4d5b965ab0fbce8fb7f021bb30",
+        "protected_vertices": 2319,
+        "status": "actual-caller-certified",
+        "test": "tests/unit/backends/altium/test_lower.py::test_own_document_is_written_from_its_model[board6/board6.PcbDoc] (call)",
+        "tol": 3175,
+        "whole_face_losses": 265
+      },
+      {
+        "conflicts": 6,
+        "input_edges": 656,
+        "omitted_nodes": 5,
+        "output_sha256": "b0896d41ea027fd7f7633de12683d1d634adceae6cfd66d329031e8b27f847f1",
+        "protected_vertices": 390,
+        "status": "actual-caller-certified",
+        "test": "tests/unit/backends/altium/test_lower.py::test_own_document_is_written_from_its_model[board6/board6.PcbDoc] (call)",
+        "tol": 3175,
+        "whole_face_losses": 35
+      },
+      {
+        "conflicts": 46,
+        "input_edges": 2501,
+        "omitted_nodes": 45,
+        "output_sha256": "77528734751571c7151b7446f5f0e97bd53bcd8631cfac2debc3035f1b8e56b8",
+        "protected_vertices": 1606,
+        "status": "actual-caller-certified",
+        "test": "tests/unit/roles/test_copper_backends.py::test_same_copper_from_both_builds[buck_shunt-good] (call)",
+        "tol": 3175,
+        "whole_face_losses": 111
+      },
+      {
+        "conflicts": 46,
+        "input_edges": 2501,
+        "omitted_nodes": 45,
+        "output_sha256": "77528734751571c7151b7446f5f0e97bd53bcd8631cfac2debc3035f1b8e56b8",
+        "protected_vertices": 1606,
+        "status": "actual-caller-certified",
+        "test": "tests/unit/roles/test_copper_backends.py::test_same_copper_from_both_builds[buck_shunt-good] (call)",
+        "tol": 3175,
+        "whole_face_losses": 111
+      },
+      {
+        "conflicts": 52,
+        "input_edges": 2915,
+        "omitted_nodes": 53,
+        "output_sha256": "695d9e7273b1cab472e3827fd0c0b0271b67371a10c22c7d5cf43642e1005340",
+        "protected_vertices": 1922,
+        "status": "actual-caller-certified",
+        "test": "tests/unit/roles/test_copper_backends.py::test_same_copper_from_both_builds[half_bridge-good] (call)",
+        "tol": 3175,
+        "whole_face_losses": 137
+      },
+      {
+        "conflicts": 52,
+        "input_edges": 2915,
+        "omitted_nodes": 53,
+        "output_sha256": "695d9e7273b1cab472e3827fd0c0b0271b67371a10c22c7d5cf43642e1005340",
+        "protected_vertices": 1922,
+        "status": "actual-caller-certified",
+        "test": "tests/unit/roles/test_copper_backends.py::test_same_copper_from_both_builds[half_bridge-good] (call)",
+        "tol": 3175,
+        "whole_face_losses": 137
+      },
+      {
+        "conflicts": 8,
+        "input_edges": 229,
+        "omitted_nodes": 8,
+        "output_sha256": "266b9e1564f7f975ec359a24d151cea2ac1a7fde6d82bb971dc5ed75b00d3155",
+        "protected_vertices": 165,
+        "status": "actual-caller-certified",
+        "test": "tests/unit/roles/test_copper_backends.py::test_same_copper_from_both_builds[bms-good] (call)",
+        "tol": 3175,
+        "whole_face_losses": 10
+      },
+      {
+        "conflicts": 53,
+        "input_edges": 1992,
+        "omitted_nodes": 53,
+        "output_sha256": "08cbab13122f9471941d1462241a75b184664e52f00e4f8f4af88f0905f9846d",
+        "protected_vertices": 1389,
+        "status": "actual-caller-certified",
+        "test": "tests/unit/roles/test_copper_backends.py::test_same_copper_from_both_builds[bms-good] (call)",
+        "tol": 3175,
+        "whole_face_losses": 69
+      },
+      {
+        "conflicts": 8,
+        "input_edges": 229,
+        "omitted_nodes": 8,
+        "output_sha256": "266b9e1564f7f975ec359a24d151cea2ac1a7fde6d82bb971dc5ed75b00d3155",
+        "protected_vertices": 165,
+        "status": "actual-caller-certified",
+        "test": "tests/unit/roles/test_copper_backends.py::test_same_copper_from_both_builds[bms-good] (call)",
+        "tol": 3175,
+        "whole_face_losses": 10
+      },
+      {
+        "conflicts": 53,
+        "input_edges": 1992,
+        "omitted_nodes": 53,
+        "output_sha256": "08cbab13122f9471941d1462241a75b184664e52f00e4f8f4af88f0905f9846d",
+        "protected_vertices": 1389,
+        "status": "actual-caller-certified",
+        "test": "tests/unit/roles/test_copper_backends.py::test_same_copper_from_both_builds[bms-good] (call)",
+        "tol": 3175,
+        "whole_face_losses": 69
+      },
+      {
+        "conflicts": 39,
+        "input_edges": 4493,
+        "omitted_nodes": 41,
+        "output_sha256": "e0587726b732eaef8b6bdf4e19b7399140e9432c41569ba738ee6547de2ada9e",
+        "protected_vertices": 2944,
+        "status": "actual-caller-certified",
+        "test": "tests/unit/backends/altium/test_part_s.py::test_part_s_kit (call)",
+        "tol": 3175,
+        "whole_face_losses": 229
+      },
+      {
+        "conflicts": 13,
+        "input_edges": 4809,
+        "omitted_nodes": 13,
+        "output_sha256": "9187db183ff929617d959bc0ad04de610d4aaf4d5b965ab0fbce8fb7f021bb30",
+        "protected_vertices": 2319,
+        "status": "actual-caller-certified",
+        "test": "tests/unit/backends/altium/test_part_g.py::test_part_g_files (call)",
+        "tol": 3175,
+        "whole_face_losses": 265
+      },
+      {
+        "conflicts": 6,
+        "input_edges": 656,
+        "omitted_nodes": 5,
+        "output_sha256": "b0896d41ea027fd7f7633de12683d1d634adceae6cfd66d329031e8b27f847f1",
+        "protected_vertices": 390,
+        "status": "actual-caller-certified",
+        "test": "tests/unit/backends/altium/test_part_g.py::test_part_g_files (call)",
+        "tol": 3175,
+        "whole_face_losses": 35
+      },
+      {
+        "conflicts": 13,
+        "input_edges": 4809,
+        "omitted_nodes": 13,
+        "output_sha256": "9187db183ff929617d959bc0ad04de610d4aaf4d5b965ab0fbce8fb7f021bb30",
+        "protected_vertices": 2319,
+        "status": "actual-caller-certified",
+        "test": "tests/unit/backends/altium/test_part_g.py::test_part_g_files (call)",
+        "tol": 3175,
+        "whole_face_losses": 265
+      },
+      {
+        "conflicts": 6,
+        "input_edges": 656,
+        "omitted_nodes": 5,
+        "output_sha256": "b0896d41ea027fd7f7633de12683d1d634adceae6cfd66d329031e8b27f847f1",
+        "protected_vertices": 390,
+        "status": "actual-caller-certified",
+        "test": "tests/unit/backends/altium/test_part_g.py::test_part_g_files (call)",
+        "tol": 3175,
+        "whole_face_losses": 35
+      },
+      {
+        "conflicts": 13,
+        "input_edges": 4809,
+        "omitted_nodes": 13,
+        "output_sha256": "9187db183ff929617d959bc0ad04de610d4aaf4d5b965ab0fbce8fb7f021bb30",
+        "protected_vertices": 2319,
+        "status": "actual-caller-certified",
+        "test": "tests/unit/backends/altium/test_part_g.py::test_part_g_files (call)",
+        "tol": 3175,
+        "whole_face_losses": 265
+      },
+      {
+        "conflicts": 6,
+        "input_edges": 656,
+        "omitted_nodes": 5,
+        "output_sha256": "b0896d41ea027fd7f7633de12683d1d634adceae6cfd66d329031e8b27f847f1",
+        "protected_vertices": 390,
+        "status": "actual-caller-certified",
+        "test": "tests/unit/backends/altium/test_part_g.py::test_part_g_files (call)",
+        "tol": 3175,
+        "whole_face_losses": 35
+      },
+      {
+        "conflicts": 13,
+        "input_edges": 4809,
+        "omitted_nodes": 13,
+        "output_sha256": "9187db183ff929617d959bc0ad04de610d4aaf4d5b965ab0fbce8fb7f021bb30",
+        "protected_vertices": 2319,
+        "status": "actual-caller-certified",
+        "test": "tests/unit/backends/altium/test_part_g.py::test_part_g_files (call)",
+        "tol": 3175,
+        "whole_face_losses": 265
+      },
+      {
+        "conflicts": 6,
+        "input_edges": 656,
+        "omitted_nodes": 5,
+        "output_sha256": "b0896d41ea027fd7f7633de12683d1d634adceae6cfd66d329031e8b27f847f1",
+        "protected_vertices": 390,
+        "status": "actual-caller-certified",
+        "test": "tests/unit/backends/altium/test_part_g.py::test_part_g_files (call)",
+        "tol": 3175,
+        "whole_face_losses": 35
+      }
+    ],
+    "schema": "fenolite.bulk-repair-pilot.v0",
+    "script_sha256": "c0c6d9e94f4842ded092e8f464d1f71e54cc8af26950e53fcca01924bc386325",
+    "seconds": 191.44131004199153,
+    "source_commit": "7a3fe984464dfc56dcfe9e2d292d130a1bdc3274"
+  },
+  "production_port_pending": true,
+  "production_unchanged": true,
+  "schema": "fenolite.reviewed-bulk-repair-pilot.v0",
+  "source_commit": "7a3fe984464dfc56dcfe9e2d292d130a1bdc3274"
+}

@@ -17,6 +17,13 @@ ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "reuse.unknown-part": "error",
         "reuse.check-failed": "error",
         "reuse.drc-new": "error",
+        "reuse.port-unmapped": "error",
+        "reuse.layout-block": "error",
+        "reuse.layout-conflict": "error",
+        "reuse.layout-stale": "warning",
+        "reuse.layout-nets": "warning",
+        "reuse.layout-older": "info",
+        "reuse.layout-changed": "info",
         "reuse.mirror-suspected": "warning",
         "reuse.project-unread": "warning",
         "reuse.copper-dropped": "info",
@@ -30,6 +37,8 @@ HYPOTHESIS = "H-G-REUSE-FIT"
 pads land on the reference pads, on either side and from a reference drawn with the Y axis up."""
 EVIDENCE = Evidence(Level.INFERRED, hypotheses=(HYPOTHESIS,))
 """The evidence of a fit: the pads of the written board are measured against the fit, no tool runs."""
+LAYOUT_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-BLOCK-LAYOUT",))
+"""Exact block-local placement and its vertical-axis mirror (c0271)."""
 ZONE_HYPOTHESIS = "H-G-REUSE-ZONE"
 """The register row that a zone of the block copied with its fill (change c0227) joins the images of its
 pads."""

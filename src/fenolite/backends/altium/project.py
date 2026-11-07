@@ -18,12 +18,13 @@ import hashlib
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from fenolite.backends.altium.altsym import AltiumSymbol, from_generic, map_pins
 from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.binary import write_schdoc_binary
 from fenolite.backends.altium.cfb import CompoundTooLarge, name_key
+from fenolite.backends.altium.draftsman import DraftsmanSpec, write_draftsman
 from fenolite.backends.altium.layout import (
     ClassMark,
     PartSpec,
@@ -43,6 +44,9 @@ from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model.circuit import Component
 from fenolite.model.design import Design
+
+if TYPE_CHECKING:
+    from fenolite.backends.altium.hierarchy import ProjectSheets
 from fenolite.schematic.intent import CompositionIntent
 
 PATH_PROPERTY = "fenolite.path"
@@ -72,6 +76,7 @@ PCBDOC_KIND = "altium_pcbdoc"
 EVIDENCE = Evidence(
     Level.INFERRED,
     hypotheses=(
+        "H-A-DWF-PARAMS",
         "H-A-CONV-SCHEMATIC",
         "H-A-ECO-NETCLASS",
         "H-A-ECO-PRJ-KEYS",
@@ -528,14 +533,18 @@ def plan_sheet(
 
 
 def library_symbols(
-    design: Design, *, name: str, symbols: Mapping[str, AltiumSymbol] | None = None
+    design: Design,
+    *,
+    name: str,
+    symbols: Mapping[str, AltiumSymbol] | None = None,
+    extra_symbols: Sequence[str] = (),
 ) -> dict[str, list[AltiumSymbol]]:
     """Library file → its symbols, one per lib id of the design (``symbols`` first, generic otherwise),
     with the library files in the MS-CFB order of their names."""
     generic = generic_symbols(design)
     given = symbols or {}
     libraries: dict[str, list[AltiumSymbol]] = {}
-    for lib_id in sorted({c.lib_symbol_ref for c in design.circuit.components}):
+    for lib_id in sorted({c.lib_symbol_ref for c in design.circuit.components} | set(extra_symbols)):
         library = schlib_name(lib_id, design=name)
         symbol = given.get(lib_id) or generic[lib_id]
         users = [c for c in design.circuit.components if c.lib_symbol_ref == lib_id]
@@ -550,7 +559,7 @@ def library_symbols(
         if footprint is not None:
             designators = [pin.designator for pin in symbol.pins]
             maps = {map_pins(c, designators) for c in users}
-            on_model = all(split_link(c.lib_footprint_ref) == footprint for c in users)
+            on_model = bool(users) and all(split_link(c.lib_footprint_ref) == footprint for c in users)
             if len(maps) == 1 and (only := maps.pop()) and on_model:
                 symbol = dataclasses.replace(symbol, pin_pads=only)
             model_library, model_name = footprint
@@ -570,6 +579,7 @@ def write_project(
     form: SchematicForm = DEFAULT_FORM,
     symbols: Mapping[str, AltiumSymbol] | None = None,
     footprints: Sequence[LibFootprint] = (),
+    extra_footprints: Mapping[str, Sequence[LibFootprint]] | None = None,
     pcb: PcbDocSpec | None = None,
     sheets: SheetMode = DEFAULT_SHEETS,
     outjob: bytes | None = None,
@@ -582,13 +592,18 @@ def write_project(
     pour: PourMode = "outline",
     pour_results: list[PcbDocResult] | None = None,
     pour_regions: bool = True,
+    draftsman: DraftsmanSpec | None = None,
+    title_parameters: Sequence[tuple[str, str]] = (),
+    planned_sheets: ProjectSheets | None = None,
+    extra_symbols: Sequence[str] = (),
 ) -> dict[str, bytes]:
     """``<name>.SchDoc`` in ``form``, one ``<library>.SchLib`` per library that the lib ids name and, when
     ``project`` is true, ``<name>.PrjPcb`` listing them, as bytes; no file is written. ``symbols`` maps a
     lib id to its library symbol; a lib id missing from it gets its generic symbol. The binary form and
     every library raise ``cfb.CompoundTooLarge`` past the compound file's size limit. ``footprints`` (change
-    c0035) are written into ``<name>.PcbLib`` when not empty, and ``pcb`` into ``<name>.PcbDoc``; the
-    project file lists both; their size limit raises ``PcbTooLarge``. With ``sheets="modules"`` (change
+    c0035) are written into ``<name>.PcbLib`` when not empty, ``extra_footprints`` into the file each key
+    names (change c0451), and ``pcb`` into ``<name>.PcbDoc``; the project file lists them; their size
+    limit raises ``PcbTooLarge``. With ``sheets="modules"`` (change
     c0037) ``<name>.SchDoc`` is the top sheet, each top-level module gets ``<name>_<module>.SchDoc``, each
     sheet with a harness block gets ``<sheet stem>.Harness``, and the project file lists them all; the
     libraries do not depend on the mode. A design with a net class (change c0048) gets the net class
@@ -598,21 +613,27 @@ def write_project(
     mode of the PCB document (change c0215; ``pcbdoc.write_pcbdoc_result``), and ``pour_results``, when
     given, receives what the write of the PCB document did; ``BackendUnavailable`` for ``computed`` without
     the ``geo`` extra. ``pour_regions`` off writes the computed document without the regions of its
-    polygons (``write_pcbdoc_result``; the input ``reference/`` of the kit's pour samples)."""
-    from fenolite.backends.altium.hierarchy import plan_sheets, write_harness
+    polygons (``write_pcbdoc_result``; the input ``reference/`` of the kit's pour samples).
+    ``title_parameters`` (route P of change c0388) are written as the project file's ``[Parameter<n>]``
+    sections when no Draftsman document is written; ``draftsman`` brings its own."""
+    from fenolite.backends.altium.hierarchy import ProjectSheets, plan_sheets, write_harness
 
     if form not in ("binary", "ascii"):
         raise ValueError(f"unknown schematic form {form!r}")
     _text(name, "design name")
-    planned = plan_sheets(
-        design,
-        name=name,
-        sheets=sheets,
-        form=form,
-        symbols=symbols,
-        directions=directions,
-        extra_modules=extra_modules,
-        read_circuit=read_circuit,
+    planned = (
+        planned_sheets
+        if isinstance(planned_sheets, ProjectSheets)
+        else plan_sheets(
+            design,
+            name=name,
+            sheets=sheets,
+            form=form,
+            symbols=symbols,
+            directions=directions,
+            extra_modules=extra_modules,
+            read_circuit=read_circuit,
+        )
     )
     baseline = planned
     if composition is not None:
@@ -641,11 +662,12 @@ def write_project(
                 )
             )
     harness_files = planned.harness_files
-    libraries = library_symbols(design, name=name, symbols=symbols)
+    libraries = library_symbols(design, name=name, symbols=symbols, extra_symbols=extra_symbols)
     files: dict[str, bytes] = {}
     listed = list(libraries)
     if footprints:
         listed.append(f"{name}.PcbLib")
+    listed.extend(sorted(extra_footprints or {}))
     if project:
         files[f"{name}.PrjPcb"] = write_prjpcb(
             schematic=f"{name}.SchDoc",
@@ -655,6 +677,8 @@ def write_project(
             harnesses=tuple(harness_files),
             net_classes=bool(design.circuit.netclasses),
             outjob=f"{name}.OutJob" if outjob is not None else None,
+            draftsman=f"{name}.PCBDwf" if draftsman is not None else None,
+            parameters=draftsman.parameters if draftsman is not None else tuple(title_parameters),
         )
     for sheet in planned.sheets:
         frame = (frames or {}).get(sheet.file)
@@ -686,6 +710,11 @@ def write_project(
             )
         except CompoundTooLarge as error:
             raise PcbTooLarge(f"{name}.PcbLib", error) from error
+    for file, found in sorted((extra_footprints or {}).items()):  # change c0451: a source's libraries
+        try:
+            files[file] = write_pcblib(found, filename=file, disambiguate_storages=read_circuit)
+        except CompoundTooLarge as error:
+            raise PcbTooLarge(file, error) from error
     if pcb is not None:
         # Native compilation links a multipart component through its last written part (c0166).
         # Keep the PCB link in step with the actual sheet plans, including resolved symbol units.
@@ -715,6 +744,8 @@ def write_project(
             pour_results.append(written)
     if outjob is not None:
         files[f"{name}.OutJob"] = outjob
+    if draftsman is not None:
+        files[f"{name}.PCBDwf"] = write_draftsman(draftsman)
     return files
 
 

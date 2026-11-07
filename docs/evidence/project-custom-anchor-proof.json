@@ -1,0 +1,336 @@
+{
+  "authored_driver_sha256": "844466cc2d7fc9893ed2cdde95e2a88dc58e77cd77944548b2b2e3d9a0b677e1",
+  "ci_claimed": false,
+  "final_public_pin_claimed": false,
+  "meaning": "Actual shorting contact control of explicit anchor subset only; not a safety DRC pass or full primitive approximation.",
+  "native10_contact_controls": {
+    "circle": {
+      "controls": {
+        "custom": {
+          "exit": 0,
+          "input_sha256": {
+            "font_probe.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+            "font_probe.kicad_pcb": "501f04417ad6b1663820df20583f8f3ef5a97d3d89eca2f623b7945ed6185eed",
+            "font_probe.kicad_pro": "b83678b39bbcc973727b71a6d650cb29c42605f8f22568aa71a6f8dc9690d444",
+            "font_probe.kicad_sch": "87d411bc918ef631cc5039a3a8cb55877a74c3f7a88050d55bd303fbb372478d",
+            "fp-lib-table": "79396c31c36b61d9eb8ea5b59f6cd0309004fb3b8dad1df401716dff8b7b7ae8",
+            "lib/Footprints.pretty/Mini_R_0603.kicad_mod": "8a69fd538ee10ea412e2b5cc1c3d63f4834a12c5d1ad45443697d3f3eb65a5b5",
+            "lib/Mini.kicad_sym": "199121e4eb9823425fd8850f7c6e47069d08b7979f5987b2eeab6af136eba296",
+            "sym-lib-table": "4243a97bd65fef4990efef9abdcfebadfd6679e97a9f64515074bed7b4605ff9"
+          },
+          "native_report_sha256": "be1a9e534077cd38960d84da10eba02f4fedf744be1ec1433e5038fe4b91a369",
+          "shorting_items": 1,
+          "version": "10.0.6"
+        },
+        "custom-outside": {
+          "exit": 0,
+          "input_sha256": {
+            "font_probe.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+            "font_probe.kicad_pcb": "8f49e1dff00182124aef9de4359420c75556ea97481382f59db2b8a49f90c68f",
+            "font_probe.kicad_pro": "b83678b39bbcc973727b71a6d650cb29c42605f8f22568aa71a6f8dc9690d444",
+            "font_probe.kicad_sch": "87d411bc918ef631cc5039a3a8cb55877a74c3f7a88050d55bd303fbb372478d",
+            "fp-lib-table": "79396c31c36b61d9eb8ea5b59f6cd0309004fb3b8dad1df401716dff8b7b7ae8",
+            "lib/Footprints.pretty/Mini_R_0603.kicad_mod": "8a69fd538ee10ea412e2b5cc1c3d63f4834a12c5d1ad45443697d3f3eb65a5b5",
+            "lib/Mini.kicad_sym": "199121e4eb9823425fd8850f7c6e47069d08b7979f5987b2eeab6af136eba296",
+            "sym-lib-table": "4243a97bd65fef4990efef9abdcfebadfd6679e97a9f64515074bed7b4605ff9"
+          },
+          "native_report_sha256": "50d06179917ee21e6cdc937979c6e205969a7c9b082110feae271eab095a13de",
+          "shorting_items": 0,
+          "version": "10.0.6"
+        },
+        "ordinary": {
+          "exit": 0,
+          "input_sha256": {
+            "font_probe.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+            "font_probe.kicad_pcb": "21f750b668359f47618b68272aceb009aa2a2f928de53bc35d64fc5af194f96d",
+            "font_probe.kicad_pro": "b83678b39bbcc973727b71a6d650cb29c42605f8f22568aa71a6f8dc9690d444",
+            "font_probe.kicad_sch": "87d411bc918ef631cc5039a3a8cb55877a74c3f7a88050d55bd303fbb372478d",
+            "fp-lib-table": "79396c31c36b61d9eb8ea5b59f6cd0309004fb3b8dad1df401716dff8b7b7ae8",
+            "lib/Footprints.pretty/Mini_R_0603.kicad_mod": "8a69fd538ee10ea412e2b5cc1c3d63f4834a12c5d1ad45443697d3f3eb65a5b5",
+            "lib/Mini.kicad_sym": "199121e4eb9823425fd8850f7c6e47069d08b7979f5987b2eeab6af136eba296",
+            "sym-lib-table": "4243a97bd65fef4990efef9abdcfebadfd6679e97a9f64515074bed7b4605ff9"
+          },
+          "native_report_sha256": "be1a9e534077cd38960d84da10eba02f4fedf744be1ec1433e5038fe4b91a369",
+          "shorting_items": 1,
+          "version": "10.0.6"
+        }
+      },
+      "receipt_sha256": "fe35ce4808e13619e762476e735fc646dd6ff42e3745280dab6c8ef9f295cf2a"
+    },
+    "rect": {
+      "controls": {
+        "custom": {
+          "exit": 0,
+          "input_sha256": {
+            "font_probe.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+            "font_probe.kicad_pcb": "f285ab89fc86b0d8a4e9c62ecde49fe8c04a96b631ce35ab18f6c905a9f33d4d",
+            "font_probe.kicad_pro": "b83678b39bbcc973727b71a6d650cb29c42605f8f22568aa71a6f8dc9690d444",
+            "font_probe.kicad_sch": "87d411bc918ef631cc5039a3a8cb55877a74c3f7a88050d55bd303fbb372478d",
+            "fp-lib-table": "79396c31c36b61d9eb8ea5b59f6cd0309004fb3b8dad1df401716dff8b7b7ae8",
+            "lib/Footprints.pretty/Mini_R_0603.kicad_mod": "8a69fd538ee10ea412e2b5cc1c3d63f4834a12c5d1ad45443697d3f3eb65a5b5",
+            "lib/Mini.kicad_sym": "199121e4eb9823425fd8850f7c6e47069d08b7979f5987b2eeab6af136eba296",
+            "sym-lib-table": "4243a97bd65fef4990efef9abdcfebadfd6679e97a9f64515074bed7b4605ff9"
+          },
+          "native_report_sha256": "a8403a0fa34e3e603a9e357ec278136ab59266dba23c6ffe3b8f07394bfb7c46",
+          "shorting_items": 1,
+          "version": "10.0.6"
+        },
+        "custom-outside": {
+          "exit": 0,
+          "input_sha256": {
+            "font_probe.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+            "font_probe.kicad_pcb": "04942060859d459b34aa50d687d92b33371e6788ebca49bec346ca8637e668c5",
+            "font_probe.kicad_pro": "b83678b39bbcc973727b71a6d650cb29c42605f8f22568aa71a6f8dc9690d444",
+            "font_probe.kicad_sch": "87d411bc918ef631cc5039a3a8cb55877a74c3f7a88050d55bd303fbb372478d",
+            "fp-lib-table": "79396c31c36b61d9eb8ea5b59f6cd0309004fb3b8dad1df401716dff8b7b7ae8",
+            "lib/Footprints.pretty/Mini_R_0603.kicad_mod": "8a69fd538ee10ea412e2b5cc1c3d63f4834a12c5d1ad45443697d3f3eb65a5b5",
+            "lib/Mini.kicad_sym": "199121e4eb9823425fd8850f7c6e47069d08b7979f5987b2eeab6af136eba296",
+            "sym-lib-table": "4243a97bd65fef4990efef9abdcfebadfd6679e97a9f64515074bed7b4605ff9"
+          },
+          "native_report_sha256": "78cfe791fb2f5c5af3dce6e5b3d8537dcd39bd994ddffaf0e0bf3a6eb17f295b",
+          "shorting_items": 0,
+          "version": "10.0.6"
+        },
+        "ordinary": {
+          "exit": 0,
+          "input_sha256": {
+            "font_probe.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+            "font_probe.kicad_pcb": "7320d677f28dc038796620208b9fe78f9db3c81ba858e2d38ffd9cc50cd0ea2e",
+            "font_probe.kicad_pro": "b83678b39bbcc973727b71a6d650cb29c42605f8f22568aa71a6f8dc9690d444",
+            "font_probe.kicad_sch": "87d411bc918ef631cc5039a3a8cb55877a74c3f7a88050d55bd303fbb372478d",
+            "fp-lib-table": "79396c31c36b61d9eb8ea5b59f6cd0309004fb3b8dad1df401716dff8b7b7ae8",
+            "lib/Footprints.pretty/Mini_R_0603.kicad_mod": "8a69fd538ee10ea412e2b5cc1c3d63f4834a12c5d1ad45443697d3f3eb65a5b5",
+            "lib/Mini.kicad_sym": "199121e4eb9823425fd8850f7c6e47069d08b7979f5987b2eeab6af136eba296",
+            "sym-lib-table": "4243a97bd65fef4990efef9abdcfebadfd6679e97a9f64515074bed7b4605ff9"
+          },
+          "native_report_sha256": "0ca02751ccb8c4c411ea9f7933e5c21182d5467a3f1576adb4548d1b9cd474f6",
+          "shorting_items": 1,
+          "version": "10.0.6"
+        }
+      },
+      "receipt_sha256": "c168f32bf20136e63c9e76a5b70a512eeda53963862d35e7c78c4437ba37e568"
+    }
+  },
+  "royal_diagnostic": {
+    "all_other_levels_equal": true,
+    "code_sha256": {
+      "src/fenolite/backends/kicad/derived_teardrops.py": "565acf26dd97c55dcc37bda0f0fc5c3bf6d1f1fc52671b88ba51e865bd0641d1",
+      "src/fenolite/cli/_derived_cache.py": "cd03229e1b8c54b5169ec04fc84aac20096bc275e9749ad5256edf280b5e622e"
+    },
+    "complete_regenerated_geometry_equal": false,
+    "derived_cache": {
+      "complete_regenerated_geometry_equal": false,
+      "drc_safety_gate_claimed": false,
+      "judged_project_keys": [
+        "min_clearance",
+        "min_track_width",
+        "min_via_diameter",
+        "min_through_hole_diameter",
+        "min_copper_edge_clearance",
+        "max_error",
+        "teardrop_options",
+        "teardrop_parameters"
+      ],
+      "normal_zone_priorities_normalized": false,
+      "raw_cache_equality_claimed": false,
+      "sides": {
+        "a": {
+          "command": [
+            "pcb",
+            "drc",
+            "--format",
+            "json",
+            "--severity-all",
+            "--refill-zones",
+            "--save-board",
+            "-o",
+            "derived-drc.json",
+            "RoyalBlue54L-Feather.kicad_pcb"
+          ],
+          "exact_geometry_sha256": "a562fa7965020cc8dfd270a007b7dcf1da04d716c994b7ffeb8a8fb81278ad12",
+          "exit": 0,
+          "input_files": {
+            "RoyalBlue54L-Feather.kicad_pcb": "535dbe212f43a8bab12b23277e176a94ac9694177258af2981c0e7b08e4b7252",
+            "RoyalBlue54L-Feather.kicad_pro": "a25ffa7ff829d5eaff27b29724b57821ce2ee7fd39ae367b9ea078d290e37690"
+          },
+          "native_input_sha256": "cd42998d4db9bd250d0f02813836875fe585aef6d2b819b308be5274b6f07e3e",
+          "native_non_simple_rings": {
+            "proper_edge_pair_crossings": 38,
+            "rings_with_proper_crossings": 25
+          },
+          "outcome": "exit",
+          "output_sha256": "2ec86626172ddc27fc584a1a63c8a9e137031df4dac29a1e6a93077bc65b8ce3",
+          "qualified_caches_removed_from_private_input": true,
+          "raw_caches": 263,
+          "raw_non_simple_rings": {
+            "proper_edge_pair_crossings": 2,
+            "rings_with_proper_crossings": 1
+          },
+          "regenerated_caches": 289,
+          "stderr_sha256": "94c19dc77920cc281b640fc43e27b1b50694387c38dfb2a065366743c00e4126",
+          "stdout_sha256": "ca97ffa1864a573120d4f7a10e228786d2984bb2c166699370e86b8e9713ae5a"
+        },
+        "b": {
+          "command": [
+            "pcb",
+            "drc",
+            "--format",
+            "json",
+            "--severity-all",
+            "--refill-zones",
+            "--save-board",
+            "-o",
+            "derived-drc.json",
+            "RoyalBlue54L-Feather.kicad_pcb"
+          ],
+          "exact_geometry_sha256": "d18ffeb785b673beacf7c1a989e5be48929522744873f7c5c4765d8238f30fc8",
+          "exit": 0,
+          "input_files": {
+            "RoyalBlue54L-Feather.kicad_dru": "68c46e1476dfd993ef1d85646cba1ef5074b89f3a77361a3f445e1cca7669361",
+            "RoyalBlue54L-Feather.kicad_pcb": "af1592bc7dc2cae652e1d7c87d4bdab9fcbc90b2026d7a406aca081d7192b36f",
+            "RoyalBlue54L-Feather.kicad_pro": "fd967859330eb55c46a063f2ef88cb2e26b56c7651069623b4151ce6beda2fcd"
+          },
+          "native_input_sha256": "af1592bc7dc2cae652e1d7c87d4bdab9fcbc90b2026d7a406aca081d7192b36f",
+          "native_non_simple_rings": {
+            "proper_edge_pair_crossings": 41,
+            "rings_with_proper_crossings": 26
+          },
+          "outcome": "exit",
+          "output_sha256": "0118120f5e0e32db1dbf3010ad4716d8252e7314d1e9917d709b93e99ca53747",
+          "qualified_caches_removed_from_private_input": true,
+          "raw_caches": 0,
+          "raw_non_simple_rings": {
+            "proper_edge_pair_crossings": 0,
+            "rings_with_proper_crossings": 0
+          },
+          "regenerated_caches": 293,
+          "stderr_sha256": "b9471adc9d5ba7ab6caf24ced3ce13a4ace4180866b83627bcb9d08fdcd4b87a",
+          "stdout_sha256": "8cd7dea275d3144d60aed84fab81e1c0c169eae59089e971bac7fc37061560dc"
+        }
+      },
+      "status": "differs",
+      "tool": "kicad-cli",
+      "unjudged_project_rule_deltas": [
+        {
+          "a": [
+            "number",
+            381,
+            5000
+          ],
+          "b": [
+            "number",
+            0,
+            1
+          ],
+          "key": "min_connection"
+        },
+        {
+          "a": [
+            "number",
+            127,
+            1000
+          ],
+          "b": [
+            "number",
+            1,
+            4
+          ],
+          "key": "min_hole_clearance"
+        },
+        {
+          "a": [
+            "number",
+            1,
+            1
+          ],
+          "b": [
+            "number",
+            2,
+            1
+          ],
+          "key": "min_resolved_spokes"
+        },
+        {
+          "a": [
+            "number",
+            1,
+            10
+          ],
+          "b": [
+            "number",
+            2,
+            25
+          ],
+          "key": "min_text_thickness"
+        },
+        {
+          "a": [
+            "number",
+            1,
+            20
+          ],
+          "b": [
+            "number",
+            1,
+            10
+          ],
+          "key": "min_via_annular_width"
+        },
+        {
+          "a": [
+            "number",
+            0,
+            1
+          ],
+          "b": null,
+          "key": "solder_mask_clearance"
+        },
+        {
+          "a": [
+            "number",
+            0,
+            1
+          ],
+          "b": null,
+          "key": "solder_mask_min_width"
+        }
+      ],
+      "unjudged_project_setting_deltas": [
+        {
+          "a_canonical_sha256": "5ae210395770815e63f1ff4bb08b77b805a08da82cf66d21307028b51d1be10a",
+          "b_canonical_sha256": "a06c9135da86d1a8cf753103efecab3b1cb7854138d11c2710294d381a6d3285",
+          "key": "defaults"
+        },
+        {
+          "a_canonical_sha256": "7bae52e873878b4266ac7a99998728218f4b4bc120e7595b2ccad7ce14d7b3cb",
+          "b_canonical_sha256": "2e38e77b22c314a449e91fafed92a43826ac6aa403ae6a8acb6cf58239fbaf5d",
+          "key": "diff_pair_dimensions"
+        },
+        {
+          "a_canonical_sha256": "1d2bec461a32573144b927e6545b7d88e1aa241ee0a98f147aee4aef31409658",
+          "b_canonical_sha256": "b38f965b1a79d7bea3f92285c39310b0e04e0ff4e09076b06d2cc9e03ecdffb2",
+          "key": "rule_severities"
+        },
+        {
+          "a_canonical_sha256": "4f4c5eb48168344de7923391e3027cf39cf09bd58b7812b71a70eb94dae94641",
+          "b_canonical_sha256": "2e38e77b22c314a449e91fafed92a43826ac6aa403ae6a8acb6cf58239fbaf5d",
+          "key": "track_widths"
+        },
+        {
+          "a_canonical_sha256": "83ff9745ec75085de5d1bd8b8221df9efb62ad39d9720284f2c792a65a14b32b",
+          "b_canonical_sha256": "2e38e77b22c314a449e91fafed92a43826ac6aa403ae6a8acb6cf58239fbaf5d",
+          "key": "via_dimensions"
+        }
+      ],
+      "version": "10.0.6",
+      "whole_native_rule_file_equality_claimed": false,
+      "whole_project_json_equality_claimed": false
+    },
+    "full_proof_exit": 5,
+    "public_upstream_commit": "97acc80c223d75520c03fc44cab63cd9a3202c42",
+    "reason": "True native geometry difference remains; no cache waiver or library payload update.",
+    "receipt_sha256": "058119dcbd8645dd59eea07648ff89778738ddf690c7a9e3d9fd6bf94e3e9d4a",
+    "source_unchanged": true
+  },
+  "schema": "fenolite.custom-anchor-proof.v0"
+}

@@ -36,7 +36,9 @@ def test_deterministic(tmp_path: Path) -> None:
     two = build_kit(tmp_path / "b", seed=1, timestamp=WHEN, sources=kit_sources())
     assert _files(tmp_path / "a") == _files(tmp_path / "b")
     assert one.digest == two.digest == kit_digest((tmp_path / "a" / "kit.json").read_bytes())
-    assert list(one.samples) == list(SAMPLES) and len(one.samples) == 7
+    assert list(one.samples) == list(SAMPLES)
+    assert len({k: v for k, v in one.samples.items() if k != "slots"}) == 8
+    assert len(one.samples) == 9 and "slots" in one.samples
     data = json.loads((tmp_path / "a" / "kit.json").read_text(encoding="utf-8"))
     assert data["schema"] == manifest.KIT_SCHEMA and data["seed"] == 1
     assert data["timestamp"] == "2026-10-06T00:00:00Z"
@@ -79,12 +81,26 @@ def test_every_sample_has_its_project_and_its_script(built_kit: Path) -> None:
             assert sorted(
                 p.relative_to(built_kit / name).as_posix() for p in (built_kit / name).rglob("*.*")
             ) == [f"computed/{name}.PcbDoc", "probes.json", f"reference/{name}.PcbDoc"]
+        elif name == "slots":
+            for variant in ("regions", "clearance", "gate-off"):
+                for suffix in ("PrjPcb", "SchDoc", "PcbDoc"):
+                    assert (built_kit / name / variant / f"slots.{suffix}").is_file()
+            assert (built_kit / name / "gate-off/build-report.json").is_file()
+            assert (built_kit / name / "clearance/slots.PcbLib").is_file()
+            assert (built_kit / name / "clearance/slots.SchLib").is_file()
         else:
             assert (built_kit / name / f"{name}.PrjPcb").is_file()
         lines = script.read_text(encoding="utf-8").splitlines()
-        assert lines[0] == "# SPDX-License-Identifier: CC0-1.0" and lines[1].startswith(
-            "# Authored for Fenolite"
-        )
+        if name == "slots":
+            assert lines[:2] == [
+                "# SPDX-License-Identifier: Apache-2.0",
+                "# Copyright (c) 2026 Fenolite contributors",
+            ]
+            assert (built_kit / "slots/recipe.py").read_bytes() == script.read_bytes()
+        else:
+            assert lines[0] == "# SPDX-License-Identifier: CC0-1.0" and lines[1].startswith(
+                "# Authored for Fenolite"
+            )
     assert (built_kit / "flat" / "ascii" / "flat.SchDoc").read_bytes().startswith(b"|HEADER=")
     assert sorted(p.name for p in (built_kit / "tree").iterdir()) == [
         "tree.PrjPcb",
@@ -133,7 +149,7 @@ def test_a_folder_that_is_no_kit(tmp_path: Path) -> None:
 
 
 def test_no_sheet_template_and_no_built_kit_is_tracked() -> None:
-    """No ``.SchDot`` file is tracked anywhere, and ``examples/kit`` holds scripts only."""
+    """No template/runtime kit is tracked; only the authored Part S input allowlist joins the old scripts."""
     if not (ROOT / ".git").exists():
         pytest.skip("not a git checkout")
     listed = subprocess.run(
@@ -141,7 +157,21 @@ def test_no_sheet_template_and_no_built_kit_is_tracked() -> None:
     ).stdout.splitlines()
     assert [name for name in listed if name.casefold().endswith(".schdot")] == []
     kit_files_tracked = sorted(name for name in listed if name.startswith("examples/kit/"))
-    assert kit_files_tracked == [
-        "examples/kit/README.md",
-        *(f"examples/kit/{n}/design.py" for n in sorted(SAMPLES)),
-    ]
+    assert [name for name in kit_files_tracked if not name.startswith("examples/kit/slots/")] == sorted(
+        ["examples/kit/README.md", *(f"examples/kit/{n}/design.py" for n in SAMPLES if n != "slots")]
+    )
+    assert [name for name in kit_files_tracked if name.startswith("examples/kit/slots/")] == sorted(
+        [
+            "examples/kit/slots/design.py",
+            "examples/kit/slots/PROVENANCE.md",
+            "examples/kit/slots/criteria.md",
+            "examples/kit/slots/gate-off/build-report.json",
+            "examples/kit/slots/clearance/slots.PcbLib",
+            "examples/kit/slots/clearance/slots.SchLib",
+            *(
+                f"examples/kit/slots/{variant}/slots.{suffix}"
+                for variant in ("regions", "clearance", "gate-off")
+                for suffix in ("PrjPcb", "SchDoc", "PcbDoc")
+            ),
+        ]
+    )

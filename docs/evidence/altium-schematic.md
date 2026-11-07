@@ -209,6 +209,7 @@ repository. Check the SHA-256 values first and work on copies.
 | L4 | Open `altium_kicad.PrjPcb` with its schematic and library beside it, check that the library is listed under the project, and compile ("Project » Validate PCB Project"). Do the same with `binary/altium_sample.PrjPcb` and `FenoliteSample.SchLib`. | Whether each library is listed as a project document; every message of level error or fatal; the nets in the Navigator panel, compared with this table and Part A's; whether `U1` compiles as one component of two parts. | `H-A-SCHLIB-PRJ`, `H-A-SCHLIB-SCHDOC`, `H-A-SCHLIB-MULTIPART` |
 | L5 | On a copy of each project, run "Tools » Update From Libraries" with full replacement. | Components listed as not found; whether any pin moved off its stub; the nets after the update, compared with the tables. | `H-A-SCHLIB-UPDATE`, `H-A-SCHLIB-PRJ` |
 | L6 | Save a copy of each library under a new name in Altium. | Only the names of the keys Altium added or removed in `FileHeader` and in a component's records (no values). | data for `H-A-SCHLIB-OPEN` |
+| L7 | (Change c0261.) Write `Example.SchLib` from the pin tables of `examples/symbols/pins/` with `fenolite library symbol examples/symbols/pins/EXB6202.toml examples/symbols/pins/EXM120.toml --out Example.SchLib --dry-run`, then `--confirm --plan <plan_id>`, and open it. | Any prompt or error; for `EXM120` and `EXM120-T`: the parts listed (expected three), the pins of each part, whether each part draws one rectangle of its own and no other, and the pin names on every side; for `EXB6202`: one part with the hidden pad `7` on pin `2`'s place. | `H-A-SCHLIB-GEN-PARTS` |
 
 ## Part N: no-connect directives in Altium Designer
 
@@ -570,6 +571,45 @@ same job, as expected. Per step:
 
 Part W of the same report is under "Reports" below. No file that Altium wrote is committed, and the job and
 the template stay experimental.
+
+**2026-11-05, actual `AD 24.5.2.23`, steps O3, O5, O6 and O7 (source S-1611).** At the maintainer's
+delegation of 2026-11-04, relayed by the coordinator, a Claude agent ran these steps in the Altium Designer
+installed in the maintainer's Parallels Windows VM (24.5.2.23, Trial). It used a VM copy of the session pack
+`O-outjob/`. The three jobs match the table of "Session 2" (`595be494…`, `bb3e5505…`, `cffaa5da…`). Containers
+were generated with their "Generate content" link, and the setup was read in the Gerber Setup dialog through
+UI Automation. Captures were deleted after viewing. This is not the maintainer's own review, and no level
+moves. Per step:
+
+- **O1.** `blink_routed.PrjPcb` and its job open with no message (Messages 0).
+- **O3.** `fab` and then `doc` generate without a dialog. The Gerber folder holds 12 layer files: `.GTO`,
+  `.GTP`, `.GTS`, `.GTL`, `.GBL`, `.GBS`, `.GBP`, `.GBO`, `.GM13`, `.GM14`, `.GM15` and `.GM16`. Beside them are
+  `.apr`, `.EXTREP`, `.REP`, `.RUL` and `-macro.APR_LIB`. The count equals the twelve entries of the table. The
+  Gerber report now names each layer ("Generating : Mechanical 16 … Adding Layer : Mechanical 16"), and
+  `.EXTREP` lists the twelve extensions with their layer names. The drill output writes `.TXT`, `.LDP` and
+  `.DRR`; pick and place writes one `.txt`; `doc` writes one PDF. The bill of materials stops on "Microsoft
+  Excel is not found on your computer", because Excel is not installed in the VM.
+- **O5.** The setup shows Millimeters, Decimal 0.0001 mm (4 decimals) and file names `filename.*`. Plot is on
+  for the twelve layers of the table and off for every other layer (Keep-Out, the pad masters).
+- **O6.** The first entry of "Layers to plot" is a category **Board Outline**. Its one row is file
+  `blink_routed.GM`, layer name **Gerber Board Profile**, with Plot off. The agent turned it on, chose Apply
+  (this dialog has Apply and Cancel, no OK) and saved the job as `blink_routed_outline.OutJob` (`1462d5cd…`).
+  The first `fab` attempt showed a "Confirm" dialog that closed before its text was read, and no file was
+  written. The second attempt, without a dialog, adds `blink_routed.GM` (361 bytes), which `.EXTREP` lists as
+  "Profile". The file is a closed board outline in millimetres with 4 decimals. The saved job's Gerber record
+  gains `PlotBoardProfile=True` and `PlotBoardProfileFileName`. Its `Plot.Set` keeps the same twelve entries,
+  and the class name changes from `TLayerToBoolean` to `TPlotLayerStateArray`. So the outline is a key of its
+  own, not a `Plot.Set` entry. The Altium save also adds 17 other fields, among them `DocumentPath`,
+  `BoardID`, `GenerateReports`, `OutputFormat` and two drill-layer-pair groups.
+- **O7.** `board6` generates `fab` in 12 seconds without a dialog. The Gerber folder holds 16 layer files:
+  `.GTO`, `.GTP`, `.GTS`, `.GTL`, `.G1`, `.GP1`, `.G2`, `.G3`, `.GBL`, `.GBS`, `.GBP`, `.GBO` and `.GM13` to
+  `.GM16`. `.EXTREP` names `.GP1` Internal Plane 1. The mid-layers are numbered by their order, not their
+  layer number: `.G1` is Mid-Layer 1, `.G2` Mid-Layer 3 and `.G3` Mid-Layer 4. The drill output writes `.TXT`,
+  `.TX1`, `.TX2`, `.LDP` and `.DRR`.
+
+O8 and O-S1 were not run. O-S1 needs the AD 26 minor version of the session of 2026-10-07. The template
+appearance request of the native acceptance inventory ("Templates": a native template's logo, fonts and
+colours, and an imported custom border) has no step list in the repository and needs a judgement of drawn
+appearance, so it was not run either. No file that Altium wrote is committed.
 
 ## Part W: the sheet template and the drawing sheet in Altium Designer
 
@@ -981,6 +1021,30 @@ still running; the native log subsequently completed every case and `DONE`,
 and separate verification checks the completed results rather than assuming
 launch success. Original failures and the completed retry remain ignored.
 
+## Part K: sheet entries from block ports (change c0269)
+
+A block instance's sheet (`sheets="modules"`) names its ports and the sheet entries of its symbol after
+the block's declared ports, while the wire stubs keep the labels of the circuit nets. **Nothing of this
+part has been opened in Altium.** It settles `H-A-BLOCK-ENTRIES`; until the maintainer reports, the row
+stays `INFERRED`.
+
+**Files.** Build the authored sample `tests/data/altium/blocks/design.py` (CC0) with
+`fenolite build tests/data/altium/blocks/design.py --target altium --altium-sheets modules --out blocks
+--confirm`, and copy the folder to the maintainer's machine.
+
+1. **K1**: open `blocks.PrjPcb`. Expected: no repair prompt; `blocks.SchDoc` and `blocks_f1.SchDoc` in the
+   Projects panel. The symbol of `f1` holds the entries `IN`, `OUT` and `TEST`, and `blocks_f1.SchDoc`
+   the ports of those names, with the labels `SRC` and `DST` on the stubs of `IN` and `OUT`.
+2. **K2**: "Project » Validate PCB Project", then the Messages panel. Expected: no message about a port,
+   a sheet entry or a net with two names. Record every message.
+3. **K3**: in the Navigator, list the nets with their pins. Expected: `SRC` (`J1` pin 1, `f1/R` pin 1),
+   `DST` (`J1` pin 2 and the pins of `f1` on the filter node) and `TEST`; record the name Altium gives
+   each net, in particular whether the nets of the ports `IN` and `OUT` are named `SRC` and `DST`.
+
+The maintainer reports one outcome per step, the tool as `AD <major>.<minor>` and the date; no file that
+Altium wrote is committed. A failure of K2 or K3 refutes `H-A-BLOCK-ENTRIES`, and the fallback is to name
+the crossings of a block's sheet after the nets again.
+
 ## Recording a report
 
 - A report gives the Altium Designer version as `AD <major>.<minor>`, or `A365 Viewer` for Part V, the
@@ -1360,6 +1424,63 @@ Outcome per step:
 No step named a fault, so no fact and no golden file changed and no row is refuted. An author report moves
 no write kind out of `experimental`.
 
+### 2026-11-05, actual `AD24.5.2.23`, Parts A, B, L and N (source S-1600)
+
+Run by a Claude agent at the maintainer's request (delegation of 2026-11-04) in the maintainer's Windows VM,
+Altium Designer 24.5.2.23 (Trial). It is not the maintainer's own review (c0389 task 2.3). Inputs:
+- the committed files of Parts A, L and N, copied unchanged (each SHA-256 checked first, 0 mismatches);
+- for B1 and B2, fresh builds at `24b699d4` of `examples/altium_sample/design.py` (bytes equal to the
+  committed binary sample) and `examples/kit/flat/design.py`;
+- for L7, `Example.SchLib` written by `fenolite library symbol` (`658b4989…`).
+
+Fenolite's authored files only. Work was done on copies, nothing was saved except where the step asks for it,
+and every saved file stays outside the repository. The agent read the documents through public menus, the
+Properties panel and read-only DelphiScript. Captures covered the document area only and were deleted after
+viewing.
+
+| step | observed |
+|---|---|
+| A2 | `altium_sample.SchDoc` (CR LF) opens with no message. Sheet style A4 (no custom sheet). 8 components with bodies, pin numbers, designators and comments in the three rows of the table; 13 power ports (bars for `VIN` and `+5V`, ground symbols for `GND`) and 6 net labels, as written |
+| A4 | Properties panel of `U2`: Designator `U2`, Comment `DRV4`, Design Item ID `DRV4`, footprint `SOT143`. The panel shows no Source value. The script reads `SourceLibraryName` `FenoliteSample.SchLib` and one current PCB model `SOT143` linked to `FenoliteSample.PcbLib` by name, with no path and without "use component library", which is the "Library name" mode. The PCB Model dialog itself was not opened: a click on the footprint row opens a chooser that lists `SOT143` |
+| B1 | Built `altium_sample` (no PcbLib is written): a new PCB added and saved, then "Update PCB Document" lists 8 components, 6 nets, 1 component class and 3 Supply Nets rules. "Validate Changes" marks the 8 components `Footprint Not Found <name>` (`FenoliteSample.PcbLib` does not exist), and the board receives no component. Built kit `flat`: 4 components, 4 nets, 1 component class, 1 net class (`PWR`) and 2 rules, none invalid; executed, the new board holds the 4 parts. Saving the project adds about 386 key names in Altium's standard sections (`[Design]` options, `[Configuration1]`, `[OutputGroup1]` to `[OutputGroup10]`, `[Modification Levels]`, `[Difference Levels]`, `[Electrical Rules Check]`, `[ERC Connection Matrix]`, `[Annotate]`, `[LibraryUpdateOptions]`, `[DatabaseUpdateOptions]`, `[Comparison Options]`, `[SmartPDF]`); the source documents are unchanged |
+| B2 | `R1` 330 → 470 in the script, rebuilt into the saved folder: the build keeps the project file byte for byte (`altium.project-kept`). The project lists the schematic and both PCB documents and compiles with no error. The change order lists exactly one change, "Change Component Comments: Modify 330 -> 470 [R1]", and nothing added or removed |
+| B3 | Binary sample with `FenoliteSample.SchLib`: all 6 library references found, none `<Not Found>`. Full replacement modifies all 8 parts, keeps their comments and every net, and compiles with no error. "Replace selected attributes" with graphical attributes off (models and parameters on) changes 6 comments to the library's (`10uF -> CAP`, `330 -> RES`, ...) and updates 8 model values; every net is kept |
+| L1 | `FenoliteSample.SchLib` (6 components) and `altium_kicad.SchLib` (4 components with their descriptions) open with no message |
+| L2 | Read through the API and the Properties panel's Pins tab; the Pin Editor dialog was not opened. `MCU8`: pins 1–8 with their names, types (power, input, output, passive) and 200-mil length; pin 2 `R\S\T\` and pin 5 `O\E\` with an outer-edge dot, pin 3 `CLK` with a clock edge; pin 8 hidden. `DUAL_OPAMP`: 2 parts, pins 1–3 on part A, 5–7 on part B, pins 4 and 8 on part zero; the placed `U1A` and `U1B` both draw `VCC` and `VEE` |
+| L3 | Footprint models by name, no path: `DUAL_OPAMP` `SOIC8` and `R_V` `R0603` in `altium_kicad.PcbLib`, `RES` `R0603` in `FenoliteSample.PcbLib`. The written library is `altium_kicad.PcbLib`, not the `FenoliteDemo` the step expected |
+| L4 | `altium_kicad.PrjPcb` lists its library and compiles: 5 components (`U1` once, of two parts), 10 nets as written. Messages: a floating-input error on `U2-2`; "Duplicate pins in component" warnings for `U1-4` and `U1-8` (the part-zero pins); "no driving source" warnings for `NetU2_2`, `OE_N` and `SIG`. The binary sample with `FenoliteSample.SchLib` compiles with no error, 6 nets as written |
+| L5 | Full replacement on a copy of each project: `altium_kicad` gets 6 "Modify" changes (`U1A` and `U1B` apart), the sample 8. Nets and messages are identical before and after, so no pin left its stub |
+| L7 | `Example.SchLib` opens with no message. `EXM120` and `EXM120-T`: 3 parts of 48, 48 and 24 pins, each part with one rectangle of its own and no other; part 1 pins on the right, part 2 on both sides, part 3 at top and bottom. `EXB6202` (and `-DR`): one part, the hidden pin `7` at pin `2`'s place |
+| N1 | Binary `altium_no_connect.SchDoc` opens with no message. 3 No ERC directives, at the ends of `U1` pins 2 and 4 (red crosses) and of hidden pin 8; each is active with "suppress all" set (script; Properties panel not read) |
+| N2 | Compile: no message names `U1` pins 2, 4 or 8. `U1` pin 3 gives "Net NetU1_3 contains floating input pins" (error) and "no driving source" (warning). The unmarked net `OE_N` keeps its "no driving source" warning. The directive of hidden pin 8 is reported "Floating No ERC at 4600mil,5100mil" (warning) |
+| N3 | ASCII copy: the same open, directives and compile messages as N1 and N2 |
+
+Not run: the A4 PCB Model dialog and the L2 Pin Editor dialog (their fields read through the API), A1,
+A3, A5 to A7, L6 and Part H (earlier reports), and N4 (the Viewer). No level changes.
+
+### 2026-11-05, actual `AD24.5.2.23`, Part R steps R1 and R2 (source S-1602)
+
+A Claude agent ran these steps at the maintainer's request of 2026-11-05 (delegation of 2026-11-04) in
+the maintainer's Windows VM, on Altium Designer 24.5.2.23 (Trial). It is not the maintainer's own review.
+The files are copies of the committed `tests/data/altium/channels/two/` (`two.PrjPcb` `38384a5c…`,
+`two.SchDoc` `68ed6877…`, `two_ch.SchDoc` `cad7f566…`), the same bytes that passed R1 to R4 in AD 26.5 on
+2026-10-14 (S-0740 to S-0742). R2 used twelve copies of that project, each with one pair of
+`ChannelDesignatorFormatString` and `ChannelRoomNamingStyle` values set in the project file.
+
+| step | expected | observed |
+|---|---|---|
+| R1 | both sheets compile; the repeat gives two channels (six components, five nets, eleven memberships in AD 26.5) | the compile gives 6 errors and 2 warnings: "Missing child-sheet in two_ch.SchDoc in Symbol Repeat(CH,1,2) at 700mil,6700mil."; "Net OUT1 has only one pin (Pin U1-1)", the same for `OUT2` (`U1-2`) and `VCC` (`J1-1`); "Sheet-Entry Repeat(OUT) not matched to Port" and "Sheet-Entry VCC not matched to Port"; and no footprint found for `J1` and `U1` (warnings). The flattened design holds 2 components, `J1` and `U1`, with no channel. Altium's `two.PrjPcbStructure` lists only the top-level document `two.SchDoc` |
+| R2 | each naming pair gives its channel designators | all twelve projects flatten to `J1` and `U1` with no channel, so the naming cannot be judged |
+
+The first run was scripted (`DM_OpenProject`, `DM_Compile`), with the 13 copies open together. It was
+then repeated through the user interface, with only one copy open: File » Open, then Project » Validate
+PCB Project. That run gives the same 8 messages and the same 2 components. The sheet symbol stores its
+child as the file name record `two_ch.SchDoc`, the bytes that AD 26.5 read. No field is known that 24.5
+reads differently. This is an observation scoped to AD 24.5.2.23 Trial: the repeat does not expand in
+that version. The AD 26.5 pass of 2026-10-14 stands, the writer is unchanged, and no level moves
+(coordinator's decision of 2026-11-05). R3 and R4 were not run, because they need the channels, and R5
+keeps its recorded failure.
+
 ## Author report of 2026-10-07 (opening only)
 
 On 2026-10-07 the author reported, for the files he was given: every project opened in Altium Designer 26
@@ -1598,3 +1719,70 @@ On 2026-10-09 the maintainer reported, for his sessions of 2026-10-07 and 2026-1
 Every Altium write stays experimental: an author report moves no write kind out of `experimental`, and the
 graduation rule of change c0092 is not applied by this report. The PCB side of the same report is in
 `docs/evidence/altium-pcb.md`, "Report of 2026-10-09".
+
+## Drawn-sheet kit request (c0276, 2026-11-01)
+
+`H-A-DRAWN-WRITE` remains **INFERRED** and pending. The source writer and hermetic native-record
+coverage/connectivity guards are implemented, but the maintainer reports that Altium is unavailable.
+No application compile, native save or successful kit report is claimed for these new files.
+
+When the application is available, use only the authored `examples/drawn/` and
+`tests/data/drawn/{full,repeat}/` fixtures for this step:
+
+1. Build each fixture in a fresh folder with `--target altium`, first with `--altium-format binary`
+   and then `--altium-format ascii`. Review `--dry-run --json`, then confirm the returned plan.
+   Preserve the exact source commit, command, timestamp, output hashes and issue list.
+2. Open each generated `.PrjPcb` in Altium, record its exact version, and run that version's project
+   validation/compile operation. Record every message and whether every sheet loads.
+3. Export the compiled connectivity and compare every authored component/pin group with the build's
+   `.fenolite/circuit.json`; names and any reported qualification are recorded separately. Include
+   the repeated instances and their separate local nets, ports, buses, junctions and power ports.
+4. Inspect symbol poses, wire bends, sheet entries and field positions. Record the known transformed
+   local text, flattened repeated hierarchy, unsupported justification and power/mirror metadata.
+   These limitations prevent a claim of drawing identity even when connectivity is equal.
+5. Save into a new copy, reopen it and repeat connectivity comparison. Return the authored files'
+   hashes, compile log and value-free group/count verdict with the version. Only an actual report
+   can close the native application gate or raise `H-A-DRAWN-WRITE`.
+
+The automated source proof is `tests/unit/backends/altium/test_drawn_altium.py`: ASCII/binary authored
+fixtures, native coverage and physical maps, aliases, rejected malformed content, writer/template
+faults and reviewed-input changes. Its own-reader result does not replace this application step.
+
+## Maintainer-host drawn measurements — 2026-11-02
+
+The later [actual Altium 22.2.1 report](altium-drawn-native.md) retains all six
+original binary/ASCII compile and complete pin-partition observations, native
+new-copy save/reopen and c0331's corrected/negative bus controls. All source
+ERC/raw name findings remain visible. This is a bounded native observation,
+not execution of the entire formal kit. The original no-connectivity-message
+criterion is not met; `H-A-DRAWN-WRITE` remains INFERRED and pending.
+
+
+## Current24 drawn visual inspection —2026-11-03
+
+The maintainer-authorized operator inspected actual Altium Designer24.5.2.23 windows for all14
+already native-saved authored documents: EXAMPLE/FULL roots and children, and REPEAT roots and
+both local-net children, in each writer origin. The original PNGs and per-capture receipts are
+retained externally; their source/image hashes and observations are bound by
+[the visual proof](../../openspec/changes/archive/2026-11-04-c0276-drawn-schematic/native-visual-proof.json).
+A final Windows read confirms all14 disk hashes remain unchanged. No new compile, save or
+connectivity outcome is inferred from opening/inspecting these copies.
+
+Body poses, bends, sheet entries and field positions were inspected. Actual text/field overlaps
+remain visible beside power ports/values/local labels and on sheet-box names. FB0/FB1, flattened
+ordinary child sheets, the FULL B[0..1] replacement, unsupported justification/mirror metadata,
+missing per-sheet titles and the two opaque graphic drops remain explicit limitations. This is
+not a claim of complete drawing identity or perfect label legibility. A separate mouse-wheel
+view merely panned; it is not represented as a native zoom.
+
+The prior complete current24 graph/export/save-reopen receipts remain independently scoped.
+On2026-11-03 the maintainer accepted this exact report: “Aprovo o relatório com essas limitações”.
+This concludes c0276.6.2: corrected EXAMPLE38pins/33groups, FULL40/32 and canonical REPEAT8/5
+in both forms, with Info-only compilation, complete exports and native save/reopen. The proof
+records the reviewed report digest and this decision. The original22.2.1 failures above remain
+historical observations, not results of these corrected controls.
+
+H-A-DRAWN-WRITE conservatively remains INFERRED because the machine-checked formal kit has
+no drawn step/source binding; this is a representation boundary, not a missing native run or
+maintainer decision. No synthetic formal-kit record is created. Writers remain experimental;
+there is no writer graduation, separate human viewer approval or CI pass from this acceptance.

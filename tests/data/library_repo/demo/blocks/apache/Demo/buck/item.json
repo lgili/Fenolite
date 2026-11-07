@@ -1,0 +1,17 @@
+{
+  "depends": [],
+  "executes": true,
+  "files": [
+    "buck.py"
+  ],
+  "id": "Demo:buck",
+  "kind": "block",
+  "schema": "fenolite.library-item.v0",
+  "spdx": "Apache-2.0",
+  "summary": "A block payload in Python",
+  "tags": [
+    "power"
+  ],
+  "title": "Demo buck block",
+  "version": "1.0.0"
+}

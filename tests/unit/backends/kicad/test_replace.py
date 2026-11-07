@@ -157,18 +157,69 @@ def test_rotation_keeps_the_field_placement_and_a_flip_takes_the_definitions() -
     known = definitions(design)
     r1 = by_ref(design)["R1"]
     reference = next(f for f in r1.fields if f.name == "Reference")
-    edited = dataclasses.replace(reference, position=Point(0, -3 * MM), visible=False)
+    edited = dataclasses.replace(
+        reference, position=Point(0, -3 * MM), visible=False, bold=True, italic=True, face="KiCad Font"
+    )
     custom = dataclasses.replace(r1, fields=tuple(edited if f is reference else f for f in r1.fields))
     board = dataclasses.replace(
         design.board, footprints=tuple(custom if fp is r1 else fp for fp in design.board.footprints)
     )
     design = dataclasses.replace(design, board=board)
-    turned = by_ref(move_footprint(design, r1.id, rotation=30_000_000, definitions=known))["R1"]
+    rotated = move_footprint(design, r1.id, rotation=30_000_000, definitions=known)
+    turned = by_ref(rotated)["R1"]
     kept = next(f for f in turned.fields if f.name == "Reference")
-    assert (kept.position, kept.visible) == (Point(0, -3 * MM), False)
+    assert (kept.position, kept.visible, kept.bold, kept.italic, kept.face) == (
+        Point(0, -3 * MM),
+        False,
+        True,
+        True,
+        "KiCad Font",
+    )
+
+    def font(text: str) -> Node:
+        for fp in parse(text).nodes("footprint"):
+            props = {p.atoms()[0].value: p for p in fp.nodes("property")}
+            if props["Reference"].atoms()[1].value == "R1":
+                effects = props["Reference"].find("effects")
+                assert effects is not None and effects.find("font") is not None
+                return effects.find("font")  # type: ignore[return-value]
+        raise AssertionError("R1 has no native reference font")
+
+    text = write_board(rotated, target=10).text
+    native_font = font(text)
+    assert native_font.find("bold") == parse("(bold yes)")
+    assert native_font.find("italic") == parse("(italic yes)")
+    assert native_font.find("face") == parse('(face "KiCad Font")')
+    reread = read_board(text)
+    turned_again = move_footprint(reread, r1.id, rotation=60_000_000, definitions=known)
+    assert font(write_board(turned_again, target=10).text) == native_font
+    # Explicit model requests win over the opaque native styles, including False.
+    assert reread.board is not None
+    loaded = by_ref(reread)["R1"]
+    cleared = dataclasses.replace(
+        loaded,
+        fields=tuple(
+            dataclasses.replace(f, bold=False, italic=False, face="Other Font")
+            if f.name == "Reference"
+            else f
+            for f in loaded.fields
+        ),
+    )
+    explicit = dataclasses.replace(
+        reread,
+        board=dataclasses.replace(
+            reread.board,
+            footprints=tuple(cleared if fp.id == r1.id else fp for fp in reread.board.footprints),
+        ),
+    )
+    changed = move_footprint(explicit, r1.id, rotation=60_000_000, definitions=known)
+    changed_font = font(write_board(changed, target=10).text)
+    assert changed_font.find("bold") is None and changed_font.find("italic") is None
+    assert changed_font.find("face") == parse('(face "Other Font")')
     flipped = by_ref(move_footprint(design, r1.id, side="bottom", definitions=known))["R1"]
     fresh = next(f for f in flipped.fields if f.name == "Reference")
     assert fresh.visible and fresh.position != Point(0, -3 * MM) and fresh.layer.startswith("B.")
+    assert (fresh.bold, fresh.italic, fresh.face) == (None, None, None)
 
 
 def test_no_definition() -> None:

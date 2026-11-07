@@ -37,7 +37,7 @@ from fenolite.backends.base import BoardFrame, BoardPad, EdgeRing, PlacedExtent
 from fenolite.core.coords import Point
 from fenolite.geometry.lengths import arc_length, segment_length
 from fenolite.geometry.transform import rotate_point
-from fenolite.model.board import Board, FootprintInstance, Graphic, Pad
+from fenolite.model.board import Board, FootprintInstance, Graphic, Pad, rule_areas
 from fenolite.model.design import Design
 
 if TYPE_CHECKING:
@@ -507,6 +507,7 @@ def build_scene(
             params |= {k: v for k, v in component.properties.items() if v and k not in _SHOWN_FIELDS}
         comps.append(
             {
+                "id": component.id if component is not None else fp.component_id,
                 "ref": ref,
                 "value": component.value if component is not None else "",
                 "footprint": fp.lib_ref,
@@ -535,6 +536,7 @@ def build_scene(
         _pad_prims(b, pad, comp_of.get(pad.footprint_id, -1), not has_mask, openings.get(pad.pad_id))
     pad_list = _pad_list(board, pads, comp_of)
     for entry, pad in zip(pad_list, pads, strict=True):
+        entry["id"] = pad.pad_id
         found = openings.get(pad.pad_id)
         if found is not None:
             entry |= {
@@ -692,7 +694,7 @@ def build_scene(
 
     # keep-outs, the Altium Keep-Out Layer, dimensions (change c0183)
     copper_names = [layer.name for layer in board.layers if layer.kind == "copper"]
-    for k, keepout in enumerate(board.keepouts):
+    for k, keepout in enumerate(rule_areas(board)):
         if len(keepout.outline) < 3:
             continue
         what = _forbids(keepout)

@@ -11,6 +11,7 @@ one PCB document), read by the Altium backend. Nothing is written.
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -117,20 +118,42 @@ def _kicad(given: Path) -> SourceProject:
     )
 
 
+def _project_parameters(path: Path, design: Design, found: list[Issue]) -> Design:
+    """``design``, read from the board document ``path`` alone, with the parameters of the project that
+    lists it as text variables of its board, as that project's conversion gives them (change c0428); the
+    board's own variables win."""
+    from fenolite.backends.altium.adapter.project import with_parameters
+    from fenolite.convert.altium_strings import owning_project, project_parameters
+
+    params = project_parameters(path)
+    board = design.board
+    if not params or board is None:
+        return design
+    project = owning_project(path)
+    name = project.name if project is not None else path.name
+    held = board.title_block.params if board.title_block is not None else {}
+    board = with_parameters(board, [(k, v) for k, v in params.items() if k not in held], name, found)
+    return dataclasses.replace(design, board=board)
+
+
 def _altium(given: Path, path: Path) -> SourceProject:
     found: list[Issue] = []
     read = AltiumBackend().read(path, issues=found)
     if not isinstance(read.content, Design):
         raise SourceError(f"{path.name} is a library, not a project", where=path.name)
     kind = "altium_prjpcb" if path.suffix.lower() == ALTIUM_PROJECT else "altium_pcbdoc"
+    design = read.content
+    extra: list[Issue] = []
+    if kind == "altium_pcbdoc" and design.board is not None:  # change c0428: the project's parameters
+        design = _project_parameters(path, design, extra)
     return SourceProject(
         given=given,
         path=path,
         root=path.parent,
         backend=ALTIUM,
         kind=kind,
-        design=read.content,
-        issues=tuple(i for i in read.issues if i.severity != "error"),
+        design=design,
+        issues=tuple(i for i in (*read.issues, *extra) if i.severity != "error"),
         evidence=read.evidence,
         files=MappingProxyType({path.name: path}),
     )

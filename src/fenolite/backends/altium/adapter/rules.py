@@ -24,15 +24,20 @@ from fenolite.backends.altium.adapter.ids import Ids, bag
 from fenolite.backends.altium.read.rules import (
     BACKEND,
     CELL_PAIR,
+    LAYER_PAIR,
+    WRITTEN_KINDS,
     CopperLayers,
     Field,
     RuleMapping,
+    holds_layer_values,
     map_rules,
 )
+from fenolite.backends.altium.read.scope import ScopeDocument
 from fenolite.core.errors import Issue
 from fenolite.model.rules import Rule, RuleSet
 
-MAPPER_PER_RULE = "altium.rule.unmapped"
+MAPPER_PER_RULE = frozenset({"altium.rule.unmapped", "altium.rule.applies-to-nothing"})
+"""The per-record infos of the mapper: the import counts their records by kind and reason instead."""
 RECORD_PAIR = "record"
 STORAGE = "Rules6"
 
@@ -55,6 +60,55 @@ def connect_texts(records: Sequence[Sequence[Field]]) -> tuple[str, ...]:
     return tuple(found)
 
 
+KEPT_RULE = "kept_rule"
+KEPT_RECORD = "kept_record"
+STACKED = ("HoleToHoleClearance", "ALLOWSTACKEDMICROVIAS", "TRUE")
+"""A Hole To Hole Clearance that allows stacked micro vias maps, and the lowering writes the key ``FALSE``:
+its record is kept (change c0424)."""
+
+
+def kept_indexes(records: Sequence[Sequence[Field]], mapping: RuleMapping) -> frozenset[int]:
+    """The records that give no rule which ``rulemap.lower`` writes again in its own form (change c0424):
+    a record the mapper does not map (any reason), a record of a kind outside ``read.rules.WRITTEN_KINDS``,
+    and a Hole To Hole Clearance with stacked micro vias allowed. A Polygon Connect Style record is not among
+    them (the board keeps it as ``polygon_connect``), nor a record without ``RULEKIND``. A record that holds
+    per-layer values (``read.rules.holds_layer_values``) is kept too, and so is a record whose object matrix
+    holds an entry: the lowering writes one form per rule, no per-layer key and an empty matrix, and a cell
+    rule's kind of object has no scope it writes (change c0462)."""
+    unmapped = {item.index for item in mapping.unmapped}
+    found: set[int] = set()
+    for index, fields in enumerate(records):
+        kind = _get(fields, "RULEKIND")
+        if not kind or kind == POLYGON_CONNECT:
+            continue
+        stacked = kind == STACKED[0] and _get(fields, STACKED[1]) == STACKED[2]
+        layered = holds_layer_values(fields) or bool((_get(fields, "OBJECTCLEARANCES") or "").strip())
+        if index in unmapped or kind not in WRITTEN_KINDS or stacked or layered:
+            found.add(index)
+    return frozenset(found)
+
+
+def kept_text(number: int, fields: Sequence[Field]) -> str:
+    """The ``kept_rule`` text of a record: its kind number, ``|``, and its pairs from ``RULEKIND`` on as
+    ``KEY=VALUE`` (a key without value alone) joined by ``|``."""
+    keys = [key for key, _value in fields]
+    start = keys.index("RULEKIND")
+    return f"{number}|" + "|".join(
+        key if value is None else f"{key}={value}" for key, value in fields[start:]
+    )
+
+
+def kept_fields(text: str) -> tuple[int, tuple[tuple[str, str], ...]]:
+    """The kind number and the pairs of a ``kept_rule`` text (``kept_text``), as the writer takes them: a
+    key written without a value gets the empty value."""
+    number, _bar, rest = text.partition("|")
+    pairs: list[tuple[str, str]] = []
+    for part in rest.split("|"):
+        key, _equals, value = part.partition("=")
+        pairs.append((key, value))
+    return int(number), tuple(pairs)
+
+
 def _mapper_pairs(rule: Rule) -> tuple[tuple[str, str], ...]:
     held = rule.ext.get(BACKEND)
     return tuple((key, str(value)) for key, value in held.payload) if held is not None else ()
@@ -73,21 +127,24 @@ def adopt(
     sha256: str,
     issues: list[Issue],
     storage: str = STORAGE,
+    kept: frozenset[int] = frozenset(),
 ) -> tuple[Rule, ...]:
     """The rules of ``mapping`` with the import's headers, and its issues summarised into ``issues``: one
-    ``altium.import.rule-unmapped`` per rule kind; the mapper's per-rule infos are not forwarded."""
+    ``altium.import.rule-unmapped`` per rule kind; the mapper's per-rule infos are not forwarded. A rule of
+    a record of ``kept`` holds the pair ``kept_record`` (change c0424)."""
     rules: list[Rule] = []
     for rule, index in zip(mapping.ruleset.rules, mapping.rule_records, strict=True):
         fields = records[index]
         kind, name = _get(fields, "RULEKIND"), _get(fields, "NAME")
         more = [pair for pair in _mapper_pairs(rule) if pair[0] != RECORD_PAIR]
-        cell = "".join(f":{value}" for key, value in more if key == CELL_PAIR)
+        cell = "".join(f":{value}" for key, value in more if key in (CELL_PAIR, LAYER_PAIR))
         ident, native = ids.native("rul", f"rule:{kind}:{name}:{rule.kind}{cell}")
         pairs = [
             ("rule_kind", kind),
             ("scope1", _get(fields, "SCOPE1EXPRESSION")),
             ("scope2", _get(fields, "SCOPE2EXPRESSION")),
             *more,
+            *([(KEPT_RECORD, "1")] if index in kept else []),
         ]
         rules.append(
             dataclasses.replace(
@@ -98,7 +155,7 @@ def adopt(
                 ext=bag(pairs),
             )
         )
-    issues.extend(found for found in mapping.issues if found.code != MAPPER_PER_RULE)
+    issues.extend(found for found in mapping.issues if found.code not in MAPPER_PER_RULE)
     by_kind: dict[str, Counter[str]] = {}
     for unmapped in mapping.unmapped:
         by_kind.setdefault(unmapped.kind or "(none)", Counter())[unmapped.reason] += 1
@@ -124,14 +181,31 @@ def import_rules(
     issues: list[Issue],
     storage: str = STORAGE,
     layers: CopperLayers | None = None,
+    numbers: Sequence[int] = (),
+    kept: list[str] | None = None,
+    document: ScopeDocument | None = None,
 ) -> RuleSet:
     """The rule set of the rule records ``records`` (each a record's whole pair list, ``RuleRecord.fields``
     of c0041): ``map_rules(records, origin=file)`` with the import's ids, provenance and bags. ``layers``
-    are the copper layers of the board the records belong to (a PCB document); a rule file has none."""
-    mapping = map_rules(records, origin=file, layers=layers)
-    rules = adopt(mapping, records, ids, file=file, sha256=sha256, issues=issues, storage=storage)
+    are the copper layers of the board the records belong to (a PCB document); a rule file has none. With
+    ``kept`` (a PCB document, whose record kind numbers are ``numbers``) the ``kept_rule`` texts of the
+    records ``kept_indexes`` names are appended to it, in record order (change c0424). ``document`` is what
+    the scope functions of change c0462 read from the PCB document (``read.scopedoc.scope_document``)."""
+    mapping = map_rules(records, origin=file, layers=layers, document=document)
+    held = kept_indexes(records, mapping) if kept is not None else frozenset[int]()
+    if kept is not None:
+        kept.extend(kept_text(numbers[index], records[index]) for index in sorted(held))
+    rules = adopt(mapping, records, ids, file=file, sha256=sha256, issues=issues, storage=storage, kept=held)
     ident, native = ids.native("rst", ids.kind)
     return RuleSet(id=ident, native_ids=native, provenance=ids.provenance(file, sha256, storage), rules=rules)
 
 
-__all__ = ["adopt", "import_rules"]
+__all__ = [
+    "KEPT_RECORD",
+    "KEPT_RULE",
+    "adopt",
+    "import_rules",
+    "kept_fields",
+    "kept_indexes",
+    "kept_text",
+]

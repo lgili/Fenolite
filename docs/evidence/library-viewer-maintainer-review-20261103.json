@@ -1,0 +1,41 @@
+{
+  "decision": "approved",
+  "generator_source_commit": "0caa4cccfd3ffb158e16bd28c70bdfb6f8370071",
+  "input_ownership": "Fenolite-authored CC0 library inputs",
+  "items": [
+    {
+      "html_sha256": "11cb3eea95a632fff87c6c8286b0609d2d9458ea4d8aeaec5161f1f13583ed56",
+      "name": "footprints-altium",
+      "source_name": "edit.PcbLib",
+      "source_sha256": "365b5ff3c090b5ac2d363147f75ee677c023677917882aa85774c4b4b0384f19"
+    },
+    {
+      "html_sha256": "fed72f70f4aa392590803ee7ca80970be822f2e6d23e38a8eb2fd71598070469",
+      "name": "symbols-altium",
+      "source_name": "edit.SchLib",
+      "source_sha256": "91207b8c8ce7b4e049e085646791ac68bb3f0e32d07162327ebda12e3ff7b53b"
+    },
+    {
+      "html_sha256": "e85fe4a15589b7902c1cae3a0ae58ee0664ec514a26d25df9994a2690438d55e",
+      "name": "symbols-kicad",
+      "source_name": "Mini.kicad_sym",
+      "source_sha256": "e2e0e928a0a4ad3167806eb81281ff05eb1576773c6cf9aa4fedef8b2e50db4c"
+    }
+  ],
+  "limitations": [
+    "No personal/private library was supplied or used; maintainer explicitly chose the Fenolite-authored libraries.",
+    "No 3D geometry review is claimed.",
+    "Whole-batch and exact-commit CI remain separate."
+  ],
+  "reviewed": "2026-11-03",
+  "schema": "fenolite.maintainer-review-record.v0",
+  "scope": [
+    "library item selection",
+    "symbol units A/B/C",
+    "millimetres/mil switch with Q",
+    "measurement with M"
+  ],
+  "spec": "c0179",
+  "statement": "Revisei e aprovo as bibliotecas autorais",
+  "task": "2.4"
+}

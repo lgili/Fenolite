@@ -13,8 +13,18 @@ explicitly after c0215 changed the default to computed pours; its counts and ass
 Computed-pour behavior is tested separately by the pour-mode, conversion and public Altium pour census
 tests described in [the pour evidence](altium-pour.md). This ledger does not verify computed pours.
 
-`tests/corpus/test_convert_census.py` reads the two tables between the markers below and fails when a
-conversion gives other rows, or any `convert.unexplained`. Regenerate them by running the census and
+The dated tables remain unchanged after c0277's placement pairing. The additive
+[current comparison record](conversion-comparison-c0319.json), measured on source
+`46d788ee0e10516838a4b0a63b254eab2a475fd1` with Python 3.12.14 on 2026-11-02, binds the
+declared input SHA-256 values of rows 08 and 16. Equal repeated references now pair:
+row 08 has no comparison differences; row 16 retains exactly 11 `dnp`, 20
+`pad-missing` and one `route-connectivity` difference. Raw duplicate counts and
+all historical writer-ledger rows remain checked. These are local backend
+comparisons, with no native Altium execution or new KiCad importer claim.
+
+`tests/corpus/test_convert_census.py` reads the two tables between the markers below, with the explicit
+current comparison supplement for rows 08/16, and fails when a conversion gives other rows or any
+`convert.unexplained`. Regenerate measurements by running the census and
 copying its rows; never edit a count by hand. The page also holds, under "KiCad to Altium, before
 c0160", the frozen census that change measures its losses against; no test reads it.
 
@@ -234,6 +244,20 @@ The PCB retains those instance edits. This source geometry explains the two
 changed-footprint rows; it is unrelated to nonzero drill offsets (none occur in
 this board). The ledger assertion remains exact.
 
+Change c0420 writes a footprint with net-tie groups as an Altium net-tie component (`COMPONENTKIND` 4).
+In this ledger, `RoyalBlue54L-Feather` and `tinytapeout-demo` lose their `net-tie` rows: each group holds
+every pad number of its footprint, so nothing changes. The two three-pad jumpers of `One-Air-Max` tie pads
+1 and 2 only, which the component mark cannot say, so they are `changed`. The other tables keep their
+dated counts. The `writer_ledger_sha256` of row 16 in the current comparison record follows the ledger
+rows without the `net-tie` row; its compared differences are unchanged.
+
+Change c0449 counts each `model` child of a board footprint (S-2081). The corpus holds the boards without
+their project folders, so no model is embedded: each is a `model` loss, mostly a path under
+`${KICAD…_3DMODEL_DIR}`, and a `${KIPRJMOD}` file that is not there. The rows were counted from the boards
+with `convert.models.footprint_models`, without a conversion; `microwave` and `RoyalBlue54L-NFC-Antenna`
+name no model. The `writer_ledger_sha256` of row 16 follows the new rows; its compared differences are
+unchanged.
+
 <!-- ledger:begin -->
 | board | kind | outcome | count | reason |
 |---|---|---|---|---|
@@ -241,73 +265,79 @@ this board). The ledger assertion remains exact.
 | CM5_MINIMA_3 | pin-net | lost | 1 | the pin's membership of unconnected-(J502-MountPin-PadMP)_1 is omitted: the largest net, then name, wins |
 | CM5_MINIMA_3 | pin-net | lost | 1 | the pin's membership of unconnected-(J503-MountPin-PadMP)_1 is omitted: the largest net, then name, wins |
 | CM5_MINIMA_3 | footprint | changed | 33 | differs from the library footprint |
-| CM5_MINIMA_3 | pad | changed | 14 | the pad number is empty, so it is written as a free pad at its board position |
 | CM5_MINIMA_3 | pad | changed | 2 | a connector pad is written as a surface pad with no paste and no mask opening |
 | CM5_MINIMA_3 | pad | lost | 2 | the pad is a surface pad without a copper layer |
 | CM5_MINIMA_3 | footprint-graphic | lost | 3 | a filled circle has no record: a region holds straight edges only |
+| CM5_MINIMA_3 | model | lost | 62 | the model path names a variable other than KIPRJMOD; only files of the project are read |
+| CM5_MINIMA_3 | model | lost | 10 | the model file is not found in the project folder |
+| CM5_MINIMA_3 | model | lost | 5 | the model file is not found at its path |
 | CM5_MINIMA_3 | zone-fill | changed | 13 | a polygon is written unpoured; Altium fills it on a repour |
-| CM5_MINIMA_3 | outline | lost | 14 | an arc of the outline is written as two straight edges |
 | CM5_MINIMA_3 | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours, the finish, the impedance-control flag; the copper and dielectric values are written |
-| CM5_MINIMA_3 | text | lost | 131 | the text record has no key for a justification other than centred |
-| CM5_MINIMA_3 | text | lost | 18 | the text is empty |
+| CM5_MINIMA_3 | text | lost | 149 | the text record has no key for a justification other than centred |
 | CM5_MINIMA_3 | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | complex_hierarchy | footprint | changed | 28 | differs from the library footprint |
+| complex_hierarchy | model | lost | 68 | the model path names a variable other than KIPRJMOD; only files of the project are read |
 | complex_hierarchy | zone-fill | changed | 1 | a polygon is written unpoured; Altium fills it on a repour |
 | complex_hierarchy | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours; the copper and dielectric values are written |
-| complex_hierarchy | text | lost | 2 | the text holds a control character or a line break |
 | complex_hierarchy | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | ecc83-pp | footprint | changed | 5 | differs from the library footprint |
+| ecc83-pp | model | lost | 10 | the model path names a variable other than KIPRJMOD; only files of the project are read |
+| ecc83-pp | model | lost | 1 | the model file is not found in the project folder |
 | ecc83-pp | zone-fill | changed | 1 | a polygon is written unpoured; Altium fills it on a repour |
 | ecc83-pp | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours; the copper and dielectric values are written |
 | ecc83-pp | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | ecc83-pp_v2 | footprint | changed | 4 | differs from the library footprint |
-| ecc83-pp_v2 | pad | changed | 1 | the pad number is empty, so it is written as a free pad at its board position |
+| ecc83-pp_v2 | model | lost | 10 | the model path names a variable other than KIPRJMOD; only files of the project are read |
+| ecc83-pp_v2 | model | lost | 1 | the model file is not found in the project folder |
 | ecc83-pp_v2 | zone-fill | changed | 1 | a polygon is written unpoured; Altium fills it on a repour |
 | ecc83-pp_v2 | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours; the copper and dielectric values are written |
 | ecc83-pp_v2 | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | interf_u | footprint | changed | 6 | differs from the library footprint |
 | interf_u | pad | changed | 62 | a connector pad is written as a surface pad with no paste and no mask opening |
+| interf_u | model | lost | 22 | the model path names a variable other than KIPRJMOD; only files of the project are read |
+| interf_u | model | lost | 1 | the model file is not found in the project folder |
 | interf_u | zone-fill | changed | 1 | a polygon is written unpoured; Altium fills it on a repour |
 | interf_u | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours; the copper and dielectric values are written |
 | interf_u | dimension | lost | 2 | the document has no dimension record |
 | interf_u | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | kit-dev-coldfire-xilinx_5213 | footprint | changed | 87 | differs from the library footprint |
-| kit-dev-coldfire-xilinx_5213 | pad | changed | 2 | the pad number is empty, so it is written as a free pad at its board position |
+| kit-dev-coldfire-xilinx_5213 | model | lost | 153 | the model path names a variable other than KIPRJMOD; only files of the project are read |
+| kit-dev-coldfire-xilinx_5213 | model | lost | 7 | the model file is not found in the project folder |
 | kit-dev-coldfire-xilinx_5213 | zone-fill | changed | 3 | a polygon is written unpoured; Altium fills it on a repour |
 | kit-dev-coldfire-xilinx_5213 | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours, the finish; the copper and dielectric values are written |
-| kit-dev-coldfire-xilinx_5213 | text | lost | 1 | the text holds a control character or a line break |
 | kit-dev-coldfire-xilinx_5213 | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | microwave | footprint | changed | 2 | differs from the library footprint |
 | microwave | footprint-copper | lost | 4 | a graphic of a footprint on a copper layer has no record written: it would be copper |
 | microwave | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | multichannel_mixer-unrouted | footprint | changed | 68 | differs from the library footprint |
+| multichannel_mixer-unrouted | model | lost | 21 | the model path names a variable other than KIPRJMOD; only files of the project are read |
 | multichannel_mixer-unrouted | zone-fill | changed | 1 | a polygon is written unpoured; Altium fills it on a repour |
 | multichannel_mixer-unrouted | keep-out | lost | 4 | the keep-out sets no restriction that the record carries (tracks, vias, pads, copper) |
-| multichannel_mixer-unrouted | text | lost | 2 | the text holds a control character or a line break |
+| multichannel_mixer-unrouted | text | lost | 2 | the text record has no key for a justification other than centred |
 | multichannel_mixer-unrouted | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | multichannel_mixer | footprint | changed | 68 | differs from the library footprint |
+| multichannel_mixer | model | lost | 21 | the model path names a variable other than KIPRJMOD; only files of the project are read |
 | multichannel_mixer | zone-fill | changed | 2 | a polygon is written unpoured; Altium fills it on a repour |
 | multichannel_mixer | keep-out | lost | 4 | the keep-out sets no restriction that the record carries (tracks, vias, pads, copper) |
-| multichannel_mixer | text | lost | 1 | the text holds a control character or a line break |
-| multichannel_mixer | text | lost | 1 | the text record has no key for a justification other than centred |
+| multichannel_mixer | text | lost | 2 | the text record has no key for a justification other than centred |
 | multichannel_mixer | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | One-Air-Max | dnp | lost | 11 | the Altium documents hold no fitted flag outside variants |
 | One-Air-Max | footprint | changed | 118 | differs from the library footprint |
 | One-Air-Max | pad | lost | 12 | the pad has the shape custom, which has no exact Altium form |
-| One-Air-Max | pad | changed | 5 | the pad number is empty, so it is written as a free pad at its board position |
-| One-Air-Max | footprint-copper | lost | 3 | a graphic of a footprint on a copper layer has no record written: it would be copper |
+| One-Air-Max | footprint-copper | lost | 1 | a graphic of a footprint on a copper layer has no record written: it would be copper |
 | One-Air-Max | footprint-graphic | lost | 1 | degenerate arc on F.SilkS is not written |
-| One-Air-Max | net-tie | lost | 2 | the pads are written, without a mark that ties them: a net-tie group is KiCad data |
-| One-Air-Max | copper-shape | lost | 2 | a shape on a copper layer has no record written |
+| One-Air-Max | net-tie | changed | 2 | the component is written as a net tie, which ties all its pads: Altium marks the whole component, not groups of pads |
+| One-Air-Max | model | lost | 193 | the model path names a variable other than KIPRJMOD; only files of the project are read |
+| One-Air-Max | model | lost | 4 | the model file is not found at its path |
+| One-Air-Max | model | lost | 1 | the model file is not found in the project folder |
 | One-Air-Max | zone-fill | changed | 34 | a polygon is written unpoured; Altium fills it on a repour |
-| One-Air-Max | outline | lost | 20 | an arc of the outline is written as two straight edges |
 | One-Air-Max | stackup | lost | 1 | the document has no key for the solder mask thickness, the finish; the copper and dielectric values are written |
-| One-Air-Max | text | lost | 24 | the text record has no key for a justification other than centred |
-| One-Air-Max | text | lost | 1 | the text holds a control character or a line break |
+| One-Air-Max | text | lost | 25 | the text record has no key for a justification other than centred |
 | One-Air-Max | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | pic_programmer | footprint | changed | 18 | differs from the library footprint |
-| pic_programmer | pad | changed | 9 | the pad number is empty, so it is written as a free pad at its board position |
 | pic_programmer | pad | lost | 2 | the pad has the shape custom, which has no exact Altium form |
+| pic_programmer | model | lost | 54 | the model path names a variable other than KIPRJMOD; only files of the project are read |
+| pic_programmer | model | lost | 2 | the model file is not found in the project folder |
 | pic_programmer | zone-fill | changed | 1 | a polygon is written unpoured; Altium fills it on a repour |
 | pic_programmer | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours; the copper and dielectric values are written |
 | pic_programmer | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
@@ -315,21 +345,20 @@ this board). The ledger assertion remains exact.
 | RoyalBlue54L-Feather | footprint | changed | 24 | differs from the library footprint |
 | RoyalBlue54L-Feather | pad | lost | 39 | the pad has the shape custom, which has no exact Altium form |
 | RoyalBlue54L-Feather | pad | lost | 9 | the pad is a surface pad without a copper layer |
-| RoyalBlue54L-Feather | pad | changed | 9 | the pad number is empty, so it is written as a free pad at its board position |
 | RoyalBlue54L-Feather | pad | changed | 6 | a connector pad is written as a surface pad with no paste and no mask opening |
-| RoyalBlue54L-Feather | footprint-copper | lost | 1 | a graphic of a footprint on a copper layer has no record written: it would be copper |
-| RoyalBlue54L-Feather | net-tie | lost | 1 | the pads are written, without a mark that ties them: a net-tie group is KiCad data |
+| RoyalBlue54L-Feather | model | lost | 45 | the model path names a variable other than KIPRJMOD; only files of the project are read |
+| RoyalBlue54L-Feather | model | lost | 6 | the model is embedded in the KiCad file (kicad-embed://), which Fenolite does not read |
+| RoyalBlue54L-Feather | model | lost | 4 | the model file is not found in the project folder |
 | RoyalBlue54L-Feather | zone | lost | 2 | the model holds no outline of the zone (an outline with an arc is kept by the reader) |
 | RoyalBlue54L-Feather | zone-fill | changed | 2 | a polygon is written unpoured; Altium fills it on a repour |
-| RoyalBlue54L-Feather | outline | lost | 4 | an arc of the outline is written as two straight edges |
 | RoyalBlue54L-Feather | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours, the finish; the copper and dielectric values are written |
-| RoyalBlue54L-Feather | text | lost | 1 | the text holds a control character or a line break |
+| RoyalBlue54L-Feather | text | lost | 1 | the text record has no key for a justification other than centred |
 | RoyalBlue54L-Feather | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
-| RoyalBlue54L-NFC-Antenna | footprint-graphic | lost | 5 | the layer Edge.Cuts has no layer in the document for a graphic |
-| RoyalBlue54L-NFC-Antenna | copper-shape | lost | 4 | a shape on a copper layer has no record written |
-| RoyalBlue54L-NFC-Antenna | outline | lost | 12 | an arc of the outline is written as two straight edges |
+| RoyalBlue54L-NFC-Antenna | footprint-graphic | lost | 3 | a line of a footprint's Edge.Cuts is no closed outline: no board cut-out is written |
+| RoyalBlue54L-NFC-Antenna | footprint-graphic | lost | 2 | a arc of a footprint's Edge.Cuts is no closed outline: no board cut-out is written |
 | RoyalBlue54L-NFC-Antenna | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | sonde xilinx | footprint | changed | 3 | differs from the library footprint |
+| sonde xilinx | model | lost | 25 | the model path names a variable other than KIPRJMOD; only files of the project are read |
 | sonde xilinx | zone-fill | changed | 1 | a polygon is written unpoured; Altium fills it on a repour |
 | sonde xilinx | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours, the finish; the copper and dielectric values are written |
 | sonde xilinx | dimension | lost | 1 | the document has no dimension record |
@@ -338,22 +367,21 @@ this board). The ledger assertion remains exact.
 | tinytapeout-demo | footprint | changed | 63 | differs from the library footprint |
 | tinytapeout-demo | pad | lost | 16 | the pad has the shape custom, which has no exact Altium form |
 | tinytapeout-demo | pad | lost | 4 | the pad is a surface pad without a copper layer |
-| tinytapeout-demo | pad | changed | 3 | the pad number is empty, so it is written as a free pad at its board position |
-| tinytapeout-demo | footprint-copper | lost | 25 | a graphic of a footprint on a copper layer has no record written: it would be copper |
-| tinytapeout-demo | footprint-graphic | lost | 9 | the layer Edge.Cuts has no layer in the document for a graphic |
+| tinytapeout-demo | footprint-graphic | lost | 6 | a arc of a footprint's Edge.Cuts is no closed outline: no board cut-out is written |
 | tinytapeout-demo | footprint-graphic | lost | 6 | a filled circle has no record: a region holds straight edges only |
-| tinytapeout-demo | net-tie | lost | 9 | the pads are written, without a mark that ties them: a net-tie group is KiCad data |
+| tinytapeout-demo | footprint-graphic | lost | 3 | a line of a footprint's Edge.Cuts is no closed outline: no board cut-out is written |
+| tinytapeout-demo | model | lost | 126 | the model path names a variable other than KIPRJMOD; only files of the project are read |
+| tinytapeout-demo | model | lost | 5 | the model file is not found in the project folder |
 | tinytapeout-demo | zone-fill | changed | 2 | a polygon is written unpoured; Altium fills it on a repour |
-| tinytapeout-demo | outline | lost | 12 | an arc of the outline is written as two straight edges |
 | tinytapeout-demo | stackup | lost | 1 | the stack-up holds several dielectric sheets between F.Cu and In1.Cu (2 dielectric entries) and the document holds one dielectric per gap; the default stack values are written |
-| tinytapeout-demo | text | lost | 215 | the text record has no key for a justification other than centred |
-| tinytapeout-demo | text | lost | 9 | the text holds a control character or a line break |
+| tinytapeout-demo | text | lost | 222 | the text record has no key for a justification other than centred |
 | tinytapeout-demo | graphic | lost | 2 | a filled circle has no record: a region holds straight edges only |
 | tinytapeout-demo | dimension | lost | 6 | the document has no dimension record |
 | tinytapeout-demo | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | video | footprint | changed | 119 | differs from the library footprint |
 | video | pad | changed | 120 | a connector pad is written as a surface pad with no paste and no mask opening |
-| video | pad | changed | 24 | the pad number is empty, so it is written as a free pad at its board position |
+| video | model | lost | 166 | the model path names a variable other than KIPRJMOD; only files of the project are read |
+| video | model | lost | 9 | the model file is not found in the project folder |
 | video | zone-fill | changed | 2 | a polygon is written unpoured; Altium fills it on a repour |
 | video | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours, the finish; the copper and dielectric values are written |
 | video | dimension | lost | 2 | the document has no dimension record |
@@ -369,29 +397,27 @@ Each difference of the read-back, per board, with the kind of the lost item that
 |---|---|---|---|
 | CM5_MINIMA_3 | dnp | dnp | 1 |
 | CM5_MINIMA_3 | dnp | footprint | 1 |
-| CM5_MINIMA_3 | edge-ring | outline | 2 |
 | CM5_MINIMA_3 | pad-kind | pad | 2 |
-| CM5_MINIMA_3 | pad-missing | pad | 8 |
-| ecc83-pp_v2 | pad-missing | pad | 1 |
+| CM5_MINIMA_3 | pad-missing | pad | 1 |
 | interf_u | pad-kind | pad | 62 |
-| kit-dev-coldfire-xilinx_5213 | pad-missing | pad | 2 |
 | microwave | ref-ambiguous | source | 1 |
 | One-Air-Max | dnp | dnp | 1 |
 | One-Air-Max | dnp | footprint | 10 |
-| One-Air-Max | edge-ring | outline | 2 |
-| One-Air-Max | pad-missing | pad | 15 |
+| One-Air-Max | pad-missing | pad | 12 |
 | One-Air-Max | pin-missing | pad | 12 |
-| pic_programmer | pad-missing | pad | 10 |
+| One-Air-Max | route-connectivity | footprint | 7 |
+| One-Air-Max | route-connectivity | pad | 3 |
+| pic_programmer | pad-missing | pad | 2 |
 | pic_programmer | pin-missing | pad | 2 |
+| pic_programmer | route-connectivity | footprint | 2 |
 | RoyalBlue54L-Feather | dnp | dnp | 20 |
 | RoyalBlue54L-Feather | dnp | footprint | 2 |
-| RoyalBlue54L-Feather | edge-ring | outline | 2 |
 | RoyalBlue54L-Feather | pad-kind | pad | 6 |
-| RoyalBlue54L-Feather | pad-missing | pad | 28 |
+| RoyalBlue54L-Feather | pad-missing | pad | 22 |
 | RoyalBlue54L-Feather | pin-missing | pad | 18 |
-| RoyalBlue54L-Feather | route-connectivity | footprint | 1 |
+| RoyalBlue54L-Feather | route-connectivity | footprint | 4 |
+| RoyalBlue54L-Feather | route-connectivity | pad | 9 |
 | RoyalBlue54L-Feather | route-connectivity | zone | 1 |
-| RoyalBlue54L-NFC-Antenna | edge-ring | outline | 2 |
 | tinytapeout-demo | dnp | dnp | 9 |
 | tinytapeout-demo | dnp | footprint | 2 |
 | tinytapeout-demo | edge-ring | outline | 2 |
@@ -399,7 +425,7 @@ Each difference of the read-back, per board, with the kind of the lost item that
 | tinytapeout-demo | ref-ambiguous | source | 4 |
 | tinytapeout-demo | route-connectivity | footprint | 1 |
 | video | pad-kind | pad | 120 |
-| video | pad-missing | pad | 8 |
+
 <!-- explained:end -->
 
 ## What the ledger asks of the writers
@@ -638,3 +664,27 @@ Altium to KiCad (the eight public PCB documents, `FENOLITE_HEAVY=1`): `-03` 1 cu
 `-08` 1, none merged (no two overlap); the four round free holes of `-05` are written as the footprint
 `Fenolite_Holes:NPTH_…` that `design.hole` generates (`hole` 4 written); no ring difference, nothing
 unexplained.
+
+## Bodies and models — c0423, 2026-11-05
+
+Measured on 2026-11-05 on the branch of change c0423 (local run, macOS, `FENOLITE_HEAVY=1`), with
+`tests/corpus/test_convert_altium_census.py`. Every embedded model is now placed in the derived library, on
+either side and for any turn, through KiCad's model pose (`H-K-MODEL-POSE`, KICAD-VERIFIED on 9.0.9 and
+10.0.6). Every other body is written as a generated STEP model (`docs/formats/altium/pcb-bodies.md`, "Body
+forms of a conversion to KiCad"). No row has a `body` or `model` loss now.
+
+| Public PCB document | Bodies | Carried by a model | Generated | Models placed | Explicit losses now |
+| --- | --- | --- | --- | --- | --- |
+| 01 | 247 | 245 | 2 | 245 | 1 rule |
+| 02 | 42 | 42 | 0 | 42 | 1 rule, 1 text, 4 footprint texts |
+| 03 | 50 | 45 | 5 | 45 | 2 rules, 1 schematic, 46 footprint texts |
+| 04 | 33 | 3 | 30 | 3 | 1 rule, 3 footprint texts |
+| 05 | 23 | 23 | 0 | 23 | 1 rule |
+| 06 | 27 | 27 | 0 | 27 | 1 rule, 25 footprint texts |
+| 07 | 24 | 6 | 18 | 6 | 12 footprint texts |
+| 08 (heavy) | 1298 | 81 | 1217 | 81 | 298 texts, 1000 graphics, 554 footprint texts |
+
+No body falls back to the prism over its outline (a cylinder or sphere whose square does not hold it). On
+the authored document of `tests/_altium_models.py`, the KiCad oracle `tests/kicad/convert/test_altium_model_pose.py`
+finds every vertex of every model and generated body at the source's pose, on 9.0.9 (pinned image) and on
+10.0.6.

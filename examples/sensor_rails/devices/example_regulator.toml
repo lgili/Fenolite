@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as an example; an illustrative device, not a real product. Its values are chosen
+# for the example and come from no datasheet.
+schema = "fenolite.device.v0"
+id = "Example:REG_3V3_1A"
+summary = "5-pin 3.3 V 1 A regulator (illustrative)"
+manufacturer = "Example Semi"
+mpn = "EXR3301"
+symbol = "Example:Reg_5pin"
+footprint = "Fenolite:SOT23_5"
+ref_prefix = "U"
+evidence = "UNVERIFIED"
+ground = "GND"
+
+[pins]
+VIN = "1"
+GND = "2"
+EN = "3"
+NC = "4"
+VOUT = "5"
+
+[[interfaces]]
+name = "vin"
+kind = "power"
+direction = "in"
+members = { hv = ["VIN", "EN"], lv = ["GND"] }
+voltage = { min = "4.5V", max = "16V" }
+
+[[interfaces]]
+name = "vout"
+kind = "power"
+direction = "out"
+members = { hv = ["VOUT"], lv = ["GND"] }
+voltage = { min = "3.234V", max = "3.366V" }
+current = "1A"

@@ -35,6 +35,27 @@ BODY_LIMIT = 125_000
 """GitHub refuses a release body above 125 000 characters."""
 FINAL = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 TAG = re.compile(r"^v(\d+\.\d+\.\d+(?:(?:a|b|rc)\d+|\.dev\d+|\.post\d+)?)$")
+LEGAL_ROWS = frozenset(
+    (
+        "A1",
+        "A2",
+        "A3",
+        "P1",
+        "P2",
+        "P3",
+        "P4",
+        "B1",
+        "B2",
+        "B3",
+        "NOTICE",
+        "SPDX",
+        "DCO",
+        "LIBRARIES",
+        "ROUTER",
+        "CORPUS",
+        "INVENTORY",
+    )
+)
 
 
 class ReleaseError(Exception):
@@ -66,6 +87,105 @@ def changelog_section(text: str, version: str) -> tuple[str, str]:
     return found.group(1) or "", body
 
 
+def legal_review_problems(source: Path, *, require_answers: bool = True) -> list[str]:
+    """Validate the review record without making a licence or provenance claim for its author."""
+    page = source / "docs/release/v1.0-legal-review.md"
+    if not page.is_file():
+        return ["docs/release/v1.0-legal-review.md is missing"]
+    text = page.read_text(encoding="utf-8")
+    register = source / "docs/evidence/sources.md"
+    registered: set[str] = (
+        set(re.findall(r"^\| (S-\d+) \|", register.read_text(encoding="utf-8"), re.MULTILINE))
+        if register.is_file()
+        else set()
+    )
+    problems: list[str] = []
+    rows: set[str] = set()
+    witnesses: dict[str, str] = {}
+    for line in text.splitlines():
+        if not line.startswith("| ") or line.startswith("| Id |"):
+            continue
+        cells = [cell.strip() for cell in line.strip("|").split("|")]
+        if len(cells) != 5:
+            problems.append("legal review contains a malformed row")
+            continue
+        identifier, claim, stated, shown, answer = cells
+        if identifier in rows:
+            problems.append(f"legal review repeats row {identifier}")
+        rows.add(identifier)
+        witnesses[identifier] = shown
+        if not claim or not stated or not shown:
+            problems.append(f"legal review row {identifier} lacks claim or evidence")
+        for value in (*stated.split(";"), *shown.split(";")):
+            ref = value.strip().strip("`")
+            if re.fullmatch(r"S-\d+", ref):
+                if ref not in registered:
+                    problems.append(f"legal review row {identifier}: unregistered source {ref}")
+                continue
+            path = (source / ref.split("#", 1)[0].split("::", 1)[0]).resolve()
+            if not path.is_relative_to(source.resolve()) or not path.is_file():
+                problems.append(f"legal review row {identifier}: missing evidence {ref}")
+        if require_answers and not re.match(r"Accepted \d{4}-\d{2}-\d{2}: .+", answer):
+            problems.append(f"legal review row {identifier} is unanswered")
+    for missing in sorted(LEGAL_ROWS - rows):
+        problems.append(f"legal review is missing row {missing}")
+    if "No lawyer's review" not in text:
+        problems.append("legal review must state whether a lawyer reviewed it")
+    problems.extend(_bundled_preact_problems(source, witnesses))
+    return problems
+
+
+def _bundled_preact_problems(source: Path, witnesses: dict[str, str]) -> list[str]:
+    """Bind the viewer asset's review to its actual declared version and notice."""
+    package = source / "viewer/package.json"
+    bundle = source / "src/fenolite/view/static/viewer.js"
+    notice = source / "NOTICE"
+    if not any(path.is_file() for path in (package, bundle)):
+        return []
+    lock = source / "viewer/package-lock.json"
+    missing = [
+        str(path.relative_to(source)) for path in (package, lock, bundle, notice) if not path.is_file()
+    ]
+    if missing:
+        return [f"bundled Preact review lacks asset evidence: {', '.join(missing)}"]
+    try:
+        manifest = json.loads(package.read_text(encoding="utf-8"))
+        locked = json.loads(lock.read_text(encoding="utf-8"))
+        version = manifest["dependencies"]["preact"]
+        entry = locked["packages"]["node_modules/preact"]
+        if not isinstance(version, str) or not re.fullmatch(r"\d+\.\d+\.\d+", version):
+            raise ValueError("Preact version is not an exact pin")
+        if entry["version"] != version or locked["packages"][""]["dependencies"]["preact"] != version:
+            raise ValueError("Preact package and lock versions differ")
+        if entry["license"] != "MIT":
+            raise ValueError("Preact lock licence differs from the reviewed MIT declaration")
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        return [f"bundled Preact review has invalid package evidence: {error}"]
+    if "PREACT" not in witnesses:
+        return ["legal review is missing row PREACT"]
+    references = {value.strip().strip("`") for value in witnesses["PREACT"].split(";")}
+    problems: list[str] = []
+    if f"NOTICE::sha256={sha256(notice)}" not in references:
+        problems.append("bundled Preact review has a stale NOTICE digest")
+    if f"viewer/package-lock.json::preact={version}" not in references:
+        problems.append("bundled Preact review has a stale locked version")
+    notice_text = notice.read_text(encoding="utf-8")
+    script = bundle.read_text(encoding="utf-8")
+    head, marker, _ = script.partition("var preact=")
+    if f"Preact {version}" not in notice_text or "MIT" not in notice_text:
+        problems.append("bundled Preact NOTICE lacks its version or declared licence")
+    required = (
+        f"Preact {version}",
+        "The MIT License (MIT)",
+        "Copyright (c) 2015-present Jason Miller",
+        "Permission is hereby granted, free of charge",
+        "THE SOFTWARE IS PROVIDED",
+    )
+    if not marker or any(value not in head for value in required):
+        problems.append("bundled Preact header lacks its version or permission notice")
+    return problems
+
+
 def check(source: Path, tag: str) -> list[str]:
     """Why ``tag`` cannot be released from ``source``; empty when everything agrees."""
     version = version_of(tag)
@@ -86,6 +206,8 @@ def check(source: Path, tag: str) -> list[str]:
         changelog_section((source / "CHANGELOG.md").read_text(encoding="utf-8"), version)
     except ReleaseError as error:
         problems.append(str(error))
+    if version == "1.0.0":
+        problems.extend(legal_review_problems(source))
     return problems
 
 
@@ -125,7 +247,7 @@ def notes(
         "```",
         "",
     ]
-    links = []
+    links: list[str] = []
     if record:
         minor = ".".join(version.split(".")[:2])
         links.append(
@@ -193,7 +315,7 @@ def pypi_files(tag: str, dist: Path, fetch: Fetch = _fetch) -> list[Path]:
         return []
     for old in dist.iterdir():
         old.unlink()
-    written = []
+    written: list[Path] = []
     for filename, url, digest in found:
         data = fetch(url)
         if hashlib.sha256(data).hexdigest() != digest:
@@ -205,7 +327,7 @@ def pypi_files(tag: str, dist: Path, fetch: Fetch = _fetch) -> list[Path]:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "Release workflow helpers").splitlines()[0])
     commands = parser.add_subparsers(dest="command", required=True)
     for name in ("check", "notes", "latest", "pypi-files"):
         sub = commands.add_parser(name)

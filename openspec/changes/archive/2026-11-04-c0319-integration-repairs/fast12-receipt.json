@@ -1,0 +1,11 @@
+{
+  "clean_after": true,
+  "command": "make check-fast PYTEST_MAX_WORKERS=2",
+  "driver_sha256": "145211038d317111f3e7c7470796be7b4e8055d6641d818b13b54deeba6843fe",
+  "exit": 2,
+  "head_unchanged": true,
+  "log_sha256": "48459d3aa490fb7c8d2411a0646e8672245ff8049145275e54ad0c5a0dded9a7",
+  "schema": "fenolite.local-fast-gate.v0",
+  "seconds": 2197.3684627919865,
+  "source_commit": "5bbe19c7a23ea410ef7cb6beba5361e4e87cc4e5"
+}

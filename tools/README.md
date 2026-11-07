@@ -98,3 +98,5 @@ To record a run, add `--record`: one row is appended to `docs/evidence/agent-eva
 runner, model, task, verdict, calls, failed calls, minutes, first failure), with no path, prompt or
 transcript. Add a row to `Findings` by hand for each distinct first failure. `--keep` leaves the
 temporary folder, which holds the transcript, on your machine; it is never committed.
+
+`verify_drawn_floor.py` requires both same-commit native job artifacts for every declared old schematic: immutable originals, complete native pin/partition/name bridges and official-upgrade provenance. Partial, missing or stale evidence fails; original refusals are never reclassified as supported.

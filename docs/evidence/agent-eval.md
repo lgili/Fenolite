@@ -44,6 +44,15 @@ One row per distinct first failure of the runs above, with the change that addre
 
 ## Not measured
 
+**Maintainer decision, 2026-11-03:** "Registrar que decidi não executar esse
+benchmark". The maintainer chose not to execute the first paid benchmark batch.
+No real-agent run was started for any of the five tasks: led-indicator,
+custom-footprint, fix-short, regulator-zone and two-sided. The Runs and Findings
+tables intentionally remain empty; there is no measured cost, model, turns,
+tokens or verdict, and no claim that an agent can use Fenolite or that a board
+passed. This is a recorded no-run decision, not a benchmark result.
+
+
 - No run with a real agent is recorded yet: the table above is empty, and nothing on this page says
   that an agent can or cannot use Fenolite.
 - Whether an agent can design a circuit, choose parts or read a datasheet: the tasks give the netlist.

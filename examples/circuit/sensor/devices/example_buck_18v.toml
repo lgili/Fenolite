@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as an example; an illustrative device, not a real product. Its values are chosen
+# for the example and come from no datasheet.
+schema = "fenolite.device.v0"
+id = "Example:BUCK_18V"
+summary = "18 V input step-down regulator (illustrative)"
+manufacturer = "Example Semi"
+mpn = "EXB1820"
+symbol = "Example:Buck_6pin"
+footprint = "Fenolite:SOT23_6_TI_DBV0006A"
+ref_prefix = "U"
+evidence = "UNVERIFIED"
+ground = "GND"
+
+[pins]
+BST = "1"
+GND = "2"
+FB  = { pins = ["3"], voltage = { abs_max = "6V" } }
+EN  = { pins = ["4"], voltage = { abs_max = "20V" } }
+VIN = { pins = ["5"], voltage = { operating = { min = "4.5V", max = "18V" }, abs_max = "20V" } }
+SW  = "6"
+
+[[limits]]
+between = ["BST", "SW"]
+voltage = { abs_max = "6V" }

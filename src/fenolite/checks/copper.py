@@ -4,7 +4,7 @@
 copper-check; user guide ``docs/cli-contract.md``, facts ``docs/formats/kicad/copper.md``).
 
 Every copper item becomes one or more thick shapes (``geometry.thick``), each on one copper layer and one
-net: a track is its segment, an arc the polyline of its polygonisation within a stated band, a via a disc
+net: a track is its segment, an arc its exact circular core, a via a disc
 on every layer of its span, a pad the entries of its board-frame record, and a zone fill a filled ring.
 Two items of different nets that share a layer are judged: touching copper is a short, and copper closer
 than the clearance in force (``checks.clearance``) is a clearance finding. Zone outlines are not copper;
@@ -17,6 +17,7 @@ they give one Fenolite rule of their own, the overlap of two outlines of equal p
 
 from __future__ import annotations
 
+import dataclasses
 import fnmatch
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
@@ -24,8 +25,8 @@ from dataclasses import dataclass, field
 from typing import cast
 
 from fenolite.backends.base import BoardFrame, BoardPad, DesignRules, DesignRulesSource, EdgeRing, ProjectSet
+from fenolite.checks.allowances import ALLOWED_SEVERITY, allowance_rules, allowed_suffix, governing
 from fenolite.checks.clearance import (
-    ZONE_SOURCE,
     Clearance,
     ClearanceExplanation,
     ClearanceResolver,
@@ -34,6 +35,7 @@ from fenolite.checks.clearance import (
 )
 from fenolite.checks.codes import issue
 from fenolite.checks.stages import StageResult, ran, skipped
+from fenolite.checks.subjects import SUBJECT_KINDS, Subject, for_issues
 from fenolite.checks.waivers import COPPER_CODES, Candidate, apply_waivers, copper_waivers
 from fenolite.checks.waivers import judge as judge_waivers
 from fenolite.core.coords import Point
@@ -42,6 +44,7 @@ from fenolite.core.evidence import Evidence, Level
 from fenolite.core.units import Nm, format_length
 from fenolite.geometry import Arc as GeoArc
 from fenolite.geometry import (
+    Circle,
     GeometryError,
     Location,
     Polygon,
@@ -55,14 +58,16 @@ from fenolite.geometry import (
     thick_touch,
     thick_witness,
 )
+from fenolite.geometry.rings import zone_ring
 from fenolite.model.base import Entity
-from fenolite.model.board import Board, Keepout, Zone
+from fenolite.model.board import Board, Graphic, Keepout, Zone, placed_keepout
+from fenolite.model.board import rule_areas as all_rule_areas
 from fenolite.model.design import Design
 from fenolite.model.findings import Waiver
-from fenolite.model.rules import RuleSubject
+from fenolite.model.rules import PAD_TYPE_OF, Rule, RuleSubject
 
 ARC_TOL_NM = 1_000
-"""The chord error of a polygonised arc; its band is ``ARC_TOL_NM + 1`` nm."""
+"""Compatibility tolerance for polygonised topology; clearance decisions use exact arc cores."""
 EVIDENCE = Evidence(
     Level.INFERRED,
     hypotheses=("H-K-COPPER-SHAPES", "H-K-COPPER-RESOLVE", "H-K-COPPER-ZONES", "H-K-EDGE-AGREE"),
@@ -103,7 +108,7 @@ class CopperRef:
 @dataclass(frozen=True, slots=True)
 class CopperFinding:
     """A short, a clearance violation or a zone overlap: the layer, a point, both items, the gap in
-    nanometres (0 for a short; a lower bound for arcs) and the clearance in force with its source."""
+    nanometres (0 for a short; the exact gap floored otherwise) and the clearance in force with its source."""
 
     code: str
     severity: Severity
@@ -167,18 +172,13 @@ def group_findings(report: CopperReport) -> tuple[CopperReviewGroup, ...]:
 
 @dataclass(frozen=True, slots=True)
 class _Shape:
-    """A thick shape of an item on a layer. ``narrow`` is the shape a short is judged with and ``wide``
-    the one a clearance is judged with; they differ only for an arc, by its band."""
+    """A thick shape of an item on a layer. ``narrow`` and ``wide`` retain the former internal layout;
+    both now name the same exact shape, including circular arcs."""
 
     item: int
     narrow: Thick
     wide: Thick
     exact: bool = True
-
-    @property
-    def banded(self) -> bool:
-        """True for an arc: its two shapes differ by its band."""
-        return self.narrow is not self.wide
 
 
 @dataclass(slots=True)
@@ -192,6 +192,12 @@ class _Item:
     tie: tuple[str, int] | None = None
     """For a pad whose number is in a net-tie group of its footprint: the footprint's id and the index of
     that group (change c0114). Two pads with one ``tie`` are not judged."""
+    pad_type: str | None = None
+    """For a pad: ``smd``, ``th`` or ``npth`` (``model.rules.PAD_TYPES``; change c0462)."""
+    hole: Nm | None = None
+    """The diameter of the hole of a via or a pad (change c0462)."""
+    zone: str | None = None
+    """For a fill: the name of its zone (change c0462)."""
 
 
 def _sort_key(found: Issue) -> tuple[str, str, str]:
@@ -240,6 +246,28 @@ def _clean_ring(points: Sequence[Point]) -> tuple[Point, ...]:
     return tuple(out)
 
 
+def _graphic_shape(graphic: Graphic, arc_tol: int) -> Thick:
+    """The copper of a graphic: its stroke around its outline, and its inside when it is filled (a width
+    below 0, KiCad's "no stroke", draws no stroke)."""
+    width = max(graphic.width, 0)
+    points = graphic.points
+    if graphic.kind == "line":
+        return Thick(points, width)
+    if graphic.kind == "arc":
+        arc = GeoArc(*points)
+        return Thick((arc.start, arc.mid, arc.end), width, arc=arc)
+    if graphic.kind == "circle":
+        ring = Circle.from_kicad(points[0], points[1]).polygonize(arc_tol)
+    elif graphic.kind == "rect":
+        a, b = points
+        ring = (a, Point(b.x, a.y), b, Point(a.x, b.y))
+    else:
+        ring = points
+    if graphic.filled:
+        return Thick(ring, width, filled=True)
+    return Thick((*ring, ring[0]), width)
+
+
 class _Items:
     """The copper items of a board and what was left out."""
 
@@ -252,7 +280,13 @@ class _Items:
         self.kinds: Counter[str] = Counter()
         self.copper = copper_layers(board)
         self._nets = {net.id: net.name for net in design.circuit.nets}
-        self._band = arc_tol + 1
+        self._ids = {net.name: net.id for net in design.circuit.nets}
+        self._numbers: dict[str, str] = {}
+        for net in design.circuit.nets:  # a KiCad 9 board names nets by number (change c0277)
+            bag = net.ext.get("kicad")
+            number = dict(bag.payload).get("number") if bag is not None else None
+            if number is not None:
+                self._numbers[number] = net.id
         self._ties: dict[str, dict[str, int]] = {}
         for footprint in board.footprints:
             groups: dict[str, int] = {}
@@ -262,10 +296,11 @@ class _Items:
             if groups:
                 self._ties[footprint.id] = groups
         self._tracks(board)
-        self._arcs(board, arc_tol)
+        self._arcs(board)
         self._vias(board)
         self._pads(board, pads)
         self._fills(board)
+        self._graphics(board, arc_tol)
 
     def net_name(self, net_id: str | None) -> str:
         return NO_NET if net_id is None else self._nets.get(net_id, net_id)
@@ -290,17 +325,16 @@ class _Items:
             item = _Item(self._ref("track", track, track.net_id), track.net_id)
             self._add(item, [(track.layer, shape, shape, True)])
 
-    def _arcs(self, board: Board, arc_tol: int) -> None:
+    def _arcs(self, board: Board) -> None:
         for arc in board.arcs:
             try:
-                core = GeoArc(arc.start, arc.mid, arc.end).polygonize(arc_tol)
-                narrow = Thick(core, max(0, arc.width - 2 * self._band))
-                wide = Thick(core, arc.width + 2 * self._band)
+                core = GeoArc(arc.start, arc.mid, arc.end)
+                shape = Thick((arc.start, arc.mid, arc.end), arc.width, arc=core)
             except (GeometryError, ValueError):
                 self.unsupported["arc"] += 1
                 continue
             item = _Item(self._ref("arc", arc, arc.net_id), arc.net_id)
-            self._add(item, [(arc.layer, narrow, wide, True)])
+            self._add(item, [(arc.layer, shape, shape, True)])
 
     def span(self, layers: Sequence[str], through: bool) -> tuple[str, ...]:
         """The copper layers a via spans: from ``layers[0]`` to ``layers[1]`` in table order; every copper
@@ -320,7 +354,7 @@ class _Items:
             except (GeometryError, ValueError):
                 self.unsupported["via"] += 1
                 continue
-            item = _Item(self._ref("via", via, via.net_id), via.net_id)
+            item = _Item(self._ref("via", via, via.net_id), via.net_id, hole=via.drill)
             layers = self.span(via.layers, via.via_type == "through")
             self._add(item, [(layer, shape, shape, True) for layer in layers])
 
@@ -354,8 +388,54 @@ class _Items:
             )
             group = self._ties.get(record.footprint_id, {}).get(record.number) if record.number else None
             tie = None if group is None else (record.footprint_id, group)
-            item = _Item(ref, record.net_id, record.ref or None, tie=tie)
+            item = _Item(
+                ref, record.net_id, record.ref or None, tie=tie, pad_type=PAD_TYPE_OF.get(record.kind),
+                hole=record.drill if record.kind != "smd" else None,
+            )  # fmt: skip
             self._add(item, [(layer, shape, shape, exact) for layer, shape, exact in shapes])
+
+    def _graphics(self, board: Board, arc_tol: int) -> None:
+        """The graphics on a copper layer (change c0277): copper of their net, or of no net."""
+        for graphic in board.graphics:
+            if graphic.layer not in self.copper:
+                continue
+            try:
+                shape = _graphic_shape(graphic, arc_tol)
+            except (GeometryError, ValueError):
+                self.unsupported["graphic"] += 1
+                continue
+            net_id = graphic.net_id if graphic.net_id is not None else self._bag_net(graphic)
+            altium = "altium" in graphic.ext or (
+                graphic.provenance is not None and graphic.provenance.backend == "altium"
+            )
+            if net_id is None and altium:
+                # a region an Altium document holds without a net (the copper of a part or a pour the writer
+                # lowered) is not tied to a net here: it is left out, as a pad of no copper is
+                self.unsupported["graphic"] += 1
+                continue
+            item = _Item(self._ref("graphic", graphic, net_id), net_id)
+            self._add(item, [(graphic.layer, shape, shape, True)])
+
+    def _bag_net(self, graphic: Graphic) -> str | None:
+        """The net an Altium read keeps in a copper graphic's bag (a region or a fill of a net, which the
+        adapter reads as a graphic): its ``net`` pair names it; and the net a KiCad read keeps in the
+        graphic's slots, ``(net "GND")`` or the ``(net 1)`` of a KiCad 9 board (change c0277)."""
+        bag = graphic.ext.get("altium")
+        name = dict(bag.payload).get("net") if bag is not None else None
+        if name is not None:
+            return self._ids.get(name)
+        kicad = graphic.ext.get("kicad")
+        for text in (
+            (value for key, value in kicad.payload if key.startswith("slot")) if kicad is not None else ()
+        ):
+            stripped = text.strip()
+            if not stripped.startswith("(net "):
+                continue
+            atom = stripped[len("(net ") : -1].strip()
+            if atom.startswith('"') and atom.endswith('"'):
+                return self._ids.get(atom[1:-1].replace('\\"', '"'))
+            return self._numbers.get(atom)
+        return None
 
     def _fills(self, board: Board) -> None:
         for zone in board.zones:
@@ -372,6 +452,7 @@ class _Items:
                     CopperRef("fill", _where(zone), zone.id, self.net_name(zone.net_id), net_id=zone.net_id),
                     zone.net_id,
                     zone_clearance=zone.settings.clearance,
+                    zone=zone.name or None,
                 )
                 self._add(item, shapes)
                 self.kinds["fill"] += len(shapes) - 1  # fills are counted, not zones
@@ -386,6 +467,10 @@ class _Area:
     shape: Thick
     label: str
     """The area's name, else its locator."""
+    footprint_id: str = ""
+    """The footprint whose rule area it is (change c0411), in the board's frame; empty for the board's. A
+    footprint's area judges its own pads as any other item: KiCad 10.0.6's DRC reports them
+    (``docs/formats/kicad/board.md``, "Rule areas of a footprint")."""
 
 
 def _area_on(keepout: Keepout, layer: str) -> bool:
@@ -402,20 +487,22 @@ def _area_on(keepout: Keepout, layer: str) -> bool:
 
 class _Areas:
     """The rule areas of a board whose outline can be shaped, and which items lie in them. An item lies in
-    an area on a layer when the layer is one of the area's and its narrow shape touches the area's outline
+    an area on a layer when the layer is one of the area's and its exact shape touches the area's outline
     taken as a filled polygon: copper, not centre lines (``H-K-AREA-COND``)."""
 
     def __init__(self, board: Board, items: _Items) -> None:
         self.items = items
         self.areas: list[_Area] = []
-        for keepout in board.keepouts:
+        owned = [(keepout, "") for keepout in board.keepouts]
+        owned += [(placed_keepout(fp, area), fp.id) for fp in board.footprints for area in fp.keepouts]
+        for keepout, owner in owned:
             try:
                 ring = Polygon(_clean_ring(keepout.outline)).outer
                 shape = Thick(ring, 0, filled=True)
             except (GeometryError, ValueError):
                 items.unsupported["rule-area"] += 1
                 continue
-            self.areas.append(_Area(keepout, shape, keepout.name or _where(keepout)))
+            self.areas.append(_Area(keepout, shape, keepout.name or _where(keepout), owner))
         self.named = sum(1 for area in self.areas if area.keepout.name)
         self._index = SpatialIndex[int].build((thick_bbox(a.shape), i) for i, a in enumerate(self.areas))
         self._memo: dict[tuple[int, str], tuple[int, ...]] = {}
@@ -503,7 +590,8 @@ def _zone_overlaps(board: Board, items: _Items) -> list[CopperFinding]:
     usable: list[tuple[Zone, Polygon]] = []
     for zone in board.zones:
         try:
-            usable.append((zone, Polygon(_clean_ring(zone.outline))))
+            ring = zone_ring(zone.outline, [(a.edge, a.mid) for a in zone.arcs if a.ring == 0])
+            usable.append((zone, Polygon(_clean_ring(ring))))
         except GeometryError:
             items.unsupported["zone-outline"] += 1
     found: list[CopperFinding] = []
@@ -547,14 +635,10 @@ _Subjects = Callable[[int, str], RuleSubject]
 
 @dataclass(frozen=True, slots=True)
 class _EdgePiece:
-    """One edge of an edge ring as a thick shape: a line of width 0, or an arc's polygonisation widened by
-    twice its band, so that no copper closer than the limit to the true arc is missed. ``core`` is the
-    polygonisation itself, of width 0, which a fill is judged against (``_Edges.findings``)."""
+    """One exact edge of an edge ring, a segment or circular arc of width 0."""
 
     ring: int
     shape: Thick
-    banded: bool
-    core: Thick
 
 
 class _Edges:
@@ -562,7 +646,6 @@ class _Edges:
 
     def __init__(self, rings: Sequence[EdgeRing], arc_tol: int, unsupported: Counter[str]) -> None:
         self.rings = tuple(rings)
-        band = self.band = arc_tol + 1
         self.pieces: list[_EdgePiece] = []
         for r, ring in enumerate(self.rings):
             count = len(ring.points)
@@ -573,12 +656,12 @@ class _Edges:
                     if mid is not None:
                         arc = GeoArc(start, mid, end)
                         if not arc.is_straight:
-                            core = arc.polygonize(arc_tol)
-                            self.pieces.append(_EdgePiece(r, Thick(core, 2 * band), True, Thick(core, 0)))
+                            shape = Thick((start, mid, end), 0, arc=arc)
+                            self.pieces.append(_EdgePiece(r, shape))
                             continue
                     if start != end:
                         line = Thick((start, end), 0)
-                        self.pieces.append(_EdgePiece(r, line, False, line))
+                        self.pieces.append(_EdgePiece(r, line))
                 except (GeometryError, ValueError):
                     unsupported["edge"] += 1
         self.index = SpatialIndex[int].build((thick_bbox(p.shape), n) for n, p in enumerate(self.pieces))
@@ -591,17 +674,13 @@ class _Edges:
         """One ``copper.edge-clearance`` per item and ring whose gap is below the item's edge clearance: on
         the first layer, in ``layers`` order, where it is, at the closest place on that layer.
 
-        KiCad's filler cuts a fill to the edge clearance around the true arc of a curved edge, so a fill is
-        judged against the arc's polygonisation with the limit lowered by the band, the arc narrowed by its
-        band as for a fill that follows a copper arc (``_Judge._too_close``); the widened arc would report
-        fills that KiCad just made. Every other item is judged against the widened arc."""
+        All item kinds use the true circular edge, without polygonisation bands."""
         found: list[CopperFinding] = []
         if not self.pieces:
             return found
         for index, item in enumerate(items.items):
             done: set[int] = set()
             unset = False
-            fill = item.ref.kind == "fill"
             for layer in layers:
                 shapes = item.shapes.get(layer)
                 if not shapes:
@@ -618,8 +697,6 @@ class _Edges:
                             continue
                         self.judged += 1
                         edge, value = piece.shape, limit.value
-                        if fill and piece.banded:
-                            edge, value = piece.core, limit.value - self.band
                         if value <= 0 or not thick_closer_than(shape.wide, edge, value):
                             continue
                         gap = thick_gap_floor(shape.wide, edge)
@@ -675,15 +752,21 @@ class _Edges:
 
 HOLE_IN_CUTOUT = "copper.hole-in-cutout"
 HOLE_OVERLAP = "copper.hole-overlap"
+HOLE_CLEARANCE = "copper.hole-clearance"
 
 
 @dataclass(frozen=True, slots=True)
 class _Hole:
     """A drilled hole: its item (a pad's, a via's or a board hole's reference) and its area, the points
-    within ``drill / 2`` of its centre or of the segment between the ends of a slot."""
+    within ``drill / 2`` of its centre or of the segment between the ends of a slot. ``net_id`` is the net
+    of a plated hole's item (``None`` for an unplated hole: it has no net), ``component`` the reference of
+    a pad's part, and ``layers`` the copper layers a via's drill spans (``None``: every layer)."""
 
     ref: CopperRef
     shape: Thick
+    net_id: str | None = None
+    component: str | None = None
+    layers: tuple[str, ...] | None = None
 
 
 def _holes(board: Board, pads: Sequence[BoardPad] | None, items: _Items) -> list[_Hole]:
@@ -691,11 +774,19 @@ def _holes(board: Board, pads: Sequence[BoardPad] | None, items: _Items) -> list
     via, and each board hole. A hole that cannot be shaped is counted in ``items.unsupported``."""
     found: list[_Hole] = []
 
-    def add(ref: CopperRef, core: Sequence[Point], drill: Nm | None) -> None:
+    def add(
+        ref: CopperRef,
+        core: Sequence[Point],
+        drill: Nm | None,
+        *,
+        net_id: str | None = None,
+        component: str | None = None,
+        layers: tuple[str, ...] | None = None,
+    ) -> None:
         if not core or drill is None or drill <= 0:
             return
         try:
-            found.append(_Hole(ref, Thick(tuple(core), drill)))
+            found.append(_Hole(ref, Thick(tuple(core), drill), net_id, component, layers))
         except (GeometryError, ValueError):
             items.unsupported["hole"] += 1
 
@@ -703,12 +794,111 @@ def _holes(board: Board, pads: Sequence[BoardPad] | None, items: _Items) -> list
         holder = record.ref or record.footprint_id
         where = f"{holder}-{record.number}" if record.number else holder
         ref = CopperRef("pad", where, record.pad_id, items.net_name(record.net_id), record.footprint_id)
-        add(ref, record.hole, record.drill)
+        net_id = None if record.kind == "np_thru_hole" else record.net_id
+        add(ref, record.hole, record.drill, net_id=net_id, component=record.ref or None)
     for via in board.vias:
-        add(items.ref_of("via", via, via.net_id), (via.position,), via.drill)
+        span = items.span(via.layers, via.via_type == "through")
+        add(items.ref_of("via", via, via.net_id), (via.position,), via.drill, net_id=via.net_id, layers=span)
     for hole in board.holes:
         add(CopperRef("hole", _where(hole), hole.id, NO_NET), (hole.position,), hole.drill)
     return found
+
+
+_PAIR_CODES = frozenset({"copper.short", "copper.clearance"})
+
+
+def _hole_clearance_findings(
+    holes: Sequence[_Hole],
+    items: _Items,
+    layers: Sequence[str],
+    resolver: ClearanceResolver,
+    subject: _Subjects,
+    paired: Sequence[CopperFinding],
+    tolerance: Nm = 0,
+) -> tuple[list[CopperFinding], int]:
+    """One ``copper.hole-clearance`` per hole and copper item whose gap to the hole's wall is below the
+    hole clearance in force (``ClearanceResolver.hole``; change c0403), on the first layer, in ``layers``
+    order, where it is, at the closest place on that layer; and the number of shape pairs judged.
+
+    The copper of the hole's own item is left out, and for a hole with a net the copper of that net: the
+    hole clearance holds between different nets, and an unplated hole has none. A pair that already has a
+    ``copper.short`` or ``copper.clearance`` finding is left out too, as KiCad's DRC reports one violation
+    per item pair (``H-K-DRU-KIND-2``). The gap is exact and strict below the hole clearance less
+    ``tolerance``, the tool's own tolerance that the pair clearance takes too (change c0281; change c0420,
+    N4: an imported fill at its rule's value less the rounding of the import is no finding)."""
+    found: list[CopperFinding] = []
+    grow = resolver.max_hole
+    if not holes or grow <= 0:
+        return found, 0
+    reported = {
+        frozenset((f.items[0].entity_id, f.items[1].entity_id)) for f in paired if f.code in _PAIR_CODES
+    }
+    indexes: dict[str, tuple[list[_Shape], SpatialIndex[int]]] = {}
+    for layer in layers:
+        shapes = [shape for item in items.items for shape in item.shapes.get(layer, ())]
+        index = SpatialIndex[int].build((thick_bbox(s.wide), n) for n, s in enumerate(shapes))
+        indexes[layer] = (shapes, index)
+    judged = 0
+    for hole in holes:
+        owner = hole.ref.entity_id
+        box = thick_bbox(hole.shape).inflate(grow)
+        done: set[int] = set()
+        for layer in layers:
+            if hole.layers is not None and layer not in hole.layers:
+                continue
+            shapes, index = indexes[layer]
+            kind: CopperKind = "pad" if hole.ref.kind == "hole" else hole.ref.kind
+            hole_subject = resolver.subject(kind, hole.net_id, ref=hole.component, layer=layer)
+            closest: dict[int, tuple[int, Thick, Clearance]] = {}
+            for n in index.query(box):
+                shape = shapes[n]
+                if shape.item in done:
+                    continue
+                item = items.items[shape.item]
+                if item.ref.entity_id == owner and item.ref.kind == hole.ref.kind:
+                    continue  # the hole's own pad or via
+                if hole.net_id is not None and item.net_id == hole.net_id:
+                    continue
+                if frozenset((owner, item.ref.entity_id)) in reported:
+                    continue
+                limit = resolver.hole(hole_subject, subject(shape.item, layer))
+                if not limit.value or limit.severity is None:
+                    continue
+                judged += 1
+                value = limit.value - tolerance
+                if value <= 0 or not thick_closer_than(shape.wide, hole.shape, value):
+                    continue
+                gap = thick_gap_floor(shape.wide, hole.shape)
+                best = closest.get(shape.item)
+                if best is None or gap < best[0]:
+                    closest[shape.item] = (gap, shape.wide, limit)
+            for k, (gap, copper, limit) in sorted(closest.items()):
+                done.add(k)
+                found.append(_hole_clearance(items.items[k], hole, layer, gap, copper, limit))
+    return found, judged
+
+
+def _hole_clearance(
+    item: _Item, hole: _Hole, layer: str, gap: int, copper: Thick, limit: Clearance
+) -> CopperFinding:
+    assert limit.value is not None and limit.severity is not None
+    at = thick_witness(copper, hole.shape)
+    message = (
+        f"{item.ref.kind} {item.ref.where} of {item.ref.net} is {_mm(gap)} mm from the drill of "
+        f"{hole.ref.kind} {hole.ref.where} on {layer} at {_point(at)}; the hole clearance is "
+        f"{_mm(limit.value)} mm ({limit.source})"
+    )
+    return CopperFinding(
+        HOLE_CLEARANCE,
+        limit.severity,
+        layer,
+        at,
+        (item.ref, hole.ref),
+        gap,
+        limit.value,
+        limit.source,
+        message,
+    )
 
 
 def _ring_polygon(ring: EdgeRing, arc_tol: int) -> tuple[Point, ...]:
@@ -825,8 +1015,19 @@ def _candidates(items: _Items, layers: Sequence[str], grow: int, *, every_pair: 
 
 class _Judge:
     def __init__(
-        self, items: _Items, layers: Sequence[str], resolver: ClearanceResolver, areas: _Areas
+        self,
+        items: _Items,
+        layers: Sequence[str],
+        resolver: ClearanceResolver,
+        areas: _Areas,
+        tolerance: Nm = 0,
+        shorts: Sequence[Rule] = (),
     ) -> None:
+        self.tolerance = tolerance
+        self.shorts = tuple(shorts)
+        """The rules of kind ``short`` (change c0465): the governing one sets the severity of a short."""
+        self.allowed = 0
+        """The shorts a ``short`` rule of severity ``ignore`` allowed."""
         self.items = items
         self.layers = layers
         self.resolver = resolver
@@ -846,6 +1047,9 @@ class _Judge:
                 ref=item.component,
                 layer=layer,
                 areas=self.areas.names(index, layer),
+                zone=item.zone,
+                hole=item.hole,
+                pad_type=item.pad_type,
             )
             self._subjects[key] = found
         return found
@@ -859,36 +1063,20 @@ class _Judge:
             return None
         return first.zone_clearance if first.ref.kind == "fill" else second.zone_clearance
 
-    def _resolve(self, a: int, b: int, layer: str, *, zone: bool = True) -> Clearance:
+    def _resolve(self, a: int, b: int, layer: str) -> Clearance:
         return self.resolver.resolve(
             self.subject(a, layer),
             self.subject(b, layer),
-            zone_clearance=self._zone_clearance(a, b) if zone else None,
+            zone_clearance=self._zone_clearance(a, b),
         )
 
-    @staticmethod
-    def _too_close(
-        first: _Shape, second: _Shape, found: Clearance, base: Clearance | None
-    ) -> Clearance | None:
-        """The clearance the two shapes break, or ``None``.
-
-        A value that comes from a zone is the distance KiCad's filler cuts to around the true copper. An
-        arc is widened by twice its band so that no violation is missed, which would report every fill that
-        follows an arc at exactly the zone's value: for such a pair the zone's value is judged against the
-        arc narrowed by its band, and ``base``, the value in force without the zone, against the widened
-        arc, so no finding of the rule without zones is lost."""
+    def _too_close(self, first: _Shape, second: _Shape, found: Clearance) -> Clearance | None:
+        """The governing clearance broken by the exact shapes, or ``None``."""
         assert found.value is not None
-        if base is None or not (first.banded or second.banded):
-            return found if thick_closer_than(first.wide, second.wide, found.value) else None
-        if thick_closer_than(first.narrow, second.narrow, found.value):
-            return found
-        if (
-            base.value
-            and base.severity is not None
-            and thick_closer_than(first.wide, second.wide, base.value)
-        ):
-            return base
-        return None
+        value = found.value - self.tolerance  # the tool's own tolerance (change c0281)
+        if value <= 0:
+            return None
+        return found if thick_closer_than(first.wide, second.wide, value) else None
 
     def _refs(self, a: int, b: int) -> tuple[CopperRef, CopperRef]:
         first, second = sorted(
@@ -911,9 +1099,15 @@ class _Judge:
                 message = (
                     f"copper of {refs[0].net} and {refs[1].net} touches on {layer} at {_point(at)}{note}"
                 )
+                severity: Severity = "error"
+                rule = governing(self.shorts, "short", self.subject(a, layer), self.subject(b, layer))
+                if rule is not None and rule.severity != "error":
+                    severity = cast(Severity, ALLOWED_SEVERITY[rule.severity])
+                    message += allowed_suffix(rule)
+                    self.allowed += severity == "info"
                 return CopperFinding(
                     "copper.short",
-                    "error",
+                    severity,
                     layer,
                     at,
                     refs,
@@ -934,11 +1128,10 @@ class _Judge:
             unset = unset or found.unset
             if not found.value or found.severity is None:
                 continue
-            base = self._resolve(a, b, layer, zone=False) if found.source == ZONE_SOURCE else None
             closest: tuple[int, _Shape, _Shape, Clearance] | None = None
             for _, first, second in (entry for entry in ordered if entry[0] == rank):
                 self.judged += 1
-                broken = self._too_close(first, second, found, base)
+                broken = self._too_close(first, second, found)
                 if broken is not None:
                     gap = thick_gap_floor(first.wide, second.wide)
                     if closest is None or gap < closest[0]:
@@ -964,7 +1157,7 @@ class _Judge:
                     self.resolver.explain(
                         self.subject(a, layer),
                         self.subject(b, layer),
-                        zone_clearance=None if found is base else self._zone_clearance(a, b),
+                        zone_clearance=self._zone_clearance(a, b),
                     ),
                 )
         self.unset += unset
@@ -984,10 +1177,16 @@ def _run(
     edges: Sequence[EdgeRing] | None = None,
     min_edge_clearance: Nm | None = None,
     edge_floor_over_rules: bool = False,
+    tolerance: Nm = 0,
+    min_hole_clearance: Nm | None = None,
+    allowances: Sequence[Rule] | None = None,
 ) -> CopperReport:
     if type(arc_tol) is not int or arc_tol < 1:
         raise ValueError(f"arc_tol is an int of at least 1 nm, got {arc_tol!r}")
+    if type(tolerance) is not int or tolerance < 0:
+        raise ValueError(f"tolerance is a non-negative int of nm, got {tolerance!r}")
     board = design.board
+    shorts = tuple(r for r in allowance_rules(design, allowances) if r.kind == "short")
     resolver = ClearanceResolver(
         design,
         min_clearance=min_clearance,
@@ -995,10 +1194,13 @@ def _run(
         floor_over_rules=floor_over_rules,
         min_edge_clearance=min_edge_clearance,
         edge_floor_over_rules=edge_floor_over_rules,
+        min_hole_clearance=min_hole_clearance,
     )
     findings: list[CopperFinding] = []
     others: list[Issue] = []
     summary: dict[str, object] = {"arc_tol": arc_tol, "max_clearance": resolver.max_value}
+    if tolerance:
+        summary["tolerance"] = tolerance
     counts = {"pairs": 0, "judged": 0, "unset_pairs": 0, "approximated": 0, "net_tie_pairs": 0}
     edge_counts: dict[str, object] = {"rings": None, "judged": 0, "unset_items": 0, "max": resolver.max_edge}
     layers: tuple[str, ...] = ()
@@ -1006,6 +1208,8 @@ def _run(
     unsupported: Counter[str] = Counter()
     rule_areas = 0
     hole_count = 0
+    hole_judged = 0
+    allowed = 0
     if board is not None:
         items = _Items(design, pads, arc_tol)
         used = {layer for item in items.items for layer in item.shapes}
@@ -1017,11 +1221,12 @@ def _run(
         )
         areas = _Areas(board, items)
         rule_areas = areas.named
-        judge = _Judge(items, layers, resolver, areas)
+        judge = _Judge(items, layers, resolver, areas, tolerance, shorts)
         for (a, b), shapes in sorted(pairs.items()):
             found = judge.pair(a, b, shapes)
             if found is not None:
                 findings.append(found)
+        allowed = judge.allowed
         findings += areas.findings(layers)
         findings += _zone_overlaps(board, items)
         board_edges = _Edges(edges, arc_tol, items.unsupported) if edges is not None else None
@@ -1035,6 +1240,10 @@ def _run(
         holes = _holes(board, pads, items)
         findings += _hole_findings(holes, board_edges, arc_tol)
         hole_count = len(holes)
+        near, hole_judged = _hole_clearance_findings(
+            holes, items, layers, resolver, judge.subject, findings, tolerance
+        )
+        findings += near
         counts.update(
             judged=judge.judged,
             unset_pairs=judge.unset,
@@ -1053,6 +1262,18 @@ def _run(
                 where=kind,
             )
         )
+    if board is not None:
+        names = {layer.name for layer in board.layers if layer.kind == "copper"}
+        texts = sum(1 for text in board.texts if text.layer in names)
+        if texts:
+            others.append(
+                issue(
+                    "copper.text-unchecked",
+                    f"{texts} text(s) on copper layers left out of the copper check: Fenolite draws no "
+                    "glyphs, and KiCad's DRC judges them",
+                    where="text",
+                )
+            )
     if counts["unset_pairs"]:
         others.append(
             issue(
@@ -1075,12 +1296,16 @@ def _run(
         holes=hole_count,
         hole_in_cutout=by_code[HOLE_IN_CUTOUT],
         hole_overlap=by_code[HOLE_OVERLAP],
+        hole_clearance=by_code[HOLE_CLEARANCE],
+        hole_clearance_judged=hole_judged,
         rule_areas=rule_areas,
         unsupported=dict(sorted(unsupported.items())),
         **counts,
     )
+    if allowed:  # left out when none was, so a design without allowances gives the bytes it gave
+        summary["allowed"] = {"copper.short": allowed}
     issues = (*(f.to_issue() for f in findings), *sorted(others, key=_sort_key))
-    with_areas = board is not None and bool(board.keepouts)
+    with_areas = board is not None and bool(all_rule_areas(board))
     evidence = Evidence.combine(EVIDENCE, *((AREA_EVIDENCE,) if with_areas else ()), *inputs)
     if any(i.code in LOWERING_CODES for i in issues):
         evidence = Evidence(Level.UNVERIFIED, hypotheses=evidence.hypotheses)
@@ -1106,9 +1331,16 @@ def check_copper(
     edges: Sequence[EdgeRing] | None = None,
     min_edge_clearance: Nm | None = None,
     edge_floor_over_rules: bool = False,
+    tolerance: Nm = 0,
+    min_hole_clearance: Nm | None = None,
+    allowances: Sequence[Rule] | None = None,
 ) -> CopperReport:
     """The shorts, clearance violations, zone overlaps and edge clearance violations of the copper of
     ``design.board``.
+
+    ``tolerance`` (nm, from ``DesignRules.clearance_tolerance``; change c0281) is how far below the value
+    in force a pair's gap may be before it is a clearance finding, as the tool's DRC allows; edge
+    clearance keeps the strict rule.
 
     ``pads`` are the board-frame pad records of ``BoardFrame.board_pads(design)``, or ``None`` when no
     frame is available (pads are then left out and reported). ``min_clearance``, ``rules_over_classes`` and
@@ -1116,6 +1348,13 @@ def check_copper(
     the rings of ``BoardFrame.board_edges(design)`` (change c0169): every copper shape is judged against
     each of them, a closed line of width 0, with the edge clearance of ``ClearanceResolver.edge``
     (``min_edge_clearance`` and ``edge_floor_over_rules`` from ``DesignRules``); ``None`` judges no edge.
+    ``min_hole_clearance`` (``DesignRules.min_hole_clearance``; change c0403) is the board minimum of the
+    clearance between a drilled hole and the copper of another item (``ClearanceResolver.hole``); with
+    neither it nor a ``hole_clearance`` rule no hole is judged against copper.
+    ``allowances`` are the rules of kinds ``short`` and ``antenna`` (change c0465); ``None`` takes those of
+    ``design.rules``. A short whose governing ``short`` rule has severity ``ignore`` stays listed as ``info``
+    and ends with `` (allowed by rule <name>)``; ``warning`` makes it a warning; ``summary["allowed"]``
+    counts the allowed ones, and is absent when none was.
     ``inputs`` are the evidence of what the caller read. Nothing is read, run or written.
     """
     return _run(
@@ -1129,6 +1368,9 @@ def check_copper(
         edges=edges,
         min_edge_clearance=min_edge_clearance,
         edge_floor_over_rules=edge_floor_over_rules,
+        tolerance=tolerance,
+        min_hole_clearance=min_hole_clearance,
+        allowances=allowances,
     )
 
 
@@ -1231,6 +1473,7 @@ def copper_stage(
     frame: BoardFrame | None,
     evidence: Evidence,
     waivers: Sequence[Waiver] = (),
+    allowances: Sequence[Rule] = (),
 ) -> StageResult:
     """The ``copper.clearance`` stage: ``check_copper`` on the board model that ``run_checks`` read
     (``design``; ``None`` when that read was refused), with the rules of the project's own files from
@@ -1239,7 +1482,11 @@ def copper_stage(
 
     ``waivers`` are the design's waivers (change c0114): a finding that a ``copper.*`` waiver accepts is
     kept as ``info``, a copper waiver that matched nothing gives ``check.waiver-unmatched``, and
-    ``summary.waivers`` says which matched. Waivers change no evidence."""
+    ``summary.waivers`` says which matched. Waivers change no evidence.
+
+    ``allowances`` are the ``short`` and ``antenna`` rules of the ``.fenolite/`` model of a built project
+    (change c0465), which a KiCad file does not hold; they are judged with those of the board read, before
+    the waivers (``check_copper``)."""
     if design is None:
         return skipped(STAGE, "read-refused")
     rules = rules_source.design_rules(design, project) if rules_source is not None else None
@@ -1257,6 +1504,9 @@ def copper_stage(
         edges=edges,
         min_edge_clearance=rules.min_edge_clearance if rules is not None else None,
         edge_floor_over_rules=rules.edge_floor_over_rules if rules is not None else False,
+        tolerance=rules.clearance_tolerance if rules is not None else 0,
+        min_hole_clearance=rules.min_hole_clearance if rules is not None else None,
+        allowances=(*allowance_rules(checked), *allowances),
     )
     summary: dict[str, object] = {**report.summary, "rules": rules_summary(rules)}
     own = copper_waivers(waivers)
@@ -1265,18 +1515,66 @@ def copper_stage(
     if own:
         outcome, stale = judge_waivers(own, counts)
         issues += stale
-        summary["waivers"] = {key: value for key, value in outcome.to_json().items() if key != "declared"}
+        summary["waivers"] = {k: v for k, v in outcome.to_json().items() if k not in ("declared", "expired")}
     level = report.evidence
     if any(found.code in LOWERING_CODES for found in issues):
         level = Evidence(Level.UNVERIFIED, hypotheses=level.hypotheses)
-    return ran(STAGE, issues, level, summary)
+    result = ran(STAGE, issues, level, summary)
+    known = {
+        (f.code, f.where, f.message): tuple(
+            Subject(item.kind, item.entity_id, item.where)
+            for item in f.items
+            if item.kind in SUBJECT_KINDS and item.entity_id
+        )
+        for f in report.findings
+    }
+    fallback = for_issues(checked, result.issues)
+    subjects = tuple(
+        known.get((i.code, i.where, i.message), fallback[k]) for k, i in enumerate(result.issues)
+    )
+    return dataclasses.replace(result, subjects=subjects)
+
+
+def item_subjects(
+    design: Design, *, pads: Sequence[BoardPad] | None = None
+) -> tuple[tuple[str, RuleSubject], ...]:
+    """The same geometric item subjects (including rule areas) used by the copper judgement."""
+    if design.board is None:
+        return ()
+    items = _Items(design, pads, ARC_TOL_NM)
+    areas = _Areas(design.board, items)
+    judge = _Judge(items, copper_layers(design.board), ClearanceResolver(design), areas)
+    rows: list[tuple[str, RuleSubject]] = []
+    for index, item in enumerate(items.items):
+        for layer in sorted(item.shapes):
+            rows.append((f"{item.ref.where}@{layer}", judge.subject(index, layer)))
+    return tuple(sorted(rows, key=lambda row: row[0]))
+
+
+def track_areas(design: Design) -> dict[tuple[str, str], frozenset[str]]:
+    """(entity id, layer) → the names of the rule areas each track and arc lies in on its layer, as the
+    copper judgement finds them (``H-K-AREA-COND``); the width check (``checks.widths``, change c0403)
+    builds its subjects with it."""
+    if design.board is None:
+        return {}
+    items = _Items(design, None, ARC_TOL_NM)
+    areas = _Areas(design.board, items)
+    found: dict[tuple[str, str], frozenset[str]] = {}
+    for index, item in enumerate(items.items):
+        if item.ref.kind in ("track", "arc"):
+            for layer in item.shapes:
+                found[(item.ref.entity_id, layer)] = areas.names(index, layer)
+    return found
 
 
 __all__ = [
+    "item_subjects",
+    "track_areas",
     "ARC_TOL_NM",
     "AREA_EVIDENCE",
     "EDGE_CODE",
     "EVIDENCE",
+    "HOLE_CLEARANCE",
     "HOLE_IN_CUTOUT",
     "HOLE_OVERLAP",
     "LOWERING_CODES",

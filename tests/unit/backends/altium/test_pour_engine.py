@@ -110,8 +110,11 @@ def test_board_edge_and_its_clearance() -> None:
 
 
 def test_keep_out_is_a_void() -> None:
-    """Input I16: a keep-out of copper on the polygon's layer is a void at the governing clearance."""
-    keepout = Keepout(id="k1", outline=rect(10, 10, 14, 14), layers=("F.Cu",), no_copper_pour=True)
+    """Input I16: a keep-out of copper on the polygon's layer is a void at the governing clearance (a keep-out
+    of tracks too, so the writer keeps it a keep-out region and no polygon cut-out, c0439)."""
+    keepout = Keepout(
+        id="k1", outline=rect(10, 10, 14, 14), layers=("F.Cu",), no_copper_pour=True, no_tracks=True
+    )
     board = Board(zones=(zone("z1", "GND"),), vias=(via("v1", "GND", 30, 20),), keepouts=(keepout,),
                   rules=(clearance(0.2),))  # fmt: skip
     _, result = board.pour()
@@ -119,6 +122,33 @@ def test_keep_out_is_a_void() -> None:
     assert not _covered(gnd, at(12, 12))
     assert not _covered(gnd, at(14.1, 12))
     assert _covered(gnd, at(14.5, 12))
+
+
+def test_polygon_cutout_keeps_no_clearance() -> None:
+    """A polygon cut-out (a region of ``KIND=1``, written for a rule area of poured copper alone, c0439) is
+    taken out of the area with no clearance: Altium's repour of row -02 pours to its edge (S-2227)."""
+    cutout = Keepout(id="k1", outline=rect(10, 10, 14, 14), layers=("F.Cu",), no_copper_pour=True)
+    board = Board(zones=(zone("z1", "GND"),), vias=(via("v1", "GND", 30, 20),), keepouts=(cutout,),
+                  rules=(clearance(0.2),))  # fmt: skip
+    _, result = board.pour()
+    gnd = _of(result, "GND")
+    assert not _covered(gnd, at(12, 12))
+    assert not _covered(gnd, at(13.95, 12))
+    assert _covered(gnd, at(14.05, 12))
+
+
+def test_a_via_without_a_pad_joins_its_polygon() -> None:
+    """A via without a pad shape (diameter equal to its drill) is joined by a polygon of its net as a via, and
+    keeps the clearance of its hole from a polygon of another net (S-2227, row -02;
+    ``H-A-IMP-VIA-PADLESS``)."""
+    padless = {"diameter": 0.3, "drill": 0.3}
+    board = Board(zones=(zone("z1", "GND", rect(1, 1, 19, 29)), zone("z2", "VIN", rect(21, 1, 39, 29))),
+                  vias=(via("v1", "GND", 10, 15, **padless), via("v2", "GND", 30, 15, **padless),
+                        via("v3", "VIN", 35, 25)),
+                  rules=(clearance(0.2),), full_drill=True)  # fmt: skip
+    _, result = board.pour()
+    assert _covered(_of(result, "GND"), at(10.2, 15))  # the GND pour reaches its own via
+    assert not _covered(_of(result, "VIN"), at(30.3, 15))  # the VIN pour keeps 0.2 from the GND hole
 
 
 # --- 3.2: the connections -----------------------------------------------------------------------------------
@@ -150,6 +180,24 @@ def test_relief_of_a_pad_of_the_polygons_net() -> None:
         assert not _covered(gnd, at(20 + dx, 15 + dy)), (dx, dy)
     pad_shape = _pad_shape(reading, 20, 15)
     assert any(thick_touch(_thick(piece), pad_shape) for piece in gnd.pieces)
+
+
+def test_relief_conductor_over_its_pad_outside_the_outline() -> None:
+    """A conductor runs from the pad's centre over the part of its pad that lies outside the polygon's
+    outline (S-2224, row -07: the outline cuts a pad of the polygon's net and Altium's conductor starts at
+    the pad's centre, outside it)."""
+    settings = ZoneSettings(thermal_gap=mm(0.25), thermal_spoke_width=mm(0.25))
+    board = Board(
+        zones=(zone("z1", "GND", rect(1, 1, 19.6, 29), settings=settings),),
+        pads=(pad("p1", "GND", 20, 15, size=(2.0, 1.0)),),
+        rules=(clearance(0.2),),
+    )
+    _, result = board.pour()
+    gnd = _of(result, "GND")
+    assert _covered(gnd, at(19.8, 15))  # on the pad, outside the outline (x = 19.6), on the conductor
+    assert _covered(gnd, at(18.9, 15))  # the conductor across the air gap
+    assert not _covered(gnd, at(19.8, 15.4))  # on the pad beside the conductor
+    assert not _covered(gnd, at(20.5, 15))  # past the pad's centre
 
 
 def test_direct_connect_and_no_connect() -> None:
@@ -215,6 +263,37 @@ def test_necks_below_and_above_the_width() -> None:
         _, result = _neck_board(width).pour()
         middle = 15 + 0.5 + 0.2 + width * MIL / 2_000_000
         assert _covered(_of(result, "GND"), at(middle, 15)) is kept, width
+
+
+def test_a_pinch_the_opening_closes_again_is_parted() -> None:
+    """Input I10 (S-2227): two discs of 300 µm whose waist is narrower than the neck width of 200 µm. The
+    opening's discs, grown back, would join them again at the waist; the pour parts them there. A waist wider
+    than the width stays one piece."""
+    from fenolite.backends.altium.pour import _Geometry, disc  # pyright: ignore[reportPrivateUsage]
+    from fenolite.geometry.boolean.clipper import ClipperBackend
+
+    geometry = _Geometry(ClipperBackend())
+    for apart, pieces in ((580_000, 2), (450_000, 1)):  # waists of 153 µm and 397 µm
+        copper = geometry.union([disc(Point(0, 0), 300_000, 50), disc(Point(apart, 0), 300_000, 50)])
+        assert len(copper) == 1
+        opened = geometry.open(copper, 200_000, 50)
+        assert len(opened) == pieces, apart
+        assert sum(area(piece) for piece in opened) > area(copper[0]) * 9 // 10
+
+
+def test_a_spike_of_almost_no_angle_is_opened() -> None:
+    """Input I10: the tip of a spike of almost no angle (row -06) lies where the inscribed circle would
+    touch its edges far beyond the board; the opening takes the spike off and stays in range."""
+    from fenolite.backends.altium.pour import _Geometry  # pyright: ignore[reportPrivateUsage]
+    from fenolite.geometry.boolean.clipper import ClipperBackend
+
+    geometry = _Geometry(ClipperBackend())
+    square = (Point(0, 0), Point(10_000_000, 0), Point(10_000_000, 10_000_000))
+    spike = (Point(5_000_010, 10_000_000), Point(5_000_000, 30_000_000), Point(4_999_990, 10_000_000))
+    copper = (Polygon((*square, *spike, Point(0, 10_000_000))),)
+    opened = geometry.open(copper, 200_000, 50)
+    assert len(opened) == 1
+    assert opened[0].bbox().y1 <= 10_000_000
 
 
 def test_islands_below_the_area_whatever_they_connect() -> None:

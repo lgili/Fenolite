@@ -381,7 +381,9 @@ board with such a BGA needs a `hole_clearance` rule below KiCad's default of 0.2
 (`--router.automatic_neckdown=false`), which narrowed wires at pins below their class. Its fanout stage
 still wrote wires of 0.1124 mm under a 0.15 mm class at QFN pins on a board with inner signal layers
 (`H-G-DSN-NARROW`); `route` reports any copper narrower than asked with `route.width-below-job`, whose hint
-for Freerouting names `fanout=off`.
+for Freerouting names `fanout=off`. Copper narrower than the `min` of the `track_width` rule that governs it
+in the rules file beside the board (KiCad's DRC would report `track_width`) gives
+`route.width-below-minimum`, an error: the board is not written (change c0403).
 
 **Limits.** A pair needs two selected nets of one class with pair values; a leg may be 0.4 µm narrower
 than asked; the tool may leave skew, which KiCad's `diff_pair_skew` rule reports; per-part escape is not
@@ -391,7 +393,8 @@ and BGA benches it left fewer connections open with the stage than without, `H-G
 ## octilinear
 
 `fenolite route BOARD --router octilinear --nets GATE --confirm` (change c0228) is built in and meant for
-the few connections a person routes first, not for a whole board (its features are `pairs` and `short`).
+the few connections a person routes first, not for a whole board (its features are `pairs`, `short`,
+`roles`, the role mode of "Role mode" below, and `propose`, the proposal mode of "Proposals").
 
 - **Connections.** The pads of a net, the pads already joined by its copper counting as one group, are
   joined by the edges of a minimum spanning tree, shortest first, each on a copper layer that both pads
@@ -415,6 +418,104 @@ the few connections a person routes first, not for a whole board (its features a
   `--gate drc` then has KiCad judge the written copper (`H-K-OCTI-DRC`).
 - Equal inputs give equal copper: nothing is random, so `--seed` changes nothing.
 
+## Role mode
+
+`fenolite route BOARD --router octilinear --roles critical --dry-run` (change c0244) routes the critical
+connections of the board's confirmed or declared net roles (`docs/roles.md`, "Critical routes") before any
+general router, and nothing else: the open connections of each gate loop and each Kelvin pair. The
+command plans them (`fenolite.roles.routes.plan_critical`) and gives them to a router with the feature
+`roles` as `RoutingJob.roles`, with the c0222 judge as `extra["role_check"]`; the router answers with one
+`RoleOutcome` per route in `RoutingResult.roles`.
+
+- **Order.** Gate loops (tier 0), then Kelvin pairs (tier 1), each by group name; the routes of one group
+  are routed whole or not at all, with the rounds of `octilinear` inside a tier. A hot loop is never
+  routed here: its copper is power copper, placed as pours by the power-copper phase.
+- **Shapes.** The five shapes of `octilinear` and up to eight Z shapes per layer (a first segment, a
+  middle one on a free line, a last one, after S-0837), whose middle lines come from the partner's
+  segments, from switching copper and from the obstacles near the straight line. Every accepted shape is
+  costed: the least gate-loop area (S-0891), else the shortest pair, then the length and the order.
+- **Ends.** A Kelvin branch ends on the inner half of its sense pad (S-0850), a gate return at the source
+  or Kelvin-source pad (S-0853).
+- **Isolation.** A branch of a power, switch-node or ground net keeps the clearance in force from the rest
+  of its own net's copper, and does not touch the outline of a zone of its net (S-0892).
+- **Keep-away.** A Kelvin branch, and a gate route of another switch, keeps the profile's
+  `switching_distance_nm` from switch-node copper and zone outlines on its layer and overlaps none of it on
+  the next copper layer, as `roles.near-switching` judges.
+- **Gate returns.** Beside the drive first; stacked under it on the next layer through one via at each end
+  when nothing beside passes; not routed when a zone of its ground net lies under the whole drive (S-0891).
+- **Judged twice.** The copper check, then `role_check` before and after: a group whose role findings get
+  worse is removed whole (`route.role-refused`). `--gate drc` drops a whole group at once.
+- **Locked and fenced.** Every item is `locked`, and every routed branch gets a corridor
+  `role.corridor.<group>.<net>`: a rule area that forbids pours (only) along the branch, replacing one of
+  that name. Pours, the power-copper phase's included, fill around it.
+- **Options.** `--router-option gate-vias=N` (default 2; 0 turns the stacked form off), `kelvin-vias=N`
+  (default 0; 2 allows one via per branch where the pads share no layer), `keep-away=LENGTH`, `z-shapes=off`,
+  `rounds=N`, and `max-length=LENGTH`, which has no default in role mode.
+- **Run order.** Critical routes first, then the power copper around them; the other order works too: the
+  outlines of the pours already on the board are obstacles of isolated and keep-away routes, and a
+  provisional corridor of the same name is replaced along the route.
+
+## Proposals
+
+`fenolite route BOARD --router octilinear --propose` (change c0280) lists every open connection left after
+the power copper and the critical routes, with candidate shapes and their facts, and writes nothing. It is
+phase 4 of the router that works from net roles (`docs/roles.md`, "Proposals after the critical routes"):
+critical routes and power copper are made automatically, everything else is proposed and only the user
+locks it.
+
+- **Subjects.** One per open connection of the board, as `analysis.connectivity` counts them on the pour
+  (the saved fill, else the simulated pour of `analysis.pour`, which gives KiCad's count), of the first kind
+  that fits: `fanout` (an SMD pad whose island holds no via and no through-hole pad, with a zone of its net
+  on another layer within 2 mm), `join` (one of the two islands holds role copper: a zone named `role.*`,
+  locked copper, or a zone of a stated role net), `role-net` (a power, switch-node, ground or high-voltage
+  net that phase 1 sized no copper for: inferred, or without a stated current), else `connection`; and one
+  `group` subject per critical group that phase 2 leaves `unrouted` or `refused` (c0244's planner and
+  router run in memory), whose role routes are not proposed again as connections. The open connections of
+  a role net are taken along its power pads, so that a Kelvin-source branch never becomes the path of the
+  power current, and a pad end that a branch leaves is moved to the nearest point of the pad clear of that
+  branch.
+- **Families.** Per subject, in this order: `shape` (the five shapes of `octilinear` on each layer both ends
+  reach), `z-shape` (the Z shapes of role mode), `via-l` (a shape of one bend whose bend is a through via of
+  the net's class), `fanout` (for a `fanout` subject: a neck and a via found as the plane fan-out finds them,
+  the via inside the zone outline by half its diameter and inside the zone's copper) and `role` (for a
+  `group` subject: role mode with its defaults, then once per relaxation `kelvin-vias=2`, `gate-vias=2`,
+  `keep-away=clearance`; isolation is never relaxed). The first `--candidates N` (default 4, at most 8)
+  that pass the acceptance of `octilinear` and differ by layer set, via count or a centre line farther apart
+  than the clearance are kept.
+- **Facts, no score.** Each candidate is judged alone, its items added locked: `closes`, `open` (`before`,
+  `after`, the open connections of the board), `copper_check` (findings near it before and after, and the
+  new ones), `roles` (the role findings before and after, `new` and `cleared`, within role reach: on a role
+  net, near switch-node copper or inside a group's pad box grown by 2 mm), `vias`, `length`, `layers`,
+  `bends`, `loop` (a role loop's area and ratio), `conflicts` (candidates of other subjects whose copper
+  clashes), `fill` and `not_evaluated` with the reason of each fact not measured. With `--gate drc` the
+  candidates are packed into batches without two of one subject or two that clash, each batch judged once
+  by `kicad-cli` DRC, and each candidate gets the violations naming its items (`drc.new`). No candidate or
+  proposal holds a score, a rank or a recommendation; `"order": "generation"` says the order is the order
+  of the families.
+- **Without a candidate.** A subject keeps its place with `candidates: []`, a reason (`no-room`, `no-layer`,
+  `too-long`, `near-switching`, `isolation`, `pads`, `all-rejected`, `budget`) and alternatives, each with a
+  command and a `render --region` command, and one `route.proposal-open`.
+- **Completion (c0370).** `result.completion` states the board's physical open count as read (`open`),
+  the fill it was read on (`saved` or `simulated`), a `state` (`open` while a connection is open, else
+  `unchecked`) and sorts every open subject into exactly one of `proposed`, `unknown` (a timeout,
+  cancellation or explicit search/round bound stopped it, or its candidates' facts were not measured),
+  `no-candidate` (the search finished without one), `rejected` and `not-attempted` (outside the
+  selection). `checks` is `not-run` and `complete` is always `false`: a proposal, a rejection or a timeout
+  is not a connection; only `fill` and `check` after it close a board.
+- **Accept and reject.** `--accept ID` (repeatable) computes the proposals again and plans in one reviewed
+  plan the board with each candidate's items `locked` (a group candidate with its corridors
+  `role.corridor.<group>.<net>`) and the decision record; `--confirm --plan ID` writes both. Two candidates
+  of one subject, or whose copper clashes, are `route.proposal-conflict`; an id that is not current is
+  `route.proposal-unknown`; a candidate with a new finding is accepted with `route.proposal-findings`.
+  `--reject ID [--reason TEXT]` plans the record only: a rejected candidate is left out of later proposals
+  (`--show-rejected` lists it), a rejected proposal is listed apart in `result.rejected`.
+- **The record.** `fenolite.route-decisions.v0`, canonical JSON with no clock: `.fenolite/route-decisions.json`
+  of a built project, else `<board stem>.route-decisions.json` beside the board.
+- **Replay and forget.** `--replay` plans the items of each locked decision missing from the board (a build
+  in a new folder, copper deleted in KiCad) when its ends still lie where they were and its copper passes
+  the copper check, else `route.proposal-stale` (`moved`, `blocked`, `net-gone`). `--forget ID` plans
+  dropping a decision and, for a locked one, its copper and corridors.
+
 ## Loop order
 
 Use `build` → `place` → `route` → `fill` → `check`. Routing changes copper inputs used by a fill, so
@@ -427,3 +528,154 @@ It downloads external code and a router binary, so it is informative evidence ra
 merge check. It runs the feasibility probes and the `build` → `place` → `route` → `fill` → `check`
 loop on each target. It also installs Java 25 and the pinned Freerouting jar, checked against its SHA-256,
 and runs the Freerouting probes and the same loop with `--router freerouting`.
+
+
+## Bounded internal search (c0365)
+
+The octilinear router can search for ordinary-connection candidates when its fixed patterns are
+insufficient. This is opt-in and read-only: it adds candidate geometry, not accepted board copper.
+
+| Router option | Meaning |
+| --- | --- |
+| `search=off` | Default: existing fixed-pattern behavior |
+| `search=fallback` | Search only when the fixed families produced no candidate |
+| `search=only` | Skip fixed families and search supported ordinary connections |
+| `search-grid=LENGTH` | Required positive lattice spacing, anchored at board origin |
+| `search-max-states=N` | Required positive cap on discovered states |
+| `search-max-vias=N` | Required nonnegative through-via bound |
+
+Use these options with `route --router octilinear --propose`, then inspect the candidates and
+prepare `--accept ID --dry-run` with the same router options, candidate count and max-length.
+`--reject` also accepts the same options to regenerate the candidate identity. Other modes and
+routers refuse search options as usage errors; invalid or missing bounds are never ignored.
+Confirm using the reviewed plan: confirmation writes its stored bytes without running search again.
+
+Search uses integer eight-direction movements and exact octilinear stubs to off-grid endpoints;
+no pad is moved or snapped. Existing clearance/edge checks judge swept geometry, not just lattice
+points. Cutouts are excluded and through vias are checked on every copper layer, including layers
+that are not allowed for signal tracks. Existing copper remains immutable. Pair nets (including
+named/model pairs absent from job selection) and non-connection subjects receive
+`search-unsupported`; this does not enable independent routing of a coupled leg.
+
+A search candidate has `source=search` and the existing measured facts, no rank or recommendation.
+`state-limit`, `budget`, `cancelled`, `search-geometry` and `search-unsupported` are refusal reasons
+under the existing `route.proposal-open` finding. A complete route longer than `max-length` is not
+emitted. Reaching a bound means exploration is incomplete, not that a physical route is impossible.
+The sparse grid can miss narrower or off-grid paths. Search returns one completed path per subject;
+negotiated rerouting remains a separate proposed change.
+
+The direct routing API returns explored/discovered counts and termination in `RoutingResult.log`;
+`RoutingJob.extra["cancelled"]` may provide a callable returning true to stop work. A job timeout
+is shared across subjects and the CLI accounts for proposal preparation and fact measurement.
+A fixed state-limited run is deterministic. Wall-clock truncation can explore a different subset,
+so timing is not a byte-repeatability or exhaustive-search guarantee.
+
+See [search evidence](evidence/router-search.md) for sources, authored proofs and oracle limits,
+and [router roadmap](router-roadmap.md) for remaining work.
+
+### Role-aware search fields (c0366)
+
+Opt-in search compiles declared/confirmed roles into immutable hard exclusions and nonnegative
+preferences. Inferred roles remain unknown. Sensitive signals cannot violate the existing switching
+profile distance or overlap switching copper on adjacent layers. Other signals receive a soft
+switching-exposure penalty. There is no inferred high-voltage clearance: missing or unresolved user
+pair distances refuse that victim with `search-role-limit`.
+
+`route --requirements FILE` reuses the existing requirements TOML schema. It requires octilinear
+opt-in search in `--propose`, `--accept` or `--reject` mode, or atomic bundle replay. Repeat the requirements path and search
+options when preparing a decision. Explicit pair distances also bind nets without HV roles. The
+maximum declared clearance, creepage, embedded and laminate insulation distance is conservatively
+projected onto XY across all layers; this is not a creepage field solver or a laminate certification.
+Existing copper remains fixed. Aggressor zones use their outline envelope and disclose that
+conservative approximation. No electrical distance value is added by this change.
+
+`result.role_fields` lists its payload `fingerprint`, `provenance` fingerprints (board, roles, profile,
+fill), hard `limits` (victim, aggressor, distance_nm, kind, origin), soft `preferences` (victim,
+aggressor, within_nm), `unknowns` and `missing_limits`. Candidate `facts.role_fields` repeats this
+context for the proposed board, adds `input_fingerprint` and `input_provenance`, and measures:
+
+- `confirmed_reference_length_lower_bound_nm`: length wholly inside validated saved ground copper
+  on an adjacent physical layer, including the track's swept width;
+- `unconfirmed_reference_length_nm`: the remaining track length, not a claim that it is uncovered;
+- `switching_exposure_upper_bound_nm`: whole-segment conservative exposure near switching copper.
+
+Missing, stale, island-marked or validation-limited fills never count as confirmed reference.
+Software costs add unconfirmed-reference length (when a confirmed ground policy exists) and
+switching exposure to geometric length; penalties are nonnegative integer quantities. These costs
+are internal exploration heuristics, not candidate scores, rankings or safety certification. A
+reference lower bound can undercount coverage across several adjacent polygons.
+
+Fixed-pattern candidates in fallback mode pass these hard fields before maze fallback is decided.
+Both existing copper and confirmed-group role judgments remain final authorities. Refused candidates
+emit `search-role-refused`; mismatched direct-API field packets emit `search-role-stale`.
+Unconfirmed group findings are reported without making inferred roles binding. Confirmation tracks
+requirements, roles (including creation of a default role document), the profile source, project
+rules and built-model sidecars as plan inputs. Any edit invalidates the reviewed plan (`FEN-4002`).
+
+See [role-field evidence](evidence/router-role-fields.md) for local proofs and pending CI coverage.
+
+### Negotiated atomic alternatives (c0367)
+
+Add `--router-option negotiate=on --router-option negotiate-max-rounds=N` to bounded octilinear
+search in proposal/accept/reject mode. Default `negotiate=off` keeps independent proposals. At least
+two ordinary connection subjects are required. Current pairs and critical groups remain unsupported
+as negotiated units and are refused rather than split into independent legs.
+
+The negotiator replaces only its own in-memory provisional paths. Fixed board geometry, manual and
+locked copper, previous accepted copper and electrical corridors remain hard obstacles. Integer
+nonnegative current/history penalties steer repeated search away from provisional conflicts. One
+explicit discovered-state budget is shared across all calls and rounds, with the shared deadline and
+cancellation callback. No physical/electrical distance is supplied by these software coefficients.
+
+A result exposes one jointly validated alternative in `result.bundles`: `id`, `fingerprint`, `members`
+(candidate IDs) and `subjects` (connection keys). Every member's candidate row adds `bundle`.
+`RoutingResult.bundles` mirrors this contract. Before emission the entire set passes swept geometry,
+connection checks and both existing copper and confirmed-role judgments. Direct routing adapters
+supply `extra["bundle_check"]` for complete-set connectivity and dynamic role compilation. Partial
+or overlapping intermediate paths cannot escape as candidates. There is no rank, score, continuous
+optimality or arbitrary-board completion claim; increasing a bound does not guarantee completion.
+
+Use `--accept BUNDLE` or `--reject BUNDLE --reason TEXT` with the same router options and the same
+`--nets`, `--kind` or `--group` selection as the proposal. Negotiated decisions accept these selectors
+so a subset can be regenerated. `result.next` repeats the actual controls and selectors. Candidate
+count is irrelevant to the single joint alternative and is not an identity input. A bundle hashes
+all member payloads, subjects and geometry-generation inputs. The decision record separately guards
+the reviewed transaction, preserving the identity of an unchanged rejected alternative.
+
+Member IDs are refused by accept/reject/replay/forget with `FEN-2001` naming the bundle. Accept writes
+all members locked and their membership in the same reviewed board/record transaction; a native DRC
+gate treats their copper as one unit, and a partial gate result plans nothing. Reject writes only
+the complete decision; `--show-rejected` displays it. `--replay [BUNDLE]` stages missing members as one
+unit after rechecking current endpoints, fields and copper; bare replay keeps its old all-decisions
+behavior, including before PATH. Replay accepts `--requirements FILE` without search options to
+resolve current HV requirements. If a sibling is stale or a user distance is missing, none of that
+unit's missing members is restored. `--forget BUNDLE` drops the whole decision and matching locked
+copper of its nets, preserving unrelated/manual conductors. All writes retain plan guards, receipt
+hashes, rollback and recovery behavior; changed role/profile/requirement/project/decision inputs
+invalidate a reviewed write. Confirmation does not rerun negotiation.
+
+Independent records retain exactly their c0280 `fenolite.route-decisions.v0` bytes. Records with bundles
+add the optional key `bundles` with `id`, `fingerprint` and `members` (same schema id; the prepared `v1`
+mirror of c0217 reads the same grammar); a bundle
+must be wholly accepted or wholly rejected and membership cannot overlap. Future schema versions
+and incomplete metadata are refused. New alternatives sharing stored member IDs require an explicit
+reviewed forget of the old unit before replacement; rejection history is never silently discarded.
+Forgetting the last bundle returns to the legacy representation.
+
+Additional refusal reasons are `negotiate-subjects`, `negotiate-unsupported`, `negotiate-round-limit`,
+`negotiate-judge-missing` and `negotiate-refused`; existing resource/role reasons still apply. A bound
+means unresolved exploration. See [negotiation evidence](evidence/router-negotiation.md) for authored
+proofs and pending pinned CI, and `fenolite guide route-proposals --text` for executable instructions.
+
+### Local external candidates (c0368)
+
+`fenolite route BOARD --router octilinear --propose --propose-with kicadroutingtools`
+adds independent local-tool alternatives; repeat with `freerouting` for a local jar. No tool is
+downloaded or uploaded to. Candidate source/version/input fingerprints and explicit refusal or
+unattempted work are visible. Scope is an ordinary pad-to-pad connection, not an atomic pair or
+critical group. Entire out-of-scope board deltas are rejected before selected copper is lifted.
+One deadline includes Java-version preflight and every routing process; killed output is discarded.
+Review `result.next` and prepare acceptance with `--dry-run`; confirmation writes stored bytes.
+Tool-byte changes invalidate the plan. External geometry is not promised deterministic. See the
+agent guide `route-proposals` for scope limits, discovery, refusal reasons and replay controls.
+Native pinned-router CI is still pending; no native compatibility claim is made by unit tests.

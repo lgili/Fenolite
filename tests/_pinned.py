@@ -124,6 +124,7 @@ def altium_pin(design: object, project_dir: Path, form: str) -> str:
     from _buildhelp import resolver
 
     from fenolite.dsl import placements, to_model
+    from fenolite.dsl.convert import two_terminal, unused_marks
     from fenolite.lens.altium import build_altium
 
     output = build_altium(
@@ -134,6 +135,8 @@ def altium_pin(design: object, project_dir: Path, form: str) -> str:
         form=form,  # type: ignore[arg-type]
         resolver=resolver(10, project_dir),
         pour="outline",  # the pinned bytes of the earlier changes (c0215 tests "computed")
+        unused=unused_marks(design),  # type: ignore[arg-type]
+        two_terminal=two_terminal(design),  # type: ignore[arg-type]
     )
     errors = [issue.code for issue in output.issues if issue.severity == "error"]
     assert not errors, errors

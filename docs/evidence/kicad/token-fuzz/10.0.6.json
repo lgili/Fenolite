@@ -341,7 +341,7 @@
    "expected": "reject",
    "outcome": "reject",
    "exit_code": 3,
-   "detail": "Failed to load board: Expecting at, descr, locked, placed, tedit, tstamp, uuid, variant, autoplace_cost90, autoplace_cost180, attr, clearance, embedded_files, fp_arc, fp_circle, fp_curve, fp_line, fp_poly, fp_rect, fp_text, pad, group, generator, model, path, solder_mask_margin, solder_paste_margin, solder_paste_margin_ratio, tags, thermal_gap, version, zone, zone_connect, or component_classes. Got ''symbol'' in 'case.kicad_pcb', line 79, offset 4."
+   "detail": "Failed to load board: Expecting at, descr, locked, placed, tedit, tstamp, uuid, variant, autoplace_cost90, autoplace_cost180, attr, clearance, embedded_files, fp_arc, fp_circle, fp_curve, fp_line, fp_poly, fp_rect, fp_text, pad, group, generator, model, path, solder_mask_margin, solder_paste_margin, solder_paste_margin_ratio, tags, thermal_gap, version, zone, zone_connect, or component_classes. Got ''symbol'' in 'case.kicad_pcb', line 135, offset 4."
   },
   {
    "example": "negative-unknown-fp-pad",
@@ -363,7 +363,7 @@
    "expected": "reject",
    "outcome": "reject",
    "exit_code": 3,
-   "detail": "Failed to load board: Expecting at, locked, drill, layers, net, die_length, roundrect_rratio, solder_mask_margin, solder_paste_margin, solder_paste_margin_ratio, uuid, clearance, tstamp, primitives, remove_unused_layers, keep_end_layers, pinfunction, pintype, zone_connect, thermal_width, thermal_gap, padstack, teardrops, front_post_machining, or back_post_machining. Got ''symbol'' in 'case.kicad_pcb', line 71, offset 5."
+   "detail": "Failed to load board: Expecting at, locked, drill, layers, net, die_length, roundrect_rratio, solder_mask_margin, solder_paste_margin, solder_paste_margin_ratio, uuid, clearance, tstamp, primitives, remove_unused_layers, keep_end_layers, pinfunction, pintype, zone_connect, thermal_width, thermal_gap, padstack, teardrops, front_post_machining, or back_post_machining. Got ''symbol'' in 'case.kicad_pcb', line 127, offset 5."
   },
   {
    "example": "negative-unknown-sch-symbol",
@@ -396,7 +396,7 @@
    "expected": "reject",
    "outcome": "reject",
    "exit_code": 3,
-   "detail": "Failed to load board: Expecting start, end, width, layer, solder_mask_margin, net, tstamp, uuid or locked. Got ''symbol'' in 'case.kicad_pcb', line 98, offset 4."
+   "detail": "Failed to load board: Expecting start, end, width, layer, solder_mask_margin, net, tstamp, uuid or locked. Got ''symbol'' in 'case.kicad_pcb', line 154, offset 4."
   },
   {
    "example": "negative-unknown-setup",
@@ -440,7 +440,7 @@
    "expected": "reject",
    "outcome": "reject",
    "exit_code": 3,
-   "detail": "Failed to load board: Unknown token 'fenolite_frobnicate' in 'case.kicad_pcb', line 128, offset 3."
+   "detail": "Failed to load board: Unknown token 'fenolite_frobnicate' in 'case.kicad_pcb', line 184, offset 3."
   },
   {
    "example": "net-by-name",
@@ -654,6 +654,9 @@
    "example_sha256": "b36efc6f6fef1f229c55c820345a522110c55b6991436a114ca9e14b3a428b17",
    "rows": [
     "board-net-table",
+    "fp-circle-fill-no",
+    "fp-poly-fill-no",
+    "fp-rect-fill-no",
     "plot-hpglpendiameter",
     "plot-hpglpennumber",
     "plot-hpglpenspeed",
@@ -673,6 +676,9 @@
    "example_sha256": "b36efc6f6fef1f229c55c820345a522110c55b6991436a114ca9e14b3a428b17",
    "rows": [
     "board-net-table",
+    "fp-circle-fill-no",
+    "fp-poly-fill-no",
+    "fp-rect-fill-no",
     "plot-hpglpendiameter",
     "plot-hpglpennumber",
     "plot-hpglpenspeed",
@@ -692,6 +698,9 @@
    "example_sha256": "b36efc6f6fef1f229c55c820345a522110c55b6991436a114ca9e14b3a428b17",
    "rows": [
     "board-net-table",
+    "fp-circle-fill-no",
+    "fp-poly-fill-no",
+    "fp-rect-fill-no",
     "plot-hpglpendiameter",
     "plot-hpglpennumber",
     "plot-hpglpenspeed",

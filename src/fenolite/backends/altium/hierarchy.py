@@ -49,6 +49,7 @@ from fenolite.backends.altium.symbols import natural_key
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model.circuit import Component, Interface, Net
 from fenolite.model.design import Design
+from fenolite.schematic.block_sheets import PortPin, port_pins, split_merged
 
 EVIDENCE = Evidence(
     Level.INFERRED,
@@ -296,10 +297,23 @@ def crossings(
         for _entry, net_id in sorted(interface.members.items()):
             owner.setdefault(net_id, interface.id)
     buses = lowered_buses(design)[0]
+    declared = block_crossings(design, modules, sheets, power)
     found: dict[str, tuple[Crossing, ...]] = {}
     for module in modules:
         carried: set[str] = set()
         here: list[Crossing] = []
+        first: list[Crossing] = []
+        for pin in declared.get(module, ()):  # a block's sheet crosses first by its ports (change c0269)
+            carried.add(pin.net)
+            crossing[module].discard(pin.net)
+            first.append(
+                Crossing(
+                    pin.name,
+                    port_id(module, pin.name),
+                    io=direction(design, nets[pin.net], module) if directions else "unspecified",
+                    label=names[pin.net],
+                )
+            )
         for interface in harnesses if PATH_SEPARATOR not in module else []:
             mine = {
                 n for n in interface.members.values() if n in crossing[module] and owner[n] == interface.id
@@ -326,8 +340,68 @@ def crossings(
             )
             for net_id in crossing[module] - carried
         ]
-        found[module] = tuple(sorted(here, key=lambda c: c.name))
+        found[module] = (*first, *sorted(here, key=lambda c: c.name))
     return found
+
+
+def block_crossings(
+    design: Design,
+    modules: Sequence[str],
+    sheets: Mapping[str, str | None] | None = None,
+    power: Iterable[str] | None = None,
+) -> dict[str, tuple[PortPin, ...]]:
+    """Per block instance among ``modules``, the port members that cross its sheet by name ("Sheet entries
+    from block ports", change c0269): each bound member, in port and member order, that has a pin on the
+    sheet or below it, whose net is in no ``power`` interface, that no other member of the instance binds
+    and whose port is not a ``harness``."""
+    if sheets is None:
+        sheets = {c.id: sheet_of(c) for c in design.circuit.components}
+    supply = set(power_styles(design) if power is None else power)
+    kinds = {(port.owner, port.name): port.kind for port in design.circuit.ports}
+    owners = {m.path: m.id for m in design.circuit.modules if m.block}
+    nets = {net.id: net for net in design.circuit.nets}
+    found: dict[str, tuple[PortPin, ...]] = {}
+    for module, pins in port_pins(design.circuit).items():
+        if module not in modules:
+            continue
+        single, _ = split_merged([p for p in pins if p.net in nets])
+        kept = [
+            pin
+            for pin in pins
+            if single.get(pin.net) is pin
+            and pin.net not in supply
+            and kinds.get((owners[module], pin.port)) != HARNESS_INTERFACE
+            and any(
+                within(sheets.get(m.component_id), module)
+                for m in nets[pin.net].members
+                if m.component_id in sheets
+            )
+        ]
+        if kept:
+            found[module] = tuple(kept)
+    return found
+
+
+def name_clashes(design: Design, *, extra_modules: Sequence[str] = ()) -> list[tuple[str, str]]:
+    """(block path, name) for each port crossing of a block sheet whose name is also the name of a net
+    that crosses that sheet without a port (``build.block-sheet-name-clash``, change c0269)."""
+    modules = sheet_tree(design, extra_modules)
+    declared = block_crossings(design, modules)
+    if not declared:
+        return []
+    sheets = {c.id: sheet_of(c) for c in design.circuit.components}
+    power = set(power_styles(design))
+    found: list[tuple[str, str]] = []
+    for module, pins in declared.items():
+        ported = {pin.net for pin in pins}
+        names = {pin.name for pin in pins}
+        for net in design.circuit.nets:
+            if net.id in power or net.id in ported or net.name not in names:
+                continue
+            inside = [within(sheets[m.component_id], module) for m in net.members if m.component_id in sheets]
+            if any(inside) and not all(inside):
+                found.append((module, net.name))
+    return sorted(found)
 
 
 def harness_lines(design: Design, found: Mapping[str, Sequence[Crossing]]) -> dict[str, tuple[str, str]]:
@@ -483,6 +557,8 @@ __all__ = [
     "DRIVERS",
     "EVIDENCE",
     "HARNESS_INTERFACE",
+    "block_crossings",
+    "name_clashes",
     "INPUTS",
     "PIN_CLASSES",
     "ProjectSheets",

@@ -1,15 +1,14 @@
 ---
 topic: routing
 title: Routing: routers, scripted copper and zones
-summary: Which router does what, route with --nets and --rip, what unrouted means, copper written in the script, zones and fill.
+summary: Routers, guarded plans, copper, zones and fill.
 ---
 
 # Routing: routers, scripted copper and zones
 
-Copper reaches a board in three ways: a router draws it (`fenolite route`), the script declares it
-(`design.track`, `design.via`, `design.stitch`, `design.zone`), or a person draws it in KiCad. All three
-live on one board. Router copper and hand-drawn copper are kept across builds; script copper is written
-again from the script at every build.
+Copper comes from a router (`fenolite route`), the script (`design.track`, `design.via`,
+`design.stitch`, `design.zone`), or KiCad. All share one board. Router and hand-drawn copper survive
+builds; each build rewrites script copper.
 
 ## The routers
 
@@ -41,6 +40,8 @@ fenolite route blink/build --router freerouting --nets "LED_*" --nets VIN --conf
 fenolite route blink/build --router direct --rip --confirm --json
 fenolite route blink/build --router direct --gate drc --confirm --json
 fenolite route blink/build --router octilinear --nets VIN --router-option max-length=30mm --confirm --json
+fenolite route blink/build --router octilinear --roles critical --dry-run --json
+fenolite route blink/build --router octilinear --propose --json
 fenolite route blink/build --router freerouting --require-complete --timeout 600 --confirm --json
 fenolite route board4/build --router freerouting --confirm --json --fields result.plane_fanout
 fenolite net blink/build --json
@@ -54,29 +55,31 @@ fenolite net blink/build GND --json
   stay. Use it after you moved a part, or when old copper is in the way.
 - **`result.unrouted`** lists the nets that still have an open connection after the run, and
   `result.open` those connections with their two ends. `routed` and `unrouted` are computed from the
-  board, not from what the router says. An empty `unrouted` is not yet a proof: `fenolite check` is.
-- **When nets stay open:** run `route` again (the copper of the first run is kept and the second run
-  continues from it); give the router room with `fenolite place --move`; choose another router; or
-  declare the copper of those nets in the script.
+  board, not from what the router says. `INFERRED` for a complete plan describes byte materialization, not electrical correctness; run `check`.
+- **When nets stay open:** run `route` again (it continues from the copper of the first run); give the
+  router room with `fenolite place --move`; choose another router; or declare that copper in the
+  script.
 - **`--gate drc`** checks the new copper with KiCad's DRC and writes it without each track or via
   that brings a new finding (`gate.dropped`, `result.gate`); needs `kicad-cli` (exit 6).
-- **`--require-complete`** makes an open net an error: exit 5, `route.incomplete`, nothing written.
+- **`--require-complete`** makes an open net an error: exit 5, `route.incomplete`, no write.
 - **`--timeout SECONDS`** bounds the whole step. When it ends, the copper of the finished runs is
   written with `route.budget-exhausted` (warning); run `route` again to go on.
 - **Planes.** On a board whose script says `design.board(..., copper=4, planes={"In1.Cu": gnd})`,
   `route` first joins each SMD pad of a plane net to its plane with one short track and one via, and
   never routes a plane net. `result.plane_fanout.failed` names each pad left open (`REF-NUMBER`, with
   `kicad.fanout.failed`): give that pad room with `fenolite place --move`, or join it in the script.
-- **`fenolite net BOARD`** lists the nets; with a name it gives one net's pads, copper, vias, zones and
-  its open connections. It runs no tool.
+- **`fenolite net BOARD`** lists the nets; with a name, one net's pads, copper, vias, zones and open
+  connections.
 - **`octilinear`** leaves open what its shapes cannot reach (`route.unrouted`), a pair it cannot
   couple (`route.pair-not-routed`) and copper the copper check refuses (`route.check-refused`).
+- **`--roles critical`** routes only the confirmed gate loops and Kelvin pairs, locked and fenced from
+  pours; `result.roles` gives each group's status and fix. **`--propose`**: `route-proposals`.
 - A router that is not installed exits 6 (page `recovery`).
 
 ## Copper in the script
 
 ```fenolite-design
-from fenolite.dsl import Design, Net, Part, arc_to, connect, mm, protect, via_step
+from fenolite.dsl import Design, Net, Part, arc_to, connect, mm, protect, teardrop, via_step
 
 design = Design("routed")
 design.board(mm(30), mm(20))
@@ -121,9 +124,10 @@ design.track(
 )
 # A zone pours copper on a net; `fenolite fill` fills it after the build.
 design.zone(gnd, layers=("F.Cu", "B.Cu"), clearance=mm(0.3))
-# One via, and a row of them, tie the pour of the top side to that of the bottom side.
+# A via and a row of vias tie the top pour to the bottom one.
 design.via(
-    "gnd_tie", mm(24), mm(10), net=gnd, diameter=mm(0.6), drill=mm(0.3), protection=protect(tenting=True)
+    "gnd_tie", mm(24), mm(10), net=gnd, diameter=mm(0.6), drill=mm(0.3), protection=protect(tenting=True),
+    teardrop=teardrop(max_length=mm(1)),
 )
 design.stitch(
     "gnd_row",
@@ -134,7 +138,7 @@ design.stitch(
     drill=mm(0.3),
     clearance=mm(0.2),
 )
-# A thermal via inside pad 2 of D1: the grid starts at the pad and turns with the part.
+# Thermal vias inside pad 2 of D1: the grid starts at the pad and turns with the part.
 design.stitch(
     "d1_thermal", net=gnd, pitch=mm(1), region=d1.pad(2), diameter=mm(0.6), drill=mm(0.3), clearance=mm(0.2)
 )
@@ -151,16 +155,16 @@ design.stitch(
   moved. An anchor stands wherever a point does: in a path, in `arc_to`, in `via_step(anchor, to=)`,
   in `design.via(key, anchor, net=)` and in `along`, `region` and `origin` of a stitch. It is a point
   and not a connection: `r1.pad(1)` joins the pad, `r1.pad(1).at()` is only where the pad is.
-- **Nets.** A track takes the net of its pads; `net=` is for a track without a pad end. A via and a
-  stitch name their net.
+- **Nets.** A track takes the net of its pads; `net=` is for a track without a pad end. Vias and
+  stitches name theirs.
 - **Sizes.** A `width`, a via `diameter` or `drill` that the call leaves out comes from the net's class
   (page `rules`); when the class has none, the build reports `kicad.copper.size-missing`.
 - **`via_step(x, y, to=)`** is a through via by default; `kind="blind"`, `"buried"` or `"micro"` on a
   board with inner layers. **`protect(tenting=True)`** says how a via is covered; KiCad 9 holds tenting
-  only.
+  only; **`teardrop(...)`** its teardrops.
 - **`design.stitch`** puts through vias every `pitch` along a line (`along=`) or on a grid (`region=`);
   `region=part.pad(n)` keeps the vias that lie inside that pad, a thermal array.
-- **`locked=True`** on a track, a via or a stitch writes that copper locked in KiCad.
+- **`locked=True`** on a track, a via or a stitch writes it locked in KiCad.
 - **The build checks script copper.** Copper that shorts two nets or breaks a clearance stops the build
   (exit 5, `copper.short` or `copper.clearance`) and nothing is written. A pad the footprint does not
   have, or a pad on no net, stops it as well.

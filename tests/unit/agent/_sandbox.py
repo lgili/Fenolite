@@ -99,6 +99,20 @@ def _crossed(folder: Path) -> None:
     _write(folder / STARTER, _swap(_swap(starter_script(), _R1_PLACE), _D1_PLACE))
 
 
+def _conflict(folder: Path) -> None:
+    """``blink/`` built into ``blink/build``, whose board then gets ``R1``'s value ``4k7`` (the stand-in for
+    an edit in KiCad), after which the script sets ``470``: a ``sync.conflict`` (change c0250)."""
+    _starter(folder)
+    with inside(folder), contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+        assert main(["build", "blink/design.py", "--out", "blink/build", "--confirm", "--json"]) == 0
+    board = folder / STARTER / "build" / "blink.kicad_pcb"
+    text = board.read_text(encoding="utf-8")
+    assert text.count('(property "Value" "330"') == 1
+    board.write_text(text.replace('(property "Value" "330"', '(property "Value" "4k7"'), encoding="utf-8")
+    script = folder / STARTER / "design.py"
+    script.write_text(_swap(script.read_text(encoding="utf-8"), ('value="330"', 'value="470"')), "utf-8")
+
+
 def _lossy(folder: Path) -> None:
     """``blink/`` with a creepage rule, which a build for KiCad 9 refuses with ``FEN-7001``."""
     _write(folder / STARTER, _swap(starter_script(), _IMPORT) + _CREEPAGE)
@@ -111,6 +125,7 @@ SANDBOXES: Mapping[str, Callable[[Path], None]] = MappingProxyType(
         "script-error": _script_error,
         "crossed": _crossed,
         "lossy": _lossy,
+        "conflict": _conflict,
     }
 )
 """Sandbox name → the function that prepares it in an empty folder."""

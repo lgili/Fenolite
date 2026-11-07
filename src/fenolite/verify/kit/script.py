@@ -28,7 +28,10 @@ SCRIPT_NAME = "kit_script.pas"
 PROCEDURE = "FenoliteKitRun"
 """The procedure the user runs from Altium's script menu."""
 LOG = "results/script.log"
-"""The log the script appends to: one line per scripted step, ``<id> done`` or ``<id> error: <text>``."""
+"""The log the script writes: one line per scripted step, ``<id> done`` or ``<id> error: <text>``. The script
+creates it with ``Rewrite`` when ``FileExists`` says it is missing and adds to it with ``Append`` otherwise
+(change c0389, task 6.1): Altium Designer 24.5.2.23 stopped on the ``EInOutError`` of ``Append`` on the
+missing log inside ``Try``-``Except`` (S-1590), so no exception chooses between the two."""
 DONE = "done"
 END_OF_MESSAGES = "end of messages"
 """The last line of a ``messages.txt`` that the script wrote."""
@@ -55,6 +58,7 @@ SCRIPT_CALLS: Mapping[str, str] = MappingProxyType(
         "Copy": "S-0501",
         "Length": "S-0501",
         "UpperCase": "S-0501",
+        "FileExists": "S-1591",
     }
 )
 """Every routine, method and property the script uses → the id of the public source that names it."""
@@ -64,6 +68,7 @@ SOURCE_PAGES: Mapping[str, str] = MappingProxyType(
         "S-0502": "altium-designer/delphiscript-keywords",
         "S-0503": "altium-dxp-developer/workspace-manager-api",
         "S-0504": "altium-dxp-developer/iproject-interface",
+        "S-1591": "altium-designer/scripting/delphiscript/statements-operators",
     }
 )
 """Source id → the page of Altium's public documentation, under ``www.altium.com/documentation/``."""
@@ -83,6 +88,7 @@ PAGE_VERSIONS: Mapping[str, str] = MappingProxyType(
         "S-0502": "Altium Designer documentation; the address names no version",
         "S-0503": "Altium DXP Developer documentation; no version of Altium Designer is stated",
         "S-0504": "Altium DXP Developer documentation; no version of Altium Designer is stated",
+        "S-1591": "Altium Designer documentation; the address names no version",
     }
 )
 """Source id → which documentation the page belongs to and what it says of its version, as registered in
@@ -156,11 +162,7 @@ Var
     F;
 Begin
     AssignFile(F, Root + 'results\\script.log');
-    Try
-        Append(F);
-    Except
-        Rewrite(F);
-    End;
+    If FileExists(Root + 'results\\script.log') Then Append(F) Else Rewrite(F);
     Writeln(F, Line);
     CloseFile(F);
 End;

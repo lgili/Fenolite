@@ -160,6 +160,20 @@ class CurvedRing:
         return CurvedRing(ring.points[start:] + ring.points[:start], ring.mids[start:] + ring.mids[:start])
 
 
+def zone_ring(
+    points: Sequence[Point], arcs: Sequence[tuple[int, Point]], tol: int = MERGE_TOL
+) -> tuple[Point, ...]:
+    """The polygon of a zone outline whose edges ``arcs`` (``(edge, mid)``) are arcs, each arc polygonised at
+    ``tol`` (change c0277); the vertices themselves for an outline without arcs."""
+    if not arcs:
+        return tuple(points)
+    mids: list[Point | None] = [None] * len(points)
+    for edge, mid in arcs:
+        if 0 <= edge < len(points):
+            mids[edge] = mid
+    return CurvedRing(tuple(points), tuple(mids)).polygonize(tol)
+
+
 @dataclass(frozen=True, slots=True)
 class MergedGroup:
     """One result of ``merge_groups``: the indices of the input rings it holds, in input order, and its
@@ -309,8 +323,8 @@ def merge_rings(
 
 
 __all__ = [
-    "MERGE_TOL",
     "CurvedRing",
+    "MERGE_TOL",
     "MergedGroup",
     "interiors_intersect",
     "merge_groups",
@@ -320,4 +334,5 @@ __all__ = [
     "ring_edges",
     "ring_locations",
     "rings_cross",
+    "zone_ring",
 ]

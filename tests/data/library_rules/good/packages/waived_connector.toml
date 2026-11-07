@@ -1,0 +1,107 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as synthetic test data (change c0262); no real product.
+schema = "fenolite.package.v0"
+id = "Rules:WaivedConnector"
+version = "1.0.0"
+summary = "Cable-end pin 1"
+licence = "CC0-1.0"
+evidence = "INFERRED"
+generator = "explicit"
+kind = "through_hole"
+
+[[pad]]
+number = "1"
+shape = "rect"
+size = ["1.8mm", "1.8mm"]
+at = ["2.54mm", "0mm"]
+kind = "thru_hole"
+drill = "1mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "2"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["0mm", "0mm"]
+kind = "thru_hole"
+drill = "1mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[pad]]
+number = "3"
+shape = "circle"
+size = ["1.8mm", "1.8mm"]
+at = ["-2.54mm", "0mm"]
+kind = "thru_hole"
+drill = "1mm"
+layers = ["*.Cu", "*.Mask"]
+
+[[graphic]]
+kind = "line"
+layer = "F.Fab"
+points = [["3.125mm", "1.25mm"], ["-3.75mm", "1.25mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "line"
+layer = "F.Fab"
+points = [["-3.75mm", "1.25mm"], ["-3.75mm", "-1.25mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "line"
+layer = "F.Fab"
+points = [["-3.75mm", "-1.25mm"], ["3.75mm", "-1.25mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "line"
+layer = "F.Fab"
+points = [["3.75mm", "-1.25mm"], ["3.75mm", "0.625mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "line"
+layer = "F.Fab"
+points = [["3.75mm", "0.625mm"], ["3.125mm", "1.25mm"]]
+width = "0.1mm"
+
+[[graphic]]
+kind = "line"
+layer = "F.SilkS"
+points = [["3.75mm", "1.25mm"], ["-3.75mm", "1.25mm"]]
+width = "0.125mm"
+
+[[graphic]]
+kind = "line"
+layer = "F.SilkS"
+points = [["-3.75mm", "1.25mm"], ["-3.75mm", "-1.25mm"]]
+width = "0.125mm"
+
+[[graphic]]
+kind = "line"
+layer = "F.SilkS"
+points = [["3.75mm", "-1.25mm"], ["-3.75mm", "-1.25mm"]]
+width = "0.125mm"
+
+[[graphic]]
+kind = "line"
+layer = "F.SilkS"
+points = [["3.75mm", "1.25mm"], ["3.75mm", "-1.25mm"]]
+width = "0.125mm"
+
+[[graphic]]
+kind = "circle"
+layer = "F.SilkS"
+points = [["4.1375mm", "0mm"], ["4.0625mm", "0mm"]]
+width = "0.15mm"
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["4.25mm", "1.75mm"], ["-4.25mm", "-1.75mm"]]
+width = "0.05mm"
+
+[[waiver]]
+code = "library.pin1-location"
+reason = "Synthetic connector pin 1 is at the cable end"

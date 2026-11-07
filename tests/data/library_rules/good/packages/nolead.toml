@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as synthetic test data (change c0262); no real product.
+schema="fenolite.package.v0"
+id="Rules:RuleNolead"
+version="1.0.0"
+summary="Synthetic nolead review fixture"
+licence="CC0-1.0"
+evidence="INFERRED"
+family="nolead"
+pins=8
+pitch="1mm"
+arrangement="quad"
+body={length="4mm",width="4mm",height="1mm"}
+terminal={length="0.5mm",width="0.4mm"}
+[land]
+source="Fenolite authored dimensions"
+pad={length="0.8mm",width="0.5mm"}
+row_spacing_x="3.5mm"
+row_spacing_y="3.5mm"
+[generate]
+lands=1
+drawing=1

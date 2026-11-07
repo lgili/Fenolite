@@ -53,6 +53,7 @@ OUTJOB_KIND = "altium_outjob"
 EVIDENCE = Evidence(
     Level.INFERRED,
     hypotheses=(
+        "H-A-DWF-OUTJOB",
         "H-A-OUTJOB-GERBER-ACCEPT",
         "H-A-OUTJOB-GERBER-LAYERS",
         "H-A-OUTJOB-GERBER-RECORD",
@@ -299,7 +300,12 @@ def unmapped(preset: PresetOptions | None) -> tuple[str, ...]:
 
 
 def from_preset(
-    preset: PresetOptions | None, *, name: str, copper: Sequence[int], disabled: Sequence[str] = ()
+    preset: PresetOptions | None,
+    *,
+    name: str,
+    copper: Sequence[int],
+    disabled: Sequence[str] = (),
+    draftsman: str | None = None,
 ) -> tuple[OutputGroup, ...]:
     """The job of the project ``name``: one group named ``<name>.OutJob`` with the containers ``fab``
     (folder) and ``doc`` (PDF) and one output per kind of ``OUTPUT_KINDS``. A kind of ``disabled`` is
@@ -336,11 +342,27 @@ def from_preset(
                 settings=(record,) if kind.type == GERBER_TYPE else (),
             )
         )
+    if draftsman is not None:
+        _value(draftsman, "Draftsman document path")
+        outputs.append(
+            JobOutput(
+                index=len(outputs) + 1,
+                type="PCBDrawing",
+                name="Draftsman Drawings",
+                category="Documentation",
+                document_path=draftsman,
+                variant_name="",
+                enabled=True,
+                enabled_media=(index_of[PDF_MEDIUM],),
+            )
+        )
     return (OutputGroup(1, f"{name}.OutJob", "", NO_VARIANT, media, tuple(outputs)),)
 
 
 def kind_of(output: JobOutput) -> str | None:
     """The key of ``OUTPUT_KINDS`` whose type ``output`` has, or ``None``."""
+    if output.type == "PCBDrawing":
+        return "draftsman"
     for kind in OUTPUT_KINDS.values():
         if kind.type == output.type:
             return kind.key

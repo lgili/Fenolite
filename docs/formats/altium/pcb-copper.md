@@ -29,7 +29,8 @@ itself is in `pcb-document.md`, the primitive records in `pcb-records.md`.
 | fact | source | label | hypothesis |
 |---|---|---|---|
 | A routed track is the record of a footprint line (`pcb-records.md`): type 4 with one subrecord, the common 13-byte prefix (layer byte, two flag bytes, net index at 3, polygon index at 5, component index at 7), then x1, y1, x2, y2 and the width as 32-bit values. A free routed track has the component index `0xFFFF`, the polygon index `0xFFFF` and the index of its net in `Nets6` (`0xFFFF` without a net). A routed arc is the arc record (type 1) with the same prefix | S-0160, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca), S-0172, S-0174, S-0175, S-0176 (files kept outside the repository) | INFERRED | H-A-PCB-CU-TRACK |
-| Altium saves a track with 49 bytes and an arc with 60: after the short form come a solder-mask expansion, a paste-mask expansion, a 32-bit long layer id and a keep-out byte. Readers accept the short forms: KiCad needs 36 bytes for a track and 47 for an arc, and Altium Designer 26.5 opens them in the document of c0035 (`pcb-document.md`) | S-0160, S-0173, S-0172, S-0174, S-0175, S-0176 (files kept outside the repository) | INFERRED | H-A-PCB-CU-TRACK |
+| Altium saves a track with 45 or 49 bytes and an arc with 56 or 60. Five bytes follow the short form (36 and 47 bytes), then the 32-bit long layer id, at offset 41 in a track and 52 in an arc (`pcb-library.md`, "Long layer ids"). The 49- and 60-byte forms add the keep-out restrictions byte (`pcb-records.md`, "Regions and keep-outs") and three zero bytes. Measured on the 8 public documents: 4 353 tracks of 45 bytes and 21 651 of 49; 96 arcs of 56 bytes and 1 060 of 60. This corrects the earlier reading of a solder-mask and a paste-mask expansion before the long layer id, which would put it at 44 in a track | S-0580, S-0187 | CORPUS-VERIFIED (8 rows; 2026-11-05) | H-A-PCB-CU-TRACK |
+| Readers accept the short forms: KiCad needs 36 bytes for a track and 47 for an arc, and Altium Designer 26.5 opens them in the document of c0035 (`pcb-document.md`) | S-0160, S-0173, S-0172, S-0174, S-0175, S-0176 (files kept outside the repository) | INFERRED | H-A-PCB-CU-TRACK |
 | The first flag byte of a routed track is `0x0C` in nearly every saved track; bit 2 clear means locked | S-0160, S-0172, S-0174, S-0175, S-0176 (files kept outside the repository) | INFERRED | H-A-PCB-CU-TRACK |
 | The layer byte of a track on an inner signal layer is 2 to 31 (Mid-Layer 1 to 30). A saved board holds tracks with the layer bytes 3 and 5 (Mid-Layer 2 and 4), flags `0C`, polygon and component `0xFFFF` | S-0002, S-0160, S-0200 (files kept outside the repository) | INFERRED | H-A-PCB-CU-TRACK |
 | KiCad reads a 36-byte track and a 47-byte arc with a net index on layers 1, 2, 3 and 32 as tracks and arcs on `F.Cu`, `In1.Cu`, `In2.Cu` and `B.Cu` with that net | S-0160, S-0161, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-CU-KICAD |
@@ -41,13 +42,15 @@ itself is in `pcb-document.md`, the primitive records in `pcb-records.md`.
 | A via is record type 3 with one subrecord. It starts with the common 13-byte prefix on layer 74 (Multi-Layer), then, as 32-bit values, x at offset 13, y at 17, the diameter at 21 and the hole at 25, and as bytes the start layer at 29 and the end layer at 30 | S-0160, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca), S-0173, S-0172, S-0174, S-0175, S-0176 (files kept outside the repository) | INFERRED | H-A-PCB-CU-VIA |
 | A through via has start layer 1 and end layer 32 on any layer count: the vias of the four-layer board say 1 and 32 too | S-0160, S-0172, S-0174, S-0175, S-0176 (files kept outside the repository) | INFERRED | H-A-PCB-CU-VIA |
 | Altium saves a via subrecord of 321 bytes (351 with one polygon-connect entry of 30 bytes). AltiumSharp version 1 writes 209 bytes. KiCad reads a simple via when the subrecord has at most 74 bytes and more fields past 74, 246 and 307 bytes; it needs at least 31 | S-0160, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca), S-0173, S-0172, S-0174, S-0175, S-0176 (files kept outside the repository) | INFERRED | H-A-PCB-CU-VIA |
-| Fields after offset 30 of the 321-byte form, with the values of a plain through via: 31 the plane-connection style (byte, 0); 32 the thermal-relief air gap (32-bit, 10 mil); 36 the conductor count (16-bit, 4); 38 the conductor width (32-bit, 10 mil); 42 and 46 two lengths of 20 mil (plane relief expansion and plane clearance); 50 the paste expansion (0); 54 the solder-mask expansion (4 mil); 61 to 64 four cache flags (0); 66 the solder-mask cache state (0); 74 the diameter stack mode (byte, 0 = simple); 75 to 202 thirty-two 32-bit diameters, one per signal layer, each the via's diameter for a simple via | S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca), S-0173, S-0172, S-0174, S-0175, S-0176 (files kept outside the repository) | INFERRED | H-A-PCB-CU-VIA |
+| Fields after offset 30 of the 321-byte form, with the values of a plain through via: 31 the plane-connection style (byte, 0); 32 the relief conductor width (32-bit, 10 mil); 36 the conductor count (16-bit, 4); 38 the relief air gap (32-bit, 10 mil); 42 and 46 two lengths of 20 mil (plane relief expansion and plane clearance; the order of 32, 38, 42 and 46 is that of S-1653, where the rule values differ); 50 the paste expansion (0); 54 the solder-mask expansion (4 mil); 61 to 64 four cache flags (0); 66 the solder-mask cache state (0); 74 the diameter stack mode (byte, 0 = simple); 75 to 202 thirty-two 32-bit diameters, one per signal layer, each the via's diameter for a simple via | S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca), S-0173, S-0172, S-0174, S-0175, S-0176 (files kept outside the repository), S-1653 | INFERRED | H-A-PCB-CU-VIA |
 | Fixed bytes of the tail, constant in the saved 321-byte vias: at 203 a 16-bit 15 and at 205 a 32-bit 259 (where version 1 stops, at byte 208); at 242 the back solder-mask expansion (32-bit, 4 mil); at 254 the byte `0x2A`; at 259 and 275 two 16-byte ids; at 291 and 295 two hole tolerances `0x7FFFFFFF`; at 300 the polygon-connect count (32-bit, 0); at 304 its entry size (32-bit, 30); at 308 the byte 9; at 320 the byte 1. The meaning of the bytes at 203, 254, 308 and 320 is not known | S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca), S-0173, S-0172, S-0174, S-0175, S-0176 (files kept outside the repository) | INFERRED | H-A-PCB-CU-VIA |
 | Flags of a via: `0x0C` unlocked and untented; bit 5 tents the top, bit 6 the bottom. The net index is at 3; polygon and component are `0xFFFF` for a free via | S-0160, S-0172, S-0174, S-0175, S-0176 (files kept outside the repository) | INFERRED | H-A-PCB-CU-VIA |
 | Written tenting flags (change c0112): the first flags byte of a written via is `0x0C`, plus `0x20` (bit 5) when the via is tented on the top, plus `0x40` (bit 6) when it is tented on the bottom: `0C`, `2C`, `4C` or `6C`; the second flags byte stays `00`. Since c0166, a tented side also selects manual solder-mask cache state `2` at byte 66; automatic state lets native rules discard the flags. The two solder-mask expansions (54 and 242) stay unchanged. They are the bits the reader reads as `ViaRecord.tented_top` and `tented_bottom` (`pcb-read.md`) | S-0160, S-0172, S-0174, S-0175, S-0176, S-0728, S-0729 | INFERRED | H-A-PCB-CU-VIATENT |
 | The two bits in the eight public documents (2 933 via records; counts only, table below): neither bit set in 734 records, bit 5 alone in 1, bit 6 alone in 0, both in 2 198. Five documents hold one combination for every via, three hold two. The first flags byte is `0C` in 729 records, `2C` in 1, `6C` in 2 156, `68` in 36, `88` in 5 and `E8` in 6: bits 2 and 7 vary too, and the second flags byte is `01` in 11 records of one document and `00` elsewhere | S-0630 | CORPUS-VERIFIED | H-A-RD-PCB-LENGTHS |
 | KiCad's importer reads the two bits as tenting: `kicad-cli pcb import --format altium` 10.0.6 writes the four written vias with the first flags byte `0C`, `2C`, `4C` and `6C` as `(tenting (front no) (back no))`, `(front yes) (back no)`, `(front no) (back yes)` and `(front yes) (back yes)`, explicit on every via, which is the reading of Fenolite's own import. It says what KiCad reads, not what Altium Designer shows | S-0160, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-07; test_via_tenting_oracle.py) | H-A-PCB-CU-VIATENT |
 | The solder-mask expansion at 54 does not follow the two bits in those documents: two documents hold a negative expansion on every via, with both bits set on every via; three hold 4 mil on every via with both bits set on every via; and the two documents whose vias have neither bit set (but one via) hold 1 mil and 4 mil. No recorded fact says which of the two, the bits or the expansion, decides the mask opening that Altium Designer plots | S-0630 | INFERRED | H-A-PCB-CU-VIATENT |
+| The solder-mask cache state at 66 of a saved via is 1 when its expansion comes from the rules: the 646 vias of public row `-01` hold state 1 and 1 mil at 54 and 242, under a `SolderMaskExpansion` rule of scope `IsVia` (priority 1, `EXPANSION=1mil`, `SOLDERMASKFROMHOLE=TRUE`) before one of scope `All` (3 mil); rows `-02` and `-06` tent their vias by the flags with state 2. With `SOLDERMASKFROMHOLE=TRUE` the expansion is read as measured from the edge of the hole, so `-01` opens each 20 mil via with a 10 mil hole 12 mil across | S-2041 | INFERRED | H-A-PCB-CU-VIATENT |
+| Written via mask (change c0445): a write of a model with `Board.mask_margin` gives every via that value at 54 and 242 with the manual cache state 2 at 66, the opening KiCad plots for an untented via; a build and a model without the field write 4 mil with state 0, as before. Whether Altium Designer opens such a via by the written expansion is not yet measured; the session that runs Altium is to confirm it by the sliver count of row `-01` | S-2040, S-2043 | INFERRED | H-A-PCB-CU-VIATENT |
 | Vias are not listed in `UniqueIDPrimitiveInformation`; only pads are | S-0174, S-0176 (files kept outside the repository) | INFERRED | H-A-PCB-CU-VIA |
 | A blind, buried or micro via needs a via type and a drill pair in the layer stack. The documents read hold one pair only (`LAYERPAIR0LOW=TOP`, `LAYERPAIR0HIGH=BOTTOM`) | S-0197, S-0172, S-0174, S-0175, S-0176 (files kept outside the repository) | INFERRED | H-A-PCB-CU-VIA |
 | A blind or buried via is the via record with the ids of the two copper layers it spans at 29 and 30, the upper layer first, and the other bytes of a through via; an end on an internal plane holds the plane's id (39 to 54). No saved document read holds such a via: every one of their 1 103 vias spans 1 to 32 | S-0160, S-0197, census of S-0172, S-0174, S-0175, S-0176, S-0188, S-0199, S-0200 (files kept outside the repository) | INFERRED | H-A-PCBX-VIASPAN |
@@ -56,6 +59,8 @@ itself is in `pcb-document.md`, the primitive records in `pcb-records.md`.
 | The one subrecord of a via has 299, 321, 330 or 351 bytes in the eight public documents read: 646, 2 082, 123 and 82 of their 2 933 via records. One document holds the 299 form alone, one the 321 and the 351 form, five the 321 form alone, and one the 321 form (1 647) and the 330 form (123). Every one of the 2 933 has the stack mode 0 at 74 and spans 1 to 32, and every one of at least 203 bytes has thirty-two equal layer diameters: no document read holds a via with a diameter per layer | S-0601, census of the corpus rows `altium-third-party-pcbdoc-01` to `-08` | CORPUS-VERIFIED (8 rows; 2026-10-07) | H-A-IMP-VIA-PADLESS |
 | The thirty-two bytes at 209 to 240 of a via subrecord are all zero in every record of 321 and of 351 bytes read (2 164). In the 123 records of 330 bytes the bytes 210 to 213 are 1, a, b, 1 and the others zero: (a, b) is (0, 1) in 70 records, (1, 1) in 51, (0, 0) in one and (1, 0) in one. The copper layers of that document have the layer ids 1, 2, 3, 4, 5 and 32, so the byte at 208 + id belongs to the layer id; the ids are also the positions of the layers in the stack, so the document does not tell an index by id from an index by position | S-0601, census of the corpus rows `altium-third-party-pcbdoc-01` to `-08` | CORPUS-VERIFIED (8 rows; 2026-10-07) | H-A-IMP-VIA-PADLESS |
 | The 330-byte form differs from the 321-byte form in two places and nowhere else: the table at 209, and nine bytes inserted at 254, before the byte `0x2A`, with a 32-bit 1 at 246 and a 32-bit 9 at 250 where the 321-byte form holds two zeros. The nine bytes are `04 00 80 01 00 71 02 00 00` in all 123 records, which are all vias of 16 mil with a hole of 8 mil. **What the count, the length and the nine bytes say is not known:** no public source read explains them. A reader does not read them and a writer does not write them | S-0601, census of the corpus rows `altium-third-party-pcbdoc-01` to `-08` | CORPUS-VERIFIED (1 row; 2026-10-07) | H-A-IMP-VIA-PADLESS |
+| In the three vias of 0.6 mm that Altium Designer 24.5 saved after "Remove Unused Pad Shapes", the nine bytes inserted at 254 are `04 00 80 01`, the via's diameter as a 32-bit little-endian integer at 258 (236220 units), and `00`; the 1 at 246 and the 9 at 250 are as in the corpus, where the same place holds 160000, the 16 mil of those vias. The count, the length and `04 00 80 01` are not explained | S-1601, S-0601 | INFERRED | H-A-IMP-VIA-PADLESS |
+| In the table at 209, the byte of Bottom Layer is at 240, which is 208 plus its layer id 32, in a four-layer stack where Bottom Layer is the fourth: the table is indexed by layer id, not by stack position. With "Preserve pads on start and end layers" on, Altium leaves the bytes of the via's start and end layers at 0; with it off, it also sets the byte of an end layer that nothing touches | S-1601 | INFERRED | H-A-IMP-VIA-PADLESS |
 | Altium's "Remove Unused Pad Shapes" takes the pad shape of a pad or a via off each layer on which no other object touches it; a polygon around it then keeps the clearance to the hole and not to the edge of the removed shape; an option keeps the shapes on the start and end layers, and the shapes can be restored. The page does not say how a document stores this | S-0600 | INFERRED | H-A-IMP-VIA-PADLESS |
 | A non-zero byte of the table at 209 says that the via has no pad shape on that layer. On the one document that holds such bytes, measured for each of the 123 vias on each of the four inner layers: where the byte is 1 (419 places), the poured copper of another net stands at the drill radius plus the generic clearance from the via's centre, within 30 nm, at 28 places, never nearer and never at the pad radius plus the clearance, and no track of the via's net ends on the via; where the byte is 0 (73 places), a track of the via's net ends on the via at 72. No via of the 321-byte form has copper of another net nearer than its pad allows (6 588 places; the pour stands at the pad at 1 977). The table is read as indexed by layer id, as the table of diameters at 75 is; one document shows it, and its ids do not tell that index from the position in the stack | S-0600, S-0601 | INFERRED | H-A-IMP-VIA-PADLESS |
 | KiCad's importer does not carry the table: `kicad-cli pcb import --format altium` writes the 1 770 vias of that document as through vias between `F.Cu` and `B.Cu` with their size and drill, and none with `remove_unused_layers`, `keep_end_layers` or `zone_layer_connections`; the 123 are written as the others are | S-0601, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-07) | H-A-PCB-CU-KICAD |
@@ -113,8 +118,15 @@ document do.
 | Layer sets: `&Signal Layers` lists `MultiLayer`, `TopLayer`, the signal mid layers (`MidLayer1`, `MidLayer2`) and `BottomLayer`; `&Plane Layers` lists the planes of the stack (`InternalPlane1`, `InternalPlane2`) with `LAYERSET3ACTIVELAYER.7=PLANE1`, and is empty with `UNKNOWN` without one; `&All Layers` lists both kinds, the mid layers between `TopLayer` and `BottomLayer` and the planes after `BottomPaste` | S-0176, S-0199, S-0200 (files kept outside the repository) | INFERRED | H-A-PCB-CU-STACK |
 | `TOGGLELAYERS` has one flag per numbered layer; a saved board sets all of them, another only the enabled layers. The routing keys (`ROUTINGDIRECTION…`, `…_MRLASTWIDTH`) name all 32 signal layers whatever the stack | S-0172, S-0174, S-0175, S-0176 (files kept outside the repository), S-0200 (files kept outside the repository) | INFERRED | H-A-PCB-CU-STACK |
 | Plane net: `PLANE<k>NETNAME` in the first line of `Board6` names the net of Internal Plane k; `(No Net)` otherwise. The key has no effect for a plane outside the stack | S-0176, S-0199 (files kept outside the repository) | INFERRED | H-A-PCB-CU-PLANE |
+| The public rows with planes (S-2250): `-01` holds Internal Planes 1 and 2 (`Ground Plane`, `Power Plane`), both `(Multiple Nets)`, with 2 and 6 `Split Plane` polygons; `-02` holds them on `GND` and `5V` (`GND`, `POWER`) with 1 and 4, so a plane on one net may hold splits of other nets. Every split's vertices are straight, and `PLANE1PULLBACK` and `PLANE2PULLBACK` are `20mil` (with `PLANE<k>PULLBACK.LAYER=PLANE<k>`) in both, the `PULLBACKDISTANCE` of the planes' stack entries the same. Rows `-04` and `-07` name a net in `PLANE1NETNAME` with no plane in the chain | S-2250 | CORPUS-VERIFIED | H-A-PCB-CU-PLANE |
 | What a saved plane holds besides: one `Polygons6` record with `POLYGONTYPE=Split Plane` on `PLANE<k>` (ten keys, the vertices and `NET`) and pull-back tracks and arcs on the plane's layer, without a net and with the polygon index `0xFFFE`. It has no region. All of it derives from the outline, the pull-back distance and the net. Whether Altium rebuilds it when it is missing is not known | S-0176 (files kept outside the repository) | INFERRED | H-A-PCB-CU-PLANE |
 | Altium treats a plane as a negative layer with its own connect and clearance rules (Plane Connect, Plane Clearance); a pour on a signal layer is a polygon | S-0198, S-0196 | INFERRED | H-A-PCB-CU-PLANE |
+| A `Split Plane` polygon holds the seven common keys with `LAYER=PLANE<k>`, then `PRIMITIVELOCK=TRUE`, `POLYGONTYPE=Split Plane`, its vertices (straight; the last repeats the first) and `NET`, in that order. The split planes follow the polygon pours of the document. A plane on one net has one split plane, whose outline is the board outline pulled back by the plane's pull-back distance (20 mil); the pull-back tracks are 40 mil wide | S-1653 | INFERRED | H-A-PCB-CU-PLANE |
+| A `PlaneConnect` record (kind 6) holds, after the common rule keys, `PAD.PLANECONNECTSTYLE`, `PAD.RELIEFEXPANSION`, `PAD.RELIEFENTRIES`, `PAD.RELIEFCONDUCTORWIDTH` and `PAD.RELIEFAIRGAP`, then the same five keys with `VIA.`; a rule scoped by a class may hold the five keys without a prefix. A `PlaneClearance` record (kind 12) holds `CLEARANCE`. The styles are `Relief` and `Direct`; the lengths are mil text | S-1653 | INFERRED | H-A-PCB-CU-PLANE |
+| The `All` rules of a saved document whose plane rules were not edited, named `PlaneConnect` and `PlaneClearance`: pads `Relief` with `20mil`, `4`, `10mil` and `10mil`, vias `Direct` with the same four values, clearance `20mil`. The other document connects its vias `Direct` too | S-1653 | INFERRED | H-A-PCB-CU-PLANE |
+| The expansion of a plane relief and the plane clearance (the antipad) are both measured from the edge of the hole, not from the copper of the pad or via. At least one rule of each kind must exist. The batch check of starved thermals reports a thermal left with less than 50 % (the default) of its copper by voids that reach its spokes or its own area | S-1652 | INFERRED | H-A-PCB-CU-PLANE |
+| The document with planes caches the plane rule in each record: every via holds 2 at 31 under a rule that connects vias directly; each plated pad holds, at 67, 1 under a relief rule and 2 under a direct rule, then the conductor width at 68, the count at 72 (16-bit), the air gap at 74, the expansion at 78 and the clearance at 82; surface pads hold 0 at 67. The document without a plane holds 0 at via 31 and pad 67 | S-1653 | INFERRED | H-A-PCB-CU-PLANE |
+| Case C6 (`p0`, S-1601) under these rules: the relief of `D1` pad 1 meets no antipad of another net, and the antipad of the `VIN` via stays outside the copper ring of the `GND` via, so the sample's own holes starve neither thermal (`tests/unit/backends/altium/test_plane_connect.py`). The document held no `Split Plane` polygon and no plane rule: the likely cause is a plane without a net region, which leaves the thermals no copper and the plane no connection. Since change c0389 (task 2.7) the writer adds both; a C6 rerun decides | S-1601, S-1652, S-1653 | INFERRED | H-A-PCB-CU-PLANE |
 | A stack that mixes one signal mid layer and one plane (1 → 39 → 3 → 32 or 1 → 2 → 39 → 32) is composed from the two entry forms above. No saved document with such a stack was read | S-0176, S-0199, S-0200 (files kept outside the repository) | INFERRED | H-A-PCB-CU-PLANE |
 | A stack of more than four copper layers is composed from the entry forms above: the chain of the numbered keys links every copper id in order, the physical lists grow by one dielectric and one copper entry per inner layer, and the cache list ends with the further dielectrics. The saved documents read hold two and four copper layers only | S-0198, census of S-0172, S-0174, S-0175, S-0176, S-0188, S-0199, S-0200 (files kept outside the repository) | INFERRED | H-A-PCBX-STACK |
 | KiCad reads a chain of six layers with one plane (1 → 2 → 39 → 4 → 5 → 32) as `F.Cu`, `In1.Cu` … `In4.Cu`, `B.Cu`, the plane's position of type `power`, and warns once per internal plane outside the stack | S-0161, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-06) | H-A-PCBX-KICAD |
@@ -140,6 +152,7 @@ Change c0048 adds the component classes that "Design » Update PCB Document" der
 | A sheet that is under no sheet symbol, the top sheet or the single sheet of a flat project, gets a class named after the sheet itself: one saved board holds such a class for the parts of its top sheet, a saved single-sheet board holds one named after its sheet, and the change order of Altium Designer 26.5 offered the class `routed`, with every component, for the flat sample `routed.SchDoc` (maintainer's report of 2026-10-04). Two other saved single-sheet boards hold none, and the first flat report (step D3) named no class difference, which that report may simply not have listed. With a written class of this name and content, and the room key in the sheet's section, the change order of the rebuilt flat sample offers no component class and no room (maintainer's repeat of 2026-10-04) | S-0199, S-0200, S-0174, S-0176, S-0313 (files kept outside the repository) | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-04; no artefact) | H-A-ECO-SHEETCLASS |
 | The four classes `Top Side Components`, `Bottom Side Components`, `Inside Board Components` and `Outside Board Components` of a saved board carry `AUTOGENERATEDCLASS=TRUE` and an `AUTOGENERATEDCLASSKIND`; the change order did not ask for them | S-0172, S-0174, S-0175, S-0176 (files kept outside the repository) | INFERRED | H-A-ECO-COMPCLASS |
 | A room is a Room Definition rule of the Placement category, scoped `InComponentClass('<name>')`. None of the six saved boards read holds such a rule, so its record is not known | S-0310, S-0172, S-0174, S-0175, S-0176, S-0199, S-0200 (files kept outside the repository) | INFERRED | H-A-ECO-ROOMS |
+| The nine Room Definition records of the public rule file hold, after the common rule keys, `SELECTION`, `LAYER` (`TOP` in all nine), `LOCKED`, `POLYGONOUTLINE`, `USERROUTED`, `UNIONINDEX`, the outline as the vertex keys of a polygon (`KIND<k>`, `VX<k>`, `VY<k>`, `CX<k>`, `CY<k>`, `SA<k>`, `EA<k>`, `R<k>` for k from 0 to 4, every `KIND` 0, the fifth vertex repeating the first), `CONFINEMENTSTYLE` (`ConfineIn`), `FORMATCOPY` and `LOCKCOMPONENTS`. No public PCB document holds a room, so that its `Rules6` record holds the same keys is not measured; change c0462 reads it that way (`read.rooms`) | S-0297 (`tests/corpus/test_altium_rooms_c0462.py`) | INFERRED | H-A-RD-ROOM |
 | "Supply Nets" is a Signal Integrity rule whose constraint is a voltage. When the PCB is updated from the schematic, Altium suggests one for each net with a power port, under its advanced setting `Schematic.AutoGenerateSupplyNetsRule`: an application setting, not a key of the project. None of the six saved boards read holds the rule, so its record is not known. Both change orders of the report of 2026-10-04 list two such rules with a voltage of 0, for `GND` and `VIN`, and on the build with module sheets nothing else | S-0185, S-0312 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-04; no artefact) | H-A-ECO-SUPPLY |
 
 ## Rules
@@ -168,12 +181,15 @@ Part U of `docs/evidence/altium-pcb.md`.
 |---|---|---|---|
 | Board Outline Clearance is the minimum clearance from fabricated design objects to the edges of the board (outline, cavity, cutout and split-line edges); it holds one minimum clearance or a matrix per object and edge kind | S-0460 | INFERRED | H-A-RULE-KINDS |
 | A Board Outline Clearance record has the kind number 63, `RULEKIND=BoardOutlineClearance`, `NETSCOPE=DifferentNets` and the keys of Clearance in this order: `GAP`, `GENERICCLEARANCE` (equal to `GAP`), `IGNOREPADTOPADCLEARANCEINFOOTPRINT=FALSE`, `OBJECTCLEARANCES` (empty for one value; a list of `ClearanceObj_…` pairs for a matrix). Eight records in five documents; its first scope is `All`, `InNet('…')` or a query, its second `All` | S-0174, S-0175, S-0187, S-0199, S-0200 | INFERRED | H-A-RULE-KINDS |
+| `GENERICCLEARANCE` equals `GAP` in each of the 17 `Clearance` and 8 `BoardOutlineClearance` records of the eight public documents; an edit of one changes both (c0389 task 4.2) | S-1654 | CORPUS-VERIFIED (8 rows; 2026-11-05) | H-A-EDIT-RULE |
 | Hole Size is the minimum and the maximum hole diameter of pads and vias, as absolute values or as percentages of the pad size | S-0460 | INFERRED | H-A-RULE-KINDS |
 | A Hole Size record has the kind number 42, `RULEKIND=HoleSize`, `NETSCOPE=AnyNet` and the keys `ABSOLUTEVALUES`, `MAXLIMIT`, `MINLIMIT`, `MAXPERCENT`, `MINPERCENT` in this order; every record read holds `ABSOLUTEVALUES=TRUE`, `MAXPERCENT=80.000` and `MINPERCENT=20.000`, and both limits (ten records) | S-0172, S-0174, S-0175, S-0176, S-0187, S-0188, S-0199, S-0200, S-0297 | INFERRED | H-A-RULE-KINDS |
 | Hole To Hole Clearance is the minimum clearance between the holes of pads and vias, with the option "Allow Stacked Micro Vias" | S-0460 | INFERRED | H-A-RULE-KINDS |
 | A Hole To Hole Clearance record has the kind number 52, `RULEKIND=HoleToHoleClearance`, `NETSCOPE=AnyNet` and the keys `GAP` and `ALLOWSTACKEDMICROVIAS` (`TRUE` or `FALSE`) in this order; both scopes are `All` in the nine records read | S-0172, S-0174, S-0175, S-0176, S-0187, S-0188, S-0199, S-0200, S-0297 | INFERRED | H-A-RULE-KINDS |
 | Minimum Annular Ring is the minimum ring of a pad or via, measured radially from the edge of the hole to the edge of the pad or via | S-0460 | INFERRED | H-A-RULE-KINDS |
 | A Minimum Annular Ring record has the kind number 19, `RULEKIND=MinimumAnnularRing`, `NETSCOPE=AnyNet` and the one key `MINIMUMRING`; four records in three documents, scoped `All`, `IsVia` or `NOT IsVia` | S-0174, S-0199, S-0200 | INFERRED | H-A-RULE-KINDS |
+| A Short-Circuit record has the kind number 15, `RULEKIND=ShortCircuit`, one key of its own, `ALLOWED` (`FALSE` in the 8 public rows), and both scopes `All`; `NETSCOPE=AnyNet` in 7 rows and `DifferentNets` in 1 | S-2243 | CORPUS-VERIFIED (8 rows; 2026-11-06) | H-A-RULE-SHORT |
+| A Net Antennae record has the kind number 56, `RULEKIND=NetAntennae`, `NETSCOPE=AnyNet`, one key of its own, `NETANTENNAETOLERANCE` (`0mil` in 6 public rows, `1mil` in 2), and both scopes `All` | S-2243 | CORPUS-VERIFIED (8 rows; 2026-11-06) | H-A-RULE-ANTENNA |
 | A Width record holds `MAXLIMIT`, `MINLIMIT` and `PREFEREDWIDTH` in every record read, a Routing Via Style record its seven keys, a Hole Size record both limits: no record read leaves a limit out | S-0172, S-0174, S-0175, S-0176, S-0187, S-0188, S-0199, S-0200, S-0297 | INFERRED | H-A-RULE-KINDS |
 | Silk To Solder Mask Clearance is the clearance between a silkscreen primitive and a solder mask opening or the copper exposed through it, by a checking mode; Silk To Silk Clearance is the clearance between silkscreen text and other silkscreen objects. Their records hold `MINSILKSCREENTOMASKGAP` with `CLEARANCETOEXPOSEDCOPPER`, and `SILKTOSILKCLEARANCE`. Neither is the neutral silkscreen clearance, which is one value for both | S-0460, S-0172, S-0174, S-0175, S-0176, S-0187, S-0188, S-0199, S-0200, S-0297 | INFERRED | H-A-RULE-KINDS |
 | Component Clearance is the minimum distance between components, measured between their 3D bodies or, without them, their selection areas, with a horizontal and a vertical clearance and a check mode. Its record holds `GAP`, `COLLISIONCHECKMODE`, `VERTICALGAP` and `SHOWDISTANCES`; no permitted source says what the mode number means. It is not a clearance between courtyards | S-0461, S-0172, S-0174, S-0175, S-0176, S-0187, S-0188, S-0199, S-0200, S-0297 | INFERRED | H-A-RULE-KINDS |
@@ -190,6 +206,7 @@ what kit cases S2 and S5 of Part S (`docs/evidence/altium-pcb.md`) show in Altiu
 | fact | source | label | hypothesis |
 |---|---|---|---|
 | Board Outline Clearance checks object-to-edge clearances on the electrical and overlay layers against five edge kinds: the outline edge, a cavity edge, a cut-out edge (the edge of a user-defined cut-out), a split barrier and a split continuation. It names no hole, so the edge of a board cut-out region is one of its edges and a slotted pad hole is not | S-0460 | INFERRED | H-A-SLOT-KIT |
+| A Board Outline Clearance whose `OBJECTCLEARANCES` is not empty is kept for an Altium write in a conversion to KiCad ("the rule does not map onto a KiCad rule"), and a KiCad file does not hold it: an Altium → KiCad → Altium round trip leaves the rules below it in force. On DM6010_R2M2E2 the source's priority-1 rule (`not InNet('GND')`, 10 mil, the text row of the matrix 0 for the five edge kinds) and its priority-2 rule (`All`, 5.9055 mil) give no violation; the round trip, holding the second rule alone, gives 24 silk tracks of Top Overlay that cross the edge. Which objects the text row exempts (text, every overlay primitive, or every object outside the matrix's cells) is not measured | S-2060, S-2061 | INFERRED | H-A-RULE-KINDS |
 | Hole To Hole Clearance flags multiple vias or pads at the same location and overlapping pad or via holes, so two slot pads whose holes overlap (an L of two drilled slots) are flagged, and two overlapping cut-outs merged into one region are not holes | S-0460 | INFERRED | H-A-SLOT-KIT |
 
 ### The lowering table
@@ -213,6 +230,8 @@ limits of its row.
 | `silk_clearance` | — | — | — | — | — | no-counterpart |
 | `creepage` | — | — | — | — | — | no-counterpart |
 | `no_tracks` | — | — | — | — | — | no-counterpart |
+| `short` | `ShortCircuit` | 15 | — | — | — | exact |
+| `antenna` | `NetAntennae` | 56 | — | — | `NETANTENNAETOLERANCE` | exact |
 | `diff_pair_gap` | — | — | — | — | — | no-counterpart |
 | `diff_pair_uncoupled` | — | — | — | — | — | no-counterpart |
 | `skew` | — | — | — | — | — | no-counterpart |
@@ -223,6 +242,15 @@ The row of `no_tracks` (change c0107): Altium's Routing Layers rule says which s
 routing, with one switch per layer, and is the nearest counterpart in meaning (S-0660, `INFERRED`). Its
 record (kind number, constraint keys) is in no public file read under the sources register, so the row
 cannot be `exact`: a `no_tracks` rule is reported with `altium.not-lowered` and no record is written.
+
+The rows of `short` and `antenna` (change c0465, task 5.2): a `short` rule is a ShortCircuit record whose
+one key `ALLOWED` is its severity, `TRUE` for `ignore` and `FALSE` for `error`; a `warning` has no record and
+is reported `value-unsupported`, as is a `short` that gives a limit. Its two selectors are the record's two
+scopes. An `antenna` rule is a NetAntennae record of one scope whose `NETANTENNAETOLERANCE` is its `max`,
+with severity `error`. The reader maps the records of either kind only where one enabled record of the
+document relaxes the check (`rule-file.md`, "checked"), so a written set of `short` rules that allows no
+short, or of `antenna` rules all of `max` 0, reads back as Fenolite's own check: the records are written and
+lifted as `checked`.
 
 ## Locked flag of a free primitive
 
@@ -244,9 +272,11 @@ track and via flags above). Altium Designer's own view of a written lock is step
 | fact | source | label | hypothesis |
 |---|---|---|---|
 | KiCad builds the copper stack from the numbered keys only, by chain position: 1 → 2 → 3 → 32 gives `F.Cu`, `In1.Cu`, `In2.Cu`, `B.Cu`, the inner layers of type `signal`; a plane in the chain (39 or 40) becomes the copper layer of its position with the type `power`. This holds for the chains 1 → 39 → 40 → 32, 1 → 39 → 3 → 32 and 1 → 2 → 39 → 32, without any split-plane record | S-0161, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-CU-KICAD |
+| With the `Split Plane` polygon that the writer adds since change c0389, KiCad imports each plane's net as one zone on the plane's layer with that net, over the board outline (its points started at another corner) and without a fill: `GND` on `In1.Cu` for the variant `p0`, `GND` on `In2.Cu` for the six-layer sample | S-0161, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-11-05) | H-A-PCB-CU-KICAD |
+| KiCad imports the eight `Split Plane` polygons of the public row `-01` (two on Internal Plane 1, six on Internal Plane 2, the planes' `PLANE<k>NETNAME` `(Multiple Nets)`) as eight zones without a fill on the planes' layers, each with the polygon's net: `DSG-` and `GND` on `In1.Cu`, `C+`, `VCC`, `VBB`, `VDD`, `DSG+` and `5V` on `In2.Cu`; both layers are rows of type `power` (`Ground Plane`, `Power Plane`). The six zones of the smaller regions have priority 34, `GND` and `VCC` (the two largest outlines, 174 and 194 points) none. The two layers also hold 114 zones without a net, which this row does not cover. Fenolite's conversion to KiCad gives an internal plane no zone: since change c0461 it counts each `Split Plane` polygon of a plane in the chain lost under `plane` (8 in `-01`, 5 in `-02`), or the plane itself when it holds none | S-2201 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-11-06) | H-A-PCB-CU-KICAD |
 | A track or polygon written on Mid-Layer 2 of the chain 1 → 39 → 3 → 32 arrives on `In2.Cu` | S-0161, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-CU-KICAD |
 | KiCad warns once per internal plane that is outside the stack ("could not be mapped"): sixteen warnings without a plane in the chain, fifteen with one, fourteen with two | S-0161, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-CU-KICAD |
-| A plane's net is not in the imported board: KiCad makes zones from split-plane records only. Net classes and rules give no error and are not in the imported `.kicad_pcb` | S-0161, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-CU-KICAD |
+| Without a split-plane record a plane's net is not in the imported board: KiCad makes zones from split-plane records only (the documents before change c0389). Net classes and rules give no error and are not in the imported `.kicad_pcb` | S-0161, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-CU-KICAD |
 | Copper copied from a KiCad board into the document and imported back equals the source board's copper | S-0161, S-0166, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-CU-ROUNDTRIP |
 
 ## Not written
@@ -260,8 +290,9 @@ track and via flags above). Altium Designer's own view of a written lock is step
 - Micro vias and via types; the two 16-byte ids of a via (zero); the polygon-connect
   entry of the 351-byte form; covering, plugging, capping and filling of a via (no fact is recorded for
   them; the tenting flags are written since c0112). (Blind and buried vias and their drill pairs are written since c0085.)
-- The `Split Plane` polygon record and the pull-back tracks of a plane, split planes, and the Plane
-  Connect and Plane Clearance rules (`H-A-PCB-CU-PLANE`): Altium's defaults apply.
+- The pull-back tracks of a plane, the pulled-back outline of its `Split Plane` polygon, splits of a plane
+  into several nets, the plane values cached in the via and pad records (zero is written), and plane rules
+  other than the two `All` rules (`H-A-PCB-CU-PLANE`).
 - `COPPERORIENTATION`, `DIELLOSSTANGENT`, the hole-shape pairs (`HOLESHAPEHASHSIZE=0`).
 - Super classes, the classes with `AUTOGENERATEDCLASS=TRUE`, and every class kind but 0 and 1.
 - Rooms (the Room Definition rule) and "Supply Nets" rules: no permitted source holds their records. The
@@ -279,10 +310,34 @@ track and via flags above). Altium Designer's own view of a written lock is step
   plane. Since change c0085 the map is by position, for any stack: the first copper layer of the
   model is the top layer (1), the last the bottom layer (32), and the k-th inner copper layer is Mid-Layer k
   (id k + 1) as a signal layer, whatever its name and whatever the other inner layers are; the planes are
-  Internal Plane 1, 2, … (39, 40, …) from the top. Two model layers never share an Altium layer. A stack is
+  Internal Plane 1, 2, … (39, 40, …) from the top. Since change c0466 an inner signal layer that holds a
+  source's id keeps it when the ids of all inner signal layers rise within 2 … 31: a board read from Altium,
+  or one a conversion carried through KiCad (`Fenolite.Altium.Planes`, `signals`). Row `-07`'s Mid-Layer 2
+  and 4 (ids 3 and 5, S-2254) were written as 2 and 3 before. Two model layers never share an Altium layer. A stack is
   written with an even number of copper layers from 2 to 32 that holds at most 16 signal layers and 16 internal planes;
   any other count gives the stack of the two outer layers and `altium.not-lowered` with `where`
   `stackup`.
+- **Planes through KiCad (change c0466).** A conversion to KiCad writes each internal plane of the chain as a
+  KiCad row of type `power`, its user name the plane's Altium name (as KiCad's own import does, S-2201),
+  and carries in the board property `Fenolite.Altium.Planes` each plane whose net is a net of the design,
+  or `(Multiple Nets)` with splits: its row, its `PLANE<k>NETNAME`, its pull-back (`PLANE<k>PULLBACK`,
+  else its stack entry's `PULLBACKDISTANCE`) and its `Split Plane` polygons, each a net and a straight ring,
+  with the low corner of the board's edge. A split with an arc vertex leaves its plane uncarried. The
+  conversion back writes each carried plane whose row is still `power` and whose nets the design holds as a
+  plane again: its net (`(Multiple Nets)` allowed with splits), its pull-back as `PULLBACKDISTANCE`, the
+  row's user name for `Internal Plane <k>`, and its splits, moved by the corner's translation, in place of
+  the outline polygon. Any other carried plane is a `plane` loss and is written as a signal layer. A copper
+  row that a signal layer reaches takes the layer's Altium name as user name when the writer would write
+  another (`Top Layer`, `Bottom Layer`, `Mid-Layer <k>` for `In<k>.Cu`), and the writer names a signal layer
+  after its KiCad row's user name unless a record cannot hold it, it names another Altium layer or two
+  layers take it (S-2254, S-2255). The carrier also holds each named row's user name (`names`) and, when one
+  is not its position's, each inner signal layer's Altium id (`signals`); the way back gives a row without a
+  user name the carried one, so a rename in KiCad is kept. Through flow A (`import --to python`, `build`,
+  `convert --to altium`) the script keeps the carrier, the KiCad build types the rows it names as planes
+  `power` again, and rows `-01` and `-07` come back with the source's chain, names, plane nets and splits;
+  they came back with Mid-Layers and Altium's names before. The
+  plane's copper is still not in KiCad (change c0461), and the legacy `PLANE<k>PULLBACK` keys are not
+  written (S-2251, S-2252).
 - **Tracks and arcs.** The short forms (36 and 47 bytes) with flags `0C 00`, or `08 00` for a locked
   track or arc of the model (change c0108, "Locked flag of a free primitive"), after the component
   primitives in `Tracks6` and `Arcs6`, sorted by stack position of the layer, net name, start, end, width
@@ -299,8 +354,11 @@ track and via flags above). Altium Designer's own view of a written lock is step
 - **Polygons.** One record per zone layer, solid, in the key order of the first row of "Polygon pour"
   without `OBEYPOLYGONCUTOUT`: `POUROVER=TRUE`, `REMOVEDEAD=TRUE`, `GRIDSIZE=20mil`, `TRACKWIDTH=8mil`,
   `HATCHSTYLE=Solid`, `USEOCTAGONS=FALSE`, `MINPRIMLENGTH=3mil`, line vertices, `SHELVED=FALSE`,
-  `RESTORELAYER=UNKNOWN`, an empty `RESTORENET`, `REMOVEISLANDSBYAREA=TRUE`, `REMOVENECKS=TRUE`,
-  `AREATHRESHOLD=250000000000.000000`, `ARCRESOLUTION=0.5mil`, `NECKWIDTHTHRESHOLD=5mil`,
+  `RESTORELAYER=UNKNOWN`, an empty `RESTORENET`, `REMOVEISLANDSBYAREA`, `REMOVENECKS=TRUE`,
+  `AREATHRESHOLD`, `ARCRESOLUTION=0.5mil`, `NECKWIDTHTHRESHOLD` (change c0446: a zone with the default
+  settings gets `TRUE`, `250000000000.000000` and `5mil`; any other zone `TRUE` with its area in square file
+  units, six decimals, only when it removes islands below an area, else `FALSE`, and its minimum width as mil
+  text),
   `POUROVERSTYLE` from the zone's `pour_over` pair (the style it was read with), else `1`, with
   `POUROVER=TRUE` for `1` only, `IGNOREVIOLATIONS=FALSE`, `OPTIMALVOIDROTATION=TRUE` (`FALSE` with the pour
   mode `computed`). The name is the zone's name, or
@@ -310,13 +368,21 @@ track and via flags above). Altium Designer's own view of a written lock is step
   contract of change c0085); with `computed` the regions are the pour that Fenolite computes for Altium's
   rules (`pcb-pour.md`), and a polygon it refuses keeps its outline.
   A zone whose islands are never removed has `REMOVEDEAD=FALSE`. Clearance and thermal reliefs are not in
-  the record: Altium takes them from its rules.
+  the record: Altium takes them from its rules. Altium removes a piece below `AREATHRESHOLD` whatever it
+  connects (`pcb-pour.md`, I12) while a KiCad zone removes isolated islands only, so a zone that removes no
+  island by area gets `REMOVEISLANDSBYAREA=FALSE`, unless it has the default settings (INFERRED mapping,
+  change c0446). The reader is the inverse: `REMOVEDEAD=FALSE` gives `never` (its area removal is dropped),
+  `REMOVEISLANDSBYAREA=TRUE` gives `below_area` with the area, otherwise `always`; `REMOVENECKS=TRUE` gives
+  the minimum width; Altium's own 2500 mil² with 5 mil gives the default settings.
 - **Stack.** The numbered keys link the copper ids in order. Each linked layer but the bottom carries the
   dielectric below it. The physical lists (`V9_STACK_LAYER<i>` and the head of `LAYER_V8_<i>`) hold 13
   entries with the overlays, as the nine-entry list of c0035 has them; the cache list keeps the order of
   a two-layer document and ends with `Dielectric 2` and `Dielectric 3`, the form of 2023. Dielectrics are `Dielectric 1` to `3` with the long ids 17039361 to 17039363 from the
   top. A signal mid layer has `COMPONENTPLACEMENT=1`; a plane `PULLBACKDISTANCE=20mil`, and
-  `PLANE<k>NETNAME` names its net. A stack of more layers follows the same rules: `Dielectric n` with the
+  `PLANE<k>NETNAME` names its net. Since change c0389 (task 2.7) each plane also gets one `Split Plane`
+  polygon after the pours, on its net, whose vertices are the board outline itself (Altium pulls it back),
+  and a document with a plane ends `Rules6` with the `All` rules `PlaneConnect` and `PlaneClearance` at
+  priority 1 with the values of the unedited saved rules (pads `Relief`, vias `Direct`; `H-A-PCB-CU-PLANE`). A stack of more layers follows the same rules: `Dielectric n` with the
   long id 17039360 + n from the top (change c0085). The default values are Fenolite's: 1.4 mil copper; for two layers the
   dielectric of c0035 (`DIELTYPE=0`, 12.6 mil, `4.800`, `FR-4`), so the bytes of a two-layer document do
   not change; for four layers a prepreg of 0.2 mm, a core of 1.0 mm and a prepreg of 0.2 mm, each `4.800`
@@ -337,17 +403,25 @@ track and via flags above). Altium Designer's own view of a written lock is step
   RoutingVias) one rule `<Kind>_<class>` per class that holds the value, scope `InNetClass('<class>')`,
   priorities from 1 in class-name order, then one rule named after the kind with the scope `All`.
   Defaults of the `All` rules: clearance 0.2 mm, width 0.25 mm, via 0.6 mm with a 0.3 mm hole. Width and
-  via limits span the preferred value and the written copper of the rule's scope.
+  via limits span the preferred value and the written copper of the rule's scope. A build writes the
+  three kinds. A write of a model writes Clearance alone, and none under a Clearance rule of the design
+  scoped `All` to `All` (`PcbDocSpec.class_kinds`, change c0434, S-1931). It counts each net class with a
+  value left out `changed`.
 - **Rules of the design (c0084).** `rulemap.lower` writes a neutral rule only when its row is `exact`,
   its severity is `error`, it gives exactly the limits of its row, and its selectors are all objects, a
-  net, a net class or a conjunction of those (a second selector for `clearance` only). Nothing is
+  net, a net class, a reference, an item kind (track, via, pad, zone) or `and`, `or` and `not` of those
+  (a second selector for `clearance` only; change c0412 added the reference, the item kind, `or` and
+  `not`). A scope is written only when `read.scope.parse_scope` reads the query back as the same selector:
+  `InComponent('<ref>')`, `IsTrack`, `IsVia`, `IsPad`, `InPolygon` (the copper of a pour, S-1702),
+  `x And y`, `x Or y` and `Not x`, with an operand that is itself an operator in parentheses. Nothing is
   approximated: a `track_width` rule without `opt` and `max`, a `hole_size` rule without `max`, a glob, a
-  layer and a `ref` or `item_kind` selector are reported, not written. A `via_diameter` and a `via_drill`
+  layer, an `area` and a `diff_pair` selector are reported, not written. A `via_diameter` and a `via_drill`
   rule of one selector share one Routing Via Style record; one of them alone is not written. Fixed
   values: `ALLOWSTACKEDMICROVIAS=FALSE` (the neutral rule exempts no hole; the reader maps only that
   value), `ABSOLUTEVALUES=TRUE` with the percentages every record read holds, `OBJECTCLEARANCES` empty.
-  Names are `<Kind>`, `<Kind>_<class>`, `<Kind>_net_<net>`, with `_and_` for a conjunction and `_to_`
-  before a second scope; a repeated name gets `_2`. Within a kind the rules of the design come first, from
+  Names are `<Kind>`, `<Kind>_<class>`, `<Kind>_net_<net>`, `<Kind>_ref_<ref>`, `<Kind>_pad`, with
+  `_and_` for a conjunction, `_or_` for a disjunction, `not_` before a negation and `_to_` before a second
+  scope; a repeated name gets `_2`. Within a kind the rules of the design come first, from
   the most governing to the least (priority 1, 2, … then 0; ties by falling name), then the rules of the
   net classes and the `All` default; a class or default rule whose scopes a rule of the design holds is
   left out. So a board-wide rule of the script governs the classes, as it does in a KiCad build.

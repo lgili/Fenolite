@@ -78,9 +78,10 @@ def test_fixture_passes_rt_a0_to_rt_a2(monkeypatch: pytest.MonkeyPatch) -> None:
     assert finding.where.startswith("pcb:/cutout/") and finding.code == "check.rta2-failed"
 
 
-def test_a_moved_hole_is_one_finding() -> None:
+def test_a_moved_hole_is_one_finding(monkeypatch: pytest.MonkeyPatch) -> None:
     """With the gate off nothing of the cut-outs is compared, and a hole of the reading 1 µm off gives a
     finding of the kind ``hole``."""
+    monkeypatch.setattr(pcbdoc, "CUTOUT_REGIONS", False)
     output = cases.fixture_build(gate=False)
     result = _read(output.files["slots.PcbDoc"])
     reading = _design(result)

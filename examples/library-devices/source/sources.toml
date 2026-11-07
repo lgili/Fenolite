@@ -1,0 +1,9 @@
+# Authored for Fenolite as example source registration; SPDX-License-Identifier: CC0-1.0
+schema = "fenolite.library-sources.v0"
+[sources.D-0001]
+id = "D-0001"
+title = "Original Fenolite illustrative device"
+url = "https://example.invalid/fenolite-demo"
+licence = "CC0-1.0"
+retrieved = "2026-11-01"
+used = "Fictional dimensions and mapping authored for Fenolite; no product qualification"

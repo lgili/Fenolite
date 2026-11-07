@@ -1,0 +1,337 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.requirements.v1",
+  "title": "RequirementsFile",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "fenolite.requirements.v1"
+    },
+    "current": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/CurrentRequirement"
+      }
+    },
+    "distance": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/DistanceRequirement"
+      }
+    },
+    "step": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/DistanceStep"
+      }
+    },
+    "path": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PathRequirement"
+      }
+    },
+    "decoupling": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/DecouplingRequirement"
+      }
+    },
+    "body_copper": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/BodyCopperRequirement"
+      }
+    },
+    "neck": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/NeckRequirement"
+      }
+    },
+    "loop": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/LoopRequirement"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema"
+  ],
+  "$defs": {
+    "BodyCopperRequirement": {
+      "type": "object",
+      "properties": {
+        "netclass": {
+          "type": "string"
+        },
+        "parts": {
+          "type": "string"
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "netclass",
+        "parts",
+        "layers"
+      ]
+    },
+    "CurrentRequirement": {
+      "type": "object",
+      "properties": {
+        "select": {
+          "$ref": "#/$defs/NetSelector"
+        },
+        "milliamps": {
+          "type": "integer"
+        },
+        "temp_rise_mk": {
+          "type": "integer"
+        },
+        "current": {
+          "type": "string"
+        },
+        "temp_rise": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "select"
+      ]
+    },
+    "DecouplingRequirement": {
+      "type": "object",
+      "properties": {
+        "parts": {
+          "type": "string"
+        },
+        "max_distance_nm": {
+          "type": "integer"
+        },
+        "max_distance": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "parts"
+      ]
+    },
+    "DistanceRequirement": {
+      "type": "object",
+      "properties": {
+        "clearance_nm": {
+          "type": "integer"
+        },
+        "creepage_nm": {
+          "type": "integer"
+        },
+        "embedded_nm": {
+          "type": "integer"
+        },
+        "insulation_nm": {
+          "type": "integer"
+        },
+        "clearance": {
+          "type": "string"
+        },
+        "creepage": {
+          "type": "string"
+        },
+        "embedded": {
+          "type": "string"
+        },
+        "insulation": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "a": {
+          "$ref": "#/$defs/NetSelector"
+        },
+        "b": {
+          "$ref": "#/$defs/NetSelector"
+        },
+        "millivolts": {
+          "type": "integer"
+        },
+        "groove_nm": {
+          "type": "integer"
+        },
+        "voltage": {
+          "type": "string"
+        },
+        "groove": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "a",
+        "b"
+      ]
+    },
+    "DistanceStep": {
+      "type": "object",
+      "properties": {
+        "clearance_nm": {
+          "type": "integer"
+        },
+        "creepage_nm": {
+          "type": "integer"
+        },
+        "embedded_nm": {
+          "type": "integer"
+        },
+        "insulation_nm": {
+          "type": "integer"
+        },
+        "clearance": {
+          "type": "string"
+        },
+        "creepage": {
+          "type": "string"
+        },
+        "embedded": {
+          "type": "string"
+        },
+        "insulation": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "up_to_mv": {
+          "type": "integer"
+        },
+        "up_to": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "LoopRequirement": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "pads": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "max_area_nm2": {
+          "type": "integer"
+        },
+        "max_area": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "pads"
+      ]
+    },
+    "NeckRequirement": {
+      "type": "object",
+      "properties": {
+        "select": {
+          "$ref": "#/$defs/NetSelector"
+        },
+        "min_width_nm": {
+          "type": "integer"
+        },
+        "min_width": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "select"
+      ]
+    },
+    "NetSelector": {
+      "type": "object",
+      "properties": {
+        "net": {
+          "type": "string"
+        },
+        "netclass": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "PathRequirement": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "to": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "milliamps": {
+          "type": "integer"
+        },
+        "temp_rise_mk": {
+          "type": "integer"
+        },
+        "drop_mv": {
+          "type": "integer"
+        },
+        "current": {
+          "type": "string"
+        },
+        "temp_rise": {
+          "type": "string"
+        },
+        "drop": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "from",
+        "to"
+      ]
+    }
+  }
+}

@@ -15,7 +15,7 @@ import dataclasses
 from collections.abc import Iterable, Mapping
 from types import MappingProxyType
 
-from fenolite.backends.kicad import _pcbwrite, embed, resolver
+from fenolite.backends.kicad import _pcbwrite, embed, fpzones, resolver
 from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad._fpmap import (
     DEF_FIELDS,
@@ -34,6 +34,7 @@ from fenolite.backends.kicad._fpmap import (
     margin_disagrees,
     net_tie_groups,
     padstack_key,
+    placement_node,
     projected_fab_property,
     projected_net_ties,
     projected_zone_connect,
@@ -70,7 +71,7 @@ from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
 from fenolite.model.base import Modeled, Opaque, Slot
 from fenolite.model.board import Graphic, Pad
-from fenolite.model.library import FootprintDef, FootprintKind
+from fenolite.model.library import FootprintDef, FootprintKind, ModelPlacement
 
 EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-LIB-READ",))
 AUTHORING_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-DSL-FOOTPRINT",))
@@ -237,6 +238,15 @@ def _definition(
             else:
                 _replace(slots, index, ctx.opaque(child, chain))
                 ctx.kept_opaque(f"{head}: {reason}; kept opaque", loc)
+    # the keep-out zones are a projection (change c0411): each stays an opaque slot; a board holds a
+    # footprint's zone in the board's frame, so a definition read from a board takes it to its own frame;
+    # so does a footprint file that keeps a board footprint's ``at`` (a definition read from a board and
+    # written as read), as the writer's check reads it (``fpzones.placement_frame``)
+    frame = fpzones.same
+    at = root.find("at")
+    if at is not None:
+        frame = fpzones.board_to_pad(ctx.point(at, f"{base}/at[0]"), _at_angle(ctx, at, f"{base}/at[0]"))
+    keepouts = fpzones.footprint_keepouts(root.children, native, frame, definition=True)
     return FootprintDef(
         id=derived_id("fpd", "kicad", native),
         native_ids={"kicad": native},
@@ -253,7 +263,13 @@ def _definition(
         graphics=tuple(graphics),
         models=tuple(models),
         net_ties=net_ties,
+        keepouts=keepouts,
     )
+
+
+def _at_angle(ctx: Context, at: Node, loc: str) -> int:
+    values = at.atoms()
+    return ctx.udeg(values[2], loc, at) if len(values) > 2 else 0
 
 
 def _attr(
@@ -281,8 +297,9 @@ def prepare_authored_definition(defn: FootprintDef) -> FootprintDef:
     child order of a newly-authored file, with the ``Reference`` and ``Value`` properties of a conventional
     KiCad footprint after ``kind`` (``embed.default_fields``; ``H-K-FP-FIELDS``).
 
-    A ``properties`` entry the definition holds under either name is the property's text. A definition
-    that has a slot list is returned unchanged.
+    A ``properties`` entry the definition holds under either name is the property's text. A rounded
+    rectangle pad with a ``corner_ratio`` gets its ``roundrect_rratio`` child. A definition that has a slot
+    list is returned unchanged.
     """
     if _slots(defn):
         return defn
@@ -298,7 +315,21 @@ def prepare_authored_definition(defn: FootprintDef) -> FootprintDef:
         root.append(Opaque(dumps(prop, style="compact"), None))
     root.extend(Modeled("pads") for _ in defn.pads)
     root.extend(Modeled("graphics") for _ in defn.graphics)
-    root.extend(Modeled("models") for _ in defn.models)
+    # the rule areas of an authored definition (change c0411), after its pads as KiCad writes them (S-1720)
+    root.extend(
+        Opaque(
+            dumps(
+                fpzones.zone_node(area, embed.library_field_uuid(defn.lib_id, f"zone:{n}")), style="compact"
+            ),
+            None,
+        )
+        for n, area in enumerate(defn.keepouts)
+    )
+    # A model of an authored definition (c0260: a generated footprint's STEP) is written as a ``model`` child
+    # with the identity placement, kept as an opaque child as every read ``model`` is.
+    root.extend(
+        Opaque(dumps(placement_node(ModelPlacement(path)), style="compact"), None) for path in defn.models
+    )
     if defn.placements:
         root.append(Modeled("placements"))
     pads = tuple(
@@ -313,11 +344,28 @@ def prepare_authored_definition(defn: FootprintDef) -> FootprintDef:
                         Modeled("shape"),
                         Modeled("position"),
                         Modeled("size"),
+                        *([] if pad.trapezoid_delta is None else [Modeled("trapezoid_delta")]),
                         Modeled("drill"),
                         *([] if pad.fab_property is None else [Modeled("fab_property")]),
                         Modeled("layers"),
+                        # the shape children of change c0277, in the order of the demo boards (S-0058)
+                        *(
+                            []
+                            if pad.corner_ratio is None or pad.shape != "roundrect"
+                            else [Modeled("corner_ratio")]
+                        ),
+                        *(
+                            []
+                            if pad.chamfer_ratio is None
+                            else [Modeled("chamfer_ratio"), Modeled("chamfer_corners")]
+                        ),
                         *([] if pad.mask_margin is None else [Modeled("mask_margin")]),
                         *([] if pad.paste_margin is None else [Modeled("paste_margin")]),
+                        *(
+                            []
+                            if pad.anchor_shape is None
+                            else [Modeled("anchor_shape"), Modeled("primitives")]
+                        ),
                         Modeled("native_ids"),
                     ]
                 ),
@@ -440,6 +488,13 @@ class _Projections:
                 (loc for _, loc, child in self.children(slots, base) if child.name == NET_TIES), base
             )
             self.read_only("net_ties", where, "the net-tie groups are written as read")
+        children = [child for _, _, child in self.children(slots, base)]
+        zones = [child for child in children if child.name == "zone"]
+        native = defn.native_ids.get("kicad", defn.lib_id)
+        frame = fpzones.placement_frame(children)
+        projected = fpzones.footprint_keepouts(zones, native, frame, definition=True)
+        if [fpzones.shape(a) for a in projected] != [fpzones.shape(a) for a in defn.keepouts]:
+            self.read_only("keepouts", base, "the rule areas of the footprint are written as read")
         if tuple(models) != defn.models:
             self.read_only("models", base, "3D model references are written as read")
         if models and defn.placements:

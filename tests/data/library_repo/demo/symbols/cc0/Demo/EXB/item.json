@@ -1,0 +1,17 @@
+{
+  "depends": [],
+  "executes": false,
+  "files": [
+    "EXB.toml"
+  ],
+  "id": "Demo:EXB",
+  "kind": "symbol",
+  "schema": "fenolite.library-item.v0",
+  "spdx": "CC0-1.0",
+  "summary": "Pin table of the demo step-down converter",
+  "tags": [
+    "power"
+  ],
+  "title": "Demo converter symbol",
+  "version": "1.0.0"
+}

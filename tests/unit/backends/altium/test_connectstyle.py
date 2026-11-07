@@ -13,7 +13,9 @@ from fenolite.backends.altium.connectstyle import (
     Connection,
     ConnectStyle,
     governing_connection,
+    kept_mapping,
     lower_zone_styles,
+    named_polygons,
     pad_overrides,
     read_connect_style,
     read_connect_styles,
@@ -123,10 +125,66 @@ def test_the_governing_record_by_priority_and_scope() -> None:
     assert isinstance(via, Connection) and via.style == "direct"
     pad = governing_connection(styles, _pad("GND"), _zone("GND"), "smd_pad")
     assert isinstance(pad, Connection) and pad.style == "relief"
-    unread = read_connect_styles([_record("Named", 1, "IsNamedPolygon('X')", "All", *_simple()), *[]])
+    # c0420 B5: ``IsNamedPolygon`` now resolves (``test_named_polygon_scopes``), so a function outside the
+    # closed grammar stands for the unread scope here
+    unread = read_connect_styles([_record("Named", 1, "InPolygonClass('X')", "All", *_simple()), *[]])
     assert governing_connection(unread, _pad("GND"), _zone("GND"), "th_pad") == "connect-scope"
     narrow = read_connect_styles([_record("Only", 1, "InNet('VIN')", "All", *_simple())])
     assert governing_connection(narrow, _pad("GND"), _zone("GND"), "th_pad") == "connect-none"
+
+
+def test_named_polygon_scopes() -> None:
+    """``IsNamedPolygon`` names the polygon pour (S-1790; change c0420, B5): a record so scoped governs the
+    polygons it names, in either scope order and without case, and no other polygon."""
+    assert named_polygons("IsNamedPolygon('Top_GND')") == frozenset({"top_gnd"})
+    assert named_polygons("(IsNamedPolygon('A') or IsNamedPolygon('b')) ") == frozenset({"a", "b"})
+    assert named_polygons("(IsNamedPolygon('A') Or IsNamedPolygon('b'))") == frozenset({"a", "b"})
+    assert named_polygons("IsNamedPolygon('A') || IsNamedPolygon('B')") == frozenset({"a", "b"})
+    assert named_polygons("IsNamedPolygon('A') and InNet('GND')") is None
+    assert named_polygons("InNet('GND')") is None
+    styles = read_connect_styles(
+        [
+            _record("Named", 1, "All", "IsNamedPolygon('Top_GND') or IsNamedPolygon('Mid')", *_simple()),
+            _record("Rest", 2, "All", "All", *_simple("Direct")),
+        ]
+    )
+    named = styles[0]
+    assert named.reason == "" and named.named2 == frozenset({"top_gnd", "mid"}) and not named.named1
+    top = governing_connection(styles, _pad("GND"), _zone("GND"), "th_pad", "TOP_GND")
+    other = governing_connection(styles, _pad("GND"), _zone("GND"), "th_pad", "Bottom_GND")
+    unnamed = governing_connection(styles, _pad("GND"), _zone("GND"), "th_pad")
+    assert isinstance(top, Connection) and top.style == "relief"
+    assert isinstance(other, Connection) and other.style == "direct"
+    assert isinstance(unnamed, Connection) and unnamed.style == "direct"
+    swapped = read_connect_styles([_record("Named", 1, "IsNamedPolygon('Mid')", "All", *_simple())])
+    mid = governing_connection(swapped, _pad("GND"), _zone("GND"), "smd_pad", "mid")
+    assert isinstance(mid, Connection) and mid.style == "relief"
+    assert governing_connection(swapped, _pad("GND"), _zone("GND"), "smd_pad", "top") == "connect-none"
+
+
+def test_scopes_by_altium_precedence() -> None:
+    """Change c0462, task 4.5: a scope of mixed operators reads by Altium's precedence (S-2211), ``And``
+    before ``Or``, so the record governs the nets of VDD and the vias of VIN; before c0462 it refused the
+    pour with ``connect-scope``."""
+    styles = read_connect_styles(
+        [
+            _record("Mixed", 1, "InNet('VDD') or InNet('VIN') and IsVia", "All", *_simple("Direct")),
+            _record("Rest", 2, "All", "All", *_simple("Relief")),
+        ]
+    )
+    assert styles[0].scope1 is not None and styles[0].reason == ""
+    vdd = governing_connection(styles, _pad("VDD"), _zone("VDD"), "th_pad")
+    vin_via = governing_connection(styles, _pad("VIN", "via"), _zone("VIN"), "via")
+    vin_pad = governing_connection(styles, _pad("VIN"), _zone("VIN"), "th_pad")
+    assert isinstance(vdd, Connection) and vdd.style == "direct"
+    assert isinstance(vin_via, Connection) and vin_via.style == "direct"
+    assert isinstance(vin_pad, Connection) and vin_pad.style == "relief"
+    assert kept_mapping(
+        [_record("Mixed", 1, "InNet('VDD') or InNet('VIN') and IsVia", "All", *_simple())]
+    ) == (
+        True,
+        (),
+    )
 
 
 def _zone_entity(ident: str, net: str, priority: int, settings: ZoneSettings) -> Zone:
@@ -204,3 +262,36 @@ def test_written_keys_read_back() -> None:
                 and abs(back.air_gap - mine.air_gap) <= 2
             )
     assert parse_length(_mil(MIL10)) == MIL10
+
+
+def test_scopes_read_with_the_document() -> None:
+    """Change c0462, task 4.5: a scope is read with the full grammar and the document's names, and a Polygon
+    Connect Style record judges polygons (``read.scope.PARENTS``), so ``IsNamedPolygon`` maps inside an
+    ``And``. Without the document both records refuse the pour with ``connect-scope``."""
+    from fenolite.backends.altium.read.scope import ScopeClass, ScopeDocument
+
+    document = ScopeDocument(
+        nets=("GND", "VCC"),
+        polygons=("Top_GND", "Bottom_GND"),
+        classes=(ScopeClass(1, "Connectors", ("J1",)),),
+    )
+    records = [
+        _record("Named", 1, "All", "IsNamedPolygon('top_gnd') and InNet('GND')", *_simple("Direct")),
+        _record("Inside", 2, "InNamedPolygon('Bottom_GND')", "All", *_simple("NoConnect")),
+        _record("Rest", 3, "All", "All", *_simple("Relief")),
+    ]
+    styles = read_connect_styles(records, document)
+    assert [style.reason for style in styles] == ["", "", ""]
+    assert styles[0].scope2 is not None and styles[1].scope1 is not None
+    pad = _pad("GND")
+
+    def joined(polygon: str) -> str:
+        zone = RuleSubject(item_kind="zone", net="GND", netclass="Default", zone=polygon)
+        found = governing_connection(styles, pad, zone, "th_pad", polygon)
+        assert isinstance(found, Connection)
+        return found.style
+
+    assert (joined("Top_GND"), joined("Bottom_GND"), joined("Other")) == ("direct", "none", "relief")
+    blind = read_connect_styles(records)
+    assert governing_connection(blind, pad, _zone("GND"), "th_pad", "Top_GND") == "connect-scope"
+    assert kept_mapping(records, document) == (True, ())

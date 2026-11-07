@@ -38,6 +38,7 @@ dependencies = []
 # copyleft tools are used behind a process boundary and never appear here (ADR-0004).
 geo = ["shapely>=2.1", "pyclipper>=1.3"]
 kicad-ipc = ["kicad-python>=0.8"]
+suppliers = ["keyring>=25"]
 # oracles: read-back of fabrication files, and the official MCP SDK whose client checks `fenolite mcp` (c0195)
 oracles = ["gerbonara>=1.6; python_version >= '3.12'", "pygerber>=2.4", "mcp==2.3.0"]
 dev = [
@@ -53,6 +54,12 @@ direct = "fenolite.routing.direct:DirectRouter"
 freerouting = "fenolite.routing.plugins.specctra.freerouting:FreeroutingRouter"
 kicadroutingtools = "fenolite.routing.plugins.kicad.routingtools:KicadRoutingToolsRouter"
 octilinear = "fenolite.routing.octilinear:OctilinearRouter"
+
+[project.entry-points."fenolite.suppliers"]
+digikey = "fenolite.suppliers.digikey:DigiKey"
+mouser = "fenolite.suppliers.mouser:Mouser"
+nexar = "fenolite.suppliers.nexar:Nexar"
+farnell = "fenolite.suppliers.farnell:Farnell"
 
 [project.urls]
 Homepage = "https://github.com/lgili/Fenolite"
@@ -94,6 +101,7 @@ testpaths = ["tests"]
 norecursedirs = ["*.egg", ".*", "_darcs", "CVS", "dist", "node_modules", "venv", "{arch}"]
 addopts = "-ra --strict-markers --import-mode=importlib"
 markers = [
+    "long_flow: measured whole-file board integration flow (retained in full CI)",
     "needs_kicad: requires a kicad-cli binary (skipped when absent)",
     "kicad_min_major(n): skip when the running kicad-cli major is below n (never a failure)",
     "needs_corpus: requires the fetched public test corpus (tools/corpus_fetch.py)",
@@ -111,6 +119,18 @@ extend-exclude = ["private", "openspec"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP"]
+
+[tool.ruff.lint.flake8-bugbear]
+# a block parameter's default is a param(...) of frozen values (change c0268, docs/dsl.md, "Blocks")
+extend-immutable-calls = [
+    "fenolite.dsl.param", "fenolite.dsl.record.param", "fenolite.dsl.quantity.volt", "fenolite.dsl.quantity.amp",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Starter parameter defaults are immutable DSL values wrapped by param (c0272).
+"src/fenolite/blocks/*.py" = ["B008"]
+# fenolite import writes its imports for a project where fenolite is a third-party package (change c0275)
+"examples/import_python/*.py" = ["I001"]
 
 [tool.pyright]
 include = ["src"]

@@ -1,0 +1,64 @@
+{
+  "artifact_sha256": {
+    "orientation-refusals-v1/receipt.json": "949218657bc80161713e199a34346b7399def74e126d59b6cac95255857c6368"
+  },
+  "pytest_exit": 1,
+  "rows": [
+    {
+      "exact_loops": 30,
+      "input_edges": 308,
+      "inverted": [
+        {
+          "bbox_area": [
+            717992,
+            1
+          ],
+          "exact_signed_area": [
+            -77,
+            61
+          ],
+          "integer_signed_area": [
+            97,
+            2
+          ],
+          "loop": 14,
+          "vertices": 3
+        }
+      ],
+      "raw_file": "case-0.json",
+      "sha256": "acf980f7d4f32c2565f48628cf9214a40261479364e050d62fc7ecf5af5b283b",
+      "test": "tests/unit/backends/altium/test_pour_modes.py::test_computed_and_reference_inputs_differ_in_the_pour_only",
+      "tol": 3175
+    },
+    {
+      "exact_loops": 39,
+      "input_edges": 520,
+      "inverted": [
+        {
+          "bbox_area": [
+            717992,
+            1
+          ],
+          "exact_signed_area": [
+            -77,
+            61
+          ],
+          "integer_signed_area": [
+            97,
+            2
+          ],
+          "loop": 14,
+          "vertices": 3
+        }
+      ],
+      "raw_file": "case-1.json",
+      "sha256": "1228c8e7ba0055a97bda9b8092ab3002f759c3c30b511beb0749e12568195490",
+      "test": "tests/unit/backends/altium/test_pour_rules.py::test_edge_clearance",
+      "tol": 3175
+    }
+  ],
+  "script_sha256": "a7e7f4ace175b6a0c492a5ae5e4ae7d8cf97f423e84c12e83d32b29042f40973",
+  "seconds": 0.9969850829802454,
+  "source_base": "c6b15657b859747d35d185a1f07af957a97ec1f3",
+  "status": "orientation-refusals-captured"
+}

@@ -3,11 +3,11 @@
 """Thick shapes: an integer core swept by a disc, and exact gaps between two of them.
 
 A ``Thick`` is the set of points within ``width / 2`` of its core, boundary included. The core is one
-point (a disc), an open polyline (a stadium, or a chain of them) or a filled ring (a region grown by
-``width / 2``). The gap of two shapes is ``dist(core_a, core_b) − (width_a + width_b) / 2``. Doubling
+point (a disc), an open polyline (a stadium, or a chain of them), an exact arc, or a filled ring grown by
+``width / 2``. The gap of two shapes is ``dist(core_a, core_b) − (width_a + width_b) / 2``. Doubling
 every length makes the half-widths integers, so each question is a comparison between ``4·dist²``, an
-exact rational, and the square of an integer: nothing here forms a floating-point number or takes a
-square root other than an exact integer one. See ``docs/geometry.md``, "Thick shapes".
+exact rational, and the square of an integer. Arc distances use exact radical sums and guarded
+squaring (``_curved``, ``_radical``). See ``docs/geometry.md``, "Thick shapes".
 """
 
 from __future__ import annotations
@@ -16,11 +16,14 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from fractions import Fraction
 
+from fenolite.geometry._curved import Closest
+from fenolite.geometry._curved import closest as curved_closest
+from fenolite.geometry._curved import within as curved_within
 from fenolite.geometry.errors import GeometryError
 from fenolite.geometry.index import SpatialIndex
 from fenolite.geometry.polygon import Polygon
 from fenolite.geometry.predicates import Location, floor_sqrt, point_in_ring, round_point
-from fenolite.geometry.shapes import BBox
+from fenolite.geometry.shapes import Arc, BBox
 from fenolite.geometry.vector import Point, require_point
 
 INDEX_FROM = 16
@@ -32,11 +35,13 @@ _Frac = tuple[Fraction, Fraction]
 @dataclass(frozen=True, slots=True)
 class Thick:
     """The points within ``width / 2`` of ``core``: one point, an open polyline (``filled`` false), or the
-    closed region of a ring under the non-zero rule (``filled`` true)."""
+    closed region of a ring under the non-zero rule (``filled`` true). With ``arc`` set, ``core`` is its
+    three stored points and the curve is circular rather than polygonised."""
 
     core: tuple[Point, ...]
     width: int
     filled: bool = False
+    arc: Arc | None = None
     _pieces: tuple[_Seg, ...] | None = field(default=None, init=False, repr=False, compare=False)
     _tree: SpatialIndex[int] | None = field(default=None, init=False, repr=False, compare=False)
     _box: BBox | None = field(default=None, init=False, repr=False, compare=False)
@@ -48,6 +53,11 @@ class Thick:
         object.__setattr__(self, "core", core)
         for i, point in enumerate(core):
             require_point(point, f"core[{i}]")
+        if self.arc is not None:
+            if self.filled or core != (self.arc.start, self.arc.mid, self.arc.end):
+                raise ValueError("a thick arc needs its three stored core points and filled=False")
+            if self.arc.is_straight:
+                object.__setattr__(self, "arc", None)
         if not core:
             raise GeometryError("a thick shape needs a core of at least one point")
         if self.filled:
@@ -89,7 +99,7 @@ def _index(t: Thick) -> SpatialIndex[int] | None:
 def _core_box(t: Thick) -> BBox:
     found = t._box  # pyright: ignore[reportPrivateUsage]
     if found is None:
-        found = BBox.of_points(t.core)
+        found = t.arc.bbox() if t.arc is not None else BBox.of_points(t.core)
         object.__setattr__(t, "_box", found)
     return found
 
@@ -267,6 +277,9 @@ def _within(a: Thick, b: Thick, reach: int, strict: bool) -> bool:
     grow = reach // 2 + 1
     if not _core_box(a).inflate(grow).intersects(_core_box(b)):
         return False  # the cores are farther apart than reach / 2 along an axis
+    if a.arc is not None or b.arc is not None:
+        other = b if b.arc is None else a if a.arc is None else None
+        return curved_within(a, b, reach, strict, _index(other) if other is not None else None)
     sa, sb = _segments(a), _segments(b)
     reach2 = reach * reach
     for i, j in _candidates(a, b, grow):
@@ -292,7 +305,16 @@ def thick_closer_than(a: Thick, b: Thick, limit: int) -> bool:
 
 def _ordered(a: Thick, b: Thick) -> tuple[Thick, Thick]:
     """The two shapes in one order whichever way they were given."""
-    return (a, b) if (a.core, a.width, a.filled) <= (b.core, b.width, b.filled) else (b, a)
+    return (
+        (a, b)
+        if (a.core, a.width, a.filled, a.arc is not None) <= (b.core, b.width, b.filled, b.arc is not None)
+        else (b, a)
+    )
+
+
+def _curved_distance(a: Thick, b: Thick) -> Closest:
+    other = b if b.arc is None else a if a.arc is None else None
+    return curved_closest(a, b, _index(other) if other is not None else None)
 
 
 def _closest(a: Thick, b: Thick) -> tuple[Fraction, int, int]:
@@ -335,6 +357,8 @@ def _distance2(a: Thick, b: Thick) -> tuple[Fraction, int, int]:
 def thick_gap_floor(a: Thick, b: Thick) -> int:
     """``⌊gap⌋`` in nanometres when the gap is positive, and 0 otherwise."""
     first, second = _ordered(a, b)
+    if a.arc is not None or b.arc is not None:
+        return max(0, (_curved_distance(first, second).distance - Fraction(a.width + b.width, 2)).floor())
     quadruple = 4 * _distance2(first, second)[0]
     total = a.width + b.width
     if quadruple <= total * total:
@@ -388,6 +412,8 @@ def thick_witness(a: Thick, b: Thick) -> Point:
     """Where the two shapes are closest: the rounded midpoint of the first closest pair of core points,
     the pieces taken in core order; for cores that meet, a rounded common point."""
     first, second = _ordered(a, b)
+    if a.arc is not None or b.arc is not None:
+        return _curved_distance(first, second).witness()
     dist2, i, j = _distance2(first, second)
     if i < 0:  # one core inside the other's region
         inner = second.core[0] if _inside(second.core[0], first) else first.core[0]

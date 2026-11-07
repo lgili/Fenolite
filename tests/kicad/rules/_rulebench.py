@@ -120,7 +120,7 @@ class Builder:
             end=Point(x1, y),
             width=width,
             layer=layer,
-            net_id=self.net(net),
+            net_id=self.net(net) if net else None,  # "": a track without a net (change c0409)
         )
         self.tracks.append(track)
         self.items[label] = (kicad_uuid(track),)
@@ -171,10 +171,12 @@ class Builder:
         self.track(f"{label}_a", net_a, y, layer=layer, width=width)
         self.track(f"{label}_b", net_b, y + gap + width, layer=layer, width=width)
 
-    def via_track(self, label: str, via_net: str, track_net: str, *, gap: int = 4 * MM) -> None:
-        """A 0.6 mm via and a track with an edge-to-edge ``gap``: ``<label>_a`` (via) and ``<label>_b``."""
+    def via_track(self, label: str, via_net: str, track_net: str, *, gap: int = 4 * MM,
+                  drill: int = 300_000) -> None:  # fmt: skip
+        """A 0.6 mm via of ``drill`` and a track with an edge-to-edge ``gap``: ``<label>_a`` (via) and
+        ``<label>_b``."""
         y = self.row()
-        self.via(f"{label}_a", via_net, Point((LEFT + RIGHT) // 2, y))
+        self.via(f"{label}_a", via_net, Point((LEFT + RIGHT) // 2, y), drill=drill)
         self.track(f"{label}_b", track_net, y + 300_000 + gap + WIDTH // 2)
 
     def single(self, label: str, net: str, *, width: int = WIDTH) -> None:

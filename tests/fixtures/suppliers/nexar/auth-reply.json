@@ -1,0 +1,9 @@
+{
+  "_fixture": {
+    "SPDX-License-Identifier": "CC0-1.0",
+    "authored": "Authored for Fenolite; fictional names, values, tokens and links; no supplier response."
+  },
+  "access_token": "AUTHORED-NEXAR-TOKEN",
+  "token_type": "Bearer",
+  "expires_in": 600
+}

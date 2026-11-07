@@ -35,7 +35,7 @@ HYPOTHESIS_IDS: dict[str, str] = {
 ANY_HYPOTHESIS = r"\bH-[A-Z]-[A-Z0-9-]+\b"
 ALTIUM_HYPOTHESES = (
     r"\bH-A-(SCH|SCHBIN|SCHLIB|SCHX|PRJ|PCB|PCBX|ECO|RD|IMP|OUTJOB|SCHDOT|RULE|DRC|CONV"
-    r"|SLOT|CUTOUT|DWF|PANEL|POUR)-[A-Z0-9-]+\b"
+    r"|SLOT|CUTOUT|DWF|PANEL|POUR|BLOCK|EDIT|INTEG)-[A-Z0-9-]+\b"
 )
 """Every row of an Altium page below the verified levels names one of the writer's hypotheses (c0032,
 c0033, c0034, c0035), a row of the change order (c0048), a reader row ``H-A-RD-*`` (c0039, c0042),
@@ -329,3 +329,16 @@ def test_pcb_pages_pin_altiumsharp_to_version_1() -> None:
         assert not unpinned, "\n".join(unpinned)
     library = (ALTIUM_PAGES / "pcb-library.md").read_text(encoding="utf-8")
     assert library.count("## Version 2 not used") == 1
+
+
+def test_library_import_crosscheck_facts_page() -> None:
+    page = ROOT / "docs/formats/library/import-crosscheck.md"
+    assert not table_problems(page.name, page.read_text(encoding="utf-8"))
+
+
+def test_librepcb_facts_page() -> None:
+    page = ROOT / "docs/formats/librepcb/library.md"
+    text = page.read_text(encoding="utf-8")
+    assert not table_problems(page.name, text)
+    assert "UNKNOWN" in text and "No LibrePCB" in text
+    assert "H-G-LIBREPCB-SEED" in text and "S-1097" in text

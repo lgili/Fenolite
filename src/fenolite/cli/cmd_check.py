@@ -11,6 +11,9 @@ a set of documents (an Altium document, library, project file or project folder)
 ``checks.documents.run_document_checks`` without any external tool; since change c0088 its stages include
 ``copper.clearance`` and ``parity``.
 
+Change c0274: ``--matrix`` adds ``result.matrix``, the verification matrix of the requirement rows
+(``checks.circuit.matrix``); without ``--stages`` it runs only ``circuit.rules`` and ``roles.rules``.
+
 Change c0209: ``--exclude CODE:ITEM_A:ITEM_B --reason TEXT`` runs no stage; it writes one KiCad DRC
 exclusion into the board's project file under the mutation protocol (``cli._exclude``). Without it the
 command plans no write, so ``--dry-run`` and ``--confirm`` change nothing.
@@ -20,18 +23,29 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+import json
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from fenolite.backends import registry
-from fenolite.backends.base import BoardPad, DocumentSet, DocumentValidator, ProjectSet, Validator
+from fenolite.backends.base import (
+    BoardFrame,
+    BoardPad,
+    DesignRulesSource,
+    DocumentSet,
+    DocumentValidator,
+    ProjectSet,
+    Validator,
+)
 from fenolite.backends.kicad import versions
 from fenolite.backends.kicad.oracle import KicadOracle
 from fenolite.backends.kicad.projectset import project_set, resolve_board
 from fenolite.checks import DEFAULT_STAGES, ORACLE_STAGES, STAGE_ORDER, run_checks
 from fenolite.checks.documents import ALL_DOCUMENT_STAGES, DOCUMENT_STAGES, run_document_checks
+from fenolite.checks.drawn import NAME as DRAWN_STAGE
+from fenolite.checks.drawn import DrawnInput
 from fenolite.checks.stages import CheckReport, relative_file
 from fenolite.cli._documents import built_cache, find_documents, input_ref, project_result
 from fenolite.cli._examples import EXAMPLE_BOARD
@@ -45,6 +59,8 @@ from fenolite.core.evidence import Evidence
 from fenolite.core.progress import NULL_PROGRESS, Progress
 from fenolite.model.design import Design
 from fenolite.model.findings import Waiver
+from fenolite.model.library import DeviceDef
+from fenolite.model.rules import Rule
 
 HELP = (
     "check a KiCad project (model, KiCad ERC and DRC findings, pad nets, round trips) or an Altium "
@@ -103,6 +119,17 @@ def _register(parser: argparse.ArgumentParser) -> None:
         "checking; needs --reason and the mutation protocol (KiCad input only)",
     )
     parser.add_argument("--reason", metavar="TEXT", help="with --exclude: the comment stored with it")
+    parser.add_argument(
+        "--matrix",
+        action="store_true",
+        help="add result.matrix: the requirement rows of circuit.rules and roles.rules with their status, "
+        "digest and a receipt of the inputs (read-only; without --stages only those two stages run)",
+    )
+    parser.add_argument(
+        "--explain-rules",
+        action="store_true",
+        help="add result.rules with governing and overridden rules per subject and kind; runs no extra tool",
+    )
 
 
 def parse_stages(text: str | None) -> tuple[str, ...]:
@@ -142,6 +169,41 @@ def roles_judge(
     return judge(design, model, project, pads)
 
 
+def circuit_inputs(
+    root: Path, *, issues: list[Issue] | None = None
+) -> Callable[[Design], tuple[Mapping[str, DeviceDef], Mapping[str, str]]]:
+    """The ``CircuitInputs`` of the stage ``circuit.rules`` for the project in ``root`` (change c0253): the
+    device records of its model (authored, vendored, then shipped) and the classes of
+    ``fenolite.roles.classify``."""
+
+    def inputs(model: Design) -> tuple[Mapping[str, DeviceDef], Mapping[str, str]]:
+        from fenolite.cli._contracts import classes_of, devices_of
+
+        devices = devices_of(model, root, issues=issues)
+        return devices, classes_of(model, devices)
+
+    return inputs
+
+
+MATRIX_STAGES: tuple[str, ...] = ("circuit.rules", "roles.rules")
+"""The stages ``--matrix`` runs when ``--stages`` is not given: those that give requirement rows."""
+
+
+def _add_matrix(
+    result: dict[str, Any], args: argparse.Namespace, root: Path, model: Design | None
+) -> str | None:
+    """With ``--matrix``, ``result.matrix`` from the stages of ``result`` and its table for a terminal."""
+    if not args.matrix:
+        return None
+    from fenolite.checks.circuit.matrix import matrix, matrix_text
+    from fenolite.cli._contracts import devices_of
+
+    devices = devices_of(model, root) if model is not None else {}
+    found = matrix(result["stages"], model=model, devices=devices)
+    result["matrix"] = found
+    return matrix_text(cast(list[dict[str, object]], found["rows"]))
+
+
 def _cache(root: Path) -> tuple[bool, Design | None, str]:
     """``(built, model, cache_error)`` from ``<root>/.fenolite/``."""
     return built_cache(root)
@@ -153,13 +215,25 @@ def _waivers(model: Design | None, cache_error: str) -> tuple[Waiver, ...]:
     return () if model is None or cache_error else model.findings.waivers
 
 
+def _allowances(model: Design | None, cache_error: str) -> tuple[Rule, ...]:
+    """The rules of kinds ``short`` and ``antenna`` of the ``.fenolite/`` model of a built project (change
+    c0465): a KiCad file does not hold them. None for a native project or when ``.fenolite/`` cannot be
+    loaded."""
+    if model is None or cache_error or model.rules is None:
+        return ()
+    return tuple(r for r in model.rules.rules if r.kind in ("short", "antenna"))
+
+
 def _run_documents(
     args: argparse.Namespace, path: Path, backend: DocumentValidator, documents: DocumentSet
 ) -> Result:
     """The check of document input (capability altium-verification, "Check on Altium inputs"): no oracle is
     built and no subprocess runs; ``--kicad-cli`` and ``--timeout`` are accepted and ignored."""
     stages = _document_stages(args.stages)
+    if args.matrix and args.stages is None:
+        stages = tuple(name for name in stages if name in MATRIX_STAGES)
     built, model, cache_error = built_cache(documents.root)
+    device_issues: list[Issue] = []
     report = run_document_checks(
         documents=documents,
         stages=stages,
@@ -168,8 +242,12 @@ def _run_documents(
         validator=backend,
         cache_error=cache_error,
         waivers=_waivers(model, cache_error),
+        allowances=_allowances(model, cache_error),
         roles_judge=roles_judge,
+        circuit_inputs=circuit_inputs(documents.root, issues=device_issues),
     )
+    if device_issues:
+        report = replace(report, issues=(*device_issues, *report.issues))
     error = report.read_error
     if isinstance(error, FormatError):
         raise ReadRefusedError(error, report.issues, file=documents.documents[0].name)
@@ -177,9 +255,28 @@ def _run_documents(
         "project": project_result(backend, documents, built=built),
         "stages": [stage.to_json() for stage in report.stages],
         "waivers": dict(report.waivers),
+        "subjects": subject_rows(report),
     }
+    text = _add_matrix(result, args, documents.root, model if not cache_error else None)
+    if args.explain_rules:
+        from fenolite.checks.specificity import explain_rules
+
+        read = backend.read_documents(documents)
+        source = (
+            model
+            if model is not None and not cache_error
+            else read.pcb.design
+            if read.pcb is not None
+            else None
+        )
+        result["rules"] = explain_rules(source) if source is not None else []
     return Result(
-        result=result, issues=report.issues, evidence=report.evidence, input=input_ref(path, documents)
+        result=result,
+        issues=report.issues,
+        evidence=report.evidence,
+        input=input_ref(path, documents),
+        text=text,
+        text_on_failure=text is not None,
     )
 
 
@@ -194,6 +291,36 @@ class Checked:
     tool_version: str | None
 
 
+def drawn_input(root: Path, model: Design | None, cache_error: str) -> DrawnInput | None:
+    """The drawn netlist of a built project whose ``.fenolite/build.json`` records a drawn schematic (change
+    c0276): its sheets as they are on disk, extracted and resolved (``backends.kicad.drawn.resolve_sheets``),
+    with the circuit of the ``.fenolite/`` model; ``None`` for any other project."""
+    if model is None or cache_error:
+        return None
+    try:
+        loaded: object = json.loads((root / ".fenolite" / "build.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    record = cast(dict[str, object], loaded) if isinstance(loaded, dict) else {}
+    schematic = record.get("schematic")
+    if not isinstance(schematic, dict) or cast(dict[str, object], schematic).get("source") != "drawn":
+        return None
+    name = str(record.get("design", ""))
+    root_file = root / f"{name}.kicad_sch"
+    if not root_file.is_file():
+        return None
+    from fenolite.backends.kicad import drawn as kicad_drawn
+    from fenolite.backends.kicad import sch
+
+    tree = sch.sheet_files(root_file)
+    sheet = sch.read_schematic(root_file, file=root_file.name)
+    children = {f: sch.read_schematic(root / f, file=f) for f in tree.files[1:]}
+    _drawn, netlist, issues = kicad_drawn.resolve_sheets(
+        sheet, children, circuit=model.circuit, name=name, root_file=root_file.name
+    )
+    return DrawnInput(netlist, model.circuit, issues)
+
+
 def run_stages(
     board: Path,
     stages: tuple[str, ...],
@@ -202,6 +329,7 @@ def run_stages(
     timeout: float,
     hint: str = NO_TOOL_HINT,
     progress: Progress = NULL_PROGRESS,
+    default: bool = False,
 ) -> Checked:
     """Run ``stages`` on the project of ``board`` as ``fenolite check`` does: the pre-flight of the
     ``ORACLE_STAGES`` (a supported ``kicad-cli`` that reads this board's format, else ``FEN-6001`` or
@@ -213,21 +341,41 @@ def run_stages(
     if not isinstance(backend, Validator):
         raise CliError("FEN-2001", f"no backend validates {board.name}", hint="pass a KiCad .kicad_pcb")
     built, model, cache_error = _cache(root)
+    drawn = drawn_input(root, model, cache_error) if built else None
+    if default and drawn is None:  # the stage is listed only for a built project with a drawn schematic
+        stages = tuple(name for name in stages if name != DRAWN_STAGE)
     oracle = None
     if set(ORACLE_STAGES) & set(stages):
         oracle = KicadOracle(preflight(kicad_cli, timeout, board, hint=hint))
+    device_issues: list[Issue] = []
     report = run_checks(project=project, stages=stages, model=model, built=built, validator=backend,
                         oracle=oracle, cache_error=cache_error,
                         plotter=oracle if "render" in stages else None,
                         fill_oracle=oracle if "zone.fill" in stages else None,
-                        waivers=_waivers(model, cache_error), progress=progress,
-                        roles_judge=roles_judge)  # fmt: skip
+                        waivers=_waivers(model, cache_error), allowances=_allowances(model, cache_error),
+                        progress=progress,
+                        roles_judge=roles_judge, drawn=drawn,
+                        circuit_inputs=circuit_inputs(root, issues=device_issues))  # fmt: skip
+    if device_issues:
+        report = replace(report, issues=(*device_issues, *report.issues))
     error = report.read_error
     if isinstance(error, FormatError) and not report.drc_reported:
         old = isinstance(error, versions.UnsupportedFormatError)
         refusal = UnsupportedReadRefusedError if old else ReadRefusedError
         raise refusal(error, report.issues, file=relative_file(error.file, root))
     return Checked(project, built, report, None if oracle is None else oracle.version())
+
+
+def subject_rows(report: CheckReport) -> list[dict[str, object]]:
+    """Indices include input findings that precede stage findings."""
+    offset = len(report.issues) - sum(len(stage.issues) for stage in report.stages)
+    rows: list[dict[str, object]] = []
+    for stage in report.stages:
+        for k, subjects in enumerate(stage.subjects):
+            if subjects:
+                rows.append({"issue": offset + k, "items": [subject.to_json() for subject in subjects]})
+        offset += len(stage.issues)
+    return rows
 
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
@@ -246,8 +394,17 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             raise CliError("FEN-2001", "--exclude runs no stage: leave out --stages", where="--stages")
         return run_exclude(args, ctx, resolve_board(path))
     stages = parse_stages(args.stages)
+    if args.matrix and args.stages is None:
+        stages = MATRIX_STAGES
     board = resolve_board(path)
-    checked = run_stages(board, stages, kicad_cli=args.kicad_cli, timeout=args.timeout, progress=ctx.progress)
+    checked = run_stages(
+        board,
+        stages,
+        kicad_cli=args.kicad_cli,
+        timeout=args.timeout,
+        progress=ctx.progress,
+        default=args.stages is None,
+    )
     project, built, report = checked.project, checked.built, checked.report
     result: dict[str, Any] = {
         "project": {
@@ -260,12 +417,27 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         },
         "stages": [stage.to_json() for stage in report.stages],
         "waivers": dict(report.waivers),
+        "subjects": subject_rows(report),
     }
+    _built, model, cache_error = _cache(board.parent) if args.matrix else (False, None, "")
+    text = _add_matrix(result, args, board.parent, model if not cache_error else None)
+    if args.explain_rules:
+        from fenolite.checks.specificity import explain_rules
+
+        backend = registry.for_path(board)
+        if isinstance(backend, Validator):
+            explained = backend.validate(board).read.design
+            if isinstance(backend, DesignRulesSource):
+                explained = backend.design_rules(explained, project).design
+            pads = backend.board_pads(explained) if isinstance(backend, BoardFrame) else None
+            result["rules"] = explain_rules(explained, pads=pads)
     data = board.read_bytes()
     return Result(
         result=result,
         issues=report.issues,
         evidence=report.evidence,
+        text=text,
+        text_on_failure=text is not None,
         input=InputRef(
             path=board.name, sha256=hashlib.sha256(data).hexdigest(), kind="kicad_pcb", format_version=None
         ),  # fmt: skip

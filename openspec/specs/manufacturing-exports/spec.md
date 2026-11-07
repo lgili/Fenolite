@@ -2,9 +2,7 @@
 
 ## Purpose
 Produce the fabrication files and review views of a board through `kicad-cli`, on a copy of the project, and describe them in a manifest (`fenolite-artifacts.json`) that ties each file to its board, its tool version and its hashes. Fenolite claims the file set and the hashes, never the fabrication data.
-
 ## Requirements
-
 ### Requirement: Export kinds and their arguments
 `fenolite.exports.plan.KINDS` SHALL map each export kind to the `kicad-cli` words and fixed options it runs with, and `run_kind(cli, kind, board, files, *, major, design=None, args=None, layers=None, models=None) -> KindResult` SHALL run one kind on the copy set and return its artefacts.
 - The kinds MUST be the four fabrication kinds `gerbers`, `drill`, `pos` and `ipcd356` (`FAB_KINDS`), and the six document kinds `ipc2581`, `odb`, `step`, `pdf`, `dxf` and `sch-pdf` (`DOCUMENT_KINDS`), with these arguments, where `<stem>` is the board file's stem:
@@ -18,7 +16,7 @@ Produce the fabrication files and review views of a board through `kicad-cli`, o
   - `pdf`: `pcb export pdf -o pdf/ --mode-separate --layers <list> --common-layers Edge.Cuts --include-border-title`;
   - `dxf`: `pcb export dxf -o dxf/ --mode-multi --output-units mm --layers <list>`;
   - `sch-pdf`: `sch export pdf -o schematic/<stem>.pdf <stem>.kicad_sch`, with the files of "Schematic PDF export sheets".
-- `gerber_layers(design)` MUST give the board's copper layers in stack order, then `F.Mask`, `B.Mask`, `F.Paste`, `B.Paste`, `F.SilkS`, `B.SilkS` where the board's layer table has them (by KiCad's canonical name), then `Edge.Cuts`.
+- `gerber_layers(design)` MUST give the board's copper layers in stack order, then `F.Mask`, `B.Mask`, `F.Paste`, `B.Paste`, `F.SilkS`, `B.SilkS` where the board's layer table has them (by KiCad's canonical name), then the user layer whose user name is `V-Score` where the board has one (the score lines of a panel board, change c0173), then `Edge.Cuts`.
 - `pdf_layers(design)` MUST give the layers of `gerber_layers(design)` with `F.Fab` and `B.Fab`, where the board has them, before `Edge.Cuts`. `dxf_layers(design)` MUST give `Edge.Cuts`, then `F.Fab`, `B.Fab`, `F.CrtYd` and `B.CrtYd` where the board has them. `layers`, when given, MUST replace the list of `pdf` or `dxf`, and MUST raise `ValueError` for any other kind. `args`, the callback through which an export preset reaches a run ("Export presets"), MUST NOT be called for a document kind.
 - `--check-zones`, `--board-plot-params`, `--variant`, `--drawing-sheet` and `--define-var` MUST NOT be passed for any kind. Without a preset, every kind MUST run with the same arguments on 9.0 and 10.0 (`Kind.majors` = `(9, 10)`).
 - `Kind.repeat` MUST be the weakest class that the probes record for two runs of one board over both majors (`H-K-EXPORT-REPEAT`, `H-K-EXPORT-DOCS-REPEAT`): `bytes` for `pos`, `ipcd356` and `dxf`; `content` for `gerbers`, `drill`, `pdf` and `sch-pdf`, whose runs differ only in the lines that `VOLATILE_PREFIXES` names; `none` for `ipc2581`, `odb` and `step`.
@@ -57,6 +55,11 @@ Produce the fabrication files and review views of a board through `kicad-cli`, o
 - **GIVEN** a fake `kicad-cli` whose `pdf` run writes `pdf/b-F_Cu.pdf` and `pdf/b-F_Fab.pdf`, and whose `dxf` run writes `dxf/b-Edge_Cuts.dxf` and `dxf/b-F_Courtyard.dxf`
 - **WHEN** both kinds run
 - **THEN** the artefacts have the layers `F.Cu`, `F.Fab`, `Edge.Cuts` and `F.CrtYd`; the `dxf` artefacts are `repeatable` and the `pdf` ones are not
+
+#### Scenario: Gerber layers of a panel board
+- **GIVEN** the model of a panel board written from `tests/data/panels/mixed.py` (V-score between rows), whose layer table holds `User.1` with the user name `V-Score`
+- **WHEN** `uv run pytest tests/unit/exports/test_plan.py -k panel` calls `gerber_layers`
+- **THEN** the list holds `User.1` directly before `Edge.Cuts`, and the list of `two_layer.kicad_pcb` is unchanged
 
 ### Requirement: Artefact manifest
 `fenolite.exports.manifest.build(*, board, tool_version, artifacts, timestamp) -> dict` SHALL build the manifest written as `fenolite-artifacts.json`, and `schemas/fenolite.artifacts.v0.json` SHALL validate it.
@@ -640,3 +643,86 @@ A region without area or units, `--region` with `--svg` or `--png`, a region opt
 #### Scenario: Region options refused
 - **WHEN** `uv run pytest tests/unit/cli/test_render_region.py -k usage` runs each refused form with `--dry-run`
 - **THEN** each exits 2 with `FEN-2001` and `where` naming the option, and no folder is made
+
+### Requirement: Impedance table for the fabricator
+`fenolite.exports.impedance.impedance_table(design) -> tuple[ImpedanceRow, ...]` SHALL give the impedance table of a design: one row per impedance target and layer ("Impedance targets in the rules model"), sorted by target name, then in stack order. It reads the model only, runs no tool and writes nothing.
+
+#### Scenario: Detailed contract for impedance table for the fabricator
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
+`fenolite.exports.impedance.impedance_table(design) -> tuple[ImpedanceRow, ...]` SHALL give the impedance table of a design: one row per impedance target and layer ("Impedance targets in the rules model"), sorted by target name, then in stack order. It reads the model only, runs no tool and writes nothing.
+- `ImpedanceRow` MUST hold `target`, `kind`, `structure` (`microstrip` for one reference on an outer layer, `stripline` for two references on an inner layer, else `""`), `layer`, `references`, `ohms`, `tolerance_percent`, `width`, `gap` (`None` for a single target), `heights` (one height per reference in nanometres, from `Board.stackup`, or `None` without a stack-up), `epsilon_r` (the permittivity between the layer and its references, as decimal text, `""` when unknown or when the references see different values), `classes` (names) and `nets` (the names of the classes' nets, sorted).
+- `COLUMNS` MUST be the CSV header: `target`, `kind`, `structure`, `layer`, `references`, `ohms`, `tolerance_percent`, `width_mm`, `gap_mm`, `heights_mm`, `epsilon_r`, `classes`, `nets`. `render_csv(rows, estimates=None) -> bytes` MUST write them through `assembly.render_csv`, lengths as exact millimetre text, lists joined by one space, and, when `estimates` is given, the columns `estimate_ohms` and `suggested_width_mm` after them.
+- `fenolite.exports.impedance.ISSUE_CODES` MUST be the closed table of the codes of the table and of `fenolite impedance` ("Impedance command"):
+
+| code | severity | when |
+|---|---|---|
+| `impedance.none` | info | the design holds no impedance target |
+| `impedance.no-stackup` | warning | an estimate needs a stack-up that the board lacks, or a row's layers are not in it; the rows left out are counted |
+| `impedance.estimate-unsupported` | info | rows whose structure has no form: differential, one reference on an inner layer, two references on an outer layer |
+| `impedance.mixed-dielectric` | info | a row's height crosses dielectrics of different permittivity, combined in series |
+| `impedance.out-of-range` | warning | a row lies outside the stated range of its form |
+| `impedance.off-target` | warning | a row's estimate lies outside the target's tolerance; never given without a tolerance |
+
+- The table and the CSV MUST hold no date, no absolute path and no number produced from a `float`. `exports.impedance.EVIDENCE` MUST be the level of the design's source, as the command reports it.
+
+#### Scenario: Table of the bench
+- **GIVEN** the design of "Two targets synthesised for target 10" with the four-layer stack-up of the bench (0.2 mm prepreg of permittivity 4.3 between `F.Cu` and `In1.Cu`)
+- **WHEN** `impedance_table(design)` is called
+- **THEN** it returns three rows: `SE50` on `F.Cu` and `B.Cu`, `microstrip`, `heights == (200_000,)` on `F.Cu`, `epsilon_r == "4.3"`, then `USB90` on `F.Cu` with `gap == 150_000` and its two nets
+
+#### Scenario: CSV header and lengths
+- **WHEN** `render_csv` writes those rows
+- **THEN** the first line is the header of `COLUMNS`, and the `USB90` line holds `0.2` and `0.15` in `width_mm` and `gap_mm`
+
+### Requirement: Net renders
+`fenolite render PATH --net NAME [--net NAME ...] -o DIR` SHALL draw, with the region renderer and no tool, the board's bounding box grown by 1 mm, or the rectangle of `--region`, with every item of the named nets in the class `net-hi` and every other copper item in `net-dim`, into `DIR/net-<name>.svg` for one net or `DIR/nets.svg` for several, under the mutation protocol. `--layers L1,L2` MUST keep only those copper layers, the board edge and the holes.
+
+#### Scenario: Ground highlighted
+- **GIVEN** the authored bench of `tests/_regionviewbench.py`
+- **WHEN** `uv run pytest tests/unit/cli/test_render_net.py -k ground` runs `fenolite render <board> --net GND -o views --confirm`
+- **THEN** the exit code is 0, `views/net-GND.svg` exists, every element with `data-net="GND"` has the class `net-hi`, no other copper element has it, and no tool ran
+
+### Requirement: Net render result
+A net render SHALL add to `result.region` the highlighted net names, sorted, as `nets`, and the counts of highlighted `pads`, `tracks`, `arcs`, `vias` and `zones` as `highlighted`. The SVG root MUST carry `data-render="fenolite.region.v1"`, and the same board and options MUST give the same bytes.
+
+#### Scenario: Counts and bytes
+- **WHEN** `uv run pytest tests/unit/cli/test_render_net.py -k counts` renders the bench with `--net GND --net VCC` twice
+- **THEN** `result.region.nets` is `["GND", "VCC"]`, `highlighted` gives the bench's counts, and both `nets.svg` files have the same SHA-256
+
+### Requirement: Net render refusals
+An unknown net SHALL exit 2 with `FEN-2001`, `where` `--net` and the three closest names in the hint; an unknown layer SHALL exit 2 with `FEN-2001` and `where` `--layers`; `--net` or `--layers` with `--svg` or `--png` SHALL exit 2 with `FEN-2001`. Nothing is written in each case.
+
+#### Scenario: Unknown net
+- **WHEN** `uv run pytest tests/unit/cli/test_render_net.py -k usage` runs `fenolite render <board> --net GDN -o views --dry-run` and the other refused forms
+- **THEN** each exits 2 with `FEN-2001` and `where` naming the option, the first with a hint naming `GND`, and no folder is made
+
+#### Scenario: Option names do not collide
+- **WHEN** `uv run pytest tests/unit/cli/test_render_net.py -k option_names` parses `--region 0mm,0mm,9mm,9mm --nets` and `--net GND`
+- **THEN** the first sets the labels and no highlight, and the second sets the highlight and no labels
+
+### Requirement: Design scripts as render input
+`fenolite render` with `--region` or `--net` SHALL accept a design script as `PATH`, built in memory as `fenolite build PATH --dry-run` builds it with the same `--seed` and `--timestamp`; `input` and `depends` MUST name the script, and a build failure MUST give the code and exit of `build`. Without `--region` or `--net`, a design script MUST exit 2 with `FEN-2001`.
+
+#### Scenario: Render of a script
+- **WHEN** `uv run pytest tests/unit/cli/test_render_net.py -k script` runs `fenolite render examples/testing/design.py --net GND -o views --confirm` twice into two folders
+- **THEN** both exit 0, both files have the same SHA-256, and the working folder holds no build output
+
+#### Scenario: Script without the model forms
+- **WHEN** `fenolite render examples/testing/design.py -o views --svg --dry-run` runs
+- **THEN** the exit code is 2 and stderr carries `FEN-2001`
+
+### Requirement: Render page of a board outside the sheet
+`fenolite render --svg` SHALL plot the board area without the drawing sheet when the board does not lie inside the sheet, and SHALL take `--page sheet|board|auto` (default `auto`) to choose (change c0409, B11).
+
+#### Scenario: A board at negative coordinates
+- **GIVEN** the authored project, once with its page shrunk below its outline, and authored outlines at negative Y or past the page edge
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_plot_page.py -q` renders it against the fake `kicad-cli`
+- **THEN** a board outside its page is plotted with `--exclude-drawing-sheet --page-size-mode 2` and `result.svg_page` `board`, a board inside it without them, and `--page sheet` or `--page board` overrides the choice
+
+#### Scenario: The board-area page on KiCad
+- **GIVEN** an authored 50 mm by 40 mm board at negative Y on an A4 page
+- **WHEN** `uv run pytest tests/kicad/export/test_svg_page.py -q` plots it on 9.0.9 and 10.0.6
+- **THEN** the sheet plot is the 297 mm by 210 mm page, and both board-area plots are 50 mm by 40 mm
+

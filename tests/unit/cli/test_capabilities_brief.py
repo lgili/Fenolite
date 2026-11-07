@@ -29,10 +29,13 @@ BRIEF_KEYS = [
     "routers",
     "guide",
     "starters",
+    "suppliers",
     "sends_data_offsite",
+    "contract",
+    "deprecated",
 ]
 BYTES_PER_COMMAND = 300
-BYTES_FIXED = 2000
+BYTES_FIXED = 3500
 
 
 @pytest.fixture(autouse=True)
@@ -64,18 +67,22 @@ def test_brief_view(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         monkeypatch.setattr(type(router), "available", _refuse)
     result = _result(monkeypatch, tmp_path, "--brief", "--no-tools")
     assert list(result) == BRIEF_KEYS
+    assert result["contract"] == "v0" and result["deprecated"] == []
     assert result["fenolite_version"] == fenolite.__version__
     commands = {entry["name"]: entry for entry in result["commands"]}
     public = sorted(name for name, command in discover().items() if not command.hidden)
     assert list(commands) == public and "_echo" not in commands
-    assert all(list(entry) == ["name", "summary", "mutates"] for entry in result["commands"])
-    assert all(entry["summary"] == discover()[name].help for name, entry in commands.items())
+    assert all(list(entry) == ["name", "summary", "mutates", "claims"] for entry in result["commands"])
+    assert all(
+        entry["summary"] == cmd_capabilities._BRIEF_SUMMARIES.get(name, discover()[name].help)
+        for name, entry in commands.items()
+    )
     assert commands["build"]["summary"] and commands["build"]["mutates"] is True
     assert commands["inspect"]["mutates"] is False
     assert result["targets"] == {"build": ["altium", "kicad"], "kicad": [9, 10], "default": 10}
     assert result["tools"] == {} and result["sends_data_offsite"] is False
     assert [r["name"] for r in result["routers"]] == sorted(routers())
-    assert all(list(r) == ["name", "available", "reason"] for r in result["routers"])
+    assert all(list(r) == ["name", "available", "reason", "external_candidates"] for r in result["routers"])
     assert all(r["available"] is None and r["reason"] is None for r in result["routers"])
     assert "direct" in [r["name"] for r in result["routers"]]
     assert result["guide"][0]["topic"] == "start"
@@ -103,7 +110,12 @@ def test_brief_routers_availability(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     _no_subprocess(monkeypatch)
     result = _result(monkeypatch, tmp_path, "--brief")
     found = {r["name"]: r for r in result["routers"]}
-    assert found["direct"] == {"name": "direct", "available": True, "reason": None}
+    assert found["direct"] == {
+        "name": "direct",
+        "available": True,
+        "reason": None,
+        "external_candidates": None,
+    }
     assert found["freerouting"]["available"] is False and found["freerouting"]["reason"]
     assert result["tools"] == {"kicad-cli": None, "java": None, "docker": None, "gmsh": None}
 
@@ -136,11 +148,12 @@ def test_default_view_is_unchanged(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
     result = _result(monkeypatch, tmp_path, "--no-tools")
     assert list(result) == [
         "fenolite_version", "commands", "global_flags", "mutation_flags", "backends", "experimental",
-        "matrix", "conversions", "extras", "tools", "routers", "sends_data_offsite",
+        "matrix", "conversions", "extras", "tools", "routers", "suppliers", "sends_data_offsite",
+        "contract", "deprecated",
     ]  # fmt: skip
     assert all("summary" not in entry and "arguments" not in entry for entry in result["commands"])
     # change c0110 adds the features of each router
-    keys = {"name", "description", "sends_data_offsite", "builtin", "features"}
+    keys = {"name", "description", "sends_data_offsite", "builtin", "features", "external_candidates"}
     assert all(set(r) == keys for r in result["routers"])
     assert result["backends"] and result["experimental"] and result["matrix"]
 
@@ -164,7 +177,8 @@ def test_command_view(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     _no_subprocess(monkeypatch)
     for extra in ((), ("--no-tools",)):
         result = _result(monkeypatch, tmp_path, "--command", "route", *extra)
-        assert list(result) == ["command", "global_arguments"]
+        assert list(result) == ["command", "global_arguments", "contract", "deprecated"]
+        assert result["contract"] == "v0" and result["deprecated"] == []
         command = result["command"]
         assert command["name"] == "route" and command["mutates"] is True
         assert "--router" in [flag for argument in command["arguments"] for flag in argument["flags"]]
@@ -191,3 +205,23 @@ def test_command_view_unknown_command(monkeypatch: pytest.MonkeyPatch, tmp_path:
     assert code == 2 and envelope["ok"] is False and error["code"] == "FEN-2001"
     named = error["hint"].split(": ", 1)[1].split(", ")
     assert named[0] == "route" and len(named) == 3 and "_echo" not in named
+
+
+def test_curated_brief_summary_preserves_full_command_help(monkeypatch, tmp_path: Path) -> None:
+    before = {name: command.help for name, command in discover().items()}
+    brief = _result(monkeypatch, tmp_path, "--brief", "--no-tools")
+    rows = {row["name"]: row for row in brief["commands"]}
+    assert set(cmd_capabilities._BRIEF_SUMMARIES) == {
+        "catalog",
+        "check",
+        "diff",
+        "library",
+        "parity",
+        "ready",
+    }
+    for name, summary in cmd_capabilities._BRIEF_SUMMARIES.items():
+        assert rows[name]["summary"] == summary and summary != before[name]
+        full = _result(monkeypatch, tmp_path, "--command", name, "--no-tools")
+        assert full["command"]["summary"] == before[name]
+    assert {name: command.help for name, command in discover().items()} == before
+    assert "optionally write a KiCad DRC exclusion" in rows["check"]["summary"]

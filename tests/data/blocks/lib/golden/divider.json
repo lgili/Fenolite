@@ -1,0 +1,256 @@
+{
+  "block": "Test:divider",
+  "circuit": {
+    "components": [
+      {
+        "id": "cmp_6104712d-0a99-58ee-b224-51801209f2d1",
+        "lib_footprint_ref": "Fenolite:Header_1x3_P2.54",
+        "lib_symbol_ref": "Fenolite:Connector_3",
+        "pins": [
+          {
+            "id": "pin_0896bc0e-8dc6-5f47-85ad-0f1a6fcbd408",
+            "name": "Passive",
+            "number": "1"
+          },
+          {
+            "id": "pin_81bc8905-1251-5c29-90c3-a384127a5fc7",
+            "name": "Passive",
+            "number": "3"
+          },
+          {
+            "id": "pin_b1c4d44c-aa96-528e-90f8-57264044338f",
+            "name": "Passive",
+            "number": "2"
+          }
+        ],
+        "properties": {
+          "Reference": "J1",
+          "Value": "Connector_3",
+          "fenolite.path": "J1"
+        },
+        "ref": "J1",
+        "value": "Connector_3"
+      },
+      {
+        "id": "cmp_6262174f-2000-52d5-aad5-194f2db14690",
+        "lib_footprint_ref": "Fenolite:Chip_0603",
+        "lib_symbol_ref": "Fenolite:Resistor",
+        "pins": [
+          {
+            "id": "pin_323e7741-db5b-5cfd-8d27-d3ca5e9577b3",
+            "name": "A",
+            "number": "1"
+          },
+          {
+            "id": "pin_aa23bbc6-93fa-5d5a-977c-00360771bcba",
+            "name": "B",
+            "number": "2"
+          }
+        ],
+        "properties": {
+          "Reference": "R1",
+          "Value": "10000",
+          "fenolite.path": "sense/bot"
+        },
+        "ref": "R1",
+        "value": "10000"
+      },
+      {
+        "id": "cmp_997f6655-9489-59e4-a2af-3dd4b7da139b",
+        "lib_footprint_ref": "Fenolite:Chip_0603",
+        "lib_symbol_ref": "Fenolite:Resistor",
+        "pins": [
+          {
+            "id": "pin_e0728d93-e855-578f-8c72-0334d36dba4a",
+            "name": "A",
+            "number": "1"
+          },
+          {
+            "id": "pin_5e72fc46-bb8a-556b-817c-fa4f286a2e59",
+            "name": "B",
+            "number": "2"
+          }
+        ],
+        "properties": {
+          "Reference": "R2",
+          "Value": "20000",
+          "fenolite.path": "sense/top"
+        },
+        "ref": "R2",
+        "value": "20000"
+      }
+    ],
+    "modules": [
+      {
+        "block": "Test:divider",
+        "block_version": "1.0.0",
+        "component_ids": [
+          "cmp_6262174f-2000-52d5-aad5-194f2db14690",
+          "cmp_997f6655-9489-59e4-a2af-3dd4b7da139b"
+        ],
+        "id": "mod_e1bebda2-a92a-5460-a07b-7d6445221fb9",
+        "params": [
+          {
+            "name": "bottom",
+            "text": "10000",
+            "type": "str"
+          }
+        ],
+        "path": "sense"
+      }
+    ],
+    "nets": [
+      {
+        "id": "net_70e79c6f-6ec4-5915-b457-19b13ac545d5",
+        "members": [
+          {
+            "component_id": "cmp_6104712d-0a99-58ee-b224-51801209f2d1",
+            "pin": "1"
+          },
+          {
+            "component_id": "cmp_997f6655-9489-59e4-a2af-3dd4b7da139b",
+            "pin": "1"
+          }
+        ],
+        "name": "sense/HI"
+      },
+      {
+        "id": "net_ed424a2f-406f-5473-8303-facd29cd8161",
+        "members": [
+          {
+            "component_id": "cmp_6104712d-0a99-58ee-b224-51801209f2d1",
+            "pin": "3"
+          },
+          {
+            "component_id": "cmp_6262174f-2000-52d5-aad5-194f2db14690",
+            "pin": "2"
+          }
+        ],
+        "name": "sense/LO"
+      },
+      {
+        "id": "net_17176917-b20f-5bb5-85e7-238acbdbf1a8",
+        "members": [
+          {
+            "component_id": "cmp_6104712d-0a99-58ee-b224-51801209f2d1",
+            "pin": "2"
+          },
+          {
+            "component_id": "cmp_6262174f-2000-52d5-aad5-194f2db14690",
+            "pin": "1"
+          },
+          {
+            "component_id": "cmp_997f6655-9489-59e4-a2af-3dd4b7da139b",
+            "pin": "2"
+          }
+        ],
+        "name": "sense/OUT"
+      }
+    ],
+    "ports": [
+      {
+        "direction": "in",
+        "id": "prt_2356e8ea-96fe-5588-b961-9222c8c3ef7b",
+        "kind": "net",
+        "members": {
+          "net": "net_70e79c6f-6ec4-5915-b457-19b13ac545d5"
+        },
+        "name": "HI",
+        "owner": "mod_e1bebda2-a92a-5460-a07b-7d6445221fb9"
+      },
+      {
+        "id": "prt_c43ca5f6-6e11-56d5-aee0-8f2c8e7138ac",
+        "kind": "ground",
+        "members": {
+          "gnd": "net_ed424a2f-406f-5473-8303-facd29cd8161"
+        },
+        "name": "LO",
+        "owner": "mod_e1bebda2-a92a-5460-a07b-7d6445221fb9"
+      },
+      {
+        "direction": "out",
+        "id": "prt_c6c6f034-d76e-5075-9c46-9a0fe2a45b08",
+        "kind": "net",
+        "members": {
+          "net": "net_17176917-b20f-5bb5-85e7-238acbdbf1a8"
+        },
+        "name": "OUT",
+        "owner": "mod_e1bebda2-a92a-5460-a07b-7d6445221fb9"
+      }
+    ]
+  },
+  "rules": {
+    "contracts": {
+      "expects": [
+        {
+          "id": "sense/expect#1",
+          "instance": "sense",
+          "origin": "script:30",
+          "reason": "the divided input lies in its target window",
+          "test": {
+            "a": {
+              "a": {
+                "net": "net_70e79c6f-6ec4-5915-b457-19b13ac545d5",
+                "ref": "voltage"
+              },
+              "b": {
+                "num": [
+                  1,
+                  3
+                ]
+              },
+              "op": "mul"
+            },
+            "b": {
+              "lit": {
+                "high": {
+                  "e": -1,
+                  "m": 42
+                },
+                "low": {
+                  "e": -1,
+                  "m": 38
+                },
+                "nominal": {
+                  "e": 0,
+                  "m": 4
+                },
+                "unit": "volt"
+              }
+            },
+            "op": "within"
+          }
+        }
+      ],
+      "rig": [
+        {
+          "kind": "supply",
+          "name": "bench",
+          "neg": "net_ed424a2f-406f-5473-8303-facd29cd8161",
+          "pos": "net_70e79c6f-6ec4-5915-b457-19b13ac545d5",
+          "voltage": {
+            "high": {
+              "e": -2,
+              "m": 1224
+            },
+            "low": {
+              "e": -2,
+              "m": 1176
+            },
+            "nominal": {
+              "e": 0,
+              "m": 12
+            },
+            "unit": "volt"
+          }
+        }
+      ]
+    },
+    "id": "rst_79ddd1f3-309e-5f3a-b8e0-d09f3a2dcd3d"
+  },
+  "schema": "fenolite.block-golden.v0",
+  "seed": 0,
+  "timestamp": "2026-01-01T00:00:00Z",
+  "usage": "usage/divider.py",
+  "version": "1.0.0"
+}

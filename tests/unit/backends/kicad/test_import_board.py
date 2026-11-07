@@ -21,6 +21,7 @@ from fenolite.backends.kicad.cli import (
     KicadCliError,
     KicadCliVersionError,
 )
+from fenolite.core.coords import Point
 from fenolite.core.errors import FormatError
 from fenolite.core.evidence import Level
 
@@ -103,6 +104,29 @@ def test_import_design_reads_the_board_and_the_messages(tmp_path: Path) -> None:
     assert altium_import.IMPORT_EVIDENCE.level is Level.INFERRED
     assert altium_import.IMPORT_EVIDENCE.oracle == "kicad-cli"
     assert altium_import.IMPORT_EVIDENCE.hypotheses == ("H-K-00", "H-K-PCB-READ")
+
+
+def test_import_design_projects_footprint_copper(tmp_path: Path) -> None:
+    """KiCad keeps the track of a Net Tie component as an ``fp_line`` of its footprint on a copper layer
+    (``docs/formats/altium/pcb-read.md``): the read design carries it in ``footprint.graphics``, where the
+    net-tie copper comparison of change c0431 looks."""
+    line = (
+        '\t\t(fp_line (start 0.5 0) (end -0.5 0) (stroke (width 0.254) (type solid)) (layer "F.Cu")'
+        ' (uuid "6f0c1d52-0d3e-4c5e-9f7a-2b1d0c431a01"))\n'
+    )
+    head = "\t\t(attr smd)\n"
+    assert BOARD.count(head) >= 1
+    board = BOARD.replace(head, head + line, 1)
+    fake = fake_kicad_cli(tmp_path / "bin", imported=board)
+    design = altium_import.import_design(KicadCli(fake), PCBDOC).read.design
+    assert design.board is not None
+    copper = [
+        (g.kind, g.width, g.points)
+        for fp in design.board.footprints
+        for g in fp.graphics
+        if g.layer == "F.Cu"
+    ]
+    assert copper == [("line", 254_000, (Point(500_000, 0), Point(-500_000, 0)))]
 
 
 def test_a_board_the_reader_refuses(tmp_path: Path) -> None:

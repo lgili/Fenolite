@@ -225,15 +225,37 @@ Only their unreported supplementary measurements remain below.
 | Repeat R5 | c0151 bus split follow-up | remote 4958647d artefacts tested: three errors/six warnings, bus and OUT links still fail; implementation not integrated here |
 | Bodies X8.6 | counts from the native saved file | measured: 3 plain/3 shape-based, 0 original MODELID retained, 3 nonzero checksums, 35 keys each; X8.1-X8.5/X8.7 prior reports retained |
 | Via supplementary measurement | nine further bytes of the long via record before/after removing shapes and changing end-layer options | pending; Part V's layer-id mask already reported as expected |
-| OutJob | Gerber counts/extensions, O6 border observation and exact-version confirmation of the historic empty-Gerber case | pending; current output generation/settings already reported |
-| Rules | optional planted DRC, c0125 per-layer matrix and c0130 object-type matrix | pending |
-| Project reader | five Net Identifier Scope values and exported RUL fields/encoding | pending |
-| Templates | native-template logo/font/color appearance and imported custom border | pending; prior W report remains valid for its original case |
+| OutJob | Gerber counts/extensions, O6 border observation and exact-version confirmation of the historic empty-Gerber case | agent run on AD 24.5.2.23, 2026-11-05 (S-1611): 12 and 16 layer files with their extensions, a Board Outline entry `Gerber Board Profile` that writes `.GM` through `PlotBoardProfile`; the historic empty-Gerber case still needs the AD 26 minor version |
+| Rules | optional planted DRC, c0125 per-layer matrix and c0130 object-type matrix | c0125/c0130 ran on 2026-10-14 (AD 26.5, S-0744); planted DRC observed by an agent on AD 24.5.2.23 on 2026-11-04 (S-1584, below) |
+| Project reader | five Net Identifier Scope values and exported RUL fields/encoding | agent run on AD 24.5.2.23, 2026-11-05 (S-1611): `HierarchyMode` 0, 1, 2, 4, 3; RUL lines end `B6` CR LF, no byte-order mark; not the AD 26.5 author report |
+| Templates | native-template logo/font/color appearance and imported custom border | pending (not run 2026-11-05: no step list in the repository, and the criterion is a judgement of drawn appearance); prior W report remains valid for its original case |
 | Part T PADSTACK | connector masks and broader stack coverage | Full Stack four-layer case and PcbLib placement passed; masks pending |
 | Part T SCHEMATIC | T1-T6, hierarchy and connectivity | T2 passed with 18 warnings; T5 retry matches all 68 components, four valid proposed removals, no ECO execution; remaining T1/T3-T6 acceptance pending |
 | Part T DIFAT | T1-T6 on the large converted document | pending |
 | Formal kit K1-K9 | actual execution, verified saved files and recorded run | complete: 32 passed, zero failed/pending; recorded run 2026-10-13-462b38ba |
 | Altium 365 Viewer | binary-project ZIP V2, No ERC N4 and copper C5 | uploaded in isolated browser; all three remain processing after five minutes, native-saved control also stalls; no rendered acceptance |
+
+### Planted DRC, 2026-11-04 evening (source S-1584)
+
+A Claude agent ran Part U's planted DRC (steps U4 and U5 of `docs/evidence/altium-pcb.md`) at the
+maintainer's request of 2026-11-04/05. It used the actual Altium Designer 24.5.2.23 (Trial) in the
+maintainer's VM. This is not the maintainer's own review. The input is the Fenolite-authored Part U board
+`rules/routed.PcbDoc` (`abe6d0b1…`, the digest in Part U), on a VM copy. All six files matched their
+digests before and after the run. The agent opened the project, ran Tools » Polygon Pours » Repour All
+(no message) and Tools » Design Rule Check » Run Design Rule Check with the existing options. It read the
+violations with a read-only DelphiScript.
+
+- The DRC reports 49 violations.
+- Of the written rule kinds, only two are named. `Width_PWR` is named twice, once for each `VIN` track:
+  "Actual Width = 19.685mil, Target Width = 23.622mil". `Clearance_net_LED_DRV_to_net_LED_A` is named four
+  times: pad–pad, via–pad and track–pad at `R1`, and track–via.
+- No other rule of the table is named. The remaining 43 come from rules outside the table: 31
+  MinimumSolderMaskSliver, 10 SilkToSolderMaskClearance and 2 NetAntennae (the two `VIN` tracks).
+- U5: each `VIN` track's width violation names `Width_PWR`, not `Width`.
+- One `VIN` track is reported on Bottom Layer and the other on `Mid-Layer 1`.
+
+These are agent observations under the approved 24.5 scope. `H-A-RULE-SCOPE` and `H-A-RULE-PRIORITY`
+keep their levels.
 
 ## Measured results
 
@@ -663,3 +685,211 @@ separate notice about macOS ARM capacity constraints. Its test log is unavailabl
 (HTTP 404); no specific test failure or resource-exhaustion cause can be established.
 A fresh run on the corrected commit is required. This batch is not a passing
 complete gate, and no archive or evidence promotion follows from it.
+
+## Continuation inventory — 2026-11-01
+
+Reviewed from base `7ebbd86081bd200c7e8d979575a9453fff486314`. The maintainer reports that Altium
+Designer is unavailable now. No application run, native save, personal-project review or paid-agent
+trial is inferred from implementation or own readback. Existing dated reports retain their exact scope.
+The published kit records and later scoped author reports take precedence over older pending summaries;
+records of different input digests are never combined into a fictitious fresh run.
+
+| change | remaining work and actual dependency | available preparation/evidence |
+|---|---|---|
+| c0092 | 5.2 needs the maintainer's acceptance-block decision; 6.1 needs the coordinating full gate and exact-head CI | Existing graduation rule, published kit record `2026-10-13-87c930fa`, per-kind inventory and measured evidence are retained; the new Draftsman kind remains experimental |
+| c0105 | 1.4 needs an actual KiCad 10.0.6 GUI tuning save | This host has KiCad 9.0.2; it cannot establish the required 10.0.6 save. No GUI fixture is fabricated |
+| c0160 | 5.3 still needs the complete Part T report on DIFAT, SCHEMATIC, connector masks and library/ECO cases | [Four-layer Full Stack follow-up](altium-padstack-part-t.md) confirms only that authored stack and placement |
+| c0166 | 2.1 and 3.1-3.6 retain the unmatched native cases and Viewer checks | Historic K1-K9 completion and scoped legacy reports above stay recorded; they do not settle new input digests or missing personal-project checks |
+| c0168 | 5.2 remains incomplete because native S3 did not show the required 3D openings | [Part S](altium-part-s-slots-2026-10-17.md): seven cases passed; S3 incomplete, so `CUTOUT_REGIONS` remains false |
+| c0172 | F0/G1, FP native outcomes, F8 and gate graduation need actual Altium files/reports | Candidate writer/build/CLI, public corpus census, FP3-FP5 and candidate acceptance are prepared; FP1-FP2 need the real F0.3 control. Native generic Table/dimensions and exact filters stay deferred |
+| c0173 | Q1-Q6 saved observations precede embedded-array/layer-type serialization and phase B | Authored phase A kit and flat-panel implementation exist; `EMBEDDED_ARRAYS` remains false, with unknown record/type rows preserved |
+| c0175 | 10.4 needs c0241's measured operations and a named house library; 14.1 needs full/CI gates | Existing package splits and KiCad reuse/coverage tools are retained; no Altium model-store rotation rule is guessed |
+| c0177 | 2.4 requires the maintainer's schematic review against Altium | Existing authored/public viewer tests remain mechanical evidence |
+| c0178 | 3.4 requires a user-owned KiCad project and theme review | A local KiCad binary does not supply that personal review |
+| c0179 | 2.4 requires the maintainer's own library review | No personal library was supplied |
+| c0180 | 2.4 requires the maintainer's own Draftsman drawing compared with Altium/F0.5 | Public drawing geometry evidence is retained; no personal/native visual review is claimed |
+| c0181 | 3.3 requires a native layer-tab/mask comparison on the maintainer's board | Existing public/authored layer geometry tests remain scoped |
+| c0186 | 2.2 requires the maintainer's native variant comparison | No personal variant or native application was supplied |
+| c0195 | 5.4 is an optional personal MCP-client session | Existing SDK/stdio proofs can run locally; no user's client configuration is changed |
+| c0215 | 7.4 needs K6 on the computed-pour probes of that change | Older native repour reports concern their recorded older kit inputs and do not verify the later computed-pour engine |
+| c0241 | J1-J22 saves/report precede any `backends/altium/edit/` modules, then phase B gates each operation | Phase A is reproducible; read-only intake now scans before member interpretation and reports counts/digests, never native verdicts |
+| c0081 | 4.2-4.3 need a maintainer-started paid trial or a dated decision not to run | The real runner row already cites S-0618/S-0832; no paid agent is started, key read, cost invented or decision inferred |
+
+No unavailable native or personal-review task is closed by this inventory. The coordinating branch
+owns full gates, publication and exact-head CI. Candidate Part F and observation tooling are documented
+in [Draftsman evidence](altium-draftsman.md); Part J stays observation-first as its design requires.
+
+## Approved pending-native scope — 2026-11-03
+
+The maintainer explicitly authorized the pending Altium validations on the
+available Altium Designer 24.5.2.23: "tenho so o24.5, mas eu autorizo as
+validacoes serem no24, nao precisa ser na26". This replaces the version
+prerequisite of pending runs only. Record the actual tool/build, input hashes
+and each observed outcome. It does not complete a case, open a write gate,
+raise evidence, prove26.5 equivalence or replace any historical26.5 report.
+Do not combine different versions/input digests into one fictional kit run.
+All existing acceptance criteria, facts-before-code rules and final CI remain.
+The kit form keeps its existing AD major.minor dialect: use AD 24.5; keep full
+build 24.5.2.23 in the separate native observation report, not a new form key.
+
+
+## acceptance_v03 schematic acceptance on Altium24 — 2026-11-03
+
+S-1303 records actual Altium Designer24.5.2.23 compilation of the immutable
+prepared-v2 acceptance_v03 project from writerb5f6c84a. The complete component
+pin dump covers all four components/eight pins. Native net objects exactly
+match D0={R1.1,R3.1}, D1={R2.1,R4.1}, GND={R1.2,R2.2,R3.2,R4.2}; short/full
+names are exact. The fourth native net object is empty D[0..1] bus metadata,
+retained explicitly rather than counted as another physical net or filtered.
+Compilation emits only one success Info, with no error/warning or ERC change.
+
+All three schematic documents were saved to fresh owned native binary copies,
+closed/reopened and the saved project compiled/exported again. Every complete
+raw message/pin/net-object file is byte-identical before/after. The collection
+contains34 exclusively read closed files, including the three saved native
+schematics. All17 staged inputs/support/SDK files and all50 original prepared
+packet files remain hash-identical. The strict source-bound comparison and
+all export/document hashes are in `altium-acceptance-v03-schematic-native.json`.
+
+This completes the schematic portion of the real task5.3 measurement. It does
+not claim PCB primitive/layer/via/body/rule inspection, native PCB DRC/save,
+OutJob/frame inspection, the complete kit or per-kind write graduation. Those
+steps and exact-source CI remain required; c0092.5.3 stays open.
+
+
+## acceptance_v03 PCB save/reopen on Altium24 — 2026-11-03
+
+S-1304 records the actual native opening and census of the immutable authored
+PCB from the same prepared-v2 writerb5f6c84a packet. The SDK checks the complete
+owned path, PCB kind and active board before iterating every public object kind
+from eArcObject through eBoardOutlineObject, excluding only the internal
+eTraceObject/eSpareViaObject kinds. Every enumerated count and every emitted
+pad/via/net/text/rule field is retained in the raw census.
+
+A fresh copy was saved through native PCB Binary, its exact path and physical
+file checked, closed and reopened before repeating the census. Both complete
+raw census files are byte-identical:9pads (eight electrical plus one non-plated
+hole),3vias with layer spans1–32/1–2/2–3,3nets and37native rule objects. Native
+default rule names are preserved in the receipt; this does not assert that all
+37were requested by Fenolite or that their complete parameters were checked.
+The15 closed collected files include the190976-byte native saved PCB. Exclusive
+reads verified all3 staged source/SDK files and all50 original prepared packet
+files unchanged. See `altium-acceptance-v03-pcb-native.json`.
+
+The initial operator attempt expired before its interactive ready event and
+refused absent cleanup permission without CAD input. A separately guarded
+operator with a longer observation window invoked the same immutable SDK once;
+its temporary task definition was removed before GUI permission. The native
+SDK's once markers prevent replay. This controller repair changes no CAD input
+or geometry and neither failed preparation nor return values count as proof.
+
+This completes the PCB census/new-copy save/reopen portion, not DRC, detailed
+layer/body/rule-parameter inspection, OutJob/frame validation, the full kit or
+per-kind graduation. c0092.5.3 and exact-source CI remain open.
+
+
+## acceptance_v03 actual native DRC — 2026-11-03
+
+S-1305 records one native DRC on the S-1304 saved copy, after recording the
+current ten option checkboxes and three numeric fields. No configuration was
+changed: Create Report File was off, Create Violations on and the stop bound
+remained500. A separate readonly SDK procedure checked the exact active owned
+PCB path and exported the complete current message manager without clearing,
+compiling, re-running DRC or saving. All14messages are retained:9Un-Routed Net
+Constraint and5Net Antennae findings. The two identical track-antenna messages
+are preserved independently. The bound was not reached. This intentionally
+sparse exercise board is not fully routed; neither that intent nor successful
+report acquisition establishes DRC-clean acceptance.
+
+All6 closed export files were collected with exclusive reads and both SDK
+inputs remained unchanged; all50 original prepared files still match their
+manifest. Fenolite reads both the original and native-saved PCB with zero
+reader issues. All literal fields of each of the7 original rule records remain
+identical in the native-saved bytes; the30 additional native default rules are
+reported separately, never passed off as source-authored rules. This is raw
+field retention, not independent semantic acceptance of every rule parameter.
+See `altium-acceptance-v03-drc-native.json` for the complete messages/options,
+source/input/export hashes and original rule field counts.
+
+Independent inventory of every native batch-rule category, detailed physical
+inspection, OutJob/frame, full-kit and per-kind graduation/current CI remain
+open. No hypothesis or writer evidence level is promoted by this observation.
+The DRC marks only the owned saved copy modified in memory; it was not saved
+after the run, and original prepared documents were not changed.
+
+
+## acceptance_v03 native body measurements — 2026-11-03
+
+S-1306 records all four native component bodies of the S-1304 saved PCB. The
+readonly SDK checks its exact active path and iterates the complete body kind
+without filtering owners. R1/R2/R3/R4 each retain layer69, standoff0, overall
+height196850native coordinate units, projection0 and all four XY bounds exactly
+as encoded in the original source record. No geometry, DRC or Save is invoked.
+All6closed output files were collected with exclusive reads, both SDK inputs
+remain unchanged and all50 original prepared files still match their hashes.
+See `altium-acceptance-v03-body-native.json`.
+
+A guarded public View > 3D Layout Mode command also produced the actual native
+3D top view: all four grey bodies are visible between their respective pads.
+This is an agent's qualitative observation, not a maintainer review, independent
+mesh/oblique inspection or model-copy/fit acceptance. Exact measurements come
+from the separate native SDK export. The source and saved body-record comparison
+retains native MODELID/checksum rewrites externally rather than normalizing IDs
+or claiming their algorithm is known.
+
+The first combined layer/body script stopped at its Stack.FirstLayer lookup
+with an undeclared-identifier error and a zero-byte partial export. Its failure
+is preserved; acknowledging that owned error did not make the attempted layer
+inspection pass. The fresh body-only export uses its own immutable input/output
+paths and succeeds separately. Actual copper-stack inspection remains pending,
+as do the other full-kit, graduation and exact-current-commit CI requirements.
+
+
+## acceptance_v03 native stack CSV — 2026-11-03
+
+S-1308 binds the complete native Layer Stack Manager File > Export CSV result
+from the unchanged S-1304 saved PCB. All15reported layer rows were compared:
+six signal copper layers in source order, five TEST core layers with Dk4,
+two solder masks and two overlays. The three declared via types span
+Top–Bottom, Top–Mid1 and Mid1–Mid2 respectively. Native CSV reports no impedance
+profiles and no back drills; this is not an impedance or manufacturing test.
+
+Each core is displayed as9.843mil against the encoded9.8425mil: the difference
+is0.0005mil (12.7nm), consistent with three-decimal half-up display rounding.
+This does not prove exact internal native thickness equality. Copper1.378mil
+and solder-mask0.4mil match encoded decimal values; source paste layers are not
+reported in this native CSV and are explicitly outside this inspection.
+Complete rows and all additional native weight/orientation columns are retained
+in `altium-acceptance-v03-layer-native.json`; no row was silently discarded.
+
+The CSV and one-shot marker were collected through exclusive reads; the saved
+PCB remains hash-identical and all50original prepared files match. No layer
+edit or PCB Save was requested. This succeeds independently of the preserved
+FirstLayer script failure. Full physical kit, detailed rule coverage, remaining
+native acceptance, per-kind graduation and exact-source CI remain open.
+
+
+## Viewer request completion and blocked rendering —2026-11-03
+
+Task c0166.3.6's separate-request/report obligation is complete from the dated
+2026-10-13 attempt above. Its three rendering outcomes are **BLOCKED**, never
+passed: V2's authored binary-project ZIP, N4's authored binary No ERC SchDoc,
+and C5's authored routed PcbDoc each stayed at Processing the Design throughout
+five minutes. The separate native-Altium-saved flat SchDoc control stayed there
+for two minutes, not five. The official Viewer was reached; the cause of its
+processing stall remains unknown. No writer defect, access denial or current
+Viewer outage is inferred.
+
+The application names no Viewer build; A365 Viewer is the native tool name,
+with Edge155.0.4283.45 identified separately as the browser. The retained report
+names the source cases and says input hashes/screenshots/logs were retained in
+ignored storage. This documentation reconciliation does not reconstruct an
+unavailable raw-upload digest from today's fixture, repeat an upload or claim
+that the old payload bytes were rehashed now.
+
+Successful rendering is still needed for the corresponding H-A-SCHBIN-VIEWER,
+H-A-SCH-NC-VIEWER and H-A-PCB-CU-VIEWER pending criteria. Their INFERRED levels
+and prior historical observations remain. Completing the request/report task
+makes no native step pass, formal kit record, writer graduation, CI approval or
+whole c0166 completion. The portable task receipt is
+openspec/changes/c0166-altium-native-acceptance/viewer-attempt-reconciliation-proof.json.

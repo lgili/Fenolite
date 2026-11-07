@@ -16,12 +16,13 @@ from fenolite.backends.altium import rulemap
 from fenolite.backends.altium.read.rules import PENDING_KINDS, RULE_KIND_MAP
 from fenolite.backends.altium.read.scope import parse_scope
 from fenolite.backends.altium.rulemap import NOT_LOWERED_REASONS, TABLE, lift, lower, same_rules
-from fenolite.model.rules import Rule, RuleKind, Selector
+from fenolite.model.rules import NO_NET, Rule, RuleKind, Selector
 
 PAGE = Path(__file__).resolve().parents[4] / "docs" / "formats" / "altium" / "pcb-copper.md"
 ALL = Selector("all")
 PWR = Selector("netclass", "PWR")
 MM = 1_000_000
+MIL = 25_400
 
 
 def rule(
@@ -64,6 +65,8 @@ def one_of_each(where: Selector = ALL) -> list[Rule]:
         rule("edge_clearance", where, min=500_000),
         rule("hole_to_hole", where, min=250_000),
         rule("annular_width", where, min=125_000),
+        rule("short", where, between=ALL, severity="ignore"),
+        rule("antenna", where, max=50 * MIL),
     ]
 
 
@@ -98,11 +101,13 @@ def test_complete_exact_rows_are_cited_and_read() -> None:
         if not row.exact:
             continue
         entry = RULE_KIND_MAP[row.altium]
-        assert row.neutral in [limits.kind for limits in entry.rules]
         assert entry.net_scope == row.net_scope
         assert ("pair" in row.scopes) == entry.binary
-        limits = next(limits for limits in entry.rules if limits.kind == row.neutral)
-        assert set(limits.keys) <= set(row.fields)
+        if row.limits:
+            limits = next(limits for limits in entry.rules if limits.kind == row.neutral)
+            assert set(limits.keys) <= set(row.fields)
+        else:  # change c0465: a short rule has no limit; the reader's ALLOWED condition is its severity
+            assert row.neutral == "short" and entry.rules == () and row.fields == ("ALLOWED",)
         # the keys of change c0125 (a matrix cell) are read and never written
         assert all(c.key in row.fields for c in entry.conditions if not c.read_only)
         assert not any(c.key in row.fields for c in entry.conditions if c.read_only)
@@ -145,10 +150,12 @@ def test_single_scopes_are_written_exactly() -> None:
     }
     assert keys["HoleToHoleClearance"] == {"GAP": "9.8425mil", "ALLOWSTACKEDMICROVIAS": "FALSE"}
     assert keys["MinimumAnnularRing"] == {"MINIMUMRING": "4.9213mil"}
+    assert keys["ShortCircuit"] == {"ALLOWED": "TRUE"}
+    assert keys["NetAntennae"] == {"NETANTENNAETOLERANCE": "50mil"}
     assert [r.net_scope for r in lowered.records] == [
-        "DifferentNets", "AnyNet", "AnyNet", "AnyNet", "DifferentNets", "AnyNet", "AnyNet"
+        "DifferentNets", "AnyNet", "AnyNet", "AnyNet", "DifferentNets", "AnyNet", "AnyNet", "AnyNet", "AnyNet"
     ]  # fmt: skip
-    assert [r.number for r in lowered.records] == [0, 2, 11, 42, 63, 52, 19]
+    assert [r.number for r in lowered.records] == [0, 2, 11, 42, 63, 52, 19, 15, 56]
 
 
 def test_roundtrip_of_one_of_each() -> None:
@@ -159,7 +166,7 @@ def test_roundtrip_of_one_of_each() -> None:
         assert opaque == {} and same_rules(lifted, lowered.written)
         assert [r.kind for r in lifted] == [
             "clearance", "track_width", "via_diameter", "via_drill", "hole_size", "edge_clearance",
-            "hole_to_hole", "annular_width",
+            "hole_to_hole", "annular_width", "short", "antenna",
         ]  # fmt: skip
 
 
@@ -239,16 +246,9 @@ def test_scope_outside_the_grammar_is_refused_for_that_rule_only() -> None:
     refused = [
         rule("track_width", Selector("net", "PWR_*"), min=MM, opt=MM, max=MM, name="glob"),
         rule("track_width", Selector("net", "it's"), min=MM, opt=MM, max=MM, name="quote"),
-        rule("track_width", Selector("ref", "U1"), min=MM, opt=MM, max=MM, name="ref"),
-        rule("track_width", Selector("not", items=(PWR,)), min=MM, opt=MM, max=MM, name="not"),
-        rule(
-            "track_width",
-            Selector("or", items=(PWR, Selector("net", "A"))),
-            min=MM,
-            opt=MM,
-            max=MM,
-            name="or",
-        ),
+        rule("track_width", Selector("ref", "U*"), min=MM, opt=MM, max=MM, name="ref_glob"),
+        rule("track_width", Selector("area", "A1"), min=MM, opt=MM, max=MM, name="area"),
+        rule("track_width", Selector("item_kind", "keepout"), min=MM, opt=MM, max=MM, name="item"),
         rule("track_width", PWR, min=MM, opt=MM, max=MM, layers=("F.Cu",), name="layer"),
         rule("track_width", Selector("layer", "F.Cu"), min=MM, opt=MM, max=MM, name="layer_op"),
         rule("edge_clearance", PWR, between=PWR, min=MM, name="second"),
@@ -261,6 +261,207 @@ def test_scope_outside_the_grammar_is_refused_for_that_rule_only() -> None:
         (item.name, "scope-unsupported") for item in refused
     ]
     assert lowered.not_lowered[5].selector == "netclass PWR on F.Cu"
+
+
+SENSE = Selector("net", "SENSE")
+HV = Selector("netclass", "HV")
+PAD = Selector("item_kind", "pad")
+ZONE = Selector("item_kind", "zone")
+
+
+def test_composite_clearance_scopes() -> None:
+    """Scenario "Composite clearance scopes" (change c0412): a reference with an item kind, a disjunction
+    of nets, the pours of the other classes and a pad on a net against a negation are written as queries of
+    the closed grammar, and lift back to the same rules."""
+    rules = [
+        rule(
+            "clearance",
+            Selector("and", items=(Selector("ref", "J1"), PAD)),
+            min=MM,
+            name="ref_pad",
+            priority=4,
+        ),
+        rule(
+            "clearance",
+            Selector("net", "A"),
+            between=Selector("or", items=(Selector("net", "B"), Selector("net", "C"))),
+            min=MM,
+            name="nets",
+            priority=3,
+        ),
+        rule(
+            "clearance",
+            HV,
+            between=Selector("and", items=(ZONE, Selector("not", items=(HV,)))),
+            min=2 * MM,
+            name="pours",
+            priority=2,
+        ),
+        rule(
+            "clearance",
+            Selector("and", items=(PAD, SENSE)),
+            between=Selector("not", items=(HV,)),
+            min=MM,
+            name="pad_net",
+            priority=1,
+        ),
+    ]
+    lowered = lower(rules)
+    assert lowered.not_lowered == ()
+    found = {record.rules[0].name: (record.scope1, record.scope2, record.name) for record in lowered.records}
+    assert found == {
+        "pad_net": (
+            "IsPad And InNet('SENSE')",
+            "Not InNetClass('HV')",
+            "Clearance_pad_and_net_SENSE_to_not_HV",
+        ),
+        "pours": (
+            "InNetClass('HV')",
+            "InPolygon And (Not InNetClass('HV'))",
+            "Clearance_HV_to_polygon_and_not_HV",
+        ),
+        "nets": ("InNet('A')", "InNet('B') Or InNet('C')", "Clearance_net_A_to_net_B_or_net_C"),
+        "ref_pad": ("InComponent('J1') And IsPad", "All", "Clearance_ref_J1_and_pad"),
+    }
+    lifted, opaque = lift(lowered.records)
+    assert opaque == {} and same_rules(lifted, lowered.written)
+
+
+def test_nested_operators_are_parenthesised() -> None:
+    nested = Selector(
+        "or",
+        items=(
+            Selector("and", items=(SENSE, PAD)),
+            Selector("not", items=(Selector("or", items=(HV, PWR)),)),
+        ),
+    )
+    (record,) = lower([rule("track_width", nested, min=MM, opt=MM, max=MM)]).records
+    assert record.scope1 == "(InNet('SENSE') And IsPad) Or (Not (InNetClass('HV') Or InNetClass('PWR')))"
+    assert parse_scope(record.scope1) == nested
+
+
+def _and(*items: Selector) -> Selector:
+    return Selector("and", items=items)
+
+
+def _or(*items: Selector) -> Selector:
+    return Selector("or", items=items)
+
+
+def _ref(name: str) -> Selector:
+    return Selector("ref", name)
+
+
+def _net(name: str) -> Selector:
+    return Selector("net", name)
+
+
+def test_part_pad_clearance_shapes() -> None:
+    """The clearance shapes of change c0412, authored here: a part's own pads, pads of one part on two
+    nets, pads of a part on a set of nets, a net against a set of nets, a class against the pours of the
+    other classes, and the single-sided rule for pads without a net (the pads of parts with no net, or a
+    part's pads minus its nets). Each is written and lifts back to the same rule."""
+    nets = _or(_net("A"), _net("B"))
+    no_net_pads = _or(
+        _and(_or(_ref("R1"), _ref("R2")), PAD),
+        _and(_ref("U1"), PAD, Selector("not", items=(nets,))),
+    )
+    rules = [
+        rule(
+            "clearance", _and(_ref("U1"), PAD), between=_and(_ref("U1"), PAD), min=MM, name="own", priority=6
+        ),
+        rule(
+            "clearance",
+            _and(_ref("U1"), PAD, _net("A")),
+            between=_and(_ref("U1"), PAD, _net("B")),
+            min=MM,
+            name="two_nets",
+            priority=5,
+        ),
+        rule(
+            "clearance",
+            _and(_ref("U1"), PAD, nets),
+            between=_and(_ref("U1"), PAD, nets),
+            min=MM,
+            name="set",
+            priority=4,
+        ),
+        rule("clearance", _net("C"), between=nets, min=MM, name="net_set", priority=3),
+        rule(
+            "clearance",
+            HV,
+            between=_and(ZONE, Selector("not", items=(HV,))),
+            min=2 * MM,
+            name="pours",
+            priority=2,
+        ),
+        rule("clearance", no_net_pads, min=MM, name="no_net", priority=1),
+    ]
+    lowered = lower(rules)
+    assert lowered.not_lowered == ()
+    scopes = {record.rules[0].name: (record.scope1, record.scope2) for record in lowered.records}
+    assert scopes["no_net"] == (
+        "((InComponent('R1') Or InComponent('R2')) And IsPad) Or "
+        "(InComponent('U1') And IsPad And (Not (InNet('A') Or InNet('B'))))",
+        "All",
+    )
+    assert scopes["set"][0] == "InComponent('U1') And IsPad And (InNet('A') Or InNet('B'))"
+    assert all(parse_scope(text) is not None for pair in scopes.values() for text in pair)
+    lifted, opaque = lift(lowered.records)
+    assert opaque == {} and same_rules(lifted, lowered.written) and len(lowered.written) == len(rules)
+
+
+def test_rules_on_items_without_a_net_are_written() -> None:
+    """``NO_NET`` is written ``Not InAnyNet`` (S-1680; change c0420, B7) and lifts back to the same rule."""
+    rules = [
+        rule("clearance", NO_NET, min=MM, name="netless", priority=2),
+        rule("clearance", _and(PAD, NO_NET), min=MM, name="netless_pads", priority=1),
+    ]
+    lowered = lower(rules)
+    assert lowered.not_lowered == ()
+    scopes = {record.rules[0].name: (record.scope1, record.scope2) for record in lowered.records}
+    assert scopes == {"netless": ("Not InAnyNet", "All"), "netless_pads": ("IsPad And (Not InAnyNet)", "All")}
+    lifted, opaque = lift(lowered.records)
+    assert opaque == {} and same_rules(lifted, lowered.written) and len(lowered.written) == len(rules)
+
+
+LIMIT_CASES = (
+    # (rules, written kinds, refused names): each limit combination the forwarded report names
+    ([rule("track_width", min=MM, opt=MM, max=2 * MM, name="w_all")], ["Width"], []),
+    ([rule("track_width", PWR, min=MM, opt=MM, max=2 * MM, name="w_class")], ["Width"], []),
+    ([rule("track_width", min=MM, name="w_min")], [], ["w_min"]),
+    ([rule("track_width", min=MM, max=2 * MM, name="w_min_max")], [], ["w_min_max"]),
+    (
+        [
+            rule("via_diameter", min=MM, opt=MM, max=2 * MM, name="v_all"),
+            rule("via_drill", min=MM // 2, opt=MM // 2, max=MM, name="d_all"),
+        ],
+        ["RoutingVias"],
+        [],
+    ),
+    ([rule("via_diameter", min=MM, opt=MM, max=2 * MM, name="v_alone")], [], ["v_alone"]),
+    ([rule("via_diameter", PWR, min=MM, opt=MM, max=2 * MM, name="v_class")], [], ["v_class"]),
+    ([rule("via_diameter", min=MM, name="v_min")], [], ["v_min"]),
+    ([rule("hole_size", min=MM // 4, max=6 * MM, name="h_min_max")], ["HoleSize"], []),
+    ([rule("hole_size", min=MM // 4, name="h_min")], [], ["h_min"]),
+)
+
+
+def test_limit_combinations_written_or_reported() -> None:
+    """Change c0412: a Width record holds the minimum, the preferred width and the maximum, a Routing Via
+    Style record the diameter and the hole limits, a Hole Size record both limits, and no record read leaves
+    one out (``pcb-copper.md``, ``H-A-RULE-KINDS``). A combination with every limit of its record is
+    written, scoped ``All`` or by a class; any other is a ``value-unsupported`` loss whose reason names the
+    missing limit or the missing partner rule."""
+    for rules, kinds, refused in LIMIT_CASES:
+        lowered = lower(rules)
+        assert [record.kind for record in lowered.records] == kinds
+        found = [(item.rule.name, item.reason) for item in lowered.not_lowered]
+        assert found == [(name, "value-unsupported") for name in refused], rules
+        for item in lowered.not_lowered:
+            assert (
+                "no record read leaves a limit out" in item.detail or "has the same selector" in item.detail
+            )
 
 
 def test_priority_class_rule_above_the_general_rule() -> None:
@@ -347,12 +548,17 @@ def _rules(draw: st.DrawFn) -> Rule:
         else draw(_LENGTHS)
         for name in ("min", "opt", "max")
     }
+    selector_b = draw(st.one_of(st.none(), _SIDES))
+    if kind == "short":  # change c0465: two sides and no limit, which Rule checks
+        limits, selector_b = dict.fromkeys(limits), selector_b or draw(_SIDES)
+    elif kind == "antenna":  # max alone, 0 or more
+        limits, selector_b = {"max": draw(st.integers(min_value=0, max_value=20 * MM))}, None
     return Rule(
         id=f"rul_{draw(st.integers(min_value=0, max_value=10**9))}",
         name=draw(st.sampled_from(["a", "b", "c", "d"])),
         kind=kind,
         selector_a=draw(_SIDES),
-        selector_b=draw(st.one_of(st.none(), _SIDES)),
+        selector_b=selector_b,
         layers=draw(st.sampled_from([(), (), (), ("F.Cu",)])),
         severity=draw(st.sampled_from(["error", "error", "error", "warning"])),
         priority=draw(st.integers(min_value=0, max_value=3)),
@@ -369,8 +575,18 @@ def test_roundtrip_of_generated_rule_sets(rules: list[Rule]) -> None:
     2 nm; every rule is written or named with a reason; names are unique and priorities run from 1."""
     lowered = lower(rules)
     lifted, opaque = lift(lowered.records)
-    assert opaque == {}
-    assert same_rules(lifted, lowered.written)
+    written = list(lowered.written)
+    checked: dict[str, int] = {}
+    for kind, altium, relaxes in (
+        ("short", "ShortCircuit", lambda r: r.severity == "ignore"),
+        ("antenna", "NetAntennae", lambda r: (r.max or 0) > 0),
+    ):  # change c0465, design D5: records that relax nothing read back as the check Fenolite performs
+        of_kind = [r for r in written if r.kind == kind]
+        if of_kind and not any(relaxes(r) for r in of_kind):
+            written = [r for r in written if r.kind != kind]
+            checked[altium] = len(of_kind)
+    assert opaque == dict(sorted(checked.items()))
+    assert same_rules(lifted, written)
     assert {r.id for r in lowered.written} | {item.rule.id for item in lowered.not_lowered} == {
         r.id for r in rules
     }
@@ -409,11 +625,12 @@ def test_pair_and_length_rules_are_named_not_written() -> None:
 
 
 def test_pair_rows_name_no_kind_number_and_no_key() -> None:
-    """The five rows come after ``no_tracks`` in the model's order, each ``no-counterpart`` with a note that
-    says the record is in no recorded public source; none names an Altium kind, a number or a key."""
+    """The five rows come after ``no_tracks`` (and, since change c0465, ``short`` and ``antenna``) in the
+    model's order, each ``no-counterpart`` with a note that says the record is in no recorded public source;
+    none names an Altium kind, a number or a key."""
     rows = TABLE[-5:]
     assert tuple(row.neutral for row in rows) == PAIR_KINDS == get_args(RuleKind)[-5:]
-    assert TABLE[-6].neutral == "no_tracks"
+    assert tuple(row.neutral for row in TABLE[-8:-5]) == ("no_tracks", "short", "antenna")
     for row in rows:
         assert (row.status, row.altium, row.number, row.limits, row.fields) == (
             "no-counterpart",

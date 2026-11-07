@@ -171,6 +171,7 @@ def settle_copper(
     pads: Sequence[BoardPad],
     check: Check,
     images: Mapping[str, str] | None = None,
+    boundary_nets: frozenset[str] = frozenset(),
 ) -> Settled:
     """``placed`` with the copies of ``copy`` that stay, locked. Pass after pass until one drops nothing:
 
@@ -181,6 +182,10 @@ def settle_copper(
        whose group lacks the image of a pad its reference fill joined goes as ``pad-lost``;
     3. the copper check of the board, against that of ``placed``: each copy a new finding names goes,
        with the finding's code as its reason.
+
+    A group on a declared ``boundary_nets`` port may join one pad: the host board
+    completes that connection. Free-end, via-layer and clearance guards still apply.
+    Ordinary reuse passes no boundary nets and retains its two-pad island guard.
 
     ``pads`` are the board-frame pad records of ``placed``; ``images`` maps a reference pad id to the id
     of its paired pad there (``landed``), for the pads of copied zones."""
@@ -234,7 +239,8 @@ def settle_copper(
                     owner = copied(piece)
                     if owner is None:
                         continue
-                    if pad_count < 2 and not (pad_count >= 1 and anchored):
+                    boundary = net in boundary_nets and pad_count >= 1
+                    if pad_count < 2 and not (pad_count >= 1 and anchored) and not boundary:
                         drop(owner, "island", f"it joins {pad_count} pad(s) of its net")
                         continue
                     lost = [pad for pad in live[owner].joins if images.get(pad) not in held_pads]

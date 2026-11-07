@@ -84,7 +84,7 @@ def test_invalid_tables() -> None:
 
 @pytest.mark.parametrize(
     "text",
-    ['[part."R1"]\nx = 1\ny = 2\n', 'schema = "fenolite.placements.v1"\n', "schema = \n", "\x00"],
+    ['[part."R1"]\nx = 1\ny = 2\n', 'schema = "fenolite.placements.v2"\n', "schema = \n", "\x00"],
 )
 def test_missing_schema_or_not_toml(text: str) -> None:
     with pytest.raises(FormatError, match="placements.toml") as raised:

@@ -19,6 +19,7 @@ from importlib import resources
 from pathlib import Path
 from typing import Literal
 
+from fenolite.backends.kicad.projectset import ProjectNotFoundError
 from fenolite.convert import to_altium, to_kicad
 from fenolite.convert.codes import ISSUE_CODES, issue
 from fenolite.convert.direction import (
@@ -56,16 +57,23 @@ def profiles_text() -> str:
 
 class LossyConversionError(FenoliteError):
     """A conversion would lose items of a ``refuse`` kind and ``allow_lossy`` was not given: ``issues``
-    holds one ``convert.lossy`` per such kind, with the kind as ``where`` and the counts per reason."""
+    holds one ``convert.lossy`` per kind with lost items, in report order, with the kind as ``where`` and
+    the counts per reason: the ``refuse`` kinds, which ``refused`` names, and the ``report`` kinds that
+    ``allow_lossy`` would lose with them (change c0434), so a consent covers every loss it was shown."""
 
     cli_code = "FEN-7001"
 
     def __init__(self, issues: tuple[Issue, ...], report: ConversionReport) -> None:
         self.issues = issues
         self.report = report
-        self.hint = "re-run with --allow-lossy to accept the loss; result.report of that run lists it"
-        kinds = ", ".join(found.where for found in issues)
-        super().__init__(f"the conversion would lose items of the source ({kinds})")
+        self.refused = tuple(found.where for found in issues if found.where in report.refused)
+        others = [found.where for found in issues if found.where not in report.refused]
+        self.hint = (
+            "re-run with --allow-lossy to accept every loss that 'issues' lists; result.report of that run "
+            "lists it"
+        )
+        also = f"; --allow-lossy also loses items of {', '.join(others)}" if others else ""
+        super().__init__(f"the conversion would lose items of the source ({', '.join(self.refused)}){also}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,12 +96,12 @@ class Conversion:
     schematic: str | None = None
 
 
-def _per_reason(row: ReportRow, outcome: Literal["changed", "lost"]) -> str:
+def _per_reason(row: ReportRow, outcome: Literal["changed", "lost", "kept"]) -> str:
     return "; ".join(f"{r.count} {r.reason}" for r in row.reasons if r.outcome == outcome)
 
 
 def lossy_issue(row: ReportRow) -> Issue:
-    """The ``convert.lossy`` warning of a ``refuse`` kind with losses."""
+    """The ``convert.lossy`` warning of a kind with losses, whatever its loss class (change c0429)."""
     message = f"{row.lost} of {row.source} {row.kind} item(s) of the source are not converted: "
     return issue("convert.lossy", message + _per_reason(row, "lost"), where=row.kind)
 
@@ -102,6 +110,24 @@ def changed_issue(row: ReportRow) -> Issue:
     """The ``convert.changed`` info of a kind with changes."""
     message = f"{row.changed} {row.kind} item(s) are converted in another form: "
     return issue("convert.changed", message + _per_reason(row, "changed"), where=row.kind)
+
+
+def kept_issue(row: ReportRow) -> Issue:
+    """The ``convert.kept`` info of a kind with kept items (change c0424): items the target cannot hold,
+    kept in the model for a write back to the source's format."""
+    message = f"{row.kept} {row.kind} item(s) are kept in the model, not in the target (a format limit): "
+    return issue("convert.kept", message + _per_reason(row, "kept"), where=row.kind)
+
+
+def report_issues(report: ConversionReport) -> tuple[Issue, ...]:
+    """The ``convert.*`` issues of a report (change c0429): one ``convert.lossy`` per row with lost items,
+    one ``convert.changed`` per row with changed items, one ``convert.kept`` per row with kept items, rows
+    in report order. ``convert`` and ``import`` both give these, so their issues and ``result.report``
+    agree for every kind."""
+    lossy = tuple(lossy_issue(row) for row in report.rows if row.lost)
+    changed = tuple(changed_issue(row) for row in report.rows if row.changed)
+    kept = tuple(kept_issue(row) for row in report.rows if row.kept)
+    return (*lossy, *changed, *kept)
 
 
 def direction_for(backend: str, to: str) -> Direction:
@@ -120,6 +146,36 @@ def direction_for(backend: str, to: str) -> Direction:
     return found
 
 
+def _no_board(read: SourceProject) -> ProjectNotFoundError:
+    """The refusal of a source without a PCB design (``FEN-3001``, change c0364): it names the PCB
+    documents an Altium project declares and lacks."""
+    missing: list[str] = []
+    if read.backend == "altium" and read.path.suffix.lower() == ".prjpcb":
+        from fenolite.backends.altium.read.project import load_project
+
+        try:
+            loaded = load_project(read.path)
+        except (OSError, ValueError):
+            loaded = None
+        if loaded is not None:
+            missing = [
+                item.document.posix
+                for item in loaded.documents
+                if item.document.kind == "pcb" and not item.present
+            ]
+    if missing:
+        message = (
+            f"{read.path.name} declares PCB document(s) that are not in its folder: {', '.join(missing)}"
+        )
+        hint = "add the missing PCB document(s) to the project folder; a conversion needs the board"
+    else:
+        message = f"{read.path.name} holds no PCB design to convert"
+        hint = "pass a project with a PCB document; a conversion needs the board"
+    error = ProjectNotFoundError(message)
+    setattr(error, "hint", hint)  # noqa: B010 - read by the CLI's error mapping
+    return error
+
+
 def convert_project(
     source: Path | str | SourceProject,
     *,
@@ -134,29 +190,30 @@ def convert_project(
     "Conversion package"). ``to`` is ``kicad`` or ``altium``; ``kicad_version`` the major of a KiCad
     target; ``bodies`` what an Altium target does with component bodies (``extruded`` or ``off``);
     ``name`` the stem of the written files; ``pour`` the pour mode of an Altium target (``computed`` or
-    ``outline``; ``None`` is ``computed``, written as ``outline`` with a warning without the ``geo``
-    extra; change c0215). ``LossyConversionError`` for a loss of a ``refuse`` kind
-    without ``allow_lossy``; ``SourceError`` (a ``ValueError``) for a source that is no project or a pair
-    of backends without a direction; ``TargetLimitError`` when the target writer cannot hold the design."""
+    ``outline``; ``None`` is ``computed``, change c0215; without the ``geo`` extra ``computed``, the default
+    included, raises ``BackendUnavailable``, change c0436). ``LossyConversionError`` for a loss of a
+    ``refuse`` kind without ``allow_lossy``; ``SourceError`` (a ``ValueError``) for a source that is no
+    project or a pair of backends without a direction; ``TargetLimitError`` when the target writer cannot
+    hold the design."""
     if bodies not in BODIES:
         raise ValueError(f"bodies is one of {', '.join(BODIES)}, got {bodies!r}")
     if pour is not None and pour not in POURS:
         raise ValueError(f"pour is one of {', '.join(POURS)}, got {pour!r}")
     read = source if isinstance(source, SourceProject) else read_source(Path(source))
     direction = direction_for(read.backend, to)
+    if read.design.board is None:
+        raise _no_board(read)
     written = direction.write(read, Options(kicad_version=kicad_version, bodies=bodies, name=name, pour=pour))
     report = written.report
-    lossy = tuple(lossy_issue(row) for row in report.rows if row.kind in report.refused)
-    if lossy and not allow_lossy:
-        raise LossyConversionError(lossy, report)
-    changed = tuple(changed_issue(row) for row in report.rows if row.changed)
+    if report.refused and not allow_lossy:  # every loss is listed, not only the refused ones (c0434)
+        raise LossyConversionError(tuple(lossy_issue(row) for row in report.rows if row.lost), report)
     return Conversion(
         files=written.files,
         report=report,
         source=read,
         target=to,
         evidence=Evidence.combine(read.evidence, written.evidence or direction.evidence, EVIDENCE),
-        issues=(*read.issues, *written.issues, *lossy, *changed),
+        issues=(*read.issues, *written.issues, *report_issues(report)),
         direction=direction,
         design=written.design,
         read_back=written.read_back,
@@ -178,8 +235,10 @@ __all__ = [
     "SourceProject",
     "TargetLimitError",
     "changed_issue",
+    "kept_issue",
     "convert_project",
     "direction_for",
     "lossy_issue",
     "profiles_text",
+    "report_issues",
 ]

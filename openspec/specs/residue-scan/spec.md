@@ -56,12 +56,21 @@ The repository MUST NOT contain a list of private identifiers in any form, inclu
 - **THEN** the test fails naming the file
 
 ### Requirement: Integration points
-The residue scan SHALL run as a step of the CI `unit` job, SHALL be runnable as `pytest tests/residue`, and SHALL be installable as a git pre-commit hook via `make hooks`.
+The residue scan SHALL run as a step of the CI `unit` job, SHALL be runnable as `pytest tests/residue`, and SHALL be installable as a git pre-commit hook via `make hooks`. Its `--history` mode, which reads every blob reachable from any ref, MUST run in `.github/workflows/release.yml` before the distribution is built and in `.github/workflows/nightly.yml`, and a hit MUST fail that job. `make residue-history` MUST run `--history` with the private lists that the `Makefile` exports, so that the maintainer can run the private gate over the whole history; the summary line it prints holds counts only.
 
 #### Scenario: Hook blocks a commit
 - **GIVEN** the hook is installed and a staged file contains a structural hit
 - **WHEN** `git commit` runs
 - **THEN** the commit is refused and the hook output names the file
+
+#### Scenario: The release scans the history
+- **WHEN** `uv run pytest tests/unit/test_ci_workflow.py -k history` reads `release.yml` and `nightly.yml`
+- **THEN** each runs `tools/residue/scan.py --history`, the release before its build step
+
+#### Scenario: The private run prints counts
+- **GIVEN** private lists configured in `private/`
+- **WHEN** `make residue-history` runs
+- **THEN** its last line is the summary with the counts of hits, files and waivers and `private gate: on`, and it names no private token
 
 ### Requirement: Scope waivers are explicit
 Waivers MUST be declared per file and per pattern in `tools/residue/scope.toml` with a justification, and the scan MUST print the count of active waivers.
@@ -107,4 +116,32 @@ The section MUST NOT quote a private token, a private hash or the content of any
 - **GIVEN** none of the three variables is set and neither home-folder file exists
 - **WHEN** `uv run python tools/residue/scan.py` runs on a clean tree
 - **THEN** the exit code is 0 and the last line ends with `private gate: skipped (no private list configured)`
+
+### Requirement: HTTP path distinction
+The scanner MUST distinguish a parsed HTTP(S) URL path from an absolute user path.
+Only an `abs-user-path` match wholly inside that URL path SHALL be exempt. File
+URIs, query/fragment values and paths outside URLs MUST retain their checks.
+
+#### Scenario: Public reference and local path
+- **GIVEN** an HTTP(S) reference whose path resembles a user directory
+- **WHEN** the reference and a separate local path are scanned
+- **THEN** the URL path alone is exempt and the local path is reported
+
+#### Scenario: Other URI components retain checks
+- **WHEN** a file URI or an HTTP query/fragment contains a user path
+- **THEN** the existing absolute-user-path finding is reported
+
+### Requirement: URL checks remain scoped
+The scanner MUST continue private-token, known-blob and other structural checks
+on URL bytes. Its URL-path distinction SHALL apply across supported decodings,
+archive members and historical blob labels without broadening file waivers.
+
+#### Scenario: Token in an HTTPS path
+- **GIVEN** a configured invented private token in a URL path
+- **WHEN** that content is scanned
+- **THEN** the private-token finding is retained
+
+#### Scenario: Encoded archive member
+- **WHEN** an archive member contains an encoded reference and a local path
+- **THEN** only the local path produces the absolute-user-path finding
 

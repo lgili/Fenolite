@@ -25,7 +25,7 @@ from typing import Literal
 from fenolite.backends.altium.symbols import PIN_LENGTH, PIN_PITCH, GenericSymbol, natural_key
 from fenolite.core.errors import Issue, Severity
 from fenolite.model.circuit import Component, PinType
-from fenolite.model.library import PinShape, SymbolDef, SymbolGraphic, SymbolPin
+from fenolite.model.library import PinShape, SymbolDef, SymbolGraphic, SymbolPin, flatten_symbol
 
 NM_PER_MIL = 25_400
 GRID = 10
@@ -428,6 +428,23 @@ def drawn_rectangle(part: int, pins: Sequence[AltiumPin], graphics: Sequence[Alt
     )
 
 
+def flatten(symbol: SymbolDef, parents: Sequence[SymbolDef] = ()) -> SymbolDef:
+    """``model.library.flatten_symbol`` (change c0261): the Altium library has no derivation, so a derived
+    symbol is written flat."""
+    return flatten_symbol(symbol, parents)
+
+
+def _part_graphics(symbol: SymbolDef, parts: int) -> tuple[tuple[AltiumGraphic, ...], int] | None:
+    """The graphics of a symbol of several units or body styles, each owned by the part of its unit (unit 0
+    is Part Zero), with the number dropped for other body styles; ``None`` when a part would draw
+    nothing."""
+    kept = [g for g in symbol.graphics if g.body_style in (0, 1)]
+    common = any(g.unit == 0 for g in kept)
+    if not common and any(all(g.unit != k for g in kept) for k in range(1, parts + 1)):
+        return None
+    return tuple(map_graphic(g, g.unit) for g in kept), len(symbol.graphics) - len(kept)
+
+
 def from_symbol_def(
     symbol: SymbolDef,
     *,
@@ -436,22 +453,27 @@ def from_symbol_def(
     issues: list[Issue] | None = None,
     unmodelled: Sequence[str] = (),
     bodies: SymbolBodies = DEFAULT_BODIES,
+    parents: Sequence[SymbolDef] = (),
 ) -> AltiumSymbol:
     """A resolved symbol as an Altium symbol (design Decisions 6 and 7 of change c0034, Decision 1 of
-    change c0086).
+    change c0086, decision 7 of change c0261).
 
-    Body style 1 and common pins are kept; other body styles and pin alternates are dropped. With
-    ``bodies="generic"`` (the bytes of changes c0034 to c0083) every part is one synthesised
-    rectangle, and the info says so. With ``bodies="graphics"`` (the default) the symbol's
-    graphics are drawn when it has one unit and one body style, holds at least one graphic, every graphic
-    is of a kind of ``GRAPHIC_KINDS`` and ``unmodelled`` is empty: ``SymbolGraphic`` names neither a unit
-    nor a body style, so the graphics of a symbol of several cannot be given to a part. ``unmodelled``
-    names the graphic kinds of the library symbol that the model does not hold (an arc, a Bezier curve, a
-    text), which the caller knows. Any other symbol gets one synthesised rectangle per part. Graphics keep
-    their coordinates: only pins need the 10-mil grid. One ``altium.symbol-simplified`` info per symbol
-    says what was dropped or simplified; a symbol drawn from its graphics with every pin kept gives none.
-    ``ValueError`` for an off-grid pin, naming it.
+    Body style 1 and common pins are kept; other body styles and pin alternates are dropped. A derived
+    symbol is flattened onto the symbols of ``parents`` first (``flatten``). With ``bodies="generic"``
+    (the bytes of changes c0034 to c0083) every part is one synthesised rectangle, and the info says so.
+    With ``bodies="graphics"`` (the default) the symbol's graphics are drawn when it holds at least one
+    graphic, every graphic is of a kind of ``GRAPHIC_KINDS`` and ``unmodelled`` is empty. A symbol of one
+    unit and one body style draws them all on part 1; a symbol of several draws each graphic on the part of
+    its ``SymbolGraphic.unit`` (unit 0 on Part Zero), drops those of other body styles, and is drawn from
+    rectangles when a part would draw nothing. ``unmodelled`` names the graphic kinds of the library
+    symbol that the model does not hold (an arc, a Bezier curve, a text), which the caller knows. Any
+    other symbol gets one synthesised rectangle per part. Graphics keep their coordinates: only pins need
+    the 10-mil grid. One ``altium.symbol-simplified`` info per symbol says what was dropped or
+    simplified; a symbol drawn from its graphics with every pin kept gives none. ``ValueError`` for an
+    off-grid pin, naming it.
     """
+    if symbol.extends:
+        symbol = flatten(symbol, parents)
     kept = [p for p in symbol.pins if p.body_style in (0, 1)]
     dropped = len(symbol.pins) - len(kept)
     alternates = sum(1 for p in kept if p.alternates)
@@ -469,13 +491,24 @@ def from_symbol_def(
     elif not symbol.graphics:
         notes.append("it holds no graphics, so each part is a rectangle")
     elif parts > 1 or symbol.body_style_count > 1:
-        notes.append(
-            "the model does not say which unit or body style draws a graphic, so each part is a rectangle"
-        )
+        found = _part_graphics(symbol, parts)
+        if found is None:
+            notes.append("a part draws no graphic of its own unit, so each part is a rectangle")
+        else:
+            graphics, lost = found
+            if lost:
+                notes.append(f"{lost} graphic(s) of other body styles were dropped")
     else:
         graphics = tuple(map_graphic(graphic) for graphic in symbol.graphics)
     if graphics:
-        rectangles: tuple[AltiumRect, ...] = (drawn_rectangle(1, pins, graphics),)
+        rectangles: tuple[AltiumRect, ...] = tuple(
+            drawn_rectangle(
+                k,
+                [p for p in pins if p.part in (0, k)],
+                [g for g in graphics if g.part in (0, k) or parts == 1],
+            )
+            for k in range(1, parts + 1)
+        )
     else:
         rectangles = tuple(
             body_rectangle(k, tuple(p for p in pins if p.part in (0, k))) for k in range(1, parts + 1)
@@ -518,6 +551,7 @@ __all__ = [
     "SymbolBodies",
     "body_rectangle",
     "drawn_rectangle",
+    "flatten",
     "frac_units",
     "from_generic",
     "from_symbol_def",

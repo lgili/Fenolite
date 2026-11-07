@@ -16,16 +16,31 @@ document's outline and every inner ring a cut-out region, counted under ``cutout
 from __future__ import annotations
 
 import dataclasses
+import re
 from collections.abc import Mapping
+from decimal import Decimal
 
 from fenolite.backends.altium import lower
+from fenolite.backends.altium.adapter.arcring import ArcPolygon
 from fenolite.backends.altium.cfb import CompoundTooLarge
 from fenolite.backends.kicad import fpitems
 from fenolite.backends.kicad.outline import edge_outline
-from fenolite.convert import pads, schematic
+from fenolite.convert import altium_links, altium_planes, altium_strings, pads, schematic
 from fenolite.convert.direction import Direction, Options, TargetLimitError, Written
-from fenolite.convert.report import ConversionReport, census
+from fenolite.convert.models import (
+    HEIGHTS_PROPERTY,
+    IDS_PROPERTY,
+    CarriedIds,
+    HeightKey,
+    footprint_models,
+    read_heights,
+    read_ids,
+    read_layers,
+)
+from fenolite.convert.report import SOURCE_RULE_LOST, ConversionReport, census
 from fenolite.convert.sources import ALTIUM, KICAD, SourceProject
+from fenolite.core.coords import Point
+from fenolite.core.errors import FormatError
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model.design import Design
 
@@ -103,24 +118,318 @@ def _zone_fills(
     return {reason: ids for reason, ids in found.items() if ids}
 
 
+@dataclasses.dataclass(frozen=True, slots=True)
+class _Carried:
+    """What the rule records carried in the board give the way back (changes c0434, c0457): the design
+    without the rules those records give again, the records written (as read, or with the limits KiCad
+    holds), the names of the rules that came from a record and were edited otherwise in KiCad, how many
+    rules the records stand for (the rules taken out, and one per record that gave none), the ids of
+    the rules whose limits a record now holds, and the ids of the board minimums of an imported design
+    that are not written (``rulecarrier.board_minimum``)."""
+
+    design: Design
+    records: tuple[tuple[int, tuple[tuple[str, str], ...]], ...] = ()
+    edited: frozenset[str] = frozenset()
+    count: int = 0
+    limits: tuple[str, ...] = ()
+    minimums: tuple[str, ...] = ()
+
+
+LIMITS_EDITED = "a rule record whose limits were edited in KiCad is written with KiCad's limits"
+"""Change c0457: the record keeps its name, priority, scopes and enabled state."""
+EDITED_LOWERED = "a rule record edited in KiCad is written as a rule of its kind, as KiCad holds it"
+"""Change c0457: the lowered rule takes the next priority of its kind and a name of its own."""
+BOARD_MINIMUM = (
+    "a board minimum of an imported design (design.rules.minimum) is not written as a rule: the rule records "
+    "of the Altium document it came from hold the board's limits"
+)
+"""Change c0457: a report-class loss; the import writes the document's board setup minimums so."""
+
+
+def _carried(source: SourceProject, design: Design) -> _Carried:
+    """The rule records an Altium conversion wrote in the board (``rulecarrier.PROPERTY``), matched against
+    the project's rules file as it is now (``rulecarrier.match``); nothing without the property or for one
+    that does not read."""
+    from fenolite.backends.altium.rulemap import edited_fields
+    from fenolite.backends.kicad.boardcarrier import carried as board_carried
+    from fenolite.convert.rulecarrier import PROPERTY, dru_rules, match, read_carrier
+
+    rules = design.rules
+    if rules is None or source.path.suffix != ".kicad_pcb":
+        return _Carried(design)
+    try:
+        payload = board_carried(source.path.read_text(encoding="utf-8")).get(PROPERTY)
+        if payload is None:
+            return _Carried(design)
+        carried = read_carrier(payload.decode("utf-8"))
+    except (OSError, UnicodeDecodeError, ValueError, FormatError):
+        return _Carried(design)
+    dru = source.files.get(source.path.stem + ".kicad_dru")
+    matched = match(carried, dru_rules(dru.read_text(encoding="utf-8") if dru is not None else None))
+    by_name = {rule.name: rule for rule in rules.rules}
+    written: dict[int, tuple[tuple[str, str], ...]] = {id(record): record.fields for record in matched.kept}
+    taken = set(matched.taken)
+    edited = set(matched.edited)
+    limits: list[str] = []
+    for record, names in matched.limits:
+        own = [by_name[name] for name in names if name in by_name]
+        fields = edited_fields(record.fields, own) if len(own) == len(names) else None
+        if fields is None:  # KiCad's limits have no place in the record: the rules are lowered
+            edited |= set(names)
+            continue
+        written[id(record)] = fields
+        taken |= set(names)
+        limits += [rule.id for rule in own]
+    left = tuple(rule for rule in rules.rules if rule.name not in taken)
+    minimums = tuple(rule.id for rule in rules.rules if rule.name in matched.minimums)
+    empty = sum(1 for record in matched.kept if not record.blocks)
+    count = len(rules.rules) - len(left) - len(minimums) + empty
+    design = dataclasses.replace(design, rules=dataclasses.replace(rules, rules=left))
+    records = tuple((r.number, written[id(r)]) for r in carried if id(r) in written)
+    return _Carried(design, records, frozenset(edited), count, tuple(limits), minimums)
+
+
+def _rule_changes(
+    design: Design, carried: _Carried, lost: Mapping[str, tuple[str, ...]]
+) -> dict[str, tuple[str, ...]]:
+    """The rule changes of the way back (change c0457): the rules whose limits a source record now holds
+    (``LIMITS_EDITED``), and the rules of source records edited otherwise that were written as rules of
+    their kind (``EDITED_LOWERED``); a rule of such a record that was not written is a loss."""
+    gone = {i for ids in lost.values() for i in ids}
+    rules = design.rules.rules if design.rules is not None else ()
+    lowered = tuple(r.id for r in rules if r.name in carried.edited and r.id not in gone)
+    found = {LIMITS_EDITED: carried.limits, EDITED_LOWERED: lowered}
+    return {reason: ids for reason, ids in found.items() if ids}
+
+
+def _source_rule_losses(
+    lost: dict[str, tuple[str, ...]], design: Design, edited: frozenset[str]
+) -> dict[str, tuple[str, ...]]:
+    """The rule losses with each rule that came from a source record and was edited in KiCad moved to
+    ``SOURCE_RULE_LOST``, which needs consent (change c0434)."""
+    names = {rule.id: rule.name for rule in design.rules.rules} if design.rules is not None else {}
+    moved: list[str] = []
+    found: dict[str, tuple[str, ...]] = {}
+    for reason, ids in lost.items():
+        stay = tuple(i for i in ids if names.get(i) not in edited)
+        moved += [i for i in ids if names.get(i) in edited]
+        if stay:
+            found[reason] = stay
+    if moved:
+        found[SOURCE_RULE_LOST] = tuple(moved)
+    return found
+
+
+_MASK_MARGIN = re.compile(r"\(pad_to_mask_clearance\s+(-?[0-9]+(?:\.[0-9]+)?)\s*\)")
+
+
+def board_mask_margin(text: str) -> int:
+    """The board's ``(setup (pad_to_mask_clearance M))`` in nanometres, the opening of an untented via
+    beyond its copper in KiCad (``board.md``, ``H-K-VIAPROT-MASK``; change c0445); 0, KiCad's value, when
+    absent."""
+    found = _MASK_MARGIN.search(text)
+    return 0 if found is None else int(Decimal(found.group(1)) * 1_000_000)
+
+
+def with_mask_margin(design: Design, source: SourceProject) -> Design:
+    """``design`` whose board holds the source board's mask margin (change c0445), so the Altium writer
+    opens each untented via as KiCad does; a board that holds one already keeps it."""
+    board = design.board
+    if board is None or board.mask_margin is not None:
+        return design
+    try:
+        margin = board_mask_margin(source.path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError):
+        return design
+    return dataclasses.replace(design, board=dataclasses.replace(board, mask_margin=margin))
+
+
+def _carried_storages(
+    source: SourceProject, design: Design
+) -> tuple[dict[str, tuple[bytes, bytes]], dict[str, dict[str, tuple[str, ...]]]]:
+    """The Altium storages a conversion to KiCad carried in the board's properties (change c0450,
+    ``convert.altium_storages``, read with ``boardcarrier.carried``), by storage name: the ``Header`` and
+    ``Data`` streams, as ``design`` can hold them (change c0461, ``altium_storages.fitted``: its net names);
+    and what that left out, as ``altium-storage`` losses. Nothing for a board that does not read."""
+    from fenolite.backends.kicad.boardcarrier import carried as board_carried
+    from fenolite.convert import altium_storages as storages
+
+    if source.path.suffix != ".kicad_pcb":
+        return {}, {}
+    try:
+        found = board_carried(source.path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, FormatError):
+        return {}, {}
+    made = storages.fitted(storages.from_carried(found), {net.name for net in design.circuit.nets})
+    lost = {storages.KIND: dict(made.dropped)} if made.dropped else {}
+    return {name: (s.header, s.data) for name, s in made.storages.items()}, lost
+
+
+def with_unions(source: SourceProject, design: Design) -> Design:
+    """``design`` whose items of a uuid in the union map that a conversion to KiCad carried
+    (``Fenolite.Altium.UnionMembers``, change c0460, ``backends.altium.unions``) hold their union index
+    again, so the writer writes it; ``design`` itself when the board holds no map or does not read."""
+    from fenolite.backends.altium import unions
+    from fenolite.backends.kicad.boardcarrier import PREFIX
+    from fenolite.backends.kicad.boardcarrier import carried as board_carried
+
+    board = design.board
+    if board is None or source.path.suffix != ".kicad_pcb":
+        return design
+    try:
+        found = board_carried(source.path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, FormatError):
+        return design
+    members = unions.read_map(found.get(PREFIX + unions.CARRIER, b""))
+    if not members:
+        return design
+    return dataclasses.replace(design, board=unions.restored(board, members))
+
+
+def _carried_arcs(source: SourceProject, design: Design) -> dict[str, ArcPolygon]:
+    """Per zone id, the arc vertices of its source polygon that a conversion to KiCad carried (change c0463,
+    task 1.3; ``zonearcs.read_carrier`` of the board property ``zonearcs.PROPERTY``, found by the zone's KiCad
+    uuid); none for a board that does not read or carries none."""
+    from fenolite.backends.kicad.boardcarrier import carried as board_carried
+    from fenolite.convert import zonearcs
+
+    board = design.board
+    if board is None or source.path.suffix != ".kicad_pcb":
+        return {}
+    try:
+        found = board_carried(source.path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, FormatError):
+        return {}
+    return zonearcs.arc_polygons(board.zones, zonearcs.read_carrier(found.get(zonearcs.PROPERTY)))
+
+
+def _carried_planes(
+    source: SourceProject, design: Design
+) -> tuple[Design, dict[str, lower.CarriedPlane], dict[str, tuple[str, ...]]]:
+    """The internal planes a conversion to KiCad carried (change c0466, ``altium_planes``): ``design``
+    with each plane still held made a plane again, each such plane by row for the writer (its splits,
+    pull-back and the row's user name), and the other planes as ``plane`` losses by reason. Nothing for a
+    board that does not read or carries none."""
+    from fenolite.backends.kicad.boardcarrier import carried as board_carried
+
+    if design.board is None or source.path.suffix != ".kicad_pcb":
+        return design, {}, {}
+    try:
+        found = board_carried(source.path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, FormatError):
+        return design, {}, {}
+    made = altium_planes.restored(design, altium_planes.read_carrier(found.get(altium_planes.PROPERTY)))
+    names = altium_planes.names(made.design, tuple(made.planes))
+    planes = {
+        row: lower.CarriedPlane(
+            plane.pullback, tuple((s.net, s.points) for s in plane.splits), names.get(row)
+        )
+        for row, plane in made.planes.items()
+    }
+    lost: dict[str, list[str]] = {}
+    for ident, reason in made.lost:
+        lost.setdefault(reason, []).append(ident)
+    return made.design, planes, {reason: tuple(ids) for reason, ids in lost.items()}
+
+
+def _carried_fonts(source: SourceProject, design: Design) -> Design:
+    """``design`` whose stroke texts and fields a conversion to KiCad carried the font of hold it again
+    (change c0460, S-2253; ``strokefonts``); unchanged for a board that does not read or carries none."""
+    from fenolite.backends.kicad.boardcarrier import carried as board_carried
+    from fenolite.convert import strokefonts, texttails
+
+    if design.board is None or source.path.suffix != ".kicad_pcb":
+        return design
+    try:
+        found = board_carried(source.path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, FormatError):
+        return design
+    fonts = strokefonts.read_carrier(found.get(strokefonts.PROPERTY))
+    tails = texttails.read_carrier(found.get(texttails.PROPERTY))  # change c0450, task 4.5
+    board = texttails.restored(strokefonts.restored(design.board, fonts), tails)
+    return dataclasses.replace(design, board=board) if fonts or tails else design
+
+
+def _carried_origin(source: SourceProject, design: Design) -> Point | None:
+    """The document origin a conversion to KiCad carried (change c0467, ``altium_frame``), moved with the
+    board's edge, in the document's frame; ``None`` for a board that does not read or carries none."""
+    from fenolite.backends.kicad.boardcarrier import carried as board_carried
+    from fenolite.convert import altium_frame
+
+    if design.board is None or source.path.suffix != ".kicad_pcb":
+        return None
+    try:
+        found = board_carried(source.path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, FormatError):
+        return None
+    carried = altium_frame.read_carrier(found.get(altium_frame.PROPERTY))
+    return altium_frame.restored(design.board, carried) if carried is not None else None
+
+
+def _stored_models(
+    source: SourceProject,
+) -> tuple[dict[HeightKey, tuple[int, int]], CarriedIds, dict[HeightKey, int]]:
+    """The stored heights, the source identities and the body layers of the embedded models a conversion to
+    KiCad placed (change c0449, task 4.3; ``models.read_heights``, ``models.read_ids`` and, change c0464,
+    ``models.read_layers`` of the board properties ``models.HEIGHTS_PROPERTY`` and ``models.IDS_PROPERTY``);
+    none for a board that does not read or carries none."""
+    from fenolite.backends.kicad.boardcarrier import carried as board_carried
+
+    if source.path.suffix != ".kicad_pcb":
+        return {}, CarriedIds(), {}
+    try:
+        found = board_carried(source.path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, FormatError):
+        return {}, CarriedIds(), {}
+    heights = found.get(HEIGHTS_PROPERTY)
+    return read_heights(heights), read_ids(found.get(IDS_PROPERTY)), read_layers(heights)
+
+
 def write(source: SourceProject, options: Options) -> Written:
-    """The Altium project of a KiCad source, with its report."""
-    design = pads.project(fpitems.with_footprint_items(_named(source.design, options.name)).design)
-    sch, symbols, changed_comments = schematic.inputs(source, design)
+    """The Altium project of a KiCad source, with its report. Its copper graphics take the net their KiCad
+    slot names (``fpitems.with_graphic_nets``), as a build's do: without it a netted copper shape is written
+    with no net and shorts the copper it touches (changes c0439, c0441)."""
+    projected = fpitems.with_footprint_items(_named(source.design, options.name)).design
+    design = with_mask_margin(pads.project(fpitems.with_graphic_nets(projected)), source)
+    design = with_unions(source, design)  # change c0460: the union members of an Altium conversion
+    carried = _carried(source, design)  # change c0434: the source's own rule records
+    design = carried.design
+    links = altium_links.symbol_links(design)  # change c0451: the source's links of an Altium conversion
+    design = altium_links.restore(design)
+    design, strings = altium_strings.altium_strings(design)  # change c0451: ${NAME} as .NAME
+    sch, symbols, changed_comments = schematic.inputs(source, design, links)
     board = design.board
     # the edges as an outline (change c0170): the board ring as before, each inner ring a cut-out region
     edges = edge_outline(design) if board is not None and board.outline is None else None
+    # each model child whose STEP file the project holds becomes a body that embeds it (change c0449)
+    models = (
+        footprint_models(board.footprints, source.root, *_stored_models(source)) if board is not None else {}
+    )
+    kept_storages, storage_losses = _carried_storages(source, design)  # changes c0450 and c0461
+    design, planes, plane_losses = _carried_planes(source, design)  # change c0466
+    design = _carried_fonts(source, design)  # change c0460, S-2253
+    frame_origin = _carried_origin(source, design)  # change c0467
     try:
         written = lower.write_design(
             design,
             allow_lossy=True,
+            full_drill=True,  # a via whose hole equals its diameter, as a saved document holds (c0441)
             bodies=options.bodies,
             derive_library=True,
             schematic=sch,
             symbols=symbols,
             sheets="modules" if sch is not None else "flat",
             edges=edges,
-            pour=options.pour,
+            # a conversion never falls back to unpoured polygons without saying so (change c0436): the
+            # default mode is asked for explicitly, so a missing geo extra raises BackendUnavailable
+            pour=options.pour or "computed",
+            source_rules=carried.records,
+            parameters=altium_strings.project_parameter_pairs(design),
+            models=models,
+            storages=kept_storages,  # change c0450
+            polygon_arcs=_carried_arcs(source, design),  # change c0463, task 1.3
+            planes=planes,  # change c0466
+            frame_origin=frame_origin,  # change c0467
         )
     except CompoundTooLarge as error:
         raise TargetLimitError(
@@ -138,6 +447,8 @@ def write(source: SourceProject, options: Options) -> Written:
     }
     for kind, reasons in inputs.changed.items():
         changed[kind] = {**changed.get(kind, {}), **reasons}
+    if strings:
+        changed["text"] = {**changed.get("text", {}), **strings}
     if ZONE_FILL in changed:
         changed[ZONE_FILL] = _zone_fills(changed[ZONE_FILL], written)
     if changed_comments:
@@ -145,7 +456,23 @@ def write(source: SourceProject, options: Options) -> Written:
             "a literal comment starting with = is written with a leading space": changed_comments
         }
     lost.update(_extra_losses(design, written))
+    lost.update(storage_losses)
+    if plane_losses:  # change c0466: a carried plane that KiCad no longer holds as one
+        lost[altium_planes.KIND] = {**lost.get(altium_planes.KIND, {}), **plane_losses}
+    if "rule" in lost and carried.edited:
+        lost["rule"] = _source_rule_losses(lost["rule"], design, carried.edited)
+    if carried.minimums:  # change c0457: reported, not refused
+        lost["rule"] = {**lost.get("rule", {}), BOARD_MINIMUM: carried.minimums}
+    rule_changes = _rule_changes(design, carried, lost.get("rule", {}))
+    if rule_changes:  # change c0457: a source rule edited in KiCad is a change, not a loss
+        changed["rule"] = {**changed.get("rule", {}), **rule_changes}
     counts = census(design)
+    held = dict(inputs.written)
+    if carried.count:  # the rules the source's records give again, as they were read
+        counts["rule"] = counts.get("rule", 0) + carried.count
+        held["rule"] = held.get("rule", 0) + carried.count
+    if carried.minimums:
+        counts["rule"] = counts.get("rule", 0) + len(carried.minimums)
     if design.circuit.components:
         counts[SCHEMATIC] = 1
     name = inputs.name
@@ -155,7 +482,7 @@ def write(source: SourceProject, options: Options) -> Written:
                 design.header.id,
             )
         }
-    report = ConversionReport.of(source=counts, written=dict(inputs.written), changed=changed, lost=lost)
+    report = ConversionReport.of(source=counts, written=held, changed=changed, lost=lost)
     issues = tuple(
         issue for issue in written.issues if issue.code != lower.NOT_LOWERED or issue.where == SCHEMATIC
     )

@@ -28,7 +28,7 @@ def node_of(text: str) -> Node:
 
 
 def test_counts_and_cases_are_listed_once() -> None:
-    assert sb.COUNTS == (2, 4, 6, 8)  # every count of c0100
+    assert sb.COUNTS == (2, 4, 6, 8, 10, 16, 32)  # every count of c0100, and 10, 16 and 32 of c0277
     assert len(set(sb.INCOMPLETE)) == 7 and len(set(sb.USED)) == 2
     assert not set(sb.INCOMPLETE) & set(sb.USED)
     ids = list(sb.stackup_probes(lambda: None))  # type: ignore[arg-type, return-value]

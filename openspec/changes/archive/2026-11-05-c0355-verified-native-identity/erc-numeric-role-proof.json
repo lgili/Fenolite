@@ -1,0 +1,40 @@
+{
+  "artifact_sha256": {
+    "erc-matrix-role-canary-v1.py": "0f0566c8e9881df5dd92b496d4a44830401ef2aed6ea6d83d61ef784040b6579",
+    "erc-matrix-role-canary-v1/interpreted-report-proof-v2.json": "221032b9ac8086d9279ee7998e1d1474ef95a259d48b3ee294a538ba1d87069d",
+    "royal-role-ledger-v5.json": "f9fd2b914f602a6ec142810d2caba4d94571a8fac30ab41ef492e358bd3384de",
+    "royal-role-ledger-v5.py": "d70a1a8c530be846808c3aa050860461af59fbed7ec1756a4aa20c2b983167e8"
+  },
+  "enum_3_explicitly_refused": true,
+  "enum_admitted": [
+    0,
+    1,
+    2
+  ],
+  "native_driver_analysis_correction": "Initial external summary looked for wrong top-level report field; corrected analysis uses typed nested-sheet reader over unchanged raw outputs; no rerun.",
+  "native_observation_scope": "Original four passive terminals only: matrix0 no violations,1 three warnings,2 three errors in9.0.9/10.0.6. Raw3 also errors but may be invalid-value fallback; not admitted. No all-pin-pair claim.",
+  "official_manual": "https://docs.kicad.org/9.0/en/eeschema/eeschema.html",
+  "remaining_unknowns": {
+    "generated": {
+      "pcb_numeric": 0,
+      "project_paths": 339
+    },
+    "source": {
+      "pcb_numeric": 10,
+      "project_paths": 331
+    }
+  },
+  "renumbering_admitted": false,
+  "royal_pin_map_both_sides": {
+    "columns": 12,
+    "rows": 12,
+    "value_counts": {
+      "0": 76,
+      "1": 31,
+      "2": 37
+    }
+  },
+  "scope": "TEST-ONLY ERC key linkage and role ledger; no Royal mutation or renumbering",
+  "source": "S-1299",
+  "unit_tests_passed": 53
+}

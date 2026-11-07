@@ -286,6 +286,13 @@ def compare(name: str) -> Counter[str]:
             and len(q.outline) == len(points)
             and pair_up(points, list(q.outline), shift.near) == ([], [])
         ]
+        if not hits and any(
+            zone.layers[0] in q.layers and their_net(q) == net_of(zone) and not q.outline for q in other.zones
+        ):
+            # Since c0463 (task 1.3) the import chords a polygon's arc vertices into a ring, while KiCad's
+            # importer keeps the arcs, an outline the model reads as none: the two cannot be paired by points.
+            counts["zones-with-an-arc-outline"] += 1
+            continue
         assert hits, name
         counts["zones"] += 1
     return counts

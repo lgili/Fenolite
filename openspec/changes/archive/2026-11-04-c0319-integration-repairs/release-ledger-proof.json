@@ -1,0 +1,51 @@
+{
+  "authored_suffix_reds": {
+    "elapsed_seconds": 0.21,
+    "failed": 3
+  },
+  "checked_current_tasks": [
+    "c0092.5.3",
+    "c0178.3.4a",
+    "c0180.2.4a"
+  ],
+  "file_sha256": {
+    "docs/release/v0.5.md": {
+      "after": "33410d38e2a62a9286c1972b4614e04bf1cf9588c78927358e82c0e804997dff",
+      "before": "9ef8570b74978b6e45c6bdcfb8c75532d64072d33c841c8c5dd364c9d950ee22"
+    },
+    "docs/release/v0.6.md": {
+      "after": "2c02052d740fdfe2fbf61ac3d0ffb11621cf58d068b734d58dd1b7d30562e53e",
+      "before": "d2e5269f20b3ed624b33bc9c0fd2ed6606638863c16528a290b5854294bc6b4a"
+    },
+    "tests/unit/test_release_record_v04.py": {
+      "after": "b8eadb6a47358183d0c07216f11fc627b233814e64f4a506cafcada7f9572003",
+      "before": "f1370a1ef53c964cb6385f6b71e8b2f6ea5b9f4d52cc76b9bdd49255f6d8f49c"
+    },
+    "tests/unit/test_release_record_v05.py": {
+      "after": "90ad968182cd5199bbbb032d6ae0e9a1544f280d7fd9904366c45224210dbe11",
+      "before": "20acbf222df04bb6eb1e75b70c1d05b7a41a86bdf8e3be1473680fea7c383d4d"
+    },
+    "tests/unit/test_release_record_v06.py": {
+      "after": "e6a0e19be0b74157568003fe63c46b52b298807f7c84fec1c147fbaac2f1bd78",
+      "before": "e96e2dae7e6489803cb88833706e7f26f396511fd6c0c4bc3d8238bf5e85e194"
+    }
+  },
+  "final_focused": {
+    "elapsed_seconds": 3.35,
+    "files": [
+      "tests/unit/test_release_record_v04.py",
+      "tests/unit/test_release_record_v05.py",
+      "tests/unit/test_release_record_v06.py"
+    ],
+    "passed": 112
+  },
+  "full_validation": "pending root-owned exact-head CI",
+  "no_task_completion_claims_beyond_integration_proof": true,
+  "original_reproduction": {
+    "elapsed_seconds": 18.08,
+    "failed": 3,
+    "passed": 106
+  },
+  "scope": "release-record tracking and authored guard controls only; no runtime/CAD/native-acceptance/freeze change",
+  "source_commit": "18351e40568f55b4e4e3bb88a64a6e3a9f08c5b4"
+}

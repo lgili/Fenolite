@@ -51,6 +51,8 @@ NO_FOOTPRINT = ("dimension.kicad_pcb", "stackup_four.kicad_pcb")
 PINNED_VERSION = "0.2.1"
 """The version the canonical text carried when ``UNCHANGED`` was measured: ``canonical.dumps`` writes the
 running version into the header, so the digest is taken with that field set back (change c0150)."""
+PINNED_SCHEMA_VERSION = "0"
+"""Original c0126 metadata marker; c0218 authorizes only this marker's 0→1.0 transition, c0462 its 1.0→1.1."""
 
 
 def _pinned_digest(design: Design) -> str:
@@ -58,7 +60,11 @@ def _pinned_digest(design: Design) -> str:
     text = canonical.dumps(design)
     field = f'"fenolite_version": "{fenolite.__version__}"'
     assert text.count(field) == 1, field
-    pinned = text.replace(field, f'"fenolite_version": "{PINNED_VERSION}"')
+    schema_field = '"schema_version": "1.1"'
+    assert text.count(schema_field) == 1, schema_field
+    pinned = text.replace(field, f'"fenolite_version": "{PINNED_VERSION}"').replace(
+        schema_field, f'"schema_version": "{PINNED_SCHEMA_VERSION}"'
+    )
     return hashlib.sha256(pinned.encode("utf-8")).hexdigest()
 
 
@@ -81,6 +87,34 @@ def test_read_is_unchanged(name: str) -> None:
         assert footprint.graphics == () and footprint.texts == ()
         assert all(pad.corner_ratio is None for pad in footprint.pads)
     assert _pinned_digest(design) == UNCHANGED[name]
+
+
+@pytest.mark.parametrize("name", sorted(UNCHANGED))
+@pytest.mark.parametrize("target", (9, 10))
+def test_metadata_transition_preserves_native_bytes_and_original_pins(name: str, target: int) -> None:
+    """Keep original digests: the independently constructed legacy header changes no board content."""
+    design = _read(name)
+    assert design.header.schema_version == "1.1"
+    legacy = dataclasses.replace(
+        design,
+        header=dataclasses.replace(
+            design.header, schema_version=PINNED_SCHEMA_VERSION, fenolite_version=PINNED_VERSION
+        ),
+    )
+    original_text = canonical.dumps(legacy)
+    assert hashlib.sha256(original_text.encode()).hexdigest() == UNCHANGED[name]
+    assert _pinned_digest(design) == UNCHANGED[name]
+    assert write_board(legacy, target=target).text == write_board(design, target=target).text
+
+
+@pytest.mark.parametrize("name", sorted(UNCHANGED))
+def test_pinned_metadata_does_not_hide_content_changes(name: str) -> None:
+    design = _read(name)
+    assert design.board is not None
+    renamed = dataclasses.replace(design, header=dataclasses.replace(design.header, name="AUTH_CHANGED"))
+    geometry = dataclasses.replace(design, board=dataclasses.replace(design.board, max_curve_error=10_001))
+    assert _pinned_digest(renamed) != UNCHANGED[name]
+    assert _pinned_digest(geometry) != UNCHANGED[name]
 
 
 # --- the projection on request (kicad-file-backend, "Footprint items projected on request") ---------------

@@ -111,6 +111,19 @@ def test_no_project_files() -> None:
     assert found.evidence.level is Level.UNVERIFIED and found.opaque_clearance_rules == 0
 
 
+def test_hole_minimum_of_the_project() -> None:
+    """Change c0403: the project's ``min_hole_clearance`` is the board's hole minimum; a written triad
+    holds the template's 0.25 mm, and a project without the key or no project gives none."""
+    files = triad()
+    design = board(files)
+    written = design_rules_from_texts(design, project_text=files["bench.kicad_pro"], rules_text=None)
+    assert written.min_hole_clearance == 250_000
+    text = '{"board": {"design_settings": {"rules": {"min_hole_clearance": 0.4}}}}'
+    assert design_rules_from_texts(design, project_text=text, rules_text=None).min_hole_clearance == 400_000
+    assert design_rules_from_texts(design, project_text="{}", rules_text=None).min_hole_clearance is None
+    assert design_rules_from_texts(design, project_text=None, rules_text=None).min_hole_clearance is None
+
+
 def test_measured_tables_applied(monkeypatch: pytest.MonkeyPatch) -> None:
     design = board(triad())
     assert design_rules_from_texts(design, project_text=None, rules_text=None).rules_over_classes is True

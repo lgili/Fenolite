@@ -66,6 +66,7 @@ def test_files_of_the_sample() -> None:
     assert [i.code for i in output.issues] == [
         "altium.schlib-generic",
         "altium.pcbdoc-not-written",
+        "altium.draftsman-not-written",
         "altium.generic-symbols",
         "altium.experimental",
     ]
@@ -187,6 +188,7 @@ def test_summary_of_the_sample() -> None:
         "copper": None,
         "pcb": None,
         "outjob": None,
+        "draftsman": None,
         "drawing_sheet": None,
         "rules": {"written": [], "not_lowered": []},
         "experimental": True,
@@ -255,10 +257,23 @@ def test_evidence() -> None:
         "H-A-PRJ-BOMDOC",
     }  # read by `fenolite view` (c0186, c0190), never by the build
     viewer |= {"H-A-CONV-PADMASK"}  # read by the conversion of a document (c0223), never by the build
+    viewer |= {"H-A-PRJ-SPECIAL"}  # read by the conversion of a board text (c0409), never by the build
+    viewer |= {"H-A-PRJ-PREDEF"}  # the conversion's predefined special strings (c0428), never the build
+    viewer |= {"H-A-SLOT-SHORT"}  # the slot form of level 3 (c0416), no claim of the build
+    viewer |= {"H-A-CUTOUT-NOTCH"}  # the import's notch of a crossing cut-out (c0427), never the build
+    viewer |= {"H-A-CONV-FILL", "H-A-CONV-STORAGE"}  # what a conversion carries through KiCad (c0450)
+    viewer |= {"H-A-CONV-UNION"}  # the union members a conversion carries through KiCad (c0460)
+    viewer |= {"H-A-CONV-BOARD6"}  # the Board6 settings a conversion carries (c0464), never the build
+    # what the import of a rule record reads and the build never writes (change c0462)
+    viewer |= {"H-A-RULE-LAYER-VALUES", "H-A-RULE-MATCHED", "H-A-RULE-MATRIX-NPTH", "H-A-RULE-VIA-TEMPLATE"}
+    # change c0465: the writer writes Short-Circuit and Net Antennae records with the public keys (S-2243);
+    # what Altium's DRC makes of them is the kit of task 6.1, so the UNVERIFIED rows are no claim of the build
+    viewer |= {"H-A-RULE-ANTENNA", "H-A-RULE-SHORT"}
     rows = {r.id for r in register if r.id.startswith(stems)} - refuted - viewer
     # change c0173: the PCB document writer writes the flattened panel; the array rows that its kit has not
     # measured (H-A-PANEL-RECORD, H-A-PANEL-LAYERKIND) are no claim of the build yet
     rows |= {"H-A-PANEL-FLAT", "H-A-PANEL-KIT"}
+    rows |= {"H-A-DWF-PARAMS"}
     assert refuted == {"H-A-SCHBIN-MINI"}, "a refuted row is not a claim of the build"
     assert set(ALTIUM_BUILD_EVIDENCE.hypotheses) == rows
     assert set(project.EVIDENCE.hypotheses) <= rows

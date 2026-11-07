@@ -118,8 +118,13 @@ def test_refused_drawing_calls() -> None:
     d.text("rev", "REV A", (mm(2), mm(2)))
     origin, right = (mm(0), mm(0)), (mm(1), mm(0))
     calls: tuple[tuple[Callable[[], None], str], ...] = (
-        (lambda: d.text("t1", "CU", (mm(1), mm(1)), layer="F.Cu"), "F.Cu"),
-        (lambda: d.line("l1", origin, right, layer="Edge.Cuts", width=mm(0.1)), "Edge.Cuts"),
+        # a text may be on a copper layer of the board (change c0277), not on one the board lacks
+        (lambda: d.text("t1", "CU", (mm(1), mm(1)), layer="In1.Cu"), "In1.Cu"),
+        # an unfilled rectangle on Edge.Cuts is an outline edge (c0401); a filled one is refused
+        (
+            lambda: d.rect("l1", origin, (mm(1), mm(1)), layer="Edge.Cuts", width=mm(0.1), fill=True),
+            "Edge.Cuts",
+        ),
         (lambda: d.line("rev", origin, right, layer="F.Fab", width=mm(0.1)), "rev"),
         (lambda: d.arc("a1", origin, (mm(1), mm(1)), (mm(2), mm(2)), layer="F.Fab", width=mm(0.1)), "points"),
         (
@@ -127,13 +132,14 @@ def test_refused_drawing_calls() -> None:
             "direction",
         ),
         (lambda: d.dimension("d2", origin, right, offset=mm(2), precision=5), "precision"),
-        (lambda: d.text("t2", "A\nB", (mm(1), mm(1))), "text"),
-        (lambda: d.text("t3", "", (mm(1), mm(1))), "text"),
+        # several lines and an empty text are texts (change c0277); a tab and a number are not
+        (lambda: d.text("t2", "A\tB", (mm(1), mm(1))), "text"),
+        (lambda: d.text("t3", 3, (mm(1), mm(1))), "text"),  # type: ignore[arg-type]
         (lambda: d.text("t4", "A", (mm(1), mm(1)), size=mm(0)), "size"),
         (lambda: d.text("t5", "A", (mm(1), mm(1)), justify="middle"), "justify"),
         (lambda: d.text("bad key", "A", (mm(1), mm(1))), "key"),
         (lambda: d.line("l2", origin, right, layer="F.CrtYd", width=mm(0.1)), "F.CrtYd"),
-        (lambda: d.line("l3", origin, right, layer="F.Paste", width=mm(0.1)), "F.Paste"),
+        (lambda: d.line("l3", origin, right, layer="F.Adhes", width=mm(0.1)), "F.Adhes"),  # F.Paste: c0427
         (lambda: d.line("l4", origin, right, layer="F.Fab", width=mm(0)), "width"),
         (lambda: d.rect("r1", origin, right, layer="F.Fab", width=mm(0.1)), "start and end"),
         (lambda: d.rect("r2", origin, (mm(1), mm(1)), layer="F.Fab", width=mm(0)), "width"),
@@ -185,9 +191,9 @@ def test_layer_table_equals_the_created_board() -> None:
     assert dict(itemlib.BOARD_LAYER_KINDS) == created
     allowed = [name for name, kind in created.items() if kind in itemlib.DRAWING_LAYER_KINDS]
     assert sorted(allowed) == sorted([
-        "F.SilkS", "B.SilkS", "F.Mask", "B.Mask", "F.Fab", "B.Fab", "Dwgs.User", "Cmts.User", "Eco1.User",
-        "Eco2.User",
+        "F.SilkS", "B.SilkS", "F.Mask", "B.Mask", "F.Paste", "B.Paste", "F.Fab", "B.Fab", "Dwgs.User",
+        "Cmts.User", "Eco1.User", "Eco2.User",
     ])  # fmt: skip
-    assert itemlib.DRAWING_LAYER_KINDS == ("silkscreen", "soldermask", "fabrication", "user")
+    assert itemlib.DRAWING_LAYER_KINDS == ("silkscreen", "soldermask", "solderpaste", "fabrication", "user")
     assert Size(itemlib.TEXT_SIZE, itemlib.TEXT_SIZE) == pcb.TEXT_SIZE
     assert itemlib.TEXT_THICKNESS == pcb.TEXT_THICKNESS

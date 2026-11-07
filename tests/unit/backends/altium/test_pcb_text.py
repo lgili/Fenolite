@@ -93,11 +93,34 @@ def test_texts_follow_the_component_texts_in_the_wide_strings() -> None:
     assert last.wide_index == component_texts and last.text == "Olá"
 
 
+def test_an_empty_board_text_is_written() -> None:
+    """An empty board text is written as a saved document holds it (change c0460; row ``-08`` holds 51 on
+    Drill Drawing): a record with an empty string and no wide-string entry, read back as an empty text."""
+    empty = text("empty", "")
+    assert text_problem_of(empty) is None
+    document, model = read_back(bare_spec(texts=(empty,)), "empty.PcbDoc")
+    (record,) = [t for t in document.texts if t.text == ""]
+    assert record.prefix.component is None
+    assert model.board is not None
+    assert [t.text for t in model.board.texts] == [""]
+
+
+def test_a_line_break_is_written_as_cr_lf() -> None:
+    """A text of two lines is written with CR LF in its record and its wide string, as a saved document
+    holds it (``H-A-TEXT-CRLF``; change c0460), and reads back with a line feed (change c0427)."""
+    two = text("two", "two\nlines")
+    assert text_problem_of(two) is None
+    document, model = read_back(bare_spec(texts=(two,)), "two.PcbDoc")
+    (record,) = [t for t in document.texts if "lines" in t.text]
+    assert record.text == "two\r\nlines"
+    assert model.board is not None
+    assert [t.text for t in model.board.texts] == ["two\nlines"]
+
+
 @pytest.mark.parametrize(
     ("changes", "message"),
     [
-        ({"text": ""}, "the text is empty"),
-        ({"text": "two\nlines"}, "a control character or a line break"),
+        ({"text": "tab\there"}, "a control character"),
         ({"size": Size(0, 0)}, "a height of 0 nm is not positive"),
         ({"thickness": 0}, "a stroke width of 0 nm is not positive"),
     ],

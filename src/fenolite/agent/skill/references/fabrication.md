@@ -144,6 +144,14 @@ fenolite render blink/build -o blink/views --region 0mm,0mm,20mm,20mm --nets --o
 Each element carries `class` and `data-net`, so read the file as data too. A `render.copper-simulated`
 info means a zone had no saved fill: run `fenolite fill` for KiCad's own.
 
+To see one net on the whole board, highlight it with `--net` (repeatable; `--nets` still adds labels) and
+keep only some copper layers with `--layers`. A design script is accepted as `PATH` with `--net` or
+`--region`, built in memory, with no tool.
+
+```fenolite-cmd
+fenolite render blink/build --net GND --layers F.Cu,B.Cu -o views --dry-run --json
+```
+
 ## Filled and capped vias
 
 `protection=protect(filling=True, capping=True)` asks for the vias of a stitch to be filled and capped,
@@ -191,7 +199,10 @@ fenolite panel blink_panel.py --out panel --target 10 --dry-run --json
 fenolite panel blink_panel.py --out panel --target 10 --confirm --json
 ```
 
-- `--target` is the major the board was built for, or `altium` (a flattened panel document).
+- `--target` is the major the board was built for, or `altium`. With a `.PcbDoc` board and an unturned,
+  unmirrored grid, `altium` writes Altium's Embedded Board Array, which references the board by a relative
+  path; otherwise a flattened panel document (`altium.panel-flattened` says why). Altium rereads a changed
+  board only after it is restarted: reopening the panel keeps the old copies.
 - The checks run first: `panel.vscore-copper`, `panel.tab-copper`, `panel.gap` and the other `panel.*`
   errors plan no write (exit 5). Their limits cite public fabricator figures; `Panel(limits={...})` takes
   your fabricator's. `fenolite explain <code>` gives each fix.

@@ -6,6 +6,7 @@ in-process into a folder of the test, seeing only the example's own library tabl
 from __future__ import annotations
 
 import io
+import shutil
 from pathlib import Path
 
 import pytest
@@ -33,6 +34,10 @@ def build_altium_example(
     for name in LIBRARY_VARIABLES:
         monkeypatch.delenv(name, raising=False)
     folder = tmp_path / out
+    lock = folder.with_suffix(".lock")
+    source_lock = script.with_suffix(".lock")
+    if source_lock.is_file() and not lock.exists():
+        shutil.copyfile(source_lock, lock)
     stdout, stderr = io.StringIO(), io.StringIO()
     with monkeypatch.context() as patch:
         patch.setattr("sys.stdout", stdout)
@@ -44,6 +49,8 @@ def build_altium_example(
             str(folder),
             "--target",
             "altium",
+            "--lock",
+            str(lock),
             *flags,
             "--confirm",
             "--json",

@@ -1,0 +1,83 @@
+{
+  "schema": "fenolite.local-documentary-proof.v1",
+  "date": "2026-11-03",
+  "candidate_base": "0102716d7ae2d4749a93b1bc2dee6d8b22d3e29d",
+  "fast18": {
+    "source": "ad8cbf2e5d66c6a6b549244c948fef97dac263ea",
+    "command": "make check-fast PYTEST_MAX_WORKERS=4",
+    "exit": 0,
+    "passed": 22516,
+    "skipped": 52,
+    "pytest_seconds": "1045.31",
+    "driver_seconds": 1137.2292516250163,
+    "log_sha256": "1c40d2f9c51f58106abb5f725e9ac54398da29dded826ef22a2c47ccb1619ba1",
+    "driver_sha256": "f77d06e668c6d54f8d707fb0f14b4aa4ecc519f7200015eea17af948f237a07d",
+    "receipt_sha256": "40a34a2308025c7e6dfdcb9eb9e680c610007a00bc34917b1e57d5e564eab3aa",
+    "clean_after": true,
+    "head_unchanged": true,
+    "private_residue_gate": "on",
+    "static": "Ruff check/format, pyright src and residue passed on that source"
+  },
+  "source_scope": {
+    "ad8_to_candidate_runtime_test_tool_diff": [],
+    "paths": [
+      "src/fenolite/model/drawn_connect.py",
+      "src/fenolite/backends/kicad/drawn.py",
+      "src/fenolite/model/drawn.py",
+      "src/fenolite/checks/equivalence",
+      "src/fenolite/view/scene.py",
+      "src/fenolite/lens/drawn.py",
+      "src/fenolite/view/kicad",
+      "tests/unit/backends/kicad/test_drawn_root_hlabels.py",
+      "tests/unit/model/test_drawn_sheet_properties.py",
+      "tests/unit/backends/kicad/test_drawn_sheet_properties.py",
+      "tests/fidelity",
+      "tools/gen_schemas.py",
+      "tools/gen_evidence_matrix.py",
+      "tools/gen_agent_guide.py"
+    ],
+    "claim": "Relevant code/test/tool paths unchanged; later viewer UI/documentary-reader integration is separate, not an exact-current whole-fast/CI claim."
+  },
+  "new_generator_checks": [
+    {
+      "command": "python tools/gen_schemas.py --check",
+      "exit": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "command": "python tools/gen_evidence_matrix.py --check",
+      "exit": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "command": "python tools/gen_agent_guide.py --check",
+      "exit": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "retained_native_c0350": {
+    "receipt": "docs/evidence/native-root-hierarchical-labels.json",
+    "receipt_sha256": "9917fa5ea72a4f0beaa7760075f64061df09e957537bd428f353e645f8fdb961",
+    "logs_sha256": {
+      "c0350-before-native9.log": "cf1d4b1b0568ec5fc8dc9f094ce1912ee2c0ddf73ab734e59b914fa5ac8d2f12",
+      "c0350-before-native10.log": "a1bf80c69d7aff02c60100c5847551ec7109c7acbde71162c96c2cafe01aefe6",
+      "c0350-after-native9.log": "a7ed8e45269b9f23cca6e9b7e27df9d6eca77856f3a8e4075376be7af9e6744c",
+      "c0350-after-native10.log": "cdee18326fcbfeb525cf1099068b64318c8a3bbc8ff706af0989b3f891aa7f54",
+      "c0350-public10.log": "be14edccd4281e0316b32804592d63e8c43cadf1bebb1c2388d4c4a88197e4a1",
+      "c0350-upgraded092.log": "85288119f137fa2209691b17783543f6690f9b12d57a791fa0e35e34e4dccaa3"
+    },
+    "scope": "Historical authored native9.0.9/10.0.6 and public10 proof receipts only; no native rerun or higher/general claim."
+  },
+  "unit_execution_wording": "Fast18 whole selection completed; cases in unchanged selected unit sources are inferred covered by collection/completion, not individually printed PASSED node receipts. The complete52skip list has no affected c0329/c0330/c0350 module.",
+  "new_tests_native_ci_suite": false,
+  "independent_open_gates": [
+    "c0350.2.2 exact CI",
+    "c0329 exact-source CI",
+    "c0330 exact-source CI",
+    "native/manual requirements of other specs",
+    "current runtime integration CI",
+    "c0332 geometry and Royal findings unchanged"
+  ],
+  "change": "c0329-sheet-custom-properties",
+  "completed_local_task": "3.2"
+}

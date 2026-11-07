@@ -229,7 +229,7 @@ def test_sheet_outside_the_grammar(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
     codes = {issue["code"] for issue in env["issues"]}
     assert codes == {"kicad.sch.netlist-unsupported"}
     reasons = [issue["message"].split(":", 1)[0] for issue in env["issues"]]
-    assert "wire" in reasons and "label-kind" in reasons
+    assert "wire-end" in reasons and "label-kind" in reasons  # its junction is read since c0406
     assert all(issue["severity"] == "error" for issue in env["issues"])
 
 

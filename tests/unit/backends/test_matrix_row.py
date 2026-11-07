@@ -8,7 +8,7 @@ import dataclasses
 
 import pytest
 
-from fenolite.backends.base import MATRIX_OPERATIONS, MatrixRow
+from fenolite.backends.base import MATRIX_OPERATIONS, MatrixRow, VersionEvidence
 from fenolite.core.evidence import Evidence, Level
 
 READ = Evidence(Level.INFERRED, hypotheses=("H-K-WKS-CORNER",))
@@ -18,7 +18,7 @@ WRITE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-WKS-CORNER", "H-K-PCB-WR
 def test_operations() -> None:
     assert MATRIX_OPERATIONS == ("detect", "read", "write", "roundtrip_exact", "roundtrip_modified")
     fields = [f.name for f in dataclasses.fields(MatrixRow)]
-    assert fields == ["backend", "kind", *MATRIX_OPERATIONS, "experimental"]
+    assert fields == ["backend", "kind", *MATRIX_OPERATIONS, "experimental", "versions"]
 
 
 def test_row_as_json() -> None:
@@ -33,6 +33,7 @@ def test_row_as_json() -> None:
         "roundtrip_modified": None,
         "verified_by": ["H-K-PCB-WRITE", "H-K-WKS-CORNER"],
         "experimental": ["write"],
+        "versions": {"read": [], "write": []},
     }
     assert row.verified_by() == ("H-K-PCB-WRITE", "H-K-WKS-CORNER")
     assert row.cells() == (("read", READ), ("write", WRITE))
@@ -60,3 +61,30 @@ def test_impossible_rows_are_refused(cells: dict[str, object], word: str) -> Non
     with pytest.raises(ValueError, match=word) as caught:
         MatrixRow("kicad", "kicad_wks", **cells)  # type: ignore[arg-type]
     assert "kicad/kicad_wks" in str(caught.value)
+
+
+def test_version_scopes_are_immutable_sorted_and_do_not_alias_inputs() -> None:
+    first = VersionEvidence("20241229", "kicad-cli 9.0.9", Level.INFERRED, "tests/one.py")
+    second = VersionEvidence("20260206", "kicad-cli 10.0.6", Level.INFERRED, "tests/two.py")
+    scopes = {"read": (second, first)}
+    row = MatrixRow("kicad", "kicad_pcb", read=READ, versions=scopes)
+    scopes.clear()
+    assert row.versions["read"] == (first, second)
+    assert row.to_json()["versions"] == {"read": [first.to_json(), second.to_json()]}
+    with pytest.raises(TypeError):
+        row.versions["read"] = ()  # type: ignore[index]
+    with pytest.raises(ValueError, match="whose cell is not set"):
+        MatrixRow("kicad", "kicad_pcb", read=READ, versions={"write": (first,)})
+    with pytest.raises(ValueError, match="repeats a scope"):
+        MatrixRow("kicad", "kicad_pcb", read=READ, versions={"read": (first, first)})
+
+
+def test_claims_cannot_exceed_the_weakest_version_or_be_verified_without_one() -> None:
+    weak = VersionEvidence("1", "authored test", Level.INFERRED, "tests/one.py")
+    strong = VersionEvidence("2", "oracle", Level.KICAD_VERIFIED, "tests/two.py")
+    assert "no version" in MatrixRow("x", "k", write=WRITE).version_problems()[0]
+    assert (
+        "above version 1"
+        in MatrixRow("x", "k", write=WRITE, versions={"write": (strong, weak)}).version_problems()[0]
+    )
+    assert MatrixRow("x", "k", write=READ, versions={"write": (strong, weak)}).version_problems() == ()

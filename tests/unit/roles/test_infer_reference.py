@@ -34,9 +34,9 @@ _BUCK = {
 }
 _BUCK_GROUPS = {
     ("HotLoop", "hot_SW"): ("C1-1", "Q1-3", "Q1-1", "Q2-3", "Q2-1", "C1-2"),
-    ("GateLoop", "gate_Q1"): ("U1-7", "Q1-2", "Q1-1", "U1-6"),
-    ("GateLoop", "gate_Q2"): ("U1-5", "Q2-2", "Q2-1", "U1-4"),
-    ("KelvinPair", "kelvin_R12"): ("R12-1", "U3-3", "U3-4", "R12-2"),
+    ("GateLoop", "gate_Q1"): ("U1-6", "Q1-2", "Q1-1", "U1-7"),
+    ("GateLoop", "gate_Q2"): ("U1-8", "Q2-2", "Q2-1", "U1-1"),
+    ("KelvinPair", "kelvin_R12"): ("R12-1", "U3-1", "U3-5", "R12-2"),
 }
 _HALF = {
     "GH": ("gate", "GD-1", "high"),
@@ -53,9 +53,9 @@ _HALF = {
 }
 _HALF_GROUPS = {
     ("HotLoop", "hot_SW"): ("C1-1", "Q1-4", "Q1-3", "Q2-4", "Q2-3", "R1-1", "R1-2", "C1-2"),
-    ("GateLoop", "gate_Q1"): ("U2-7", "Q1-1", "Q1-2", "U2-6"),
-    ("GateLoop", "gate_Q2"): ("U2-5", "Q2-1", "Q2-2", "U2-4"),
-    ("KelvinPair", "kelvin_R1"): ("R1-1", "U3-3", "U3-4", "R1-2"),
+    ("GateLoop", "gate_Q1"): ("U2-6", "Q1-1", "Q1-2", "U2-7"),
+    ("GateLoop", "gate_Q2"): ("U2-8", "Q2-1", "Q2-2", "U2-1"),
+    ("KelvinPair", "kelvin_R1"): ("R1-1", "U3-1", "U3-5", "R1-2"),
 }
 _BMS = {
     "BAT_P": ("power", "PWR-1", "medium"),
@@ -71,9 +71,9 @@ _BMS = {
     "TAP3": ("signal", "SIG-0", "low"),
 }
 _BMS_GROUPS = {
-    ("GateLoop", "gate_Q1"): ("U1-9", "Q1-1", "Q1-2", "U1-10"),
-    ("GateLoop", "gate_Q2"): ("U1-11", "Q2-1", "Q2-2", "U1-10"),
-    ("KelvinPair", "kelvin_R1"): ("R1-2", "U1-7", "U1-8", "R1-3"),
+    ("GateLoop", "gate_Q1"): ("U1-13", "Q1-1", "Q1-2", "U1-12"),
+    ("GateLoop", "gate_Q2"): ("U1-11", "Q2-1", "Q2-2", "U1-12"),
+    ("KelvinPair", "kelvin_R1"): ("R1-2", "U1-1", "U1-14", "R1-3"),
 }
 EXPECTED: dict[
     tuple[str, str], tuple[dict[str, tuple[str, str, str]], dict[tuple[str, str], tuple[str, ...]]]

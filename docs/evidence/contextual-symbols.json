@@ -1,0 +1,2475 @@
+{
+  "observations": [
+    {
+      "code_commit": "217387a4c00f53835dbf03b3c3da451fc02bcd08",
+      "evidence_promoted": false,
+      "log_sha256": "a952352604667bc7eb2e5119eccdddad89065e56bcfe08e80e2eebe6723b3a5f",
+      "native_version": "9.0.2",
+      "pytest_exit": 1,
+      "record": {
+        "code_commit": "217387a4c00f53835dbf03b3c3da451fc02bcd08",
+        "contexts": [
+          {
+            "code_commit": "217387a4c00f53835dbf03b3c3da451fc02bcd08",
+            "context": {
+              "errors": [],
+              "instances": [
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-106",
+                  "input_sha256": "4cc3e74f2e47304bd3b360b18bab55d378573bc491b4f210aebe533890aa3dcb",
+                  "instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046",
+                  "parent_instance_path_sha256": null
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-101",
+                  "input_sha256": "4616b90ca042cc85326be17f8ab8330aaa06938bcea79591862bb86085803573",
+                  "instance_path_sha256": "b4d9811f68c7a0745a82d81d8fabff40c06e3b592595eec7f4713f1d5f8b8b57",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-102",
+                  "input_sha256": "11569225b001676b85498528a9accbdef4b815618fdcf8c6ffc9306c6ef2628c",
+                  "instance_path_sha256": "ba5ad819e4cdbec6bdfb07ea0160d43687e3faa5602fca06285827560557ecda",
+                  "parent_instance_path_sha256": "b4d9811f68c7a0745a82d81d8fabff40c06e3b592595eec7f4713f1d5f8b8b57"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "72956ec849cdbfa9970a37fd93253a869a83042e0380fae52836b4b067ceb2ac",
+                  "parent_instance_path_sha256": "ba5ad819e4cdbec6bdfb07ea0160d43687e3faa5602fca06285827560557ecda"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "823355e7d3396902df4a6d44e5f0478e24258907fda6409c403b8747e81b259a",
+                  "parent_instance_path_sha256": "ba5ad819e4cdbec6bdfb07ea0160d43687e3faa5602fca06285827560557ecda"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "4492fef6867889854ed3cc6af0c2cd08176be578cba3decc6550fb9e95f3aac5",
+                  "parent_instance_path_sha256": "ba5ad819e4cdbec6bdfb07ea0160d43687e3faa5602fca06285827560557ecda"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "a7d1a273ec9577232e0cc224d1697aa77e828ba47eaa846301967034757f7e8d",
+                  "parent_instance_path_sha256": "ba5ad819e4cdbec6bdfb07ea0160d43687e3faa5602fca06285827560557ecda"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-102",
+                  "input_sha256": "11569225b001676b85498528a9accbdef4b815618fdcf8c6ffc9306c6ef2628c",
+                  "instance_path_sha256": "6aa8eb0ff88edabec3c454ab5065bebf180d1c7bface8ed4655baa2d73d0d2e5",
+                  "parent_instance_path_sha256": "b4d9811f68c7a0745a82d81d8fabff40c06e3b592595eec7f4713f1d5f8b8b57"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "0eb880089751119d45d193ae7892a551648e9482a74fca3b58e30cb5d0bbf0d7",
+                  "parent_instance_path_sha256": "6aa8eb0ff88edabec3c454ab5065bebf180d1c7bface8ed4655baa2d73d0d2e5"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "4bf08fdcf9f8b0a825f0fc64df0abcac810fa6ea1dbf735bc07c686935c713f4",
+                  "parent_instance_path_sha256": "6aa8eb0ff88edabec3c454ab5065bebf180d1c7bface8ed4655baa2d73d0d2e5"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "6d4de4bf5e7a2961d0dda17b33036bb8ae6e29b3091828e075fa72283edee7fa",
+                  "parent_instance_path_sha256": "6aa8eb0ff88edabec3c454ab5065bebf180d1c7bface8ed4655baa2d73d0d2e5"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "78a7ae25e3e71c4e91cbc7fa6279544890ab3fc8cfd93168007d5615aed496f4",
+                  "parent_instance_path_sha256": "6aa8eb0ff88edabec3c454ab5065bebf180d1c7bface8ed4655baa2d73d0d2e5"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-102",
+                  "input_sha256": "11569225b001676b85498528a9accbdef4b815618fdcf8c6ffc9306c6ef2628c",
+                  "instance_path_sha256": "9c6cf637c17ba298c1bb38d4f0867ad27e9de2cfd204be7b4430b07445f854cc",
+                  "parent_instance_path_sha256": "b4d9811f68c7a0745a82d81d8fabff40c06e3b592595eec7f4713f1d5f8b8b57"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "129250afe8b4c493605bf0851711917ee8d3161b22b454586d17786dd53ad6eb",
+                  "parent_instance_path_sha256": "9c6cf637c17ba298c1bb38d4f0867ad27e9de2cfd204be7b4430b07445f854cc"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "e91e42f6d7eed3c0982ea77e41269d5fd770fd4a47f3819529dc9b9323cb78d7",
+                  "parent_instance_path_sha256": "9c6cf637c17ba298c1bb38d4f0867ad27e9de2cfd204be7b4430b07445f854cc"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "1f9abecef9d84fd6ea6efc1367fbbf8a4813b7c28b951195c48e3bdbb3feb7dc",
+                  "parent_instance_path_sha256": "9c6cf637c17ba298c1bb38d4f0867ad27e9de2cfd204be7b4430b07445f854cc"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "e2d4629d90792840080e6907f9cc04b5a77e0a3334999f63b044d89a805ccb26",
+                  "parent_instance_path_sha256": "9c6cf637c17ba298c1bb38d4f0867ad27e9de2cfd204be7b4430b07445f854cc"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-102",
+                  "input_sha256": "11569225b001676b85498528a9accbdef4b815618fdcf8c6ffc9306c6ef2628c",
+                  "instance_path_sha256": "0677884172d4c0d3a59b74ced92e01302bba72129bcd8068fc1381b2e9f82e28",
+                  "parent_instance_path_sha256": "b4d9811f68c7a0745a82d81d8fabff40c06e3b592595eec7f4713f1d5f8b8b57"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "c51e5970e5ce54ec4858a25309925b5bafc6708e31126a825531d0124a0e5ad9",
+                  "parent_instance_path_sha256": "0677884172d4c0d3a59b74ced92e01302bba72129bcd8068fc1381b2e9f82e28"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "56897e52781866db35f927893d2148f167c627d19bbf6c58736adef17ea957a6",
+                  "parent_instance_path_sha256": "0677884172d4c0d3a59b74ced92e01302bba72129bcd8068fc1381b2e9f82e28"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "c4f210a47f8d56cb521b2b12f5d3f5e07d39398906bb4cffc021059024589c3d",
+                  "parent_instance_path_sha256": "0677884172d4c0d3a59b74ced92e01302bba72129bcd8068fc1381b2e9f82e28"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "47d60bd8edecc057bf1bd88cca97777c82509f70892fd4ee7bf7a7f53d0f5b9e",
+                  "parent_instance_path_sha256": "0677884172d4c0d3a59b74ced92e01302bba72129bcd8068fc1381b2e9f82e28"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-103",
+                  "input_sha256": "e4cfcb9cff297a9724b064bd8a1f722bdc8b6438c071cf720bc97ba25c8ef6cf",
+                  "instance_path_sha256": "3613c1d45e226e466f678ae2686c0046c3e1ed525b5716328f8ef99fa14d97b3",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-112",
+                  "input_sha256": "6ad4226e2520ee2da04631af3b87a6a5f3864fe381399e7ed395611b29b9f495",
+                  "instance_path_sha256": "14af2151f4bf732f2a35f4313f6876dce10567564d4f22a91bba43baca2a1a25",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-113",
+                  "input_sha256": "9752e91a609c1476780fe0d6260e5c91c1ed7be2233c637fac8ccdbb94f0750f",
+                  "instance_path_sha256": "3b7b00b137bbe0adfd8d6f877bea5894d7ffffdc442258cf53fd768034a140ee",
+                  "parent_instance_path_sha256": "14af2151f4bf732f2a35f4313f6876dce10567564d4f22a91bba43baca2a1a25"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-107",
+                  "input_sha256": "23e26501427cee90be09e9b3afdf4ff105cc3e940771234f907a876970e509fe",
+                  "instance_path_sha256": "611b666769b851ae691ac2a4e705d233d8cb701e4e66dd1c521f01417bee3d29",
+                  "parent_instance_path_sha256": "14af2151f4bf732f2a35f4313f6876dce10567564d4f22a91bba43baca2a1a25"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-111",
+                  "input_sha256": "e1d4d19d3cdf5d81ab42ccc919154bfdd99f328cf6b6294765df0ee3e3fbb58b",
+                  "instance_path_sha256": "4b6eaec024c872ce5f9b3e31b9562cf04e70fbb25e8f972d6119dc88d7f509dd",
+                  "parent_instance_path_sha256": "14af2151f4bf732f2a35f4313f6876dce10567564d4f22a91bba43baca2a1a25"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-110",
+                  "input_sha256": "609845f4c59160015ab194e0667d6a5e1abeae0a1fb484e16c1a3c00ff0cf05c",
+                  "instance_path_sha256": "7fd2f0254861b393975b39d87075113e15ae1bf564452b3dd864f1aa9fe78478",
+                  "parent_instance_path_sha256": "14af2151f4bf732f2a35f4313f6876dce10567564d4f22a91bba43baca2a1a25"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-114",
+                  "input_sha256": "6f4886c6231b918824beebef23cd056c584a49f29b5ae997411a321d07f35362",
+                  "instance_path_sha256": "56e32d8cca7a049bf16fd9015997a83d41df03f7a9a98a87cec2621bf0e09cc8",
+                  "parent_instance_path_sha256": "14af2151f4bf732f2a35f4313f6876dce10567564d4f22a91bba43baca2a1a25"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-109",
+                  "input_sha256": "81a8d975deb066e345074573611a569f6f533cd5fd04a941ad2ea57b92a5d8d7",
+                  "instance_path_sha256": "2e39041ffb25c87f35f81f8d2ca85d4b87b60f4e6d0f7d5d1fec134a14ef1a6e",
+                  "parent_instance_path_sha256": "14af2151f4bf732f2a35f4313f6876dce10567564d4f22a91bba43baca2a1a25"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-108",
+                  "input_sha256": "db54a9ab8f1dab24ac72e5c1db199f2e52e8d423a4f180b7b5b59508f90c592c",
+                  "instance_path_sha256": "481def1f898fde66a9bdcd90318fef48eda7f690e3adb865d39733407b6f0c9f",
+                  "parent_instance_path_sha256": "14af2151f4bf732f2a35f4313f6876dce10567564d4f22a91bba43baca2a1a25"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-091",
+                  "input_sha256": "931ec5588e9b3135149cff29c885f8a98a83ad4820b2e361466e58aa20acedb6",
+                  "instance_path_sha256": "85f26165d59aa6943b61635918d80a161aa5d47711f826535277ca6c7691dbf9",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-084",
+                  "input_sha256": "d8ff041ed2987a3c0719bf5cdc7d67b2597bcc4a0a864041585c9afd0613a91b",
+                  "instance_path_sha256": "b0b1516dd58547a99f7cdc22db5db309c44b99dc37650736ca21aaa820cd0507",
+                  "parent_instance_path_sha256": "85f26165d59aa6943b61635918d80a161aa5d47711f826535277ca6c7691dbf9"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-089",
+                  "input_sha256": "3e1619fbf0f05668aa2dac6632f4972604baae9ec1509f56e934dbc17f30c706",
+                  "instance_path_sha256": "441978b21b6676276efbd3c0c9760db79b913204339f9ac0ea8aecb2c6c7ee49",
+                  "parent_instance_path_sha256": "85f26165d59aa6943b61635918d80a161aa5d47711f826535277ca6c7691dbf9"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-088",
+                  "input_sha256": "0543b36e5888e5e17b448554ab3946a658c842ba75915aa705c73dc9ede9885c",
+                  "instance_path_sha256": "750d0306d34bb5991f6c2e2e8ecff74b8e5e26d51b9dfc9f81bd63dd59ba9063",
+                  "parent_instance_path_sha256": "441978b21b6676276efbd3c0c9760db79b913204339f9ac0ea8aecb2c6c7ee49"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-083",
+                  "input_sha256": "afa21638aa44735987e97d5648b5c0f3452b72dfcd5119338fa95e22f41c146b",
+                  "instance_path_sha256": "af9525e83d8acaaba02c77a719bde9beff6de65d905ee3bfd0fabbb7429c0ef6",
+                  "parent_instance_path_sha256": "85f26165d59aa6943b61635918d80a161aa5d47711f826535277ca6c7691dbf9"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-087",
+                  "input_sha256": "c9bf69883fdce135b4363717b306bc956d121d7907d6b7ec2ff5283b8939bbe6",
+                  "instance_path_sha256": "8caec7b1a0b4c3dfba34e790e97c77250abee53d29a60ea1abc37d28f567b029",
+                  "parent_instance_path_sha256": "85f26165d59aa6943b61635918d80a161aa5d47711f826535277ca6c7691dbf9"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-090",
+                  "input_sha256": "845bfa141acd4dc2a5489aee8a74976d6a45c5f5e0106da21272d4d6b4cdf1bc",
+                  "instance_path_sha256": "a4fc68567999f8b27e3e281c8340e0fd8d52204c103636d6c6876595fc4b5d00",
+                  "parent_instance_path_sha256": "85f26165d59aa6943b61635918d80a161aa5d47711f826535277ca6c7691dbf9"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-082",
+                  "input_sha256": "387cf92f575f78afa6f9310e9b753bfeb17388ebbb86c4360c1a206dfcd6934e",
+                  "instance_path_sha256": "1d518f2c9de88f8207146f70bd05da2202569438ee4cd5e142143ec6265e65f9",
+                  "parent_instance_path_sha256": "85f26165d59aa6943b61635918d80a161aa5d47711f826535277ca6c7691dbf9"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-086",
+                  "input_sha256": "d391e2243f610983130ecc88d25336424ab6fe462d86e9915857b0666bd559a4",
+                  "instance_path_sha256": "942cd55b4ab8857d155ad3dc9681aae64da47ac60489eafecd4dfdf387706587",
+                  "parent_instance_path_sha256": "85f26165d59aa6943b61635918d80a161aa5d47711f826535277ca6c7691dbf9"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-085",
+                  "input_sha256": "2c7cab85da7cdde39f6c576b477ea6558e2146196ebcbd788b305b5cf534175c",
+                  "instance_path_sha256": "3d8306ff4a2b5c2fe3d1221780bdc8b2701c87cce8eaae868c74e726d6892d8f",
+                  "parent_instance_path_sha256": "942cd55b4ab8857d155ad3dc9681aae64da47ac60489eafecd4dfdf387706587"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-096",
+                  "input_sha256": "d1504d7659d6786019033753c8190ecdedcc6c875640f76bc6264ca00c31e73f",
+                  "instance_path_sha256": "5b6932d7d03561c8eb1d75adddba511fbfe73eee49ab710b76a0344b858a576b",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-105",
+                  "input_sha256": "62a121ea4587a7783e2dff9591dbabd65921dceea904923f05e687c073db2720",
+                  "instance_path_sha256": "f54ff33f321cd415fb5461b692e07a3d087d3472cc881c5d88372592162bf5bd",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-098",
+                  "input_sha256": "356ae56e243f8d8cce7a8bda7aec21bd0a02a32f288429334f73a2688bb1725e",
+                  "instance_path_sha256": "15dbb3f46f83e0871f198e4e0ea817be7e511a3cd5ca980f3cb71b102eb020f0",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-080",
+                  "input_sha256": "fb8f40e676e37069e98b8dffef303148288b556705f0203472f609116f47fb82",
+                  "instance_path_sha256": "7dc437a9e092e14827cdcb5aafc6ae79607f6ae7a4a8fa63caeae350701eec5d",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-103",
+                  "input_sha256": "e4cfcb9cff297a9724b064bd8a1f722bdc8b6438c071cf720bc97ba25c8ef6cf",
+                  "instance_path_sha256": "a4515bf535ea9551fd231dd0b3afbbe361ab0f8942a2df3036c8d48945a78bea",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-099",
+                  "input_sha256": "3875c3e16e03872be6095b8137a85fc94992e3207ad31cd6dea425954ade9c93",
+                  "instance_path_sha256": "4eb04fe450b4e7fb56688056d1e11f3d31ea91a4bd3fd6738dc6f0452fb3e9ad",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-081",
+                  "input_sha256": "7f5d60fcebe3752ba2975724b60f31e050164ef43287943eb68a345edfc5d2e6",
+                  "instance_path_sha256": "0beba1995ce5a1c1b0e6bbf858b24aee5fa6c22c3e3cc175b5c52d083af208a1",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-079",
+                  "input_sha256": "000b342b036d7e7731871ca1ddebc71dc00e64afefac3ac4c383ccc24fa6ef97",
+                  "instance_path_sha256": "595b856527ec663bdafc7a18d3a89bed0fb3f3ea003130c3fb878827c52c0882",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-094",
+                  "input_sha256": "52c56ff5652a366599669ac28a67f0a8eee7c560fb8ca57a25136b30a8f13b18",
+                  "instance_path_sha256": "65c056ecf829d6a19cadced90ab4c4cd6c53e688135a47e52b521dd5bb492df6",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-095",
+                  "input_sha256": "201f060bfe9a65a8cf9346c391e630d5bd12cf552ad0a7f2c33efba0e34e5a16",
+                  "instance_path_sha256": "8944969249d15293f39cce906b28b74ab6a780d5fdb14c513183db35659a1184",
+                  "parent_instance_path_sha256": "65c056ecf829d6a19cadced90ab4c4cd6c53e688135a47e52b521dd5bb492df6"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "997e9251926359d7f7d5944a319bd656e440e275a356a5cd1e629fb1871f6c86",
+                  "parent_instance_path_sha256": "8944969249d15293f39cce906b28b74ab6a780d5fdb14c513183db35659a1184"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "8a9f37cae9a174ddaec29b9900d617f9f6aa44be28a2e2bd25d0b3f7ac9f3140",
+                  "parent_instance_path_sha256": "8944969249d15293f39cce906b28b74ab6a780d5fdb14c513183db35659a1184"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "15be81e6b1b8d8fa97f1fa3248bbe4e7b6374422410bd42545f5010562fd2189",
+                  "parent_instance_path_sha256": "8944969249d15293f39cce906b28b74ab6a780d5fdb14c513183db35659a1184"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "27aab12ed9583bb9cfdb766a1f2edb661a62ac3cb0572454f2ca392b02f67b5b",
+                  "parent_instance_path_sha256": "8944969249d15293f39cce906b28b74ab6a780d5fdb14c513183db35659a1184"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-095",
+                  "input_sha256": "201f060bfe9a65a8cf9346c391e630d5bd12cf552ad0a7f2c33efba0e34e5a16",
+                  "instance_path_sha256": "7e2b078d8d82f677198302d9eca800e0b71dee0afbefc23aa2220df1cf291857",
+                  "parent_instance_path_sha256": "65c056ecf829d6a19cadced90ab4c4cd6c53e688135a47e52b521dd5bb492df6"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "2ce3c1677ca2e6b4d0a59fa2c91f7eeb2bf159f05e9a41b0bb3aa173ade9a38a",
+                  "parent_instance_path_sha256": "7e2b078d8d82f677198302d9eca800e0b71dee0afbefc23aa2220df1cf291857"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "3b0ee7d6d10dee62a6d06f27264de350e5924c30e9baee77e7e0d5912eac406e",
+                  "parent_instance_path_sha256": "7e2b078d8d82f677198302d9eca800e0b71dee0afbefc23aa2220df1cf291857"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "41507550092044016a423cc7b65b0148cd4baa863e9ac74498247b8e60a7b5d2",
+                  "parent_instance_path_sha256": "7e2b078d8d82f677198302d9eca800e0b71dee0afbefc23aa2220df1cf291857"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "5b1e144ce61c893b6fd61bd518b9d68a373f11ad43abcea5b19a1de9b86d3408",
+                  "parent_instance_path_sha256": "7e2b078d8d82f677198302d9eca800e0b71dee0afbefc23aa2220df1cf291857"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-095",
+                  "input_sha256": "201f060bfe9a65a8cf9346c391e630d5bd12cf552ad0a7f2c33efba0e34e5a16",
+                  "instance_path_sha256": "f7a050c7b0971ee6d14a5b88dc37ae4de7fb74339843e93e863f59dafc9cacca",
+                  "parent_instance_path_sha256": "65c056ecf829d6a19cadced90ab4c4cd6c53e688135a47e52b521dd5bb492df6"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "85f9148bcefc536c170939fe892c032a41078d17d9b7c533829b9c9b23f6aa71",
+                  "parent_instance_path_sha256": "f7a050c7b0971ee6d14a5b88dc37ae4de7fb74339843e93e863f59dafc9cacca"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "de7e5f7eed2cf1ff0d8919ac010a6b28ab078eff1c582780685516c93d52755b",
+                  "parent_instance_path_sha256": "f7a050c7b0971ee6d14a5b88dc37ae4de7fb74339843e93e863f59dafc9cacca"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "e7297123a7b99d9ef6332e2ab8d6ea8c55c86568305eaac63cf86b0163217768",
+                  "parent_instance_path_sha256": "f7a050c7b0971ee6d14a5b88dc37ae4de7fb74339843e93e863f59dafc9cacca"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "b1e151f3788c57f57cb9d8aecc70d39dff85430a2a89cc143abb80e621f3a049",
+                  "parent_instance_path_sha256": "f7a050c7b0971ee6d14a5b88dc37ae4de7fb74339843e93e863f59dafc9cacca"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-095",
+                  "input_sha256": "201f060bfe9a65a8cf9346c391e630d5bd12cf552ad0a7f2c33efba0e34e5a16",
+                  "instance_path_sha256": "f473919b3950f4fa86605ddb741d086133ec0dc98d5b742e20bf0115397ecfab",
+                  "parent_instance_path_sha256": "65c056ecf829d6a19cadced90ab4c4cd6c53e688135a47e52b521dd5bb492df6"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "73df0ad757ed0ae6b9907c07b37ef75e75ebfb38d72b3d9892d0e5cd176d87a0",
+                  "parent_instance_path_sha256": "f473919b3950f4fa86605ddb741d086133ec0dc98d5b742e20bf0115397ecfab"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "4cc45c33c2e75ede99e4e76cb0a40b8c2a2425cc83b97bc5f5f4555690b245ff",
+                  "parent_instance_path_sha256": "f473919b3950f4fa86605ddb741d086133ec0dc98d5b742e20bf0115397ecfab"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "ac7386fc74443b36bc6ab7a01c984ac14478e26ddf5e3d9cf59a525f73e7a689",
+                  "parent_instance_path_sha256": "f473919b3950f4fa86605ddb741d086133ec0dc98d5b742e20bf0115397ecfab"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "d947848b4fbf659bb504f15fe24b678b96e8ca865275a41372497a65aa2f32af",
+                  "parent_instance_path_sha256": "f473919b3950f4fa86605ddb741d086133ec0dc98d5b742e20bf0115397ecfab"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-097",
+                  "input_sha256": "c201f38f7619cc4c3a1e56e46128d3fe746660f56aa87a05c99d457923ab391d",
+                  "instance_path_sha256": "d5ae3babffc95e661d04dddd363f900e53c8cb135f5b0c97e8108e86f1386228",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-104",
+                  "input_sha256": "61d7229a38ee677a0d49bee45c77ed86d26836b26646d017c5715ea45cf148a4",
+                  "instance_path_sha256": "2f3c840c35ddddc0915e90f50433e0d827668cd021577a5ef999b479088f6a93",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-078",
+                  "input_sha256": "4942247e550814ae0add0aa80864956bfd35470b8e9774ee4e99fc31d655c948",
+                  "instance_path_sha256": "f5a230618337f29b437f1401d5ef30371b89e94ec54c1c95abdd996a574cc168",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                }
+              ],
+              "native_export_root_id": "kicad-demo-10-0-6-sch-106",
+              "owner_id": "kicad-demo-10-0-6-sch-106",
+              "owner_sha256": "4cc3e74f2e47304bd3b360b18bab55d378573bc491b4f210aebe533890aa3dcb",
+              "project_input": {
+                "expected_sha256": "775231e918a3f79f4aa6b4a9bf36194790b818ba599c7e220a2a5cfa41d6e665",
+                "id": "kicad-demo-9-0-9-1-pro-17",
+                "input_sha256": "775231e918a3f79f4aa6b4a9bf36194790b818ba599c7e220a2a5cfa41d6e665"
+              },
+              "scope": "registered-project",
+              "target_instances": 1
+            },
+            "counts": {
+              "bus_entries": 1135,
+              "buses": 1250,
+              "junctions": 1520,
+              "labels": 2312,
+              "opaque": 127,
+              "powers": 743,
+              "sheet_refs": 48,
+              "sheets": 36,
+              "symbols": 863,
+              "wires": 5455
+            },
+            "formats": [
+              20250114
+            ],
+            "id": "kicad-demo-10-0-6-sch-106",
+            "inputs": [
+              {
+                "expected_sha256": "4942247e550814ae0add0aa80864956bfd35470b8e9774ee4e99fc31d655c948",
+                "id": "kicad-demo-10-0-6-sch-078",
+                "sha256": "4942247e550814ae0add0aa80864956bfd35470b8e9774ee4e99fc31d655c948"
+              },
+              {
+                "expected_sha256": "000b342b036d7e7731871ca1ddebc71dc00e64afefac3ac4c383ccc24fa6ef97",
+                "id": "kicad-demo-10-0-6-sch-079",
+                "sha256": "000b342b036d7e7731871ca1ddebc71dc00e64afefac3ac4c383ccc24fa6ef97"
+              },
+              {
+                "expected_sha256": "fb8f40e676e37069e98b8dffef303148288b556705f0203472f609116f47fb82",
+                "id": "kicad-demo-10-0-6-sch-080",
+                "sha256": "fb8f40e676e37069e98b8dffef303148288b556705f0203472f609116f47fb82"
+              },
+              {
+                "expected_sha256": "7f5d60fcebe3752ba2975724b60f31e050164ef43287943eb68a345edfc5d2e6",
+                "id": "kicad-demo-10-0-6-sch-081",
+                "sha256": "7f5d60fcebe3752ba2975724b60f31e050164ef43287943eb68a345edfc5d2e6"
+              },
+              {
+                "expected_sha256": "387cf92f575f78afa6f9310e9b753bfeb17388ebbb86c4360c1a206dfcd6934e",
+                "id": "kicad-demo-10-0-6-sch-082",
+                "sha256": "387cf92f575f78afa6f9310e9b753bfeb17388ebbb86c4360c1a206dfcd6934e"
+              },
+              {
+                "expected_sha256": "afa21638aa44735987e97d5648b5c0f3452b72dfcd5119338fa95e22f41c146b",
+                "id": "kicad-demo-10-0-6-sch-083",
+                "sha256": "afa21638aa44735987e97d5648b5c0f3452b72dfcd5119338fa95e22f41c146b"
+              },
+              {
+                "expected_sha256": "d8ff041ed2987a3c0719bf5cdc7d67b2597bcc4a0a864041585c9afd0613a91b",
+                "id": "kicad-demo-10-0-6-sch-084",
+                "sha256": "d8ff041ed2987a3c0719bf5cdc7d67b2597bcc4a0a864041585c9afd0613a91b"
+              },
+              {
+                "expected_sha256": "2c7cab85da7cdde39f6c576b477ea6558e2146196ebcbd788b305b5cf534175c",
+                "id": "kicad-demo-10-0-6-sch-085",
+                "sha256": "2c7cab85da7cdde39f6c576b477ea6558e2146196ebcbd788b305b5cf534175c"
+              },
+              {
+                "expected_sha256": "d391e2243f610983130ecc88d25336424ab6fe462d86e9915857b0666bd559a4",
+                "id": "kicad-demo-10-0-6-sch-086",
+                "sha256": "d391e2243f610983130ecc88d25336424ab6fe462d86e9915857b0666bd559a4"
+              },
+              {
+                "expected_sha256": "c9bf69883fdce135b4363717b306bc956d121d7907d6b7ec2ff5283b8939bbe6",
+                "id": "kicad-demo-10-0-6-sch-087",
+                "sha256": "c9bf69883fdce135b4363717b306bc956d121d7907d6b7ec2ff5283b8939bbe6"
+              },
+              {
+                "expected_sha256": "0543b36e5888e5e17b448554ab3946a658c842ba75915aa705c73dc9ede9885c",
+                "id": "kicad-demo-10-0-6-sch-088",
+                "sha256": "0543b36e5888e5e17b448554ab3946a658c842ba75915aa705c73dc9ede9885c"
+              },
+              {
+                "expected_sha256": "3e1619fbf0f05668aa2dac6632f4972604baae9ec1509f56e934dbc17f30c706",
+                "id": "kicad-demo-10-0-6-sch-089",
+                "sha256": "3e1619fbf0f05668aa2dac6632f4972604baae9ec1509f56e934dbc17f30c706"
+              },
+              {
+                "expected_sha256": "845bfa141acd4dc2a5489aee8a74976d6a45c5f5e0106da21272d4d6b4cdf1bc",
+                "id": "kicad-demo-10-0-6-sch-090",
+                "sha256": "845bfa141acd4dc2a5489aee8a74976d6a45c5f5e0106da21272d4d6b4cdf1bc"
+              },
+              {
+                "expected_sha256": "931ec5588e9b3135149cff29c885f8a98a83ad4820b2e361466e58aa20acedb6",
+                "id": "kicad-demo-10-0-6-sch-091",
+                "sha256": "931ec5588e9b3135149cff29c885f8a98a83ad4820b2e361466e58aa20acedb6"
+              },
+              {
+                "expected_sha256": "0e7b55b9ebe23670147f7a70bef1500fcd8ac112ab6110923fe45673edc5d429",
+                "id": "kicad-demo-10-0-6-sch-092",
+                "sha256": "0e7b55b9ebe23670147f7a70bef1500fcd8ac112ab6110923fe45673edc5d429"
+              },
+              {
+                "expected_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                "id": "kicad-demo-10-0-6-sch-093",
+                "sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034"
+              },
+              {
+                "expected_sha256": "52c56ff5652a366599669ac28a67f0a8eee7c560fb8ca57a25136b30a8f13b18",
+                "id": "kicad-demo-10-0-6-sch-094",
+                "sha256": "52c56ff5652a366599669ac28a67f0a8eee7c560fb8ca57a25136b30a8f13b18"
+              },
+              {
+                "expected_sha256": "201f060bfe9a65a8cf9346c391e630d5bd12cf552ad0a7f2c33efba0e34e5a16",
+                "id": "kicad-demo-10-0-6-sch-095",
+                "sha256": "201f060bfe9a65a8cf9346c391e630d5bd12cf552ad0a7f2c33efba0e34e5a16"
+              },
+              {
+                "expected_sha256": "d1504d7659d6786019033753c8190ecdedcc6c875640f76bc6264ca00c31e73f",
+                "id": "kicad-demo-10-0-6-sch-096",
+                "sha256": "d1504d7659d6786019033753c8190ecdedcc6c875640f76bc6264ca00c31e73f"
+              },
+              {
+                "expected_sha256": "c201f38f7619cc4c3a1e56e46128d3fe746660f56aa87a05c99d457923ab391d",
+                "id": "kicad-demo-10-0-6-sch-097",
+                "sha256": "c201f38f7619cc4c3a1e56e46128d3fe746660f56aa87a05c99d457923ab391d"
+              },
+              {
+                "expected_sha256": "356ae56e243f8d8cce7a8bda7aec21bd0a02a32f288429334f73a2688bb1725e",
+                "id": "kicad-demo-10-0-6-sch-098",
+                "sha256": "356ae56e243f8d8cce7a8bda7aec21bd0a02a32f288429334f73a2688bb1725e"
+              },
+              {
+                "expected_sha256": "3875c3e16e03872be6095b8137a85fc94992e3207ad31cd6dea425954ade9c93",
+                "id": "kicad-demo-10-0-6-sch-099",
+                "sha256": "3875c3e16e03872be6095b8137a85fc94992e3207ad31cd6dea425954ade9c93"
+              },
+              {
+                "expected_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                "id": "kicad-demo-10-0-6-sch-100",
+                "sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919"
+              },
+              {
+                "expected_sha256": "4616b90ca042cc85326be17f8ab8330aaa06938bcea79591862bb86085803573",
+                "id": "kicad-demo-10-0-6-sch-101",
+                "sha256": "4616b90ca042cc85326be17f8ab8330aaa06938bcea79591862bb86085803573"
+              },
+              {
+                "expected_sha256": "11569225b001676b85498528a9accbdef4b815618fdcf8c6ffc9306c6ef2628c",
+                "id": "kicad-demo-10-0-6-sch-102",
+                "sha256": "11569225b001676b85498528a9accbdef4b815618fdcf8c6ffc9306c6ef2628c"
+              },
+              {
+                "expected_sha256": "e4cfcb9cff297a9724b064bd8a1f722bdc8b6438c071cf720bc97ba25c8ef6cf",
+                "id": "kicad-demo-10-0-6-sch-103",
+                "sha256": "e4cfcb9cff297a9724b064bd8a1f722bdc8b6438c071cf720bc97ba25c8ef6cf"
+              },
+              {
+                "expected_sha256": "61d7229a38ee677a0d49bee45c77ed86d26836b26646d017c5715ea45cf148a4",
+                "id": "kicad-demo-10-0-6-sch-104",
+                "sha256": "61d7229a38ee677a0d49bee45c77ed86d26836b26646d017c5715ea45cf148a4"
+              },
+              {
+                "expected_sha256": "62a121ea4587a7783e2dff9591dbabd65921dceea904923f05e687c073db2720",
+                "id": "kicad-demo-10-0-6-sch-105",
+                "sha256": "62a121ea4587a7783e2dff9591dbabd65921dceea904923f05e687c073db2720"
+              },
+              {
+                "expected_sha256": "775231e918a3f79f4aa6b4a9bf36194790b818ba599c7e220a2a5cfa41d6e665",
+                "id": "kicad-demo-9-0-9-1-pro-17",
+                "sha256": "775231e918a3f79f4aa6b4a9bf36194790b818ba599c7e220a2a5cfa41d6e665"
+              },
+              {
+                "expected_sha256": "4cc3e74f2e47304bd3b360b18bab55d378573bc491b4f210aebe533890aa3dcb",
+                "id": "kicad-demo-10-0-6-sch-106",
+                "sha256": "4cc3e74f2e47304bd3b360b18bab55d378573bc491b4f210aebe533890aa3dcb"
+              },
+              {
+                "expected_sha256": "23e26501427cee90be09e9b3afdf4ff105cc3e940771234f907a876970e509fe",
+                "id": "kicad-demo-10-0-6-sch-107",
+                "sha256": "23e26501427cee90be09e9b3afdf4ff105cc3e940771234f907a876970e509fe"
+              },
+              {
+                "expected_sha256": "db54a9ab8f1dab24ac72e5c1db199f2e52e8d423a4f180b7b5b59508f90c592c",
+                "id": "kicad-demo-10-0-6-sch-108",
+                "sha256": "db54a9ab8f1dab24ac72e5c1db199f2e52e8d423a4f180b7b5b59508f90c592c"
+              },
+              {
+                "expected_sha256": "81a8d975deb066e345074573611a569f6f533cd5fd04a941ad2ea57b92a5d8d7",
+                "id": "kicad-demo-10-0-6-sch-109",
+                "sha256": "81a8d975deb066e345074573611a569f6f533cd5fd04a941ad2ea57b92a5d8d7"
+              },
+              {
+                "expected_sha256": "609845f4c59160015ab194e0667d6a5e1abeae0a1fb484e16c1a3c00ff0cf05c",
+                "id": "kicad-demo-10-0-6-sch-110",
+                "sha256": "609845f4c59160015ab194e0667d6a5e1abeae0a1fb484e16c1a3c00ff0cf05c"
+              },
+              {
+                "expected_sha256": "e1d4d19d3cdf5d81ab42ccc919154bfdd99f328cf6b6294765df0ee3e3fbb58b",
+                "id": "kicad-demo-10-0-6-sch-111",
+                "sha256": "e1d4d19d3cdf5d81ab42ccc919154bfdd99f328cf6b6294765df0ee3e3fbb58b"
+              },
+              {
+                "expected_sha256": "6ad4226e2520ee2da04631af3b87a6a5f3864fe381399e7ed395611b29b9f495",
+                "id": "kicad-demo-10-0-6-sch-112",
+                "sha256": "6ad4226e2520ee2da04631af3b87a6a5f3864fe381399e7ed395611b29b9f495"
+              },
+              {
+                "expected_sha256": "9752e91a609c1476780fe0d6260e5c91c1ed7be2233c637fac8ccdbb94f0750f",
+                "id": "kicad-demo-10-0-6-sch-113",
+                "sha256": "9752e91a609c1476780fe0d6260e5c91c1ed7be2233c637fac8ccdbb94f0750f"
+              },
+              {
+                "expected_sha256": "6f4886c6231b918824beebef23cd056c584a49f29b5ae997411a321d07f35362",
+                "id": "kicad-demo-10-0-6-sch-114",
+                "sha256": "6f4886c6231b918824beebef23cd056c584a49f29b5ae997411a321d07f35362"
+              }
+            ],
+            "issues": {
+              "extract": {},
+              "resolve": {
+                "warning:drawn.bus-member-unknown": 2501,
+                "warning:drawn.dangling": 1079
+              }
+            },
+            "major": 9,
+            "native_version": "9.0.2",
+            "refusal": {
+              "code": "",
+              "stage": "native-original",
+              "type": "KeyError"
+            },
+            "schema": "fenolite.drawn-census.v0",
+            "seconds": 51.951037,
+            "status": "internal-error",
+            "timings": {
+              "extract": 2.322146,
+              "resolve": 2.50088
+            }
+          }
+        ],
+        "declared_format": 20250114,
+        "expected_sha256": "4cc3e74f2e47304bd3b360b18bab55d378573bc491b4f210aebe533890aa3dcb",
+        "id": "kicad-demo-10-0-6-sch-106",
+        "input_sha256": "4cc3e74f2e47304bd3b360b18bab55d378573bc491b4f210aebe533890aa3dcb",
+        "major": 9,
+        "manifest_sha256": "bdc796c64b61f1e0a0240f2c133e879cc367a1ed256ea006cf883320b2cb4dcc",
+        "native_version": "9.0.2",
+        "running_tag": "9.0.9.1",
+        "schema": "fenolite.drawn-census.v0",
+        "source_commit": "caf7377e9cb6",
+        "source_ref": "10.0.6",
+        "status": "internal-error",
+        "total_seconds": 60.438541
+      },
+      "record_sha256": "c004d395bf71b3f15f6549befff927b783324400b7885f3065e0e920e117f61f",
+      "required_ci_passed": false,
+      "retained_cad_files": 0,
+      "scope": "one registered VME owner and its complete 36-sheet hierarchy; other row parameters not executed"
+    },
+    {
+      "code_commit": "7584b394f32ec2054ea20f6580300890d9483535",
+      "evidence_promoted": false,
+      "log_sha256": "dbce072b694d6c0ac3806b9afe7ec7a7c2198d66617ff20b2e8efec7abc28ca3",
+      "native_version": "9.0.2",
+      "pytest_exit": 1,
+      "record": {
+        "code_commit": "7584b394f32ec2054ea20f6580300890d9483535",
+        "contexts": [
+          {
+            "code_commit": "7584b394f32ec2054ea20f6580300890d9483535",
+            "context": {
+              "errors": [],
+              "instances": [
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-106",
+                  "input_sha256": "4cc3e74f2e47304bd3b360b18bab55d378573bc491b4f210aebe533890aa3dcb",
+                  "instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046",
+                  "parent_instance_path_sha256": null
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-101",
+                  "input_sha256": "4616b90ca042cc85326be17f8ab8330aaa06938bcea79591862bb86085803573",
+                  "instance_path_sha256": "b4d9811f68c7a0745a82d81d8fabff40c06e3b592595eec7f4713f1d5f8b8b57",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-102",
+                  "input_sha256": "11569225b001676b85498528a9accbdef4b815618fdcf8c6ffc9306c6ef2628c",
+                  "instance_path_sha256": "ba5ad819e4cdbec6bdfb07ea0160d43687e3faa5602fca06285827560557ecda",
+                  "parent_instance_path_sha256": "b4d9811f68c7a0745a82d81d8fabff40c06e3b592595eec7f4713f1d5f8b8b57"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "72956ec849cdbfa9970a37fd93253a869a83042e0380fae52836b4b067ceb2ac",
+                  "parent_instance_path_sha256": "ba5ad819e4cdbec6bdfb07ea0160d43687e3faa5602fca06285827560557ecda"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "823355e7d3396902df4a6d44e5f0478e24258907fda6409c403b8747e81b259a",
+                  "parent_instance_path_sha256": "ba5ad819e4cdbec6bdfb07ea0160d43687e3faa5602fca06285827560557ecda"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "4492fef6867889854ed3cc6af0c2cd08176be578cba3decc6550fb9e95f3aac5",
+                  "parent_instance_path_sha256": "ba5ad819e4cdbec6bdfb07ea0160d43687e3faa5602fca06285827560557ecda"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "a7d1a273ec9577232e0cc224d1697aa77e828ba47eaa846301967034757f7e8d",
+                  "parent_instance_path_sha256": "ba5ad819e4cdbec6bdfb07ea0160d43687e3faa5602fca06285827560557ecda"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-102",
+                  "input_sha256": "11569225b001676b85498528a9accbdef4b815618fdcf8c6ffc9306c6ef2628c",
+                  "instance_path_sha256": "6aa8eb0ff88edabec3c454ab5065bebf180d1c7bface8ed4655baa2d73d0d2e5",
+                  "parent_instance_path_sha256": "b4d9811f68c7a0745a82d81d8fabff40c06e3b592595eec7f4713f1d5f8b8b57"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "0eb880089751119d45d193ae7892a551648e9482a74fca3b58e30cb5d0bbf0d7",
+                  "parent_instance_path_sha256": "6aa8eb0ff88edabec3c454ab5065bebf180d1c7bface8ed4655baa2d73d0d2e5"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "4bf08fdcf9f8b0a825f0fc64df0abcac810fa6ea1dbf735bc07c686935c713f4",
+                  "parent_instance_path_sha256": "6aa8eb0ff88edabec3c454ab5065bebf180d1c7bface8ed4655baa2d73d0d2e5"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "6d4de4bf5e7a2961d0dda17b33036bb8ae6e29b3091828e075fa72283edee7fa",
+                  "parent_instance_path_sha256": "6aa8eb0ff88edabec3c454ab5065bebf180d1c7bface8ed4655baa2d73d0d2e5"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "78a7ae25e3e71c4e91cbc7fa6279544890ab3fc8cfd93168007d5615aed496f4",
+                  "parent_instance_path_sha256": "6aa8eb0ff88edabec3c454ab5065bebf180d1c7bface8ed4655baa2d73d0d2e5"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-102",
+                  "input_sha256": "11569225b001676b85498528a9accbdef4b815618fdcf8c6ffc9306c6ef2628c",
+                  "instance_path_sha256": "9c6cf637c17ba298c1bb38d4f0867ad27e9de2cfd204be7b4430b07445f854cc",
+                  "parent_instance_path_sha256": "b4d9811f68c7a0745a82d81d8fabff40c06e3b592595eec7f4713f1d5f8b8b57"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "129250afe8b4c493605bf0851711917ee8d3161b22b454586d17786dd53ad6eb",
+                  "parent_instance_path_sha256": "9c6cf637c17ba298c1bb38d4f0867ad27e9de2cfd204be7b4430b07445f854cc"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "e91e42f6d7eed3c0982ea77e41269d5fd770fd4a47f3819529dc9b9323cb78d7",
+                  "parent_instance_path_sha256": "9c6cf637c17ba298c1bb38d4f0867ad27e9de2cfd204be7b4430b07445f854cc"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "1f9abecef9d84fd6ea6efc1367fbbf8a4813b7c28b951195c48e3bdbb3feb7dc",
+                  "parent_instance_path_sha256": "9c6cf637c17ba298c1bb38d4f0867ad27e9de2cfd204be7b4430b07445f854cc"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "e2d4629d90792840080e6907f9cc04b5a77e0a3334999f63b044d89a805ccb26",
+                  "parent_instance_path_sha256": "9c6cf637c17ba298c1bb38d4f0867ad27e9de2cfd204be7b4430b07445f854cc"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-102",
+                  "input_sha256": "11569225b001676b85498528a9accbdef4b815618fdcf8c6ffc9306c6ef2628c",
+                  "instance_path_sha256": "0677884172d4c0d3a59b74ced92e01302bba72129bcd8068fc1381b2e9f82e28",
+                  "parent_instance_path_sha256": "b4d9811f68c7a0745a82d81d8fabff40c06e3b592595eec7f4713f1d5f8b8b57"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "c51e5970e5ce54ec4858a25309925b5bafc6708e31126a825531d0124a0e5ad9",
+                  "parent_instance_path_sha256": "0677884172d4c0d3a59b74ced92e01302bba72129bcd8068fc1381b2e9f82e28"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "56897e52781866db35f927893d2148f167c627d19bbf6c58736adef17ea957a6",
+                  "parent_instance_path_sha256": "0677884172d4c0d3a59b74ced92e01302bba72129bcd8068fc1381b2e9f82e28"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "c4f210a47f8d56cb521b2b12f5d3f5e07d39398906bb4cffc021059024589c3d",
+                  "parent_instance_path_sha256": "0677884172d4c0d3a59b74ced92e01302bba72129bcd8068fc1381b2e9f82e28"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "47d60bd8edecc057bf1bd88cca97777c82509f70892fd4ee7bf7a7f53d0f5b9e",
+                  "parent_instance_path_sha256": "0677884172d4c0d3a59b74ced92e01302bba72129bcd8068fc1381b2e9f82e28"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-103",
+                  "input_sha256": "e4cfcb9cff297a9724b064bd8a1f722bdc8b6438c071cf720bc97ba25c8ef6cf",
+                  "instance_path_sha256": "3613c1d45e226e466f678ae2686c0046c3e1ed525b5716328f8ef99fa14d97b3",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-112",
+                  "input_sha256": "6ad4226e2520ee2da04631af3b87a6a5f3864fe381399e7ed395611b29b9f495",
+                  "instance_path_sha256": "14af2151f4bf732f2a35f4313f6876dce10567564d4f22a91bba43baca2a1a25",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-113",
+                  "input_sha256": "9752e91a609c1476780fe0d6260e5c91c1ed7be2233c637fac8ccdbb94f0750f",
+                  "instance_path_sha256": "3b7b00b137bbe0adfd8d6f877bea5894d7ffffdc442258cf53fd768034a140ee",
+                  "parent_instance_path_sha256": "14af2151f4bf732f2a35f4313f6876dce10567564d4f22a91bba43baca2a1a25"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-107",
+                  "input_sha256": "23e26501427cee90be09e9b3afdf4ff105cc3e940771234f907a876970e509fe",
+                  "instance_path_sha256": "611b666769b851ae691ac2a4e705d233d8cb701e4e66dd1c521f01417bee3d29",
+                  "parent_instance_path_sha256": "14af2151f4bf732f2a35f4313f6876dce10567564d4f22a91bba43baca2a1a25"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-111",
+                  "input_sha256": "e1d4d19d3cdf5d81ab42ccc919154bfdd99f328cf6b6294765df0ee3e3fbb58b",
+                  "instance_path_sha256": "4b6eaec024c872ce5f9b3e31b9562cf04e70fbb25e8f972d6119dc88d7f509dd",
+                  "parent_instance_path_sha256": "14af2151f4bf732f2a35f4313f6876dce10567564d4f22a91bba43baca2a1a25"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-110",
+                  "input_sha256": "609845f4c59160015ab194e0667d6a5e1abeae0a1fb484e16c1a3c00ff0cf05c",
+                  "instance_path_sha256": "7fd2f0254861b393975b39d87075113e15ae1bf564452b3dd864f1aa9fe78478",
+                  "parent_instance_path_sha256": "14af2151f4bf732f2a35f4313f6876dce10567564d4f22a91bba43baca2a1a25"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-114",
+                  "input_sha256": "6f4886c6231b918824beebef23cd056c584a49f29b5ae997411a321d07f35362",
+                  "instance_path_sha256": "56e32d8cca7a049bf16fd9015997a83d41df03f7a9a98a87cec2621bf0e09cc8",
+                  "parent_instance_path_sha256": "14af2151f4bf732f2a35f4313f6876dce10567564d4f22a91bba43baca2a1a25"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-109",
+                  "input_sha256": "81a8d975deb066e345074573611a569f6f533cd5fd04a941ad2ea57b92a5d8d7",
+                  "instance_path_sha256": "2e39041ffb25c87f35f81f8d2ca85d4b87b60f4e6d0f7d5d1fec134a14ef1a6e",
+                  "parent_instance_path_sha256": "14af2151f4bf732f2a35f4313f6876dce10567564d4f22a91bba43baca2a1a25"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-108",
+                  "input_sha256": "db54a9ab8f1dab24ac72e5c1db199f2e52e8d423a4f180b7b5b59508f90c592c",
+                  "instance_path_sha256": "481def1f898fde66a9bdcd90318fef48eda7f690e3adb865d39733407b6f0c9f",
+                  "parent_instance_path_sha256": "14af2151f4bf732f2a35f4313f6876dce10567564d4f22a91bba43baca2a1a25"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-091",
+                  "input_sha256": "931ec5588e9b3135149cff29c885f8a98a83ad4820b2e361466e58aa20acedb6",
+                  "instance_path_sha256": "85f26165d59aa6943b61635918d80a161aa5d47711f826535277ca6c7691dbf9",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-084",
+                  "input_sha256": "d8ff041ed2987a3c0719bf5cdc7d67b2597bcc4a0a864041585c9afd0613a91b",
+                  "instance_path_sha256": "b0b1516dd58547a99f7cdc22db5db309c44b99dc37650736ca21aaa820cd0507",
+                  "parent_instance_path_sha256": "85f26165d59aa6943b61635918d80a161aa5d47711f826535277ca6c7691dbf9"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-089",
+                  "input_sha256": "3e1619fbf0f05668aa2dac6632f4972604baae9ec1509f56e934dbc17f30c706",
+                  "instance_path_sha256": "441978b21b6676276efbd3c0c9760db79b913204339f9ac0ea8aecb2c6c7ee49",
+                  "parent_instance_path_sha256": "85f26165d59aa6943b61635918d80a161aa5d47711f826535277ca6c7691dbf9"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-088",
+                  "input_sha256": "0543b36e5888e5e17b448554ab3946a658c842ba75915aa705c73dc9ede9885c",
+                  "instance_path_sha256": "750d0306d34bb5991f6c2e2e8ecff74b8e5e26d51b9dfc9f81bd63dd59ba9063",
+                  "parent_instance_path_sha256": "441978b21b6676276efbd3c0c9760db79b913204339f9ac0ea8aecb2c6c7ee49"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-083",
+                  "input_sha256": "afa21638aa44735987e97d5648b5c0f3452b72dfcd5119338fa95e22f41c146b",
+                  "instance_path_sha256": "af9525e83d8acaaba02c77a719bde9beff6de65d905ee3bfd0fabbb7429c0ef6",
+                  "parent_instance_path_sha256": "85f26165d59aa6943b61635918d80a161aa5d47711f826535277ca6c7691dbf9"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-087",
+                  "input_sha256": "c9bf69883fdce135b4363717b306bc956d121d7907d6b7ec2ff5283b8939bbe6",
+                  "instance_path_sha256": "8caec7b1a0b4c3dfba34e790e97c77250abee53d29a60ea1abc37d28f567b029",
+                  "parent_instance_path_sha256": "85f26165d59aa6943b61635918d80a161aa5d47711f826535277ca6c7691dbf9"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-090",
+                  "input_sha256": "845bfa141acd4dc2a5489aee8a74976d6a45c5f5e0106da21272d4d6b4cdf1bc",
+                  "instance_path_sha256": "a4fc68567999f8b27e3e281c8340e0fd8d52204c103636d6c6876595fc4b5d00",
+                  "parent_instance_path_sha256": "85f26165d59aa6943b61635918d80a161aa5d47711f826535277ca6c7691dbf9"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-082",
+                  "input_sha256": "387cf92f575f78afa6f9310e9b753bfeb17388ebbb86c4360c1a206dfcd6934e",
+                  "instance_path_sha256": "1d518f2c9de88f8207146f70bd05da2202569438ee4cd5e142143ec6265e65f9",
+                  "parent_instance_path_sha256": "85f26165d59aa6943b61635918d80a161aa5d47711f826535277ca6c7691dbf9"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-086",
+                  "input_sha256": "d391e2243f610983130ecc88d25336424ab6fe462d86e9915857b0666bd559a4",
+                  "instance_path_sha256": "942cd55b4ab8857d155ad3dc9681aae64da47ac60489eafecd4dfdf387706587",
+                  "parent_instance_path_sha256": "85f26165d59aa6943b61635918d80a161aa5d47711f826535277ca6c7691dbf9"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-085",
+                  "input_sha256": "2c7cab85da7cdde39f6c576b477ea6558e2146196ebcbd788b305b5cf534175c",
+                  "instance_path_sha256": "3d8306ff4a2b5c2fe3d1221780bdc8b2701c87cce8eaae868c74e726d6892d8f",
+                  "parent_instance_path_sha256": "942cd55b4ab8857d155ad3dc9681aae64da47ac60489eafecd4dfdf387706587"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-096",
+                  "input_sha256": "d1504d7659d6786019033753c8190ecdedcc6c875640f76bc6264ca00c31e73f",
+                  "instance_path_sha256": "5b6932d7d03561c8eb1d75adddba511fbfe73eee49ab710b76a0344b858a576b",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-105",
+                  "input_sha256": "62a121ea4587a7783e2dff9591dbabd65921dceea904923f05e687c073db2720",
+                  "instance_path_sha256": "f54ff33f321cd415fb5461b692e07a3d087d3472cc881c5d88372592162bf5bd",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-098",
+                  "input_sha256": "356ae56e243f8d8cce7a8bda7aec21bd0a02a32f288429334f73a2688bb1725e",
+                  "instance_path_sha256": "15dbb3f46f83e0871f198e4e0ea817be7e511a3cd5ca980f3cb71b102eb020f0",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-080",
+                  "input_sha256": "fb8f40e676e37069e98b8dffef303148288b556705f0203472f609116f47fb82",
+                  "instance_path_sha256": "7dc437a9e092e14827cdcb5aafc6ae79607f6ae7a4a8fa63caeae350701eec5d",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-103",
+                  "input_sha256": "e4cfcb9cff297a9724b064bd8a1f722bdc8b6438c071cf720bc97ba25c8ef6cf",
+                  "instance_path_sha256": "a4515bf535ea9551fd231dd0b3afbbe361ab0f8942a2df3036c8d48945a78bea",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-099",
+                  "input_sha256": "3875c3e16e03872be6095b8137a85fc94992e3207ad31cd6dea425954ade9c93",
+                  "instance_path_sha256": "4eb04fe450b4e7fb56688056d1e11f3d31ea91a4bd3fd6738dc6f0452fb3e9ad",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-081",
+                  "input_sha256": "7f5d60fcebe3752ba2975724b60f31e050164ef43287943eb68a345edfc5d2e6",
+                  "instance_path_sha256": "0beba1995ce5a1c1b0e6bbf858b24aee5fa6c22c3e3cc175b5c52d083af208a1",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-079",
+                  "input_sha256": "000b342b036d7e7731871ca1ddebc71dc00e64afefac3ac4c383ccc24fa6ef97",
+                  "instance_path_sha256": "595b856527ec663bdafc7a18d3a89bed0fb3f3ea003130c3fb878827c52c0882",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-094",
+                  "input_sha256": "52c56ff5652a366599669ac28a67f0a8eee7c560fb8ca57a25136b30a8f13b18",
+                  "instance_path_sha256": "65c056ecf829d6a19cadced90ab4c4cd6c53e688135a47e52b521dd5bb492df6",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-095",
+                  "input_sha256": "201f060bfe9a65a8cf9346c391e630d5bd12cf552ad0a7f2c33efba0e34e5a16",
+                  "instance_path_sha256": "8944969249d15293f39cce906b28b74ab6a780d5fdb14c513183db35659a1184",
+                  "parent_instance_path_sha256": "65c056ecf829d6a19cadced90ab4c4cd6c53e688135a47e52b521dd5bb492df6"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "997e9251926359d7f7d5944a319bd656e440e275a356a5cd1e629fb1871f6c86",
+                  "parent_instance_path_sha256": "8944969249d15293f39cce906b28b74ab6a780d5fdb14c513183db35659a1184"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "8a9f37cae9a174ddaec29b9900d617f9f6aa44be28a2e2bd25d0b3f7ac9f3140",
+                  "parent_instance_path_sha256": "8944969249d15293f39cce906b28b74ab6a780d5fdb14c513183db35659a1184"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "15be81e6b1b8d8fa97f1fa3248bbe4e7b6374422410bd42545f5010562fd2189",
+                  "parent_instance_path_sha256": "8944969249d15293f39cce906b28b74ab6a780d5fdb14c513183db35659a1184"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "27aab12ed9583bb9cfdb766a1f2edb661a62ac3cb0572454f2ca392b02f67b5b",
+                  "parent_instance_path_sha256": "8944969249d15293f39cce906b28b74ab6a780d5fdb14c513183db35659a1184"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-095",
+                  "input_sha256": "201f060bfe9a65a8cf9346c391e630d5bd12cf552ad0a7f2c33efba0e34e5a16",
+                  "instance_path_sha256": "7e2b078d8d82f677198302d9eca800e0b71dee0afbefc23aa2220df1cf291857",
+                  "parent_instance_path_sha256": "65c056ecf829d6a19cadced90ab4c4cd6c53e688135a47e52b521dd5bb492df6"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "2ce3c1677ca2e6b4d0a59fa2c91f7eeb2bf159f05e9a41b0bb3aa173ade9a38a",
+                  "parent_instance_path_sha256": "7e2b078d8d82f677198302d9eca800e0b71dee0afbefc23aa2220df1cf291857"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "3b0ee7d6d10dee62a6d06f27264de350e5924c30e9baee77e7e0d5912eac406e",
+                  "parent_instance_path_sha256": "7e2b078d8d82f677198302d9eca800e0b71dee0afbefc23aa2220df1cf291857"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "41507550092044016a423cc7b65b0148cd4baa863e9ac74498247b8e60a7b5d2",
+                  "parent_instance_path_sha256": "7e2b078d8d82f677198302d9eca800e0b71dee0afbefc23aa2220df1cf291857"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "5b1e144ce61c893b6fd61bd518b9d68a373f11ad43abcea5b19a1de9b86d3408",
+                  "parent_instance_path_sha256": "7e2b078d8d82f677198302d9eca800e0b71dee0afbefc23aa2220df1cf291857"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-095",
+                  "input_sha256": "201f060bfe9a65a8cf9346c391e630d5bd12cf552ad0a7f2c33efba0e34e5a16",
+                  "instance_path_sha256": "f7a050c7b0971ee6d14a5b88dc37ae4de7fb74339843e93e863f59dafc9cacca",
+                  "parent_instance_path_sha256": "65c056ecf829d6a19cadced90ab4c4cd6c53e688135a47e52b521dd5bb492df6"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "85f9148bcefc536c170939fe892c032a41078d17d9b7c533829b9c9b23f6aa71",
+                  "parent_instance_path_sha256": "f7a050c7b0971ee6d14a5b88dc37ae4de7fb74339843e93e863f59dafc9cacca"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "de7e5f7eed2cf1ff0d8919ac010a6b28ab078eff1c582780685516c93d52755b",
+                  "parent_instance_path_sha256": "f7a050c7b0971ee6d14a5b88dc37ae4de7fb74339843e93e863f59dafc9cacca"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "e7297123a7b99d9ef6332e2ab8d6ea8c55c86568305eaac63cf86b0163217768",
+                  "parent_instance_path_sha256": "f7a050c7b0971ee6d14a5b88dc37ae4de7fb74339843e93e863f59dafc9cacca"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "b1e151f3788c57f57cb9d8aecc70d39dff85430a2a89cc143abb80e621f3a049",
+                  "parent_instance_path_sha256": "f7a050c7b0971ee6d14a5b88dc37ae4de7fb74339843e93e863f59dafc9cacca"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-095",
+                  "input_sha256": "201f060bfe9a65a8cf9346c391e630d5bd12cf552ad0a7f2c33efba0e34e5a16",
+                  "instance_path_sha256": "f473919b3950f4fa86605ddb741d086133ec0dc98d5b742e20bf0115397ecfab",
+                  "parent_instance_path_sha256": "65c056ecf829d6a19cadced90ab4c4cd6c53e688135a47e52b521dd5bb492df6"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "73df0ad757ed0ae6b9907c07b37ef75e75ebfb38d72b3d9892d0e5cd176d87a0",
+                  "parent_instance_path_sha256": "f473919b3950f4fa86605ddb741d086133ec0dc98d5b742e20bf0115397ecfab"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "4cc45c33c2e75ede99e4e76cb0a40b8c2a2425cc83b97bc5f5f4555690b245ff",
+                  "parent_instance_path_sha256": "f473919b3950f4fa86605ddb741d086133ec0dc98d5b742e20bf0115397ecfab"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "ac7386fc74443b36bc6ab7a01c984ac14478e26ddf5e3d9cf59a525f73e7a689",
+                  "parent_instance_path_sha256": "f473919b3950f4fa86605ddb741d086133ec0dc98d5b742e20bf0115397ecfab"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "d947848b4fbf659bb504f15fe24b678b96e8ca865275a41372497a65aa2f32af",
+                  "parent_instance_path_sha256": "f473919b3950f4fa86605ddb741d086133ec0dc98d5b742e20bf0115397ecfab"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-097",
+                  "input_sha256": "c201f38f7619cc4c3a1e56e46128d3fe746660f56aa87a05c99d457923ab391d",
+                  "instance_path_sha256": "d5ae3babffc95e661d04dddd363f900e53c8cb135f5b0c97e8108e86f1386228",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-104",
+                  "input_sha256": "61d7229a38ee677a0d49bee45c77ed86d26836b26646d017c5715ea45cf148a4",
+                  "instance_path_sha256": "2f3c840c35ddddc0915e90f50433e0d827668cd021577a5ef999b479088f6a93",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-078",
+                  "input_sha256": "4942247e550814ae0add0aa80864956bfd35470b8e9774ee4e99fc31d655c948",
+                  "instance_path_sha256": "f5a230618337f29b437f1401d5ef30371b89e94ec54c1c95abdd996a574cc168",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                }
+              ],
+              "native_export_root_id": "kicad-demo-10-0-6-sch-106",
+              "owner_id": "kicad-demo-10-0-6-sch-106",
+              "owner_sha256": "4cc3e74f2e47304bd3b360b18bab55d378573bc491b4f210aebe533890aa3dcb",
+              "project_input": {
+                "expected_sha256": "775231e918a3f79f4aa6b4a9bf36194790b818ba599c7e220a2a5cfa41d6e665",
+                "id": "kicad-demo-9-0-9-1-pro-17",
+                "input_sha256": "775231e918a3f79f4aa6b4a9bf36194790b818ba599c7e220a2a5cfa41d6e665"
+              },
+              "scope": "registered-project",
+              "target_instances": 1
+            },
+            "counts": {
+              "bus_entries": 1135,
+              "buses": 1250,
+              "contextual_definitions": 460,
+              "junctions": 1520,
+              "labels": 2312,
+              "opaque": 127,
+              "powers": 743,
+              "sheet_refs": 48,
+              "sheets": 36,
+              "symbols": 863,
+              "wires": 5455
+            },
+            "formats": [
+              20250114
+            ],
+            "id": "kicad-demo-10-0-6-sch-106",
+            "inputs": [
+              {
+                "expected_sha256": "4942247e550814ae0add0aa80864956bfd35470b8e9774ee4e99fc31d655c948",
+                "id": "kicad-demo-10-0-6-sch-078",
+                "sha256": "4942247e550814ae0add0aa80864956bfd35470b8e9774ee4e99fc31d655c948"
+              },
+              {
+                "expected_sha256": "000b342b036d7e7731871ca1ddebc71dc00e64afefac3ac4c383ccc24fa6ef97",
+                "id": "kicad-demo-10-0-6-sch-079",
+                "sha256": "000b342b036d7e7731871ca1ddebc71dc00e64afefac3ac4c383ccc24fa6ef97"
+              },
+              {
+                "expected_sha256": "fb8f40e676e37069e98b8dffef303148288b556705f0203472f609116f47fb82",
+                "id": "kicad-demo-10-0-6-sch-080",
+                "sha256": "fb8f40e676e37069e98b8dffef303148288b556705f0203472f609116f47fb82"
+              },
+              {
+                "expected_sha256": "7f5d60fcebe3752ba2975724b60f31e050164ef43287943eb68a345edfc5d2e6",
+                "id": "kicad-demo-10-0-6-sch-081",
+                "sha256": "7f5d60fcebe3752ba2975724b60f31e050164ef43287943eb68a345edfc5d2e6"
+              },
+              {
+                "expected_sha256": "387cf92f575f78afa6f9310e9b753bfeb17388ebbb86c4360c1a206dfcd6934e",
+                "id": "kicad-demo-10-0-6-sch-082",
+                "sha256": "387cf92f575f78afa6f9310e9b753bfeb17388ebbb86c4360c1a206dfcd6934e"
+              },
+              {
+                "expected_sha256": "afa21638aa44735987e97d5648b5c0f3452b72dfcd5119338fa95e22f41c146b",
+                "id": "kicad-demo-10-0-6-sch-083",
+                "sha256": "afa21638aa44735987e97d5648b5c0f3452b72dfcd5119338fa95e22f41c146b"
+              },
+              {
+                "expected_sha256": "d8ff041ed2987a3c0719bf5cdc7d67b2597bcc4a0a864041585c9afd0613a91b",
+                "id": "kicad-demo-10-0-6-sch-084",
+                "sha256": "d8ff041ed2987a3c0719bf5cdc7d67b2597bcc4a0a864041585c9afd0613a91b"
+              },
+              {
+                "expected_sha256": "2c7cab85da7cdde39f6c576b477ea6558e2146196ebcbd788b305b5cf534175c",
+                "id": "kicad-demo-10-0-6-sch-085",
+                "sha256": "2c7cab85da7cdde39f6c576b477ea6558e2146196ebcbd788b305b5cf534175c"
+              },
+              {
+                "expected_sha256": "d391e2243f610983130ecc88d25336424ab6fe462d86e9915857b0666bd559a4",
+                "id": "kicad-demo-10-0-6-sch-086",
+                "sha256": "d391e2243f610983130ecc88d25336424ab6fe462d86e9915857b0666bd559a4"
+              },
+              {
+                "expected_sha256": "c9bf69883fdce135b4363717b306bc956d121d7907d6b7ec2ff5283b8939bbe6",
+                "id": "kicad-demo-10-0-6-sch-087",
+                "sha256": "c9bf69883fdce135b4363717b306bc956d121d7907d6b7ec2ff5283b8939bbe6"
+              },
+              {
+                "expected_sha256": "0543b36e5888e5e17b448554ab3946a658c842ba75915aa705c73dc9ede9885c",
+                "id": "kicad-demo-10-0-6-sch-088",
+                "sha256": "0543b36e5888e5e17b448554ab3946a658c842ba75915aa705c73dc9ede9885c"
+              },
+              {
+                "expected_sha256": "3e1619fbf0f05668aa2dac6632f4972604baae9ec1509f56e934dbc17f30c706",
+                "id": "kicad-demo-10-0-6-sch-089",
+                "sha256": "3e1619fbf0f05668aa2dac6632f4972604baae9ec1509f56e934dbc17f30c706"
+              },
+              {
+                "expected_sha256": "845bfa141acd4dc2a5489aee8a74976d6a45c5f5e0106da21272d4d6b4cdf1bc",
+                "id": "kicad-demo-10-0-6-sch-090",
+                "sha256": "845bfa141acd4dc2a5489aee8a74976d6a45c5f5e0106da21272d4d6b4cdf1bc"
+              },
+              {
+                "expected_sha256": "931ec5588e9b3135149cff29c885f8a98a83ad4820b2e361466e58aa20acedb6",
+                "id": "kicad-demo-10-0-6-sch-091",
+                "sha256": "931ec5588e9b3135149cff29c885f8a98a83ad4820b2e361466e58aa20acedb6"
+              },
+              {
+                "expected_sha256": "0e7b55b9ebe23670147f7a70bef1500fcd8ac112ab6110923fe45673edc5d429",
+                "id": "kicad-demo-10-0-6-sch-092",
+                "sha256": "0e7b55b9ebe23670147f7a70bef1500fcd8ac112ab6110923fe45673edc5d429"
+              },
+              {
+                "expected_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                "id": "kicad-demo-10-0-6-sch-093",
+                "sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034"
+              },
+              {
+                "expected_sha256": "52c56ff5652a366599669ac28a67f0a8eee7c560fb8ca57a25136b30a8f13b18",
+                "id": "kicad-demo-10-0-6-sch-094",
+                "sha256": "52c56ff5652a366599669ac28a67f0a8eee7c560fb8ca57a25136b30a8f13b18"
+              },
+              {
+                "expected_sha256": "201f060bfe9a65a8cf9346c391e630d5bd12cf552ad0a7f2c33efba0e34e5a16",
+                "id": "kicad-demo-10-0-6-sch-095",
+                "sha256": "201f060bfe9a65a8cf9346c391e630d5bd12cf552ad0a7f2c33efba0e34e5a16"
+              },
+              {
+                "expected_sha256": "d1504d7659d6786019033753c8190ecdedcc6c875640f76bc6264ca00c31e73f",
+                "id": "kicad-demo-10-0-6-sch-096",
+                "sha256": "d1504d7659d6786019033753c8190ecdedcc6c875640f76bc6264ca00c31e73f"
+              },
+              {
+                "expected_sha256": "c201f38f7619cc4c3a1e56e46128d3fe746660f56aa87a05c99d457923ab391d",
+                "id": "kicad-demo-10-0-6-sch-097",
+                "sha256": "c201f38f7619cc4c3a1e56e46128d3fe746660f56aa87a05c99d457923ab391d"
+              },
+              {
+                "expected_sha256": "356ae56e243f8d8cce7a8bda7aec21bd0a02a32f288429334f73a2688bb1725e",
+                "id": "kicad-demo-10-0-6-sch-098",
+                "sha256": "356ae56e243f8d8cce7a8bda7aec21bd0a02a32f288429334f73a2688bb1725e"
+              },
+              {
+                "expected_sha256": "3875c3e16e03872be6095b8137a85fc94992e3207ad31cd6dea425954ade9c93",
+                "id": "kicad-demo-10-0-6-sch-099",
+                "sha256": "3875c3e16e03872be6095b8137a85fc94992e3207ad31cd6dea425954ade9c93"
+              },
+              {
+                "expected_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                "id": "kicad-demo-10-0-6-sch-100",
+                "sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919"
+              },
+              {
+                "expected_sha256": "4616b90ca042cc85326be17f8ab8330aaa06938bcea79591862bb86085803573",
+                "id": "kicad-demo-10-0-6-sch-101",
+                "sha256": "4616b90ca042cc85326be17f8ab8330aaa06938bcea79591862bb86085803573"
+              },
+              {
+                "expected_sha256": "11569225b001676b85498528a9accbdef4b815618fdcf8c6ffc9306c6ef2628c",
+                "id": "kicad-demo-10-0-6-sch-102",
+                "sha256": "11569225b001676b85498528a9accbdef4b815618fdcf8c6ffc9306c6ef2628c"
+              },
+              {
+                "expected_sha256": "e4cfcb9cff297a9724b064bd8a1f722bdc8b6438c071cf720bc97ba25c8ef6cf",
+                "id": "kicad-demo-10-0-6-sch-103",
+                "sha256": "e4cfcb9cff297a9724b064bd8a1f722bdc8b6438c071cf720bc97ba25c8ef6cf"
+              },
+              {
+                "expected_sha256": "61d7229a38ee677a0d49bee45c77ed86d26836b26646d017c5715ea45cf148a4",
+                "id": "kicad-demo-10-0-6-sch-104",
+                "sha256": "61d7229a38ee677a0d49bee45c77ed86d26836b26646d017c5715ea45cf148a4"
+              },
+              {
+                "expected_sha256": "62a121ea4587a7783e2dff9591dbabd65921dceea904923f05e687c073db2720",
+                "id": "kicad-demo-10-0-6-sch-105",
+                "sha256": "62a121ea4587a7783e2dff9591dbabd65921dceea904923f05e687c073db2720"
+              },
+              {
+                "expected_sha256": "775231e918a3f79f4aa6b4a9bf36194790b818ba599c7e220a2a5cfa41d6e665",
+                "id": "kicad-demo-9-0-9-1-pro-17",
+                "sha256": "775231e918a3f79f4aa6b4a9bf36194790b818ba599c7e220a2a5cfa41d6e665"
+              },
+              {
+                "expected_sha256": "4cc3e74f2e47304bd3b360b18bab55d378573bc491b4f210aebe533890aa3dcb",
+                "id": "kicad-demo-10-0-6-sch-106",
+                "sha256": "4cc3e74f2e47304bd3b360b18bab55d378573bc491b4f210aebe533890aa3dcb"
+              },
+              {
+                "expected_sha256": "23e26501427cee90be09e9b3afdf4ff105cc3e940771234f907a876970e509fe",
+                "id": "kicad-demo-10-0-6-sch-107",
+                "sha256": "23e26501427cee90be09e9b3afdf4ff105cc3e940771234f907a876970e509fe"
+              },
+              {
+                "expected_sha256": "db54a9ab8f1dab24ac72e5c1db199f2e52e8d423a4f180b7b5b59508f90c592c",
+                "id": "kicad-demo-10-0-6-sch-108",
+                "sha256": "db54a9ab8f1dab24ac72e5c1db199f2e52e8d423a4f180b7b5b59508f90c592c"
+              },
+              {
+                "expected_sha256": "81a8d975deb066e345074573611a569f6f533cd5fd04a941ad2ea57b92a5d8d7",
+                "id": "kicad-demo-10-0-6-sch-109",
+                "sha256": "81a8d975deb066e345074573611a569f6f533cd5fd04a941ad2ea57b92a5d8d7"
+              },
+              {
+                "expected_sha256": "609845f4c59160015ab194e0667d6a5e1abeae0a1fb484e16c1a3c00ff0cf05c",
+                "id": "kicad-demo-10-0-6-sch-110",
+                "sha256": "609845f4c59160015ab194e0667d6a5e1abeae0a1fb484e16c1a3c00ff0cf05c"
+              },
+              {
+                "expected_sha256": "e1d4d19d3cdf5d81ab42ccc919154bfdd99f328cf6b6294765df0ee3e3fbb58b",
+                "id": "kicad-demo-10-0-6-sch-111",
+                "sha256": "e1d4d19d3cdf5d81ab42ccc919154bfdd99f328cf6b6294765df0ee3e3fbb58b"
+              },
+              {
+                "expected_sha256": "6ad4226e2520ee2da04631af3b87a6a5f3864fe381399e7ed395611b29b9f495",
+                "id": "kicad-demo-10-0-6-sch-112",
+                "sha256": "6ad4226e2520ee2da04631af3b87a6a5f3864fe381399e7ed395611b29b9f495"
+              },
+              {
+                "expected_sha256": "9752e91a609c1476780fe0d6260e5c91c1ed7be2233c637fac8ccdbb94f0750f",
+                "id": "kicad-demo-10-0-6-sch-113",
+                "sha256": "9752e91a609c1476780fe0d6260e5c91c1ed7be2233c637fac8ccdbb94f0750f"
+              },
+              {
+                "expected_sha256": "6f4886c6231b918824beebef23cd056c584a49f29b5ae997411a321d07f35362",
+                "id": "kicad-demo-10-0-6-sch-114",
+                "sha256": "6f4886c6231b918824beebef23cd056c584a49f29b5ae997411a321d07f35362"
+              }
+            ],
+            "issues": {
+              "extract": {},
+              "lower": {
+                "warning:kicad.sch.unconnected-name-unproven": 4
+              },
+              "resolve": {
+                "warning:drawn.bus-member-unknown": 2501,
+                "warning:drawn.dangling": 1079
+              },
+              "resolve-lowered": {
+                "warning:drawn.bus-member-unknown": 2501,
+                "warning:drawn.dangling": 1079
+              },
+              "write": {}
+            },
+            "lowered_native_partition": {
+              "drawn_groups": 1800,
+              "drawn_pins": 6811,
+              "drawn_unlisted_pins": 0,
+              "equal": true,
+              "name_differences": 0,
+              "names_compared": 1800,
+              "naming_equal": true,
+              "naming_scope": "drawn-named-nets",
+              "native_groups": 1800,
+              "native_named_groups": 1800,
+              "native_only_pins": 0,
+              "native_pins": 6811,
+              "only_drawn_groups": 0,
+              "only_native_groups": 0
+            },
+            "lowered_partition": {
+              "drawn_groups": 1700,
+              "drawn_pins": 6811,
+              "drawn_unlisted_pins": 0,
+              "equal": false,
+              "name_differences": 418,
+              "names_compared": 867,
+              "naming_equal": false,
+              "naming_scope": "drawn-named-nets",
+              "native_groups": 1800,
+              "native_named_groups": 1800,
+              "native_only_pins": 0,
+              "native_pins": 6811,
+              "only_drawn_groups": 36,
+              "only_native_groups": 136
+            },
+            "major": 9,
+            "native_version": "9.0.2",
+            "partition": {
+              "drawn_groups": 1700,
+              "drawn_pins": 6811,
+              "drawn_unlisted_pins": 0,
+              "equal": false,
+              "name_differences": 418,
+              "names_compared": 867,
+              "naming_equal": false,
+              "naming_scope": "drawn-named-nets",
+              "native_groups": 1800,
+              "native_named_groups": 1800,
+              "native_only_pins": 0,
+              "native_pins": 6811,
+              "only_drawn_groups": 36,
+              "only_native_groups": 136
+            },
+            "schema": "fenolite.drawn-census.v0",
+            "seconds": 115.861886,
+            "status": "differs",
+            "timings": {
+              "extract": 1.850615,
+              "lower": 32.638301,
+              "native-lowered": 2.374068,
+              "native-original": 6.712,
+              "resolve": 2.174765
+            }
+          }
+        ],
+        "declared_format": 20250114,
+        "expected_sha256": "4cc3e74f2e47304bd3b360b18bab55d378573bc491b4f210aebe533890aa3dcb",
+        "id": "kicad-demo-10-0-6-sch-106",
+        "input_sha256": "4cc3e74f2e47304bd3b360b18bab55d378573bc491b4f210aebe533890aa3dcb",
+        "major": 9,
+        "manifest_sha256": "bdc796c64b61f1e0a0240f2c133e879cc367a1ed256ea006cf883320b2cb4dcc",
+        "native_version": "9.0.2",
+        "running_tag": "9.0.9.1",
+        "schema": "fenolite.drawn-census.v0",
+        "source_commit": "caf7377e9cb6",
+        "source_ref": "10.0.6",
+        "status": "differs",
+        "total_seconds": 125.304723
+      },
+      "record_sha256": "9d4ab5a9c69e9e07397c9deb49177e344b8b5110ceeea024b95dd30245d55734",
+      "required_ci_passed": false,
+      "retained_cad_files": 0,
+      "scope": "one registered VME owner and its complete 36-sheet hierarchy; other row parameters not executed"
+    },
+    {
+      "code_commit": "de6c6f2f4dd53cdda45b4119f63822b5bd3ea6eb",
+      "evidence_promoted": false,
+      "log_sha256": "60c4bb79d4017fe590107e5ac930989305ba3f8e4f5bff4d428c6cc6329e28fa",
+      "native_version": "10.0.6",
+      "pytest_exit": 0,
+      "record": {
+        "code_commit": "de6c6f2f4dd53cdda45b4119f63822b5bd3ea6eb",
+        "contexts": [
+          {
+            "code_commit": "de6c6f2f4dd53cdda45b4119f63822b5bd3ea6eb",
+            "context": {
+              "errors": [],
+              "instances": [
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-106",
+                  "input_sha256": "4cc3e74f2e47304bd3b360b18bab55d378573bc491b4f210aebe533890aa3dcb",
+                  "instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046",
+                  "parent_instance_path_sha256": null
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-101",
+                  "input_sha256": "4616b90ca042cc85326be17f8ab8330aaa06938bcea79591862bb86085803573",
+                  "instance_path_sha256": "b4d9811f68c7a0745a82d81d8fabff40c06e3b592595eec7f4713f1d5f8b8b57",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-102",
+                  "input_sha256": "11569225b001676b85498528a9accbdef4b815618fdcf8c6ffc9306c6ef2628c",
+                  "instance_path_sha256": "ba5ad819e4cdbec6bdfb07ea0160d43687e3faa5602fca06285827560557ecda",
+                  "parent_instance_path_sha256": "b4d9811f68c7a0745a82d81d8fabff40c06e3b592595eec7f4713f1d5f8b8b57"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "72956ec849cdbfa9970a37fd93253a869a83042e0380fae52836b4b067ceb2ac",
+                  "parent_instance_path_sha256": "ba5ad819e4cdbec6bdfb07ea0160d43687e3faa5602fca06285827560557ecda"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "823355e7d3396902df4a6d44e5f0478e24258907fda6409c403b8747e81b259a",
+                  "parent_instance_path_sha256": "ba5ad819e4cdbec6bdfb07ea0160d43687e3faa5602fca06285827560557ecda"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "4492fef6867889854ed3cc6af0c2cd08176be578cba3decc6550fb9e95f3aac5",
+                  "parent_instance_path_sha256": "ba5ad819e4cdbec6bdfb07ea0160d43687e3faa5602fca06285827560557ecda"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "a7d1a273ec9577232e0cc224d1697aa77e828ba47eaa846301967034757f7e8d",
+                  "parent_instance_path_sha256": "ba5ad819e4cdbec6bdfb07ea0160d43687e3faa5602fca06285827560557ecda"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-102",
+                  "input_sha256": "11569225b001676b85498528a9accbdef4b815618fdcf8c6ffc9306c6ef2628c",
+                  "instance_path_sha256": "6aa8eb0ff88edabec3c454ab5065bebf180d1c7bface8ed4655baa2d73d0d2e5",
+                  "parent_instance_path_sha256": "b4d9811f68c7a0745a82d81d8fabff40c06e3b592595eec7f4713f1d5f8b8b57"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "0eb880089751119d45d193ae7892a551648e9482a74fca3b58e30cb5d0bbf0d7",
+                  "parent_instance_path_sha256": "6aa8eb0ff88edabec3c454ab5065bebf180d1c7bface8ed4655baa2d73d0d2e5"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "4bf08fdcf9f8b0a825f0fc64df0abcac810fa6ea1dbf735bc07c686935c713f4",
+                  "parent_instance_path_sha256": "6aa8eb0ff88edabec3c454ab5065bebf180d1c7bface8ed4655baa2d73d0d2e5"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "6d4de4bf5e7a2961d0dda17b33036bb8ae6e29b3091828e075fa72283edee7fa",
+                  "parent_instance_path_sha256": "6aa8eb0ff88edabec3c454ab5065bebf180d1c7bface8ed4655baa2d73d0d2e5"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "78a7ae25e3e71c4e91cbc7fa6279544890ab3fc8cfd93168007d5615aed496f4",
+                  "parent_instance_path_sha256": "6aa8eb0ff88edabec3c454ab5065bebf180d1c7bface8ed4655baa2d73d0d2e5"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-102",
+                  "input_sha256": "11569225b001676b85498528a9accbdef4b815618fdcf8c6ffc9306c6ef2628c",
+                  "instance_path_sha256": "9c6cf637c17ba298c1bb38d4f0867ad27e9de2cfd204be7b4430b07445f854cc",
+                  "parent_instance_path_sha256": "b4d9811f68c7a0745a82d81d8fabff40c06e3b592595eec7f4713f1d5f8b8b57"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "129250afe8b4c493605bf0851711917ee8d3161b22b454586d17786dd53ad6eb",
+                  "parent_instance_path_sha256": "9c6cf637c17ba298c1bb38d4f0867ad27e9de2cfd204be7b4430b07445f854cc"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "e91e42f6d7eed3c0982ea77e41269d5fd770fd4a47f3819529dc9b9323cb78d7",
+                  "parent_instance_path_sha256": "9c6cf637c17ba298c1bb38d4f0867ad27e9de2cfd204be7b4430b07445f854cc"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "1f9abecef9d84fd6ea6efc1367fbbf8a4813b7c28b951195c48e3bdbb3feb7dc",
+                  "parent_instance_path_sha256": "9c6cf637c17ba298c1bb38d4f0867ad27e9de2cfd204be7b4430b07445f854cc"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "e2d4629d90792840080e6907f9cc04b5a77e0a3334999f63b044d89a805ccb26",
+                  "parent_instance_path_sha256": "9c6cf637c17ba298c1bb38d4f0867ad27e9de2cfd204be7b4430b07445f854cc"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-102",
+                  "input_sha256": "11569225b001676b85498528a9accbdef4b815618fdcf8c6ffc9306c6ef2628c",
+                  "instance_path_sha256": "0677884172d4c0d3a59b74ced92e01302bba72129bcd8068fc1381b2e9f82e28",
+                  "parent_instance_path_sha256": "b4d9811f68c7a0745a82d81d8fabff40c06e3b592595eec7f4713f1d5f8b8b57"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "c51e5970e5ce54ec4858a25309925b5bafc6708e31126a825531d0124a0e5ad9",
+                  "parent_instance_path_sha256": "0677884172d4c0d3a59b74ced92e01302bba72129bcd8068fc1381b2e9f82e28"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "56897e52781866db35f927893d2148f167c627d19bbf6c58736adef17ea957a6",
+                  "parent_instance_path_sha256": "0677884172d4c0d3a59b74ced92e01302bba72129bcd8068fc1381b2e9f82e28"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "c4f210a47f8d56cb521b2b12f5d3f5e07d39398906bb4cffc021059024589c3d",
+                  "parent_instance_path_sha256": "0677884172d4c0d3a59b74ced92e01302bba72129bcd8068fc1381b2e9f82e28"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-100",
+                  "input_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                  "instance_path_sha256": "47d60bd8edecc057bf1bd88cca97777c82509f70892fd4ee7bf7a7f53d0f5b9e",
+                  "parent_instance_path_sha256": "0677884172d4c0d3a59b74ced92e01302bba72129bcd8068fc1381b2e9f82e28"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-103",
+                  "input_sha256": "e4cfcb9cff297a9724b064bd8a1f722bdc8b6438c071cf720bc97ba25c8ef6cf",
+                  "instance_path_sha256": "3613c1d45e226e466f678ae2686c0046c3e1ed525b5716328f8ef99fa14d97b3",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-112",
+                  "input_sha256": "6ad4226e2520ee2da04631af3b87a6a5f3864fe381399e7ed395611b29b9f495",
+                  "instance_path_sha256": "14af2151f4bf732f2a35f4313f6876dce10567564d4f22a91bba43baca2a1a25",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-113",
+                  "input_sha256": "9752e91a609c1476780fe0d6260e5c91c1ed7be2233c637fac8ccdbb94f0750f",
+                  "instance_path_sha256": "3b7b00b137bbe0adfd8d6f877bea5894d7ffffdc442258cf53fd768034a140ee",
+                  "parent_instance_path_sha256": "14af2151f4bf732f2a35f4313f6876dce10567564d4f22a91bba43baca2a1a25"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-107",
+                  "input_sha256": "23e26501427cee90be09e9b3afdf4ff105cc3e940771234f907a876970e509fe",
+                  "instance_path_sha256": "611b666769b851ae691ac2a4e705d233d8cb701e4e66dd1c521f01417bee3d29",
+                  "parent_instance_path_sha256": "14af2151f4bf732f2a35f4313f6876dce10567564d4f22a91bba43baca2a1a25"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-111",
+                  "input_sha256": "e1d4d19d3cdf5d81ab42ccc919154bfdd99f328cf6b6294765df0ee3e3fbb58b",
+                  "instance_path_sha256": "4b6eaec024c872ce5f9b3e31b9562cf04e70fbb25e8f972d6119dc88d7f509dd",
+                  "parent_instance_path_sha256": "14af2151f4bf732f2a35f4313f6876dce10567564d4f22a91bba43baca2a1a25"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-110",
+                  "input_sha256": "609845f4c59160015ab194e0667d6a5e1abeae0a1fb484e16c1a3c00ff0cf05c",
+                  "instance_path_sha256": "7fd2f0254861b393975b39d87075113e15ae1bf564452b3dd864f1aa9fe78478",
+                  "parent_instance_path_sha256": "14af2151f4bf732f2a35f4313f6876dce10567564d4f22a91bba43baca2a1a25"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-114",
+                  "input_sha256": "6f4886c6231b918824beebef23cd056c584a49f29b5ae997411a321d07f35362",
+                  "instance_path_sha256": "56e32d8cca7a049bf16fd9015997a83d41df03f7a9a98a87cec2621bf0e09cc8",
+                  "parent_instance_path_sha256": "14af2151f4bf732f2a35f4313f6876dce10567564d4f22a91bba43baca2a1a25"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-109",
+                  "input_sha256": "81a8d975deb066e345074573611a569f6f533cd5fd04a941ad2ea57b92a5d8d7",
+                  "instance_path_sha256": "2e39041ffb25c87f35f81f8d2ca85d4b87b60f4e6d0f7d5d1fec134a14ef1a6e",
+                  "parent_instance_path_sha256": "14af2151f4bf732f2a35f4313f6876dce10567564d4f22a91bba43baca2a1a25"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-108",
+                  "input_sha256": "db54a9ab8f1dab24ac72e5c1db199f2e52e8d423a4f180b7b5b59508f90c592c",
+                  "instance_path_sha256": "481def1f898fde66a9bdcd90318fef48eda7f690e3adb865d39733407b6f0c9f",
+                  "parent_instance_path_sha256": "14af2151f4bf732f2a35f4313f6876dce10567564d4f22a91bba43baca2a1a25"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-091",
+                  "input_sha256": "931ec5588e9b3135149cff29c885f8a98a83ad4820b2e361466e58aa20acedb6",
+                  "instance_path_sha256": "85f26165d59aa6943b61635918d80a161aa5d47711f826535277ca6c7691dbf9",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-084",
+                  "input_sha256": "d8ff041ed2987a3c0719bf5cdc7d67b2597bcc4a0a864041585c9afd0613a91b",
+                  "instance_path_sha256": "b0b1516dd58547a99f7cdc22db5db309c44b99dc37650736ca21aaa820cd0507",
+                  "parent_instance_path_sha256": "85f26165d59aa6943b61635918d80a161aa5d47711f826535277ca6c7691dbf9"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-089",
+                  "input_sha256": "3e1619fbf0f05668aa2dac6632f4972604baae9ec1509f56e934dbc17f30c706",
+                  "instance_path_sha256": "441978b21b6676276efbd3c0c9760db79b913204339f9ac0ea8aecb2c6c7ee49",
+                  "parent_instance_path_sha256": "85f26165d59aa6943b61635918d80a161aa5d47711f826535277ca6c7691dbf9"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-088",
+                  "input_sha256": "0543b36e5888e5e17b448554ab3946a658c842ba75915aa705c73dc9ede9885c",
+                  "instance_path_sha256": "750d0306d34bb5991f6c2e2e8ecff74b8e5e26d51b9dfc9f81bd63dd59ba9063",
+                  "parent_instance_path_sha256": "441978b21b6676276efbd3c0c9760db79b913204339f9ac0ea8aecb2c6c7ee49"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-083",
+                  "input_sha256": "afa21638aa44735987e97d5648b5c0f3452b72dfcd5119338fa95e22f41c146b",
+                  "instance_path_sha256": "af9525e83d8acaaba02c77a719bde9beff6de65d905ee3bfd0fabbb7429c0ef6",
+                  "parent_instance_path_sha256": "85f26165d59aa6943b61635918d80a161aa5d47711f826535277ca6c7691dbf9"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-087",
+                  "input_sha256": "c9bf69883fdce135b4363717b306bc956d121d7907d6b7ec2ff5283b8939bbe6",
+                  "instance_path_sha256": "8caec7b1a0b4c3dfba34e790e97c77250abee53d29a60ea1abc37d28f567b029",
+                  "parent_instance_path_sha256": "85f26165d59aa6943b61635918d80a161aa5d47711f826535277ca6c7691dbf9"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-090",
+                  "input_sha256": "845bfa141acd4dc2a5489aee8a74976d6a45c5f5e0106da21272d4d6b4cdf1bc",
+                  "instance_path_sha256": "a4fc68567999f8b27e3e281c8340e0fd8d52204c103636d6c6876595fc4b5d00",
+                  "parent_instance_path_sha256": "85f26165d59aa6943b61635918d80a161aa5d47711f826535277ca6c7691dbf9"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-082",
+                  "input_sha256": "387cf92f575f78afa6f9310e9b753bfeb17388ebbb86c4360c1a206dfcd6934e",
+                  "instance_path_sha256": "1d518f2c9de88f8207146f70bd05da2202569438ee4cd5e142143ec6265e65f9",
+                  "parent_instance_path_sha256": "85f26165d59aa6943b61635918d80a161aa5d47711f826535277ca6c7691dbf9"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-086",
+                  "input_sha256": "d391e2243f610983130ecc88d25336424ab6fe462d86e9915857b0666bd559a4",
+                  "instance_path_sha256": "942cd55b4ab8857d155ad3dc9681aae64da47ac60489eafecd4dfdf387706587",
+                  "parent_instance_path_sha256": "85f26165d59aa6943b61635918d80a161aa5d47711f826535277ca6c7691dbf9"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-085",
+                  "input_sha256": "2c7cab85da7cdde39f6c576b477ea6558e2146196ebcbd788b305b5cf534175c",
+                  "instance_path_sha256": "3d8306ff4a2b5c2fe3d1221780bdc8b2701c87cce8eaae868c74e726d6892d8f",
+                  "parent_instance_path_sha256": "942cd55b4ab8857d155ad3dc9681aae64da47ac60489eafecd4dfdf387706587"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-096",
+                  "input_sha256": "d1504d7659d6786019033753c8190ecdedcc6c875640f76bc6264ca00c31e73f",
+                  "instance_path_sha256": "5b6932d7d03561c8eb1d75adddba511fbfe73eee49ab710b76a0344b858a576b",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-105",
+                  "input_sha256": "62a121ea4587a7783e2dff9591dbabd65921dceea904923f05e687c073db2720",
+                  "instance_path_sha256": "f54ff33f321cd415fb5461b692e07a3d087d3472cc881c5d88372592162bf5bd",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-098",
+                  "input_sha256": "356ae56e243f8d8cce7a8bda7aec21bd0a02a32f288429334f73a2688bb1725e",
+                  "instance_path_sha256": "15dbb3f46f83e0871f198e4e0ea817be7e511a3cd5ca980f3cb71b102eb020f0",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-080",
+                  "input_sha256": "fb8f40e676e37069e98b8dffef303148288b556705f0203472f609116f47fb82",
+                  "instance_path_sha256": "7dc437a9e092e14827cdcb5aafc6ae79607f6ae7a4a8fa63caeae350701eec5d",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-103",
+                  "input_sha256": "e4cfcb9cff297a9724b064bd8a1f722bdc8b6438c071cf720bc97ba25c8ef6cf",
+                  "instance_path_sha256": "a4515bf535ea9551fd231dd0b3afbbe361ab0f8942a2df3036c8d48945a78bea",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-099",
+                  "input_sha256": "3875c3e16e03872be6095b8137a85fc94992e3207ad31cd6dea425954ade9c93",
+                  "instance_path_sha256": "4eb04fe450b4e7fb56688056d1e11f3d31ea91a4bd3fd6738dc6f0452fb3e9ad",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-081",
+                  "input_sha256": "7f5d60fcebe3752ba2975724b60f31e050164ef43287943eb68a345edfc5d2e6",
+                  "instance_path_sha256": "0beba1995ce5a1c1b0e6bbf858b24aee5fa6c22c3e3cc175b5c52d083af208a1",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-079",
+                  "input_sha256": "000b342b036d7e7731871ca1ddebc71dc00e64afefac3ac4c383ccc24fa6ef97",
+                  "instance_path_sha256": "595b856527ec663bdafc7a18d3a89bed0fb3f3ea003130c3fb878827c52c0882",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-094",
+                  "input_sha256": "52c56ff5652a366599669ac28a67f0a8eee7c560fb8ca57a25136b30a8f13b18",
+                  "instance_path_sha256": "65c056ecf829d6a19cadced90ab4c4cd6c53e688135a47e52b521dd5bb492df6",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-095",
+                  "input_sha256": "201f060bfe9a65a8cf9346c391e630d5bd12cf552ad0a7f2c33efba0e34e5a16",
+                  "instance_path_sha256": "8944969249d15293f39cce906b28b74ab6a780d5fdb14c513183db35659a1184",
+                  "parent_instance_path_sha256": "65c056ecf829d6a19cadced90ab4c4cd6c53e688135a47e52b521dd5bb492df6"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "997e9251926359d7f7d5944a319bd656e440e275a356a5cd1e629fb1871f6c86",
+                  "parent_instance_path_sha256": "8944969249d15293f39cce906b28b74ab6a780d5fdb14c513183db35659a1184"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "8a9f37cae9a174ddaec29b9900d617f9f6aa44be28a2e2bd25d0b3f7ac9f3140",
+                  "parent_instance_path_sha256": "8944969249d15293f39cce906b28b74ab6a780d5fdb14c513183db35659a1184"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "15be81e6b1b8d8fa97f1fa3248bbe4e7b6374422410bd42545f5010562fd2189",
+                  "parent_instance_path_sha256": "8944969249d15293f39cce906b28b74ab6a780d5fdb14c513183db35659a1184"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "27aab12ed9583bb9cfdb766a1f2edb661a62ac3cb0572454f2ca392b02f67b5b",
+                  "parent_instance_path_sha256": "8944969249d15293f39cce906b28b74ab6a780d5fdb14c513183db35659a1184"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-095",
+                  "input_sha256": "201f060bfe9a65a8cf9346c391e630d5bd12cf552ad0a7f2c33efba0e34e5a16",
+                  "instance_path_sha256": "7e2b078d8d82f677198302d9eca800e0b71dee0afbefc23aa2220df1cf291857",
+                  "parent_instance_path_sha256": "65c056ecf829d6a19cadced90ab4c4cd6c53e688135a47e52b521dd5bb492df6"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "2ce3c1677ca2e6b4d0a59fa2c91f7eeb2bf159f05e9a41b0bb3aa173ade9a38a",
+                  "parent_instance_path_sha256": "7e2b078d8d82f677198302d9eca800e0b71dee0afbefc23aa2220df1cf291857"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "3b0ee7d6d10dee62a6d06f27264de350e5924c30e9baee77e7e0d5912eac406e",
+                  "parent_instance_path_sha256": "7e2b078d8d82f677198302d9eca800e0b71dee0afbefc23aa2220df1cf291857"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "41507550092044016a423cc7b65b0148cd4baa863e9ac74498247b8e60a7b5d2",
+                  "parent_instance_path_sha256": "7e2b078d8d82f677198302d9eca800e0b71dee0afbefc23aa2220df1cf291857"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "5b1e144ce61c893b6fd61bd518b9d68a373f11ad43abcea5b19a1de9b86d3408",
+                  "parent_instance_path_sha256": "7e2b078d8d82f677198302d9eca800e0b71dee0afbefc23aa2220df1cf291857"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-095",
+                  "input_sha256": "201f060bfe9a65a8cf9346c391e630d5bd12cf552ad0a7f2c33efba0e34e5a16",
+                  "instance_path_sha256": "f7a050c7b0971ee6d14a5b88dc37ae4de7fb74339843e93e863f59dafc9cacca",
+                  "parent_instance_path_sha256": "65c056ecf829d6a19cadced90ab4c4cd6c53e688135a47e52b521dd5bb492df6"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "85f9148bcefc536c170939fe892c032a41078d17d9b7c533829b9c9b23f6aa71",
+                  "parent_instance_path_sha256": "f7a050c7b0971ee6d14a5b88dc37ae4de7fb74339843e93e863f59dafc9cacca"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "de7e5f7eed2cf1ff0d8919ac010a6b28ab078eff1c582780685516c93d52755b",
+                  "parent_instance_path_sha256": "f7a050c7b0971ee6d14a5b88dc37ae4de7fb74339843e93e863f59dafc9cacca"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "e7297123a7b99d9ef6332e2ab8d6ea8c55c86568305eaac63cf86b0163217768",
+                  "parent_instance_path_sha256": "f7a050c7b0971ee6d14a5b88dc37ae4de7fb74339843e93e863f59dafc9cacca"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "b1e151f3788c57f57cb9d8aecc70d39dff85430a2a89cc143abb80e621f3a049",
+                  "parent_instance_path_sha256": "f7a050c7b0971ee6d14a5b88dc37ae4de7fb74339843e93e863f59dafc9cacca"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-095",
+                  "input_sha256": "201f060bfe9a65a8cf9346c391e630d5bd12cf552ad0a7f2c33efba0e34e5a16",
+                  "instance_path_sha256": "f473919b3950f4fa86605ddb741d086133ec0dc98d5b742e20bf0115397ecfab",
+                  "parent_instance_path_sha256": "65c056ecf829d6a19cadced90ab4c4cd6c53e688135a47e52b521dd5bb492df6"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "73df0ad757ed0ae6b9907c07b37ef75e75ebfb38d72b3d9892d0e5cd176d87a0",
+                  "parent_instance_path_sha256": "f473919b3950f4fa86605ddb741d086133ec0dc98d5b742e20bf0115397ecfab"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "4cc45c33c2e75ede99e4e76cb0a40b8c2a2425cc83b97bc5f5f4555690b245ff",
+                  "parent_instance_path_sha256": "f473919b3950f4fa86605ddb741d086133ec0dc98d5b742e20bf0115397ecfab"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "ac7386fc74443b36bc6ab7a01c984ac14478e26ddf5e3d9cf59a525f73e7a689",
+                  "parent_instance_path_sha256": "f473919b3950f4fa86605ddb741d086133ec0dc98d5b742e20bf0115397ecfab"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-093",
+                  "input_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                  "instance_path_sha256": "d947848b4fbf659bb504f15fe24b678b96e8ca865275a41372497a65aa2f32af",
+                  "parent_instance_path_sha256": "f473919b3950f4fa86605ddb741d086133ec0dc98d5b742e20bf0115397ecfab"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-097",
+                  "input_sha256": "c201f38f7619cc4c3a1e56e46128d3fe746660f56aa87a05c99d457923ab391d",
+                  "instance_path_sha256": "d5ae3babffc95e661d04dddd363f900e53c8cb135f5b0c97e8108e86f1386228",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-104",
+                  "input_sha256": "61d7229a38ee677a0d49bee45c77ed86d26836b26646d017c5715ea45cf148a4",
+                  "instance_path_sha256": "2f3c840c35ddddc0915e90f50433e0d827668cd021577a5ef999b479088f6a93",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                },
+                {
+                  "input_id": "kicad-demo-10-0-6-sch-078",
+                  "input_sha256": "4942247e550814ae0add0aa80864956bfd35470b8e9774ee4e99fc31d655c948",
+                  "instance_path_sha256": "f5a230618337f29b437f1401d5ef30371b89e94ec54c1c95abdd996a574cc168",
+                  "parent_instance_path_sha256": "d302dc15415e3011cf202067de5c43ee8905e4c38f04ade521e41827fd287046"
+                }
+              ],
+              "native_export_root_id": "kicad-demo-10-0-6-sch-106",
+              "owner_id": "kicad-demo-10-0-6-sch-106",
+              "owner_sha256": "4cc3e74f2e47304bd3b360b18bab55d378573bc491b4f210aebe533890aa3dcb",
+              "project_input": {
+                "expected_sha256": "bda72a1d94f4ddfc6a918fd430f459d2d82b124e508646db1f49f071f29ebf5d",
+                "id": "kicad-demo-10-0-6-pro-35",
+                "input_sha256": "bda72a1d94f4ddfc6a918fd430f459d2d82b124e508646db1f49f071f29ebf5d"
+              },
+              "scope": "registered-project",
+              "target_instances": 1
+            },
+            "counts": {
+              "bus_entries": 1135,
+              "buses": 1250,
+              "contextual_definitions": 460,
+              "junctions": 1520,
+              "labels": 2312,
+              "opaque": 127,
+              "powers": 743,
+              "sheet_refs": 48,
+              "sheets": 36,
+              "symbols": 863,
+              "wires": 5455
+            },
+            "formats": [
+              20250114
+            ],
+            "id": "kicad-demo-10-0-6-sch-106",
+            "inputs": [
+              {
+                "expected_sha256": "4942247e550814ae0add0aa80864956bfd35470b8e9774ee4e99fc31d655c948",
+                "id": "kicad-demo-10-0-6-sch-078",
+                "sha256": "4942247e550814ae0add0aa80864956bfd35470b8e9774ee4e99fc31d655c948"
+              },
+              {
+                "expected_sha256": "000b342b036d7e7731871ca1ddebc71dc00e64afefac3ac4c383ccc24fa6ef97",
+                "id": "kicad-demo-10-0-6-sch-079",
+                "sha256": "000b342b036d7e7731871ca1ddebc71dc00e64afefac3ac4c383ccc24fa6ef97"
+              },
+              {
+                "expected_sha256": "fb8f40e676e37069e98b8dffef303148288b556705f0203472f609116f47fb82",
+                "id": "kicad-demo-10-0-6-sch-080",
+                "sha256": "fb8f40e676e37069e98b8dffef303148288b556705f0203472f609116f47fb82"
+              },
+              {
+                "expected_sha256": "7f5d60fcebe3752ba2975724b60f31e050164ef43287943eb68a345edfc5d2e6",
+                "id": "kicad-demo-10-0-6-sch-081",
+                "sha256": "7f5d60fcebe3752ba2975724b60f31e050164ef43287943eb68a345edfc5d2e6"
+              },
+              {
+                "expected_sha256": "387cf92f575f78afa6f9310e9b753bfeb17388ebbb86c4360c1a206dfcd6934e",
+                "id": "kicad-demo-10-0-6-sch-082",
+                "sha256": "387cf92f575f78afa6f9310e9b753bfeb17388ebbb86c4360c1a206dfcd6934e"
+              },
+              {
+                "expected_sha256": "afa21638aa44735987e97d5648b5c0f3452b72dfcd5119338fa95e22f41c146b",
+                "id": "kicad-demo-10-0-6-sch-083",
+                "sha256": "afa21638aa44735987e97d5648b5c0f3452b72dfcd5119338fa95e22f41c146b"
+              },
+              {
+                "expected_sha256": "d8ff041ed2987a3c0719bf5cdc7d67b2597bcc4a0a864041585c9afd0613a91b",
+                "id": "kicad-demo-10-0-6-sch-084",
+                "sha256": "d8ff041ed2987a3c0719bf5cdc7d67b2597bcc4a0a864041585c9afd0613a91b"
+              },
+              {
+                "expected_sha256": "2c7cab85da7cdde39f6c576b477ea6558e2146196ebcbd788b305b5cf534175c",
+                "id": "kicad-demo-10-0-6-sch-085",
+                "sha256": "2c7cab85da7cdde39f6c576b477ea6558e2146196ebcbd788b305b5cf534175c"
+              },
+              {
+                "expected_sha256": "d391e2243f610983130ecc88d25336424ab6fe462d86e9915857b0666bd559a4",
+                "id": "kicad-demo-10-0-6-sch-086",
+                "sha256": "d391e2243f610983130ecc88d25336424ab6fe462d86e9915857b0666bd559a4"
+              },
+              {
+                "expected_sha256": "c9bf69883fdce135b4363717b306bc956d121d7907d6b7ec2ff5283b8939bbe6",
+                "id": "kicad-demo-10-0-6-sch-087",
+                "sha256": "c9bf69883fdce135b4363717b306bc956d121d7907d6b7ec2ff5283b8939bbe6"
+              },
+              {
+                "expected_sha256": "0543b36e5888e5e17b448554ab3946a658c842ba75915aa705c73dc9ede9885c",
+                "id": "kicad-demo-10-0-6-sch-088",
+                "sha256": "0543b36e5888e5e17b448554ab3946a658c842ba75915aa705c73dc9ede9885c"
+              },
+              {
+                "expected_sha256": "3e1619fbf0f05668aa2dac6632f4972604baae9ec1509f56e934dbc17f30c706",
+                "id": "kicad-demo-10-0-6-sch-089",
+                "sha256": "3e1619fbf0f05668aa2dac6632f4972604baae9ec1509f56e934dbc17f30c706"
+              },
+              {
+                "expected_sha256": "845bfa141acd4dc2a5489aee8a74976d6a45c5f5e0106da21272d4d6b4cdf1bc",
+                "id": "kicad-demo-10-0-6-sch-090",
+                "sha256": "845bfa141acd4dc2a5489aee8a74976d6a45c5f5e0106da21272d4d6b4cdf1bc"
+              },
+              {
+                "expected_sha256": "931ec5588e9b3135149cff29c885f8a98a83ad4820b2e361466e58aa20acedb6",
+                "id": "kicad-demo-10-0-6-sch-091",
+                "sha256": "931ec5588e9b3135149cff29c885f8a98a83ad4820b2e361466e58aa20acedb6"
+              },
+              {
+                "expected_sha256": "0e7b55b9ebe23670147f7a70bef1500fcd8ac112ab6110923fe45673edc5d429",
+                "id": "kicad-demo-10-0-6-sch-092",
+                "sha256": "0e7b55b9ebe23670147f7a70bef1500fcd8ac112ab6110923fe45673edc5d429"
+              },
+              {
+                "expected_sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034",
+                "id": "kicad-demo-10-0-6-sch-093",
+                "sha256": "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034"
+              },
+              {
+                "expected_sha256": "52c56ff5652a366599669ac28a67f0a8eee7c560fb8ca57a25136b30a8f13b18",
+                "id": "kicad-demo-10-0-6-sch-094",
+                "sha256": "52c56ff5652a366599669ac28a67f0a8eee7c560fb8ca57a25136b30a8f13b18"
+              },
+              {
+                "expected_sha256": "201f060bfe9a65a8cf9346c391e630d5bd12cf552ad0a7f2c33efba0e34e5a16",
+                "id": "kicad-demo-10-0-6-sch-095",
+                "sha256": "201f060bfe9a65a8cf9346c391e630d5bd12cf552ad0a7f2c33efba0e34e5a16"
+              },
+              {
+                "expected_sha256": "d1504d7659d6786019033753c8190ecdedcc6c875640f76bc6264ca00c31e73f",
+                "id": "kicad-demo-10-0-6-sch-096",
+                "sha256": "d1504d7659d6786019033753c8190ecdedcc6c875640f76bc6264ca00c31e73f"
+              },
+              {
+                "expected_sha256": "c201f38f7619cc4c3a1e56e46128d3fe746660f56aa87a05c99d457923ab391d",
+                "id": "kicad-demo-10-0-6-sch-097",
+                "sha256": "c201f38f7619cc4c3a1e56e46128d3fe746660f56aa87a05c99d457923ab391d"
+              },
+              {
+                "expected_sha256": "356ae56e243f8d8cce7a8bda7aec21bd0a02a32f288429334f73a2688bb1725e",
+                "id": "kicad-demo-10-0-6-sch-098",
+                "sha256": "356ae56e243f8d8cce7a8bda7aec21bd0a02a32f288429334f73a2688bb1725e"
+              },
+              {
+                "expected_sha256": "3875c3e16e03872be6095b8137a85fc94992e3207ad31cd6dea425954ade9c93",
+                "id": "kicad-demo-10-0-6-sch-099",
+                "sha256": "3875c3e16e03872be6095b8137a85fc94992e3207ad31cd6dea425954ade9c93"
+              },
+              {
+                "expected_sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919",
+                "id": "kicad-demo-10-0-6-sch-100",
+                "sha256": "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919"
+              },
+              {
+                "expected_sha256": "4616b90ca042cc85326be17f8ab8330aaa06938bcea79591862bb86085803573",
+                "id": "kicad-demo-10-0-6-sch-101",
+                "sha256": "4616b90ca042cc85326be17f8ab8330aaa06938bcea79591862bb86085803573"
+              },
+              {
+                "expected_sha256": "11569225b001676b85498528a9accbdef4b815618fdcf8c6ffc9306c6ef2628c",
+                "id": "kicad-demo-10-0-6-sch-102",
+                "sha256": "11569225b001676b85498528a9accbdef4b815618fdcf8c6ffc9306c6ef2628c"
+              },
+              {
+                "expected_sha256": "e4cfcb9cff297a9724b064bd8a1f722bdc8b6438c071cf720bc97ba25c8ef6cf",
+                "id": "kicad-demo-10-0-6-sch-103",
+                "sha256": "e4cfcb9cff297a9724b064bd8a1f722bdc8b6438c071cf720bc97ba25c8ef6cf"
+              },
+              {
+                "expected_sha256": "61d7229a38ee677a0d49bee45c77ed86d26836b26646d017c5715ea45cf148a4",
+                "id": "kicad-demo-10-0-6-sch-104",
+                "sha256": "61d7229a38ee677a0d49bee45c77ed86d26836b26646d017c5715ea45cf148a4"
+              },
+              {
+                "expected_sha256": "62a121ea4587a7783e2dff9591dbabd65921dceea904923f05e687c073db2720",
+                "id": "kicad-demo-10-0-6-sch-105",
+                "sha256": "62a121ea4587a7783e2dff9591dbabd65921dceea904923f05e687c073db2720"
+              },
+              {
+                "expected_sha256": "bda72a1d94f4ddfc6a918fd430f459d2d82b124e508646db1f49f071f29ebf5d",
+                "id": "kicad-demo-10-0-6-pro-35",
+                "sha256": "bda72a1d94f4ddfc6a918fd430f459d2d82b124e508646db1f49f071f29ebf5d"
+              },
+              {
+                "expected_sha256": "4cc3e74f2e47304bd3b360b18bab55d378573bc491b4f210aebe533890aa3dcb",
+                "id": "kicad-demo-10-0-6-sch-106",
+                "sha256": "4cc3e74f2e47304bd3b360b18bab55d378573bc491b4f210aebe533890aa3dcb"
+              },
+              {
+                "expected_sha256": "23e26501427cee90be09e9b3afdf4ff105cc3e940771234f907a876970e509fe",
+                "id": "kicad-demo-10-0-6-sch-107",
+                "sha256": "23e26501427cee90be09e9b3afdf4ff105cc3e940771234f907a876970e509fe"
+              },
+              {
+                "expected_sha256": "db54a9ab8f1dab24ac72e5c1db199f2e52e8d423a4f180b7b5b59508f90c592c",
+                "id": "kicad-demo-10-0-6-sch-108",
+                "sha256": "db54a9ab8f1dab24ac72e5c1db199f2e52e8d423a4f180b7b5b59508f90c592c"
+              },
+              {
+                "expected_sha256": "81a8d975deb066e345074573611a569f6f533cd5fd04a941ad2ea57b92a5d8d7",
+                "id": "kicad-demo-10-0-6-sch-109",
+                "sha256": "81a8d975deb066e345074573611a569f6f533cd5fd04a941ad2ea57b92a5d8d7"
+              },
+              {
+                "expected_sha256": "609845f4c59160015ab194e0667d6a5e1abeae0a1fb484e16c1a3c00ff0cf05c",
+                "id": "kicad-demo-10-0-6-sch-110",
+                "sha256": "609845f4c59160015ab194e0667d6a5e1abeae0a1fb484e16c1a3c00ff0cf05c"
+              },
+              {
+                "expected_sha256": "e1d4d19d3cdf5d81ab42ccc919154bfdd99f328cf6b6294765df0ee3e3fbb58b",
+                "id": "kicad-demo-10-0-6-sch-111",
+                "sha256": "e1d4d19d3cdf5d81ab42ccc919154bfdd99f328cf6b6294765df0ee3e3fbb58b"
+              },
+              {
+                "expected_sha256": "6ad4226e2520ee2da04631af3b87a6a5f3864fe381399e7ed395611b29b9f495",
+                "id": "kicad-demo-10-0-6-sch-112",
+                "sha256": "6ad4226e2520ee2da04631af3b87a6a5f3864fe381399e7ed395611b29b9f495"
+              },
+              {
+                "expected_sha256": "9752e91a609c1476780fe0d6260e5c91c1ed7be2233c637fac8ccdbb94f0750f",
+                "id": "kicad-demo-10-0-6-sch-113",
+                "sha256": "9752e91a609c1476780fe0d6260e5c91c1ed7be2233c637fac8ccdbb94f0750f"
+              },
+              {
+                "expected_sha256": "6f4886c6231b918824beebef23cd056c584a49f29b5ae997411a321d07f35362",
+                "id": "kicad-demo-10-0-6-sch-114",
+                "sha256": "6f4886c6231b918824beebef23cd056c584a49f29b5ae997411a321d07f35362"
+              }
+            ],
+            "issues": {
+              "extract": {},
+              "lower": {
+                "warning:kicad.sch.unconnected-name-unproven": 4
+              },
+              "resolve": {
+                "warning:drawn.bus-member-unknown": 2501,
+                "warning:drawn.dangling": 1079
+              },
+              "resolve-lowered": {
+                "warning:drawn.bus-member-unknown": 2501,
+                "warning:drawn.dangling": 1079
+              },
+              "write": {}
+            },
+            "lowered_native_partition": {
+              "drawn_groups": 1800,
+              "drawn_pins": 6811,
+              "drawn_unlisted_pins": 0,
+              "equal": true,
+              "name_differences": 0,
+              "names_compared": 1800,
+              "naming_equal": true,
+              "naming_scope": "drawn-named-nets",
+              "native_groups": 1800,
+              "native_named_groups": 1800,
+              "native_only_pins": 0,
+              "native_pins": 6811,
+              "only_drawn_groups": 0,
+              "only_native_groups": 0
+            },
+            "lowered_partition": {
+              "drawn_groups": 1800,
+              "drawn_pins": 6811,
+              "drawn_unlisted_pins": 0,
+              "equal": true,
+              "name_differences": 486,
+              "names_compared": 967,
+              "naming_equal": false,
+              "naming_scope": "drawn-named-nets",
+              "native_groups": 1800,
+              "native_named_groups": 1800,
+              "native_only_pins": 0,
+              "native_pins": 6811,
+              "only_drawn_groups": 0,
+              "only_native_groups": 0
+            },
+            "major": 10,
+            "native_version": "10.0.6",
+            "partition": {
+              "drawn_groups": 1800,
+              "drawn_pins": 6811,
+              "drawn_unlisted_pins": 0,
+              "equal": true,
+              "name_differences": 486,
+              "names_compared": 967,
+              "naming_equal": false,
+              "naming_scope": "drawn-named-nets",
+              "native_groups": 1800,
+              "native_named_groups": 1800,
+              "native_only_pins": 0,
+              "native_pins": 6811,
+              "only_drawn_groups": 0,
+              "only_native_groups": 0
+            },
+            "schema": "fenolite.drawn-census.v0",
+            "seconds": 57.622564,
+            "status": "equal",
+            "timings": {
+              "extract": 1.225276,
+              "lower": 16.408985,
+              "native-lowered": 3.315709,
+              "native-original": 5.137284,
+              "resolve": 1.37077
+            }
+          }
+        ],
+        "declared_format": 20250114,
+        "expected_sha256": "4cc3e74f2e47304bd3b360b18bab55d378573bc491b4f210aebe533890aa3dcb",
+        "id": "kicad-demo-10-0-6-sch-106",
+        "input_sha256": "4cc3e74f2e47304bd3b360b18bab55d378573bc491b4f210aebe533890aa3dcb",
+        "major": 10,
+        "manifest_sha256": "bdc796c64b61f1e0a0240f2c133e879cc367a1ed256ea006cf883320b2cb4dcc",
+        "native_version": "10.0.6",
+        "running_tag": "10.0.6",
+        "schema": "fenolite.drawn-census.v0",
+        "source_commit": "caf7377e9cb6",
+        "source_ref": "10.0.6",
+        "status": "equal",
+        "total_seconds": 57.760734
+      },
+      "record_sha256": "792181e43fdbd9580a2e127290c32e61a85d471803bd3ae9e8612733dfaefce1",
+      "required_ci_passed": false,
+      "retained_cad_files": 0,
+      "rows": [
+        {
+          "id": "kicad-demo-10-0-6-sch-078",
+          "sha256": "5687738af2e1a3a1931bb3af9dc7323941868625cc4badd556e32c662373eb54",
+          "status": "equal",
+          "target_instances": 1
+        },
+        {
+          "id": "kicad-demo-10-0-6-sch-079",
+          "sha256": "d8654ce1d102b232730afb8a46b882ad6042351ca216fd64d102e26cdf5cec4f",
+          "status": "equal",
+          "target_instances": 1
+        },
+        {
+          "id": "kicad-demo-10-0-6-sch-099",
+          "sha256": "22154f333b695f804ef86be4ba7a853682bb8b59d0524b04681bdc61e7592499",
+          "status": "equal",
+          "target_instances": 1
+        },
+        {
+          "id": "kicad-demo-10-0-6-sch-102",
+          "sha256": "3bf099e051b1c6a9dfc6aac6e11f58c7e4c1652c79bcc0000a31b57b013ed932",
+          "status": "equal",
+          "target_instances": 4
+        },
+        {
+          "id": "kicad-demo-10-0-6-sch-103",
+          "sha256": "c17c197a68bf2d7cdba7e1fffd67bf4e58443191cde9f975803d2e4189c637f7",
+          "status": "equal",
+          "target_instances": 2
+        },
+        {
+          "id": "kicad-demo-10-0-6-sch-105",
+          "sha256": "4ea9411ad788b2879eacf24d988168f5fe60d235eb4923c9da73129120f2a106",
+          "status": "equal",
+          "target_instances": 1
+        },
+        {
+          "id": "kicad-demo-10-0-6-sch-107",
+          "sha256": "438b4280dbcb7874591128474c9edb644384dbc3d19cea4636f78d2a84b19dac",
+          "status": "equal",
+          "target_instances": 1
+        },
+        {
+          "id": "kicad-demo-10-0-6-sch-109",
+          "sha256": "7ee254995b0109251f92f20ce51ed0ffe652c3a7401a0f32cfd9ad7b5fa2ec60",
+          "status": "equal",
+          "target_instances": 1
+        },
+        {
+          "id": "kicad-demo-10-0-6-sch-112",
+          "sha256": "45860f6a7eeddaf30b9300d30a01d5c3ed164d37b27fd070f8c3c38a6633c88e",
+          "status": "equal",
+          "target_instances": 1
+        },
+        {
+          "id": "kicad-demo-10-0-6-sch-113",
+          "sha256": "accb1619a9c72a68e58b54e0e2b2b436b93831735da56572e9c839d8d8308071",
+          "status": "equal",
+          "target_instances": 1
+        },
+        {
+          "id": "kicad-demo-10-0-6-sch-080",
+          "sha256": "a662d0fe0352020b227a5e0b95e499fba2add072feb01b5cdfebaf13f71ea1b8",
+          "status": "equal",
+          "target_instances": 1
+        },
+        {
+          "id": "kicad-demo-10-0-6-sch-081",
+          "sha256": "60b0585b215194ad80aac1080ea12959c4b71410b4aded1aea4724aa4d6d0401",
+          "status": "equal",
+          "target_instances": 1
+        },
+        {
+          "id": "kicad-demo-10-0-6-sch-093",
+          "sha256": "1be958816ccae9aad0b6bee797082464e24fc62998a0df85a4dd285cb87871bc",
+          "status": "equal",
+          "target_instances": 16
+        },
+        {
+          "id": "kicad-demo-10-0-6-sch-094",
+          "sha256": "8698aad02f8b0cea57e6259a10dd1d3cc7c5cc990d2eb601ab2ddfc9072338e3",
+          "status": "equal",
+          "target_instances": 1
+        },
+        {
+          "id": "kicad-demo-10-0-6-sch-095",
+          "sha256": "82abc09a2b92bcea4e88ba20524466be3173ad03de43d2ee14c488eeb4c2212b",
+          "status": "equal",
+          "target_instances": 4
+        },
+        {
+          "id": "kicad-demo-10-0-6-sch-096",
+          "sha256": "458875beafc3e84a132144da7270b99af89c4176ee34fcf9cb7a173c3fa1936c",
+          "status": "equal",
+          "target_instances": 1
+        },
+        {
+          "id": "kicad-demo-10-0-6-sch-097",
+          "sha256": "c612a05d0ec431489920eba40d6011e7c8e69a7e5ef53f6e279bff5e271acba4",
+          "status": "equal",
+          "target_instances": 1
+        },
+        {
+          "id": "kicad-demo-10-0-6-sch-098",
+          "sha256": "30ca517600c5d1c1eabecfcf524d4e842dd6a447b6e588249b09439e24904e64",
+          "status": "equal",
+          "target_instances": 1
+        },
+        {
+          "id": "kicad-demo-10-0-6-sch-082",
+          "sha256": "7667db4db2b420839c507e354ca74564ba3c73b4303ce901008b058df58eff25",
+          "status": "equal",
+          "target_instances": 1
+        },
+        {
+          "id": "kicad-demo-10-0-6-sch-083",
+          "sha256": "85dcffa21d56120f6bf9891f9ab1447194bf5535a09e1369926025df0635c457",
+          "status": "equal",
+          "target_instances": 1
+        },
+        {
+          "id": "kicad-demo-10-0-6-sch-100",
+          "sha256": "3debb53d46dfed0b575b03868fe0eab044ff10b8828ac96e4f304b1fa7982b5c",
+          "status": "equal",
+          "target_instances": 16
+        },
+        {
+          "id": "kicad-demo-10-0-6-sch-101",
+          "sha256": "d5b78a3288842f96e85539b9c359d4b13198a3851a50f2499b29230708dd0d49",
+          "status": "equal",
+          "target_instances": 1
+        },
+        {
+          "id": "kicad-demo-10-0-6-sch-104",
+          "sha256": "c7af60643525c8eeebfd00a743c2aa40bc4273596a8e96232b0acf3c69a7e804",
+          "status": "equal",
+          "target_instances": 1
+        },
+        {
+          "id": "kicad-demo-10-0-6-sch-106",
+          "sha256": "792181e43fdbd9580a2e127290c32e61a85d471803bd3ae9e8612733dfaefce1",
+          "status": "equal",
+          "target_instances": 1
+        },
+        {
+          "id": "kicad-demo-10-0-6-sch-108",
+          "sha256": "9ada1234c686858c255f57a562689c7cc185d1b128963a7eab1e75c6289493ec",
+          "status": "equal",
+          "target_instances": 1
+        },
+        {
+          "id": "kicad-demo-10-0-6-sch-110",
+          "sha256": "99bec9b0ca828413eda4bf7781e193f8e08db9e02ce2648d4aeff5fc6f2838ee",
+          "status": "equal",
+          "target_instances": 1
+        },
+        {
+          "id": "kicad-demo-10-0-6-sch-111",
+          "sha256": "f4caec22547c9da6ba28a623b3cc38b3c348a409a62ce5aa2f471bc1cb5f9226",
+          "status": "equal",
+          "target_instances": 1
+        },
+        {
+          "id": "kicad-demo-10-0-6-sch-114",
+          "sha256": "9dd98ee871156fd980ac9afdee71db59eb162a9523f313a8b28c6ace5ac151b6",
+          "status": "equal",
+          "target_instances": 1
+        },
+        {
+          "id": "kicad-demo-10-0-6-sch-084",
+          "sha256": "a7a597937439732618bb85ce07a6a32272d410f5f8b3c6bb68dca307b913e146",
+          "status": "equal",
+          "target_instances": 1
+        },
+        {
+          "id": "kicad-demo-10-0-6-sch-085",
+          "sha256": "7c6444021b1d6432d96de995add52b05e37872cc81d8996def3405dab346ac57",
+          "status": "equal",
+          "target_instances": 1
+        },
+        {
+          "id": "kicad-demo-10-0-6-sch-086",
+          "sha256": "fcd7ff9c6765d99f6eacdb05ef3def38add5dc6e8a14a419b7bf39de3c70d0d0",
+          "status": "equal",
+          "target_instances": 1
+        },
+        {
+          "id": "kicad-demo-10-0-6-sch-087",
+          "sha256": "46c3bd3d85be48049bb9627164d93bfc49e0f76ca7270d8f8ebc790e31c644b8",
+          "status": "equal",
+          "target_instances": 1
+        },
+        {
+          "id": "kicad-demo-10-0-6-sch-088",
+          "sha256": "5c68cb55c8ca909e5a1b42064b40f62aadd2f4131611415d96f4551701371283",
+          "status": "equal",
+          "target_instances": 1
+        },
+        {
+          "id": "kicad-demo-10-0-6-sch-089",
+          "sha256": "76f7861b2254c4f59e98a37f753ac6ccc4500a457d759db67e9a07a9462eb79f",
+          "status": "equal",
+          "target_instances": 1
+        },
+        {
+          "id": "kicad-demo-10-0-6-sch-090",
+          "sha256": "4a61ee8567f076a1e3669225be0f5fdef73fb753e45376a8dd08d0941ce18b16",
+          "status": "equal",
+          "target_instances": 1
+        },
+        {
+          "id": "kicad-demo-10-0-6-sch-091",
+          "sha256": "b8c57af8c6f3d7a6de1053e68e6cfd4c7503622e0d4ac3cb121ab3c550ab011b",
+          "status": "equal",
+          "target_instances": 1
+        }
+      ],
+      "scope": "Literal 36 row parameters whose discovered native-10 owner is row 106; complete partition passes, own naming remains different. No native-9 or exact-head CI inferred."
+    }
+  ],
+  "schema": "fenolite.contextual-symbol-observation.v0"
+}

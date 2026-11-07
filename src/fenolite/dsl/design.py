@@ -4,12 +4,15 @@
 
 from __future__ import annotations
 
+import dataclasses
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, cast, get_args
 
 from fenolite.core.coords import Point
+from fenolite.core.partquery import Constraint
 from fenolite.core.units import Nm
 from fenolite.dsl import items as itemlib
 from fenolite.dsl.errors import DslError
@@ -25,16 +28,32 @@ from fenolite.dsl.select import pair as select_pair
 from fenolite.dsl.shape import RingSpec, closed_ring, slot_size
 from fenolite.dsl.stack import DIELECTRICS, StackEntry
 from fenolite.dsl.units import Length, as_nm, as_nm2, as_udeg
-from fenolite.model.board import IslandRemoval, ViaProtection, ZoneConnection, ZoneSettings
+from fenolite.model.board import IslandRemoval, ViaProtection, ZoneConnection, ZoneSettings, ZoneSmoothing
 from fenolite.model.design import presentation_issues
 from fenolite.model.findings import Waiver
+from fenolite.model.library import DeviceDef
 from fenolite.model.pairs import PAIR_ROLES
 from fenolite.model.presentation import PARAM_NAME, PaperSize, SheetFrameRef, TitleBlock
-from fenolite.model.rules import HeightLimit, PlacementSeverity, RuleKind, RuleSeverity, Selector
+from fenolite.model.rules import (
+    HeightLimit,
+    PlacementSeverity,
+    RuleKind,
+    RuleSeverity,
+    Selector,
+    TeardropRule,
+)
 
 if TYPE_CHECKING:
+    from fenolite.dsl.block import BlockDef, BlockInstance
+    from fenolite.dsl.devices import DeviceSource, PartEntry
     from fenolite.dsl.generate import Recorded as Generated
     from fenolite.dsl.intents import MeanderIntent, Recorded
+    from fenolite.dsl.interfaces import Ground, Rail
+    from fenolite.dsl.protocol import Usb2
+    from fenolite.dsl.relative import BoardRef, Strategy
+    from fenolite.dsl.rolecopper import RoleCopperIntent
+    from fenolite.dsl.topology import Topology
+    from fenolite.model.rules import LayerLoss, Propagation
 
 DESIGN_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 """A design name becomes the stem of the KiCad files."""
@@ -42,14 +61,19 @@ PAPERS: tuple[str, ...] = get_args(PaperSize)
 """The paper names of ``sheet()``; ``custom`` takes ``width`` and ``height``."""
 SHEET_SUFFIXES: tuple[str, ...] = (".kicad_wks", ".sheet.toml")
 """What a drawing sheet named by ``sheet()`` ends in."""
-COPPER_COUNTS: tuple[int, ...] = (2, 4, 6, 8)
-"""The copper layer counts of ``board()`` (change c0100). The KiCad backend holds the same counts in
-``layers.CREATED_COPPER_COUNTS``; the DSL imports only the model, so a unit test keeps the two equal."""
+COPPER_COUNTS: tuple[int, ...] = tuple(range(2, 33, 2))
+"""The copper layer counts of ``board()``: every even count from 2 to 32 (change c0100; 10 to 32 since
+change c0277). The KiCad backend holds the same counts in ``layers.CREATED_COPPER_COUNTS``; the DSL imports
+only the model, so a unit test keeps the two equal. One copper layer is not a count: KiCad 9.0.9 and
+10.0.6 refuse a table without ``B.Cu`` (``H-K-PCB-ONE-COPPER``)."""
+SINGLE_SIDED_HINT = "a single-sided board is copper=2 with nothing on B.Cu"
+"""What ``board(copper=1)`` says (change c0277)."""
+USER_LAYERS = 45
+"""The user layers a design may declare, ``User.1`` to ``User.45`` (``user_layers``; change c0277)."""
 
 
 def _counts_text() -> str:
-    counts = [str(count) for count in COPPER_COUNTS]
-    return f"{', '.join(counts[:-1])} or {counts[-1]}"
+    return f"an even count from {COPPER_COUNTS[0]} to {COPPER_COUNTS[-1]}"
 
 
 def inner_layers(copper: int) -> tuple[str, ...]:
@@ -84,10 +108,13 @@ class ZoneSpec:
     priority: int
     settings: ZoneSettings
     locked: bool
+    arcs: tuple[tuple[int, tuple[Nm, Nm]], ...] = ()
+    """Each edge of ``outline`` that is an arc, with its mid point, board-relative (change c0277)."""
 
 
 ZONE_CONNECTIONS: tuple[str, ...] = get_args(ZoneConnection)
 ZONE_ISLANDS: tuple[str, ...] = get_args(IslandRemoval)
+ZONE_SMOOTHINGS: tuple[str, ...] = tuple(s for s in get_args(ZoneSmoothing) if s != "none")
 
 
 MINIMUM_KINDS: tuple[RuleKind, ...] = (
@@ -123,6 +150,33 @@ SHORT_CODES: tuple[str, ...] = ("copper.short", "kicad.drc.shorting-items")
 """A short is waived by exact names only: an intended short is one net tie, and a pattern could cover a
 second one."""
 GLOB_CHARS = "*?["
+WAIVED_CIRCUIT: tuple[str, ...] = (
+    "circuit.bus-pullup",
+    "circuit.device-changed",
+    "circuit.expect-failed",
+    "circuit.expect-unknown",
+    "circuit.expect-unsure",
+    "circuit.logic-level",
+    "circuit.logic-unknown",
+    "circuit.operating-range",
+    "circuit.port-split",
+    "circuit.pullup-parallel",
+    "circuit.rail-current",
+    "circuit.rail-sources",
+    "circuit.rail-unset",
+    "circuit.rail-voltage",
+    "circuit.rating-current",
+    "circuit.rating-missing",
+    "circuit.rating-power",
+    "circuit.rating-temperature",
+    "circuit.rating-voltage",
+    "circuit.requires-missing",
+    "circuit.value-conflict",
+    "circuit.value-unknown",
+)
+"""The circuit finding codes a waiver can name (change c0274): the ``circuit.*`` codes of
+``checks.codes.ISSUE_CODES`` that have the severity ``error`` or ``warning`` (a test keeps the two equal)."""
+DIGEST = re.compile(r"[0-9a-f]{16}")
 
 
 def _drc_suffix(code: object) -> str | None:
@@ -152,8 +206,16 @@ class NearSpec:
 
 RULE_KINDS: tuple[str, ...] = get_args(RuleKind)
 RULE_SEVERITIES: tuple[str, ...] = get_args(RuleSeverity)
-BINARY_KINDS: frozenset[str] = frozenset({"clearance", "creepage"})
-"""The rule kinds that take a second selector (``between``)."""
+BINARY_KINDS: frozenset[str] = frozenset({"clearance", "creepage", "short"})
+"""The rule kinds that take a second selector (``between``); a ``short`` rule needs one (change c0465)."""
+ALLOWANCE_KINDS: frozenset[str] = frozenset({"short", "antenna"})
+"""The kinds of change c0465. A ``short`` rule takes ``between`` and no limit: its ``severity`` says what a
+short between the two sides is, and ``ignore`` allows it. An ``antenna`` rule takes ``max`` alone, 0 or
+more: the longest open-ended stub of the selected copper that passes."""
+NEGATIVE_MIN_KINDS: frozenset[str] = frozenset({"silk_clearance"})
+"""The rule kinds whose ``min`` may be below zero: KiCad 9.0.9 and 10.0.6 read a negative ``silk_clearance``
+minimum and let silkscreen items overlap by up to that much (``rules.md``, ``H-K-DRU-NEG-SILK``; change
+c0427). An Altium silk to silk rule may hold one."""
 NO_LIMIT_KINDS: frozenset[str] = frozenset({"no_tracks"})
 """The rule kinds that take no limit and need ``layers``: a track layer rule keeps the tracks of the
 selected items off those layers (it is not the ``no_tracks`` flag of a keep-out, which forbids tracks
@@ -190,6 +252,7 @@ class ImpedanceSpec:
     pairs: tuple[Interface, ...]
     traces: tuple[Trace, ...]
     priority: int
+    priority_explicit: bool = False
 
     @property
     def differential(self) -> bool:
@@ -238,6 +301,8 @@ class Rules:
     def __init__(self, design: Design) -> None:
         self._design = design
         self.named: dict[str, RuleSpec] = {}
+        self.specificity = False
+        self.explicit_priorities: set[str] = set()
         """The rules of ``rule()`` by name, in call order."""
         self.netclasses: dict[str, NetClassSpec] = {}
         self.minimums: dict[tuple[RuleKind, str | None], MinimumSpec] = {}
@@ -256,7 +321,7 @@ class Rules:
         pair: Interface | Sequence[Interface] | None = None,
         layers: Sequence[Trace],
         tolerance: object = None,
-        priority: int = 1,
+        priority: int | None = None,
     ) -> None:
         """Declare one impedance target (``docs/impedance.md``): ``ohms`` (``ohm(90)``, ``90`` or
         ``"42.5"``), the net classes it governs (``netclass``, a name or names) or the differential pairs
@@ -313,13 +378,26 @@ class Rules:
             )
         if missing and len(missing) != len(checked):
             raise DslError(f"{what}: a gap is given on some traces only; {', '.join(missing)} has no gap")
-        if type(priority) is not int or priority < 0:
+        if priority is not None and (type(priority) is not int or priority < 0):
             raise DslError(f"{what}: priority must be an integer of 0 or more, not {priority!r}")
         for itf in pairs:
             self._design.register_interface(itf)
         self.impedance_targets[name] = ImpedanceSpec(
-            name, ohms_text, tolerance_text, classes, pairs, tuple(checked), priority
+            name,
+            ohms_text,
+            tolerance_text,
+            classes,
+            pairs,
+            tuple(checked),
+            1 if priority is None else priority,
+            priority is not None,
         )
+
+    def precedence(self, mode: str) -> None:
+        """Opt into specificity priorities for rules without priority=; the default remains KiCad order."""
+        if mode != "specificity":
+            raise DslError('precedence(): mode must be "specificity"')
+        self.specificity = True
 
     def severity(self, code: str, level: str) -> None:
         """Give one check of KiCad's DRC a severity: ``code`` is the finding code as ``fenolite check``
@@ -364,7 +442,10 @@ class Rules:
     ) -> None:
         """Declare design-rule minimums: one rule per given length, for the whole board, or for the nets
         of the declared class ``netclass``. The build writes them where the design-rule check of the
-        target reads them; a class minimum governs over the board minimum of its kind."""
+        target reads them; a class minimum governs over the board minimum of its kind. A class minimum is
+        written last (priority 1), so it also governs every ``rule()`` of that class without ``priority=``,
+        a lower one included (``rules.shadowed`` names it); ``precedence("specificity")`` lets the more
+        specific rule govern (change c0403)."""
         if netclass is not None and netclass not in self.netclasses:
             raise DslError(
                 f"minimum(): netclass {netclass!r} is not a declared net class; "
@@ -399,12 +480,12 @@ class Rules:
         opt: object = None,
         max: object = None,
         severity: str = "error",
-        priority: int = 0,
+        priority: int | None = None,
     ) -> None:
         """Declare one design rule of any model kind. ``where`` selects the items (``fenolite.dsl.select``),
-        ``between`` the second item of a ``clearance`` or ``creepage`` rule. Priority 0 is written first and
-        governs least; among the others, 1 governs most. What depends on the target (the limits a kind
-        takes, the majors that check it, globs, layer names) is judged when the rules are lowered."""
+        ``between`` the second item of a ``clearance``, ``creepage`` or ``short`` rule. Priority 0 is written
+        first and governs least; among the others, 1 governs most. What depends on the target (the limits a
+        kind takes, the majors that check it, globs, layer names) is judged when the rules are lowered."""
         if not isinstance(name, str) or not name:  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"rule(): a rule name must be a non-empty string, not {name!r}")
         if name in self.named:
@@ -417,7 +498,12 @@ class Rules:
             raise DslError(f"rule() {name!r}: between must be a selector of fenolite.dsl.select")
         if between is not None and kind not in BINARY_KINDS:
             raise DslError(
-                f"rule() {name!r}: between is taken by clearance and creepage rules, not by {kind}"
+                f"rule() {name!r}: between is taken by clearance, creepage and short rules, not by {kind}"
+            )
+        if between is None and kind == "short":
+            raise DslError(
+                f"rule() {name!r}: a short rule needs between, the other side of the short, for example "
+                'between=select.net("DGND")'
             )
         if not isinstance(layers, tuple) or not all(isinstance(x, str) and x for x in layers):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"rule() {name!r}: layers must be a tuple of layer names, not {layers!r}")
@@ -425,24 +511,36 @@ class Rules:
             raise DslError(
                 f"rule() {name!r}: severity {severity!r} is not one of {', '.join(RULE_SEVERITIES)}"
             )
-        if type(priority) is not int or priority < 0:
+        if priority is not None and (type(priority) is not int or priority < 0):
             raise DslError(f"rule() {name!r}: priority must be an integer of 0 or more, not {priority!r}")
         limits: dict[str, Nm | None] = {}
         for label, value in (("min", min), ("opt", opt), ("max", max)):
             limits[label] = None if value is None else as_nm(value, name=f"rule() {name!r}: {label}")
         given = [(label, value) for label, value in limits.items() if value is not None]
-        if kind in NO_LIMIT_KINDS:
+        if kind == "short":
+            if given:
+                raise DslError(
+                    f"rule() {name!r}: a short rule takes no limit, so {given[0][0]} is refused; its "
+                    'severity says what a short is (severity="ignore" allows it)'
+                )
+        elif kind == "antenna":
+            if [label for label, _ in given] != ["max"]:
+                raise DslError(f"rule() {name!r}: an antenna rule takes max alone, for example max=mm(1.5)")
+            if cast(Nm, limits["max"]) < 0:
+                raise DslError(f"rule() {name!r}: max must not be negative")
+        elif kind in NO_LIMIT_KINDS:
             if given:
                 raise DslError(f"rule() {name!r}: a {kind} rule takes no limit, so {given[0][0]} is refused")
             if not layers:
                 raise DslError(f'rule() {name!r}: a {kind} rule needs layers, for example layers=("In1.Cu",)')
         elif not given:
             raise DslError(f"rule() {name!r}: give at least one limit, for example min=mm(0.2)")
-        if limits["min"] is not None and limits["min"] < 0:
-            raise DslError(f"rule() {name!r}: min must not be negative")
+        if limits["min"] is not None and limits["min"] < 0 and kind not in NEGATIVE_MIN_KINDS:
+            allowed = ", ".join(sorted(NEGATIVE_MIN_KINDS))
+            raise DslError(f"rule() {name!r}: min must not be negative (a {allowed} rule may hold one)")
         for label in ("opt", "max"):
             value = limits[label]
-            if value is not None and value <= 0:
+            if value is not None and value <= 0 and kind != "antenna":
                 raise DslError(f"rule() {name!r}: {label} must be above 0")
         if any(a > b for (_, a), (_, b) in zip(given, given[1:], strict=False)):
             raise DslError(f"rule() {name!r}: the limits must rise from min through opt to max")
@@ -464,8 +562,10 @@ class Rules:
             limits["opt"],
             limits["max"],
             cast(RuleSeverity, severity),
-            priority,
+            0 if priority is None else priority,
         )
+        if priority is not None:
+            self.explicit_priorities.add(name)
 
     def pair(
         self,
@@ -479,7 +579,7 @@ class Rules:
         length_min: object = None,
         length_max: object = None,
         severity: str = "error",
-        priority: int = 1,
+        priority: int | None = None,
     ) -> None:
         """Declare the rules of one differential pair (a ``DiffPair``, a ``USB2`` or another pair
         interface), one rule per given group, named ``pair:<pair name>:<group>``: the gap between the two
@@ -508,6 +608,7 @@ class Rules:
                 "or uncoupled_max=mm(5)"
             )
         before = dict(self.named)
+        before_explicit = set(self.explicit_priorities)
         try:
             for group, kind, limits in given:
                 self.rule(
@@ -515,12 +616,15 @@ class Rules:
                     kind,
                     where=where,
                     severity=severity,
-                    priority=priority,
+                    priority=1 if priority is None else priority,
                     **limits,  # type: ignore[arg-type]
                 )
+                if priority is None:
+                    self.explicit_priorities.discard(f"pair:{pair.name}:{group}")
             self._design.register_interface(pair)
         except DslError as error:
             self.named = before
+            self.explicit_priorities = before_explicit
             raise DslError(f"pair() {pair.name}: {error}") from None
 
     def netclass(
@@ -622,12 +726,36 @@ class Design(Container):
         """The milled slots of ``slot()`` by name, in call order."""
         self.outline_locked = False
         """``board(locked=True)``: the script's outline replaces one edited in KiCad on a rebuild."""
+        self.outline_width: Nm | None = None
+        """Optional uniform stroke of generated root edges; footprint edges keep their own widths."""
+        self.max_curve_error: Nm | None = None
+        """Optional target-project curve approximation setting (c0340), not a universal bound."""
+        self.technical_layer_names: tuple[str, ...] | None = None
+        """Explicit standard non-copper rows of board(); None retains the full default table."""
         self.parts: dict[str, Part] = {}
+        self.device_records: dict[str, DeviceDef] = {}
+        """The devices of ``devices()`` by id: they win over project and shipped devices (change c0248)."""
+        self.device_parts: dict[str, tuple[PartEntry, ...]] = {}
+        """The orderable parts of the devices of ``devices()`` by device id (change c0259)."""
+        self.query_defaults: dict[str, dict[str, Constraint | None]] = {}
+        """``defaults()``: per query kind, the constraint keys every query of the design starts from
+        (change c0254); a ``None`` value removes the key."""
         self.footprints: dict[str, Footprint] = {}
         self.symbols: dict[str, object] = {}
         self.modules: dict[str, Module] = {}
         self.nets: dict[str, Net] = {}
         self.interfaces: dict[str, Interface] = {}
+        self.propagation_inputs: dict[str, Propagation] = {}
+        self.loss_inputs: dict[str, LayerLoss] = {}
+        self.topologies: dict[str, Topology] = {}
+        self.bridges: dict[tuple[Part, str, str], tuple[int, int]] = {}
+        self.protocol_bindings: list[tuple[Interface, Usb2]] = []
+        self.block_defs: dict[str, object] = {}
+        self.top_strategy: Strategy | None = None
+        """The strategy of ``layout()`` at the top level (change c0255), or ``None``."""
+        """The block definitions used by ``use()``, by block name (change c0251)."""
+        self.port_net_names: set[str] = set()
+        """The net names that ``portnets.resolve`` registered for groups of port nets."""
         self.aliases: dict[str, str] = {}
         """``moved()`` aliases: new path → old path, of a part or of a module."""
         self.net_aliases: dict[str, str] = {}
@@ -638,6 +766,14 @@ class Design(Container):
         """The drawing sheet of ``sheet()``, as the script names it: a path relative to its folder."""
         self.block: TitleBlock | None = None
         """The title block of ``title_block()``."""
+        self._kicad_project_input: tuple[str, str] | None = None
+        self._kicad_project_preserve_minimums = False
+        """Explicit native project input declaration, outside canonical model state (c0351)."""
+        self.drawn_source: str | None = None
+        """The drawn schematic of ``load_schematic()``, as the script names it: a path relative to its
+        folder (change c0276)."""
+        self.symbol_context_source: str | None = None
+        """Required contextual native symbol index; DSL input only, never part of the model (c0327)."""
         self.copper_intents: dict[str, Recorded] = {}
         """Copper intents by key, as recorded by ``track()``, ``via()`` and ``stitch()``."""
         self.meander_intents: dict[str, MeanderIntent] = {}
@@ -645,8 +781,10 @@ class Design(Container):
         self.generated: dict[str, Generated] = {}
         """Generated-copper records by key ``<call>.<name>``, as recorded by ``band()``, ``keepout_ring()``,
         ``barrier()``, ``body_keepout()``, ``fanout_zone()`` and ``stitch_pieces()``."""
+        self.role_copper_intent: RoleCopperIntent | None = None
+        """The record of ``role_copper()`` (change c0243), or ``None``."""
         self.zones: dict[str, ZoneSpec] = {}
-        """Copper zones by name, as declared by ``zone()``."""
+        """Copper zones by key (the name unless ``key=`` is given), as declared by ``zone()``."""
         self.stack: StackupSpec | None = None
         """The stack-up of ``stackup()``."""
         self.via_default: tuple[ViaProtection, bool] | None = None
@@ -654,10 +792,21 @@ class Design(Container):
         self.waivers: dict[str, Waiver] = {}
         """Waivers by name, as declared by ``waive()``."""
         self.rule_areas: dict[str, itemlib.RuleArea] = {}
-        """Rule areas by name, as declared by ``rule_area()``, in call order."""
+        """Rule areas by key (the name unless ``key=`` is given), as declared by ``rule_area()``, in call
+        order."""
         self.drawings: dict[str, itemlib.Drawing] = {}
         """Board drawings by key, as declared by ``text()``, ``line()``, ``rect()``, ``circle()``, ``arc()``,
         ``polygon()`` and ``dimension()``, in call order."""
+        self.groups: dict[str, itemlib.GroupSpec] = {}
+        """The groups of ``group()`` by key, in call order (change c0277)."""
+        self.verbatim_items: dict[str, tuple[str, str]] = {}
+        self.teardrop_rules: list[TeardropRule] = []
+        self.images: dict[str, itemlib.ImageSpec] = {}
+        """The text and target of each ``verbatim()`` call by key, in call order (change c0277)."""
+        self.user_layer_count = 0
+        """The user layers ``user_layers()`` declares, ``User.1`` … ``User.<count>`` (change c0277)."""
+        self.user_layer_aliases: dict[str, str] = {}
+        """The user name of each user layer that has one (``user_layers(names=…)``)."""
         self.near_rules: dict[str, NearSpec] = {}
         """Proximity rules by key, as declared by ``near()``."""
         self.height_limits: dict[str, HeightLimit] = {}
@@ -666,6 +815,141 @@ class Design(Container):
 
         self.role_records = RoleRecords()
         """The net roles, role groups, limits and part classes of the role calls (change c0222)."""
+        from fenolite.dsl.contracts import ContractRecords
+
+        self.contract_records = ContractRecords()
+        """The derating rules, operating range, strictness, expectations and rig of the contract calls
+        (change c0253)."""
+
+    @property
+    def board_ref(self) -> BoardRef:
+        """The board as a placement reference: its edges are those of the outline's box (change c0255)."""
+        from fenolite.dsl.relative import BoardRef
+
+        return BoardRef(self)
+
+    def propagation(self, layer: str = "", *, per_mm: object = None, via: object = None) -> None:
+        """State delay per millimetre of ``layer`` or per via crossed, using fs(), ps() or ns().
+        Every value is the user's stack-up input; a second input for the same layer is refused."""
+        from fenolite.dsl.timing import Delay
+        from fenolite.model.rules import Propagation
+
+        if layer:
+            if (
+                not re.fullmatch(r"(?:F|B|In[1-9]\d*)\.Cu", layer)
+                or not isinstance(per_mm, Delay)
+                or via is not None
+            ):
+                raise DslError("propagation(): give a copper layer and per_mm=Delay")
+            if per_mm.fs == 0:
+                raise DslError("propagation(): per_mm must be above zero")
+            row = Propagation(layer=layer, per_mm_fs=per_mm.fs)
+        else:
+            if not isinstance(via, Delay) or per_mm is not None:
+                raise DslError("propagation(): give via=Delay, or layer and per_mm=Delay")
+            row = Propagation(via_fs=via.fs)
+        if layer in self.propagation_inputs:
+            raise DslError(f"propagation(): input for {layer or 'vias'} is declared twice")
+        self.propagation_inputs[layer] = row
+
+    def topology(self, name: str, *chains: object) -> Topology:
+        """Declare a named ordered pad tree from ``pin >> pin`` chains and terminal tuple fan-outs."""
+        from fenolite.dsl.topology import declare
+
+        return declare(self, name, chains)
+
+    def constrain(self, target: object, bundle: object) -> None:
+        """Bind a protocol.Usb2 to a USB2/DiffPair interface, or protocol.Clock to a topology."""
+        from fenolite.dsl.protocol import constrain
+
+        constrain(self, target, bundle)
+
+    def bridge(
+        self, part: Part, a: str | int, b: str | int, *, delay: object = None, loss: object = None
+    ) -> None:
+        """Declare a series bridge between two pins of one part, with optional fs() delay and mdb() loss."""
+        from fenolite.dsl.topology import bridge
+
+        bridge(self, part, a, b, delay, loss)
+
+    def loss(self, layer: str = "", *, per_mm: object = None, via: object = None, at: object = None) -> None:
+        """State loss per millimetre of ``layer`` or per via, using mdb() or db(), optionally at hertz().
+        No loss or frequency value is supplied by Fenolite."""
+        from fenolite.dsl.timing import Loss
+        from fenolite.model.rules import LayerLoss
+
+        frequency = ""
+        if at is not None:
+            if not isinstance(at, Quantity) or at.unit != "hertz" or at.value <= 0:
+                raise DslError("loss(): at must be a positive hertz() value")
+            frequency = decimal_text(at.value, "loss(): at")
+        if layer:
+            if (
+                not re.fullmatch(r"(?:F|B|In[1-9]\d*)\.Cu", layer)
+                or not isinstance(per_mm, Loss)
+                or via is not None
+            ):
+                raise DslError("loss(): give a copper layer and per_mm=Loss")
+            row = LayerLoss(layer=layer, per_mm_mdb=per_mm.mdb, at_hz=frequency)
+        else:
+            if not isinstance(via, Loss) or per_mm is not None:
+                raise DslError("loss(): give via=Loss, or layer and per_mm=Loss")
+            row = LayerLoss(via_mdb=via.mdb, at_hz=frequency)
+        if layer in self.loss_inputs:
+            raise DslError(f"loss(): input for {layer or 'vias'} is declared twice")
+        self.loss_inputs[layer] = row
+
+    def layout(self, strategy: object) -> None:
+        """The layout strategy of the top level (``row()``, ``column()``, ``grid()`` or ``pack()``): it
+        places the parts and the block instances of the top that nothing else places (``docs/dsl.md``,
+        "Block layout")."""
+        from fenolite.dsl.relative import Strategy, set_layout
+
+        chosen = set_layout(
+            self.top_strategy, strategy, None, False, what="design.layout()", root=None, allow_reuse=False
+        )
+        assert isinstance(chosen, Strategy)
+        self.top_strategy = chosen
+
+    def use(self, block: BlockDef, name: str, **params: object) -> BlockInstance:
+        """An instance of the block ``block`` named ``name``, with the keyword parameters ``params``: the
+        block is added to the design and its function runs once (``docs/dsl.md``, "Blocks")."""
+        from fenolite.dsl.block import instantiate
+
+        return instantiate(self, block, name, params)
+
+    def rail(self, name: str, *, voltage: object = None, ground: object = None, shared: bool = False) -> Rail:
+        """Create the net ``name`` and the ``Rail`` on it, add both and return the rail (change c0252).
+        ``ground`` (a ``Ground`` or a ``Net``) gives the member ``lv``; ``voltage`` is the declared range."""
+        from fenolite.dsl.interfaces import Ground, Rail
+
+        net = self._fresh_net(name, "rail()")
+        lv: Net | None
+        if ground is None or isinstance(ground, Net):
+            lv = ground
+        elif isinstance(ground, Ground):
+            lv = ground.members["gnd"]
+        else:
+            raise DslError(f"rail({name!r}): ground is a Ground or a Net, not {ground!r}")
+        made = Rail(net, lv, voltage=voltage, shared=shared)  # type: ignore[arg-type]
+        self.add(net, made)
+        return made
+
+    def ground(self, name: str) -> Ground:
+        """Create the net ``name`` and the ``Ground`` on it, add both and return the ground (change c0252)."""
+        from fenolite.dsl.interfaces import Ground
+
+        net = self._fresh_net(name, "ground()")
+        made = Ground(net)
+        self.add(net, made)
+        return made
+
+    def _fresh_net(self, name: object, call: str) -> Net:
+        if not isinstance(name, str):
+            raise DslError(f"{call}: a net name is a str, not {name!r}")
+        if name in self.nets:
+            raise DslError(f"{call}: the design already has a net named {name!r}")
+        return Net(name)
 
     def schematic_layout(self, *, mode: str = "blocks", flow: str = "left-to-right") -> None:
         """Enable presentation-only functional block composition (Altium)."""
@@ -689,12 +973,16 @@ class Design(Container):
         *items: object,
         reason: str,
         min_gap: object = None,
+        digest: str | None = None,
         name: str | None = None,
     ) -> None:
-        """Accept one finding of ``fenolite check`` or of the build's copper guard, with a reason
-        (``docs/dsl.md``, "Waivers").
+        """Accept one finding of ``fenolite check``, of the build's copper guard or of its circuit hook, with
+        a reason (``docs/dsl.md``, "Waivers").
 
-        ``code`` is ``copper.short``, ``copper.clearance``, ``copper.zone-overlap`` or ``kicad.drc.<type>``.
+        ``code`` is ``copper.short``, ``copper.clearance``, ``copper.zone-overlap``, ``kicad.drc.<type>`` or,
+        since change c0274, a ``circuit.*`` code of an error or a warning: a circuit finding is waived by its
+        one row id without the code (``C3:voltage``) and the ``digest`` its hint ends with; when the judged
+        value or limit changes, the digest differs and ``check.waiver-expired`` says the waiver expired.
         ``items`` are the names of the finding's items as its ``where`` prints them (``REF-PIN``, ``REF``, a
         locator, ``@x,y``), in any order; a ``Part`` stands for its reference, and ``*``, ``?`` and ``[…]``
         are patterns. A short takes exact names only. ``min_gap`` belongs to ``copper.clearance``: the
@@ -702,11 +990,12 @@ class Design(Container):
         listed, as ``info``, with the waiver's name and reason; a waiver that matches nothing is reported by
         ``fenolite check``."""
         suffix = _drc_suffix(code)
-        if code not in WAIVED_COPPER and suffix is None:
+        circuit = code in WAIVED_CIRCUIT
+        if code not in WAIVED_COPPER and suffix is None and not circuit:
             raise DslError(
-                f"waive(): {code!r} is not a finding that can be waived; only copper and DRC findings "
-                f"are: {', '.join(WAIVED_COPPER)} or 'kicad.drc.<type>' (the verdicts "
-                f"{', '.join(DRC_VERDICTS)} are not findings)"
+                f"waive(): {code!r} is not a finding that can be waived; only copper, DRC and circuit "
+                f"findings are: {', '.join(WAIVED_COPPER)}, 'kicad.drc.<type>' (the verdicts "
+                f"{', '.join(DRC_VERDICTS)} are not findings) or a circuit.* code of an error or a warning"
             )
         names: list[str] = []
         for item in items:
@@ -721,6 +1010,18 @@ class Design(Container):
             wanted = "two items" if code in WAIVED_COPPER else "one or two items"
             raise DslError(f"waive(): a finding of {code} has {wanted}; {len(names)} were given")
         globbed = any(mark in text for text in names for mark in GLOB_CHARS)
+        if circuit and (len(names) != 1 or globbed):
+            raise DslError(
+                f"waive(): a circuit finding ({code}) is waived by its exact row: one item, the row id "
+                f"without the code (as its hint and the matrix print it), not {', '.join(names)}"
+            )
+        if circuit and (not isinstance(digest, str) or not DIGEST.fullmatch(digest)):
+            raise DslError(
+                f"waive(): a circuit waiver ({code}) needs digest=, the 16 lowercase hexadecimal digits that "
+                f"the finding's hint ends with, not {digest!r}"
+            )
+        if not circuit and digest is not None:
+            raise DslError(f"waive(): digest belongs to a circuit.* waiver; a finding of {code} has none")
         if code in SHORT_CODES and globbed:
             raise DslError(
                 f"waive(): a short ({code}) is waived by exact names only; {', '.join(names)} holds a pattern"
@@ -747,8 +1048,36 @@ class Design(Container):
         if label in self.waivers:
             raise DslError(f"waive(): a waiver named {label!r} is already recorded")
         self.waivers[label] = Waiver(
-            name=label, code=code, items=tuple(names), reason=reason.strip(), min_gap=gap
+            name=label,
+            code=code,
+            items=tuple(names),
+            reason=reason.strip(),
+            min_gap=gap,
+            digest=digest if circuit else None,
         )
+
+    def devices(self, *records: DeviceSource) -> None:
+        """Register device records for this design (``fenolite.catalog.devices.parse_device``,
+        ``load_devices``, or a ``fenolite.device.v1`` record of ``fenolite.catalog.records.parse_record`` with
+        its orderable parts); ``part(ref, device=id)`` resolves an id, or ``<id>@<mpn>``, against them before
+        the project devices and the shipped ones (``docs/devices.md``, "Where devices come from")."""
+        from fenolite.dsl.devices import check_records
+
+        for device, parts in check_records(records):
+            known = self.device_records.get(device.id)
+            if known is not None and (known != device or self.device_parts.get(device.id, ()) != parts):
+                raise DslError(f"devices(): device {device.id!r} is registered twice with different records")
+            self.device_records[device.id] = device
+            self.device_parts[device.id] = parts
+
+    def defaults(self, **kinds: object) -> None:
+        """The design-level defaults of part queries: per kind (``resistor``, ``capacitor``, ``inductor``) a
+        mapping of its constraint keys, such as ``defaults(resistor={"case": "0603", "tolerance": pct(1)})``.
+        A block's ``b.defaults`` and the call's keywords win over them in turn; ``None`` removes a key
+        (``docs/picking.md``, "Defaults")."""
+        from fenolite.dsl.query import set_defaults
+
+        set_defaults(self.query_defaults, kinds, "defaults()")
 
     def add_footprint(self, footprint: Footprint) -> None:
         """Register a project-authored library footprint for backend builds (not model persistence)."""
@@ -760,13 +1089,18 @@ class Design(Container):
 
     def add(self, *objs: object) -> None:
         """Attach authored symbols explicitly, or attach ordinary design objects as usual."""
-        from fenolite.dsl.symbol import Symbol
+        from fenolite.dsl.symbol import DerivedSymbol, Symbol
 
         regular: list[object] = []
         for obj in objs:
-            if isinstance(obj, Symbol):
+            if isinstance(obj, (Symbol, DerivedSymbol)):
                 if obj.lib_id in self.symbols:
                     raise DslError(f"symbol {obj.lib_id!r} is registered twice")
+                if isinstance(obj, DerivedSymbol) and self.symbols.get(obj.base.lib_id) is not obj.base:
+                    raise DslError(
+                        f"symbol {obj.lib_id!r} extends {obj.base.lib_id!r}: add the base symbol to the "
+                        "design first (KiCad resolves a derived symbol within its library)"
+                    )
                 self.symbols[obj.lib_id] = obj
             else:
                 regular.append(obj)
@@ -777,6 +1111,9 @@ class Design(Container):
     def design(self) -> Design:
         return self
 
+    def describe(self) -> str:
+        return f"design {self.name}"
+
     def board(
         self,
         width: object = None,
@@ -786,21 +1123,51 @@ class Design(Container):
         *,
         outline: object = None,
         locked: bool = False,
-    ) -> None:
+        outline_width: object = None,
+        technical_layers: Sequence[str] | None = None,
+        max_curve_error: object = None,
+    ) -> BoardRef:
         """The board: a rectangle of ``width`` × ``height``, or the closed path ``outline`` (pairs of
         lengths and ``arc_to`` steps in the frame of ``place()``; ``fenolite.dsl.shape`` gives ``rect``,
-        ``circle`` and ``slot``), with 2, 4, 6 or 8 copper layers. Exactly one form is given. An inner
-        layer is a signal layer unless ``planes`` names it: ``planes={"In1.Cu": gnd}`` makes that layer an
-        internal plane on that net (a ``Net`` or a net name). A plane holds one net; it is a build
+        ``circle`` and ``slot``), with an even count of 2 to 32 copper layers. Exactly one form is given.
+        An inner layer is a signal layer unless ``planes`` names it: ``planes={"In1.Cu": gnd}`` makes that
+        layer an internal plane on that net (a ``Net`` or a net name). A plane holds one net; it is a build
         parameter, as ``copper`` is, and what a target does with it is its build's rule (``docs/dsl.md``).
         ``locked=True`` makes the script's outline replace an outline edited in KiCad when the board is
-        rebuilt (``docs/lens.md``, "Outline changes")."""
+        rebuilt (``docs/lens.md``, "Outline changes"). It returns the board as a placement reference
+        (``BoardRef``, change c0255): ``j1.place(left=board.left + mm(2), ...)``. ``outline_width`` is an
+        optional nonnegative length for generated root edge strokes; footprint edges keep theirs.
+        ``technical_layers`` selects standard non-copper rows, including ``Edge.Cuts``; ``None`` keeps
+        the full default table. Declared ``User.n`` layers remain independent.
+        ``max_curve_error`` is a positive target-project curve approximation length; ``None`` keeps
+        its default. It is not a universal guarantee about every geometry algorithm."""
         if self.outline_path is not None:
             raise DslError("board() is called once")
         if isinstance(copper, bool) or not isinstance(copper, int) or copper not in COPPER_COUNTS:  # pyright: ignore[reportUnnecessaryIsInstance]
-            raise DslError(f"copper must be {_counts_text()}, not {copper!r}")
+            extra = f"; {SINGLE_SIDED_HINT}" if copper == 1 and not isinstance(copper, bool) else ""
+            raise DslError(f"copper must be {_counts_text()}, not {copper!r}{extra}")
         if not isinstance(locked, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"board(): locked must be a bool, not {locked!r}")
+        stroke = None if outline_width is None else as_nm(outline_width, name="outline_width")
+        if stroke is not None and stroke < 0:
+            raise DslError("board(): outline_width must be nonnegative")
+        curve_error = None if max_curve_error is None else as_nm(max_curve_error, name="max_curve_error")
+        if curve_error is not None and curve_error <= 0:
+            raise DslError("board(): max_curve_error must be positive")
+        technical: tuple[str, ...] | None = None
+        if technical_layers is not None:
+            if isinstance(technical_layers, (str, bytes)) or not isinstance(technical_layers, Sequence):  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise DslError("board(): technical_layers must be a sequence of standard layer names")
+            seen: set[str] = set()
+            for name in technical_layers:
+                if not isinstance(name, str) or name not in itemlib.BOARD_LAYER_KINDS:  # pyright: ignore[reportUnnecessaryIsInstance]
+                    raise DslError(f"board(): technical_layers has unknown standard layer {name!r}")
+                if name in seen:
+                    raise DslError(f"board(): technical_layers repeats {name!r}")
+                seen.add(name)
+            if "Edge.Cuts" not in seen:
+                raise DslError("board(): technical_layers must include Edge.Cuts for the board outline")
+            technical = tuple(name for name in itemlib.BOARD_LAYER_KINDS if name in seen)
         size: tuple[Nm, Nm] | None = None
         if outline is not None:
             if width is not None or height is not None:
@@ -826,8 +1193,12 @@ class Design(Container):
         self.size = size
         self.outline_path = ring
         self.outline_locked = locked
+        self.outline_width = stroke
+        self.max_curve_error = curve_error
+        self.technical_layer_names = technical
         self.copper = copper
         self.planes = declared
+        return self.board_ref
 
     def hole(
         self,
@@ -1231,6 +1602,57 @@ class Design(Container):
                 f"sheet(): drawing_sheet {path!r} must be a path inside the folder of the design script"
             )
 
+    def kicad_project(self, path: str, *, sha256: str, preserve_minimums: bool = False) -> None:
+        """Declare a portable native .kicad_pro baseline with its mandatory SHA-256 (c0351).
+
+        The build reads it relative to this script and retains unmanaged project settings; typed design
+        settings and fresh generated identities win. The declaration is authoritative on rebuilds too.
+        ``preserve_minimums=True`` keeps the declared native hard floors independently of custom
+        rules; False retains authored minimum planning/output precedence.
+        No file is read by this method. Other backends refuse the request before staging.
+        """
+        if self._kicad_project_input is not None:
+            raise DslError("kicad_project() is called once")
+        if not isinstance(path, str) or not path.lower().endswith(".kicad_pro"):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError("kicad_project(): path names a native .kicad_pro input")
+        parts = path.replace("\\", "/").split("/")
+        if (
+            path.startswith(("/", "\\"))
+            or ":" in parts[0]
+            or any(p in {"", ".", ".."} for p in parts)
+            or any(ord(char) < 32 for char in path)
+        ):
+            raise DslError("kicad_project(): path must stay inside the design script folder")
+        if not isinstance(sha256, str) or re.fullmatch(r"[0-9a-f]{64}", sha256) is None:  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError("kicad_project(): sha256 is the mandatory lowercase 64-hex digest")
+        if type(preserve_minimums) is not bool:
+            raise DslError("kicad_project(): preserve_minimums is a bool")
+        self._kicad_project_input = ("/".join(parts), sha256)
+        self._kicad_project_preserve_minimums = preserve_minimums
+
+    def load_schematic(self, path: str, *, symbol_contexts: str | None = None) -> None:
+        """Draw the schematic from ``path``, a ``schematic.toml`` beside the script (schema
+        ``fenolite.drawn-schematic.v0``, ``docs/drawn-schematic.md``) instead of generating it. The file is
+        read by ``fenolite build``, which proves that the drawing means the nets of the script; the script
+        stays the only source of connectivity (change c0276)."""
+        if self.drawn_source is not None:
+            raise DslError(f"load_schematic() is called once; the design already loads {self.drawn_source!r}")
+        if not isinstance(path, str) or not path.endswith(".toml"):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"load_schematic(): {path!r} is not a .toml drawn schematic file")
+        parts = path.replace("\\", "/").split("/")
+        if path.startswith(("/", "\\")) or ":" in parts[0] or ".." in parts or "" in parts or "." in parts:
+            raise DslError(
+                f"load_schematic(): {path!r} must be a path inside the folder of the design script"
+            )
+        if symbol_contexts is not None:
+            wanted = "/".join((*parts[:-1], "symbol-contexts.toml"))
+            if symbol_contexts != wanted or "\\" in path or any(ord(c) < 32 for c in path):
+                raise DslError(
+                    "load_schematic(): symbol_contexts must name symbol-contexts.toml beside the drawing"
+                )
+        self.drawn_source = path
+        self.symbol_context_source = symbol_contexts
+
     def title_block(
         self,
         *,
@@ -1281,7 +1703,7 @@ class Design(Container):
         for layer, net in planes.items():  # pyright: ignore[reportUnknownVariableType]
             if not inner:
                 raise DslError(
-                    f"planes need copper={_counts_text().removeprefix('2, ')}: "
+                    f"planes need copper of 4 to {COPPER_COUNTS[-1]}: "
                     f"a board of {copper} copper layers has no inner layer"
                 )
             if layer not in inner:
@@ -1310,31 +1732,51 @@ class Design(Container):
         islands: str | None = None,
         min_island_area: str | None = None,
         locked: bool = False,
+        key: str | None = None,
+        smoothing: str | None = None,
+        smoothing_radius: object = None,
     ) -> None:
         """One copper zone (pour) on ``layers`` for ``net`` (``None`` for a zone without a net).
 
         The name defaults to the net's name and names the zone across builds. The outline is the board
         rectangle unless ``outline`` gives at least three ``(x, y)`` points in the frame of ``place()``. A
         setting left at ``None`` takes KiCad's new-zone value (``docs/dsl.md``, "Zones"). ``locked=True``
-        makes the script win over an edit of the zone in KiCad, and locks the zone there.
+        makes the script win over an edit of the zone in KiCad, and locks the zone there. ``key`` (change
+        c0275) is the zone's identity across builds, written nowhere in the board; with a key and no name
+        the zone has no name, and with a key the name is written as given: it may repeat another zone's name
+        or hold surrounding spaces, as an imported board's zones do (change c0375). ``smoothing``
+        (``chamfer`` or ``fillet``) rounds or cuts the corners of the fill by ``smoothing_radius`` (change
+        c0277).
         """
         if self.outline_path is None:
             raise DslError("zone(): call board() first")
         if net is not None and not isinstance(net, Net):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"zone(): net must be a Net or None, not {net!r}")
-        if name is None:
+        if key is not None and (not isinstance(key, str) or not itemlib.AREA_KEY.fullmatch(key)):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"zone(): key {key!r} must match {itemlib.AREA_KEY.pattern}")
+        if name is None and key is None:
             if net is None:
                 raise DslError("zone(): a zone without a net needs a name")
             name = net.name
-        if not isinstance(name, str) or not name or name != name.strip():  # pyright: ignore[reportUnnecessaryIsInstance]
+        if key is not None and name is not None:
+            # with a key the name is only written: it may repeat or hold surrounding spaces (change c0375)
+            if not isinstance(name, str) or not name.strip():  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise DslError(
+                    f"zone(): name must be a string with a character that is not a space, not {name!r}"
+                )
+        elif name is not None and (not isinstance(name, str) or not name or name != name.strip()):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(
                 f"zone(): name must be a non-empty string without surrounding spaces, not {name!r}"
             )
-        if name in self.zones:
+        elif name is not None and any(spec.name == name for spec in self.zones.values()):
             raise DslError(f"zone(): the name {name!r} is already used; pass another name=")
-        what = f"zone {name}"
+        identity = key if key is not None else cast(str, name)
+        if identity in self.zones:
+            raise DslError(f"zone(): the key {identity!r} is already used; pass another key=")
+        name = name if name is not None else ""
+        what = f"zone {identity}"
         found_layers = self._zone_layers(layers, what)
-        points = self._zone_outline(outline, what)
+        points, arcs = self._zone_outline(outline, what)
         if isinstance(priority, bool) or not isinstance(priority, int) or priority < 0:  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"{what}: priority must be an int of at least 0, not {priority!r}")
         if not isinstance(locked, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
@@ -1369,9 +1811,20 @@ class Design(Container):
             if islands != "below_area":
                 raise DslError(f'{what}: min_island_area is accepted only with islands="below_area"')
             changes["min_island_area"] = as_nm2(min_island_area, name=f"{what}: min_island_area")
+        if smoothing is not None:
+            if smoothing not in ZONE_SMOOTHINGS:
+                raise DslError(f"{what}: smoothing must be None, 'chamfer' or 'fillet', not {smoothing!r}")
+            changes["smoothing"] = smoothing
+        if smoothing_radius is not None:
+            if smoothing is None:
+                raise DslError(f"{what}: smoothing_radius is accepted only with a smoothing")
+            radius = as_nm(smoothing_radius, name=f"{what}: smoothing_radius")
+            if radius < 0:
+                raise DslError(f"{what}: smoothing_radius must be at least 0")
+            changes["smoothing_radius"] = radius
         if net is not None:
             self.register_net(net)
-        self.zones[name] = ZoneSpec(
+        self.zones[identity] = ZoneSpec(
             name,
             net.name if net is not None else None,
             found_layers,
@@ -1379,6 +1832,7 @@ class Design(Container):
             priority,
             ZoneSettings(**changes),  # type: ignore[arg-type]
             locked,
+            arcs,
         )
 
     def _zone_layers(self, layers: object, what: str) -> tuple[str, ...]:
@@ -1399,9 +1853,32 @@ class Design(Container):
         return tuple(found)
 
     @staticmethod
-    def _zone_outline(outline: object, what: str) -> tuple[tuple[Nm, Nm], ...] | None:
+    def _zone_outline(
+        outline: object, what: str
+    ) -> tuple[tuple[tuple[Nm, Nm], ...] | None, tuple[tuple[int, tuple[Nm, Nm]], ...]]:
+        """The board-relative points of ``outline`` and, for a path with ``arc_to`` steps (change c0277), each
+        arc edge with its mid point."""
         if outline is None:
-            return None
+            return None, ()
+        steps: Sequence[object] = (
+            cast("Sequence[object]", outline)
+            if isinstance(outline, Sequence) and not isinstance(outline, str)
+            else ()
+        )
+        if steps:
+            from fenolite.dsl.convert import BOARD_ORIGIN
+            from fenolite.dsl.intents import ArcStep
+            from fenolite.dsl.shape import closed_ring
+
+            if any(isinstance(step, ArcStep) for step in steps):
+                ring = closed_ring(steps, f"{what}: outline")
+                ox, oy = BOARD_ORIGIN.x, BOARD_ORIGIN.y
+                points = tuple((p.x - ox, p.y - oy) for p in ring.points)
+                return points, tuple((edge, (mid.x - ox, mid.y - oy)) for edge, mid in ring.arcs)
+        return Design._zone_points(cast(object, outline), what), ()
+
+    @staticmethod
+    def _zone_points(outline: object, what: str) -> tuple[tuple[Nm, Nm], ...]:
         if isinstance(outline, str) or not isinstance(outline, Sequence):
             raise DslError(f"{what}: outline must hold at least three (x, y) points")
         pairs = cast("Sequence[object]", outline)
@@ -1431,6 +1908,8 @@ class Design(Container):
         *,
         layers: Sequence[str] | None = None,
         forbid: Sequence[str] = (),
+        key: str | None = None,
+        placement: str | None = None,
     ) -> itemlib.RuleArea:
         """One rule area named ``name``: a polygon of at least three ``(x, y)`` points in the frame of
         ``place()``, on ``layers`` (every copper layer of the board when ``None``).
@@ -1438,14 +1917,24 @@ class Design(Container):
         ``forbid`` takes ``tracks``, ``vias``, ``pads``, ``pours`` and ``footprints``: the area is then a
         keep-out for them (``footprints``: no part may be placed there, change c0113).
         With an empty ``forbid`` it is a named area that only rules select (``select.area``). This is the
-        one call for rule areas and keep-outs. Names differ in more than letter case.
+        one call for rule areas and keep-outs. Names differ in more than letter case. ``key`` (change
+        c0275) is the area's identity across builds, written nowhere in the board; with a key the name may
+        be ``""``, an area that no ``select.area`` matches. ``placement`` (change c0277) makes it a placement
+        rule area of KiCad's multichannel tool for the sheet it names, as KiCad names it (``"/CH1/"``).
         """
         if self.outline_path is None:
             raise DslError("rule_area(): call board() first")
         area = itemlib.rule_area(
-            name, outline, layers, forbid, copper=self.copper_layers, taken=tuple(self.rule_areas)
-        )
-        self.rule_areas[area.name] = area
+            name, outline, layers, forbid, copper=self.copper_layers, key=key, keys=tuple(self.rule_areas),
+            taken=tuple(a.name for a in self.rule_areas.values() if a.name),
+        )  # fmt: skip
+        if placement is not None:
+            if not isinstance(placement, str) or not placement or not placement.isprintable():  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise DslError(
+                    f"rule_area(): placement must be a sheet name such as '/CH1/', not {placement!r}"
+                )
+            area = dataclasses.replace(area, placement=placement)
+        self.rule_areas[area.key] = area
         return area
 
     def _drawing(self, call: str, key: object) -> str:
@@ -1464,18 +1953,46 @@ class Design(Container):
         thickness: object = None,
         rot: object = 0,
         justify: str | None = None,
+        knockout: bool = False,
+        bold: bool = False,
+        italic: bool = False,
+        face: str | None = None,
     ) -> None:
-        """One line of board text at ``at``, 1 mm high with a 0.15 mm stroke unless ``size`` and
-        ``thickness`` say otherwise; ``justify`` is ``left`` or ``right``, then ``top`` or ``bottom``."""
-        found = itemlib.text(self._drawing("text", key), text, at, layer, size, thickness, rot, justify)
+        """Board text at ``at``, 1 mm high with a 0.15 mm stroke unless ``size`` and ``thickness`` say
+        otherwise; ``size`` is a length or a ``(width, height)`` pair, and ``\\n`` starts a new line.
+        ``justify`` is ``left`` or ``right``, then ``top`` or ``bottom``. ``layer`` may be a copper layer of
+        the board, ``knockout=True`` (a copper or silkscreen layer) cuts the text out of a filled box, and
+        ``bold``, ``italic`` and ``face`` (a font name) style it (change c0277)."""
+        found = itemlib.text(
+            self._drawing("text", key), text, at, layer, size, thickness, rot, justify,
+            copper=self.copper_layers, user=self.user_layer_names, knockout=knockout, bold=bold,
+            italic=italic, face=face,
+        )  # fmt: skip
         self.drawings[found.key] = found
 
     def line(
-        self, key: str, start: tuple[object, object], end: tuple[object, object], *, layer: str, width: object
+        self,
+        key: str,
+        start: tuple[object, object],
+        end: tuple[object, object],
+        *,
+        layer: str,
+        width: object,
+        net: Net | None = None,
     ) -> None:
-        """A line from ``start`` to ``end``."""
-        found = itemlib.line(self._drawing("line", key), start, end, layer, width)
-        self.drawings[found.key] = found
+        """A line from ``start`` to ``end``. A graphic may be on a copper layer of the board and take a
+        ``net`` there (change c0277). On Edge.Cuts it declares an explicit physical root edge;
+        all root and footprint edges must reconstruct board()'s complete logical outline (c0349)."""
+        found = itemlib.line(
+            self._drawing("line", key),
+            start,
+            end,
+            layer,
+            width,
+            user=self.user_layer_names,
+            copper=self.copper_layers,
+        )
+        self.drawings[found.key] = self._netted(found, net)
 
     def rect(
         self,
@@ -1486,10 +2003,21 @@ class Design(Container):
         layer: str,
         width: object,
         fill: bool = False,
+        net: Net | None = None,
     ) -> None:
-        """A rectangle with the opposite corners ``start`` and ``end``."""
-        found = itemlib.rect(self._drawing("rect", key), start, end, layer, width, fill)
-        self.drawings[found.key] = found
+        """A rectangle with the opposite corners ``start`` and ``end``. Unfilled on Edge.Cuts it declares
+        an explicit physical root edge subject to complete logical outline reconstruction (c0349, c0401)."""
+        found = itemlib.rect(
+            self._drawing("rect", key),
+            start,
+            end,
+            layer,
+            width,
+            fill,
+            user=self.user_layer_names,
+            copper=self.copper_layers,
+        )
+        self.drawings[found.key] = self._netted(found, net)
 
     def circle(
         self,
@@ -1500,10 +2028,20 @@ class Design(Container):
         layer: str,
         width: object,
         fill: bool = False,
+        net: Net | None = None,
     ) -> None:
         """A circle around ``center`` through ``edge``."""
-        found = itemlib.circle(self._drawing("circle", key), center, edge, layer, width, fill)
-        self.drawings[found.key] = found
+        found = itemlib.circle(
+            self._drawing("circle", key),
+            center,
+            edge,
+            layer,
+            width,
+            fill,
+            user=self.user_layer_names,
+            copper=self.copper_layers,
+        )
+        self.drawings[found.key] = self._netted(found, net)
 
     def arc(
         self,
@@ -1514,10 +2052,21 @@ class Design(Container):
         *,
         layer: str,
         width: object,
+        net: Net | None = None,
     ) -> None:
-        """An arc from ``start`` through ``mid`` to ``end``."""
-        found = itemlib.arc(self._drawing("arc", key), start, mid, end, layer, width)
-        self.drawings[found.key] = found
+        """An arc from ``start`` through ``mid`` to ``end``; Edge.Cuts declares an explicit
+        physical root edge subject to complete logical outline reconstruction (c0349)."""
+        found = itemlib.arc(
+            self._drawing("arc", key),
+            start,
+            mid,
+            end,
+            layer,
+            width,
+            user=self.user_layer_names,
+            copper=self.copper_layers,
+        )
+        self.drawings[found.key] = self._netted(found, net)
 
     def polygon(
         self,
@@ -1527,10 +2076,32 @@ class Design(Container):
         layer: str,
         width: object,
         fill: bool = False,
+        net: Net | None = None,
     ) -> None:
         """A closed polygon of at least three points."""
-        found = itemlib.polygon(self._drawing("polygon", key), points, layer, width, fill)
-        self.drawings[found.key] = found
+        found = itemlib.polygon(
+            self._drawing("polygon", key),
+            points,
+            layer,
+            width,
+            fill,
+            user=self.user_layer_names,
+            copper=self.copper_layers,
+        )
+        self.drawings[found.key] = self._netted(found, net)
+
+    def _netted(self, found: itemlib.GraphicSpec, net: Net | None) -> itemlib.GraphicSpec:
+        """``found`` with the name of ``net``: a net is for a graphic on a copper layer, and joins the design
+        (change c0277)."""
+        if net is None:
+            return found
+        what = f"{found.kind} {found.key}"
+        if not isinstance(net, Net):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: net must be a Net or None, not {net!r}")
+        if found.layer not in self.copper_layers:
+            raise DslError(f"{what}: a net is for a graphic on a copper layer, not on {found.layer}")
+        self.register_net(net)
+        return dataclasses.replace(found, net=net.name)
 
     def dimension(
         self,
@@ -1546,15 +2117,255 @@ class Design(Container):
         size: object = None,
         thickness: object = None,
         width: object = None,
+        extension_offset: object = None,
+        text_at: tuple[object, object] | None = None,
     ) -> None:
         """A linear dimension between ``start`` and ``end``, its line ``offset`` away from them: aligned
         with the two points, or, with ``direction``, ``horizontal`` or ``vertical``. KiCad computes the
-        text from the points (``docs/dsl.md``, "Board drawings")."""
+        text from the points (``docs/dsl.md``, "Board drawings"). ``size`` is a length or a ``(width,
+        height)`` pair; ``extension_offset`` is the gap between a measured point and its extension line
+        (change c0277; ``None``: 0.5 mm)."""
         found = itemlib.dimension(
             self._drawing("dimension", key), start, end, offset, layer, direction, units, precision, size,
-            thickness, width,
+            thickness, width, extension_offset, user=self.user_layer_names, text_at=text_at,
         )  # fmt: skip
         self.drawings[found.key] = found
+
+    def radial_dimension(
+        self,
+        key: str,
+        center: tuple[object, object],
+        edge: tuple[object, object],
+        *,
+        leader_length: object,
+        layer: str = "Dwgs.User",
+        units: str = "mm",
+        precision: int = 4,
+        size: object = None,
+        thickness: object = None,
+        width: object = None,
+    ) -> None:
+        """A radial dimension (change c0277): the radius from ``center`` to the point ``edge`` of the circle,
+        shown at the end of a leader ``leader_length`` long past ``edge``, prefixed ``R``."""
+        found = itemlib.special_dimension(
+            self._drawing("radial_dimension", key), "radial", center, edge, layer, units=units,
+            precision=precision, size=size, thickness=thickness, width=width, leader_length=leader_length,
+            user=self.user_layer_names,
+        )  # fmt: skip
+        self.drawings[found.key] = found
+
+    def leader(
+        self,
+        key: str,
+        start: tuple[object, object],
+        knee: tuple[object, object],
+        *,
+        text: str,
+        frame: str = "none",
+        layer: str = "Dwgs.User",
+        size: object = None,
+        thickness: object = None,
+        width: object = None,
+        text_at: tuple[object, object] | None = None,
+        units: str = "mm",
+        precision: int = 4,
+    ) -> None:
+        """A leader (change c0277): an arrow from ``start`` to ``knee`` and the note ``text``, framed by
+        ``frame`` (``none``, ``rect`` or ``circle``). The text stands at ``text_at``, else 2 mm past the
+        knee on the side the arrow points to."""
+        found = itemlib.special_dimension(
+            self._drawing("leader", key), "leader", start, knee, layer, units=units, precision=precision,
+            size=size, thickness=thickness, width=width, text=text, frame=frame, text_at=text_at,
+            user=self.user_layer_names,
+        )  # fmt: skip
+        self.drawings[found.key] = found
+
+    def center_mark(
+        self,
+        key: str,
+        center: tuple[object, object],
+        edge: tuple[object, object],
+        *,
+        layer: str = "Dwgs.User",
+        width: object = None,
+    ) -> None:
+        """A centre mark (change c0277): the cross of a circle's centre ``center``, its arms reaching the
+        point ``edge``."""
+        found = itemlib.special_dimension(
+            self._drawing("center_mark", key), "center", center, edge, layer, width=width,
+            user=self.user_layer_names,
+        )  # fmt: skip
+        self.drawings[found.key] = found
+
+    def image(
+        self,
+        key: str,
+        file: str,
+        at: tuple[object, object],
+        *,
+        layer: str = "F.SilkS",
+        scale: str = "1",
+    ) -> None:
+        """A picture on the board (change c0277): the PNG ``file``, a path relative to the script folder that
+        the build reads (a declared input of the build), at ``at`` on ``layer``, drawn ``scale`` times its
+        own size (a positive decimal string such as ``"0.5"``)."""
+        what = f"image {key!r}"
+        if self.outline_path is None:
+            raise DslError("image(): call board() first")
+        if not isinstance(key, str) or not itemlib.DRAWING_KEY.fullmatch(key):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: the key must match {itemlib.DRAWING_KEY.pattern}")
+        if key in self.images or key in self.drawings:
+            raise DslError(f"{what}: the key is already used")
+        path = PurePosixPath(file.replace("\\", "/")) if isinstance(file, str) else None  # pyright: ignore[reportUnnecessaryIsInstance]
+        if path is None or not file or path.is_absolute() or ".." in path.parts or ":" in file:
+            raise DslError(f"{what}: file must be a path relative to the script folder, not {file!r}")
+        if not isinstance(scale, str) or not itemlib.IMAGE_SCALE.fullmatch(scale) or float(scale) <= 0:  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: scale must be a positive decimal string such as '0.5', not {scale!r}")
+        point = itemlib.point(at, f"{what}: at")
+        on = itemlib.drawing_layer(layer, what, user=self.user_layer_names)
+        self.images[key] = itemlib.ImageSpec(key, path.as_posix(), point, on, scale)
+
+    def teardrops(
+        self,
+        *,
+        where: object = None,
+        pads: bool = True,
+        vias: bool = True,
+        max_length: object = None,
+        max_width: object = None,
+        length_ratio: object = None,
+        width_ratio: object = None,
+        curved: object = None,
+        filter_ratio: object = None,
+        two_segments: object = None,
+        prefer_zones: object = None,
+        enabled: bool = True,
+    ) -> None:
+        """Teardrop settings for every pad and via of the built board that ``where`` selects (a ``select``
+        expression; ``None``: all of them), as ``teardrop()`` takes them (change c0277). ``pads=False`` or
+        ``vias=False`` leaves that kind out. A pad or via that two calls select takes the later call
+        (``build.teardrops-overlap``, info); a via's own ``teardrop=`` wins over every call."""
+        from fenolite.dsl.intents import teardrop
+        from fenolite.dsl.select import Select
+
+        for name, flag in (("pads", pads), ("vias", vias)):
+            if not isinstance(flag, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise DslError(f"teardrops(): {name} must be a bool, not {flag!r}")
+        if not pads and not vias:
+            raise DslError("teardrops(): pads and vias are both False, so the call selects nothing")
+        if where is not None and not isinstance(where, Select):
+            hint = "a select expression such as select.netclass('Default')"
+            raise DslError(f"teardrops(): where must be {hint}, not {where!r}")
+        try:
+            settings = teardrop(
+                max_length=max_length, max_width=max_width, length_ratio=length_ratio,
+                width_ratio=width_ratio, curved=curved, filter_ratio=filter_ratio, two_segments=two_segments,
+                prefer_zones=prefer_zones, enabled=enabled,
+            )  # fmt: skip
+        except DslError as error:
+            raise DslError(str(error).replace("teardrop():", "teardrops():")) from None
+        selector = Selector("all") if where is None else where.to_model()
+        self.teardrop_rules.append(TeardropRule(settings, selector, pads, vias))
+
+    def verbatim(self, key: str, text: str, *, target: str = "kicad_pcb") -> None:
+        """One item kept as KiCad text (change c0277): a child of the board root (``target="kicad_pcb"``) or a
+        rule of the rules file (``"kicad_dru"``). The DSL does not parse ``text``; the build checks it and
+        gives its uuids of its own (``docs/dsl.md``, "Verbatim items"). It is the last resort for what no
+        call says."""
+        what = f"verbatim {key!r}"
+        if not isinstance(key, str) or not itemlib.DRAWING_KEY.fullmatch(key):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: the key must match {itemlib.DRAWING_KEY.pattern}")
+        if key in self.verbatim_items:
+            raise DslError(f"{what}: the key is already used")
+        if not isinstance(text, str) or not text.strip():  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: text must be a non-empty string, not {text!r}")
+        if target not in ("kicad_pcb", "kicad_dru"):
+            raise DslError(f"{what}: target must be 'kicad_pcb' or 'kicad_dru', not {target!r}")
+        self.verbatim_items[key] = (text, target)
+
+    @property
+    def user_layer_names(self) -> tuple[str, ...]:
+        """The names of the declared user layers, ``User.1`` first (change c0277)."""
+        return tuple(f"User.{k}" for k in range(1, self.user_layer_count + 1))
+
+    def user_layers(self, count: int, *, names: Mapping[str, str] | None = None) -> None:
+        """Declare the user layers ``User.1`` … ``User.<count>`` (1 to 45), once per design: the board's layer
+        table holds them after ``B.Fab``, as KiCad writes them, and drawings may go on them (change c0277).
+        ``names`` gives a user layer the name KiCad shows (``{"User.9": "plugins.config"}``)."""
+        if self.user_layer_count:
+            raise DslError("user_layers(): the user layers are already declared")
+        if isinstance(count, bool) or not isinstance(count, int) or not 1 <= count <= USER_LAYERS:  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"user_layers(): count must be an int from 1 to {USER_LAYERS}, not {count!r}")
+        declared = {f"User.{k}" for k in range(1, count + 1)}
+        aliases: dict[str, str] = {}
+        for layer, alias in (names or {}).items():
+            if layer not in declared:
+                raise DslError(f"user_layers(): {layer!r} is not one of User.1 to User.{count}")
+            if not isinstance(alias, str) or not alias or not alias.isprintable() or alias != alias.strip():  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise DslError(f"user_layers(): the name of {layer} must be printable text, not {alias!r}")
+            aliases[layer] = alias
+        self.user_layer_count = count
+        self.user_layer_aliases = dict(sorted(aliases.items(), key=lambda item: int(item[0][5:])))
+
+    def group(self, name: str, *members: object, locked: bool = False, key: str | None = None) -> None:
+        """A group of board items (change c0277): ``members`` are parts and keys of drawings, zones, rule
+        areas and earlier groups. ``name`` may be ``""`` with a ``key``; the key, else the name, names the
+        group across builds. A member belongs to one group."""
+        identity = key if key is not None else name
+        what = f"group {identity!r}"
+        if not isinstance(name, str) or (name and not name.isprintable()):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: name must be a printable string, not {name!r}")
+        if not isinstance(identity, str) or not itemlib.DRAWING_KEY.fullmatch(identity):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(
+                f"{what}: the key (or the name, without a key) must match {itemlib.DRAWING_KEY.pattern}"
+            )
+        if identity in self.groups:
+            raise DslError(f"{what}: the key is already used")
+        if not isinstance(locked, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: locked must be a bool, not {locked!r}")
+        if not members:
+            raise DslError(f"{what}: a group holds at least one member")
+        taken = {self._member_name(m) for spec in self.groups.values() for m in spec.members}
+        seen: set[str] = set()
+        for member in members:
+            label = self._member_name(member)
+            if isinstance(member, Part):
+                if not any(part is member for part in self.parts.values()):
+                    raise DslError(f"{what}: part {label} is not added to this design")
+            else:
+                kinds = (
+                    [
+                        held
+                        for held in (
+                            self.drawings,
+                            self.zones,
+                            self.rule_areas,
+                            self.groups,
+                            self.verbatim_items,
+                            self.images,
+                        )
+                        if member in held
+                    ]
+                    if isinstance(member, str)
+                    else []
+                )
+                if not kinds:
+                    raise DslError(
+                        f"{what}: {member!r} is neither a part nor the key of a drawing, a zone, a rule area "
+                        "or an earlier group"
+                    )
+                if len(kinds) > 1:
+                    raise DslError(
+                        f"{what}: {member!r} is the key of more than one item; give them other keys"
+                    )
+            if label in taken or label in seen:
+                raise DslError(f"{what}: {label} is already a member of a group")
+            seen.add(label)
+        self.groups[identity] = itemlib.GroupSpec(identity, name, tuple(members), locked)
+
+    @staticmethod
+    def _member_name(member: object) -> str:
+        return f"part {member.label}" if isinstance(member, Part) else repr(member)
 
     def moved(self, old: str, new: str) -> None:
         """Record that the part or the module at path ``new`` was at ``old`` in an earlier build, so a
@@ -1617,16 +2428,83 @@ class Design(Container):
         layers: object = None,
         locked: bool = False,
         protection: object = None,
+        teardrop: object = None,
+        free: bool = False,
     ) -> None:
         """One via on ``net`` at ``(x, y)``, or at the one point given after the key: an ``(x, y)`` pair
         or an anchor in a part's frame (``part.at(…)``, ``part.pad(…).at(…)``), which follows its part.
         Sizes come from the arguments or the net's class. ``kind`` is ``through``, ``blind``, ``buried``
         or ``micro``; a via that is not a through via names its two copper layers in ``layers``.
         ``locked=True`` writes the via locked. ``protection`` is the value of ``protect()``: how the via is
-        tented, covered, plugged, capped or filled (``None``: it follows the board default)."""
+        tented, covered, plugged, capped or filled (``None``: it follows the board default). ``teardrop``
+        is the value of ``teardrop()``: the via's teardrop settings, and ``free=True`` writes KiCad's
+        ``(free yes)``, a via that keeps its net when no track joins it (change c0277)."""
         from fenolite.dsl import intents
 
-        intents.record_via(self, key, x, y, net, diameter, drill, kind, layers, locked, protection)
+        intents.record_via(
+            self, key, x, y, net, diameter, drill, kind, layers, locked, protection, teardrop, free
+        )
+
+    def track_table(
+        self,
+        key: str,
+        *,
+        net: Net | None = None,
+        layer: str,
+        width: object,
+        rows_nm: object,
+        locked: bool = False,
+    ) -> None:
+        """Many straight tracks of ``net`` on ``layer``, ``width`` wide: each row of ``rows_nm`` is
+        ``(x1, y1, x2, y2)`` in integer nanometres in the frame of ``place()`` (change c0275). Row ``i``
+        keeps the copper uuid of item ``seg[i]`` of ``key`` across builds. Without ``net`` the tracks lie
+        on no net (change c0375)."""
+        from fenolite.dsl import intents
+
+        intents.record_table(
+            self, "track", key, net=net, rows=rows_nm, layer=layer, width=width, locked=locked
+        )
+
+    def arc_table(
+        self,
+        key: str,
+        *,
+        net: Net | None = None,
+        layer: str,
+        width: object,
+        rows_nm: object,
+        locked: bool = False,
+    ) -> None:
+        """Many arcs of ``net`` on ``layer``: each row is ``(sx, sy, mx, my, ex, ey)`` in integer nanometres
+        in the frame of ``place()``, the start, a point on the arc and the end. Without ``net`` the arcs lie
+        on no net (change c0375)."""
+        from fenolite.dsl import intents
+
+        intents.record_table(self, "arc", key, net=net, rows=rows_nm, layer=layer, width=width, locked=locked)
+
+    def via_table(
+        self,
+        key: str,
+        *,
+        net: Net,
+        diameter: object,
+        drill: object,
+        rows_nm: object,
+        kind: str = "through",
+        layers: object = None,
+        locked: bool = False,
+        protection: object = None,
+        teardrop: object = None,
+        free: bool = False,
+    ) -> None:
+        """Many vias of ``net`` with one size, kind, span, protection, teardrop settings and ``free`` flag:
+        each row is ``(x, y)`` in integer nanometres in the frame of ``place()``."""
+        from fenolite.dsl import intents
+
+        intents.record_table(
+            self, "via", key, net=net, rows=rows_nm, diameter=diameter, drill=drill, kind=kind, layers=layers,
+            locked=locked, protection=protection, teardrop=teardrop, free=free,
+        )  # fmt: skip
 
     def meander(
         self,
@@ -1940,6 +2818,40 @@ class Design(Container):
 
         roles.role_limits(self, net, kind, limits)
 
+    def role_copper(
+        self,
+        *,
+        kinds: Sequence[str] = ("power", "switch_node", "ground", "high_voltage"),
+        layers: Mapping[str, Sequence[str]] | None = None,
+        ground_layers: Sequence[str] | None = None,
+        ground_fill: str = "reference",
+        connection: Mapping[str, str] | None = None,
+        stitch_pitch: object = None,
+        temp_rise: object = None,
+        widen: int | None = None,
+        corridors: bool = True,
+        keep: Sequence[str] = (),
+        regenerate: Sequence[str] = (),
+        requirements: str | None = None,
+    ) -> None:
+        """Generate the copper of the confirmed and declared roles after placement (change c0243;
+        ``docs/roles.md``, "Role copper"): a zone per ``power`` and ``switch_node`` net and layer sized by its
+        current, a plane per ``ground`` layer with stitching, via arrays at layer changes, and a clearance
+        rule with a keep-out band around each ``high_voltage`` net at the distance of ``requirements`` (a
+        requirements file beside the script). ``layers`` and ``connection`` override the layers and the pad
+        connection of a kind, ``ground_layers`` the ground planes (``B.Cu`` on 2 layers, ``In1.Cu`` on 4),
+        ``ground_fill="all"`` also pours the free outer area, ``stitch_pitch`` the ground stitching (5 mm),
+        ``temp_rise`` (kelvin) sizes by the fit of S-0269, ``widen`` (per mille) how far power copper widens,
+        ``corridors=False`` writes no corridor of the critical routes, and ``keep`` and ``regenerate`` name
+        role items to keep or to force back. A second call raises ``DslError``."""
+        from fenolite.dsl import rolecopper
+
+        rolecopper.record_role_copper(
+            self, kinds=kinds, layers=layers, ground_layers=ground_layers, ground_fill=ground_fill,
+            connection=connection, stitch_pitch=stitch_pitch, temp_rise=temp_rise, widen=widen,
+            corridors=corridors, keep=keep, regenerate=regenerate, requirements=requirements,
+        )  # fmt: skip
+
     def part_class(self, part: Part, cls: str, terminals: Mapping[str, object] | None = None) -> None:
         """State the class of ``part`` for the role inference (``transistor``, ``shunt``, ``driver`` and
         the others of ``docs/roles.md``), with its terminals as pin numbers, such as
@@ -1947,6 +2859,49 @@ class Design(Container):
         from fenolite.dsl import roles
 
         roles.part_class(self, part, cls, terminals)
+
+    # -- electrical contracts (change c0253; docs/contracts.md)
+
+    def derating(self, *, parts: object = None, source: str = "", **keys: object) -> None:
+        """Limit ``abs_max`` ratings to a share of the rating, by key of ``DERATING_KEYS``:
+        ``capacitor_voltage=ratio(50)`` is "at most 50 % of a capacitor's voltage rating", and
+        ``temperature_margin=kelvin(15)`` narrows a temperature rating at each end. ``parts`` (a part or
+        ``select.ref(<glob>)``) scopes the rule; ``source`` names where it comes from. Fenolite ships no
+        derating value: every rule is yours, and a rating no rule covers is judged at 100 %."""
+        from fenolite.dsl import contracts
+
+        contracts.derating(self, parts, source, keys)
+
+    def operating(self, *, ambient: object) -> None:
+        """State the design's ambient temperature range (a range in kelvin, such as
+        ``between(celsius(-20), celsius(70))``), judged against each device's temperature range."""
+        from fenolite.dsl import contracts
+
+        contracts.operating(self, ambient)
+
+    def contracts(self, *, unknown: str = "info", propagate: bool = True) -> None:
+        """Make each contract row that cannot be judged a ``warning`` (``unknown="warning"``) instead of one
+        ``info`` count (``"info"``, the default). ``propagate=False`` stops a net without a stated voltage
+        from taking the voltage of a stated net it reaches through a ferrite, a fuse, a net tie, a stated
+        jumper or a 0 Ω part (change c0274; ``docs/contracts.md``, "Propagation through links")."""
+        from fenolite.dsl import contracts
+
+        contracts.contracts(self, unknown, propagate)
+
+    def expect(self, test: object, reason: str) -> None:
+        """Record an expectation, ``within(a, b)``, ``at_least(a, b)`` or ``at_most(a, b)`` over handles and
+        ranges, with its reason; the stage ``circuit.rules`` judges it on every check (pass, unsure or
+        fail). It stops nothing at script time."""
+        from fenolite.dsl import contracts
+
+        contracts.expect_on(self, test, reason)
+
+    def rig(self, *elements: object) -> None:
+        """State the test rig: ``supply(...)`` and ``sink(...)`` elements, the voltages and currents of the
+        outside world. They are records of the rules layer and reach no output."""
+        from fenolite.dsl import contracts
+
+        contracts.rig(self, elements)
 
     @staticmethod
     def _near_side(value: object, what: str) -> tuple[object, ...]:
@@ -1973,6 +2928,8 @@ class Design(Container):
     # -- registration (called by add(), connect() and netclass())
 
     def register_net(self, net: Net) -> None:
+        if net.deferred:
+            return  # a port net is registered under its group's name by to_model (portnets.resolve)
         known = self.nets.get(net.name)
         if known is not None and known is not net:
             raise DslError(f"two distinct nets are named {net.name!r}")
@@ -1986,6 +2943,8 @@ class Design(Container):
         for net in interface.members.values():
             self.register_net(net)
         self.interfaces[interface.name] = interface
+        if isinstance(interface.reference, Interface):
+            self.register_interface(interface.reference)  # the rail a level refers to (change c0252)
 
     def register_tree(self, obj: Part | Module) -> None:
         if isinstance(obj, Part):

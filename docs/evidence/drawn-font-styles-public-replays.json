@@ -1,0 +1,128 @@
+{
+ "also_styled_and_replayed": "complex_hierarchy (all nine equal) and royalblue54L_feather (S and 8 equal, level 7 only) in public-replays-20261104.json",
+ "authored_native": {
+  "font/view/mask unit group": "204 passed",
+  "tests/kicad/schematic/test_drawn_fonts_oracle.py + tests/fidelity/test_drawn_fonts.py": "40 passed, kicad-cli 10.0.6"
+ },
+ "boards": {
+  "interf_u": {
+   "import": {
+    "confirm_exit": 0,
+    "dry_exit": 0
+   },
+   "source_files": 23,
+   "source_files_unchanged": true,
+   "source_tree_sha256": "9642a192f1f161ae5671e4ab578c47f90bc87b7bfb2309777ac88b833144e371",
+   "styles": "thickness=2 bold=3 italic=4",
+   "verify_source": {
+    "accepted": [],
+    "differences": [],
+    "exit": 0,
+    "levels": {
+     "1": "equal",
+     "2": "equal",
+     "3": "equal",
+     "4": "equal",
+     "5": "equal",
+     "6": "equal",
+     "7": "equal",
+     "8": "equal",
+     "S": "equal"
+    },
+    "proof_sha256": "f85b0bbe9867bf9f4a529d95336e37dc43843ce187bcbb933001679eb9df4546"
+   }
+  },
+  "kit-dev-coldfire-xilinx_5213": {
+   "import": {
+    "confirm_exit": null,
+    "dry_exit": 5
+   },
+   "import_refusal": [
+    {
+     "code": "import.unequal",
+     "hint": "",
+     "message": "the emitted code does not build: kicad.project.too-new-key: /component_class_settings is written only by KiCad 10.0; the target is KiCad 9.0; kicad.project.too-new-key: /net_settings/classes/*/tuning_profile is written only by KiCad 10.0; the target is KiCad 9.0; kicad.project.too-new-key: /net_settings/meta/version is written only by KiCad 10.0; the target is KiCad 9.0",
+     "retryable": false,
+     "severity": "error",
+     "where": "build"
+    }
+   ],
+   "import_refusal_note": "Board format 20241229 binds target 9 while the published project carries KiCad-10-only keys; the import self-check build refuses them. Importer finding, not a style finding; preserved.",
+   "source_files": 50,
+   "source_files_unchanged": true,
+   "source_tree_sha256": "264dfb186ab11039925458081a465d2f1350884efdbdb38b8156bbfe80534971",
+   "styles": "bold=1"
+  },
+  "pic_programmer": {
+   "import": {
+    "confirm_exit": 0,
+    "dry_exit": 0
+   },
+   "source_files": 13,
+   "source_files_unchanged": true,
+   "source_tree_sha256": "d7563cc9d5be5b0753a6c21154fafad09cf37ed8f4799837525728a73fcc6e26",
+   "styles": "thickness=1 bold=1 italic=2",
+   "verify_source": {
+    "accepted": [],
+    "differences": [],
+    "exit": 0,
+    "levels": {
+     "1": "equal",
+     "2": "equal",
+     "3": "equal",
+     "4": "equal",
+     "5": "equal",
+     "6": "equal",
+     "7": "equal",
+     "8": "equal",
+     "S": "equal"
+    },
+    "proof_sha256": "dea3b8d746bfd7abb2e80e9cef668a81fb2ef0333b8242d4e4804f2f41aaf950"
+   }
+  },
+  "tiny_tapeout": {
+   "import": {
+    "confirm_exit": 0,
+    "dry_exit": 0
+   },
+   "source_files": 55,
+   "source_files_unchanged": true,
+   "source_tree_sha256": "6d911e0689c66c3dcc142994f6b97cd2be398392dbca9d9ba6e591487ce5ad69",
+   "styles": "thickness=33 bold=33 italic=2 href=1",
+   "verify_source": {
+    "accepted": [],
+    "differences": [],
+    "exit": 0,
+    "levels": {
+     "1": "equal",
+     "2": "equal",
+     "3": "equal",
+     "4": "equal",
+     "5": "equal",
+     "6": "equal",
+     "7": "equal",
+     "8": "equal",
+     "S": "equal"
+    },
+    "proof_sha256": "a5734325d86da02d4a3b34da74afa2c8fd5ee723372a081258ed9be5653594e1"
+   }
+  }
+ },
+ "change": "c0337",
+ "claims": {
+  "acceptance_or_waiver": false,
+  "ci": false,
+  "native9": false,
+  "native_glyph_equality": false
+ },
+ "driver_sha256": {
+  "replay": "941c0a4526ed35c12612d4e634e8287254f1143cefbf60b7dd9037f8b5af3e05",
+  "style_scan": "586c4d33174d62c092edb7863ac9d5b377f459c5a5ab3c45e3aea0d065196724"
+ },
+ "head": "468d8a61cb4210ea8a40ec546c4e2a637f694648",
+ "measured": "2026-11-04",
+ "not_run": "vme-wren, jetson-agx-thor-baseboard, simulation, stickhub, cm5_minima and openair-max styled schematics (no full project replay here)",
+ "schema": "fenolite.drawn-font-styles-public-replays.v0",
+ "task": "2.2",
+ "tool": "kicad-cli 10.0.6 (macOS); KiCad 9.0.9 and exact-head CI not run here"
+}

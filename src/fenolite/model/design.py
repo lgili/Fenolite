@@ -29,8 +29,31 @@ from fenolite.model.manufacturing import Manifest
 from fenolite.model.presentation import PAPER_SIZES, PARAM_NAME, US_SIZES, SheetFrameRef, TitleBlock
 from fenolite.model.rules import RuleSet
 
-SCHEMA_VERSION = "0"
-MODEL_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType({"model.corner-ratio": "error"})
+SCHEMA_VERSION = "1.1"
+
+
+def parse_version(version: object) -> tuple[int, int]:
+    """Parse the legacy ``0`` or a canonical ``MAJOR.MINOR`` model version."""
+    if version == "0":
+        return (0, 0)
+    if not isinstance(version, str) or not re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", version):
+        raise ValueError("model schema version is '0' or MAJOR.MINOR without leading zeroes")
+    major, minor = version.split(".")
+    return (int(major), int(minor))
+
+
+def readable(version: str) -> bool:
+    """Whether this reader supports a legacy folder or the same major up to its current minor."""
+    try:
+        value, current = parse_version(version), parse_version(SCHEMA_VERSION)
+    except ValueError:
+        return False
+    return version == "0" or (value[0] == current[0] and value[1] <= current[1])
+
+
+MODEL_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
+    {"model.bom-only": "error", "model.corner-ratio": "error", "model.migrated": "info"}
+)
 """The codes of ``Design.validate`` that ``fenolite explain`` knows (``cli.explain.TABLES``): those added
 since change c0126. The older ``model.*`` codes are described in ``docs/cli-contract.md`` only."""
 
@@ -207,6 +230,23 @@ class Design:
                 severity: Severity = "warning" if board_only or ref.endswith("**") else "error"
                 add("model.duplicate-ref", severity, f"reference used {count} times", ref)
         for component in self.circuit.components:
+            if component.bom_only and (
+                component.board_only
+                or component.pins
+                or component.pin_pad_map
+                or component.footprint_definition_ref
+                or component.id in placed
+                or any(
+                    member.component_id == component.id for net in self.circuit.nets for member in net.members
+                )
+            ):
+                add(
+                    "model.bom-only",
+                    "error",
+                    "a BOM-only component must be pinless, off-board and unconnected",
+                    component.ref,
+                    "remove physical and electrical declarations or unset bom_only",
+                )
             for pin, text in pin_pad_map_problems(component):
                 add("model.pin-pad-map", "error", text, f"{component.ref}-{pin}",
                     "give each pad one pin, and each pair once")  # fmt: skip
@@ -511,4 +551,6 @@ __all__ = [
     "iter_entities",
     "presentation_issues",
     "stackup_issues",
+    "parse_version",
+    "readable",
 ]

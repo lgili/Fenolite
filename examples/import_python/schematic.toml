@@ -1,0 +1,164 @@
+# Drawn schematic of a Fenolite design (docs/drawn-schematic.md). Code owns the nets.
+schema = "fenolite.drawn-schematic.v0"
+root = "root"
+
+[[sheet]]
+key = "root"
+paper = "A4"
+
+[sheet.title_block]
+title = ""
+
+[[sheet.symbol]]
+part = "J1"
+unit = 1
+at = [33.02, 27.94]
+rotation = 0
+fields.Reference = { at = [29.21, 22.86], rotation = 0, justify = "left" }
+fields.Value = { at = [29.21, 25.4], rotation = 0, justify = "left" }
+
+[[sheet.label]]
+kind = "global"
+text = "VIN"
+at = [29.21, 27.94]
+rotation = 180
+shape = "passive"
+intersheet_refs = { at = [29.21, 27.94], rotation = 0, justify = "right", hide = true }
+
+[[sheet.label]]
+kind = "global"
+text = "GND"
+at = [36.83, 27.94]
+rotation = 0
+shape = "passive"
+intersheet_refs = { at = [36.83, 27.94], rotation = 0, justify = "left", hide = true }
+
+[[sheet.sheet_ref]]
+key = "ch1"
+sheet = "ch1"
+module = "ch1"
+name = "ch1"
+file = "sheets/ch1.kicad_sch"
+at = [17.78, 48.26]
+size = [25.4, 12.7]
+page = "2"
+
+[[sheet.sheet_ref]]
+key = "ch2"
+sheet = "ch2"
+module = "ch2"
+name = "ch2"
+file = "sheets/ch2.kicad_sch"
+at = [58.42, 48.26]
+size = [25.4, 12.7]
+page = "3"
+
+[[sheet]]
+key = "ch1"
+paper = "A4"
+
+[sheet.title_block]
+title = ""
+
+[[sheet.symbol]]
+part = "D101"
+unit = 1
+at = [33.02, 27.94]
+rotation = 0
+fields.Reference = { at = [29.21, 22.86], rotation = 0, justify = "left" }
+fields.Value = { at = [29.21, 25.4], rotation = 0, justify = "left" }
+
+[[sheet.symbol]]
+part = "R101"
+unit = 1
+at = [68.58, 33.02]
+rotation = 0
+fields.Reference = { at = [72.136, 31.75], rotation = 0, justify = "left" }
+fields.Value = { at = [72.136, 34.29], rotation = 0, justify = "left" }
+
+[[sheet.label]]
+kind = "global"
+text = "GND"
+at = [29.21, 27.94]
+rotation = 180
+shape = "passive"
+intersheet_refs = { at = [29.21, 27.94], rotation = 0, justify = "right", hide = true }
+
+[[sheet.label]]
+kind = "global"
+text = "CH1_A"
+at = [36.83, 27.94]
+rotation = 0
+shape = "passive"
+intersheet_refs = { at = [36.83, 27.94], rotation = 0, justify = "left", hide = true }
+
+[[sheet.label]]
+kind = "global"
+text = "VIN"
+at = [68.58, 29.21]
+rotation = 90
+shape = "passive"
+intersheet_refs = { at = [68.58, 29.21], rotation = 0, justify = "left", hide = true }
+
+[[sheet.label]]
+kind = "global"
+text = "CH1_A"
+at = [68.58, 36.83]
+rotation = 270
+shape = "passive"
+intersheet_refs = { at = [68.58, 36.83], rotation = 0, justify = "right", hide = true }
+
+[[sheet]]
+key = "ch2"
+paper = "A4"
+
+[sheet.title_block]
+title = ""
+
+[[sheet.symbol]]
+part = "D101"
+unit = 1
+at = [33.02, 27.94]
+rotation = 0
+fields.Reference = { at = [29.21, 22.86], rotation = 0, justify = "left" }
+fields.Value = { at = [29.21, 25.4], rotation = 0, justify = "left" }
+
+[[sheet.symbol]]
+part = "R101"
+unit = 1
+at = [68.58, 33.02]
+rotation = 0
+fields.Reference = { at = [72.136, 31.75], rotation = 0, justify = "left" }
+fields.Value = { at = [72.136, 34.29], rotation = 0, justify = "left" }
+
+[[sheet.label]]
+kind = "global"
+text = "GND"
+at = [29.21, 27.94]
+rotation = 180
+shape = "passive"
+intersheet_refs = { at = [29.21, 27.94], rotation = 0, justify = "right", hide = true }
+
+[[sheet.label]]
+kind = "global"
+text = "CH2_A"
+at = [36.83, 27.94]
+rotation = 0
+shape = "passive"
+intersheet_refs = { at = [36.83, 27.94], rotation = 0, justify = "left", hide = true }
+
+[[sheet.label]]
+kind = "global"
+text = "VIN"
+at = [68.58, 29.21]
+rotation = 90
+shape = "passive"
+intersheet_refs = { at = [68.58, 29.21], rotation = 0, justify = "left", hide = true }
+
+[[sheet.label]]
+kind = "global"
+text = "CH2_A"
+at = [68.58, 36.83]
+rotation = 270
+shape = "passive"
+intersheet_refs = { at = [68.58, 36.83], rotation = 0, justify = "right", hide = true }

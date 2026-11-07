@@ -73,11 +73,11 @@ def build_script(script: Path, out: Path, *, target: str = "kicad", fill: bool =
 
 def fill_as_outline(text: str) -> str:
     """The board text with every zone filled by its outline on each of its copper layers, flagged as filled
-    the way KiCad flags a filled zone."""
+    the way KiCad flags a filled zone; a rule area (a zone with ``keepout``) is left as it is."""
     root = parse(text)
     children: list[object] = []
     for child in root.children:
-        if isinstance(child, Node) and child.name == "zone":
+        if isinstance(child, Node) and child.name == "zone" and child.find("keepout") is None:
             child = _filled(child)
         children.append(child)
     return dumps(root.with_children(children))  # type: ignore[arg-type]

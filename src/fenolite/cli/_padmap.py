@@ -42,19 +42,16 @@ def apply_default_pad_maps(
     components: list[Component] = []
     for component in model.circuit.components:
         pairs: tuple[tuple[str, str], ...] = ()
+        fp_ref = component.footprint_definition_ref or component.lib_footprint_ref
         if (
             not component.pin_pad_map
             and component.lib_symbol_ref not in authored_symbols
-            and component.lib_footprint_ref not in authored_footprints
+            and fp_ref not in authored_footprints
         ):
-            pairs = default_pad_map(component.lib_symbol_ref, component.lib_footprint_ref)
+            pairs = default_pad_map(component.lib_symbol_ref, fp_ref)
         if pairs:
             path = component.properties.get(PATH_PROPERTY, component.ref)
-            applied.append(
-                DefaultPadMap(
-                    component.ref, path, component.lib_symbol_ref, component.lib_footprint_ref, pairs
-                )
-            )
+            applied.append(DefaultPadMap(component.ref, path, component.lib_symbol_ref, fp_ref, pairs))
             component = dataclasses.replace(component, pin_pad_map=pairs)
         components.append(component)
     if not applied:

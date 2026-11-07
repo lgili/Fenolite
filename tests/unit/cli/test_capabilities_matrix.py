@@ -6,9 +6,11 @@ capabilities"; change c0067)."""
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from collections.abc import Iterator
+from pathlib import Path
 from typing import Any
 
 import _schema
@@ -20,7 +22,7 @@ from fenolite.cli import cmd_capabilities
 from fenolite.cli.main import main
 
 ENVELOPE = _schema.load("fenolite.envelope.v0.json")
-KEYS = ["backend", "kind", *MATRIX_OPERATIONS, "verified_by", "experimental"]
+KEYS = ["backend", "kind", *MATRIX_OPERATIONS, "verified_by", "experimental", "versions"]
 
 
 @pytest.fixture(autouse=True)
@@ -63,6 +65,50 @@ def test_missing_operation_is_null(capsys: pytest.CaptureFixture[str]) -> None:
     row = _row(_result(capsys, "--no-tools")["matrix"], "specctra", "specctra_dsn")
     assert isinstance(row["write"], str)
     assert row["read"] is None and row["roundtrip_exact"] is None and row["roundtrip_modified"] is None
+    assert row["versions"] == {"write": []}
+
+
+def test_board_versions_name_the_pinned_oracle_jobs(capsys: pytest.CaptureFixture[str]) -> None:
+    from fenolite.backends.kicad.claims import ORACLE_TOOLS
+
+    root = Path(__file__).resolve().parents[3]
+    workflow = (root / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    scopes = _row(_result(capsys, "--no-tools")["matrix"], "kicad", "kicad_pcb")["versions"]["read"]
+    assert [(s["version"], s["tool"]) for s in scopes] == [
+        ("20241229", "kicad-cli 9.0.9"),
+        ("20260206", "kicad-cli 10.0.6"),
+    ]
+    for major, tool in ORACLE_TOOLS.items():
+        job = re.search(rf"(?ms)^  kicad-{major}:\n(.*?)(?=^  [a-z0-9_-]+:|\Z)", workflow)
+        assert job is not None and f"kicad/kicad:{tool.split()[-1]}@sha256:" in job[1]
+    for scope in scopes:
+        assert (root / scope["source"]).is_file()
+        assert scope["level"] == "INFERRED"
+
+
+def test_altium_claims_only_name_actual_kit_label_sources() -> None:
+    from fenolite.verify import load_register
+    from fenolite.verify.kit.record import KIT_LABEL, kit_label, load_records
+
+    root = Path(__file__).resolve().parents[3]
+    register = {row.id: row for row in load_register(root / "docs/hypotheses.md")}
+    records = {record["run_id"]: record for record in load_records(root)}
+    total = 0
+    for row in matrix.rows():
+        if row.backend != "altium":
+            continue
+        for operation, cell in row.cells():
+            labelled = [register[h] for h in cell.hypotheses if KIT_LABEL.fullmatch(register[h].level_text)]
+            scopes = row.versions.get(operation, ())
+            assert bool(scopes) == bool(labelled), (row.kind, operation)
+            for scope in scopes:
+                record = records[scope.source]
+                assert record["altium_version"] == scope.version and not record["synthetic"]
+                supported = {item["id"] for item in record["hypotheses"] if item["outcome"] == "pass"}
+                assert any(h.id in supported and h.level_text == kit_label(record) for h in labelled)
+                assert scope.level == cell.level  # no promotion from a partial kit scope
+                total += 1
+    assert total == 7
 
 
 def test_board_row_and_backend_report_agree(capsys: pytest.CaptureFixture[str]) -> None:
@@ -110,3 +156,18 @@ def test_importing_the_command_stays_light() -> None:
     done = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=False)
     assert done.returncode == 0, done.stderr
     assert done.stdout.strip() == "[]"
+
+
+def test_version_metadata_preserves_every_current_generic_cell() -> None:
+    from fenolite.backends.altium import claims as altium
+    from fenolite.backends.kicad import claims as kicad
+
+    for original, scoped in ((kicad.RAW_MATRIX, kicad.MATRIX), (altium._GRADUATED, altium.MATRIX)):
+        assert len(original) == len(scoped)
+        for before, after in zip(original, scoped, strict=True):
+            assert (before.backend, before.kind, before.experimental, before.cells()) == (
+                after.backend,
+                after.kind,
+                after.experimental,
+                after.cells(),
+            )

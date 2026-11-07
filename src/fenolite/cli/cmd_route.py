@@ -21,7 +21,9 @@ Change c0110: the differential pairs among the candidates (``routing.pairs.job_p
 by ``--escape`` (``routing.escape.requests``) go to a router whose ``router_features`` name ``pairs`` and
 ``escape``; a router without ``pairs`` gets no pair net (``route.pair-skipped``) unless ``--pairs-as-nets``
 gives them as single nets. Routed copper narrower than its job width gives ``route.width-below-job``
-(capability cli-contract, "Pairs and escape in the route command").
+(capability cli-contract, "Pairs and escape in the route command"). Change c0403: routed copper narrower
+than the ``min`` of its governing ``track_width`` rule gives ``route.width-below-minimum`` (error) and is
+not written (``_minimum_guard``).
 
 Change c0228: the job's ``extra`` also holds ``clearance`` and ``copper_check`` (``_job_checks``), the
 clearance in force and the copper check of the project's rules, which the octilinear router uses
@@ -30,6 +32,14 @@ and the package ``routing`` may not import (capability routing, "Clearance and c
 Change c0225: ``--gate drc`` judges the copper the command adds or removes through
 ``fenolite.api.trial(..., gate=True)`` (``cli._gate``) and writes the board without the items that bring new
 DRC findings; the verdict is taken from that board (capability kicad-oracle, "DRC gate on writing commands").
+
+Change c0244: ``--roles critical`` is the role mode (``cli._roleroute``): the open connections of the
+confirmed gate loops and Kelvin pairs go to a router with the feature ``roles``, locked and fenced by
+corridors (capability cli-contract, "Route command role mode").
+
+Change c0280: ``--propose``, ``--accept``/``--reject``, ``--replay`` and ``--forget`` are the proposal mode
+(``cli._propose``): candidates with facts and no score for every open connection, locked only through a
+reviewed plan (capability cli-contract, "Route proposal mode").
 """
 
 from __future__ import annotations
@@ -59,7 +69,8 @@ from fenolite.backends.kicad.pcb import read_board, source_info, write_board
 from fenolite.backends.kicad.projectset import resolve_board
 from fenolite.checks.clearance import ClearanceResolver
 from fenolite.checks.copper import check_copper, frame_edges
-from fenolite.cli import _gate, plans
+from fenolite.checks.widths import track_width_findings
+from fenolite.cli import _external_candidates, _gate, _propose, _roleroute, plans
 from fenolite.cli._boardview import to_json
 from fenolite.cli._examples import EXAMPLE_UNROUTED
 from fenolite.cli._kicadtool import DEFAULT_TIMEOUT
@@ -145,6 +156,12 @@ def _register(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--router-python", metavar="PATH", help="Python interpreter for the external router")
     parser.add_argument(
+        "--requirements",
+        metavar="FILE",
+        default=None,
+        help="user requirements TOML for opt-in search proposals and decisions",
+    )
+    parser.add_argument(
         "--router-option", action="append", default=[], metavar="KEY=VALUE", help="router-specific option"
     )
     parser.add_argument(
@@ -180,6 +197,8 @@ def _register(parser: argparse.ArgumentParser) -> None:
         help="route the nets of differential pairs as single nets, uncoupled, with any router",
     )
     parser.add_argument("-o", "--out", metavar="FILE", help="write the routed board to this file")
+    _roleroute.register(parser)
+    _propose.register(parser)
     _gate.register(parser, kicad_cli=True)
 
 
@@ -346,12 +365,35 @@ def _net_values(net: Net, classes: dict[str, NetClass], default_class: NetClass 
     )
 
 
+PLAN_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-ROUTE-PLAN",))
+"""Guarded copper materialization only: this does not certify connectivity or clearance."""
+
+
+def _plan_evidence(evidence: Evidence, *, oracle: str, complete: bool) -> Evidence:
+    """Describe a complete guarded plan, retaining actual router IDs and real lower scopes.
+
+    Router output is not a native electrical verdict. The inferred scope here is the separately
+    tested materialization/replay mechanism. Incomplete results remain unverified; an unknown
+    source remains unknown and never acquires this successful-plan hypothesis.
+    """
+    if evidence.level == Level.UNKNOWN:
+        return dataclasses.replace(evidence, oracle=oracle)
+    if not complete:
+        return dataclasses.replace(evidence, level=Level.UNVERIFIED, oracle=oracle)
+    return Evidence(
+        Level.INFERRED,
+        oracle=oracle,
+        hypotheses=tuple(sorted({*evidence.hypotheses, *PLAN_EVIDENCE.hypotheses})),
+    )
+
+
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
+    _external_candidates.check(args)
     if args.out and Path(args.out).is_absolute():
         raise CliError("FEN-2001", "--out must be relative to the working directory")
-    if args.router_path and args.router not in ("kicadroutingtools", "freerouting"):
+    if args.router_path and not args.propose_with and args.router not in ("kicadroutingtools", "freerouting"):
         raise CliError("FEN-2001", "--router-path is only supported by kicadroutingtools and freerouting")
-    if args.router_python and args.router != "kicadroutingtools":
+    if args.router_python and not args.propose_with and args.router != "kicadroutingtools":
         raise CliError("FEN-2001", "--router-python is only supported by kicadroutingtools")
     if args.timeout is not None and not (math.isfinite(args.timeout) and args.timeout > 0):
         raise CliError(
@@ -366,6 +408,43 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         if not separator or not key or not value:
             raise CliError("FEN-2001", f"invalid --router-option {option!r}; expected KEY=VALUE")
         options[key] = value
+    from fenolite.routing.search import SEARCH_OPTIONS
+    from fenolite.routing.search import options as search_options
+
+    if any(key in options for key in SEARCH_OPTIONS):
+        if args.router != "octilinear" or not (args.propose or args.accept or args.reject):
+            raise CliError(
+                "FEN-2001",
+                "search options require --router octilinear and --propose, --accept or --reject",
+                where="--router-option",
+            )
+        try:
+            search_options(options)
+        except ValueError as error:
+            raise CliError("FEN-2001", str(error), where="--router-option") from None
+    from fenolite.routing.negotiate import OPTIONS as NEGOTIATE_OPTIONS
+    from fenolite.routing.negotiate import options as negotiate_options
+
+    if any(key in options for key in NEGOTIATE_OPTIONS):
+        if args.router != "octilinear" or not (args.propose or args.accept or args.reject):
+            raise CliError(
+                "FEN-2001", "negotiation requires octilinear proposals or decisions", where="--router-option"
+            )
+        try:
+            if negotiate_options(options) is not None and search_options(options)[1] is None:
+                raise ValueError("negotiation requires bounded search")
+        except ValueError as error:
+            raise CliError("FEN-2001", str(error), where="--router-option") from None
+    if args.requirements is not None and (
+        args.router != "octilinear"
+        or not (args.propose or args.accept or args.reject or args.replay)
+        or (not args.replay and not args.propose_with and options.get("search", "off") == "off")
+    ):
+        raise CliError(
+            "FEN-2001",
+            "--requirements needs opt-in search proposals/decisions or bundle replay",
+            where="--requirements",
+        )
     escape_patterns = tuple(args.escape)
     for pattern in escape_patterns:
         try:
@@ -375,6 +454,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 "FEN-2001", str(error), hint="--escape takes REF, REF=grid or REF=perimeter"
             ) from None
     router = _router(args.router, args)
+    _propose.check(args, router)
+    _roleroute.check(args, router)
     features = router_features(router)
     if router.sends_data_offsite and not args.allow_offsite:
         raise CliError(
@@ -405,6 +486,46 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         "kicad_pcb",
         str(source.version) if source is not None else None,
     )
+    if _propose.mode(args) is not None:
+        found = source_info(design)
+        return _propose.run(
+            args,
+            ctx,
+            router=router,
+            board_path=board_path,
+            text=text,
+            design=design,
+            as_read=as_read,
+            rules=project_rules,
+            input_ref=input_ref,
+            checks=_job_checks(design, project_rules),
+            options=options,
+            major=found.major if found is not None and found.major is not None else ctx.kicad_target,
+            output=_relative(board_path, ctx.cwd),
+            read_issues=read_issues,
+            net_values=_net_values,
+            defaults=DEFAULTS,
+        )
+    if args.roles is not None:
+        found = source_info(design)
+        return _roleroute.run_roles(
+            args,
+            ctx,
+            router=router,
+            tool_version=status.version,
+            board_path=board_path,
+            text=text,
+            design=design,
+            as_read=as_read,
+            rules=project_rules,
+            input_ref=input_ref,
+            checks=_job_checks(design, project_rules),
+            options=options,
+            defaults=DEFAULTS,
+            major=found.major if found is not None and found.major is not None else ctx.kicad_target,
+            output=args.out or _relative(board_path, ctx.cwd),
+            read_issues=read_issues,
+        )
     patterns = tuple(args.nets or ("*",))
     board = design.board
     zone_ids: set[str | None] = {zone.net_id for zone in board.zones} if board is not None else set()
@@ -634,6 +755,15 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             fan_issues.append(
                 Issue("route.fill-stale", "info", "routing changed copper; run fenolite fill before check")
             )
+        if fan_gate is None:
+            fan_evidence = _plan_evidence(
+                fan_evidence,
+                oracle=router.name,
+                complete=not any(
+                    i.severity in ("error", "warning")
+                    for i in (*read_issues, *before.issues, *fan_issues, *skipped)
+                ),
+            )
         return Result(
             result={
                 "board": board_path.name,
@@ -785,6 +915,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         issues.append(
             Issue("route.fill-stale", "info", "routing changed copper; run fenolite fill before check")
         )
+    issues.extend(_minimum_guard(as_read, merged, router.name))
     board_text = write_board(merged, target=major, allow_lossy=ctx.allow_lossy).text
     failed = any(found.severity == "error" for found in issues)
     writes = (
@@ -792,10 +923,15 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         if added and not failed and (args.out is not None or board_text != text)
         else ()
     )
-    evidence = gate_evidence or dataclasses.replace(
+    evidence = gate_evidence or _plan_evidence(
         outcome.evidence,
-        level=Level.UNVERIFIED,
         oracle=f"{outcome.tool} {outcome.tool_version}".strip(),
+        complete=merged_ok
+        and not failed
+        and not budget_ended
+        and not open_names
+        and not outcome.not_attempted
+        and not outcome.unrouted,
     )
     selected = set(candidates)
     if getattr(args, "dry_run", False) and not budget_ended and not failed:
@@ -996,6 +1132,24 @@ def _width_guard(
         )
         for name in sorted(narrowest)
     ]
+
+
+def _minimum_guard(before: Design, merged: Design, router: str) -> tuple[Issue, ...]:
+    """One ``route.width-below-minimum`` (error) per net and governing ``track_width`` rule whose copper that
+    the command added (the tracks and arcs of ``merged`` that ``before`` lacks) is narrower than the rule's
+    ``min`` (``checks.widths``; change c0403): KiCad's DRC would report it as ``track_width``, so the board
+    is not written."""
+    if merged.board is None:
+        return ()
+    held = before.board
+    known: set[str] = {item.id for item in (*held.tracks, *held.arcs)} if held is not None else set()
+    added = {item.id for item in (*merged.board.tracks, *merged.board.arcs) if item.id not in known}
+    if not added:
+        return ()
+    hint = "route again with a job width the rules allow; nothing is written"
+    if router == "freerouting":
+        hint = "route again with --router-option fanout=off: Freerouting's fanout stage narrows wires at pins"
+    return track_width_findings(merged, ids=added, code="route.width-below-minimum", hint=hint)
 
 
 def _copper_of(runs: tuple[FinishedRun, ...]) -> RoutingResult:

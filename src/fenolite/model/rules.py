@@ -9,14 +9,19 @@ records). Priority 1 is the highest; backends preserve that meaning when lowerin
 from __future__ import annotations
 
 import fnmatch
+import math
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from fenolite.core.units import Nm
 from fenolite.model.base import Entity
+from fenolite.model.circuit import ValueRange
 from fenolite.model.pairs import base_matches
+
+if TYPE_CHECKING:
+    from fenolite.model.board import Teardrop
 
 RuleKind = Literal[
     "clearance",
@@ -32,6 +37,8 @@ RuleKind = Literal[
     "silk_clearance",
     "creepage",
     "no_tracks",
+    "short",
+    "antenna",
     "diff_pair_gap",
     "diff_pair_uncoupled",
     "skew",
@@ -39,19 +46,36 @@ RuleKind = Literal[
     "length",
 ]
 """The first six kinds are those of v0.1; the next six were added by change c0071, and ``no_tracks`` (no
-track or arc of the selected items on the rule's layers; it takes no limit) by change c0107. The last five,
-the pair and length kinds, were added by change c0104 (``skew`` compares every net a rule selects with the
-longest of them, ``diff_pair_skew`` the two nets of each pair it selects). Which sides, selector ops and
-layer clause a kind takes, and for which targets it is written, is the backend's to say
-(``backends.kicad.rulemap.KIND_SELECTORS`` and ``KIND_SUPPORT``)."""
+track or arc of the selected items on the rule's layers; it takes no limit) by change c0107. ``short`` and
+``antenna`` were added by change c0465: ``short`` is binary and takes no limit, its ``severity`` being that of
+a short between an item of each side (``ignore`` allows it); ``antenna`` is unary, and its ``max`` is the
+longest open-ended stub of the selected items that passes. The last five, the pair and length kinds, were
+added by change c0104 (``skew`` compares every net a rule selects with the longest of them,
+``diff_pair_skew`` the two nets of each pair it selects). Which sides, selector ops and layer clause a kind
+takes, and for which targets it is written, is the backend's to say (``backends.kicad.rulemap.KIND_SELECTORS``
+and ``KIND_SUPPORT``)."""
 RuleSeverity = Literal["error", "warning", "ignore"]
 SelectorOp = Literal[
-    "all", "net", "netclass", "ref", "layer", "item_kind", "area", "diff_pair", "and", "or", "not"
-]
-LEAF_OPS = ("net", "netclass", "ref", "layer", "item_kind", "area", "diff_pair")
+    "all", "net", "netclass", "ref", "layer", "item_kind", "area", "diff_pair", "zone", "hole", "pad_type",
+    "and", "or", "not",
+]  # fmt: skip
+LEAF_OPS = ("net", "netclass", "ref", "layer", "item_kind", "area", "diff_pair", "zone", "hole", "pad_type")
 """The leaves. The value of ``diff_pair`` is a pair base (``model.pairs``) or ``*``, compared with its
 letter case; the value of ``area`` is the name of a rule area, compared with its letter case and with ``*``
-as a glob; the other leaves hold globs over names."""
+as a glob; ``hole`` holds ``lo..hi``, a closed interval of finished hole diameters in nanometres, either side
+open (``hole_value``); ``pad_type`` holds one of ``PAD_TYPES``; the other leaves, ``zone`` among them (a
+glob over a zone's name, compared with letter case), hold globs over names. ``zone``, ``hole`` and
+``pad_type`` were added by change c0462 (model 1.1)."""
+CASED_LEAVES = ("area", "diff_pair", "zone", "hole", "pad_type")
+"""The leaves whose value a check compares as written, never case-folded: KiCad compares area, pair and zone
+names with their letter case, and the values of ``hole`` and ``pad_type`` are no names."""
+PAD_TYPES = ("smd", "th", "npth")
+"""The values of a ``pad_type`` leaf: a pad without a hole, a plated through-hole pad, a pad whose hole is
+not plated (change c0462)."""
+PAD_TYPE_OF: dict[str, str] = {"smd": "smd", "thru_hole": "th", "np_thru_hole": "npth"}
+"""A pad kind (``model.board.PadKind``) → its ``pad_type``; a ``connect`` pad (KiCad's edge connector) has
+none."""
+_HOLE = re.compile(r"(?P<lo>[0-9]*)\.\.(?P<hi>[0-9]*)")
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,6 +91,33 @@ class RuleSubject:
     """The names of the rule areas the object lies in (letter case counts)."""
     #: The base of the subject's net when the design holds the coupled net (``model.pairs.net_bases``).
     diff_pair: str | None = None
+    zone: str | None = None
+    """The name of the zone the subject is (the copper of a zone), else ``None`` (change c0462)."""
+    hole: Nm | None = None
+    """The finished diameter of the subject's hole in nanometres, ``None`` without a hole (change c0462)."""
+    pad_type: str | None = None
+    """One of ``PAD_TYPES`` for a pad, ``None`` for any other object, a via among them (change c0462)."""
+
+
+def hole_value(lo: Nm | None, hi: Nm | None) -> str:
+    """The value of a ``hole`` leaf for the closed interval ``lo..hi`` (``None``: open on that side)."""
+    if lo is None and hi is None:
+        raise ValueError("a hole interval needs at least one bound")
+    if min(b for b in (lo, hi, 0) if b is not None) < 0 or (lo is not None and hi is not None and lo > hi):
+        raise ValueError(f"the hole interval {lo}..{hi} is empty or negative")
+    return f"{'' if lo is None else lo}..{'' if hi is None else hi}"
+
+
+def hole_interval(value: str) -> tuple[Nm | None, Nm | None]:
+    """The bounds of a ``hole`` leaf's value ``lo..hi``; ``ValueError`` for another text."""
+    match = _HOLE.fullmatch(value)
+    if match is None or (not match["lo"] and not match["hi"]):
+        raise ValueError(f"a hole selector holds lo..hi in nanometres, not {value!r}")
+    lo = int(match["lo"]) if match["lo"] else None
+    hi = int(match["hi"]) if match["hi"] else None
+    if lo is not None and hi is not None and lo > hi:
+        raise ValueError(f"the hole interval {value!r} is empty")
+    return lo, hi
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,6 +137,10 @@ class Selector:
             raise ValueError(f"selector '{self.op}' needs a value")
         if self.op in (*LEAF_OPS, "all") and self.items:
             raise ValueError(f"selector '{self.op}' takes no items")
+        if self.op == "hole":
+            hole_interval(self.value)
+        if self.op == "pad_type" and self.value not in PAD_TYPES:
+            raise ValueError(f"selector 'pad_type' takes one of {', '.join(PAD_TYPES)}, not {self.value!r}")
 
     def matches(self, subject: RuleSubject) -> bool:
         match self.op:
@@ -111,10 +166,40 @@ class Selector:
                 return any(fnmatch.fnmatchcase(name, self.value) for name in subject.areas)
             case "diff_pair":
                 return base_matches(subject.diff_pair, self.value)
+            case "zone":
+                return _glob(subject.zone, self.value)
+            case "hole":
+                if subject.hole is None:
+                    return False
+                lo, hi = hole_interval(self.value)
+                return (lo is None or subject.hole >= lo) and (hi is None or subject.hole <= hi)
+            case "pad_type":
+                return subject.pad_type == self.value
 
 
 def _glob(value: str | None, pattern: str) -> bool:
     return value is not None and fnmatch.fnmatchcase(value, pattern)
+
+
+NO_NET = Selector("not", items=(Selector("net", "*"),))
+"""The items without a net (change c0409, B7; ``fenolite.dsl.select.no_net()``): a net glob never matches an
+item without a net, so ``not(net "*")`` matches exactly those. Written with the frozen ops of model v0, it
+needs no new op; the KiCad target writes it as ``A.NetName == ''`` (``H-K-DRU-NONET``), not as a negated
+glob."""
+
+
+def selector_rank(selector: Selector) -> int:
+    """Fenolite's specificity rank; this never changes rule precedence by itself."""
+    if selector.op == "and":
+        return sum(selector_rank(item) for item in selector.items)
+    if selector.op == "or":
+        return min(selector_rank(item) for item in selector.items)
+    if selector.op in ("all", "not"):
+        return 0
+    if selector.op == "net":
+        return 3 if any(char in selector.value for char in "*?[") else 5
+    ranks = {"area": 1, "item_kind": 1, "layer": 1, "zone": 1, "hole": 1, "pad_type": 1, "netclass": 2}
+    return ranks.get(selector.op, 4)  # diff_pair and ref
 
 
 @dataclass(frozen=True, slots=True)
@@ -131,6 +216,24 @@ class Rule(Entity):
     max: Nm | None = None
     severity: RuleSeverity = "error"
     priority: int = 0
+
+    def __post_init__(self) -> None:
+        # change c0465: the limits of the two allowance kinds; the other kinds are checked where they are
+        # declared (``dsl.design.rule``) and lowered
+        if self.kind == "short":
+            if self.selector_b is None:
+                raise ValueError(f"short rule {self.name!r} needs a second side (selector_b)")
+            if (self.min, self.opt, self.max) != (None, None, None):
+                raise ValueError(
+                    f"short rule {self.name!r} takes no limit; its severity says what a short is"
+                )
+        elif self.kind == "antenna":
+            if self.selector_b is not None:
+                raise ValueError(f"antenna rule {self.name!r} is unary and takes no second side")
+            if self.min is not None or self.opt is not None:
+                raise ValueError(f"antenna rule {self.name!r} takes max alone")
+            if not isinstance(self.max, int) or isinstance(self.max, bool) or self.max < 0:
+                raise ValueError(f"antenna rule {self.name!r} needs a max of 0 nm or more")
 
 
 PlacementSeverity = Literal["error", "warning"]
@@ -467,6 +570,9 @@ PartClassName = Literal[
     "capacitor",
     "resistor",
     "shunt",
+    "ferrite",
+    "fuse",
+    "jumper",
     "driver",
     "amplifier",
     "controller",
@@ -482,6 +588,9 @@ PART_CLASSES: tuple[PartClassName, ...] = (
     "capacitor",
     "resistor",
     "shunt",
+    "ferrite",
+    "fuse",
+    "jumper",
     "driver",
     "amplifier",
     "controller",
@@ -598,6 +707,403 @@ class RoleSet:
         return next((role for role in self.nets if role.net == net), None)
 
 
+# ------------------------------------------------------------------------------------------ contracts
+
+DERATING_KEYS: dict[str, tuple[str, str, str]] = {
+    "voltage": ("device", "voltage", ""),
+    "current": ("device", "current", ""),
+    "power": ("device", "power", ""),
+    "pin_voltage": ("pin", "voltage", ""),
+    "pin_current": ("pin", "current", ""),
+    "capacitor_voltage": ("device", "voltage", "capacitor"),
+    "resistor_power": ("device", "power", "resistor"),
+    "resistor_voltage": ("device", "voltage", "resistor"),
+    "shunt_power": ("device", "power", "shunt"),
+    "inductor_current": ("device", "current", "inductor"),
+    "ferrite_current": ("device", "current", "ferrite"),
+    "diode_voltage": ("device", "voltage", "diode"),
+    "diode_current": ("pin", "current", "diode"),
+    "transistor_voltage": ("pin", "voltage", "transistor"),
+    "transistor_current": ("pin", "current", "transistor"),
+    "temperature_margin": ("device", "temperature", ""),
+}
+"""The closed keys of a derating rule (change c0253; ``docs/contracts.md``, "Derating"): key → (scope, rating,
+class). ``device`` scope is a device rating, ``pin`` a pin's rating or a ``[[limits]]`` voltage between two
+functions; a class key applies to parts of that class only. Every key applies to ``abs_max`` limits only.
+``temperature_margin`` is a temperature difference in millikelvin; every other key a per-mille ratio. Fenolite
+ships no rule and no value for any key: every rule is the user's."""
+EXPECT_OPS: tuple[str, ...] = ("within", "at_least", "at_most")
+"""The top operations of an expectation's test."""
+EXPECT_INNER: tuple[str, ...] = ("add", "sub", "mul", "div", "neg")
+"""The operations inside an expectation's expression."""
+EXPECT_REFS: tuple[str, ...] = ("value", "rating", "voltage", "current")
+"""The handles an expression reads: a component's ``value_range``, a device limit, a net's voltage bound and
+a net's current bound."""
+CONTRACT_STRICTNESS: tuple[str, ...] = ("info", "warning")
+"""``ContractSet.unknown``: the severity of the findings of rows that cannot be judged."""
+_ORIGIN = re.compile(r"^[A-Za-z_<][\w.<>-]*:\d+$")
+_EXPECT_ID = re.compile(r"^(?P<instance>[A-Za-z0-9_.+/-]+)/expect#(?P<n>[1-9]\d*)$")
+
+
+@dataclass(frozen=True, slots=True)
+class DeratingRule:
+    """A derating rule of the user (change c0253): its key (``DERATING_KEYS``), its ratio in per-mille
+    (``500`` is "at most 50 % of the rating", 1 to 1000) or, for ``temperature_margin``, its margin in
+    millikelvin; ``parts``, a glob of references the rule is scoped to (``""``: every part); and the
+    user's ``source``."""
+
+    key: str
+    permille: int = 0
+    margin_mk: int = 0
+    parts: str = ""
+    source: str = ""
+
+    def __post_init__(self) -> None:
+        if self.key not in DERATING_KEYS:
+            raise ValueError(f"derating: unknown key {self.key!r}; keys: {', '.join(DERATING_KEYS)}")
+        for name, value in (("permille", self.permille), ("margin_mk", self.margin_mk)):
+            if isinstance(value, bool) or not isinstance(value, int):  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise ValueError(f"derating {self.key}: {name} must be an integer")
+        if self.key == "temperature_margin":
+            if self.permille or self.margin_mk <= 0:
+                raise ValueError("derating temperature_margin: a margin above 0 mK, and no permille")
+        elif self.margin_mk or not 1 <= self.permille <= 1000:
+            raise ValueError(f"derating {self.key}: permille lies in 1..1000 (a ratio never raises a rating)")
+
+
+@dataclass(frozen=True, slots=True)
+class OperatingRange:
+    """The design's operating conditions (change c0253): the ambient temperature range, in kelvin."""
+
+    ambient: ValueRange
+
+    def __post_init__(self) -> None:
+        if self.ambient.unit != "kelvin" or self.ambient.low is None or self.ambient.high is None:
+            raise ValueError("operating: the ambient is a range in kelvin with both bounds")
+
+
+@dataclass(frozen=True, slots=True)
+class ExpectNode:
+    """One node of an expectation's tree (change c0253): an operation ``op`` with operands ``a`` and ``b``
+    (``neg`` takes ``a`` only), a literal range ``lit``, a numeric ``num`` (one or two reduced
+    numerator/denominator pairs; two pairs enclose a dimensionless constant), or a ref
+    (``value``, ``rating``, ``voltage``, ``current``) naming an entity id."""
+
+    op: str = ""
+    a: ExpectNode | None = None
+    b: ExpectNode | None = None
+    lit: ValueRange | None = None
+    num: tuple[int, ...] = field(default=(), metadata={"ordered": True})
+    ref: str = ""
+    component: str = ""
+    net: str = ""
+    key: str = ""
+    pin: str = ""
+    limit: str = ""
+
+    def __post_init__(self) -> None:
+        forms = [bool(self.op), self.lit is not None, bool(self.num), bool(self.ref)]
+        if sum(forms) != 1:
+            raise ValueError("an expectation node is exactly one of an op, a lit, a num and a ref")
+        if self.op:
+            if self.op not in (*EXPECT_OPS, *EXPECT_INNER):
+                raise ValueError(
+                    f"expectation: op {self.op!r} is not one of {', '.join(EXPECT_OPS + EXPECT_INNER)}"
+                )
+            if self.a is None or (self.b is None) != (self.op == "neg"):
+                raise ValueError(
+                    f"expectation: {self.op} takes {'one operand' if self.op == 'neg' else 'two'}"
+                )
+            for child in (self.a, self.b):
+                if child is not None and child.op in EXPECT_OPS:
+                    raise ValueError(f"expectation: {child.op} is a top operation, not an operand")
+        if self.num:
+            if len(self.num) not in (2, 4) or any(
+                self.num[i + 1] <= 0 or math.gcd(self.num[i], self.num[i + 1]) != 1
+                for i in range(0, len(self.num), 2)
+            ):
+                raise ValueError("expectation: num holds one or two reduced numerator/denominator pairs")
+            if len(self.num) == 4 and self.num[0] * self.num[3] > self.num[2] * self.num[1]:
+                raise ValueError("expectation: the numeric lower bound is above its upper bound")
+        if self.ref:
+            if self.ref not in EXPECT_REFS:
+                raise ValueError(f"expectation: ref {self.ref!r} is not one of {', '.join(EXPECT_REFS)}")
+            needs = "component" if self.ref in ("value", "rating") else "net"
+            if not getattr(self, needs):
+                raise ValueError(f"expectation: a {self.ref} ref names a {needs}")
+            if self.ref == "rating" and (not self.key or self.limit not in ("abs_max", "operating")):
+                raise ValueError("expectation: a rating ref names a key and a limit (abs_max or operating)")
+
+
+@dataclass(frozen=True, slots=True)
+class Expectation:
+    """An expectation (change c0253): ``id`` (``<instance path>/expect#<n>``), the block instance path (or
+    ``design``), the reason, the origin (``module:line``, never a path) and the test, a tree whose top
+    operation is ``within``, ``at_least`` or ``at_most``."""
+
+    id: str
+    instance: str
+    reason: str
+    origin: str
+    test: ExpectNode
+
+    def __post_init__(self) -> None:
+        found = _EXPECT_ID.fullmatch(self.id)
+        if found is None or found.group("instance") != self.instance:
+            raise ValueError(f"expectation {self.id!r}: the id is <instance>/expect#<n> of {self.instance!r}")
+        if not self.reason.strip():
+            raise ValueError(f"expectation {self.id}: the reason is empty")
+        if not _ORIGIN.fullmatch(self.origin):
+            raise ValueError(f"expectation {self.id}: the origin {self.origin!r} is module:line, not a path")
+        if self.test.op not in EXPECT_OPS:
+            raise ValueError(f"expectation {self.id}: the test is one of {', '.join(EXPECT_OPS)}")
+
+
+def _rig_name(name: str) -> None:
+    if not ROLE_KEY.fullmatch(name):
+        raise ValueError(f"rig: the name {name!r} must match {ROLE_KEY.pattern}")
+
+
+@dataclass(frozen=True, slots=True)
+class RigSupply:
+    """A test-rig supply (change c0253): the outside world holds the net ``pos`` at ``voltage`` against
+    ``neg`` (net ids) and delivers at most ``current``. A record of the rules layer, never a component."""
+
+    kind: Literal["supply"]
+    name: str
+    pos: str
+    neg: str
+    voltage: ValueRange
+    current: ValueRange | None = None
+
+    def __post_init__(self) -> None:
+        _rig_name(self.name)
+        if self.voltage.unit != "volt" or (self.current is not None and self.current.unit != "ampere"):
+            raise ValueError(f"rig {self.name}: a voltage in volt and a current in ampere")
+
+
+@dataclass(frozen=True, slots=True)
+class RigSink:
+    """A test-rig sink (change c0253): the outside world draws ``current`` from ``net`` to ``ret``."""
+
+    kind: Literal["sink"]
+    name: str
+    net: str
+    ret: str
+    current: ValueRange
+
+    def __post_init__(self) -> None:
+        _rig_name(self.name)
+        if self.current.unit != "ampere":
+            raise ValueError(f"rig {self.name}: a current in ampere")
+
+
+@dataclass(frozen=True, slots=True)
+class ContractSet:
+    """The electrical contracts of a design (change c0253; ``docs/contracts.md``): the derating rules in call
+    order, the operating conditions, the strictness of unknown rows, the expectations in id order and the
+    rig elements in name order. A value; ``RuleSet`` stores it under ``contracts`` only when not empty."""
+
+    derating: tuple[DeratingRule, ...] = field(default=(), metadata={"ordered": True})
+    operating: OperatingRange | None = None
+    unknown: Literal["info", "warning"] = "info"
+    expects: tuple[Expectation, ...] = field(default=(), metadata={"ordered": True})
+    rig: tuple[RigSupply | RigSink, ...] = field(default=(), metadata={"ordered": True})
+    propagate: bool = True
+    """Whether a net without a stated voltage takes the voltage of the stated nets it reaches through links
+    (change c0274; ``design.contracts(propagate=False)`` turns it off)."""
+
+    def __post_init__(self) -> None:
+        if self.unknown not in CONTRACT_STRICTNESS:
+            raise ValueError(f"contracts: unknown is one of {', '.join(CONTRACT_STRICTNESS)}")
+        object.__setattr__(self, "expects", tuple(sorted(self.expects, key=lambda e: _expect_order(e.id))))
+        object.__setattr__(self, "rig", tuple(sorted(self.rig, key=lambda element: element.name)))
+        for what, names in (
+            ("expectations", [e.id for e in self.expects]),
+            ("rig elements", [r.name for r in self.rig]),
+        ):
+            twice = sorted({name for name in names if names.count(name) > 1})
+            if twice:
+                raise ValueError(f"contracts: two {what} are named {twice[0]!r}")
+
+    def __bool__(self) -> bool:
+        return bool(
+            self.derating
+            or self.operating is not None
+            or self.unknown != "info"
+            or self.expects
+            or self.rig
+            or not self.propagate
+        )
+
+
+def _expect_order(expect_id: str) -> tuple[str, int]:
+    instance, _, number = expect_id.rpartition("/expect#")
+    return (instance, int(number) if number.isdigit() else 0)
+
+
+@dataclass(frozen=True, slots=True)
+class Propagation:
+    """User-supplied delay: one layer per millimetre, or one via traversal."""
+
+    layer: str = ""
+    per_mm_fs: int | None = None
+    via_fs: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.layer:
+            if self.per_mm_fs is None or self.via_fs is not None:
+                raise ValueError("layer propagation needs per_mm_fs only")
+            _whole(self.per_mm_fs, "per_mm_fs", positive=True)
+        elif self.via_fs is None or self.per_mm_fs is not None:
+            raise ValueError("via propagation needs via_fs only")
+        else:
+            _whole(self.via_fs, "via_fs")
+
+
+@dataclass(frozen=True, slots=True)
+class LayerLoss:
+    """User-supplied loss per millimetre or via, optionally at a stated frequency in Hz."""
+
+    layer: str = ""
+    per_mm_mdb: int | None = None
+    via_mdb: int | None = None
+    at_hz: str = ""
+
+    def __post_init__(self) -> None:
+        if self.layer:
+            if self.per_mm_mdb is None or self.via_mdb is not None:
+                raise ValueError("layer loss needs per_mm_mdb only")
+            _whole(self.per_mm_mdb, "per_mm_mdb")
+        elif self.via_mdb is None or self.per_mm_mdb is not None:
+            raise ValueError("via loss needs via_mdb only")
+        else:
+            _whole(self.via_mdb, "via_mdb")
+        if self.at_hz and (
+            not re.fullmatch(r"\d+(?:\.\d+)?", self.at_hz) or not any(c in "123456789" for c in self.at_hz)
+        ):
+            raise ValueError("loss frequency must be positive decimal Hz")
+
+
+@dataclass(frozen=True, slots=True)
+class TopologyConstraint:
+    """One named path limit, using integer femtoseconds, milli-decibels or nanometres."""
+
+    kind: Literal["delay", "skew", "loss", "stub", "order"]
+    ends: tuple[str, ...] = field(default=(), metadata={"ordered": True})
+    min_fs: int | None = None
+    max_fs: int | None = None
+    max_mdb: int | None = None
+    max_nm: int | None = None
+    severity: PlacementSeverity = "error"
+
+    def __post_init__(self) -> None:
+        if len(set(self.ends)) != len(self.ends):
+            raise ValueError("topology constraint ends must differ")
+        if self.severity not in ("error", "warning"):
+            raise ValueError("topology severity is 'error' or 'warning'")
+        for name in ("min_fs", "max_fs", "max_mdb", "max_nm"):
+            value = getattr(self, name)
+            if value is not None:
+                _whole(value, name)
+        if self.kind == "delay":
+            if len(self.ends) != 2 or (self.min_fs is None and self.max_fs is None):
+                raise ValueError("delay needs two ends and at least one limit")
+            if self.min_fs is not None and self.max_fs is not None and self.min_fs > self.max_fs:
+                raise ValueError("delay minimum exceeds its maximum")
+        elif self.kind == "skew":
+            if len(self.ends) < 2 or self.max_fs is None:
+                raise ValueError("skew needs two or more ends and max_fs")
+        elif self.kind == "loss":
+            if len(self.ends) != 2 or self.max_mdb is None:
+                raise ValueError("loss needs two ends and max_mdb")
+        elif self.kind == "stub":
+            if self.ends or self.max_nm is None:
+                raise ValueError("stub needs max_nm and no ends")
+        elif self.kind != "order" or self.ends:
+            raise ValueError("unknown topology constraint or order with ends")
+        allowed: dict[str, set[str]] = {
+            "delay": {"min_fs", "max_fs"},
+            "skew": {"max_fs"},
+            "loss": {"max_mdb"},
+            "stub": {"max_nm"},
+            "order": set(),
+        }
+        if any(
+            getattr(self, name) is not None
+            for name in {"min_fs", "max_fs", "max_mdb", "max_nm"} - allowed[self.kind]
+        ):
+            raise ValueError("topology limit has the wrong unit for its kind")
+
+
+@dataclass(frozen=True, slots=True)
+class TopologyEdge:
+    """A directed tree edge on a net or through a declared series bridge."""
+
+    a: str
+    b: str
+    kind: Literal["net", "bridge"] = "net"
+    net: str = ""
+    delay_fs: int = 0
+    loss_mdb: int = 0
+
+    def __post_init__(self) -> None:
+        if self.a == self.b or not _pad_name(self.a) or not _pad_name(self.b):
+            raise ValueError("a topology edge needs two different REF-PIN nodes")
+        if self.kind not in ("net", "bridge") or (self.kind == "net" and not self.net):
+            raise ValueError("a net edge needs its net name; edge kind is net or bridge")
+        _whole(self.delay_fs, "bridge delay")
+        _whole(self.loss_mdb, "bridge loss")
+        if self.kind == "net" and (self.delay_fs or self.loss_mdb):
+            raise ValueError("a net edge carries no bridge delay or loss")
+        if self.kind == "bridge" and self.a.rpartition("-")[0] != self.b.rpartition("-")[0]:
+            raise ValueError("a bridge joins two pins of the same component")
+
+
+@dataclass(frozen=True, slots=True)
+class Topology(Entity):
+    """An ordered, connected pad tree. The first node is its root; edges retain chain order."""
+
+    name: str
+    nodes: tuple[str, ...] = field(metadata={"ordered": True})
+    edges: tuple[TopologyEdge, ...] = field(metadata={"ordered": True})
+    constraints: tuple[TopologyConstraint, ...] = field(default=(), metadata={"ordered": True})
+    missing_bridges: tuple[str, ...] = field(default=(), metadata={"ordered": True})
+
+    def __post_init__(self) -> None:
+        if not self.name or len(self.nodes) < 2 or len(set(self.nodes)) != len(self.nodes):
+            raise ValueError("a topology needs a name and two or more distinct nodes")
+        reached = {self.nodes[0]}
+        pending = list(self.edges)
+        while pending:
+            edge = next((edge for edge in pending if edge.a in reached), None)
+            if edge is None or edge.b in reached or edge.b not in self.nodes:
+                raise ValueError(f"topology {self.name!r} has a cycle, repeated branch or disconnected node")
+            reached.add(edge.b)
+            pending.remove(edge)
+        if reached != set(self.nodes):
+            raise ValueError(f"topology {self.name!r} is disconnected")
+        if any(end not in reached for constraint in self.constraints for end in constraint.ends):
+            raise ValueError("a topology constraint names a node outside its tree")
+
+
+@dataclass(frozen=True, slots=True)
+class ProtocolSkew:
+    """Compare two independently measured member paths of a differential interface."""
+
+    interface: str
+    topologies: tuple[str, str]
+    max_fs: int
+    severity: PlacementSeverity = "error"
+
+    def __post_init__(self) -> None:
+        if not self.interface or len(set(self.topologies)) != 2:
+            raise ValueError("protocol skew needs an interface and two different topology names")
+        _whole(self.max_fs, "protocol skew")
+        if self.severity not in ("error", "warning"):
+            raise ValueError("protocol skew severity is error or warning")
+
+
 @dataclass(frozen=True, slots=True)
 class RuleSet(Entity):
     """The rules layer of a design (``rules.json``). ``severities`` gives the checks of a design-rule tool
@@ -616,11 +1122,30 @@ class RuleSet(Entity):
     proximity: tuple[ProximityRule, ...] = field(default=(), metadata={"ordered": True})
     heights: tuple[HeightLimit, ...] = field(default=(), metadata={"ordered": True})
     impedance: tuple[ImpedanceTarget, ...] = field(default=(), metadata={"ordered": True})
+    propagation: tuple[Propagation, ...] = field(default=(), metadata={"ordered": True})
+    losses: tuple[LayerLoss, ...] = field(default=(), metadata={"ordered": True})
+    topologies: tuple[Topology, ...] = field(default=(), metadata={"ordered": True})
+    protocol_skews: tuple[ProtocolSkew, ...] = field(default=(), metadata={"ordered": True})
     roles: RoleSet | None = None
+    contracts: ContractSet | None = None
+    """The electrical contracts (change c0253); an empty ``ContractSet`` is stored as ``None``."""
 
     def __post_init__(self) -> None:
+        for label, names in (
+            ("propagation", [row.layer for row in self.propagation]),
+            ("loss", [row.layer for row in self.losses]),
+            ("topology", [row.name for row in self.topologies]),
+            ("protocol skew", [row.interface for row in self.protocol_skews]),
+        ):
+            if len(set(names)) != len(names):
+                raise ValueError(f"duplicate {label} input")
+        topology_names = {row.name for row in self.topologies}
+        if any(name not in topology_names for row in self.protocol_skews for name in row.topologies):
+            raise ValueError("protocol skew names an absent topology")
         if self.roles is not None and not self.roles:
             object.__setattr__(self, "roles", None)
+        if self.contracts is not None and not self.contracts:
+            object.__setattr__(self, "contracts", None)
         seen: set[str] = set()
         for rule in self.proximity:
             if rule.name in seen:
@@ -633,9 +1158,34 @@ class RuleSet(Entity):
             areas.add(limit.area)
 
 
+@dataclass(frozen=True, slots=True)
+class TeardropRule:
+    """One ``Design.teardrops()`` call (change c0277): the teardrop ``settings`` of every pad (with ``pads``)
+    and via (with ``vias``) of the built board that ``selector`` matches. It is a build parameter, as a plane
+    is: the build writes the settings on the pads and vias, and a later rule wins over an earlier one."""
+
+    settings: Teardrop
+    selector: Selector = field(default_factory=lambda: Selector("all"))
+    pads: bool = True
+    vias: bool = True
+
+
 __all__ = [
     "CONFIDENCES",
+    "CONTRACT_STRICTNESS",
+    "DERATING_KEYS",
+    "EXPECT_INNER",
+    "EXPECT_OPS",
+    "EXPECT_REFS",
+    "ContractSet",
+    "DeratingRule",
+    "ExpectNode",
+    "Expectation",
+    "OperatingRange",
+    "RigSink",
+    "RigSupply",
     "LEAF_OPS",
+    "NO_NET",
     "ROLE_KEY",
     "ROLE_KINDS",
     "ROLE_LIMIT_UNITS",
@@ -666,6 +1216,12 @@ __all__ = [
     "RuleSubject",
     "Selector",
     "SelectorOp",
+    "CASED_LEAVES",
+    "PAD_TYPES",
+    "PAD_TYPE_OF",
+    "hole_interval",
+    "hole_value",
     "Terminal",
+    "TeardropRule",
     "TraceGeometry",
 ]

@@ -1,0 +1,503 @@
+{
+  "baseline_source": "e26589420db604771f0a884b962a0546a2283e43",
+  "cases": 75,
+  "changes": [
+    {
+      "after": "f9ee6e8d332178bc43bffc2f580bd0ac9d8aa9eef28713697946c8fae09541fc",
+      "before": "abf9c7f69b58e897f14d3682ca65f43de7aed3d49f4b214be3ffe20bdb0726b6",
+      "case": "acceptance_v03@10",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "d78430c4384ff72ed4da21058ce179bb7eb4461c23fc25082f6a4c00613f0cf8",
+      "before": "d2cc2d171d15d56f95a02e263563e429cf49decb678edb02d94472dab34a12c9",
+      "case": "acceptance_v03@10",
+      "path": "acceptance_v03.kicad_pro"
+    },
+    {
+      "after": "4513e95ffac461b3cbee4f52f24e5474fe1ad4087238b9db9b235ae4f5d87118",
+      "before": "491de0fc071363bcc7a89ca472f76b9b0a9ea715cc68afe0e92acc7847500ca0",
+      "case": "altium_hier_board@10",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "41ecd48027ab3780464d1b3e7383f45cae19951285561c7871bab7a14f8136b3",
+      "before": "52aa328364dc46f1b31cd2eead2b27c7ac55748ea1c2bb41434a630f8dccf5ed",
+      "case": "altium_hier_board@10",
+      "path": "altium_hier_board.kicad_pro"
+    },
+    {
+      "after": "e29f63f3e0f240d9396dbe6f6f2373af2f32dc682359c18e999d68782f5b13a5",
+      "before": "ee0592c462d3c3856de124c720ac74f8f38bdd4aefe1dd213ef8f8e08c6f692f",
+      "case": "altium_hier_board@9",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "db4b2a7d09cdb7c61964bbfeb70d05ee7f3ea27bd02d4a732dc918f4af31f652",
+      "before": "c0daf2213891b77d98c506099c10eae0608dd9207ec4121b343cdcfd941f2e6c",
+      "case": "altium_hier_board@9",
+      "path": "altium_hier_board.kicad_pro"
+    },
+    {
+      "after": "0c0338cacf49fb95f7feed6f94cc35542af9227fb47e45a5cd70ab59ca06cefd",
+      "before": "a0d92015229433d8338d3c1c67e345d3ce3e84763c98a3e9f28fa529c79b67d1",
+      "case": "blink_2layer@10",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "3f93fa5e971df829519f77540279a665183212b0566df2347769a2e21a10cc59",
+      "before": "77f6a58edf1defbbfb779e406ca6a957724ec8db4b9f877e70dafbbc57777e85",
+      "case": "blink_2layer@10",
+      "path": "blink.kicad_pro"
+    },
+    {
+      "after": "7ca23ce9f6b7d1c4654c1e527dc6d3ec025a70fa115833d88f10656a68834769",
+      "before": "4f9373af61af4fa04241a0f15f790ced083b7be326fea7aec56db04a8d214ef7",
+      "case": "blink_2layer@9",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "ec50c23f4e48927f32fa8a9977d144df081088c9ee4269128dd6f7b075ca6067",
+      "before": "826f307baffa180c68a76ab55d84daf64f4d1ce764128338c8614d18ead41057",
+      "case": "blink_2layer@9",
+      "path": "blink.kicad_pro"
+    },
+    {
+      "after": "d1ae1c160f31cc8b87293f4a5a21432bb3f9016740334b1d0d540325ac5a5051",
+      "before": "1ab97e586f99a9960a3ad8c006a43fc6ebc0a858b1e100f70616502b934ce6a1",
+      "case": "blink_routed@10",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "e7629061eae42d14156de7b0a34ae9f322292243458b3166697c0d8792fa84bb",
+      "before": "54cf3550b2eedf65891f47f809504e6d9e1cb9fabc25ea34a316b56edd6c6d96",
+      "case": "blink_routed@10",
+      "path": "blink_routed.kicad_pro"
+    },
+    {
+      "after": "0828adc25ed192736f592e49297ce31a4c9e7976e85685c4f4a331d14a2727ee",
+      "before": "b1542cae6a6cde77db8f4d89f49d6cecd1a09351cfd509b27c11fcb44b64eb78",
+      "case": "blink_routed@9",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "495dda9da85ac0a955591a224a1dac80934042463dd7df513055736da75e4214",
+      "before": "c2a078c5bf8b4193fea929bb1193a741fae887276b0232c47a6e15bc2d9990bb",
+      "case": "blink_routed@9",
+      "path": "blink_routed.kicad_pro"
+    },
+    {
+      "after": "7a473845dacb186a16f14ffe2e6ce1dd1bb78f177286a70e9a508d4bc43daac2",
+      "before": "894ee1189516b3dad4b705b93ddf93620fffed9774b2ff7513d37a5f0c233a0c",
+      "case": "blocks@10",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "b0ba72d3c012c051d9511e128333495ca363a563a9f7ef25911225f27b02f28b",
+      "before": "f172385e70694a3d689a4b983d661c66762aa4457dc3bf88e84e697b3fca275e",
+      "case": "blocks@10",
+      "path": "blocks_demo.kicad_pro"
+    },
+    {
+      "after": "adf913a97e3d30c026a861e9d7212eb6ccb7a798e5f11f7d3b9a87e8b8c56a7d",
+      "before": "c9191d85c97d971b64a6014c45bea10b4f980aea1c40ef7ba3ed54d2074052f4",
+      "case": "blocks@9",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "2f7d67abf4317f3f3ed66826dbf7baa1ebc2062f2d49467d7726040168eb7c2c",
+      "before": "9d64f308ff9e767a603a8343754e17534c52d755721675262c3a935968b30c7b",
+      "case": "blocks@9",
+      "path": "blocks_demo.kicad_pro"
+    },
+    {
+      "after": "b936fde5a14916736d8a9a92c28f20b7e7ca27ff7d7b59bda7de522a62228a5a",
+      "before": "28df8ce4be731e0403793f2e521b4baf9722f79d6f35a24b3225ba0d307a25fe",
+      "case": "board_40parts@10",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "2a9aa8f56655659c4a570b5e8be9e1018609a22e0bb2cff0762ea506a06fff95",
+      "before": "e7595b1e6f4dafca8b96e39db74eea6b216a257f5f48e5cd1074f21cd99b5683",
+      "case": "board_40parts@10",
+      "path": "board_40parts.kicad_pro"
+    },
+    {
+      "after": "dccfbbac0717a80cffd5012cd7eb6c11e75320a4862197a643cc000d048fa5a6",
+      "before": "5f788b2e05b6015c59b8c40e3864bb1ea78b98f13cabe92c9461dca05f592f6f",
+      "case": "board_40parts@9",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "58e3cc8dbc959c6dc6692fb6d13bd97a082135a77c0e20a5104db574155e376d",
+      "before": "721fea415c1ff22f563a3463aae5384982c088d921a98763ba3061746c7aa23e",
+      "case": "board_40parts@9",
+      "path": "board_40parts.kicad_pro"
+    },
+    {
+      "after": "fb5bf1f5bd726cf268ef0f508b2f89e7fd8a1d9d89868c1c9176ae0ed63ddb73",
+      "before": "b90c103780312867938c9964da433614a8c9db1f7ce149ea156a2e149f888562",
+      "case": "board_coverage@10",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "a1fb97983c6162a5b40f829b2e272695a087aa93f16165858218653303fd580c",
+      "before": "88f633d7ef865b4728257f3bca6c64b30b77c00c24a82593e594204e43ccfc6f",
+      "case": "board_coverage@10",
+      "path": "coverage.kicad_pro"
+    },
+    {
+      "after": "56cfb1d23805f01c2378f18533d7b0ff294561fec5cc405ff4f3f68710643e16",
+      "before": "c842d429688c0b6cee5a2ba6943e5304527e3fac8aec3b66637b0d3323a5aeb2",
+      "case": "board_coverage@9",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "e09057d835847fba1c5252639b243bb9fce26396337a39f15cda3bf98e9b3112",
+      "before": "e71a7b5e3cbbbad844ac5a7d1a8ad8a6124593cd8432b0746b0572257a0d3038",
+      "case": "board_coverage@9",
+      "path": "coverage.kicad_pro"
+    },
+    {
+      "after": "c339ce6ee0c9acdda20d2763aa674cbe3042f02530c9b2f717b51c0b01512fb6",
+      "before": "ee39c37293d65c24baf5bad2c684d528ae31880a62937b4d8149f7e5eacb6e3f",
+      "case": "catalog@10",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "b2ac416a5247cd14420f81a96130814618c2a5ddda120bdd60818041a836492e",
+      "before": "d36879710a024bcf35361e30af8834cc780ad3b9b6bf490592efe2bc76340af9",
+      "case": "catalog@10",
+      "path": "catalog.kicad_pro"
+    },
+    {
+      "after": "4ab63e32f073ec383ec8711588339e3178a5d6c2777a352363a8c26a6a4f3330",
+      "before": "a519a0d7ae581e2789bf6561048653e969cdb7c29fdf996db8dd2b45c18a7583",
+      "case": "catalog@9",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "139dc01f76800745e555d9db0bd71e507c734a13bc06234539e1276b0d6db02d",
+      "before": "5e13a6415f505a1285a619b68471948709e6d3408d57c6e600cde623b30e489e",
+      "case": "catalog@9",
+      "path": "catalog.kicad_pro"
+    },
+    {
+      "after": "3bcb3413b2d33c1834e89a57e8cddc6252c187358a0d7678ae064a0efd9926c6",
+      "before": "5b338b92c0dc39e93ac282d154872355109e50c2c50fd2a498047f38140b79b9",
+      "case": "devices@10",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "f5d5dca533bdbf56e84f8bbb48f84b6cc2b3b1392caa1fe6dfa62168cbd30e7c",
+      "before": "601697c1ce9d25f949c99e5bb4d071984ffad577bedd4bd1d99031a6cfd04eed",
+      "case": "devices@10",
+      "path": "devices.kicad_pro"
+    },
+    {
+      "after": "345c30353a6f0ae0b2522f7e97c96d34bbdba03fecd16aef0aa06f478b22b91c",
+      "before": "4026fd8f2dba1bb1dcdf01907f8f34f4189e521dddbbf9f8c76ba18d2a04abc6",
+      "case": "devices@9",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "4bf0fd925de6c04aac66a567cbfdccf6bf5a32bccf092cd7632e4c2faf73e155",
+      "before": "eb889afa5ed153eef1c8808152cee2225608270ba8847a336faf548ee4096e31",
+      "case": "devices@9",
+      "path": "devices.kicad_pro"
+    },
+    {
+      "after": "55c40f2d82723e3343c4e01d31955b3dafa0a9ffde09880244dc73e873974730",
+      "before": "ef6cebdb6fb74ce95cb7d2f7c9d8a122f19404dbd803631b926651659eeed5f6",
+      "case": "drawn@10",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "b073072973c04bf5d2c77903a1e2d5d1abf5d1f36edffacb3ab9317ca7487c88",
+      "before": "caef8f2dee4e5a9d91ebf22455bcbd3b677667d08c78d9cfe4233e26c5306f01",
+      "case": "drawn@10",
+      "path": "drawn.kicad_pro"
+    },
+    {
+      "after": "21b94227d34432d823e7e91cf7092dd978e8b3a65caa757c8ecab731c2b8ed78",
+      "before": "a6375f3a2c317395271b72f60462eb608ef4532439487e6444d6df0a8aaf8cdb",
+      "case": "drawn@9",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "d55b6d93ce430eb461b3e03da7e7d33b69a90c945f5073e7becd1f6a89f7e29b",
+      "before": "fbba05511ea22c6ae7b0a79a2653e2cf8d493efd6595750e80b6f3ac099ecad9",
+      "case": "drawn@9",
+      "path": "drawn.kicad_pro"
+    },
+    {
+      "after": "e544305628a40a7cb98815b1e70bc17839920629fc5c4a4f3514863422738793",
+      "before": "06829557d07e5bed185e02bab6db2d1cdf7e3cdeed359ee361f520269b3e962c",
+      "case": "families@10",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "973df8ff674c717b9d759043e683ff48cee3d6fbc6488ad5a113aaf6537c7ce8",
+      "before": "69dbdad246f15499303b46a755cb62455eb7a74da3aa4c2615b36b22654ee80f",
+      "case": "families@10",
+      "path": "families_demo.kicad_pro"
+    },
+    {
+      "after": "198e6ddd8ac4dbf1c575abb6ebc710bb04fbf95d5abdc925c534c8b2040e1576",
+      "before": "af1e77b23e54895d730c7f6cf319eaff4e16530296e75f523a84a59a29aa7dd9",
+      "case": "families@9",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "90a68b62b7ff3e29e89fe3e158e6dd5707369251121469c48e18b5193416418b",
+      "before": "2e3574e962558aaa17681677aa6a323bcce33885fa4987183cebb38b629e6e84",
+      "case": "families@9",
+      "path": "families_demo.kicad_pro"
+    },
+    {
+      "after": "3da6b03bdefe44f31893d86b59a712f962bd07d996f7dc41e8b40d03526b6e1a",
+      "before": "14d6363eb3f3a4b314f31d13e8ced8033880841dacf3cd151bc346da52275fb0",
+      "case": "generated@10",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "fb9eea52cf2394ba1d7b52af282e0caebf8a358556f48c77b1007bf9d30dfd92",
+      "before": "6eca8264930f6b747e1fa5d23a4bd04a80faf865023502bdef58b5f381135afc",
+      "case": "generated@10",
+      "path": "generated.kicad_pro"
+    },
+    {
+      "after": "4df8cf010be1f3d1e8b6d71e6dc1ce4ff648584605c18d85bc76eff0821a071b",
+      "before": "f04f92ecf7c201bcfc67e8abd13a31c6025250993c2d1932ab5f2cbc3fa45800",
+      "case": "generated@9",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "ab3c91eced7ac239f9cd2fd1f11e3383e999e7435e4c7e90ca4db3875cfa8f00",
+      "before": "4a51185cc8e2424b48a0d6f51d44026416fce00c34456c019e4fb370b157e737",
+      "case": "generated@9",
+      "path": "generated.kicad_pro"
+    },
+    {
+      "after": "17ee31b1976f9b1ebb8041970abaeef8756a8dd0835b6ed0b8f7cfcafc68cc19",
+      "before": "3db2bf8527db3dcdd685a9ce4fa8bea23d7b9f292f8c3c2f09fd01dc26ab3b20",
+      "case": "import_python@10",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "c0c49764831dbbb9ab9a54a643153d4fb636b70e8113c56e328e1f431f78173f",
+      "before": "1474dfdcae833074223a590c65d76d8bcbfcabe225d77f2f246fa602b186602a",
+      "case": "import_python@10",
+      "path": "two_sheet.kicad_pro"
+    },
+    {
+      "after": "3500ca823e4cd41d66996d5739dbf109c1e50c578ea13a7ce87db0cce2787965",
+      "before": "1da8ff8dcf347869a8d60e2ad54ac3d7705adc306f6f13fc83d0a0596ac8fb9d",
+      "case": "import_python@9",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "5f4731e3fbd2751dda94ef46341a22fb910af322a88404bd946a9a83e785fd7c",
+      "before": "8ca98ea82e527bf18fe33cd268b6b23826d91f996d263b0cd4aa9beda5398a10",
+      "case": "import_python@9",
+      "path": "two_sheet.kicad_pro"
+    },
+    {
+      "after": "8d20f78132845d042c163b1fafc9cded073fa254a7d9d7ab35d343c4f0565eeb",
+      "before": "43e1c9cc4221001890bd6a1e5148f5d1253888d5be058fc44d934ffb9c327866",
+      "case": "library-devices@10",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "cf059f0c066e2d324c1a2c3efdb193cfa1bc58c93e0e12045535f019618bc24d",
+      "before": "5347890a7bc1b2ea60821babe0716cf08506722785947080be697fb7b9a8166a",
+      "case": "library-devices@10",
+      "path": "library_devices.kicad_pro"
+    },
+    {
+      "after": "d5d25df57ac1e5d3558537be786ec9d45b463b2a773b11be209315d2c4901aec",
+      "before": "4d33282c330191379a8b74ed8f389f2078c61abf97e79b0576238e2e4b4a9dcf",
+      "case": "library-devices@9",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "6082c2a4c794dc3003f6047430adedd18b5dac096037ef0217aa69b9e939af3f",
+      "before": "930949f38e989dbc3639c55d8ef8fd5b54975b9b1e6bdef4c8cb0321effd747f",
+      "case": "library-devices@9",
+      "path": "library_devices.kicad_pro"
+    },
+    {
+      "after": "f87eff128bf576e102489117b0d56e2f1dfd1ac9b7a19e42e3b6556f671396b7",
+      "before": "81d27924278e33d09ac45fa76aeeed34ccb9b17accea74db10130e61f1d432bb",
+      "case": "library_import@10",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "147f30772e3423b2baf5bd7a65439bbd2709b601a100d9950a2ccd45a8626a02",
+      "before": "da866179b9bcad51ff6054c3183be4a6f8389a07b3c4ec1fcbb8c63021b44519",
+      "case": "library_import@10",
+      "path": "library_import.kicad_pro"
+    },
+    {
+      "after": "2a9eab73bf26e104666f2d48c72c6629b1aedabbca184194c79751eeecc0f55b",
+      "before": "2199898ba36b82599f2e35e6fd947368889bb7dc80c7549efd53c13a2d2f16f0",
+      "case": "library_import@9",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "1df14707869dd9735a42dd093c769ab5239f53f37b2ad1913f1fddb0ead94639",
+      "before": "793dc940a934f0c0f7e20cec5514c667f9bbb3fab781d3cc11fa5ed2b4cbdca8",
+      "case": "library_import@9",
+      "path": "library_import.kicad_pro"
+    },
+    {
+      "after": "38d6cd0570058d1b71d10ec3ab93e56dbe56d361539c6577e68f4d2732fc51bc",
+      "before": "0309fd11c34a25f085f94aa28e13dc793c01a381e6368679cf8dae9532afd76f",
+      "case": "lock@10",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "dc99b7dc279c8cc888384a3aab49a03c6e0bac90b3c56e37d9694d1934314b35",
+      "before": "866694d912f718e127e356fcb9b8c9a0fb22651d645a4632dc8baf3bcb6644a5",
+      "case": "lock@10",
+      "path": "lock_demo.kicad_pro"
+    },
+    {
+      "after": "c345ce6ffe7f1672a4cd0d2d20ee4e299c66a0645271b055a91ed067aa09b0fb",
+      "before": "47942c7a8859c11f4401c65196f79d68d891db24a066d3bf250e31cbb12265ad",
+      "case": "lock@9",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "cdf8561e3f4cdb14268a90fa7a01eff00d857b7fd8fe744429edd328a8c36cb4",
+      "before": "db7bbabf1bf577ef74404e33e5818dee60b04a23994f21d9ac97c5928228d438",
+      "case": "lock@9",
+      "path": "lock_demo.kicad_pro"
+    },
+    {
+      "after": "016795a5376b30eee36e9831ec391daae265a3681abb5f30bf82eed545e9a8a8",
+      "before": "411bb873199e5384c657f2835de5eddf300898e73d2fa40cf801494b1efe53c8",
+      "case": "picks@10",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "05c5658264b0dea003bcc267345655d4c8a45a9e3cc181080895a5ef10d8c171",
+      "before": "675db635e80763e3dde3150273fea46e2a17e94968f7dcd7f396332bcca1d8dc",
+      "case": "picks@10",
+      "path": "picks_demo.kicad_pro"
+    },
+    {
+      "after": "b51c411d49539b369504f01eb05378ed18b62baa2aa9322545c61caa2015bc66",
+      "before": "3eb6a2eea83efeae3867ce0706f88add5779a3cb931649abe2f5359f72fd417a",
+      "case": "picks@9",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "d8f3b8ae8d6687f609d5224132a2c0af52133f4df174cfc4b5941758d971a607",
+      "before": "43e8d412cc507467e21fc2e1942223d10e8cc039577ed27d4acec50dd1fd76e1",
+      "case": "picks@9",
+      "path": "picks_demo.kicad_pro"
+    },
+    {
+      "after": "d109271a87d1bdbc387b05638677805be52d7682c5759744c396012b35dd8ed0",
+      "before": "f9968e726de38ad618ddd321fe6a542c6666968f6ecb232e5ed5fd3138521a63",
+      "case": "pins@10",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "8513160727f265c994f1328732cc29474356c8c12ad1b869263615ad4d3f35c7",
+      "before": "dcfee90ac5743ef3974080048183b647067681d9c69366c41687faee9c3e1a7c",
+      "case": "pins@10",
+      "path": "pins.kicad_pro"
+    },
+    {
+      "after": "bfdfd2982275488bc2d53577ed236d611101549320b855a0bc8e0f75b57f3464",
+      "before": "7ca183c48bffe4fdb6749de83410ba8e7d567cecfe3cc9556cbbf624ceea6ac3",
+      "case": "pins@9",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "99f5da5bddc03a7cebbc6e4701a26caf306a2041dac79f20b6fd4231765c530d",
+      "before": "3fba9eff3546688e3d6d04037123791d9a862381cf7e724b808bc956471850b3",
+      "case": "pins@9",
+      "path": "pins.kicad_pro"
+    },
+    {
+      "after": "7064fb3651d1242292f7f0efa238b6eb023fcc87a2bc3e79839f3f58efc623ee",
+      "before": "4e10d5ba1e6e5dd4bc59065a12abc7cd69ebb69c26b43dc7c0ffdde879b83a4d",
+      "case": "symbols@10",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "dc69657ee830da0da930352d5b88c7600d9a30bc95fef52ecc4edb7f30c5b232",
+      "before": "a817d8f2bb46483433262de01c7c97f1daa0145b4b1f9937d112f7b6ac017bbc",
+      "case": "symbols@10",
+      "path": "symbols.kicad_pro"
+    },
+    {
+      "after": "6276dab12d919d3c5fa850a496b5b4bce8ddc45b9fb2705f189425e527725399",
+      "before": "dc555e005dab347d3d9625724645cd5d130efa23b78f006a91700dae779e85e1",
+      "case": "symbols@9",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "3a45c221127c2b02ed201f20afc495d128a2107a94a3edb971f5ac591a61750a",
+      "before": "f91af76eb0ddd658b2bae668233b6d5dd9ab4df1fa78ff956e6f6893b3de7ea5",
+      "case": "symbols@9",
+      "path": "symbols.kicad_pro"
+    },
+    {
+      "after": "6ebf9819eed6e68f7e1007fad3a04d00bf03dbbda9ac5a0c276d3a8947631470",
+      "before": "a092541d34c60aa9c885fcf7e72afb88811f5660b714af64b4334ad9fef0793d",
+      "case": "testing@10",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "cb1ce984b3813077bd26dc257ec22d45c12b694da83f4d1bc7b5a6348573327f",
+      "before": "c4b02360ecbd6c6586b7abe1e4449942851793248bd55210065cc4994ec9ad14",
+      "case": "testing@10",
+      "path": "design_tests.kicad_pro"
+    },
+    {
+      "after": "3f6d32fadadffdc20b06f3cad4150143536bd3260821769acd3acbcfdf07b3b9",
+      "before": "05cecd999129ae60615fa76c264a25a29fd5b0acbc8bfea525b7083a123beab9",
+      "case": "testing@9",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "54d4ab869565975899f8045a12b3fcac3cbc1dfe024665d82305e50b9596f00a",
+      "before": "0f979e59295eb5682240848199686275d5261b717ba2772b73249e66f9a4566a",
+      "case": "testing@9",
+      "path": "design_tests.kicad_pro"
+    },
+    {
+      "after": "7976cbdb7eb9d0393cc3062c203ab24c7cd560c1e9b054b5dc22d2e03819e4d2",
+      "before": "a00f0ae085b5135be698177af696cfdf226c5de4f6cdd473f6f5a5bcde0e9d90",
+      "case": "topologies@10",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "3b9a68cc9a8bf85461188bfb518e45a0370f4107a23a233307a5bcb2e7a57a10",
+      "before": "fabf0807c657872966d8ab974b2c8090ff8227a4e343aba55b8ff22acf6be160",
+      "case": "topologies@10",
+      "path": "topologies.kicad_pro"
+    },
+    {
+      "after": "615d44bea8446abb5277108fcbcf392cf3d80d5e36c0f5266d01f9cb079dbfd7",
+      "before": "affc583a13253e00b55509b02eacee06bec0b94efafff02480612100a30ce3c4",
+      "case": "topologies@9",
+      "path": ".fenolite/build.json"
+    },
+    {
+      "after": "8e80f4c976bb0f941d6417950d4fa21ef309de161ea32711872043c6900aa0e0",
+      "before": "7b05253d9162c0f4ce516c7d544ad2ce29157ba8cd213789de2711fc137c10fe",
+      "case": "topologies@9",
+      "path": "topologies.kicad_pro"
+    }
+  ],
+  "files": 1172,
+  "review": "Only the documented c0344 project sheet identity caches change native project bytes. The paired build manifests change their project digests. All other file hashes and strict refusals remain unchanged. Authored native GUI and seventy project-cache-only controls independently prove this writer change.",
+  "source_commit": "bffa03fd9dcd22e9e03012608e99c628b4e263fb",
+  "unchanged_files": 1090,
+  "unchanged_refusals": 10
+}

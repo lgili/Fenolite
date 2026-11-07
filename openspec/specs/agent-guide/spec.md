@@ -2,9 +2,7 @@
 
 ## Purpose
 TBD - created by archiving change c0079-agent-guide. Update Purpose after archive.
-
 ## Requirements
-
 ### Requirement: Packaged agent guide
 The package `fenolite.agent` SHALL hold everything an AI agent needs to start using Fenolite from an installed wheel: a skill folder, its pages and starter projects, with `fenolite.agent.guide` as their only reader.
 - The files MUST be `src/fenolite/agent/skill/SKILL.md`, the pages `src/fenolite/agent/skill/references/<topic>.md`, and one folder `src/fenolite/agent/starters/<name>/` per starter with `starter.toml` and `design.py.tmpl`. The repository root MUST NOT hold an `agent/` folder.
@@ -85,12 +83,13 @@ The package `fenolite.agent` SHALL hold everything an AI agent needs to start us
 - **THEN** every row names a registered source id, and a copy of the module with an unsourced row fails the same check
 
 ### Requirement: Guide pages
-The agent guide SHALL hold twenty-two written pages under `src/fenolite/agent/skill/references/`, in the form that `fenolite.agent.guide` loads ("Packaged agent guide"): eleven tool pages, each teaching one part of making a board with Fenolite, and eleven practice pages, each teaching one part of designing a sound board.
-- The tool topics MUST be `design-script`, `parts`, `footprints`, `placement`, `routing`, `rules`, `checks`, `files`, `fabrication`, `altium` and `recovery`.
+The agent guide SHALL hold twenty-three written pages under `src/fenolite/agent/skill/references/`, in the form that `fenolite.agent.guide` loads ("Packaged agent guide"): twelve tool pages, each teaching one part of making a board with Fenolite, and eleven practice pages, each teaching one part of designing a sound board.
+- The tool topics MUST be `design-script`, `parts`, `footprints`, `placement`, `routing`, `rules`, `checks`, `files`, `fabrication`, `altium`, `recovery` and `library-items`.
 - The practice topics MUST be `board-practice`, `board-schematic`, `board-floorplan`, `board-power`, `board-grounds`, `board-insulation`, `board-emc`, `board-routing`, `board-assembly`, `board-review` and `board-workflow`.
 - `design-script` MUST teach: the shape of a script and its module-level `design`; `Design`, `Module`, `Net`, `Part`, `connect`, `no_connect` and `Power`; that a length carries a unit; the board frame (origin at the outline's top-left corner, Y down); and the cycle of an edit, `build --dry-run` and `build --confirm`, with what a rebuild keeps. It MUST hold the tested lines of `init`, `build`, `sync` and `template`.
 - `parts` MUST teach: that a part needs a symbol id and a footprint; the built-in catalog and `catalog list --query`; KiCad's libraries through tables beside the script; pins by number and by name; `pad_map`; values with units (`ohm`, `farad`, `henry`, `volt`, `amp`, `watt`, `hertz`, `second`) and user properties; and the typed interfaces (`Interface`, `I2C`, `SPI`, `UART`, `USB2`, `Harness`, `DiffPair`). It MUST hold the tested line of `catalog`.
 - `footprints` MUST teach `Footprint` and `Symbol` from dimensions, and MUST say that such geometry is `INFERRED` and what a person still checks against the part's datasheet.
+- `library-items` MUST teach reviewed acquisition, licence acceptance, pins, offline restoration and repository tooling, and MUST hold tested lines of `get`.
 - `placement` MUST teach `place()`, sides, rotation and locked placements, staged parts and `place --strategy grid`, `place --move`, and field placement. It MUST hold the tested lines of `place`, `pads`, `neighbors` and `region`.
 - `routing` MUST teach the registered routers and what each is for, `route` with `--nets` and `--rip`, the meaning of `unrouted`, scripted copper (`track`, `via`, `stitch`, `via_step`, `arc_to`), zones and `fill`. It MUST hold the tested lines of `route`, `fill` and `net`, and of `fetch` when that command is registered.
 - `rules` MUST teach net classes against minimums and selectors (`select`), MUST say that the limits are the user's or the fabricator's and that the page's numbers are examples, and MUST hold the tested line of `analyze`.
@@ -116,7 +115,7 @@ The agent guide SHALL hold twenty-two written pages under `src/fenolite/agent/sk
 
 #### Scenario: The eleven pages load
 - **WHEN** `uv run pytest tests/unit/agent/test_pages.py -k topics` calls `guide.pages()`
-- **THEN** it finds `start`, the eleven tool topics, the eleven practice topics beside them and the two generated ones, each with a title and a one-line summary, and every `Read next:` names existing topics
+- **THEN** it finds `start`, the twelve tool topics, the eleven practice topics beside them and the generated references, each with a title and a one-line summary, and every `Read next:` names existing topics
 
 #### Scenario: A page through the command line
 - **WHEN** `uv run fenolite guide routing --text` runs
@@ -228,7 +227,7 @@ The guide SHALL name every public command and every public name of the design DS
 
 ### Requirement: Page budgets and writing rules
 The pages SHALL stay small enough to be read whole. A tool page SHALL state only what Fenolite does; a practice page SHALL state design practice and SHALL state what Fenolite does only where it names a command.
-- A written page MUST have at most 250 lines and 12 000 bytes. A generated page MUST have at most 750 lines. The files of the skill folder together MUST stay under 300 000 bytes.
+- A written page MUST have at most 250 lines and 12 000 bytes. The start page `SKILL.md` MUST have fewer than 200 lines and at most 12 500 bytes (change c0370: the index of the router pages). A generated page MUST have at most 800 lines (change c0275: the commands page with `import`). The files of the skill folder together MUST stay under 420 000 bytes (change c0370: the router pages joined with the CAC pages).
 - A page MUST NOT name a company, a fabricator, a standard's table, a private path or a person, and MUST NOT hold a change id (`c0000` form) or a hypothesis id (`H-…`).
 - A line of prose that holds a call of `rules.minimum` or `rules.netclass` with a number MUST hold the word `example`.
 - A sentence that says a result is verified MUST name the evidence label.
@@ -237,9 +236,44 @@ The pages SHALL stay small enough to be read whole. A tool page SHALL state only
 
 #### Scenario: Budgets hold
 - **WHEN** `uv run pytest tests/unit/agent/test_pages.py -k budget` runs
-- **THEN** every written page is within 250 lines and 12 000 bytes, every generated page within 750 lines, and the folder under 300 000 bytes
+- **THEN** every written page is within 250 lines and 12 000 bytes, the start page within 12 500 bytes, every generated page within 800 lines, and the folder under 420 000 bytes
 
 #### Scenario: Forbidden forms are reported
 - **GIVEN** a copy of a page, made in the test, that holds `c0042` in a sentence
 - **WHEN** the writing-rules check runs on it
 - **THEN** it fails naming the page and the line
+
+### Requirement: Bounded command reference pages
+The generated command reference SHALL keep an index and linked argument pages, each no larger than
+12000 UTF-8 bytes. The pages MUST retain every public command and its argument descriptions, be
+included in the packaged guide index, and be reproduced by tools/gen_agent_guide.py.
+
+#### Scenario: Full reference within the page budget
+- **WHEN** the agent-guide tests generate the reference
+- **THEN** every argument remains documented, every reference page is at most 12000 bytes, and --check reports no drift
+
+### Requirement: Datasheet proposal page
+Besides the pages of "Guide pages", the guide SHALL hold the tool page `datasheets`. It MUST teach the loop of `library propose` (skeleton, proposal, dry run, fix, confirm), copying values with their page, that a proposal carries no geometry and no guessed pin, the two proposals of a dense package, and that an agent never runs `library review --accept`. It MUST hold the tested lines of `library propose`.
+
+#### Scenario: The page through the command line
+- **WHEN** `uv run fenolite guide datasheets --text` runs
+- **THEN** the exit code is 0 and the text names `library propose`, `[[doubt]]`, `no geometry` and `review --accept`
+
+#### Scenario: The page is indexed and within budget
+- **WHEN** `uv run pytest tests/unit/agent/test_pages.py` runs
+- **THEN** the start page index lists `datasheets`, its `Read next:` names existing topics, and the page is within its budget
+
+### Requirement: Viewer guide page
+The packaged agent guide SHALL include a written `viewer` topic with tested `view` lines for served checks, reviewed actions, role overlays and route proposals. `files` MUST retain a tested view entry and a pointer to `viewer`. All existing guide budgets MUST remain unchanged, and the topic index and command references MUST be generated.
+
+#### Scenario: Combined viewer guide stays within budget
+- **WHEN** `uv run pytest tests/unit/agent/test_pages.py -k "topics or budget or cmd_lines or coverage"` checks the integrated guide
+- **THEN** `viewer` loads, its commands parse, all public commands remain covered, and every written page stays within 12,000 bytes and 250 lines
+
+### Requirement: Scoped insulation exceptions in the guide
+The guide page `board-insulation` SHALL say that a class minimum governs the rules of its class, that a part-wide pad rule is a minimum for every pad pair of the part, how to write one exception per pair of domains inside one part, and that a no-connect pin's net is in `Default` and is reached by its part, not by a class (change c0403, F2, F3, F4).
+
+#### Scenario: The page's scopes resolve as written
+- **WHEN** `uv run pytest tests/unit/checks/test_insulation_rule_scopes.py` resolves the page's selectors on an authored design
+- **THEN** the part-wide rule holds between two logic pins of the part, the per-domain rule leaves them at their class value and holds between the domains, and a no-connect pad in `Default` is reached by the part-wide rule only
+

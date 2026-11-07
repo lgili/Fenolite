@@ -1,0 +1,107 @@
+{
+  "source": "97a52ce47b15f9b45db56de077d48f981756ea4e",
+  "interrupted": true,
+  "passed": 6,
+  "failed": 19,
+  "heavy_skipped": 2,
+  "uncompleted_selected": 1,
+  "log_sha256": "e7d85b66b247727ef93ea21be4b4657c5d976495bfd3180a6b4053e182d947fe",
+  "failures": [
+    {
+      "selector": "tests/kicad/convert/test_triangle.py::test_demo_boards[01]",
+      "terminal_error": "E           fenolite.geometry.boolean._exact_noding.ResourceLimit: geometry.degenerate: exact geometry implicated proposal-node budget exceeded"
+    },
+    {
+      "selector": "tests/corpus/test_equal_oval.py::test_equal_ovals_read_back_as_circles[kicad-demo-10-0-6-pcb-02]",
+      "terminal_error": "E           fenolite.geometry.boolean._exact_noding.ResourceLimit: geometry.degenerate: exact geometry implicated proposal-node budget exceeded"
+    },
+    {
+      "selector": "tests/corpus/test_equal_oval.py::test_equal_ovals_read_back_as_circles[kicad-demo-10-0-6-pcb-07]",
+      "terminal_error": "E           fenolite.geometry.errors.GeometryError: geometry.degenerate: exact geometry index-comparison budget exceeded"
+    },
+    {
+      "selector": "tests/kicad/convert/test_triangle.py::test_demo_boards[02]",
+      "terminal_error": "E           fenolite.geometry.boolean._exact_noding.ResourceLimit: geometry.degenerate: exact geometry implicated proposal-node budget exceeded"
+    },
+    {
+      "selector": "tests/corpus/test_equal_oval.py::test_equal_ovals_read_back_as_circles[kicad-demo-10-0-6-pcb-17]",
+      "terminal_error": "E                           fenolite.geometry.errors.GeometryError: geometry.degenerate: exact final neck cut input-edge budget exceeded"
+    },
+    {
+      "selector": "tests/kicad/convert/test_triangle.py::test_demo_boards[07]",
+      "terminal_error": "E           fenolite.geometry.errors.GeometryError: geometry.degenerate: exact geometry index-comparison budget exceeded"
+    },
+    {
+      "selector": "tests/corpus/test_equal_oval.py::test_no_pad_shape_after_the_rule[kicad-demo-10-0-6-pcb-02]",
+      "terminal_error": "E           fenolite.geometry.boolean._exact_noding.ResourceLimit: geometry.degenerate: exact geometry implicated proposal-node budget exceeded"
+    },
+    {
+      "selector": "tests/corpus/test_equal_oval.py::test_no_pad_shape_after_the_rule[kicad-demo-10-0-6-pcb-07]",
+      "terminal_error": "E           fenolite.geometry.errors.GeometryError: geometry.degenerate: exact geometry index-comparison budget exceeded"
+    },
+    {
+      "selector": "tests/corpus/test_equal_oval.py::test_no_pad_shape_after_the_rule[kicad-demo-10-0-6-pcb-17]",
+      "terminal_error": "E                           fenolite.geometry.errors.GeometryError: geometry.degenerate: exact final neck cut input-edge budget exceeded"
+    },
+    {
+      "selector": "tests/kicad/altium/test_fpitems_oracle.py::test_corpus_rewrite_keeps_its_footprint_lines[altium-third-party-pcbdoc-01]",
+      "terminal_error": "E           fenolite.geometry.errors.GeometryError: geometry.degenerate: exact geometry: arithmetic bit budget exceeded"
+    },
+    {
+      "selector": "tests/kicad/convert/test_triangle.py::test_demo_boards[10]",
+      "terminal_error": "E           fenolite.geometry.boolean._exact_noding.ResourceLimit: geometry.degenerate: exact geometry implicated enumeration-node budget exceeded"
+    },
+    {
+      "selector": "tests/kicad/convert/test_triangle.py::test_demo_boards[11]",
+      "terminal_error": "E           fenolite.geometry.errors.GeometryError: geometry.degenerate: exact geometry: nonsimple projected/retained ring"
+    },
+    {
+      "selector": "tests/kicad/convert/test_triangle.py::test_demo_boards[13]",
+      "terminal_error": "E           fenolite.geometry.errors.GeometryError: geometry.degenerate: exact geometry: arithmetic bit budget exceeded"
+    },
+    {
+      "selector": "tests/kicad/convert/test_triangle.py::test_demo_boards[16]",
+      "terminal_error": "E                           fenolite.geometry.errors.GeometryError: geometry.degenerate: exact final neck cut input-edge budget exceeded"
+    },
+    {
+      "selector": "tests/kicad/convert/test_triangle.py::test_demo_boards[17]",
+      "terminal_error": "E                           fenolite.geometry.errors.GeometryError: geometry.degenerate: exact final neck cut input-edge budget exceeded"
+    },
+    {
+      "selector": "tests/kicad/altium/test_fpitems_oracle.py::test_corpus_rewrite_keeps_its_footprint_lines[altium-third-party-pcbdoc-04]",
+      "terminal_error": "E           fenolite.geometry.errors.GeometryError: geometry.degenerate: exact geometry: nonsimple projected/retained ring"
+    },
+    {
+      "selector": "tests/kicad/altium/test_rta3_oracle.py::test_corpus_rewrite_is_read_by_kicad[altium-third-party-pcbdoc-01]",
+      "terminal_error": "E           fenolite.geometry.errors.GeometryError: geometry.degenerate: exact geometry: arithmetic bit budget exceeded"
+    },
+    {
+      "selector": "tests/corpus/test_altium_rta3.py::test_sets[altium-set:02]",
+      "terminal_error": "E           fenolite.geometry.errors.GeometryError: geometry.degenerate: exact geometry: arithmetic bit budget exceeded"
+    },
+    {
+      "selector": "tests/kicad/altium/test_rta3_oracle.py::test_corpus_rewrite_is_read_by_kicad[altium-third-party-pcbdoc-04]",
+      "terminal_error": "E           fenolite.geometry.errors.GeometryError: geometry.degenerate: exact geometry: nonsimple projected/retained ring"
+    }
+  ],
+  "families": {
+    "E           fenolite.geometry.boolean._exact_noding.ResourceLimit: geometry.degenerate: exact geometry implicated proposal-node budget exceeded": 4,
+    "E           fenolite.geometry.errors.GeometryError: geometry.degenerate: exact geometry index-comparison budget exceeded": 3,
+    "E                           fenolite.geometry.errors.GeometryError: geometry.degenerate: exact final neck cut input-edge budget exceeded": 4,
+    "E           fenolite.geometry.errors.GeometryError: geometry.degenerate: exact geometry: arithmetic bit budget exceeded": 4,
+    "E           fenolite.geometry.boolean._exact_noding.ResourceLimit: geometry.degenerate: exact geometry implicated enumeration-node budget exceeded": 1,
+    "E           fenolite.geometry.errors.GeometryError: geometry.degenerate: exact geometry: nonsimple projected/retained ring": 3
+  },
+  "parser": "Exact failure-only function+parameter headings; all19 resolved uniquely. Initial regex parser retained as invalid, never evidence.",
+  "passed_selectors": [
+    "tests/kicad/convert/test_triangle.py::test_demo_boards[03]",
+    "tests/kicad/convert/test_triangle.py::test_demo_boards[04]",
+    "tests/kicad/convert/test_triangle.py::test_demo_boards[09]",
+    "tests/corpus/test_altium_pour_census.py::test_pour_census[altium-third-party-pcbdoc-03]",
+    "tests/corpus/test_import_corpus.py::test_demo_board_imports_equivalent[01]",
+    "tests/kicad/altium/test_pour_import.py::test_kicad_imports_the_pour"
+  ],
+  "receipt_sha256": "c6f1bac5d007424927ad772f6e1f5f95ed62a5ad136b4282e1301f82cc218251",
+  "selection_sha256": "a48e987d5de6333ce9aa9e8105ce97c831e9b37078b27ca5e1a60d79d7487354",
+  "statement": "Bounded replay of existing CI failures. Deliberately interrupted after failures; not full local suite, completed replay, CI success or release acceptance."
+}

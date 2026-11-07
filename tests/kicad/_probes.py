@@ -40,6 +40,7 @@ import _creepbench
 import _doccases
 import _downbench
 import _drawbench
+import _drawn_probe
 import _drccases
 import _edgebench
 import _eqsides
@@ -273,6 +274,8 @@ def _probes() -> dict[str, Probe]:
     for name in ("bench", "exact", "missing-table", *_bench.CONTROLS):
         probes[f"pcb-libdrc-{name}"] = Probe(lambda name=name: libdrc(name), both)
     probes.update(fp_write_probes())
+    for pid, (function, majors) in _drawn_probe.drawn_probes(runner, version).items():
+        probes[pid] = Probe(function, majors)
     # the level-5 triangle on the routed sample (c0089); `pcb import` exists from 10.0 only
     probes["acceptance-v03"] = Probe(_v03acceptance.outcome, (10,))
     probes["equiv-l5-triangle"] = Probe(_routetriangle.outcome, (10,))

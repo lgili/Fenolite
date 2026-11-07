@@ -1,0 +1,167 @@
+{
+  "claim": "missing and explicit 5000nm produce equal complete DXF ENTITIES; explicit 10000nm is a sensitive negative control",
+  "default_compatibility": {
+    "all_equal": true,
+    "baseline_commit": "e26589420db604771f0a884b962a0546a2283e43",
+    "baseline_plan_receipt_sha256": "4d292ddf9906e8fc9bd7389f378fe8b0a7b5c7ed90723ac64f089e3c455b0ed0",
+    "candidate_plan_receipt_sha256": "d9504151ba4a8e8c466c8b18bcee28e4a1bb218c2eca76c81a0bac1a4e6e3af2",
+    "complete_planned_files": 1172,
+    "complete_plans": 75,
+    "complete_scenes": 22,
+    "plan_capture_driver_sha256": "1c69cb111a6a4b473de79d840cbb887c7ade0c6499d33056804e7b48386872a1",
+    "scene_capture_driver_sha256": "2857b01a0f208815e43ba3afeb494dde21f16a52687c20cfc0207d8ff37aac8f",
+    "scene_compact_json_bytes": 420455
+  },
+  "driver_sha256": {
+    "tests/_drawn_curve.py": "cc241d809c16d04eea0bec9622221d867167d845b7ea1f6fe72b88e0beab4660",
+    "tests/kicad/board/test_curve_error_oracle.py": "bb89f761d653662d2bec8aaa126900eaa31a161774cb59bb516e78a8b9fc1ecd"
+  },
+  "gui_save_claimed": false,
+  "input_invariants": "Original inputs unchanged except native10 expected board save on isolated copies; only project-local .kicad_prl creation allowed",
+  "native": {
+    "10": {
+      "controls": {
+        "10000": {
+          "command_exits": [
+            0,
+            0
+          ],
+          "created": {
+            "font_probe.kicad_prl": "351d91451baa714653814fc0cc9d27625ed81c852d0dd30e735e3fabbec31172"
+          },
+          "entities_sha256": "a02cbedb62730eeaad929af970e728689ee237f7747a371d7ad4c744f78ab4b6",
+          "input_sha256": {
+            "font_probe.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+            "font_probe.kicad_pcb": "74ecc11a6065854cc817ee3e29f425869b025119f5197eebecf47725df55d75c",
+            "font_probe.kicad_pro": "b83678b39bbcc973727b71a6d650cb29c42605f8f22568aa71a6f8dc9690d444",
+            "font_probe.kicad_sch": "87d411bc918ef631cc5039a3a8cb55877a74c3f7a88050d55bd303fbb372478d",
+            "fp-lib-table": "79396c31c36b61d9eb8ea5b59f6cd0309004fb3b8dad1df401716dff8b7b7ae8",
+            "lib/Footprints.pretty/Mini_R_0603.kicad_mod": "8a69fd538ee10ea412e2b5cc1c3d63f4834a12c5d1ad45443697d3f3eb65a5b5",
+            "lib/Mini.kicad_sym": "199121e4eb9823425fd8850f7c6e47069d08b7979f5987b2eeab6af136eba296",
+            "sym-lib-table": "4243a97bd65fef4990efef9abdcfebadfd6679e97a9f64515074bed7b4605ff9"
+          },
+          "regenerated_geometry_sha256": "66072847e57e07710c0d2d68d5b4150caea44936c89529d1affcb688f006e390",
+          "regenerated_zones": 2,
+          "version": "10.0.6"
+        },
+        "5000": {
+          "command_exits": [
+            0,
+            0
+          ],
+          "created": {
+            "font_probe.kicad_prl": "351d91451baa714653814fc0cc9d27625ed81c852d0dd30e735e3fabbec31172"
+          },
+          "entities_sha256": "5bb863d9d7550117a0e99dc929da66d1146317bbbffbb8a1c06ee412aa7e815b",
+          "input_sha256": {
+            "font_probe.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+            "font_probe.kicad_pcb": "74ecc11a6065854cc817ee3e29f425869b025119f5197eebecf47725df55d75c",
+            "font_probe.kicad_pro": "23efc9c110d2644bdd04874eaec92d512a8081666b980f40899f3db2a29def98",
+            "font_probe.kicad_sch": "87d411bc918ef631cc5039a3a8cb55877a74c3f7a88050d55bd303fbb372478d",
+            "fp-lib-table": "79396c31c36b61d9eb8ea5b59f6cd0309004fb3b8dad1df401716dff8b7b7ae8",
+            "lib/Footprints.pretty/Mini_R_0603.kicad_mod": "8a69fd538ee10ea412e2b5cc1c3d63f4834a12c5d1ad45443697d3f3eb65a5b5",
+            "lib/Mini.kicad_sym": "199121e4eb9823425fd8850f7c6e47069d08b7979f5987b2eeab6af136eba296",
+            "sym-lib-table": "4243a97bd65fef4990efef9abdcfebadfd6679e97a9f64515074bed7b4605ff9"
+          },
+          "regenerated_geometry_sha256": "84f2f4a3baf255cfe218e57d2786025fa6f859d9b55bdbd1ef10cdf34c91b4d0",
+          "regenerated_zones": 2,
+          "version": "10.0.6"
+        },
+        "missing": {
+          "command_exits": [
+            0,
+            0
+          ],
+          "created": {
+            "font_probe.kicad_prl": "351d91451baa714653814fc0cc9d27625ed81c852d0dd30e735e3fabbec31172"
+          },
+          "entities_sha256": "5bb863d9d7550117a0e99dc929da66d1146317bbbffbb8a1c06ee412aa7e815b",
+          "input_sha256": {
+            "font_probe.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+            "font_probe.kicad_pcb": "74ecc11a6065854cc817ee3e29f425869b025119f5197eebecf47725df55d75c",
+            "font_probe.kicad_pro": "938040c838685a2c6175aa18721cffd0cf60b2e465b74353f9d0257b4b398bf6",
+            "font_probe.kicad_sch": "87d411bc918ef631cc5039a3a8cb55877a74c3f7a88050d55bd303fbb372478d",
+            "fp-lib-table": "79396c31c36b61d9eb8ea5b59f6cd0309004fb3b8dad1df401716dff8b7b7ae8",
+            "lib/Footprints.pretty/Mini_R_0603.kicad_mod": "8a69fd538ee10ea412e2b5cc1c3d63f4834a12c5d1ad45443697d3f3eb65a5b5",
+            "lib/Mini.kicad_sym": "199121e4eb9823425fd8850f7c6e47069d08b7979f5987b2eeab6af136eba296",
+            "sym-lib-table": "4243a97bd65fef4990efef9abdcfebadfd6679e97a9f64515074bed7b4605ff9"
+          },
+          "regenerated_geometry_sha256": "84f2f4a3baf255cfe218e57d2786025fa6f859d9b55bdbd1ef10cdf34c91b4d0",
+          "regenerated_zones": 2,
+          "version": "10.0.6"
+        }
+      },
+      "missing_equals_5000": true,
+      "raw_receipt_sha256": "901d11b779c2602ac9624e1060da0f977a81290422f91dba48c6a3c2143b66c1",
+      "sensitive_10000_differs": true
+    },
+    "9": {
+      "controls": {
+        "10000": {
+          "command_exits": [
+            0
+          ],
+          "created": {},
+          "entities_sha256": "42a6847d8efec027da6f48b1e54e78cbbd0551844409c0e5c4b00359a2e3cc49",
+          "input_sha256": {
+            "font_probe.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+            "font_probe.kicad_pcb": "9f15c31ae2d9d5fe14b391550ec8d3c09be0f30b770ae8434fcaa06a3c55d58e",
+            "font_probe.kicad_pro": "9db1d4d431b22a1ee5a2f4f4eff65cbf890c57e953d5f8e6557d521cc1027e28",
+            "font_probe.kicad_sch": "7633ed9fc32b717457cc37fd8322ff3f1db6a8a9f535f9cffbcea23ddc82461e",
+            "fp-lib-table": "2ba36e0cbbad1d8fc1c8431ce4c0c3ab0f1f09a39db9822a92fb368e18a0382b",
+            "lib/Footprints.pretty/Mini_R_0603.kicad_mod": "8a69fd538ee10ea412e2b5cc1c3d63f4834a12c5d1ad45443697d3f3eb65a5b5",
+            "lib/Mini.kicad_sym": "23b58693abf9cbaa33840b5e9f96d9804737a584ffa54bfe88e35bf28a336ddf",
+            "sym-lib-table": "3d046811d8a722aff296f987928108858c0cd29eeb2a7aff7932f33631292f2c"
+          },
+          "regenerated_geometry_sha256": null,
+          "regenerated_zones": 0,
+          "version": "9.0.9"
+        },
+        "5000": {
+          "command_exits": [
+            0
+          ],
+          "created": {},
+          "entities_sha256": "ca23dad7e3dac92134aeeb97a089bbe5e6c81638470db26a369f7b7bda68d26d",
+          "input_sha256": {
+            "font_probe.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+            "font_probe.kicad_pcb": "9f15c31ae2d9d5fe14b391550ec8d3c09be0f30b770ae8434fcaa06a3c55d58e",
+            "font_probe.kicad_pro": "d62cdc7e217237b453f3621645f5aeea3df8a57105542f210a63a63bc9dba8b9",
+            "font_probe.kicad_sch": "7633ed9fc32b717457cc37fd8322ff3f1db6a8a9f535f9cffbcea23ddc82461e",
+            "fp-lib-table": "2ba36e0cbbad1d8fc1c8431ce4c0c3ab0f1f09a39db9822a92fb368e18a0382b",
+            "lib/Footprints.pretty/Mini_R_0603.kicad_mod": "8a69fd538ee10ea412e2b5cc1c3d63f4834a12c5d1ad45443697d3f3eb65a5b5",
+            "lib/Mini.kicad_sym": "23b58693abf9cbaa33840b5e9f96d9804737a584ffa54bfe88e35bf28a336ddf",
+            "sym-lib-table": "3d046811d8a722aff296f987928108858c0cd29eeb2a7aff7932f33631292f2c"
+          },
+          "regenerated_geometry_sha256": null,
+          "regenerated_zones": 0,
+          "version": "9.0.9"
+        },
+        "missing": {
+          "command_exits": [
+            0
+          ],
+          "created": {},
+          "entities_sha256": "ca23dad7e3dac92134aeeb97a089bbe5e6c81638470db26a369f7b7bda68d26d",
+          "input_sha256": {
+            "font_probe.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+            "font_probe.kicad_pcb": "9f15c31ae2d9d5fe14b391550ec8d3c09be0f30b770ae8434fcaa06a3c55d58e",
+            "font_probe.kicad_pro": "717f4a806043581dc3c0339d5c84298e68a8b38a2577f40d919c138bca15d32c",
+            "font_probe.kicad_sch": "7633ed9fc32b717457cc37fd8322ff3f1db6a8a9f535f9cffbcea23ddc82461e",
+            "fp-lib-table": "2ba36e0cbbad1d8fc1c8431ce4c0c3ab0f1f09a39db9822a92fb368e18a0382b",
+            "lib/Footprints.pretty/Mini_R_0603.kicad_mod": "8a69fd538ee10ea412e2b5cc1c3d63f4834a12c5d1ad45443697d3f3eb65a5b5",
+            "lib/Mini.kicad_sym": "23b58693abf9cbaa33840b5e9f96d9804737a584ffa54bfe88e35bf28a336ddf",
+            "sym-lib-table": "3d046811d8a722aff296f987928108858c0cd29eeb2a7aff7932f33631292f2c"
+          },
+          "regenerated_geometry_sha256": null,
+          "regenerated_zones": 0,
+          "version": "9.0.9"
+        }
+      },
+      "missing_equals_5000": true,
+      "raw_receipt_sha256": "11ea956425edb1a791f5488ac666b0881591e65b21a921364a34c3b6ccfccef1",
+      "sensitive_10000_differs": true
+    }
+  },
+  "schema": "fenolite.project-curve-default-oracles.v0"
+}

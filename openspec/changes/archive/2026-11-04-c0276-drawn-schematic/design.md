@@ -1,0 +1,724 @@
+## Context
+
+- **Source.** `docs/research/board-library.md` (2026-10-29), section 1 ("The schematic is generated, not
+  drawn"), section 4.1 (the `schematic.toml` of an imported board), section 4.2 and row c0276 of section 5.
+  KiCad file facts come from the public format page (S-0367) and the schematic editor manual (S-0046, read
+  again for this change: wires, junctions, labels and their scope, buses, bus entries, bus aliases, sheet
+  pins, power symbols, hidden power pins). Altium facts come from its documentation (S-0185) and the
+  records already documented under `docs/formats/altium/`. No parser, grammar or file of another tool is
+  copied.
+- **What exists on `dev` (0.6.0).**
+  - The model's `SchematicSheet` holds `symbols`, `labels` (local, global, hierarchical), `no_connects`,
+    `wires` (two-point `Wire`, only on created sheets), `sheets` (`SheetRef`) and `pages`.
+  - The reader keeps `wire`, `junction`, `bus`, `bus_entry`, `bus_alias`, `text`, `polyline` and the other
+    graphic heads as opaque slots of the sheet root ("Modelled schematic content"). `sch.opaque_wires` gives
+    the points of the opaque wires; nothing else is read from those slots.
+  - The writer writes created sheets: symbols, global labels, wires, no-connect flags and pinless sheet
+    references. c0269 adds `SheetPin`, sheet pins and hierarchical labels for block sheets.
+  - The build always calls `schgen.generate_schematic`. Its guard (`sch_netlist.own_netlist`) reads only the
+    narrow grammar of generated sheets: global labels, straight two-pin wires, no junction, no bus.
+  - A schematic edited in KiCad is replaced by the next build (`build.schematic-replaced`), and symbol
+    positions survive only through `schematic-placements.toml`.
+  - `fenolite equivalent` reads a hand-drawn KiCad schematic as a side through `kicad-cli sch export
+    netlist`, because the own netlist refuses its grammar.
+
+## Goals / Non-Goals
+
+**Goals**
+
+- A drawn schematic survives builds byte for byte where the target allows, for KiCad and later Altium.
+- Code stays the only source of connectivity. Every build and `fenolite check` prove that the drawing
+  means the code's netlist, without any tool.
+- A read KiCad schematic, hand-drawn or generated, becomes a `schematic.toml` with nothing dropped
+  silently: what the model does not hold stays a verbatim opaque item.
+- Block sheets of c0269 still work inside a drawing.
+
+**Non-Goals**
+
+- See the proposal.
+
+## Decisions
+
+### Demo drawn census follow-up — Decided 2026-11-02
+
+Task 7.2 measures all 130 manifest demo schematic rows, including child sheets. Each row is treated
+as the root of its reachable source graph at the running major's manifest tag; shared `sch-9` rows
+remain eligible on major 9. An incompatible tag is recorded separately, never as an equality result.
+All cached input hashes must match the manifest before parsing or native execution. Reuse the source
+symbol/hierarchy adapters, drawn extraction/lowering/resolver and existing native netlist export.
+Copy only required cached schematic/project inputs into temporary folders; retain no derived CAD file.
+
+Compare complete pin partitions, including singleton open pins and native-only nodes; never hide a
+missing node by intersecting the two pin universes. Compare source resolver, lowered readback and
+lowered native export against the original native export. Record naming equality separately under
+the existing name-warning rule. Record counts, hashes, format/tool versions, timings and closed refusal
+stages/codes only; component names, values, labels and CAD fragments must not enter committed reports.
+An extraction/lowering/native refusal or unequal connectivity fails its strict corpus assertion after
+the row report is written. There is no accepted-difference list, loss flag or changed threshold.
+
+Add authored regression controls for missing native nodes, naming differences, real lowering, refusal
+reporting, hash gates and report privacy. Persist one `drawn-census.json` per pytest temporary case,
+before assertions, so parallel CI workers never race on a shared JSON file. Preserve reports with an
+always-upload step in both KiCad jobs. An actual local 9.0.2 census is version-scoped measurement;
+it cannot close the native 9.0.9/10.0.6 CI proof, change evidence labels or claim all corpus rows equal.
+The independent Altium phase remains open and does not block this KiCad measurement work.
+The authored load/write oracle scenarios already live in `test_drawn_oracle.py`; the older proof
+path `test_drawn_write_oracle.py` names no file. Align that proof path with the existing scenarios
+and the new census driver, retaining both required native versions and every oracle assertion.
+
+### Public-project source representation follow-up (2026-11-01)
+
+The strict full-project corpus found mirrored power symbols that the original drawn value could not
+represent. Preserve their native `x`/`y` mirror as an optional drawn power pose, using the existing
+symbol-point transform. The default is empty, keeping existing canonical files unchanged. Level S
+compares this pose too. Other observed source aliases and pinless graphics remain explicit refusals
+until their own representation and focused proofs are supplied; no acceptance baseline is relaxed.
+
+Legacy power instances may have no native power flag. A `#PWR` reference is insufficient evidence:
+recognize only a definition with exactly one hidden `power_in` pin at the origin, whose name equals
+the instance value. The existing hidden-power-input rule (S-0046) supplies the global connection;
+preserve the source flag's absence rather than inventing one. Other unknown electrical symbols refuse.
+
+Pinless graphic symbols are native opaque drawing items, not circuit parts. Recognize them only when
+the embedded definition has no pins and the instance excludes board and BOM. Preserve library defaults
+even when they differ from the explicit instance exclusions. Resolve
+their library definitions with the existing project resolver and embed their native slots beside the
+opaque instance. Refuse missing definitions and electrical lookalikes rather than letting opaque
+symbols introduce connectivity that the circuit does not own.
+
+Source-local embedded aliases (`lib_name`) may be bare names even though the instance's `lib_id`
+names a library. Vendoring qualifies that alias with the original `lib_id` namespace; if both are
+bare, use Fenolite's private `_Source` namespace. The source stays unchanged. Extraction uses that same
+identity for power poses, so source and written drawings compare the same native body rather than
+mistaking a local alias for a library-table nickname. Preserve collision refusal for distinct bodies.
+
+Per-unit source aliases retain their own native bodies rather than being merged into a manufactured
+symbol. A drawn symbol pose may name an optional `symbol` library id. Its selected unit must have the
+same logical pin multiset (number, name, electrical type, hidden state) as the code's primary symbol;
+coordinates and graphics may differ because the drawing owns the pose. The importer selects the
+lowest unit's id as the component's primary binding and refuses conflicting bindings for one unit.
+Extraction records non-primary bindings. Build/check/sync pass circuit bindings so a single-unit
+override cannot disappear during sync; known pin-pad variant suffixes are mapped back to the source
+library id. Level S compares per-unit override identities, while the written-byte guard still proves
+the actual pin partition. Missing or electrically incompatible aliases refuse before staging.
+
+The root drawing always has an empty instance module, as the drawn value's instance walker specifies.
+Its component paths therefore retain any code-module prefix inferred from PCB metadata. Infer common
+module prefixes only for child sheet instances; stripping a root prefix would name different parts.
+
+A native PCB `board_only` attribute does not erase an actual matching source schematic symbol.
+For unique physical references with active source instances, emit a normal part and keep the native
+attribute in its derived footprint definition. Unmatched and ambiguously named physical parts retain
+their current code board-only behavior. The native embedding already preserves the attribute
+independently; no new model field or public flag is required.
+
+KiCad gives `/` and `{slash}` in a label the same native net identity (S-0020,
+`H-K-SCH-SLASH`). Resolve read KiCad drawings with a private copy of their connection names in
+the model spelling, including sheet pins, power names and bus members. Keep the extracted drawing
+and its visible text unchanged, so level S still detects text changes. The generic drawn resolver
+and other backends retain their own name semantics. Distinct code nets joined by this native rule
+must still fail the written-byte connectivity guard.
+
+The remaining CM5 source refusal is a resistor instance explicitly excluded from board and BOM,
+with no physical footprint. S-0020/`H-K-EQ-SCHSIDE` already records that `on_board no` omits the
+component and its nodes from the native export. Preserve an excluded instance as opaque only when
+its definition is non-power and all pins are visible and passive (or it is an existing pinless
+graphic). This bounded form cannot supply hidden global connections. Keep the native definition,
+instance flags and drawing; active pins, hidden pins, power definitions, missing exclusions and
+missing definitions remain refusals. Prove the native common-pin partition and absence of the
+excluded reference in the export before claiming the form is supported. No circuit/model flag is added.
+
+### 1. Today vs proposed
+
+```python
+# Today: the schematic is always generated from the circuit
+from fenolite.dsl import Design, Net, Part, connect
+
+design = Design("sensor")
+u1 = Part("U1", "Fenolite:MCU_QFN32", footprint="Fenolite:QFN32_5x5", value="MCU")
+r1 = Part("R1", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value="4k7")
+connect(Net("SDA"), u1["12"], r1[1])
+connect(Net("+3V3"), r1[2])
+# build: schgen lays out U1 and R1, joins SDA and +3V3 with global labels
+
+# Proposed: the same code, plus a drawn schematic kept beside it
+design.load_schematic("schematic.toml")
+# build: the sheets come from schematic.toml; the build proves they mean the nets above
+```
+
+The `schematic.toml` that goes with it (excerpt):
+
+```toml
+schema = "fenolite.drawn-schematic.v0"
+root = "root"
+
+[[sheet]]
+key = "root"
+paper = "A4"
+
+[[sheet.symbol]]
+part = "U1"
+unit = 1
+at = [101.6, 76.2]
+rotation = 0
+
+[[sheet.symbol]]
+part = "R1"
+unit = 1
+at = [127.0, 63.5]
+rotation = 90
+fields.Reference = { at = [129.54, 62.23], rotation = 0, justify = "left" }
+
+[[sheet.wire]]
+pts = [[111.76, 68.58], [127.0, 68.58], [127.0, 67.31]]
+
+[[sheet.junction]]
+at = [120.65, 68.58]
+
+[[sheet.label]]
+kind = "local"
+text = "SDA"
+at = [115.57, 68.58]
+
+[[sheet.power]]
+symbol = "power:+3V3"
+net = "+3V3"
+at = [127.0, 55.88]
+```
+
+### 2. The file `fenolite.drawn-schematic.v0`
+
+- **Root keys:** `schema` (exactly `fenolite.drawn-schematic.v0`), `root` (the key of the root sheet),
+  `[[sheet]]` (one or more). Unknown keys, missing keys and wrong types raise `FormatError` (`FEN-3004`)
+  naming the file and the locator (`sheet[2].wire[5].pts`).
+- **Numbers.** Read with `tomllib` and `parse_float=Decimal`, as `schematic-placements.toml` is. Positions
+  and sizes are millimetres; each value times 10^6 must be a whole number of nanometres, else
+  `FormatError`. Rotations are 0, 90, 180 or 270 degrees for symbols, labels, sheet pins and power
+  symbols (the frames the writer emits); field rotations are 0 or 90.
+- **Sheet keys** match the module-name pattern; `root` is free. Each `[[sheet]]` holds:
+
+| table | keys | meaning |
+|---|---|---|
+| sheet | `key`, `paper`, `title_block` (optional), `generated` (optional, default false) | one drawn sheet |
+| `symbol` | `part`, `unit`, `at`, `rotation`, `mirror`, optional library `symbol`, `fields.<name>` (`at`, `rotation`, `justify`, `hide`) | a unit of a code component, keyed by its path relative to the instance's module |
+| `power` | `symbol`, `net`, `at`, `rotation`, `mirror`, `fields.<name>` | a power symbol: a global connection named `net`; its `#PWR` reference is assigned by the writer |
+| `wire`, `bus` | `pts` (two or more points) | a polyline; each pair of points is one segment |
+| `bus_entry` | `at`, `size` | a bus entry from `at` to `at + size` |
+| `junction` | `at`, `diameter` (optional) | a junction |
+| `no_connect` | `at` | a no-connect flag |
+| `label` | `kind` (`local`, `global`, `hierarchical`), `text`, `at`, `rotation`, `shape` (global and hierarchical) | a label |
+| `bus_alias` | `name`, `members` | a bus alias of this sheet |
+| `sheet_ref` | `key`, `sheet`, `module`, `name`, `file` (optional), `at`, `size`, `page`, `[[pin]]` (`name`, `shape`, `at`, `rotation`) | a sheet reference to a drawn sheet; `module` is the code module path, relative to the parent instance's module, whose parts the instance shows |
+| `opaque` | `kicad` (one S-expression), `altium` (optional record text) | an item the model does not hold, kept verbatim |
+
+- **Repeated sheets.** Two `sheet_ref`s may name the same `sheet`. Each reference is one instance; its
+  symbols are the components `<module>/<part>`. The drawn sheet is written once per target where the target
+  supports it (KiCad: one file with one `instances` path per reference) and once per instance otherwise
+  (Altium in this change, decision 10).
+- **What the file never holds:** values, references, footprints, properties other than field poses, and
+  nets as such. Labels carry text because the drawing needs it; their meaning is checked (decision 6).
+- **Canonical form.** `fenolite.lens.drawn.write_drawn(drawn) -> str` writes keys in the order of the
+  table above, sheets in page order, items in file order, numbers as the shortest exact decimal of
+  millimetres, and ends with a newline. Reading and writing a canonical file gives its bytes.
+- **Schema file.** `schemas/fenolite.drawn-schematic.v0.json` describes the TOML as JSON (for editors);
+  `tests/consistency` checks it against the reader's closed key sets.
+- **Alternatives considered.**
+  - JSON (`schematic.json`). Rejected: the research and the other source-tree files (`placements.toml`,
+    `edits.toml`, the lock) are TOML, and people edit it.
+  - Python (`design.wire(...)` calls). Rejected: thousands of segments in `design.py` bury the circuit,
+    and the drawing is CAD-owned (decision 9), so a tool rewrites it; rewriting Python is a non-goal of
+    c0250.
+  - Integer nanometres in the file. Rejected for readability; exact decimals give the same values.
+
+### 3. Model
+
+- `fenolite.model.schematic` gains `Junction(position, diameter=0)`, `BusWire(start, end)`,
+  `BusEntry(position, size)` and `BusAlias(name, members)`, entities with the common header, and
+  `SchematicSheet` gains `junctions`, `buses`, `bus_entries` and `bus_aliases`, ordered and omitted when
+  empty. Only created sheets hold them; a read sheet keeps them as opaque slots, as it does wires.
+- `fenolite.model.drawn` holds the value of the file: `DrawnSchematic(root, sheets)`, `DrawnSheet`,
+  `DrawnSymbol`, `DrawnPower`, `DrawnLabel`, `DrawnSheetRef`, `DrawnPin`, `DrawnOpaque` and the field pose
+  `DrawnField`, frozen, integer nm and µdeg. It is the input of the lowering, the resolver and level S of
+  c0278. It names components by path, never by reference.
+- **Alternatives considered.** Lowering the file directly to `SchematicSheet`s and resolving those.
+  Rejected: a `SchematicSheet` needs references, values and embedded symbols, which come from the build;
+  the resolver and the extraction need a value that both a file and a read sheet give.
+
+### 4. The connectivity resolver
+
+`fenolite.model.drawn_connect.resolve(drawn, pins, *, design_name) -> DrawnNetlist` is pure: no file, no
+tool, no float. `pins` gives, for each drawn symbol, the connection points of its unit's pins in the sheet
+frame (number, point, electrical type, hidden), computed by the caller from the symbol definition with the
+existing "Pin connection points" function of `kicad-schematic`.
+
+Rules, each recorded in `docs/formats/kicad/schematic.md` with S-0046 or S-0367 and its label:
+
+| item | joins | label |
+|---|---|---|
+| wire segment | the points at its two ends, and a label anchor or a junction lying on its inside; segments join where their ends meet | `INFERRED` until `H-K-DRAWN-CONNECT` |
+| T and crossing | a segment end lying on another segment's inside (a T), and crossing segments, join only through a junction on that point; a pin joins a wire at the wire's end only (`H-K-SCH-WIRE-END`) | measured locally with `kicad-cli` 9.0.9 and 10.0.6 on 2026-10-29; `INFERRED` until `H-K-DRAWN-CONNECT` passes in CI |
+| junction | every segment end, segment inside and pin point at its position | `INFERRED` until `H-K-DRAWN-CONNECT` |
+| local label | groups of one sheet instance with labels of the same text | `INFERRED` until `H-K-DRAWN-CONNECT` |
+| global label, power symbol | groups of every sheet with the same text (power: its net) | KiCad manual (S-0046); measured by `H-K-DRAWN-CONNECT` |
+| hidden `power_in` pin | the global net named by the pin name | KiCad manual (S-0046) |
+| hierarchical label | the sheet pin of the same name on the reference of that instance | `INFERRED` until `H-K-DRAWN-CONNECT` |
+| bus, bus entry, bus label | bus members `NAME[a..b]` and groups `{A B}` (aliases expanded) carry member nets between sheets through bus labels and sheet pins; a wire on a bus entry joins only through its own label | `INFERRED` until `H-K-DRAWN-BUS` |
+| repeated sheet | one set of nets per instance; global nets shared | `INFERRED` until `H-K-DRAWN-REPEAT` |
+| no-connect flag | marks a pin as intentionally open | S-0367 |
+
+- **Result.** `DrawnNetlist.nets`: per net, the members as `(component path, pin number)`, the name the
+  resolver gives it, and the items that name it. Also: pins in no net (open), dangling segment ends, labels
+  on no group, sheet pins without a label, bus members that no label carries.
+- **Names.** The name of a net follows `H-K-DRAWN-NAMES`: a global label or power net keeps its text; a net
+  named only by local or hierarchical labels is `/<sheet names from the root>/<text>`; an unnamed net takes
+  the existing rule of "Names of unconnected-pin nets" and `netnames`. Ties go to the label text that sorts
+  first. Until the hypothesis is measured, names are compared as warnings only.
+- **Order independence.** The result does not depend on the order of items or on how a wire is split into
+  segments (a property test splits and joins segments).
+- **Alternatives considered.**
+  - Widening `sch_netlist.own_netlist`. Rejected: its grammar is a proof that the generator stays simple,
+    and the build's guard for generated sheets must keep refusing anything else.
+  - Always using `kicad-cli sch export netlist`. Rejected for builds and checks: they stay hermetic. The
+    tool is the oracle of the resolver in CI (task 7.1), not a dependency.
+  - Placing the resolver in `fenolite.schematic`. Rejected: that package is presentation-only and must not
+    import the model ("Allowed import edges").
+
+### 5. The build
+
+- `Design.load_schematic(path)` records the path, relative to the script's folder, once per design
+  (`DslError` on a second call, an absolute path or a path outside the script's folder). `to_model` is
+  unchanged.
+- `cmd_build` reads the file with `lens.drawn.read_drawn` (a `FormatError` exits 3) and passes the value to
+  `build_design(..., drawn=...)`.
+- `build_design` replaces the `schgen.generate_schematic` call with
+  `backends.kicad.drawn.lower_drawn(drawn, design, parts, name=, target=, vendor=, allow_lossy=)`, which
+  returns a `GeneratedSchematic` like the generator, so every later step is unchanged: symbols and
+  libraries, `sym-lib-table`, `lower_for_schematic`, the board's footprint paths.
+- **Coverage.** Before lowering, every unit of every component with a resolved symbol must be drawn exactly
+  once per instance (`drawn.symbol-missing`, error), and every drawn part must exist in code
+  (`drawn.part-unknown`, error). A missing unit of a multi-unit symbol that has no pin on a net is a warning
+  (`drawn.unit-missing`).
+- **Guard.** After writing the texts in memory, the build reads them back with `read_schematic`,
+  extracts them (decision 8), resolves them and compares the nets with the circuit (decision 6). Any
+  connectivity difference gives `build.schematic-netlist-differs` (the existing code) and no file. The
+  guard therefore proves the bytes that would be written, not only the file that was read.
+- `schematic-placements.toml` is not read when a drawn schematic is loaded, and its presence gives
+  `drawn.placements-ignored` (warning): two files must not own symbol positions.
+- `result.schematic` gains `source` (`generated` or `drawn`) and `drawn` (the file name and the counts of
+  wires, junctions, labels, buses and opaque items), both `null` for generated schematics.
+- **No byte change** for designs that do not call `load_schematic`.
+
+### 6. Code and drawing cannot drift
+
+`fenolite.model.drawn_connect.compare(netlist, circuit) -> tuple[Issue, ...]` compares the drawn nets with
+the circuit's nets as partitions of `(component path, pin number)`, restricted to components with a drawn
+symbol:
+
+| code | severity | when |
+|---|---|---|
+| `drawn.netlist-differs` | error | a pin that the drawing puts in another group than code, or that code connects and the drawing leaves open, or the reverse; the message names the first `REF-PIN`, both nets and the reason (`split`, `merged`, `open`) |
+| `drawn.net-name-differs` | warning | equal groups whose drawn name differs from the stored name of the code net |
+| `drawn.symbol-missing` | error | a unit of a code component with a resolved symbol that the drawing lacks |
+| `drawn.part-unknown` | error | a drawn symbol whose part is not a component of code |
+| `drawn.unit-missing` | warning | a missing unit with no pin on any net |
+| `drawn.dangling` | warning | a segment end that joins nothing |
+| `drawn.label-unconnected` | warning | a label on no group |
+| `drawn.sheet-pin-unmatched` | error | a sheet pin without a hierarchical label of its name in the instance's sheet, or the reverse |
+| `drawn.sheet-unknown` | error | a `sheet_ref` naming no sheet, a sheet cycle, or a sheet that no reference reaches |
+| `drawn.repeated-value-differs` | error | components shown by one symbol of a repeated sheet whose values or footprints differ (a KiCad repeated sheet carries one value per symbol, `H-K-DRAWN-REPEAT`) |
+| `drawn.bus-member-unknown` | warning | a bus label member that no alias or vector defines |
+| `drawn.placements-ignored` | warning | `schematic-placements.toml` beside a script that loads a drawn schematic |
+| `drawn.opaque-dropped` | info | an opaque item the target cannot carry (Altium, decision 10) |
+
+- Errors stop a build (exit 5) and fail the `schematic.drawn` stage. Warnings are reported.
+- Codes live in `fenolite.model.drawn_connect.ISSUE_CODES` and join the build's closed set and
+  `explain.toml`. There is no new `FEN-` code: a bad file is `FEN-3004`, findings exit 5.
+
+### 7. The check stage `schematic.drawn`
+
+- `fenolite.checks.drawn.drawn_stage(netlist, circuit) -> StageResult` runs `compare` on a netlist the
+  command computes and injects, as the roles stage takes its judge, so `checks` imports no backend.
+- `cmd_check` computes the netlist for built input whose `.fenolite/build.json` records
+  `schematic.source == "drawn"`: it reads the project's sheets as they are on disk, extracts and resolves
+  them. The stage is then part of the default set; for any other input it is not listed.
+- A sheet edited in KiCad that still means the code passes. One whose connectivity was changed fails with
+  `drawn.netlist-differs`, naming the pin, so the user changes the code (or `fenolite edit`) or reverts the
+  drawing.
+
+### 8. Reading a KiCad schematic into the file
+
+**Decided 2026-11-01 (import prerequisite):** retaining parsed sheets alone does not implement the
+import path. A KiCad project import uses `Source.hierarchy` and its final reference-to-component-path
+map to extract the drawing, writes `schematic.toml`, and emits `design.load_schematic(...)`. Source
+embedded symbols and power symbols retain their native slots, units, pin geometry and hidden power
+pins; they are not replaced by the footprint-derived passive symbols used for board-only input. A
+project native library row takes precedence over a built-in definition of the same id. Per-instance
+references prefer the project named after the source root. Conflicting embedded definitions of one
+library id, missing source definitions, or unsupported symbol poses refuse explicitly before staging.
+Fallback symbols remain available for genuine board-only components. The import's private self-check
+build writes the drawn schematic and executes the existing read-back connectivity guard. Inputs without
+schematics keep their existing emission bytes. Full 1–8+S fidelity and planted-junction tests remain
+independent; this prerequisite does not add acceptances or claim a GUI save or native Altium acceptance.
+The canonical text writer is shared through a pure private model serializer; `lens.drawn.write_drawn`
+keeps its public interface. The importer does not gain a dependency on the lens orchestration package.
+
+`fenolite.backends.kicad.drawn.extract(root, children, *, components) -> tuple[DrawnSchematic,
+tuple[Issue, ...]]` takes read sheets (`read_schematic` and `sheet_files`) and the map from instance path and
+reference to component path:
+
+- Modelled items map directly: symbol instances (pose, unit, field poses from their property slots), labels,
+  no-connect flags, sheet references with their pins (c0269's `sch.opaque_sheet_pins`).
+- Opaque root slots with the heads `wire`, `bus`, `bus_entry`, `junction` and `bus_alias` are parsed into
+  drawn items by `sch.opaque_drawing`, as `sch.opaque_wires` already parses wires; a slot whose numbers are not whole nanometres
+  stays an opaque item with `kicad.sch.inexact-length`.
+- A symbol whose reference starts with `#` and whose definition is a power symbol becomes a `power` item
+  named by its value. A power flag stays a `power` item of the flag library.
+- A symbol whose reference maps to no component gives `drawn.part-unknown` and stays an opaque item, so
+  nothing is lost and the user sees it.
+- Every other root slot (`text`, `text_box`, `polyline`, `rectangle`, `image`, `table`, `netclass_flag`,
+  `rule_area`, and unknown heads) becomes an `opaque` item with its fragment verbatim and its minimum
+  version.
+- Sheets referenced several times become one drawn sheet with several `sheet_ref`s.
+- **Frozen bytes.** Decided 2026-10-29: a frozen generated schematic, lowered again, gives the generated
+  texts with the same symbols, fields, references, positions, sheets and board; labels, wires, junctions,
+  no-connect flags and power flags get new uuids, because the file holds no uuid and drawn items take their
+  ids from their sheet and index (decision 12). The value is a fixed point: extracting the lowered texts
+  gives the frozen value again.
+- **Sheet pins.** c0269 is not merged: this change adds the minimal stub it specifies (`SheetPin` with
+  `name`, `shape`, `position`, `rotation`; `SheetRef.pins`; the writer's `pin` child; `sch.opaque_sheet_pins`),
+  to be reconciled with c0269 when it lands.
+- **Users.** c0275's importer writes the result as `schematic.toml`. `fenolite sync --to-source` writes it
+  for a design that loads a drawn schematic (decision 9). Freezing a generated schematic is the same call
+  on the sheets the generator wrote.
+
+### 9. Ownership: CAD owns the drawing, code owns the nets (c0250)
+
+- The drawing is CAD-owned, like the layout: `fenolite sync DESIGN --out DIR --to-source` reads the built
+  project's sheets, extracts them and plans `schematic.toml` beside the script when its text differs. It
+  first resolves the sheets and compares them with the recorded circuit; a connectivity difference refuses
+  the write (exit 5, `drawn.netlist-differs`), because a sync never changes nets.
+- Values, footprints and references edited in KiCad's schematic editor keep c0250's three-way merge into
+  `edits.toml`; the drawn file holds none of them, so the two files never disagree.
+- `fenolite sync ... --to-source --freeze-schematic` writes `schematic.toml` from a generated schematic and
+  gives the info `drawn.frozen` with the hint to add `design.load_schematic("schematic.toml")`. The script
+  is never rewritten.
+- **Alternatives considered.** A three-way merge of drawing items. Rejected for v0: items have no stable
+  identity across tools, and the drawing has one owner.
+
+### 10. Altium (later phase of this change)
+
+Integration decision 2026-11-01: implement the source writer and hermetic native-record readback now.
+The maintainer reports that Altium is unavailable, so the actual application/kit gate remains open and
+the behavior stays `INFERRED`. Reuse the existing component writer and record forms, keep generated
+builds byte-identical, and compare the bytes through the Altium reader before returning a write. Native
+scope behavior follows the existing Automatic project default (the verified numeric mode 0). If no top
+sheet entry or port selects Hierarchical or Flat, local names occurring in several native sheet
+instances receive a deterministic private prefix, with `altium.not-lowered` info findings naming each
+text change. Local names unique to one native sheet keep their text. This
+preserves the partition when Automatic selects Global, including flattened repeated sheets; it does
+not claim drawn text/structure identity. Hierarchical and Flat labels keep their text. Any remaining
+connectivity difference is refused rather than assigned an undocumented numeric hierarchy mode.
+
+The native guard seals the intended document names, component units, shown logical pin tables and
+physical pin maps before the producer runs, including wholly unconnected units. It reads the actual
+native bytes and compares those tables, then compares actual logical-pin partitions with code in
+the same logical domain. Physical maps are checked separately, rather than confusing native pin
+designators with PCB pads. The CLI repeats this check after templates using the already verified
+builder bytes as its reference; missing or unreadable content cannot create synthetic open pins.
+Compatible per-unit source aliases resolve through the existing library resolver and logical-unit
+signature check, then use their own native body and generated library entry. Missing or incompatible
+aliases refuse before staging. None of these checks establish native application acceptance.
+Native parameter anchors, rotation, visibility and the documented mirror flag are emitted. Field
+justification has no established form in this parameter writer and is reported as unrepresented.
+Component mirror geometry is absolute, with native mirror metadata still unverified; power ports
+use native glyph/text placement and report source mirror/field-pose limitations. These are explicit
+`altium.not-lowered` findings, not a claim of drawn identity.
+
+- `fenolite.backends.altium.drawn.lower_drawn(...)` writes one sheet per drawn sheet instance: wires and
+  buses as polylines, junctions, local labels as net labels, hierarchical labels as ports, sheet references
+  as sheet symbols with sheet entries, power symbols as power ports, global labels as power ports of the
+  label's text (power ports are global in every scope, S-0185), bus entries, and no-connect directives.
+- Coordinates map through the writer's existing unit conversion. A coordinate that has no exact Altium form
+  is a lossy write: refused with `FEN-7001` (exit 7) unless `--allow-lossy`, which rounds and reports each
+  rounding as `drawn.coordinate-rounded` (warning).
+- Repeated sheets are written once per instance in this change (`drawn.altium-repeat-flattened`, info).
+  Multi-channel sheet symbols with an annotation file are a follow-up (open question 3).
+- Opaque items are dropped with `drawn.opaque-dropped` (info) unless they hold an `altium` record text.
+- Evidence `INFERRED` until the kit compiles `examples/drawn/` with the nets of code (`H-A-DRAWN-WRITE`).
+- If the maintainer prefers, this phase is cut to a follow-up change; phases 1 to 6 do not depend on it.
+
+### 11. Generated sheets inside a drawing (c0269)
+
+- A drawn sheet with `generated = true` holds no items of its own. For each `sheet_ref` that names it,
+  the build runs the generator for that module instance with c0269's block rules (hierarchical labels from
+  ports, groups, shared arrangement) and writes the file `schgen.sheet_file(<module path>)`.
+- The drawn `sheet_ref` must carry the sheet pins the generator gives, by name and shape; a missing or
+  extra pin is `drawn.sheet-pin-unmatched`. Their positions on the box are the drawing's.
+- So a person can draw the top sheet and leave blocks to the generator, and a block sheet can be frozen
+  later (decision 9).
+
+**Decided 2026-10-30 (implementation):** the generator runs once on the whole design, as a generated build
+runs it, and each instance of a `generated` sheet takes the generator's sheet of its module and of its
+sub-modules unchanged, so those files are byte-equal to a generated build's. Their symbols' paths are the
+generator's, so the instance must stand where the generator puts the module (its reference in the sheet of
+the parent module, with the generator's uuid, which the drawn reference already takes when it is the only one
+of its module); else `drawn.sheet-unknown`. The block sheets put labels on the sheet pins of their
+sub-blocks without a wire; the resolver joins a label to a sheet pin at its point, as to a symbol pin
+(measured equal to `kicad-cli` 10.0.6 on the block example).
+
+### 12. Writer additions for KiCad
+
+`sch.write_schematic` writes the new entities of created sheets in the form of S-0367 for both targets:
+`junction` (`at`, `diameter`, `color`, `uuid`), `bus` (`pts`, `stroke`, `uuid`), `bus_entry` (`at`, `size`,
+`stroke`, `uuid`), `bus_alias` (`members`), local labels (`label`), power symbols as symbol instances of
+their embedded power definitions, and opaque items verbatim through `versions.check_emittable`. Root order:
+no-connect flags, junctions, bus entries, wires, buses, labels, symbols, sheet references, opaque items
+(in their drawn order), then `sheet_instances`. Ids derive from the design name, the sheet key, the item
+kind and its index in the drawn sheet, so a rebuild gives the same uuids (`pcb.kicad_uuid`).
+
+**Decided 2026-10-29 (implementation):** the writer cuts each wire at the junctions on it and each bus at
+its junctions and bus entry ends, the form KiCad's editor keeps. `kicad-cli` 9.0.9 loses the corner of a
+wire whose inside holds a junction, and leaves bus entries on an uncut bus unjoined; the cut form is joined
+by 9.0.9 and 10.0.6 alike and joins nothing the junction did not join. A slanted wire segment is written as
+an opaque `wire` item, since the model's `Wire` stays horizontal or vertical. A drawn symbol with field
+poses shows its posed fields only and hides the others at its origin. Ids of drawn symbols are the
+generator's (`<name>:<component path>#<unit>`), and a sheet reference keeps the generator's id
+(`<name>:sheet:<module>`) when its instance is the only one of its module, so a frozen schematic keeps the
+board's footprint paths; labels, wires, junctions and flags take their ids from the sheet key and index.
+
+### Data flow
+
+```
+design.py ──to_model──▶ Circuit ───────────────┐
+schematic.toml ─read_drawn─▶ DrawnSchematic ─lower_drawn─▶ SchematicSheets ─write─▶ .kicad_sch texts
+                                                                                     │ read back
+                              DrawnSchematic ◀─extract── read sheets ◀───────────────┘
+                                     │ resolve (pins from symbol definitions)
+                                     ▼
+                              DrawnNetlist ──compare──▶ issues (build guard, check stage, sync)
+```
+
+## Codes introduced
+
+The `drawn.*` codes of decision 6, plus `drawn.frozen` (info, decision 9) and
+`drawn.altium-repeat-flattened` (info, decision 10). Existing codes reused:
+`build.schematic-netlist-differs`, `FEN-3004`, `FEN-7001`, `kicad.sch.inexact-length`.
+
+## Hypotheses registered by this change
+
+| id | statement | settled by |
+|---|---|---|
+| `H-K-DRAWN-CONNECT` | The resolver's nets (wires, T joints, crossings, junctions, local, global and hierarchical labels, power symbols, hidden power pins) equal `kicad-cli sch export netlist` on the authored drawn fixtures and the demo rows | KiCad CI job, 9.0.x and 10.0.x |
+| `H-K-DRAWN-NAMES` | The resolver's net names equal the names of KiCad's netlist export | KiCad CI job |
+| `H-K-DRAWN-BUS` | Bus members carried by bus labels, entries, aliases and sheet pins give the nets KiCad exports | KiCad CI job |
+| `H-K-DRAWN-REPEAT` | A sheet file named by several sheet references gives one set of local nets per instance, references per `instances` path, and one value per symbol | KiCad CI job |
+| `H-K-DRAWN-WRITE` | A drawn sheet written by Fenolite loads in `kicad-cli`, its netlist equals the source's, and ERC reports no violation that the source lacks | KiCad CI job |
+| `H-A-DRAWN-WRITE` | Altium compiles the written drawn example with the nets of code and no connectivity message | maintainer's kit |
+
+## Evidence level per behaviour
+
+| behaviour | level before merge |
+|---|---|
+| file reading, canonical writing, schema | `INFERRED`, unit and property tests |
+| resolver | `INFERRED`; `KICAD-VERIFIED (9.0.x, 10.0.x)` per hypothesis once the CI job passes |
+| KiCad writing | `KICAD-VERIFIED (9.0.x, 10.0.x)` once `H-K-DRAWN-WRITE` passes |
+| extraction | `INFERRED`; level S of c0278 compares extract(write(extract(x))) with extract(x) |
+| Altium writing | `INFERRED` until `H-A-DRAWN-WRITE` |
+
+## Risks / Trade-offs
+
+- **KiCad's connectivity has corners** (labels on wire insides, pins on wire insides, bus label syntax,
+  hierarchical net names). Mitigation: connectivity errors are partitions, which the CI oracle checks on
+  every demo row; names are warnings until measured; an unknown construct stays opaque and the extracted
+  sheet then fails the comparison loudly instead of guessing.
+- **Large files.** A real board's drawing has thousands of segments. Mitigation: one table per item kind,
+  numbers short, canonical order; the reader is linear. Measured on the demo rows (task 7.2).
+- **Repeated sheets and per-instance values.** A KiCad repeated sheet holds one value per symbol. Code may
+  give instances different values; that is refused with `drawn.repeated-value-differs` and a hint to split
+  the sheet.
+- **Ownership surprises.** A user moves a wire in KiCad and forgets `sync`: the next build restores the
+  drawing from the file. Same rule as the layout; `build.schematic-replaced` still warns and keeps the
+  backup.
+- **Generated sheets inside a drawing** give two layouts on one project. Accepted: it is opt-in per sheet.
+
+## Open Questions
+
+1. **May a drawing introduce a net name the code lacks** (a label naming an unnamed code net)? Recommended:
+   yes, as `drawn.net-name-differs` warning; the board keeps code names.
+   Decided 2026-10-29: yes, as the warning `drawn.net-name-differs`; the board keeps the code's names. A
+   drawn net whose labels include the code net's name gives no warning.
+2. **Should text and graphics become model entities** instead of opaque items? Recommended: later, with
+   c0269's open question 2; opaque items already round-trip for KiCad.
+   Decided 2026-10-29: later; they stay verbatim opaque items in v0.
+3. **Altium repeated sheets**: write multi-channel sheet symbols and an annotation file, or one sheet per
+   instance? Recommended: one sheet per instance now, multi-channel after a kit case.
+   Decided 2026-10-29: one sheet per instance when the Altium phase is written; multi-channel after a kit
+   case.
+4. **Cut the Altium phase into its own change?** Recommended: keep it as phase 6, cut it if the kit is not
+   available within the release.
+   Decided 2026-10-29: keep it as phase 6 of this change, left open in this batch (tasks 6.1 and 6.2); cut it
+   to a follow-up if the kit is not available within the release.
+5. **Freeze by default for imported boards only?** Recommended: yes; designs written as code keep the
+   generator unless the user freezes.
+   Decided 2026-10-29: yes; designs written as code keep the generator unless the user runs `sync
+   --to-source --freeze-schematic`.
+
+## Relation to the other changes of this batch
+
+Decided 2026-11-02 for task 7.4: retain the immutable `9c44f7a2` and cache-complete `695dee0f`
+measurements. The latter reports 59 failed, 33 passed and 38 other-tag skips on actual KiCad 9.0.2.
+Its per-file-as-root harness creates unmatched hierarchical ports and collapses repeated instance
+annotations when a child sheet is exported as an artificial standalone root. This is a test-context
+defect, not grounds to weaken the reader floor, duplicate-definition guard or production resolver.
+
+Discover all registered native project roots that reach each declared schematic row and measure the
+entire original owner hierarchy, using its real root UUID and annotation paths. Retain every child row
+and all of its owner contexts; record opaque instance-path hashes, owner input hashes and native export
+root IDs. An unowned row stays a measured standalone case, and missing or unreadable inputs remain
+explicit failures. No common-pin intersection, acceptance, lenient flag or model/S field is introduced.
+Authored child-port and repeated-root controls must demonstrate context and native partition equality.
+Task 7.2 stays open until its literal strict proof passes in both required versioned CI jobs.
+
+- **c0275 board-to-code:** calls `extract` and writes `schematic.toml` and `design.load_schematic(...)`.
+- **c0277 dsl-board-coverage:** board items only; its opaque-item rule for boards matches decision 2.
+- **c0278 fidelity-proof:** level S compares two `DrawnSchematic`s and uses `resolve` for drawn
+  connectivity.
+- **c0279 board-library:** every library board carries a `schematic.toml` and passes the drawn stage.
+- **c0269 block-schematic:** provides sheet pins; decision 11 reuses its block rules.
+- **c0250 manual-edit-merge:** decision 9.
+- **c0249 design-lock:** references in the lock, never in the drawing.
+- **c0264 library-import, c0266 device-packs and c0279 fenolite-library:** power and part symbols of a drawing resolve like any part
+  symbol, so a vendored `lib/` or an item vendored by `fenolite get` provides them.
+## Independent clean native acceptance control (2026-11-03)
+
+The corrected bus fixture already retains all40pins/36groups and native names;
+its remaining two errors and two warnings describe the truly unused input pins
+U1-11/U1-12. An independently authored variant may explicitly declare these two
+pins unconnected in both circuit and drawn source. The existing native NoERC
+markers must appear only at those two pin endpoints. No global ERC setting is
+changed, no connected pin is masked, and complete pin/group comparisons remain.
+Keep the original raw findings and the deliberate broken-child-bus negative.
+This is an authored source-intent control, not a writer workaround or a claim
+that the unchanged original examples compile without findings. The coordinator
+approves this narrow characterization before authoring the control; no model,
+schema or public DSL change is needed.
+## Authored original-example ERC correction (2026-11-03)
+
+The coordinator approved a focused correction to the original drawn example after actual historical
+native findings, with a new current24.5.2.23 reproduction before source edits. This is an authored
+circuit/drawing repair, not a compiler setting change or reuse of the independent6.3 control.
+The example's R2/R3 input chain terminates at GND instead of VCC: R3-2 moves intentionally from VCC
+to GND, making a legitimate pull-down and giving the MCU ground net a second physical terminal.
+Add code/drawing intentional no-connects ONLY to the truly disconnected U1-11/U1-12 inputs.
+Put an explicit local IN label on the existing parent wire, preserving its geometry and hierarchy.
+Retain four components, all38pins and33groups; compare the new complete memberships against the
+changed code, never against a filtered pin universe. No NoERC is added to a connected pin/net;
+no project/global ERC policy changes. Preserve historical original observations and all other fixtures.
+Native binary/ASCII compile, all messages/names/pins, exact reviewed hashes and new-copy save/reopen
+must pass before this authored correction can satisfy6.2. Existing independent6.3 negative remains
+separate. If a new failure appears, retain it visibly and make one focused repair/proof iteration.
+
+## Complete original FULL fixture circuit (2026-11-03)
+
+Coordinator review approved an authored repair, separate from the40pin independent clean bus control.
+First retain current24 baseline binary/ASCII findings and full pin/name exports on immutable inputs.
+The original FULL fixture has36pins/three components: B0=U1-18 and B1=U1-19 are singletons, and
+U1-12 is unused. Add R3/R4 as10k pull-downs: B0 joins R3-1, B1 joins R4-1, and both pin2 join GND.
+All36 old physical pins stay, and the new complete universe is40pins/five components, with32groups.
+Put R3/R4 on the root at(139.7,88.9)/(152.4,88.9)mm, local B0/B1 at their pin1 endpoints, and
+GND powers at their pin2 endpoints. Keep every existing drawn item kind, field pose, wire, bus/alias,
+entry, sheet reference, title and opaque graphic. Keep the existing unused11 marker and explicitly
+declare no-connect11/12 in code; add ONLY the missing drawn12 marker at(88.9,97.79)mm. No marker
+may touch a connected bus/other terminal. Add local IN on its existing parent wire at(82.55,69.85)mm.
+The writer, project net scope and global ERC policy are unchanged. Prove exact code/drawn memberships,
+all old pins plus four new resistor pins, native records/marker locations, both actual native forms,
+all compiler messages/names, new-copy native save/reopen and strict deliberate broken-bus negative.
+Do not refresh a byte table unless an inventoried row actually depends on this authored fixture.
+After actual KiCad9/10 controls prove the newly loaded nets have no dangling labels, remove the obsolete full9 label_dangling exception; no new connectivity waiver is permitted. No historical22 finding or independent6.3 result becomes a retroactive FULL pass.
+
+## Canonical names in isolated repeated local sheets (2026-11-03 proposal)
+
+The existing Altium Automatic/Global lowering intentionally writes duplicate local label FB as
+__local_<sheet-id>_FB and emits altium.not-lowered info to prevent shorts across two cloned repeated
+instances. This preserves all8pins/five groups, but native names differ from code-owned FB0/FB1.
+The coordinator approved proposing a conservative preference for canonical net names ONLY when a
+complete physical label group has a unique exact bijection to one circuit net, and every casefolded
+candidate is unique against all native local/global/power/port names and peer groups. Every old pin
+and local partition must survive; no first-match choice, mode/ERC change or result renaming is allowed.
+Ambiguous, partial, duplicate or colliding candidates must refuse or retain the existing explicit
+fallback/diagnostic. Keep the existing visible-label text-change info even on canonical preference.
+A focused design of the group-binding carrier and RED controls is required before this runtime step;
+negative cases cover incomplete pin coverage, unmatched groups, duplicate casefold candidates,
+global/power collisions, an ordinary non-repeated sheet and the original local-isolation boundary.
+
+The ephemeral binding carrier is the existing final Design plus the exact files belonging to
+repeated source-sheet instances. For each such file, serialize the unqualified SheetPlan in memory
+and resolve it in isolation through the existing strict native reader. Require exact planned/native
+unit, physical pin and pin-map coverage, unique references, and a complete partition of those pins.
+Bind a shared local label only through its unique resolved group and full physical (reference,pin)
+membership to one unique canonical net; empty or nonrepresentable/bus-shaped names keep the explicit
+fallback. Reserve candidates together using casefold collisions against all native names, including
+power/global labels. No carrier is persisted; ordinary sheets and default generated bytes retain the
+old path. The final complete-project native readback and comparator remain unchanged. Coordinator
+approved this focused direction on 2026-11-03; RED must show preserved eight-pin partition before
+asserting the incorrect names, and negative controls retain explicit fallback rather than pick-first.
+
+
+The isolated-sheet partition proof includes every native physical pin and explicit singleton coverage.
+A shared global group such as GND can cross sheets: its per-sheet projection may validate the carrier,
+but a candidate local-label group must equal the *entire* canonical code net, never merely that net's
+intersection with the current sheet. This distinguishes a harmless projected global group from an
+unsafe partial local-name match. The proposed helper `_canonical_local_bindings(sheets, design,
+repeated_files)` returns only proved `(file, original_local_text) -> canonical_text` bindings; absence
+retains the existing explicit scope-preserving name and notice. The authored RED suite captures the
+actual prequalification plans/final circuit, proves eight covered pins/five complete groups before
+checking FB0/FB1, and supplies missing/unmatched/ambiguous membership, casefold duplicate, automatic
+global/power collision, duplicate physical reference and nonrepeated-file controls. No runtime
+implementation has been applied at this RED checkpoint.
+
+
+## Maintainer acceptance of retrospective FULL baseline acquisition —2026-11-03
+
+The original requirement "First retain current24 baseline" remains documented
+above. Implementation preparation actually preceded native acquisition. After
+reviewing the source-bound original/corrected measurements, unchanged inputs
+and complete save/reopen evidence, the maintainer explicitly answered
+"Aceitar a prova retrospectiva documentada". For task6.5 only, accept that
+documented retrospective comparison in place of acquisition-before-implementation.
+Preserve the true chronology and all original failed outcomes; no electrical
+criterion, complete pin universe, comparator, ERC setting, resource budget,
+CI requirement or other task is waived. See full-closure-proof.json for the
+review-packet hash and scoped evidence. This decision is not permission to
+repeat the procedural deviation in another task.
+
+
+## Five existing probe records — implementation follow-up, 2026-11-03
+
+Implement task7.1's drawn-connect/names/bus/repeat/write records in the existing
+private oracle harness only. No product API/model/DSL/issue code changes. The
+six authored fixtures are the existing flat/full/hier/bus/repeat/example cohort.
+Cache native I/O only by complete output-input bytes, root and immutable tool
+identity/version; compute comparisons from the current resolver. Preserve the
+current drawn-component physical domain and native-omitted singleton handling;
+a missing connected pin must still fail. Global probe execution/cache/snapshot
+APIs stay unchanged. Keep corpus naming warnings and do not promote universal
+H-K-DRAWN-NAMES. Before any native run, review the isolated fixed-image driver
+and its export/stdout retention, allow-list and source binding. No full probe
+aggregator, DIFAT, corpus or geometry replay is authorized by this addition.
+
+Review correction: resolve the same authored Mini libraries from a disposable
+copy of each source folder; never execute original design.py or write its lock.
+Verify both complete source maps and deterministic emitted bytes across copies.
+The existing run_erc call omits --exit-code-violations: retain exit0 reports with
+nonconnective findings of any severity, and reject tool failure/timeout or an
+invalid consumed report structure (sheets/violations lists and string types).
+Do not introduce a zero-total-ERC criterion. Driver capture paths and source
+bindings must be bounded relative paths with no symlink traversal.
+
+Selective measured-record follow-up: after coordinator review of the unchanged
+source cc7c4c42/driver/input/report hashes, insert only drawn-connect, drawn-names,
+drawn-bus, drawn-repeat and drawn-write as equal into each existing 9.0.9/10.0.6
+snapshot. Preserve every old value and version; retain portable before/after
+hashes and complete measurement references. This records the six authored
+fixtures only, preserves corpus naming warnings and leaves 7.1/7.2/9.2 and all
+hypothesis promotions pending the independently required CI/evidence gates.

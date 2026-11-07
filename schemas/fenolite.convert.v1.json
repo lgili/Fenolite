@@ -1,0 +1,1024 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.result.convert.v1",
+  "title": "ConvertResult",
+  "type": "object",
+  "properties": {
+    "plan": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolPlan"
+      }
+    },
+    "plan_id": {
+      "type": "string"
+    },
+    "issues_summary": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolIssueSummary"
+      }
+    },
+    "recovery": {
+      "$ref": "#/$defs/ProtocolRecovery"
+    },
+    "page": {
+      "$ref": "#/$defs/ProtocolPage"
+    },
+    "equivalence": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/ConvertEquivalence"
+        }
+      ]
+    },
+    "experimental": {
+      "type": "boolean"
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ConvertFilesItem"
+      }
+    },
+    "report": {
+      "$ref": "#/$defs/ConvertReport"
+    },
+    "source": {
+      "$ref": "#/$defs/ConvertSource"
+    },
+    "target": {
+      "$ref": "#/$defs/ConvertTarget"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "ConvertEquivalence": {
+      "type": "object",
+      "properties": {
+        "differences": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConvertEquivalenceDifferencesItem"
+          }
+        },
+        "equivalent": {
+          "type": "boolean"
+        },
+        "excluded": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EquivalentExcludedItem"
+          }
+        },
+        "explained": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConvertEquivalenceExplainedItem"
+          }
+        },
+        "frame": {
+          "type": "string"
+        },
+        "level": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "enum": [
+                "S"
+              ]
+            }
+          ]
+        },
+        "levels": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConvertEquivalenceLevelsItem"
+          }
+        },
+        "notices": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EquivalentNoticesItem"
+          }
+        },
+        "profile": {
+          "$ref": "#/$defs/ConvertEquivalenceProfile"
+        },
+        "sides": {
+          "$ref": "#/$defs/ConvertEquivalenceSides"
+        },
+        "tolerances": {
+          "$ref": "#/$defs/ConvertEquivalenceTolerances"
+        },
+        "translation": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "unexplained": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "differences",
+        "equivalent",
+        "excluded",
+        "explained",
+        "frame",
+        "level",
+        "levels",
+        "notices",
+        "profile",
+        "sides",
+        "tolerances",
+        "translation",
+        "unexplained"
+      ]
+    },
+    "ConvertEquivalenceDifferencesItem": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "string"
+        },
+        "b": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "level": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "enum": [
+                "S"
+              ]
+            }
+          ]
+        },
+        "where": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b",
+        "field",
+        "kind",
+        "level",
+        "where"
+      ]
+    },
+    "ConvertEquivalenceExplainedItem": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "string"
+        },
+        "b": {
+          "type": "string"
+        },
+        "by": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "level": {
+          "type": "integer"
+        },
+        "where": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b",
+        "by",
+        "field",
+        "kind",
+        "level",
+        "where"
+      ]
+    },
+    "ConvertEquivalenceLevelsItem": {
+      "type": "object",
+      "properties": {
+        "compared": {
+          "type": "integer"
+        },
+        "differences": {
+          "type": "integer"
+        },
+        "excluded": {
+          "type": "integer"
+        },
+        "level": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "enum": [
+                "S"
+              ]
+            }
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "notices": {
+          "type": "integer"
+        },
+        "summary": {
+          "$ref": "#/$defs/ConvertEquivalenceLevelsItemSummary"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "compared",
+        "differences",
+        "excluded",
+        "level",
+        "name",
+        "notices",
+        "summary"
+      ]
+    },
+    "ConvertEquivalenceLevelsItemSummary": {
+      "type": "object",
+      "properties": {
+        "extraction_issues": {
+          "type": "integer"
+        },
+        "instances": {
+          "type": "integer"
+        },
+        "pins": {
+          "type": "integer"
+        },
+        "sheets": {
+          "type": "integer"
+        },
+        "symbols": {
+          "type": "integer"
+        },
+        "texts": {
+          "type": "integer"
+        },
+        "components": {
+          "$ref": "#/$defs/ConvertEquivalenceLevelsItemSummaryComponents"
+        },
+        "copper_no_net": {
+          "$ref": "#/$defs/ConvertEquivalenceLevelsItemSummaryCopperNoNet"
+        },
+        "copper_unknown": {
+          "type": "integer"
+        },
+        "footprints": {
+          "type": "integer"
+        },
+        "frame": {
+          "type": "string"
+        },
+        "ignored": {
+          "type": "integer"
+        },
+        "length": {
+          "$ref": "#/$defs/ConvertEquivalenceLevelsItemSummaryLength"
+        },
+        "nets": {
+          "type": "integer"
+        },
+        "nets_unpaired": {
+          "$ref": "#/$defs/ConvertEquivalenceLevelsItemSummaryNetsUnpaired"
+        },
+        "pieces": {
+          "$ref": "#/$defs/ConvertEquivalenceLevelsItemSummaryPieces"
+        },
+        "renamed": {
+          "type": "integer"
+        },
+        "sources": {
+          "$ref": "#/$defs/ConvertEquivalenceLevelsItemSummarySources"
+        },
+        "translation": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "unjudged": {
+          "type": "integer"
+        },
+        "unnumbered": {
+          "$ref": "#/$defs/ConvertEquivalenceLevelsItemSummaryUnnumbered"
+        },
+        "unshaped": {
+          "$ref": "#/$defs/ConvertEquivalenceLevelsItemSummaryUnshaped"
+        },
+        "vias": {
+          "$ref": "#/$defs/ConvertEquivalenceLevelsItemSummaryVias"
+        },
+        "zones_unfilled": {
+          "$ref": "#/$defs/ConvertEquivalenceLevelsItemSummaryZonesUnfilled"
+        }
+      },
+      "additionalProperties": true
+    },
+    "ConvertEquivalenceLevelsItemSummaryComponents": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b"
+      ]
+    },
+    "ConvertEquivalenceLevelsItemSummaryCopperNoNet": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b"
+      ]
+    },
+    "ConvertEquivalenceLevelsItemSummaryLength": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b"
+      ]
+    },
+    "ConvertEquivalenceLevelsItemSummaryNetsUnpaired": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b"
+      ]
+    },
+    "ConvertEquivalenceLevelsItemSummaryPieces": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b"
+      ]
+    },
+    "ConvertEquivalenceLevelsItemSummarySources": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "string"
+        },
+        "b": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b"
+      ]
+    },
+    "ConvertEquivalenceLevelsItemSummaryUnnumbered": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b"
+      ]
+    },
+    "ConvertEquivalenceLevelsItemSummaryUnshaped": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b"
+      ]
+    },
+    "ConvertEquivalenceLevelsItemSummaryVias": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b"
+      ]
+    },
+    "ConvertEquivalenceLevelsItemSummaryZonesUnfilled": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b"
+      ]
+    },
+    "ConvertEquivalenceProfile": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "rules": {
+          "type": "integer"
+        },
+        "tool_version": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "name",
+        "rules",
+        "tool_version"
+      ]
+    },
+    "ConvertEquivalenceSides": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "$ref": "#/$defs/ConvertEquivalenceSidesA"
+        },
+        "b": {
+          "$ref": "#/$defs/ConvertEquivalenceSidesB"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b"
+      ]
+    },
+    "ConvertEquivalenceSidesA": {
+      "type": "object",
+      "properties": {
+        "backend": {
+          "type": "string"
+        },
+        "components": {
+          "type": "integer"
+        },
+        "footprints": {
+          "type": "integer"
+        },
+        "netlist_source": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "files": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "x-fenolite-map": true,
+          "description": "exact context input basenames mapped to SHA-256"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "backend",
+        "components",
+        "footprints",
+        "netlist_source",
+        "path",
+        "sha256"
+      ]
+    },
+    "ConvertEquivalenceSidesB": {
+      "type": "object",
+      "properties": {
+        "backend": {
+          "type": "string"
+        },
+        "components": {
+          "type": "integer"
+        },
+        "footprints": {
+          "type": "integer"
+        },
+        "netlist_source": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "files": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "x-fenolite-map": true,
+          "description": "exact context input basenames mapped to SHA-256"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "backend",
+        "components",
+        "footprints",
+        "netlist_source",
+        "path",
+        "sha256"
+      ]
+    },
+    "ConvertEquivalenceTolerances": {
+      "type": "object",
+      "properties": {
+        "angle_udeg": {
+          "type": "integer"
+        },
+        "length_nm": {
+          "type": "integer"
+        },
+        "length_ppm": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "angle_udeg",
+        "length_nm",
+        "length_ppm"
+      ]
+    },
+    "ConvertFilesItem": {
+      "type": "object",
+      "properties": {
+        "bytes": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "bytes",
+        "name"
+      ]
+    },
+    "ConvertReport": {
+      "type": "object",
+      "properties": {
+        "lossy": {
+          "type": "boolean"
+        },
+        "refused": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConvertReportRowsItem"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "lossy",
+        "refused",
+        "rows"
+      ]
+    },
+    "ConvertReportRowsItem": {
+      "type": "object",
+      "properties": {
+        "changed": {
+          "type": "integer"
+        },
+        "group": {
+          "type": "string"
+        },
+        "kept": {
+          "type": "integer"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "loss": {
+          "type": "string"
+        },
+        "lost": {
+          "type": "integer"
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConvertReportRowsItemReasonsItem"
+          }
+        },
+        "source": {
+          "type": "integer"
+        },
+        "written": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "changed",
+        "group",
+        "kind",
+        "loss",
+        "lost",
+        "reasons",
+        "source",
+        "written"
+      ]
+    },
+    "ConvertReportRowsItemReasonsItem": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "integer"
+        },
+        "ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "outcome": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "count",
+        "outcome",
+        "reason"
+      ]
+    },
+    "ConvertSource": {
+      "type": "object",
+      "properties": {
+        "backend": {
+          "type": "string"
+        },
+        "format_version": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "kind": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "backend",
+        "format_version",
+        "kind",
+        "path"
+      ]
+    },
+    "ConvertTarget": {
+      "type": "object",
+      "properties": {
+        "backend": {
+          "type": "string"
+        },
+        "major": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "backend",
+        "major"
+      ]
+    },
+    "EquivalentExcludedItem": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "string"
+        },
+        "b": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "level": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "enum": [
+                "S"
+              ]
+            }
+          ]
+        },
+        "rule": {
+          "type": "string"
+        },
+        "where": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b",
+        "field",
+        "kind",
+        "level",
+        "rule",
+        "where"
+      ]
+    },
+    "EquivalentNoticesItem": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "string"
+        },
+        "b": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "level": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "enum": [
+                "S"
+              ]
+            }
+          ]
+        },
+        "where": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b",
+        "field",
+        "kind",
+        "level",
+        "where"
+      ]
+    },
+    "ProtocolIssueSummary": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "by_severity": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "counts indexed by severity"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "count",
+        "by_severity"
+      ]
+    },
+    "ProtocolPage": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "next": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "limit",
+        "offset",
+        "total",
+        "next"
+      ]
+    },
+    "ProtocolPlan": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "overwrite": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "kind",
+        "bytes",
+        "sha256",
+        "overwrite"
+      ]
+    },
+    "ProtocolRecovery": {
+      "type": "object",
+      "properties": {
+        "failed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "preserved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "failed",
+        "preserved"
+      ]
+    }
+  }
+}

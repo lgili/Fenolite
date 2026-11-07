@@ -13,6 +13,7 @@ from fenolite.model.board import (
     FootprintField,
     FootprintInstance,
     Graphic,
+    Group,
     Hole,
     Keepout,
     Layer,
@@ -24,8 +25,10 @@ from fenolite.model.board import (
     PadstackLayer,
     StackLayer,
     Stackup,
+    Teardrop,
     Text,
     Track,
+    VerbatimItem,
     Via,
     ViaProtection,
     ViaType,
@@ -35,6 +38,7 @@ from fenolite.model.board import (
     ZoneSettings,
 )
 from fenolite.model.circuit import (
+    BlockParam,
     Bus,
     BusMember,
     Circuit,
@@ -45,6 +49,7 @@ from fenolite.model.circuit import (
     NetClass,
     Pin,
     PinRef,
+    Port,
 )
 from fenolite.model.design import Design, DesignHeader
 from fenolite.model.findings import Findings
@@ -75,6 +80,7 @@ __all__ = [
     "Arc",
     "Artefact",
     "Board",
+    "BlockParam",
     "Bus",
     "BusMember",
     "Circuit",
@@ -92,6 +98,7 @@ __all__ = [
     "FootprintField",
     "FootprintInstance",
     "Graphic",
+    "Group",
     "Hole",
     "Interface",
     "join_tokens",
@@ -112,6 +119,7 @@ __all__ = [
     "PaperSize",
     "Pin",
     "PinRef",
+    "Port",
     "PnpRow",
     "Rule",
     "RuleSet",
@@ -130,6 +138,8 @@ __all__ = [
     "split_tokens",
     "StackLayer",
     "Stackup",
+    "Teardrop",
+    "VerbatimItem",
     "Text",
     "TitleBlock",
     "Track",

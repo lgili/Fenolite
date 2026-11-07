@@ -2,9 +2,7 @@
 
 ## Purpose
 Route a board through a router plugin: the router protocol and registry, the selection of nets, the merge of routed copper into the board, the built-in direct router, the KiCadRoutingTools and Freerouting plugins that run as separate processes, and the routing issue codes.
-
 ## Requirements
-
 ### Requirement: Router protocol
 `fenolite.routing.protocol` SHALL define, as frozen dataclasses on `core` and `model` types only:
 - `JobPad(ref: str, number: str, net: str, position: Point, layers: tuple[str, ...], drill: Nm | None = None)`;
@@ -422,7 +420,7 @@ A router MAY return copper for a net that it lists in `unrouted`, and the `route
 and SHALL add to `RoutingJob`, after every field that exists when this change is archived, `pairs: tuple[JobPair, ...] = ()` and `escape: tuple[JobEscape, ...] = ()`.
 - `positive` and `negative` MUST name nets of `job.nets`, and a net MUST belong to at most one pair. `nets` of an escape request MUST name nets of `job.nets`.
 - The four codes of "Pairs and escape in the route command" (`cli-contract`) MUST each have an entry in `src/fenolite/cli/data/explain.toml`.
-- `routing.protocol.ROUTER_FEATURES` MUST be `frozenset({"pairs", "escape", "short"})`; `short` marks a router of short connections, not of whole boards (c0228). `router_features(router) -> frozenset[str]` MUST return the router's attribute `features` when it is a `frozenset` of members of `ROUTER_FEATURES`, and an empty set when the attribute is missing or holds anything else. The `Router` protocol MUST NOT gain the attribute, so a router written before this change keeps satisfying it.
+- `routing.protocol.ROUTER_FEATURES` MUST be `frozenset({"pairs", "escape", "short", "roles", "propose"})`; `short` marks a router of short connections, not of whole boards (c0228), `roles` a router that takes the role routes of `RoutingJob.roles` (c0244), and `propose` a router that answers the subjects of `RoutingJob.subjects` with candidates (c0280). `router_features(router) -> frozenset[str]` MUST return the router's attribute `features` when it is a `frozenset` of members of `ROUTER_FEATURES`, and an empty set when the attribute is missing or holds anything else. The `Router` protocol MUST NOT gain the attribute, so a router written before this change keeps satisfying it.
 - A job given to a router whose features lack `pairs` MUST hold no pair, and one given to a router whose features lack `escape` MUST hold no escape request; the command removes them ("Pairs and escape in the route command", `cli-contract`).
 - The built-in `direct` router MUST declare no feature.
 
@@ -434,6 +432,10 @@ and SHALL add to `RoutingJob`, after every field that exists when this change is
 - **GIVEN** a test router class that defines `name`, `description`, `sends_data_offsite`, `available` and `route` only, and one whose `features` is the list `["pairs"]`
 - **WHEN** `router_features` is called on each and on `DirectRouter()`
 - **THEN** all three give an empty set, and `uv run pyright src` reports no error for `_ROUTER: Router = DirectRouter()`
+
+#### Scenario: The octilinear router takes roles
+- **WHEN** `router_features(OctilinearRouter())` is called
+- **THEN** it gives `pairs`, `short`, `roles` and `propose`
 
 ### Requirement: Pair selection for routing
 `fenolite.routing.pairs.job_pairs(design, candidates) -> tuple[tuple[JobPair, ...], tuple[str, ...], tuple[Issue, ...]]` SHALL return the differential pairs among the candidate nets, the candidates that stay single nets, and one issue per pair left out, using the name rule of `fenolite.model.pairs` (c0104), which is how KiCad's DRC and router find pairs.
@@ -587,3 +589,280 @@ With `extra["copper_check"]`, the plugin SHALL judge the board before and after 
 - **GIVEN** a test router that records its job
 - **WHEN** `uv run pytest tests/unit/routing/test_octilinear.py -k extras` runs `fenolite route` with it
 - **THEN** the recorded `extra` holds `clearance` and `copper_check`, and `copper_check` of the board as read gives its findings
+
+### Requirement: Role routes in a routing job
+`fenolite.routing.protocol` SHALL define the frozen dataclasses `JobRoleEnd` and `JobRoleRoute` (group, kind, tier, net, ends, width, layers, vias, isolated, aggressors, keep_away, partner, gap, loop, key) on `core` types only, and `RoutingJob.roles: tuple[JobRoleRoute, ...] = ()` after `escape`. A router whose features lack `roles` MUST get no role route.
+
+#### Scenario: A job built as before
+- **WHEN** `uv run pytest tests/unit/routing/test_protocol.py -k roles` builds `RoutingJob(design, nets, layers)`
+- **THEN** its `roles` is empty and the job equals one built with `roles=()`
+
+### Requirement: Role outcomes in a routing result
+`fenolite.routing.protocol` SHALL define the frozen dataclass `RoleOutcome` (key, group, status, reason, form, layer, length, vias, runs, via points, blockers, detail) and `RoutingResult.roles: tuple[RoleOutcome, ...] = ()` after `not_attempted`. A router in role mode MUST give one outcome per role route, in the order of `job.roles`.
+
+#### Scenario: A result built as before
+- **WHEN** `uv run pytest tests/unit/routing/test_protocol.py -k roles` builds `RoutingResult()`
+- **THEN** its `roles` is empty and it equals a result built with `roles=()`
+
+### Requirement: Octilinear role tiers
+With a non-empty `job.roles`, `OctilinearRouter` SHALL route only the role routes, in tiers 0 (gate loops) and 1 (Kelvin pairs), each tier by group name then key, the routes of one group as one unit routed whole or not at all. Rounds MUST reorder failed units within their tier only, and earlier tiers' copper MUST be fixed.
+
+#### Scenario: Kelvin pair after the gate return
+- **GIVEN** an authored bench with one gate loop and one Kelvin pair whose straight route would cross the gate return's
+- **WHEN** `uv run pytest tests/unit/routing/test_roleroute.py -k tiers` routes the job
+- **THEN** the gate return is routed first and straight, and the pair avoids it
+
+### Requirement: Octilinear role ends
+A role route SHALL end at `JobRoleEnd.at`, not at the pad centre. For a Kelvin route the element end MUST lie on the inner half of the sense pad, at `c + u·(L/2 − w/2 − 2 µm)` along the axis `u` to the other sense pad, or at the centre when that offset is not positive.
+
+#### Scenario: Entry on the inner half
+- **GIVEN** a 2512 two-pad shunt and an amplifier on the authored bench
+- **WHEN** `uv run pytest tests/unit/routing/test_roleroute.py -k entry` routes its Kelvin pair
+- **THEN** each track end lies inside its pad with an offset `t > 0` toward the other pad
+
+### Requirement: Octilinear isolated branches
+For an `isolated` role route, every item of its own net (pad copper, track, arc, via and zone outline on its layer) other than its two end pads SHALL be an obstacle at the clearance in force. A connection whose every shape is refused by this test MUST report reason `isolation`.
+
+#### Scenario: A sense branch beside its own pour
+- **GIVEN** a Kelvin pair of the power nets `VA` and `VB` whose shortest shapes cross the outline of a `VB` zone
+- **WHEN** `uv run pytest tests/unit/routing/test_roleroute.py -k isolated` routes it
+- **THEN** the placed `VB` branch does not touch the zone outline
+
+### Requirement: Octilinear switching keep-away
+A role route with aggressors SHALL keep `keep_away` from aggressor copper and zone outlines on its layer, and MUST NOT overlap aggressor copper or zone outlines on an adjacent copper layer. A connection whose every clear shape breaks this MUST report reason `near-switching`.
+
+#### Scenario: A pair over a switch-node pour
+- **GIVEN** a bench whose sense pair's straight path runs over a switch-node zone on the adjacent layer
+- **WHEN** `uv run pytest tests/unit/routing/test_roleroute.py -k keepaway` routes it with `z-shapes=off`, then with the default
+- **THEN** the first run reports `near-switching` and the second places the pair clear of the zone
+
+### Requirement: Octilinear Z shapes
+In role mode the router SHALL try, after c0228's five shapes, at most 8 Z shapes per layer (90° corners, no acute joint) whose middle segment runs on a line taken from the partner's segments and from the keep-away and blocking bounding boxes. `--router-option z-shapes=off` MUST turn them off; a job without role routes MUST keep its five shapes and bytes.
+
+#### Scenario: Plain jobs unchanged
+- **WHEN** `uv run pytest tests/unit/routing/test_octilinear.py` runs after the role mode lands
+- **THEN** every existing octilinear test passes with the same copper
+
+### Requirement: Octilinear role cost
+Among the accepted shapes of a gate route the router SHALL keep the one of least gate-loop area (the absolute shoelace area of its centre polyline closed by the route's loop points, the partner's placed polyline in place of its straight line), then the least length, then the first in shape order; among those of a Kelvin pair, the shortest centre line, then the first in shape order.
+
+#### Scenario: The smaller loop wins
+- **GIVEN** a bench gate loop whose drawn drive turns a corner, and whose return has several clear shapes
+- **WHEN** `uv run pytest tests/unit/routing/test_roleroute.py -k smaller` routes it
+- **THEN** the return takes the L inside the drive's L, whose loop encloses least, where c0228 would keep the first shape that passes
+
+### Requirement: Octilinear gate pairs
+A gate loop SHALL be routed as its open `gate-out` routes, then its open `gate-return`: side by side on the pad layer, with Z lines at the pair pitch beside the out route, else stacked under the out route on the adjacent layer through one via at each end when no side-by-side shape passes and the route may place two vias. A `ground` return net with a zone under the whole out route on the adjacent layer MUST NOT be routed, and its outcome MUST be `plane-return`.
+
+#### Scenario: Stacked when the side is blocked
+- **GIVEN** a bench gate loop with rings of another net's copper around its source pad and its return pad
+- **WHEN** `uv run pytest tests/unit/routing/test_roleroute.py -k gate` routes it
+- **THEN** the return runs under the out route on the adjacent layer with two vias, and its form is `stacked`
+
+### Requirement: Octilinear role vias
+A role route SHALL place at most its `vias`: 0 by default for `gate-out` and `kelvin`, 2 for `gate-return`, changed by the router options `gate-vias` and `kelvin-vias`. A connection whose ends share no allowed layer and which may place no via MUST report reason `no-layer`.
+
+#### Scenario: No common layer
+- **GIVEN** a Kelvin route whose shunt pads are on `F.Cu` and whose amplifier pads are on `B.Cu`
+- **WHEN** it is routed with the defaults, then with `kelvin-vias=2`
+- **THEN** the first gives `no-layer`, and the second places one via per branch
+
+### Requirement: Role check in job extras
+In role mode, `fenolite route` SHALL add `role_check` to `RoutingJob.extra`: a callable from a design to findings `(code, group, severity, measure)` from `fenolite.roles.judge`. The router MUST remove the whole copper of a group that has a new code or a larger measure after routing and give its routes the outcome `refused`, and the reply MUST hold one `route.role-refused` for the group; `roles.loop-open` MUST count as no finding.
+
+#### Scenario: A worse group is removed
+- **GIVEN** a test `role_check` that reports a new `roles.near-switching` on the bench's Kelvin pair `kelvin_R1` after routing
+- **WHEN** `uv run pytest tests/unit/routing/test_roleroute.py -k refused` routes the job
+- **THEN** the result holds no copper of the pair's two routes, and both outcomes are `refused` with reason `role-check` and the finding
+
+### Requirement: Role route codes
+`ISSUE_CODES` SHALL hold `route.role-unrouted` and `route.role-refused` (warnings, which `--require-complete` turns into one `route.incomplete` error), and `route.role-unconfirmed`, `route.role-kept`, `route.role-placement` and `route.role-none` (info), each with an `explain.toml` entry and a row in `docs/cli-contract.md`. Equal inputs MUST give equal results.
+
+#### Scenario: Codes explained
+- **WHEN** `uv run pytest tests/unit/cli/test_explain_cmd.py tests/unit/routing -k codes` runs
+- **THEN** the six codes have their severities, an entry and a documented row
+
+### Requirement: Proposal subjects in a routing job
+`fenolite.routing.protocol` SHALL define the frozen dataclasses `JobAttach` (kind, net, at, layers, name) and `JobSubject` (key, kind, net, a, b, width, layers, via sizes, group) on `core` types only, and `RoutingJob.subjects: tuple[JobSubject, ...] = ()` after `roles`. A subject's kind MUST be one of `fanout`, `join`, `role-net`, `group` and `connection`. A router whose features lack `propose` MUST get no subject.
+
+#### Scenario: A job built as before
+- **WHEN** `uv run pytest tests/unit/routing/test_protocol.py -k propose` builds `RoutingJob(design, nets, layers)`
+- **THEN** its `subjects` is empty and the job equals one built with `subjects=()`
+
+### Requirement: Candidates in a routing result
+`fenolite.routing.protocol` SHALL define the frozen dataclass `Candidate`, `RoutingResult.candidates` (empty by default) and `RoutingResult.refusals` (the subject key, reason and blockers of each subject left without a candidate); the fields are listed in the design. A router given subjects MUST return candidates only, with no merged copper. `Candidate.id` MUST be `c-` and 16 hex digits of the SHA-256 of the subject key, source, relaxations and item geometry.
+
+#### Scenario: Candidates only
+- **GIVEN** an authored bench with one open connection given as a `connection` subject
+- **WHEN** `uv run pytest tests/unit/routing/test_propose.py -k only` runs the octilinear router on it twice
+- **THEN** the result holds candidates and no track, arc or via, and both runs give equal candidates with equal ids
+
+#### Scenario: Ids ignore unrelated copper
+- **GIVEN** the same bench with a track of another net added far from the connection
+- **WHEN** the router runs again
+- **THEN** every candidate keeps its id
+
+### Requirement: Octilinear candidate families
+In propose mode `OctilinearRouter` SHALL try, per subject, the families `shape`, `z-shape`, `via-l`, then `fanout` (for `fanout` subjects) and `role` (for `group` subjects), and keep the first N (option `candidates`, default 4, at most 8) that pass c0228's acceptance and differ by layer set, via count or a centre line apart by more than the clearance in force. Candidates MUST be in family, shape, then layer order.
+
+#### Scenario: Distinct candidates
+- **GIVEN** an authored two-layer bench whose connection has room for L shapes on both layers and for a via-L
+- **WHEN** `uv run pytest tests/unit/routing/test_propose.py -k families` asks for 4 candidates
+- **THEN** it gets at most 4 candidates, no two with the same layer set, via count and centre line, `shape` ones before `via-l` ones
+
+### Requirement: Zone fan-out candidates
+For a `fanout` subject the router SHALL search a neck and a via of the net's class in the eight 45° directions ordered by their angle to the outward direction, in steps of a quarter via diameter over nine distances, keep the first passing position per direction, and require the via inside the zone outline by half its diameter and inside its simulated fill.
+
+#### Scenario: The same search as plane fan-out
+- **GIVEN** c0107's plane fan-out bench
+- **WHEN** `uv run pytest tests/unit/routing/test_propose.py -k fanout` proposes for each pad of the plane net
+- **THEN** each pad's first candidate has the via position that `plan_fanout` chooses
+
+### Requirement: Relaxed group candidates
+For a `group` subject the router SHALL run c0244's role mode on the group's routes with its defaults, then once per relaxation of the closed list `kelvin-vias=2`, `gate-vias=2`, `keep-away=clearance`, and label each candidate with its relaxation. Isolation MUST NOT be relaxed.
+
+#### Scenario: A pair over switching copper
+- **GIVEN** c0244's keep-away bench with `z-shapes=off`, whose pair is refused with `near-switching`
+- **WHEN** `uv run pytest tests/unit/routing/test_propose.py -k relaxed` proposes for the group
+- **THEN** no default candidate exists, a candidate labelled `keep-away=clearance` exists, and no candidate touches its own net's zone outline
+
+### Requirement: Proposal codes
+`routing.codes.ISSUE_CODES` SHALL hold `route.proposal-unknown` and `route.proposal-conflict` (error), `route.proposal-open`, `route.proposal-findings` and `route.proposal-stale` (warning), and `route.proposal-none`, `route.proposal-rejected` and `route.proposal-limit` (info), each with an `explain.toml` entry and a row in `docs/cli-contract.md`.
+
+#### Scenario: Codes explained
+- **WHEN** `uv run pytest tests/unit/cli/test_explain_cmd.py tests/unit/routing -k proposal` runs
+- **THEN** the eight codes have their severities, an entry and a documented row
+
+### Requirement: Opt-in search
+The router SHALL preserve pattern routing by default. The search family SHALL propose ordinary connections only. Opt-in search modes MUST NOT propose independent pair legs; other unsupported search subjects SHALL retain supported atomic pattern candidates or an explicit refusal.
+
+#### Scenario: Opt-in search contract
+- **GIVEN** an ordinary connection blocked from all fixed patterns
+- **WHEN** bounded search is explicitly enabled
+- **THEN** a legal detour is proposed and the board bytes remain unchanged
+
+#### Scenario: A half-selected pair stays atomic
+- **GIVEN** a named or declared differential pair with only one net selected
+- **WHEN** proposals use search=fallback or search=only
+- **THEN** no independent-leg candidate is emitted, search-unsupported is reported, and project bytes stay unchanged
+
+### Requirement: Physical legality
+Search SHALL check swept geometry, cutouts, exact endpoint attachments and through-via clearance on every traversed copper layer. Missing necessary geometry or rules MUST prevent a candidate.
+
+#### Scenario: Physical legality contract
+- **GIVEN** a via whose endpoints are clear but whose barrel intersects inner-layer copper
+- **WHEN** search considers that transition
+- **THEN** the transition is rejected
+
+### Requirement: Deterministic bounds
+Search SHALL use stable integer state ordering, explicit state/via bounds and the job wall-clock budget. Fixed state-limited runs SHALL be byte deterministic; clock-limited runs SHALL report truncation without claiming identical exploration.
+
+#### Scenario: Deterministic bounds contract
+- **GIVEN** the same board, options, seed and state bound without clock exhaustion
+- **WHEN** search runs twice
+- **THEN** candidate bytes and termination facts match
+
+### Requirement: Hard role limits
+Search SHALL treat declared electrical exclusions as hard constraints. It MUST NOT exchange a violated user limit for a shorter route or invent a missing high-voltage distance.
+
+#### Scenario: Hard role limits contract
+- **GIVEN** a shorter path violates a declared switching clearance
+- **WHEN** role-aware search compares it with a legal detour
+- **THEN** only the legal detour can become a candidate
+
+### Requirement: Honest ground reference
+Reference coverage SHALL be measured from valid current fill geometry. Missing or stale fill SHALL be reported as unknown; it MUST NOT count as proven reference coverage.
+
+#### Scenario: Honest ground reference contract
+- **GIVEN** a ground-zone outline whose fill is stale
+- **WHEN** candidate facts are measured
+- **THEN** coverage is unknown and no ground-reference assurance is emitted
+
+### Requirement: Role provenance
+Role fields SHALL use nonnegative integer penalties with provenance, retain final role/copper judgment, and invalidate results on changed inputs. Unconfirmed roles MUST NOT become confirmed through routing.
+
+#### Scenario: Role provenance contract
+- **GIVEN** a proposal calculated from a confirmed role profile
+- **WHEN** the profile changes before acceptance
+- **THEN** the old reviewed write is refused
+
+### Requirement: Protected geometry
+Negotiation SHALL reroute only its own provisional routes. Manual or locked copper, accepted decisions and role corridors MUST remain immutable. Unsupported coupled subjects SHALL be refused as units.
+
+#### Scenario: Protected geometry contract
+- **GIVEN** an existing locked route blocks a corridor
+- **WHEN** negotiation retries selected connections
+- **THEN** the locked route is unchanged even if no solution exists
+
+### Requirement: Atomic alternatives
+Coupled reroutes SHALL be emitted and accepted as a jointly validated bundle. Accept, reject, replay and forget SHALL be atomic; an individual coupled member MUST NOT be accepted alone.
+
+#### Scenario: Atomic alternatives contract
+- **GIVEN** a bundle changes two mutually dependent paths
+- **WHEN** one member alone is accepted
+- **THEN** the request is refused and no project or decision bytes change
+
+### Requirement: Bounded negotiation
+Negotiation SHALL bound rounds and expanded states under the shared job budget. Provisional overlaps MUST NOT escape as candidates; exhaustion SHALL report unresolved subjects and keep prior copper unchanged.
+
+#### Scenario: Bounded negotiation contract
+- **GIVEN** all rounds end with provisional overlap
+- **WHEN** the round budget expires
+- **THEN** no invalid candidate is emitted and unresolved subjects are reported
+
+### Requirement: Explicit local adapters
+External candidates SHALL require --propose-with and a locally available supported router. The command MUST NOT download tools, upload designs or silently accept returned copper.
+
+#### Scenario: Explicit local adapters contract
+- **GIVEN** a requested router is absent
+- **WHEN** proposals request that router
+- **THEN** the existing external-tool-missing contract is returned without changing files
+
+### Requirement: Verified scoped delta
+External output SHALL preserve existing geometry, rules and unselected nets. Only validated new scoped copper may become candidates; unsupported pairs/groups MUST be refused atomically.
+
+#### Scenario: Verified scoped delta contract
+- **GIVEN** external output moves an existing pad or routes an unselected net
+- **WHEN** the delta is inspected
+- **THEN** the output is rejected rather than partially imported
+
+### Requirement: One subprocess budget
+All external candidate processes SHALL share the job timeout and cancellation. Killed, incomplete or malformed output MUST NOT become candidates or project writes.
+
+#### Scenario: One subprocess budget contract
+- **GIVEN** an adapter has written a partial result
+- **WHEN** the shared budget expires
+- **THEN** the process tree is stopped and the partial result is discarded
+
+### Requirement: Explicit board workflow
+Documentation SHALL distinguish development phase order from board execution order: roles, critical routes, power copper, proposal review, optional tidy, fill, checks and export. Ordinary routes MUST remain explicitly accepted.
+
+#### Scenario: Explicit board workflow contract
+- **GIVEN** an engineer follows the completion recipe
+- **WHEN** critical routes and power copper are prepared
+- **THEN** remaining routes are proposed for review rather than silently committed
+
+### Requirement: Truthful completion
+Completion SHALL require post-fill connectivity and declared checks, exposing opens, rejections, unattempted subjects and unknown checks separately. Oracle limitations MUST remain visible and MUST NOT be counted as successful checks.
+
+#### Scenario: Truthful completion contract
+- **GIVEN** all candidates were rejected but physical opens remain
+- **WHEN** the completion report is generated
+- **THEN** the board is reported incomplete with those opens
+
+### Requirement: Preserved output and scale evidence
+Acceptance tests SHALL prove preserved locks/manual edits, scoped tidy, repeatability, interruption safety and KiCad-to-Altium readback on authored fixtures. Performance claims MUST identify inputs, bounds, versions and measured evidence.
+
+#### Scenario: Preserved output and scale evidence contract
+- **GIVEN** a reviewed route is followed by scoped tidy and a second routing pass
+- **WHEN** both stages finish or cancel
+- **THEN** protected copper is preserved and incomplete stages are reported honestly
+
+### Requirement: Routed copper below the governing track width
+`fenolite route` SHALL judge the copper a router adds against the `track_width` rule that governs it and report `route.width-below-minimum` (error) for each net with copper narrower than that rule's `min`, so no write is planned; `route.width-below-job` MUST stay as it is (change c0403, F6).
+
+#### Scenario: A router that narrows wires
+- **GIVEN** a stub router that returns 0.15 mm copper on a board whose rules file holds a 0.2 mm `track_width` minimum
+- **WHEN** `uv run pytest tests/unit/cli/test_route_cmd.py -k below_the_minimum` runs the route with `--dry-run`
+- **THEN** the exit code is 5, the reply holds `route.width-below-minimum` and `route.width-below-job`, and no plan is written
+

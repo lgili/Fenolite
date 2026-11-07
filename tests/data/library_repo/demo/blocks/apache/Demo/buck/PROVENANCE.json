@@ -1,0 +1,25 @@
+{
+  "authors": [
+    "Fenolite contributors"
+  ],
+  "copyright": [],
+  "evidence": "UNVERIFIED",
+  "featured": null,
+  "id": "Demo:buck",
+  "kind": "block",
+  "licence_text_sha256": "fc43c435e7418c207c484c8aa4e4349d9e0b484cb0b487398d5f9669b25c29a4",
+  "modification_notice": "2026-10-30: authored for the Fenolite tests in the Fenolite formats; no upstream material",
+  "origin": "authored",
+  "schema": "fenolite.provenance.v0",
+  "sources": [
+    "D-0001"
+  ],
+  "spdx": "Apache-2.0",
+  "trademarks": {
+    "marks": [],
+    "note": "",
+    "restricted": false
+  },
+  "upstream": null,
+  "version": "1.0.0"
+}

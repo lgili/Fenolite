@@ -1,0 +1,1167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.result.library.v1",
+  "title": "LibraryResult",
+  "type": "object",
+  "properties": {
+    "plan": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolPlan"
+      }
+    },
+    "plan_id": {
+      "type": "string"
+    },
+    "issues_summary": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolIssueSummary"
+      }
+    },
+    "recovery": {
+      "$ref": "#/$defs/ProtocolRecovery"
+    },
+    "page": {
+      "$ref": "#/$defs/ProtocolPage"
+    },
+    "action": {
+      "type": "string"
+    },
+    "board": {
+      "type": "string"
+    },
+    "compare": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/LibraryCompareItem"
+      }
+    },
+    "crosscheck": {
+      "$ref": "#/$defs/LibraryCrosscheck"
+    },
+    "datasheet": {
+      "$ref": "#/$defs/LibraryDatasheet"
+    },
+    "device": {
+      "type": "string"
+    },
+    "doubts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/LibraryDoubtsItem"
+      }
+    },
+    "drift": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/LibraryDriftItem"
+      }
+    },
+    "evidence": {
+      "type": "string"
+    },
+    "family": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "folder": {
+      "type": "string"
+    },
+    "footprint": {
+      "type": "string"
+    },
+    "footprints": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/LibraryFootprintsItem"
+      }
+    },
+    "format": {
+      "type": "string"
+    },
+    "guide": {
+      "type": "string"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/LibraryItemsItem"
+      }
+    },
+    "library": {
+      "type": "string"
+    },
+    "out": {
+      "type": "string"
+    },
+    "package": {
+      "$ref": "#/$defs/LibraryPackage"
+    },
+    "packages": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/LibraryPackagesItem"
+      }
+    },
+    "pcblib": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "proposals": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/LibraryProposalsItem"
+      }
+    },
+    "record_digests": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "x-fenolite-map": true,
+      "description": "Keys are supplied by named items, rather than fixed record fields."
+    },
+    "schema": {
+      "type": "string"
+    },
+    "skeleton": {
+      "type": "string"
+    },
+    "skipped": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/LibrarySkippedItem"
+      }
+    },
+    "source": {
+      "type": "string"
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/LibrarySourcesItem"
+      }
+    },
+    "step": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "summary": {
+      "$ref": "#/$defs/LibrarySummary"
+    },
+    "symbol": {
+      "type": "string"
+    },
+    "symbols": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/LibrarySymbolsItem"
+      }
+    },
+    "unchanged": {
+      "type": "boolean"
+    },
+    "uncited": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "LibraryCompareItem": {
+      "type": "object",
+      "properties": {
+        "change": {
+          "type": "string"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "footprint_changed": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "symbol_changed": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "change",
+        "fields",
+        "footprint_changed",
+        "id",
+        "kind",
+        "symbol_changed"
+      ]
+    },
+    "LibraryCrosscheck": {
+      "type": "object",
+      "properties": {
+        "reference": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LibraryCrosscheckRowsItem"
+          }
+        },
+        "tolerances": {
+          "$ref": "#/$defs/LibraryCrosscheckTolerances"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "reference",
+        "rows",
+        "tolerances"
+      ]
+    },
+    "LibraryCrosscheckRowsItem": {
+      "type": "object",
+      "properties": {
+        "measured": {
+          "$ref": "#/$defs/LibraryCrosscheckRowsItemMeasured"
+        },
+        "pad": {
+          "type": "string"
+        },
+        "reference": {
+          "$ref": "#/$defs/LibraryCrosscheckRowsItemReference"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "measured",
+        "pad",
+        "reference"
+      ]
+    },
+    "LibraryCrosscheckRowsItemMeasured": {
+      "type": "object",
+      "properties": {
+        "centre_nm": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "size_nm": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "centre_nm",
+        "size_nm"
+      ]
+    },
+    "LibraryCrosscheckRowsItemReference": {
+      "type": "object",
+      "properties": {
+        "centre_nm": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "size_nm": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "centre_nm",
+        "size_nm"
+      ]
+    },
+    "LibraryCrosscheckTolerances": {
+      "type": "object",
+      "properties": {
+        "centre_nm": {
+          "type": "integer"
+        },
+        "pitch_nm": {
+          "type": "integer"
+        },
+        "size_min_nm": {
+          "type": "integer"
+        },
+        "size_percent": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "centre_nm",
+        "pitch_nm",
+        "size_min_nm",
+        "size_percent"
+      ]
+    },
+    "LibraryDatasheet": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "file",
+        "sha256"
+      ]
+    },
+    "LibraryDoubtsItem": {
+      "type": "object",
+      "properties": {
+        "field": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "field",
+        "reason"
+      ]
+    },
+    "LibraryDriftItem": {
+      "type": "object",
+      "properties": {
+        "kinds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "kinds",
+        "name"
+      ]
+    },
+    "LibraryFootprintsItem": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "name",
+        "refs",
+        "source"
+      ]
+    },
+    "LibraryItemsItem": {
+      "type": "object",
+      "properties": {
+        "effective_evidence": {
+          "type": "string"
+        },
+        "element": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "file": {
+          "type": "string"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LibraryItemsItemFindingsItem"
+          }
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "review": {
+          "$ref": "#/$defs/LibraryItemsItemReview"
+        },
+        "rules_run": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sheet": {
+          "$ref": "#/$defs/LibraryItemsItemSheet"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "id",
+        "kind"
+      ]
+    },
+    "LibraryItemsItemFindingsItem": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "hint": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "retryable": {
+          "type": "boolean"
+        },
+        "severity": {
+          "type": "string"
+        },
+        "waived": {
+          "type": "boolean"
+        },
+        "where": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "hint",
+        "message",
+        "retryable",
+        "severity",
+        "waived",
+        "where"
+      ]
+    },
+    "LibraryItemsItemReview": {
+      "type": "object",
+      "properties": {
+        "digest": {
+          "type": "string"
+        },
+        "latest": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Review"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "state": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "digest",
+        "latest",
+        "state"
+      ]
+    },
+    "LibraryItemsItemSheet": {
+      "type": "object",
+      "properties": {
+        "artifact_sha256": {
+          "type": "string"
+        },
+        "content_sha256": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "sha256"
+      ]
+    },
+    "LibraryPackage": {
+      "type": "object",
+      "properties": {
+        "family": {
+          "type": "string"
+        },
+        "pins": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "family",
+        "pins"
+      ]
+    },
+    "LibraryPackagesItem": {
+      "type": "object",
+      "properties": {
+        "bodies": {
+          "$ref": "#/$defs/LibraryPackagesItemBodies"
+        },
+        "courtyard": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "family": {
+          "type": "string"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "id": {
+          "type": "string"
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "land": {
+          "$ref": "#/$defs/LibraryPackagesItemLand"
+        },
+        "name": {
+          "type": "string"
+        },
+        "stamp": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "bodies",
+        "courtyard",
+        "family",
+        "files",
+        "id",
+        "issues",
+        "land",
+        "name",
+        "stamp"
+      ]
+    },
+    "LibraryPackagesItemBodies": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "integer"
+        },
+        "top": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "count",
+        "top"
+      ]
+    },
+    "LibraryPackagesItemLand": {
+      "type": "object",
+      "properties": {
+        "deltas": {
+          "$ref": "#/$defs/LibraryPackagesItemLandDeltas"
+        },
+        "drill": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "g": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pad": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pad_diameter": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source": {
+          "type": "string"
+        },
+        "table": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "x": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "z": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "deltas",
+        "drill",
+        "evidence",
+        "g",
+        "pad",
+        "pad_diameter",
+        "source",
+        "table",
+        "x",
+        "z"
+      ]
+    },
+    "LibraryPackagesItemLandDeltas": {
+      "type": "object",
+      "properties": {
+        "drill": {
+          "type": "integer"
+        },
+        "pad_diameter": {
+          "type": "integer"
+        },
+        "pad_length": {
+          "type": "integer"
+        },
+        "pad_length_x": {
+          "type": "integer"
+        },
+        "pad_length_y": {
+          "type": "integer"
+        },
+        "pad_width": {
+          "type": "integer"
+        },
+        "pad_width_x": {
+          "type": "integer"
+        },
+        "pad_width_y": {
+          "type": "integer"
+        },
+        "row_spacing": {
+          "type": "integer"
+        },
+        "row_spacing_x": {
+          "type": "integer"
+        },
+        "row_spacing_y": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true
+    },
+    "LibraryProposalsItem": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "proposer": {
+          "$ref": "#/$defs/LibraryProposalsItemProposer"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "file",
+        "proposer",
+        "sha256"
+      ]
+    },
+    "LibraryProposalsItemProposer": {
+      "type": "object",
+      "properties": {
+        "date": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "date",
+        "kind",
+        "name"
+      ]
+    },
+    "LibrarySkippedItem": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "member": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "file",
+        "member",
+        "reason"
+      ]
+    },
+    "LibrarySourcesItem": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "member": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "file",
+        "kind",
+        "member",
+        "sha256"
+      ]
+    },
+    "LibrarySummary": {
+      "type": "object",
+      "properties": {
+        "evidence": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "findings": {
+          "$ref": "#/$defs/LibrarySummaryFindings"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "evidence",
+        "findings"
+      ]
+    },
+    "LibrarySummaryFindings": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "integer"
+        },
+        "info": {
+          "type": "integer"
+        },
+        "warning": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true
+    },
+    "LibrarySymbolsItem": {
+      "type": "object",
+      "properties": {
+        "extends": {
+          "type": "string"
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "units": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LibrarySymbolsItemUnitsItem"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "issues",
+        "name",
+        "units"
+      ]
+    },
+    "LibrarySymbolsItemUnitsItem": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "pins": {
+          "$ref": "#/$defs/LibrarySymbolsItemUnitsItemPins"
+        },
+        "unit": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "name",
+        "pins",
+        "unit"
+      ]
+    },
+    "LibrarySymbolsItemUnitsItemPins": {
+      "type": "object",
+      "properties": {
+        "bottom": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "left": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "right": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "top": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "bottom",
+        "left",
+        "right",
+        "top"
+      ]
+    },
+    "ProtocolIssueSummary": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "by_severity": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "counts indexed by severity"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "count",
+        "by_severity"
+      ]
+    },
+    "ProtocolPage": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "next": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "limit",
+        "offset",
+        "total",
+        "next"
+      ]
+    },
+    "ProtocolPlan": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "overwrite": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "kind",
+        "bytes",
+        "sha256",
+        "overwrite"
+      ]
+    },
+    "ProtocolRecovery": {
+      "type": "object",
+      "properties": {
+        "failed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "preserved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "failed",
+        "preserved"
+      ]
+    },
+    "Review": {
+      "description": "One review of a record: who, when, of which version and digest, and the label asserted.",
+      "type": "object",
+      "properties": {
+        "who": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "digest": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "sheet": {
+          "type": "string"
+        },
+        "sheet_sha256": {
+          "type": "string"
+        },
+        "previous_evidence": {
+          "type": "string"
+        },
+        "accepted_codes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "fenolite_version": {
+          "type": "string"
+        },
+        "record_sha256": {
+          "type": "string"
+        },
+        "content_sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "who",
+        "date",
+        "version",
+        "digest",
+        "evidence",
+        "sheet",
+        "sheet_sha256",
+        "previous_evidence",
+        "accepted_codes",
+        "fenolite_version",
+        "record_sha256",
+        "content_sha256"
+      ]
+    }
+  }
+}

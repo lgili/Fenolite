@@ -246,6 +246,27 @@ class FreeroutingRouter:
         line = lines[0].strip() if lines else ""
         return line, java_major(line)
 
+    def candidate_status(self, budget: Budget) -> RouterStatus:
+        """Local jars only; the Java-version process shares the candidate job's deadline."""
+        if self.image:
+            return RouterStatus(
+                False, reason="external candidates require a local jar, not a container image"
+            )
+        if self.jar is None or not self.jar.is_file():
+            return RouterStatus(False, reason="local Freerouting jar missing")
+        if not self.java:
+            return RouterStatus(False, reason="Java missing")
+        version = jar_version(self.jar)
+        try:
+            done = budget.run([self.java, "-version"], cwd=self.jar.parent)
+        except OSError:
+            return RouterStatus(False, version=version, reason="Java cannot start")
+        lines = (done.stderr or done.stdout).splitlines()
+        major = java_major(lines[0]) if lines else None
+        if done.cut or done.returncode or major is None or major < JAVA_MIN:
+            return RouterStatus(False, version=version, reason="Java preflight failed or budget ended")
+        return RouterStatus(True, str(self.jar), version)
+
     def available(self) -> RouterStatus:
         """Whether the jar and a Java of at least ``JAVA_MIN`` are here (or Docker, for an image). It runs
         ``java -version`` at most; it never starts the router."""
@@ -390,7 +411,7 @@ class FreeroutingRouter:
             if done.cut:
                 return "cut", None, log, done.seconds, output
             session_file = folder / "board.ses"
-            if not session_file.is_file():
+            if done.returncode or not session_file.is_file():
                 last = log[-1] if log else "no output"
                 why = f"Freerouting wrote no session (exit {done.returncode}): {last}"
                 return "failed", why, log, done.seconds, output
@@ -401,11 +422,19 @@ class FreeroutingRouter:
                 return "failed", why, log, done.seconds, output
 
     def _copper(
-        self, session_text: str, written: DsnResult, selected: tuple[str, ...]
+        self, session_text: str, written: DsnResult, selected: tuple[str, ...], *, strict: bool = False
     ) -> tuple[tuple[Track, ...], tuple[Via, ...], tuple[Issue, ...]] | str:
         """The copper of a session for ``selected``, or why the session cannot be read."""
         try:
             session = read_session(session_text, file="board.ses")
+            if strict and (
+                session.unknown
+                or any(
+                    written.names.nets.get(item.net) not in selected
+                    for item in (*session.wires, *session.vias)
+                )
+            ):
+                return "external session contains unknown state or unselected copper"
             return to_copper(session, written.names, selected=selected)
         except FormatError as error:
             return f"Freerouting's session cannot be read: {_line(str(error), Path('board.ses'))}"
@@ -414,7 +443,8 @@ class FreeroutingRouter:
         """Route the job tier by tier inside its budget: write a design file, run Freerouting on it and
         take the session's copper for the tier's nets. Every failure comes back as an issue; nothing is
         written outside a temporary folder."""
-        status = self.available()
+        prepared = job.extra.get("external_status")
+        status = prepared if isinstance(prepared, RouterStatus) else self.available()
         version = status.version
         if not status.available:
             return self._failed(
@@ -429,7 +459,8 @@ class FreeroutingRouter:
                 "route.tool-failed",
                 "Freerouting needs the board-frame pads and a closed board outline (RoutingJob.extra)",
             )
-        budget = Budget(job.budget or self.budget or DEFAULT_BUDGET)
+        shared = job.extra.get("routing_budget")
+        budget = shared if isinstance(shared, Budget) else Budget(job.budget or self.budget or DEFAULT_BUDGET)
         issues: list[Issue] = []
         tiers: dict[int, list[JobNet]] = {}
         for net in job.nets:
@@ -500,7 +531,13 @@ class FreeroutingRouter:
                     job.progress.done(unit, detail="timeout")
                     unit = ""
                     continue
-                got = self._copper(session_text or "", written, names) if outcome == "done" else session_text
+                got = (
+                    self._copper(
+                        session_text or "", written, names, strict=job.extra.get("external_candidate") is True
+                    )
+                    if outcome == "done"
+                    else session_text
+                )
                 if isinstance(got, str) or got is None:
                     runs.append(RouterRun(names, tier, seconds, "failed"))
                     issues.append(Issue("route.tool-failed", "error", got or "no session", self.name))

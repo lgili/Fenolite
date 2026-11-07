@@ -2,13 +2,27 @@
 
 ## Purpose
 Every change of what the viewer page draws is checked automatically: authored fixtures of each scene kind are drawn in a pinned Chromium and compared with committed references, and scripted interactions check selection, measurement, units and cross-probing (change c0191).
-
 ## Requirements
-
 ### Requirement: Screenshot references
 For each scene kind the test suite SHALL render an authored fixture in Chromium and SHALL fail when more than 0.1 % of the pixels differ from the committed reference.
 
 #### Scenario: A changed colour fails
 - **GIVEN** the reference of the Altium sheet fixture
 - **WHEN** `uv run pytest tests/visual -k altium_sheet` runs with the sheet colour changed in the page
+- **THEN** the test fails and writes a difference image
+
+### Requirement: Shell references in both themes
+The screenshot references SHALL include the board fixture drawn in the light interface theme next to the existing references in the dark theme, and every reference SHALL be regenerated in the environment of the `viewer` CI job, never on another platform.
+
+#### Scenario: The light shell has its own reference
+- **GIVEN** the reference `tests/visual/refs/kicad_board_light.png`
+- **WHEN** `uv run pytest tests/visual -k kicad_board_light` runs with a toolbar colour token changed in the page
+- **THEN** the test fails and writes a difference image
+
+### Requirement: Net emphasis reference
+The screenshot references SHALL include the board fixture with one net selected, so that a change of how a selected net or the dimmed rest is drawn fails a test.
+
+#### Scenario: A changed emphasis fails
+- **GIVEN** the reference `tests/visual/refs/kicad_board_net.png`
+- **WHEN** `uv run pytest tests/visual -k kicad_board_net` runs with the dim factor of the highlight changed in the page
 - **THEN** the test fails and writes a difference image

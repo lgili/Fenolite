@@ -1,0 +1,14 @@
+# requirements.toml: authored for Fenolite; illustrative values, not requirements
+schema = "fenolite.requirements.v0"
+
+[[current]]
+select = { net = "V12" }
+current = "3A"
+temp_rise = "10K"
+source = "bench supply limit of the example"
+
+[[distance]]
+a = { net = "V12" }
+b = { net = "*" }
+clearance = "0.2mm"
+source = "the example's own choice"

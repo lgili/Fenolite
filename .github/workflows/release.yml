@@ -75,6 +75,19 @@ jobs:
         run: git merge-base --is-ancestor "$(git rev-parse "${TAG}^{commit}")" origin/main
       - name: Versions and changelog agree with the tag
         run: python3 tooling/tools/release.py check --tag "$TAG" --source source
+      # The licence list shipped in the wheel must equal the one fenolite-library commits (c0279, task 3.2):
+      # with the checkout named, the test compares the two files instead of skipping.
+      - name: The licence list of fenolite-library
+        uses: actions/checkout@v4
+        with:
+          repository: lgili/fenolite-library
+          path: library
+          persist-credentials: false
+      - name: The shipped licence list equals the library's
+        working-directory: source
+        env:
+          FENOLITE_LIBRARY_CHECKOUT: ${{ github.workspace }}/library
+        run: uv run --extra dev pytest tests/unit/library/test_licences.py -k shipped_copy -q -rs -p no:cacheprovider
       # Every blob reachable from any ref, on the public patterns (c0220): a hit fails the build, so nothing
       # is published. The private gate stays the maintainer's run (`make residue-history`).
       - name: Residue scan over the history
@@ -155,6 +168,7 @@ jobs:
           python3 ../tooling/tools/release.py notes --tag "$TAG" --dist ../dist --source . \
             --previous "$previous" --pypi \
             --run-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" > ../notes.md
+          cp docs/evidence/conformance.json ../dist/conformance.json
           (cd ../dist && sha256sum -- * > SHA256SUMS)
           echo "latest=$(python3 ../tooling/tools/release.py latest --tag "$TAG" --tags ../tags.txt)" >> "$GITHUB_OUTPUT"
       - name: Create or update the GitHub Release

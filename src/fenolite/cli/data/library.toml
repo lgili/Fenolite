@@ -1,0 +1,12 @@
+# The releases of fenolite-library known to this Fenolite (change c0279, ADR-0008, docs/library-repo.md).
+# Each row pins the index of one release: its size and SHA-256. A release published after this version is
+# reached with `fenolite get --index-sha256 HEX` or through the `index` digest of a lock entry.
+schema = "fenolite.library-releases.v0"
+repository = "lgili/fenolite-library"
+url_template = "https://github.com/lgili/fenolite-library/releases/download/v{version}/{asset}"
+
+# v1.0.0: tag v1.0.0 on commit 754ed737 (Library checks run 41947694170); index built twice, byte-identical.
+[[release]]
+version = "1.0.0"
+index_bytes = 127429
+index_sha256 = "b6c50c7e8e1d9d0a4c05d213b86b5b3398917abe0aa7a24c159af26562fdc6c1"

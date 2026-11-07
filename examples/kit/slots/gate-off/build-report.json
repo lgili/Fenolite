@@ -1,0 +1,51 @@
+{
+  "pcb": {
+    "written": {
+      "footprint": 0,
+      "pad": 0,
+      "track": 0,
+      "arc": 0,
+      "via": 0,
+      "zone": 0,
+      "text": 0,
+      "graphic": 0,
+      "dimension": 0,
+      "keep-out": 0,
+      "hole": 4,
+      "cutout": 0,
+      "body": 0,
+      "rule": 0
+    },
+    "not_lowered": {
+      "cutout": 3
+    },
+    "bodies": "extruded",
+    "pour": {
+      "mode": "computed",
+      "poured": 0,
+      "unpoured": {},
+      "evidence": null,
+      "hypotheses": []
+    }
+  },
+  "cutouts": [
+    {
+      "code": "altium.not-lowered",
+      "severity": "info",
+      "where": "cutout/1",
+      "message": "cut-out 1 of the board outline is not written: board cut-out regions are written once the maintainer's kit has confirmed them in Altium Designer (Part S, cases S3 to S5)"
+    },
+    {
+      "code": "altium.not-lowered",
+      "severity": "info",
+      "where": "slot/S1",
+      "message": "slot S1 of the board outline is not written: board cut-out regions are written once the maintainer's kit has confirmed them in Altium Designer (Part S, cases S3 to S5)"
+    },
+    {
+      "code": "altium.not-lowered",
+      "severity": "info",
+      "where": "slot/S2+slot/S3",
+      "message": "slot S2 + slot S3 of the board outline is not written: board cut-out regions are written once the maintainer's kit has confirmed them in Altium Designer (Part S, cases S3 to S5)"
+    }
+  ]
+}

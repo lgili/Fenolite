@@ -1,0 +1,53 @@
+{
+  "schema": "fenolite.altium-S1-S2-S8-scoped-observation.v1",
+  "source": "S-1570",
+  "scope": "c0168 Part S cases S1, S2 and S8 on the S-1297 input digests",
+  "operator": "Claude agent at the maintainer's request of 2026-11-04; not the maintainer's own review",
+  "date": "2026-11-04",
+  "native_version": "24.5.2.23",
+  "native_licence": "Trial, not signed in",
+  "host": "maintainer's Parallels Windows 11 VM, interactive session 1",
+  "method": "public menu commands through Windows UI Automation; authored read-only DelphiScript census through File > Run Script; no save",
+  "inputs_sha256": {
+    "regions/slots.PcbDoc": "be65d4b9884e1949abd162f64033f54b92167bf1cea5af535031d691467910f0",
+    "regions/slots.PrjPcb": "e7d693f497c3345351e319d0b0c80cc9454443f30b5053ba27e5a57912b51bc5",
+    "clearance/slots.PcbDoc": "822d31cf5ee269e44b573db595388c0532008523ff4d0d93d103c7a528a8ec3e",
+    "clearance/slots.PrjPcb": "c1e0bb980352ed7bd7d01a1a584106883f7dc0f42db05dfbf3b49f7d59c320c1",
+    "gate-off/slots.PcbDoc": "c798ec4604bddbd28674bdd7fde5a41fdf6440b8ed4c298bc984b005ecb95554",
+    "gate-off/build-report.json": "64393d41b44ce666e47cb07bbb80698149729f67b9cdb3a52cd4f420b9f0ae00"
+  },
+  "inputs_unchanged_after_run": true,
+  "native_outputs_sha256": {
+    "slots-SlotHoles.TXT": "649c90c95b67c664026f83e32f71becc6d27b42ff58df7f1527dea193fb14902",
+    "slots-RoundHoles.TXT": "83d17f76afbfea621f356615cb7840b5a30d4296de45520cc879e8d9bd3dee62",
+    "slots.DRR": "d4406e1129fd020cefb96865b6cc34d72056729aef0017d6ecde01f6953ad2d9",
+    "slots.LDP": "2f64ce8fe1ffae47023b833f0f8a6cfe416e4d663317e3726299f1d3f0be4ce3",
+    "Status Report.Txt": "d8ac71087f3b6ff54b913124b90bb8cdae6b9a17844759572dd2ca3a770fe207"
+  },
+  "receipts_sha256": {
+    "s1-regions-census.tsv": "89dae3e7174b0c2a78f70e6a59b97d544ebfbf2a2306d4d9b8476b5e94305079",
+    "s8-gateoff-census.tsv": "0f1fb0a2063aba45bab6321b8c30ffa6215403e7c4972160ab7892e597ad4251",
+    "s2-before-drc.tsv": "09017cf8d241f64c99e0bc62c71075fd312859a8adf163a57b38c2b492411811",
+    "s2-after-drc.tsv": "c97e9db1d1a60672df4d37cf31dd06db52d8b22a99d7c6848f502596ba66f694",
+    "s1-drill-drawings-page1.png": "90cc21daf6df5cc9e523f0596dbc6c5123e1aea6131068dabdbf5666ad877fe6"
+  },
+  "scripts_sha256": {
+    "census.pas": "4bb173dec27872bb21f11b718b475b8c5b6e24518a2cc5e49736e9d6d3822b6d",
+    "viol.pas": "793c00df16c6fae6d50242384cb4c9a366634b4d8d286ecea9daecf8cf7ac51d"
+  },
+  "nc_drill_defaults": {"units": "metric", "format": "4:4", "separate_plated_nonplated": false, "g85_slots": false, "board_edge_rout": false, "optimize_change_location": true},
+  "drc_options": {"create_report_file": false, "create_violations": true, "stop_count": 500},
+  "cases": {
+    "S1": {"pad_D1": {"layer": "Multi Layer", "designator": "", "net": null, "hole_type": 2, "hole_size_mm": 2.0, "slot_length_mm": 12.0, "rotation_deg": 30, "plated": false, "copper_mm": [12.0, 2.0], "solder_mask_mode": 1, "paste_mask_mode": 1, "solder_mask_expansion_mil": 4, "paste_mask_expansion_mil": 0},
+           "open_messages": 0, "nc_drill": "D1 routed slot in the NON_PLATED slot file, (22.6699,4.5)->(31.3301,9.5) mm, T01 2.0 mm",
+           "drill_drawing": "symbol of tool T1 at D1's centre; no slot outline, no legend; preview not refreshed",
+           "cam_auto_imports_cancelled": 2,
+           "outcome": "as expected for pad and NC Drill; drill drawing by symbol class only"},
+    "S2": {"hole_to_hole": "Pad/Via Touching Holes between D2 (38,13) mm and D3 (43,8) mm", "violations": 7, "messages": 7, "outcome": "as expected"},
+    "S8": {"pads": 4, "cutout_regions": 0, "region_type_objects": 1, "region_type_object_note": "4 points, area of the 60 x 40 mm board shape, also present in regions/", "build_report_names": ["cutout/1", "slot/S1", "slot/S2+slot/S3"], "outcome": "as expected"}
+  },
+  "saved": false,
+  "H_A_SLOT_KIT": "INFERRED",
+  "aggregate_task5_2_completed": false,
+  "formal_kit_record_created": false
+}

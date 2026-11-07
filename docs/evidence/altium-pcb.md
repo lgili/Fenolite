@@ -164,7 +164,7 @@ The plane variant `p0` is not committed; the test rebuilds it and checks its dig
 | `tests/data/altium/routed/routed.PrjPcb` | `9c35d817e1d0ab294f8ad72674d2e2c4f470d449b71b998eba0886b78b7b62f0` |
 | `tests/data/altium/routed/routed.SchDoc` | `01ab1936ab50c1d506c0891f471b4a01177489f14ae76d943538ca91022fabf5` |
 | `tests/data/altium/routed/routed.SchLib` | `792908e69ccf5d932b6b5ce93fb65e835bad3c82c21b7c228415ae53e8d79d25` |
-| `p0/routed.PcbDoc` | `8e0978ec8ee6c22e3a8a3a76b4e14f17be811b9604f463207f3d6eae2f84dbb1` |
+| `p0/routed.PcbDoc` | `4082a630a46d1a5213c05bf699692c19b953eb6dfdb08ecce7d557683cf392c5` |
 
 Expected copper, in millimetres from the outline's top-left corner (Y down); the last column is the width
 of a track or arc, or the diameter and hole of a via:
@@ -203,8 +203,11 @@ copies.
   tracks, the vias and four copper layers are visible. Settles `H-A-PCB-CU-VIEWER`.
 - **C6** (`p0/routed.PcbDoc`, SHA-256 above): open the plane variant. Expected: the Layer Stack Manager
   lists Internal Plane 1 between Top Layer and Mid-Layer 2; the plane is on `GND`; the `GND` pads and the
-  `GND` via that cross it show no connection line. The variant holds four tracks (none on the plane) and
-  one polygon on Bottom Layer. Settles `H-A-PCB-CU-PLANE`.
+  `GND` via that cross it show no connection line. The variant holds four tracks (none on the plane), one
+  polygon on Bottom Layer and, since change c0389 (task 2.7), one `Split Plane` polygon on Internal Plane 1
+  (`GND`) and the rules `PlaneConnect` (pads Relief, vias Direct) and `PlaneClearance`. A design rule check
+  reports no Starved Thermal and no Un-Routed Net between the `GND` via and `D1` pad 1 (the 2026-11-05
+  run on the earlier bytes `8e0978ec…` reported both). Settles `H-A-PCB-CU-PLANE`.
 
 - **C7** (script copper, change c0053; `blink_routed.PcbDoc`, SHA-256
   `6691042bc82ef6250d4944f6b08ab8be16b8aeb83d39f0c6975d42cfc332333a`): the copper comes from the design
@@ -304,7 +307,7 @@ Altium Designer. No file that Altium wrote is committed.
 
 | file | SHA-256 |
 |---|---|
-| `tests/data/altium/board6/board6.PcbDoc` | `9da3b8c4bd6f1c832251bccfc3eb02e93e714cb179f55af16c08a0ec21b83e8a` |
+| `tests/data/altium/board6/board6.PcbDoc` | `39fa67748befc67521ba04f8bf78aa2e66cf75105bfebd704e99ccc3e404f7ee` |
 | `tests/data/altium/board6/board6.PcbLib` | `9d09f5126ba6aad6026f4c85fa2899c908eaa363aeaec1b58b59e64a11666e22` |
 | `tests/data/altium/board6/board6.PrjPcb` | `75e7078fdb8fc79b606ad0c0a3acf30103faada43dc440a7fb01e5daad2f7219` |
 | `tests/data/altium/board6/board6.SchDoc` | `36e9850be729dd5e91e14c9b0adab1fb9ac7ef036154839f94d279a12ffc2118` |
@@ -332,6 +335,7 @@ Values to compare (millimetres from the outline's upper-left corner, Y down, as 
 | keep-out | rectangle (22, 12) to (30, 17) on the Keep-Out layer; restrictions: vias and tracks (value 3, in the keys `KEEPOUTRESTRICTIONS` and `KEEPOUTRESTRIC`) |
 | hole | (4, 25), 3.2 mm, not plated, no copper |
 | polygons | `GND` on Top Layer and `GND` on Bottom Layer, each 1 mm inside the outline, unpoured |
+| plane (change c0389, task 2.7) | one `Split Plane` polygon on Internal Plane 1, net `GND`, over the outline; the rules `PlaneConnect` (pads Relief, vias Direct) and `PlaneClearance` (20 mil) |
 | graphics | a line on Mechanical 13, an arc, a circle and a filled triangle on Top Overlay, a rectangle on Mechanical 14 |
 
 Steps; report one generic outcome per step (`as expected`, or what differed in one sentence), the tool as
@@ -664,9 +668,11 @@ measures them by observation: the maintainer makes panels of a board built by Fe
 Altium Designer 26.5 and saves one document per variant, each differing from the baseline by one
 property; Fenolite reads the saved files with its own reader (`fenolite diff A B --view records`, and a
 dump of the opaque `EmbeddedBoards6` stream). Phase B (after task 7.2) asks Altium to open what Fenolite
-writes. Releases write no array until Q7, Q8 and Q9 pass (`pcbdoc.EMBEDDED_ARRAYS`), and release 0.5.0
-waits on them (the maintainer's decision of 2026-10-16); if the stop rules of the design end the array
-work, the flattened panel is what ships.
+writes. Releases wrote no array until Q7, Q8 and Q9 passed (`pcbdoc.EMBEDDED_ARRAYS`, the maintainer's
+decision of 2026-10-16). They passed in Altium Designer 24.5.2.23 on 2026-11-05 (S-1585, S-1593), and the
+gate is on (change c0389, task 3.3): a panel of a `.PcbDoc` board with an unturned, unmirrored grid is
+written as the array. **Limitation:** Altium rereads a changed board only after it is restarted;
+reopening the panel in the same session keeps the old copies (Q8).
 
 **Files of phase A.** Built outside the repository by `FENOLITE_ALTIUM_PART_Q=~/fenolite-altium-checks/session-6/Q-panels
 uv run pytest tests/unit/backends/altium/test_part_q.py -k phase_a`: `board/`, the fixture
@@ -704,12 +710,16 @@ Work on a copy of the folder. For each case report `as expected` or what differe
 7. **Q7** Open `written/panel.PrjPcb` and `panel.PcbDoc`. Expected: no repair message; one array of
    `board.PcbDoc`, 2 × 2, with the properties of `expected.md`.
 8. **Q8** Move one track of `board.PcbDoc`, save, return to `panel.PcbDoc` and refresh (or reopen).
-   Expected: all four copies show the move. Then select the two mechanical layers. Expected: types V Cut
+   Expected: all four copies show the move. A restart of Altium counts as the reopen (coordinator's
+   decision of 2026-11-05): Altium rereads a changed board only after it is restarted. Then select the two mechanical layers. Expected: types V Cut
    and Route Tool Path when task 7.2 writes them, otherwise unassigned with the names `V-Cut` and
    `Route Tool Path`.
-9. **Q9** Gerber Files and NC Drill Files of `written/panel.PcbDoc` with their defaults. Expected: four
-   copies; the mouse-bite and tooling holes in the non-plated drill file; the `V-Cut` layer in its own
-   Gerber file.
+9. **Q9** Gerber Files and NC Drill Files of `written/panel.PcbDoc`, with NC Drill Setup's "Generate
+   separate NC Drill files for plated & non-plated holes" on and the `V-Cut` layer ticked in Gerber Setup.
+   Expected: four copies; the mouse-bite and tooling holes in the non-plated drill file; the `V-Cut` layer
+   in its own Gerber file. Note (2026-11-05): the coordinator's decision, by the maintainer's delegation,
+   turns both options on, because neither is stored in the PCB document (S-1593); the first text asked for
+   the defaults.
 10. **Q10** **Tools » Design Rule Check** on `written/panel.PcbDoc`. Expected: report every message; none
     is expected to block the outputs.
 11. **Q11** Open `flat/panel.PcbDoc` (the flattened panel), run Q9 and Q10 on it. Expected: it opens
@@ -725,7 +735,418 @@ expected and observed outcome). Q1 to Q4 settle the measurement of `H-A-PANEL-RE
 `EMBEDDED_ARRAYS`. Saved native files stay outside the repository; only measured facts, digests and sizes
 are committed.
 
+## Part H: a slot shorter than its hole (change c0416)
+
+No native kit form is claimed. The agent run of 2026-11-05 is under "Reports" (S-1605). Altium's pad dialog says a slot's Length cannot be smaller than
+its Hole Size (S-0770), but a record may hold a smaller one. KiCad 10.0.6 reads such a hole by its extents:
+an oval whose long side lies across the record's slot rotation. Level 3 of `equivalent` compares slots that
+way (change c0416, `pcb-records.md`). This part asks what Altium Designer makes of the record
+(`H-A-SLOT-SHORT`).
+
+**Files.** Built outside the repository by `FENOLITE_ALTIUM_PART_H=~/fenolite-altium-checks/H-short-slots
+uv run pytest tests/unit/backends/altium/test_part_h.py`:
+
+- `holes.PcbDoc`, a free PCB document;
+- `slots.PcbLib`, a free PCB library;
+- `expected.md`, the fields of every pad read back from the files, and the axis KiCad gives each slot;
+- this text as `README.md`;
+- `SHA256SUMS`.
+
+The board is 60 × 40 mm. Its six free plated pads `P1` to `P6` lie at X 10, 18, 26, 34, 42 and 50 mm, Y
+20 mm from its lower-left corner. They are 4 mm round on Multi-Layer, and each has a slotted hole whose two
+numbers are 1 mm and 2.15 mm. The footprint `SL` of the library holds the same six pads, numbered `1` to
+`6`.
+
+| pad | Hole Size | Length | hole Rotation | pad Rotation | KiCad 10.0.6 axis |
+|---|---|---|---|---|---|
+| `P1` | 1 | 2.15 | 0° | 0° | 0° |
+| `P2` | 2.15 | 1 | 0° | 0° | 90° |
+| `P3` | 1 | 2.15 | 30° | 0° | lost |
+| `P4` | 2.15 | 1 | 30° | 0° | lost |
+| `P5` | 1 | 2.15 | 90° | 45° | 135° |
+| `P6` | 2.15 | 1 | 0° | 30° | 120° |
+
+`P1`, `P3` and `P5` are controls that Altium's dialog allows. `P2`, `P4` and `P6` hold the Length below the
+Hole Size. The axis is the direction of the hole's long side, counter-clockwise from the board's X axis.
+
+Work on a copy of the folder. For each case report `as expected` or what differed, in one sentence.
+
+1. **H1** Open `holes.PcbDoc` and double-click each pad `P1` to `P6`. Expected: the document opens with no
+   repair message, and the Properties panel shows each pad's Hole Shape Slot, Hole Size, Length and both
+   rotations as in the table. Report the four values Altium shows for `P2`, `P4` and `P6`, and any message.
+2. **H2** In 2D and in 3D Layout Mode (`3`, then `2`), look at each hole. Expected: each hole's long side
+   lies along the KiCad axis of the table, and `P3` along 30° and `P4` along 120°. Report the direction of
+   each long side (horizontal, vertical or the angle) and its length. For one short slot, measure it with
+   Reports » Measure Distance between the two ends of its hole.
+3. **H3** Run **File » Fabrication Outputs » NC Drill Files** (defaults) and **Drill Drawings**. Expected:
+   six slots in the plated drill file, each 2.15 mm long and 1 mm wide along its H2 axis. Send the drill
+   file or files and note any message.
+4. **H4** Save `holes.PcbDoc` with **File » Save As** to `holes-saved.PcbDoc`, then run
+   `FENOLITE_ALTIUM_H4=<that file> uv run pytest tests/unit/backends/altium/test_part_h.py -k h4` in the
+   repository. Expected: the test passes, so Altium kept each pad's four numbers. Otherwise the failure
+   names each changed field.
+5. **H5** Open `slots.PcbLib`, footprint `SL`, and double-click pads `1` to `6`. Expected: no repair
+   message, and the values of H1. Then on a copy, set pad `1`'s Length to 0.9 mm. Report whether Altium
+   accepts a Length below the Hole Size, and close without saving.
+6. **H6** Save the unchanged `slots.PcbLib` with **File » Save As** to `slots-saved.PcbLib`, then run
+   `FENOLITE_ALTIUM_H6=<that file> uv run pytest tests/unit/backends/altium/test_part_h.py -k h6`.
+   Expected: the test passes.
+
+Send the Altium Designer version (`AD <major>.<minor>`), the date, the SHA-256 of `holes.PcbDoc` and of
+`slots.PcbLib` from `SHA256SUMS`, and one outcome per case, in the form of the native acceptance inventory
+(date, version, case, file hash, step, expected and observed outcome).
+
+- H2 and H3 settle `H-A-SLOT-SHORT`.
+- H1, H4, H5 and H6 say whether Altium keeps, rewrites or refuses such a record.
+- If Altium reads the short slots differently, the slot form of change c0416 and the Altium adapter are
+  revisited.
+
+## Part Z: component bodies (changes c0387 and c0175)
+
+The cases measure the component-body records that the Altium import keeps with unknown heights
+(`altium.import.body-unknown`, c0387) and how a document stores one 3D model placed at four rotations
+(c0175, task 10.4). Altium writes each file; Fenolite only reads the saved files. Prepare with
+`FENOLITE_ALTIUM_PART_Z=<outside folder> uv run pytest tests/unit/backends/altium/test_part_z.py -k kit`.
+The kit holds `body2/` (the committed project of step X8, `tests/data/altium/body2/`, as it is),
+`Box_2x1.step` (an authored CC0 box of 2 × 1 × 0.5 mm, `tests/data/models/Fenolite.3dshapes/`),
+`expected.md` (the bodies of `body2.PcbDoc` as Fenolite reads them), `README.md` (these steps) and
+`SHA256SUMS`. Work on a copy. Save each result with **File » Save As** in `body2/` under the name the case
+gives, and report per case the date, the exact version, what the Properties panel shows and whether a
+message appeared.
+
+1. **Z1** A body on the other side. Open `body2/body2.PcbDoc`, select the extruded body of `U1` (a top
+   part) and set its side in the Properties panel to the bottom side; save as `Z1.PcbDoc`. Expected:
+   Altium accepts the setting; report what the 3D view shows (the body above or below the board).
+2. **Z2** Each model type. Open `body2/body2.PcbDoc` and, on `R1`, place one 3D body of each type that
+   **Place » 3D Body** offers: an extruded body, a generic model from `Box_2x1.step` (embedded), a
+   cylinder and a sphere, with an overall height of 2 mm each; save as `Z2.PcbDoc`. Expected: one body per
+   type; report the names of the types the dialog offers.
+3. **Z3** Heights at the limits. Open `body2/body2.PcbDoc` and, on the extruded body of `R1`, try in turn:
+   standoff −0.5 mm with overall 1 mm; overall 1 mm with standoff 2 mm; overall 0 mm; overall 100 mm.
+   Report which values the panel accepts and which it changes or refuses. Save the last accepted state as
+   `Z3.PcbDoc`. Expected: the values that the panel keeps are the values the saved file holds.
+4. **Z4** One model at four rotations (c0175). Open `body2/body2.PcbDoc`, place on `U1` four generic model
+   bodies from `Box_2x1.step` (embedded) with a rotation about Z of 0°, 90°, 180° and 270°; save as
+   `Z4.PcbDoc`. Expected: four bodies; report whether Altium asks to embed the model once or four times.
+
+Read the saved files with `FENOLITE_ALTIUM_PART_Z_SAVED=<folder of the saved files> uv run pytest
+tests/unit/backends/altium/test_part_z.py -k saved -s`, which prints, per body, its component, projection,
+model type, heights, model name and rotation, and per entry of the `Models` storage its keys, and refuses
+a folder that fails the kit privacy scan. These cases settle `H-A-IMP-BODY` and `H-A-IMP-BODY-Z` for the
+cases they measure (c0387, task 1.2) and the model store per rotation (c0175, task 10.4). The agent run of
+2026-11-05 is under "Reports" (S-1604); an agent run moves no row.
+
 ## Reports
+
+### 2026-11-05, actual `AD24.5.2.23`, Part H (source S-1605)
+
+A Claude agent ran H1 to H6 on 2026-11-05 at the maintainer's request (delegation of 2026-11-04), in the
+maintainer's Windows VM, under the approved 24.5 scope. This is not the maintainer's own review.
+`Client.GetProductVersion` is 24.5.2.23 (Trial licence). The kit was built at `4ab835e1`
+(`origin/cac/lote-22`) with `FENOLITE_ALTIUM_PART_H=<outside folder> uv run pytest
+tests/unit/backends/altium/test_part_h.py` into `~/fenolite-altium-checks/claude-2026-11-05/c0416-H`:
+`holes.PcbDoc` `e31205570a2a…` and `slots.PcbLib` `db575bcd1ff5…`. The run used a VM copy, and both
+inputs still match `SHA256SUMS` after the run. Menu commands ran through UI Automation. The Properties
+fields were read by their automation ids after an authored read-only DelphiScript selected each pad.
+
+| date | version | case | file (SHA-256) | step | expected | observed |
+|---|---|---|---|---|---|---|
+| 2026-11-05 | AD 24.5 | H1 | `holes.PcbDoc` `e31205570a2a…` | open; Properties of `P1` to `P6` | no repair message; values as the table | as expected. No message on open. Hole Shape `Slot` for all six. `P2`, `P4` and `P6` show Hole Size 84.646 mil and Length 39.37 mil, hole rotation 0, 30 and 0, pad rotation 0, 0 and 30. `P1`, `P3` and `P5` show 39.37 and 84.646 mil, hole rotation 0, 30 and 90, pad rotation 0, 0 and 45 |
+| 2026-11-05 | AD 24.5 | H2 | `holes.PcbDoc` `e31205570a2a…` | 2D and 3D Layout Mode, each hole; Reports » Measure Distance on one short slot | long sides along 0°, 90°, 30°, 120°, 135° and 120° | as expected. A fit of the hole pixels of each 2D view, scaled by the 4 mm pad, gives axes 0.0°, 90.0°, 30.1°, 119.9°, 134.9° and 119.9°, each 2.14 to 2.16 mm long and 0.99 to 1.00 mm wide. 3D Layout Mode shows the same directions. Measure Distance between the visible ends of `P2`'s hole reads Y 85 mil (2.16 mm, on a 5 mil snap) |
+| 2026-11-05 | AD 24.5 | H3 | `holes-SlotHoles.TXT` `014b1f81…`, `holes.DRR` `c50e9f5a…`, `holes.LDP` `98599f2f…` | File » Fabrication Outputs » NC Drill Files (defaults), Drill Drawings | six plated slots, 2.15 × 1 mm, along the H2 axes | as expected. NC Drill writes no round-hole file, only `holes-SlotHoles.TXT`: `;TYPE=PLATED`, tool `T01` 1.0 mm, and six routed paths (`G00`, `M15`, `G01`, `M16`) of 1.15 mm between centres, at 0°, 90°, 30°, 120°, 135° and 120°. With the 1 mm tool, each slot is 2.15 × 1 mm. The report lists `T1` 1 mm, Slot, 6, PTH. An Import Mill/Route Data dialog followed and was cancelled, and the CAMtastic document that opened was closed unsaved. Drill Drawings opens a print preview with six drill symbols in a row and no drill table; nothing was printed |
+| 2026-11-05 | AD 24.5 | H4 | `holes-saved.PcbDoc` `1de97471…` | File » Save As, then `FENOLITE_ALTIUM_H4=<file> … -k h4` | the test passes | as expected. No message on save. 1 passed, with or without a reviewed prefix. The kit privacy scan finds the file's own VM path in its header |
+| 2026-11-05 | AD 24.5 | H5 | `slots.PcbLib` `db575bcd1ff5…` | footprint `SL`, pads `1` to `6`; then pad `1` Length 0.9 mm on an unsaved copy | no repair message; values of H1; report whether Length below Hole Size is accepted | no message on open, and the six pads show the values of H1. On the unsaved copy, Length 0.9 mm with Hole Size 1 mm is accepted with no message: the panel keeps Slot, 1 mm and 0.9 mm. The library was closed without saving |
+| 2026-11-05 | AD 24.5 | H6 | `slots-saved.PcbLib` `f142d52c…` | File » Save As of the unchanged library, then `FENOLITE_ALTIUM_H6=<file> … -k h6` | the test passes | as expected. No message on save, and 1 passed |
+
+Altium reads each short slot as KiCad 10.0.6 does. The hole spans the two numbers' extents, and its long
+side lies across the record's slot rotation (`P2` 90°, `P6` 120°). `P3` and `P4`, which KiCad loses, lie at
+30° and 120°. Altium keeps the four numbers of every pad through Save As (H4, H6). Its panel accepts a
+Length below the Hole Size (H5). `norm.slot_form` and the Altium adapter need no change. `H-A-SLOT-SHORT`
+keeps its level, because this is an agent run, not a kit form.
+
+### 2026-11-05, actual `AD24.5.2.23`, Part Z (source S-1604)
+
+A Claude agent ran Z1 to Z4 on 2026-11-05 at the maintainer's request (delegation of 2026-11-04), in the
+maintainer's Windows VM, under the approved 24.5 scope. This is not the maintainer's own review.
+`Client.GetProductVersion` is 24.5.2.23 (Trial licence). The kit is
+`~/fenolite-altium-checks/claude-2026-11-05/c0387-Z-bodies` (`SHA256SUMS` `95e3ff5b…`; `body2.PcbDoc`
+`bee5811b…`, `Box_2x1.step` `d8d09829…`), and the run used a VM copy of it. Menu commands ran through UI
+Automation, and Properties fields were set by their automation ids. Each body was selected with an
+authored read-only DelphiScript. The saved files stay outside the repository in
+`~/fenolite-altium-runs/2026-11-05-Z/`: `Z1.PcbDoc` `b86a88cf…`, `Z2.PcbDoc` `938bf7c6…`, `Z3.PcbDoc`
+`31b36fc9…` and `Z4.PcbDoc` `ca7ab0b1…`. Each holds one absolute path, its own VM file name in the header
+(offset 5241). The kit privacy scan reports it, so the reader ran with `FENOLITE_KIT_REVIEWED_PREFIX` set to
+that VM folder: `FENOLITE_ALTIUM_PART_Z_SAVED=<folder> uv run pytest
+tests/unit/backends/altium/test_part_z.py -k saved -s`, 1 passed.
+
+| date | version | case | file (SHA-256) | step | expected | observed |
+|---|---|---|---|---|---|---|
+| 2026-11-05 | AD 24.5 | Z1 | `Z1.PcbDoc` `b86a88cf…` | U1's extruded body, Board Side set to Bottom in the Properties panel | Altium accepts; report the 3D view | accepted with no message. Board Side offers `Top` and `Bottom`, and the layer stays Mechanical 13. In 3D, U1's pads show bare from the top. With View » Flip Board, a grey block appears under U1, so the body is drawn below the board. Saved: U1 `BODYPROJECTION=1`, `V7_LAYER=MECHANICAL13`, standoff 0 mil, overall 98.4252 mil. How far the block reaches below the bottom face was not measured |
+| 2026-11-05 | AD 24.5 | Z2 | `Z2.PcbDoc` `938bf7c6…` | one body of each type, 2 mm high | one body per type; names of the types | the Place menu offers `Extruded 3D Body` and `3D Body`. `3D Body` opens a file chooser, Choose Model, for a STEP file. Cylinder and sphere are not Place commands: the panel's Model Type offers `Generic`, `Extruded`, `Cylinder` and `Sphere`, so two placed extruded bodies were switched to `Cylinder` (height 2 mm, radius 0.5 mm) and `Sphere` (radius 1 mm). Placed bodies have no component, so none is on `R1`. A generic body has no height field. Saved: extruded `MODELTYPE=0`, overall 78.7402 mil; generic `MODELTYPE=1`, `Box_2x1.step`, `EMBED=TRUE`, overall 16.9291 mil; cylinder `MODELTYPE=2`, overall 78.7402 mil; sphere `MODELTYPE=3`, standoff −39.3701 mil and overall 39.3701 mil; one `Models` entry |
+| 2026-11-05 | AD 24.5 | Z3 | `Z3.PcbDoc` `31b36fc9…` | R1's extruded body (standoff 19.685, overall 157.48 mil): (a) overall 1, standoff −0.5; (b) overall 1, standoff 2; (c) overall 0; (d) overall 100 mm | report what is kept; the file holds what the panel keeps | no message in any step. (a) both kept: overall 39.37, standoff −19.685 mil. (b) the panel swaps them: overall 78.74, standoff 39.37 mil. (c) swapped again: overall 39.37, standoff 0 mil. (d) kept: overall 3937.008 mil, standoff 0. Saved after (d): `STANDOFFHEIGHT=0mil`, `OVERALLHEIGHT=3937.0079mil`. The file holds what the panel kept |
+| 2026-11-05 | AD 24.5 | Z4 | `Z4.PcbDoc` `ca7ab0b1…` | four generic bodies from `Box_2x1.step`, Rotation Z° 0, 90, 180 and 270 in the panel | four bodies; embed asked once or four times | Altium never asked to embed. Each Place » 3D Body read the file again. Saved: four bodies `MODELTYPE=1`, `EMBED=TRUE`, `MODEL.3D.ROTZ` 0, 90, 180 and 270, and four `Models` entries, one per body, each with its own `ID`. Each entry's `ROTZ` equals its body's (`ROTX`, `ROTY` and `DZ` are 0). Placed bodies have no component, so none is on `U1`. Every body was placed by its own Place command, so the run does not separate "rotation selects the entry" from "each placement adds an entry" |
+
+`H-A-IMP-BODY` and `H-A-IMP-BODY-Z` keep their levels, because this is an agent run, not a kit form.
+Fenolite's reader reads each saved field as the panel showed it. The facts are in `pcb-bodies.md`,
+"Agent observations in AD 24.5 (S-1604)".
+
+### 2026-11-04, actual `AD24.5.2.23`, Part Q
+
+Source S-1576. A Claude agent ran phase A at the maintainer's request of 2026-11-04 in the maintainer's
+Windows VM. This is not the maintainer's own review and not the author report the rows ask for.
+`Client.GetProductVersion` is 24.5.2.23 (Trial licence). The kit was built at `7074a68e` into the agent's
+folder `~/fenolite-altium-checks/claude-2026-11-04/c0173-Q` with `FENOLITE_ALTIUM_PART_Q=<that folder>
+uv run pytest tests/unit/backends/altium/test_part_q.py -k phase_a` (2 passed). The agent worked on a copy
+of `board/` in the VM. Menu commands ran through UI Automation, and the Properties fields were set by
+their automation ids. After the run, every kit input still matches `SHA256SUMS`: `board.PcbDoc`
+`fd478b3a…`, `board.PrjPcb` `0c74499f…`, `board.PcbLib` `2005c279…`, `board.SchDoc` `9d59eedd…`,
+`board.SchLib` `799ee1d2…`, `board.OutJob` `adfeb5f1…`.
+
+| date | version | case | file (SHA-256) | step | expected | observed |
+|---|---|---|---|---|---|---|
+| 2026-11-04 | AD 24.5 | Q1 | `panel-a.PcbDoc` `83999080…` | new PCB, Place » Embedded Board Array/Panelize, `board.PcbDoc` through the PCB Document "…" button, X 5, Y 5, 2 × 2, spacing 42/32 | four boards with 2 mm gaps; note any synchronize dialog | four boards with gaps; the margin fields show 2 mm. No synchronize dialog appeared, and the save showed no message. The project file was not saved: `board.PrjPcb` is unchanged, and the output reports name the panel a free document |
+| 2026-11-04 | AD 24.5 | Q2 | `panel-cols4` `a89373ac…`, `panel-rows3` `01cda5ef…`, `panel-spacing` `02f131b0…`, `panel-margin` `cc7e29c6…`, `panel-rot90` `f4f78485…`, `panel-mirror` `0c9b26b8…`, `panel-link` `c23a57e9…`, `panel-move` `32910ced…` | one change on a reopened `panel-a`, then Save As | each saves; note other fields that change | each saves with no message. Spacing 45/35 sets the margins to 5 mm. Margin 3 sets the spacings to 43/33 mm. No other field changed |
+| 2026-11-04 | AD 24.5 | Q3 | none | mechanical layers V Cut and Route Tool Path | `panel-layers` saves; note the layer numbers | not run. View » Panels » View Configuration opened as a floating panel over the Projects panel, and a right-click reached another project's document. The agent dismissed that menu with Esc, chose nothing, and stopped the case |
+| 2026-11-04 | AD 24.5 | Q4 | `panel-two.PcbDoc` `1552077e…` | second array at X 100, Y 5, 1 × 1 | two arrays | two arrays: 2 × 2 at (5, 5) and 1 × 1 at (100, 5). The new array starts with spacings 1500/2500 mil |
+| 2026-11-04 | AD 24.5 | Q5 | `panel-a.GTL` `cf0afc72…`, `panel-a.GBL` `1a5504c0…`, `panel-a.TXT` `476dcc4b…` | File » Fabrication Outputs » Gerber Files (Apply) and NC Drill Files (OK), defaults | four copies in copper and drill; list of files | four copies. The top copper has 28 flashes and the bottom copper 12, which is 7 and 3 per copy. The drill file has 4 holes of 0.3 mm (vias) and 8 of 0.9 mm (LED pads). The outline file `GM` holds one rectangle. Gerber opened a CAM document. For NC Drill, Import Drill Data was cancelled, and an `Error` box with OK followed (its text was not read). Neither CAM document was saved. Files: `panel-a.GTL`, `.GBL`, `.GTO`, `.GBO`, `.GTP`, `.GBP`, `.GTS`, `.GBS`, `.GM`, `.apr`, `panel-a-macro.APR_LIB`, `.EXTREP`, `.REP`, `.TXT`, `.LDP`, `.DRR`, `Status Report.Txt`. They were written in `board/`, not under `Project Outputs`. The drill status report advises a separate BOM per embedded board |
+| 2026-11-04 | AD 24.5 | Q6 | the ten saved panels above | copy without `History` and outputs; path scan before reading | the scan runs before anything is read | `fenolite kit verify` refuses the folder with `FEN-3001` (no `kit.json`). The kit privacy scan `privacy_scan`, called directly, finds two strings in each of the ten panels. One is a VM home folder in the Board record's `2DCONFIGFULLFILENAME`, the path of Altium's 2D view configuration. The other is the document's own VM path in its `FILENAME` header. Of the outputs, only `panel-a.LDP` holds a VM path. The folder cannot be published as it is. Only digests and the facts below were read from it |
+
+In each saved panel, one text record per array holds `DOCUMENTPATH=board.PcbDoc` (relative), `X`, `Y`,
+`COLCOUNT`, `ROWCOUNT`, `COLSPACING`, `ROWSPACING`, `MIRROR`, `ORIGINMODE` (1, and 0 with Link Location on),
+`TCOLOR` and `VISIBLELAYERS`. Between `panel-a` and each variant, that record changes only in the field the
+variant set, plus the spacings in `panel-margin`. No margin field is stored. `panel-rot90` has the same
+record as `panel-a`, so its rotation is stored elsewhere. Its file hash differs. The opaque
+`EmbeddedBoards6` stream was not read. The saved files stay in `c0173-Q/saved/board/` and the outputs in
+`c0173-Q/outputs/`, both outside the repository.
+
+`H-A-PANEL-RECORD` stays `UNKNOWN`: its row names 26.5, and these are agent observations under the
+approved 24.5 scope. `H-A-PANEL-LAYERKIND` stays `UNKNOWN` (Q3 not run). Task 2.4 stays open.
+
+**Evening retry of Q3, and Q5 (source S-1580).** At the maintainer's second request of 2026-11-04 the
+agent tried Q3 again on the same VM copy of `panel-a.PcbDoc` (`83999080…`, unchanged) in Altium 24.5.2.23.
+View » Panels » View Configuration again opened as a floating panel over the Projects panel. A right-click
+on its "Mechanical Layers (M)" row opened the Projects panel's document menu (Open, Remove from
+Project…, and so on). The agent closed it with Esc and chose nothing. A read-only DelphiScript read the
+`Kind` of mechanical layer 20 as 0. The agent did not set any kind by script, because no source here
+maps kind numbers to V Cut or Route Tool Path, and Q3 asks for the panel's own fields. Q3 stays not run,
+and nothing was saved.
+
+The four copies of Q5 are the expected outcome, not a defect. Q1 set Column Count 2 and Row Count 2, so
+the array holds four boards. The outputs repeat each board's 7 top and 3 bottom flashes four times.
+
+### 2026-11-04 evening, actual `AD24.5.2.23`, Part Q phase B (source S-1585)
+
+Run by a Claude agent at the maintainer's request of 2026-11-04/05 in the maintainer's Windows VM. It is
+not the maintainer's own review. The kit was built from the Part Q phase B builder at `aa49b069`
+(`origin/cac/lote-14`). This branch lacks the array writer of task 7.2, so the kit came from that commit.
+Its digests are `written/panel.PcbDoc` `75bb8545…`, `board/board.PcbDoc` `fd478b3a…` and
+`flat/panel.PcbDoc` `ab1e0159…`. The run used a VM copy of the kit. Q8 saved only that copy of
+`board.PcbDoc`. `written/panel.PcbDoc` and `flat/panel.PcbDoc` are unchanged after the run.
+
+| case | expected | observed | result |
+|---|---|---|---|
+| Q7 | opens with no repair message; one 2 × 2 array of `board.PcbDoc` as `expected.md` | no new message; one array, `..\board\board.PcbDoc` with its child loaded, 2 × 2, spacing 42 / 32 mm, at (0, 5) mm, 82 × 62 mm, rotation 0, not mirrored, `OriginMode` 1; Mechanical 1 `Route Tool Path`, Mechanical 2 `V-Cut`; 40 × 0.6 mm and 4 × 3 mm non-plated free pads; 3 free 1 mm Top pads | pass |
+| Q8 | after a saved move in `board.PcbDoc`, all four copies show it | the agent moved one free Top track by +2 mm in X (to 12.8, 10 – 20, 10 mm) and saved (`51361162…`, read back at the new place). The four copies still show the old place after closing and reopening both documents. The array's in-memory child board, path `written\../board/board.PcbDoc`, still lists the old track. Altium was not restarted | fail |
+| Q8 (layers) | unassigned, named `V-Cut` and `Route Tool Path` | `Kind` 0 for both, the same value as the unnamed mechanical layers; the names match | pass |
+| Q9 | four copies; mouse-bite and tooling holes in the non-plated drill file; `V-Cut` in its own Gerber | Gerber Files with defaults writes 11 Gerber files. Every mechanical layer is unticked by default, so no `V-Cut` file is written. The board profile is 82 × 72 mm. NC Drill with defaults writes one file, `panel.TXT`. Under `;TYPE=PLATED` it holds 4 × 0.3 mm and 8 × 0.9 mm: one via and two holes per copy. Under `;TYPE=NON_PLATED` it holds 40 × 0.6 mm and 4 × 3 mm. After Cancel in Import Drill Data, an "Error" dialog without readable text came up, and a CAMtastic document opened | partial: copies and holes pass; no separate non-plated file and no `V-Cut` Gerber by default |
+| Q10 | every message; none blocks the outputs | 36 violations, all on free pads: 32 MinimumSolderMaskSliver (7.748 mil between neighbouring mouse-bite holes) and 4 HoleSize (3 mm > 100 mil). The copies' own content is not reported. The outputs of Q9 were written | pass |
+| Q11 | the flat panel opens without repair; the same holes and layers; note repeated-designator messages | no new message on open; no repeated-designator message. 71 pads, the same drill table as Q9 and the same Gerber file set. DRC gives 88 violations: the same 36, plus 48 SilkToSolderMaskClearance and 4 NetAntennae from the copies' content | pass |
+| Q12 | Save As `panel-saved.PcbDoc` reads back the same array | File » Save As wrote `panel-saved.PcbDoc` (`c312d8e9…`, 762368 bytes) with no message; `FENOLITE_ALTIUM_Q12=<that file> uv run pytest tests/unit/backends/altium/test_part_q.py -k q12`, run at `aa49b069`: 1 passed | pass |
+
+`H-A-PANEL-RECORD`, `H-A-PANEL-LAYERKIND` and `H-A-PANEL-KIT` keep their levels, because this was an
+agent run. `EMBEDDED_ARRAYS` stays `False`: Q8 did not pass and Q9 passed only in part. The saved files
+and outputs stay in `c0173-QB2-native/`, outside the repository.
+
+### 2026-11-05, actual `AD24.5.2.23`, Part Q
+
+Source S-1593. A Claude agent ran this round at the maintainer's request of 2026-11-05, under the maintainer's
+delegation of 2026-11-04, in the maintainer's Windows VM. It is not the maintainer's own review.
+`Client.GetProductVersion` gives 24.5.2.23 (Trial licence). The agent worked on a fresh VM copy of the
+S-1576 saved folder (`panel-a.PcbDoc` `83999080…`, `board.PcbDoc` `fd478b3a…`). Phase B used the kit
+built at `1169f10d`. Its bytes match the S-1585 kit (`written/panel.PcbDoc` `75bb8545…`,
+`flat/panel.PcbDoc` `ab1e0159…`). The View Configuration panel was floating over the Projects panel, so
+the agent moved it into the document area by its window handle before clicking. During the first try
+of Q3, Altium showed two "Runtime error 216" boxes and an access violation, then exited. The agent
+restarted Altium (no licence prompt or other prompt) and redid Q3 from the unchanged copy; nothing of
+the first try was saved.
+
+| date | version | case | file (SHA-256) | step | expected | observed |
+|---|---|---|---|---|---|---|
+| 2026-11-05 | AD 24.5 | Q3 | `panel-layers.PcbDoc` `d875c453…` (162304 bytes) | View Configuration, right-click a mechanical layer, Add Mechanical Layer twice; Layer Type V Cut, then Route Tool Path; Place » Line on each; Save As | it saves; note the layer numbers and names Altium gives | as expected. Each Add Mechanical Layer opens "Edit Layer" with the next free number and a Layer Type list: N/A, Assembly Notes, Board, Dimensions, Fab Notes, V Cut, Route Tool Path, Sheet, Board Shape. Picking a type replaces the name. Mechanical 2 became `V Cut` (layer 58, `Kind` 25) and Mechanical 3 became `Route Tool Path` (layer 59, `Kind` 28). A third Add Mechanical Layer no longer offers V Cut or Route Tool Path (cancelled). One line on each layer; the save showed no message |
+| 2026-11-05 | AD 24.5 | Q6 | the eleven saved panels of S-1576 and Q3, with the kit's `board/` files | copy of the folder without `History` and `Project Outputs`, zip; the kit privacy scan before anything else reads it | the scan runs before anything is read | as expected. The phase A folder has no `kit.json`, so `fenolite kit verify` refuses it (`FEN-3001`, S-1576). The agent ran the scan that `kit verify` runs (`privacy_scan`) on the zip's 18 members first. It finds 22 strings, a VM home folder and an absolute path in each panel, and none in the kit's own files. The folder stays outside the repository. Only digests and the facts in this section were read from it |
+
+In `panel-layers.PcbDoc` the type is stored twice:
+
+- `Board6` holds `LAYER58MECHKIND=VCut` and `LAYER59MECHKIND=RouteToolPath`, the same in the key families
+  `LAYER_V8_12…`/`LAYER_V8_13…` and `V9_CACHE_LAYER70…`/`V9_CACHE_LAYER71…`, beside the new names and
+  `MECHENABLED=TRUE`. `ROUTETOOLPATHLAYER=MECHANICAL3` is added, and no V Cut counterpart key is.
+- `LayerKindMapping/Data` grows from the 20-byte form (value 0, count 0) to 36 bytes: the `1.0` string, the
+  32-bit value `0x7984CB1F` and two 8-byte entries, (58, 25) and (59, 28). Each entry is a layer number
+  and its `Kind`.
+
+**Q8 again, and the Q9 options.** On the phase B kit the agent moved the same free Top track of
+`board/board.PcbDoc` by +2 mm in X (10.8 → 12.8 mm) and saved it (`d89bdeb0…`).
+
+- Back in `panel.PcbDoc`, the array's child board still lists the old place, as in S-1585. No menu item of
+  Edit, View, Design, Tools or Place refreshes an array.
+- The agent closed Altium with File » Exit (no prompt) and started it again. Opening `panel.PcbDoc` alone
+  then shows the move: the child board lists the track at 12.8–20 mm, and a capture of the document
+  area showed all four copies with the moved track (capture deleted after viewing).
+- So the copies follow a saved change only after Altium restarts. Reopening the panel within one session
+  is not enough. The child board's path reads `written\../board/board.PcbDoc`.
+
+For Q9 the agent turned on NC Drill Setup's "Generate separate NC Drill files for plated & non-plated
+holes". NC Drill then writes `panel-Plated.TXT` and `panel-NonPlated.TXT`. With `V-Cut` ticked in Gerber
+Setup, Gerber writes it as `panel.GM2`. Saved as `panel-q9opts.PcbDoc` (`6bfa6477…`), the document has no
+changed `Board6` key for either option; Altium's resave adds only its usual records. So these choices
+are not stored in the PCB document, and a written panel cannot make them its defaults. Q9 as written
+(defaults) stays partial.
+
+Where the copies lie (change c0386, tasks 1.1 to 1.3, S-1592). Saved panels and Altium outputs per
+variant: `panel-a` has its saved file and the default Gerber and NC Drill outputs of the S-1576 run;
+`panel-rot90`, `panel-mirror` and `panel-link` have their saved files (S-1422) and an NC Drill output made
+this day with the separate plated file still on (`panel-<variant>-Plated.TXT`, the board having plated holes
+only); `panel-cols4`, `panel-rows3`, `panel-spacing`, `panel-margin`, `panel-move` and `panel-two` have
+saved files and no output. `tests/unit/backends/altium/test_panel_placement.py` reads each drill file and
+places the board's 3 drilled holes (the via and the 2 through-hole pads) by the array record. All 12 hits of
+each of the 4 variants lie within 0.001 mm of (`X`, `Y`) + (c · `COLSPACING`, r · `ROWSPACING`) +
+(p − the board's origin). `ROTATION` 90 turns the whole array about (`X`, `Y`), and `MIRROR` mirrors its X
+about `X`. `panel-link` gives the same hits as `panel-a`, because the fixture board's origin is its shape's
+bottom-left corner. Copper and silkscreen start more than 5 mm inside that corner, so the reference is not
+the bottom-left of those objects.
+
+Judged by the coordinator's decision of 2026-11-05, given by the maintainer's delegation: a restart
+counts as Q8's reopen, and Q9 is judged with the separate drill files and the `V-Cut` Gerber on, because
+those options are not stored in the PCB document. Both observations of each case stay recorded.
+
+| case | expected | observed | result |
+|---|---|---|---|
+| Q7 | opens with no repair message; one 2 × 2 array of `board.PcbDoc` as `expected.md` | as S-1585: no message, one 2 × 2 array of `../board/board.PcbDoc` with the properties of `expected.md` | as expected |
+| Q8 | after a saved move in `board.PcbDoc` and a reopen (a restart counts), all four copies show it | within one session, closing and reopening the panel keeps the old track; after Altium is restarted, all four copies show the move | as expected |
+| Q9 | with the separate drill files and `V-Cut` on: four copies; the mouse-bite and tooling holes in the non-plated drill file; `V-Cut` in its own Gerber | with defaults, one drill file `panel.TXT` and no `V-Cut` Gerber (partial, as S-1585); with the options on, `panel-Plated.TXT` holds 4 × 0.3 mm and 8 × 0.9 mm, `panel-NonPlated.TXT` holds 40 × 0.6 mm and 4 × 3.0 mm, and `panel.GM2` holds the 2 rail score lines | as expected |
+
+With Q7, Q8 and Q9 as expected, `EMBEDDED_ARRAYS` is set to `True` (change c0389, task 3.3). Limitation:
+Altium rereads a changed board only after it is restarted. `H-A-PANEL-RECORD`, `H-A-PANEL-LAYERKIND` and
+`H-A-PANEL-KIT` keep their levels, because this was an agent run. The saved files and outputs stay in the
+agent's folder `claude-2026-11-05/rounds/`, outside the repository.
+
+### 2026-11-05, actual `AD24.5.2.23`, Parts D and C, step X8.6 and the long via (source S-1601)
+
+Run by a Claude agent at the maintainer's request (delegation of 2026-11-04) in the maintainer's Windows VM,
+Altium Designer 24.5.2.23 (Trial). It is not the maintainer's own review (c0389 task 2.4). Inputs:
+- copies of the committed `blink`, `routed` and `body2` files, each SHA-256 checked against the tables
+  above;
+- the plane variant `p0`, rebuilt by `-k variants` with digest `8e0978ec…`.
+
+The documents were read through public menus and dialogs and through authored read-only DelphiScript.
+Altium's saves were read with Fenolite's reader. No capture was kept, and every file Altium saved stays
+outside the repository.
+
+| step | observed |
+|---|---|
+| D1 | `blink.PrjPcb` opens and lists `blink.SchDoc`, `blink.PcbDoc`, `blink.PcbLib` and `blink.SchLib`. `blink.PcbLib` opens with no message and holds `Mini_R_0603`, `Mini_LED_THT_3mm` and `Mini_QFP-32_7x7mm_P0.8mm`. Each pad equals the pad table in shape, size and hole. Altium reports the "rounded" pads as rounded rectangles with a 50 % corner. `Mini_LED_THT_3mm` pad 1 is a rectangle and pad 2 a round pad, both 708661 with a 354331 hole on Multi-Layer. Lines and arcs lie on Top Overlay, Mechanical 13 and Mechanical 15 |
+| D2 | A new PCB document added to a copy of the project, then "Update PCB Document" from `blink.SchDoc`. The change order adds 3 components, 4 nets, the component class `blink`, the net class `PWR` and 2 Supply Nets rules. Validation finds every footprint in `blink.PcbLib` and marks nothing invalid. Executed, the board holds `D1`, `R1` and `U1` with their nets |
+| D3 | `blink.PcbDoc` opens with no message. Two copper layers. `D1` lies on Bottom Layer at rotation 0, its pads on Multi-Layer with `GND` and `LED_A`. The source unique ids match the schematic's. "Update PCB Document" adds no component and changes no net; it proposes only the two Supply Nets rules, which the document does not hold, and they validate |
+| C6 | `p0` opens with no message. The stack is Top Layer, Internal Plane 1 (`GND`), Mid-Layer 2 and Bottom Layer. The document holds 4 tracks (none on the plane), 3 vias and one `GND` polygon on Bottom Layer. A design rule check reports "Starved Thermal" on the `GND` via (13 % of the copper connected to the hole) and on `D1` pad 1 (10 %), and an "Un-Routed Net" violation between them. These come from Altium's own Plane Connect and Un-Routed Net rules: the document writes only the 5 rules of the table. **Not as expected**: Altium does not join the `GND` via and the `GND` pad of `D1` through the plane. Connection lines were not read |
+| X8.6 | `body2.PcbDoc` saved under another name. `-k saved_report` prints 3 bodies in `ComponentBodies6` and 3 in `ShapeBasedComponentBodies6`; none keeps the `MODELID` that was written, 3 hold a `MODEL.CHECKSUM` other than 0, and each body has 35 keys. These are the counts of the 2026-10-13 native run (`docs/evidence/altium-native-acceptance.md`) |
+| long via | A copy of `routed.PcbDoc` (Top, Mid-Layer 1, Mid-Layer 2 and Bottom, ids 1, 2, 3 and 32; three through vias of 0.6 mm), read after each of three saves. First Altium's save as is (`s0`). Then "Tools » Remove Unused Pad Shapes" on vias with "Preserve pads on start and end layers" on (`s1`). Then the same with that option off (`s2`). `s0` writes each via in 321 bytes with the table at 209 all zero. In `s1` each via has 330 bytes: the table marks Mid-Layer 1 and 2 for the `GND` via, Mid-Layer 1 for `LED_A` and Mid-Layer 2 for `VIN` (each keeps the inner layer that its track uses). A 32-bit 1 is at 246 and a 32-bit 9 at 250, and nine bytes are inserted at 254: `04 00 80 01`, then 236220 as a 32-bit integer at 258 (the via diameter, 0.6 mm), then `00`. Nothing else differs. `s2` differs from `s1` only at 240, set for the `GND` and `LED_A` vias, whose bottom pad nothing touches. Byte 240 is 208 + 32, the id of Bottom Layer, while Bottom Layer is fourth in the stack |
+
+Not run: C5 (the Viewer upload). The C6 failure leaves `H-A-PCB-CU-PLANE` pending. No level changes.
+
+### 2026-11-05, actual `AD24.5.2.23`, C6 rerun after c0389 task 2.7 (source S-1607)
+
+Run by a Claude agent at the maintainer's request (delegation of 2026-11-04), relayed by the coordinator. It
+used Altium Designer 24.5.2.23 (Trial) in the maintainer's Windows VM. It is not the maintainer's own review.
+The input is the plane variant `p0`, rebuilt at `cdf2f84c` by `-k variants`, with digest `4082a630…`, the
+digest the table above names. It was opened from a VM copy, read with authored read-only DelphiScript and
+checked with Tools » Design Rule Check » Run Design Rule Check, in the same way as the run of S-1601. The
+document was closed without saving and its digest is unchanged.
+
+| step | observed |
+|---|---|
+| C6 | `p0` opens with no message. The stack is Top Layer, Internal Plane 1 (net `GND`), Mid-Layer 2 and Bottom Layer. The board holds 4 tracks (none on the plane), 3 vias, one `GND` polygon on Bottom Layer and one split plane on Internal Plane 1 with net `GND`; no connection line is listed. The rules include `PlaneConnect` ("Relief Connect", expansion 20 mil, conductor 10 mil, air gap 10 mil, 4 entries, `All`) and `PlaneClearance` (20 mil, `All`) besides the five written rules and Altium's defaults. The design rule check reports 42 violations: 1 Net Antennae (the `VIN` track on Bottom Layer), 10 Silk To Solder Mask Clearance and 31 Minimum Solder Mask Sliver. **No Starved Thermal and no Un-Routed Net**: the S-1601 violations on the `GND` via, on `D1` pad 1 and between them are gone. The rule descriptor does not show the via connect style, so "vias Direct" was not read |
+
+The 42 remaining violations concern silk, solder mask and one antenna; the S-1601 report names only the plane
+and routing violations, so they are not compared here. `H-A-PCB-CU-PLANE` keeps its level, because this
+was an agent run. The decision is left to the coordinator.
+
+### 2026-11-04, actual `AD24.5.2.23`, Part T
+
+Source S-1571: [T1–T6 report](altium-part-t-convert-2026-11-04.md) and
+[measured recap](altium-part-t-convert-24-native.json). Run by a Claude agent at the maintainer's
+request of 2026-11-04 in the maintainer's Windows VM, not the maintainer's own review. At source
+`d155b258` only PADSTACK converts: SCHEMATIC is refused with `FEN-3005` and DIFAT fails with `FEN-1001`.
+These two cases were observed on the 2026-10-12 bundle (`complex_hierarchy.PcbDoc` `23a77447…`,
+`vme-wren.PcbDoc` `62d026e1…`). Inputs are unchanged after the run, and nothing was saved.
+
+| case | T1–T2 | T3–T4 | T5 | T6 |
+|---|---|---|---|---|
+| PADSTACK (current) | opens and compiles with no error; 1 component, 1 net | no polygon; 0 violations | no differences | PCB pad, PcbLib pad and the pad of the placed copy are equal: Full Stack, In1 1.2 × 1.2 mm shape 1, In2 1.4 × 1.1 mm shape 2 |
+| SCHEMATIC (2026-10-12) | opens; three sheets, 68 components, 56 nets; 3 errors and 20 warnings | the one polygon pours; 217 violations, 194 of them silk | 2 of 68 components unmatched by unique id; ECO removes 2 net classes, no footprint change | not run |
+| DIFAT (2026-10-12) | opens; 1508 components, 1847 nets; at least 976 messages (469 one-pin-net errors) | 92 of 134 polygons pour; DRC stops at 500 | parameter changes and 2 pins added to nets on `L1`; no footprint change | not run |
+
+Connector masks are not exercised: no source has a `connect` pad. The four `H-A-CONV-*` rows stay
+`INFERRED`, and c0160 5.3 and c0166 2.1 stay open.
+
+### 2026-11-04, actual `AD24.5.2.23`, Part S
+
+Source S-1570: [S1/S2/S8 report](altium-part-s-slots-2026-11-04.md) and
+[measured recap](altium-slots-s1-s2-s8-24-native.json). Run by a Claude agent at the maintainer's
+request of 2026-11-04 in the maintainer's Windows VM, not the maintainer's own review. It uses the same
+input digests as S-1297: regions `be65d4b9…`, clearance `822d31cf…`, gate-off `c798ec46…`. All inputs
+are unchanged after the run, and nothing was saved.
+
+| Case | Measured observation | Result |
+|---|---|---|
+| S1 | Opens with no message. `D1` is a free Multi Layer pad with no designator, a 2 × 12 mm unplated slot, no ring and mask/paste mode 1 (rule values 4 mil/0). NC Drill defaults put it in the NON_PLATED slot file at 30° about (27, 7). Drill Drawings show only the T1 slot symbol, with no slot outline and no legend | as expected for the pad and NC Drill; drill drawing by symbol only |
+| S2 | DRC (existing options) reports Hole To Hole `Pad/Via Touching Holes` for `D2`–`D3`, with the same 7 findings as S5 | as expected |
+| S8 | Four holes and no cut-out region; the report names `cutout/1`, `slot/S1`, `slot/S2+slot/S3` | as expected |
+
+Every case S1–S8 now has a current24 observation on these digests, but from separate operator
+sessions and with no formal record. `H-A-SLOT-KIT` stays `INFERRED`, and task 5.2 stays open.
+
+### 2026-11-03, actual `AD24.5.2.23`, Part S
+
+Source S-1297: [current native report](altium-part-s-slots-2026-11-03.md) and
+[measured recap](altium-slots-24-native.json). S3/S4 and the S5 literal result subtest pass on current24; historical26.5
+observations are unchanged. All three native input hashes remain exact. No global settings changed.
+
+| Case | Measured observation | Result |
+|---|---|---|
+| S3 | Planning/2D/actual3D openings plus native NC3drilled slots/1round NPTH, no milled/cut-out hit | as expected |
+| S4 | One selected L Region, Kind Board Cutout, authored rounded extremities | as expected |
+| S5 | Complete stable7-row native DRC result: TP1 pad Board Outline Clearance7.874mil<19.685mil; no TP2 in that category. All Rules, Normal mode,0waived, cap500 not reached; all other findings retained. No independent native TP2 object census. | as expected |
+| S6 | Later actual Repour All once on scratch822, AD24.5.2.23; Top Layer copper remains outside S1, the merged L and cut-out1; no observed message. Scratch dirty, no save/reopen, new DRC or SDK. | as expected |
+| S7 | Actual24.5.2.23 Save As of original regionsbe65d4 to new saved34baa3; existing S7readback exits0,1pass/1deselected, same4holes/3cutouts within1µm. Original/staged/saved bytes unchanged; no added reopen/DRC/SDK. | as expected |
+
+At capture time, S1/S2/S6/S7/S8 current24 outcomes remained open, CUTOUT_REGIONS was false and
+H-A-SLOT-KIT was INFERRED. Those observation records and their input hashes are unchanged.
+
+Functional continuation, 2026-11-03: retained current24 S3/S4/S5 satisfy only the functional
+cut-out gate. Task5.1a enables CUTOUT_REGIONS and the default three written cut-outs, while
+preserving the explicit gate-off regression. S6 and aggregate5.2 remain open in this continuation;
+H-A-SLOT-KIT remains INFERRED. This does not declare a clean DRC, complete current24 kit, formal
+kit record, writer graduation or release approval.
+
+Later literal S6, observed at native VM UTC2026-11-04T00:10:20Z and reviewed at
+host UTC2026-11-04T00:11:02Z: [separate measured record](altium-slots-s6-24-native.json).
+The root operator invoked public Repour All once on a fresh scratch copy of
+input822d31cf. Actual red Top Layer copper remains and is absent inside S1,
+the merged L S2+S3 and the rounded cut-out1; no message was observed and the
+main returned enabled/foreground with only the scratch dirty. A previous
+attempt refused before expanding the menu or invoking repour. No Save, reopen,
+new DRC or SDK was requested; this does not alter the earlier seven findings
+or prove a saved fill. Only the S6 literal outcome is now as expected.
+Aggregate5.2 and H-A-SLOT-KIT remain open/INFERRED; no full kit, Part T,
+graduation, CI, archive or release result follows. VM/host clocks were not
+calibrated; their timestamps are retained separately.
+
+Later literal S7: [source-bound Save As/readback](altium-slots-s7-24-native.json)
+records actual24.5.2.23 output34baa3 from original regionsbe65d4 and the
+existing readback1pass onad8cbf2e. Only S7 is completed; raw receipts have no
+operation timestamp and no clock equivalence is inferred. S1/S8 remain
+pending; task5.2, formal bools/record, H-A-SLOT-KIT and writer graduation
+are unchanged. Native-saved bytes stay outside the repository.
 
 ### 2026-10-17, `AD 26.5`, Part S
 
@@ -1175,3 +1596,16 @@ These outcomes complete the two requested experiments. The wider hypothesis rows
 `H-A-RULE-CLEARANCE-FORMS` and `H-A-RULE-CLEARANCE-CELLS` remain `INFERRED`: no human
 author report or published kit archive is claimed, and this experiment does not test
 four-layer scoping, all matrix object kinds or cross-rule priority.
+
+## Approved pending-native scope — 2026-11-03
+
+The maintainer explicitly authorized the pending Altium validations on the
+available Altium Designer 24.5.2.23: "tenho so o24.5, mas eu autorizo as
+validacoes serem no24, nao precisa ser na26". This replaces the version
+prerequisite of pending runs only. Record the actual tool/build, input hashes
+and each observed outcome. It does not complete a case, open a write gate,
+raise evidence, prove26.5 equivalence or replace any historical26.5 report.
+Do not combine different versions/input digests into one fictional kit run.
+All existing acceptance criteria, facts-before-code rules and final CI remain.
+The kit form keeps its existing AD major.minor dialect: use AD 24.5; keep full
+build 24.5.2.23 in the separate native observation report, not a new form key.

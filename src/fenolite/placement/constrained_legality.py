@@ -14,6 +14,7 @@ from fenolite.core.coords import Point
 from fenolite.core.errors import Issue, Severity
 from fenolite.core.evidence import Evidence
 from fenolite.geometry.thick import Thick, thick_closer_than, thick_touch
+from fenolite.model.board import area_owners, rule_areas
 from fenolite.model.design import Design
 from fenolite.placement.constraints import MechanicalReview, PlacementConstraints, review_mechanics
 from fenolite.placement.legality import check, outline_rings, ring_inside, rings_overlap
@@ -132,10 +133,13 @@ def check_geometry(
             ):
                 hard.append(f"gap:{first.footprint_id}:{second.footprint_id}:{face}")
     if board is not None:
-        for keepout in board.keepouts:
+        owners = area_owners(board)
+        for keepout in rule_areas(board):
             area = Thick(keepout.outline, 0, True)
             if keepout.no_footprints:
                 for extent in extents:
+                    if extent.footprint_id == owners.get(keepout.id):
+                        continue  # a footprint's own area does not forbid it (change c0411)
                     for face, layer in (("front", "F.Cu"), ("back", "B.Cu")):
                         if layer in keepout.layers and any(
                             rings_overlap(ring, keepout.outline, touching_overlaps=True)

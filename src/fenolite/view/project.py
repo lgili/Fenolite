@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from fenolite.backends.altium.read.project import document_kind, load_project
+from fenolite.core.errors import FormatError
 
 GROUPS = ("Source Documents", "Libraries", "Settings", "Documentation", "Other")
 GROUP_OF: dict[str, str] = {
@@ -98,10 +99,13 @@ class ProjectTree:
 
     def document(self, key: str) -> Document | None:
         """The document whose id, path or name is ``key``."""
-        for doc in self.documents:
-            if key in (doc.id, doc.path, doc.name):
-                return doc
-        return None
+        exact = next((doc for doc in self.documents if doc.id == key), None)
+        if exact is not None:
+            return exact
+        found = [doc for doc in self.documents if key in (doc.path, doc.name)]
+        if len(found) > 1 and any(":instance:" in doc.id for doc in found):
+            raise FormatError("select one explicit sheet instance document id", file=key, locator="instance")
+        return found[0] if found else None
 
     def first_viewable(self) -> Document | None:
         """The board named as the project, else the first board, else the first viewable document."""

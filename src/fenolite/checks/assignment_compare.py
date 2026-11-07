@@ -165,6 +165,25 @@ def _outliers(blocks: Mapping[str, frozenset[str]], other: Mapping[str, str]) ->
     return flagged
 
 
+def _counterparts(blocks: Mapping[str, frozenset[str]], other: Mapping[str, str]) -> dict[str, str]:
+    """Each label of one side mapped to the label of the other side whose block holds most of its single
+    elements (ties map nothing); ``NO_NET`` maps to ``NO_NET``."""
+    found: dict[str, str] = {NO_NET: NO_NET}
+    for name, members in blocks.items():
+        counts = Counter(other[e] for e in members).most_common(2)
+        if counts and (len(counts) == 1 or counts[0][1] > counts[1][1]):
+            found.setdefault(name, counts[0][0])
+    return found
+
+
+def _double_differs(labels_a: set[str], labels_b: set[str], counterparts: Mapping[str, str]) -> bool:
+    """Whether an element with several labels on a side (pads of one number on different nets) differs:
+    its labels of ``a``, mapped through the blocks of the single elements, are not its labels of ``b``. A
+    label of ``a`` that no single element maps leaves the element flagged (change c0425)."""
+    mapped = {counterparts.get(label) for label in labels_a}
+    return None in mapped or mapped != labels_b
+
+
 def _missing(element: str, listed: PadNetList, small: set[str], reasons: Mapping[str, str]) -> Uncovered:
     if element in small:
         return Uncovered(element, "below-min-pins")
@@ -199,6 +218,10 @@ def compare(a: PadNetList, b: PadNetList, *, min_pins: int = 1, joined_no_net: b
     sets_a, sets_b = set(blocks_a.values()), set(blocks_b.values())
     if not flagged and sets_a != sets_b:
         flagged = {e for block in sets_a ^ sets_b for e in block}
+    plain_a = {e: next(iter(cover_a[e])) for e in single}
+    plain_b = {e: next(iter(cover_b[e])) for e in single}
+    counterparts = _counterparts(_blocks(single, plain_a), plain_b)
+    double = {e for e in double if _double_differs(cover_a[e], cover_b[e], counterparts)}
     differences = tuple(
         Difference(e, a.source, b.source, "|".join(sorted(cover_a[e])), "|".join(sorted(cover_b[e])))
         for e in sorted(flagged | double)
@@ -215,7 +238,7 @@ def net_text(label: str, names: Mapping[str, str]) -> str:
     """A partition label as text: ``no net``, or the names of the nets it stands for."""
     if label == NO_NET:
         return "no net"
-    return " and ".join(names.get(part, part) for part in label.split("|"))
+    return " and ".join(names.get(part, part) if part else "no net" for part in label.split("|"))
 
 
 def schematic_file(project: ProjectSet) -> str:

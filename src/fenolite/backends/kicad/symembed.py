@@ -16,7 +16,9 @@ copy and the library copy are one node under two names, so KiCad's ERC finds the
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from fractions import Fraction
+from types import MappingProxyType
 
 from fenolite.backends.kicad import sch
 from fenolite.backends.kicad import slots as slotlib
@@ -28,7 +30,7 @@ from fenolite.backends.kicad.versions import FORMAT_VERSIONS, TARGET_MAJORS, Fil
 from fenolite.core.errors import FormatError, Issue
 from fenolite.core.ids import content_hash
 from fenolite.model.base import Opaque
-from fenolite.model.library import SymbolDef
+from fenolite.model.library import SymbolDef, SymbolPin
 
 FLAG_LIBRARY = "fenolite"
 """The nickname of the library that holds Fenolite's own symbols; a design may not use it."""
@@ -70,6 +72,56 @@ _FLAG_TEXT = f"""(symbol "PWR_FLAG"
 	)
 )"""
 """A staff with a small rectangular flag and one power-output pin at the origin: drawn for Fenolite."""
+POWER_NAMES: Mapping[str, str] = MappingProxyType({"ground": "GND", "rail": "RAIL"})
+"""The kind of a supply → the name of Fenolite's power symbol that draws it (change c0406)."""
+POWER_REFERENCE = "#PWR"
+_POWER_DESCRIPTION = "Power symbol authored for Fenolite: it joins the global net named by its Value"
+_LINE = "\t\t(polyline (pts (xy {} {}) (xy {} {})) (stroke (width 0) (type default)) (fill (type none)))"
+_POWER_GRAPHICS: Mapping[str, str] = MappingProxyType(
+    {
+        # Fenolite's ground: a stem and three bars of decreasing width below the pin
+        "ground": "\n".join(
+            _LINE.format(*points)
+            for points in (
+                ("0", "0", "0", "-1.27"),
+                ("-1.27", "-1.27", "1.27", "-1.27"),
+                ("-0.762", "-1.905", "0.762", "-1.905"),
+                ("-0.254", "-2.54", "0.254", "-2.54"),
+            )
+        ),
+        # a supply rail: a stem and one bar above the pin
+        "rail": "\n".join(
+            _LINE.format(*points) for points in (("0", "0", "0", "1.27"), ("-1.27", "1.27", "1.27", "1.27"))
+        ),
+    }
+)
+
+
+def _power_text(kind: str) -> str:
+    name = POWER_NAMES[kind]
+    down = kind == "ground"
+    return f"""(symbol "{name}"
+	(power)
+	(pin_numbers (hide yes))
+	(pin_names (offset 0) (hide yes))
+	(exclude_from_sim no)
+	(in_bom no)
+	(on_board no)
+	(property "Reference" "{POWER_REFERENCE}" {_HIDDEN})
+	(property "Value" "{name}" (at 0 {"-3.81" if down else "2.54"} 0) (effects (font (size 1.27 1.27))))
+	(property "Footprint" "" {_HIDDEN})
+	(property "Datasheet" "" {_HIDDEN})
+	(property "Description" "{_POWER_DESCRIPTION}" {_HIDDEN})
+	(symbol "{name}_0_1"
+{_POWER_GRAPHICS[kind]}
+	)
+	(symbol "{name}_1_1"
+		(pin power_in line (at 0 0 {270 if down else 90}) (length 0) (hide yes)
+			(name "~" (effects (font (size 1.27 1.27))))
+			(number "1" (effects (font (size 1.27 1.27))))
+		)
+	)
+)"""
 
 
 @dataclass(frozen=True, slots=True)
@@ -232,13 +284,15 @@ def _pins(
     symbol: Node,
     name: str,
     numbers: Mapping[str, tuple[str, ...]],
-    empty: set[tuple[str, str]],
+    canonical: Sequence[SymbolPin],
+    literal: bool,
     shown: list[str],
+    show_hidden_power: bool = True,
 ) -> Node:
     """``symbol`` with its sub-symbols renamed to ``name`` and their pins rewritten: mapped numbers (the
-    first pad of a pin, and one stacked pin after it for each further pad), power inputs shown, and ``~``
-    as the empty name where the library meant it (``empty`` holds the (number, name) pairs the reader gave
-    an empty name)."""
+    first pad of a pin, and one stacked pin after it for each further pad), optionally shown power inputs,
+    and modern literal text for canonical empty names/numbers. Unit/style/order and geometry bind
+    every raw slot to its checked model pin; no empty marker is guessed from its text alone."""
     old = _first_text(symbol)
     children: list[Node | Atom] = []
     for child in symbol.children:
@@ -247,23 +301,44 @@ def _pins(
             continue
         unit, style = split_unit_name(old, _first_text(child))
         body: list[Node | Atom] = []
+        model_pins = [pin for pin in canonical if pin.unit == unit and pin.body_style == style]
+        raw_pins = child.nodes("pin")
+        if len(raw_pins) != len(model_pins):
+            raise FormatError("raw/model pin cardinality differs", file=name, locator=f"unit[{unit},{style}]")
+        pin_index = 0
         for item in _renamed(child, f"{name}_{unit}_{style}").children:
             if not isinstance(item, Node) or item.name != "pin":
                 body.append(item)
                 continue
-            number = _first_text(item.find("number"))
+            pin = model_pins[pin_index]
+            pin_index += 1
+            raw_number = _first_text(item.find("number"))
+            at = item.find("at")
+            values = at.atoms() if at is not None else ()
+            if (
+                len(values) < 2
+                or values[0].to_nm() != pin.position.x
+                or values[1].to_nm() != pin.position.y
+                or (int(Fraction(values[2].value) * 1_000_000) if len(values) > 2 else 0) != pin.rotation
+                or (raw_number != pin.number and not (raw_number == "~" and pin.number == ""))
+            ):
+                raise FormatError("raw/model pin association differs", file=name, locator=f"pin[{pin_index}]")
+            number = pin.number
             pin_children = list(item.children)
             kinds = [a.value for a in item.atoms()]
-            if kinds[:1] == ["power_in"] and any(_is_hide(c) for c in pin_children):
+            if show_hidden_power and kinds[:1] == ["power_in"] and any(_is_hide(c) for c in pin_children):
                 pin_children = [c for c in pin_children if not _is_hide(c)]
                 shown.append(number)
             for index, part in enumerate(pin_children):
                 if not isinstance(part, Node):
                     continue
-                if part.name == "name" and _first_text(part) == "~" and (number, "name") in empty:
+                if part.name == "name" and literal and _first_text(part) == "~" and not pin.name:
                     pin_children[index] = _set_text(part, "")
-                elif part.name == "number" and number in numbers:
-                    pin_children[index] = _set_text(part, numbers[number][0])
+                elif part.name == "number":
+                    if number in numbers:
+                        pin_children[index] = _set_text(part, numbers[number][0])
+                    elif literal and raw_number == "~" and not number:
+                        pin_children[index] = _set_text(part, "")
             written = item.with_children(pin_children)
             body.append(written)
             body += [_stacked(written, pad) for pad in numbers.get(number, ())[1:]]
@@ -330,6 +405,7 @@ def embed_symbol(
     pin_numbers: Sequence[tuple[str, str]] | None = None,
     allow_lossy: bool = False,
     issues: list[Issue] | None = None,
+    show_hidden_power: bool = True,
 ) -> EmbeddedSymbol:
     """The definition a generated sheet embeds for ``definition``.
 
@@ -338,6 +414,8 @@ def embed_symbol(
     ``pin_pad_map``: its pins take those numbers (a pin of several pads its first, with one stacked pin
     per further pad) and the name of ``variant_name``. A token that ``target``
     does not read raises ``LossyWriteError``, or is dropped with a warning when ``allow_lossy`` is set.
+    ``show_hidden_power=False`` preserves source-drawn implicit power connections; generated sheets
+    keep the default visible power pins so their explicit labels own connectivity.
     """
     if target not in TARGET_MAJORS:
         raise ValueError(f"unsupported target KiCad {target}; supported targets: {TARGET_MAJORS}")
@@ -345,11 +423,29 @@ def embed_symbol(
     flat = _flatten([_own_node(item, target) for item in chain], [item.name for item in chain])
     name = variant_name(definition.name, pin_numbers) if pin_numbers else definition.name
     literal = FORMAT_VERSIONS[FileKind.SCHEMATIC][target] >= TILDE_UNTIL
-    empty: set[tuple[str, str]] = set()
-    if literal:
-        empty = {(pin.number, "name") for pin in definition.pins if not pin.name}
+    groups = pad_groups(pin_numbers or ())
+    if not literal and any("~" in groups.get(pin.number, (pin.number,)) for pin in definition.pins):
+        raise FormatError(
+            "literal tilde pin number cannot be represented by the older target",
+            file=definition.lib_id,
+            locator="pin.number",
+        )
+    # The authored library writer assigns default body style0 to native style1; raw native slots
+    # retain their exact style. Mirror that existing convention only in this ephemeral association.
+    root_bag = chain[-1].ext.get("kicad")
+    canonical_pins = definition.pins
+    if root_bag is None or not slotlib.from_ext(root_bag):
+        canonical_pins = tuple(replace(pin, body_style=max(pin.body_style, 1)) for pin in canonical_pins)
     shown: list[str] = []
-    flat = _pins(_renamed(flat, definition.name), name, pad_groups(pin_numbers or ()), empty, shown)
+    flat = _pins(
+        _renamed(flat, definition.name),
+        name,
+        groups,
+        canonical_pins,
+        literal,
+        shown,
+        show_hidden_power,
+    )
     if literal:
         flat = _untilde(flat, definition)
     authored = definition if not definition.ext.get("kicad") and not pin_numbers and not shown else None
@@ -396,6 +492,31 @@ def power_flag(target: int, library: str = FLAG_LIBRARY) -> EmbeddedSymbol:
     return _finish(item, library, FLAG_NAME, target, False, None)
 
 
+def is_power_symbol(lib_id: str) -> bool:
+    """Whether ``lib_id`` names one of Fenolite's own power symbols (``GND`` or ``RAIL``) of a library named
+    ``fenolite`` in any letter case (change c0406)."""
+    library, _, name = lib_id.partition(":")
+    return name in POWER_NAMES.values() and library.casefold() == FLAG_LIBRARY.casefold()
+
+
+def power_symbol(kind: str, target: int, library: str = FLAG_LIBRARY) -> EmbeddedSymbol:
+    """Fenolite's power symbol of a supply of ``kind`` (``"ground"`` gives ``GND``, ``"rail"`` gives
+    ``RAIL``): flagged ``power``, with one hidden ``power_in`` pin of length 0 at the origin. KiCad joins
+    such a pin to the global net named by the instance's Value, whatever the pin's name (measured on 9.0.9
+    and 10.0.6, change c0406). Authored for Fenolite; nothing of any KiCad library is in it."""
+    if target not in TARGET_MAJORS:
+        raise ValueError(f"unsupported target KiCad {target}; supported targets: {TARGET_MAJORS}")
+    if kind not in POWER_NAMES:
+        raise ValueError(f"unknown power symbol kind {kind!r}; use one of: {', '.join(POWER_NAMES)}")
+    item = parse(_power_text(kind))
+    if target >= 10:
+        item = item.with_children(
+            node("power", Atom.symbol("global")) if isinstance(c, Node) and c.name == "power" else c
+            for c in item.children
+        )
+    return _finish(item, library, POWER_NAMES[kind], target, False, None)
+
+
 def write_symbol_library(symbols: Sequence[EmbeddedSymbol], *, target: int) -> str:
     """The text of a ``.kicad_sym`` file holding ``symbols`` under their bare names, sorted by name.
 
@@ -422,12 +543,16 @@ __all__ = [
     "FLAG_LIBRARY",
     "FLAG_NAME",
     "FLAG_REFERENCE",
+    "POWER_NAMES",
+    "POWER_REFERENCE",
     "SHOWN_CODE",
     "EmbeddedSymbol",
     "embed_symbol",
     "flag_library",
     "is_power_flag",
+    "is_power_symbol",
     "power_flag",
+    "power_symbol",
     "variant_name",
     "write_symbol_library",
 ]

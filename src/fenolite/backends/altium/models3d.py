@@ -23,7 +23,7 @@ from fenolite.backends.altium.adapter.units import UDEG, round_half_even, text_l
 from fenolite.backends.altium.read.bodies import read_bodies
 from fenolite.backends.altium.read.pcb import read_pcbdoc
 from fenolite.backends.altium.read.pcbprops import parse_text
-from fenolite.backends.base import BodyModel
+from fenolite.backends.base import BodyForm, BodyModel, BodyShape
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
@@ -103,6 +103,9 @@ def body_models(path: Path, *, issues: list[Issue] | None = None) -> tuple[BodyM
             BodyModel(
                 locator=f"{BODY_STORAGE}/Data#{record.index}",
                 name=records[k].get("NAME", "") or props.text("MODEL.NAME"),
+                ident=records[k].get("ID", ""),
+                checksum=records[k].get("CHECKSUM", ""),
+                body_checksum=props.text("MODEL.CHECKSUM"),
                 format=STEP,
                 data=data,
                 position=Point(_length(props.text("MODEL.2D.X")), -_length(props.text("MODEL.2D.Y"))),
@@ -117,4 +120,35 @@ def body_models(path: Path, *, issues: list[Issue] | None = None) -> tuple[BodyM
     return tuple(out)
 
 
-__all__ = ["EVIDENCE", "MODELS", "STEP", "body_models", "model_records"]
+SHAPES: dict[str, BodyShape] = {"": "extruded", "0": "extruded", "1": "model", "2": "cylinder", "3": "sphere"}
+"""``MODEL.MODELTYPE`` to a body shape (S-1604; ``pcb-bodies.md``): 0 extruded, 1 a generic model, 2 a
+cylinder, 3 a sphere; an absent key is the legacy extruded record; any other value is ``other``."""
+
+
+def body_forms(path: Path) -> tuple[BodyForm, ...]:
+    """The shape and the turns of every framed component body of the PCB document at ``path`` that belongs
+    to a component, in body order (change c0423): what the import's ``ComponentBody`` does not keep."""
+    doc = read_pcbdoc(path.read_bytes(), file=path.name)
+    bodies = doc.storages.get(BODY_STORAGE, {}).get("Data")
+    if not bodies:
+        return ()
+    out: list[BodyForm] = []
+    for record in read_bodies(bodies, storage=BODY_STORAGE):
+        if not record.framed or record.component is None:
+            continue
+        props = record.properties
+        out.append(
+            BodyForm(
+                locator=f"{BODY_STORAGE}/Data#{record.index}",
+                shape=SHAPES.get(props.text("MODEL.MODELTYPE").strip(), "other"),
+                rotation=(
+                    _udeg(props.text("MODEL.3D.ROTX")),
+                    _udeg(props.text("MODEL.3D.ROTY")),
+                    _udeg(props.text("MODEL.3D.ROTZ")),
+                ),
+            )
+        )
+    return tuple(out)
+
+
+__all__ = ["EVIDENCE", "MODELS", "SHAPES", "STEP", "body_forms", "body_models", "model_records"]

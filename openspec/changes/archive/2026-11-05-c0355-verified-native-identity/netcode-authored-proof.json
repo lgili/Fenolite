@@ -1,0 +1,95 @@
+{
+  "cases": [
+    {
+      "case": "baseline",
+      "geometry_regions": 4,
+      "geometry_sha256": "8c7d9c1e3fbe12f24860a71fff3b51770a6e5229934d046c2f1e55d570b691f3",
+      "input_sha256": "463550aa41d9ac847561bdaa09b523244378d30319dd43cf146368d94fd39881",
+      "literal_name_to_complete_physical_terminals": {
+        "FONT_PROBE": [
+          "R1-1",
+          "R1-2"
+        ],
+        "SECOND_PROBE": [
+          "R2-1",
+          "R2-2"
+        ]
+      },
+      "native_saved_sha256": "e4c8bcd5cc93d2528dd1b501c1bbf6a23fdd646c27b5d21444fc22973995d367",
+      "reference_facts": {
+        "declared": {
+          "0": "",
+          "100003": "FONT_PROBE",
+          "100007": "SECOND_PROBE"
+        },
+        "no_net_retained": true,
+        "reference_occurrences": 6
+      }
+    },
+    {
+      "case": "table-order-only",
+      "geometry_regions": 4,
+      "geometry_sha256": "8c7d9c1e3fbe12f24860a71fff3b51770a6e5229934d046c2f1e55d570b691f3",
+      "input_sha256": "ab2eee4ee9d25b72ed36150c751f9c0fbb1f3305226a7d21c365f1bb6192d168",
+      "literal_name_to_complete_physical_terminals": {
+        "FONT_PROBE": [
+          "R1-1",
+          "R1-2"
+        ],
+        "SECOND_PROBE": [
+          "R2-1",
+          "R2-2"
+        ]
+      },
+      "native_saved_sha256": "e991b3301faf70b3812b694ef76d27122012e9afbfb247f8630b90cbcbecaca3",
+      "reference_facts": {
+        "declared": {
+          "0": "",
+          "100003": "FONT_PROBE",
+          "100007": "SECOND_PROBE"
+        },
+        "no_net_retained": true,
+        "reference_occurrences": 6
+      }
+    },
+    {
+      "case": "netcode-only",
+      "geometry_regions": 4,
+      "geometry_sha256": "8c7d9c1e3fbe12f24860a71fff3b51770a6e5229934d046c2f1e55d570b691f3",
+      "input_sha256": "fd7e293550d1473013cb19a49562338258ccbb92038147fc2a61907c04629a95",
+      "literal_name_to_complete_physical_terminals": {
+        "FONT_PROBE": [
+          "R1-1",
+          "R1-2"
+        ],
+        "SECOND_PROBE": [
+          "R2-1",
+          "R2-2"
+        ]
+      },
+      "native_saved_sha256": "e4c8bcd5cc93d2528dd1b501c1bbf6a23fdd646c27b5d21444fc22973995d367",
+      "reference_facts": {
+        "declared": {
+          "0": "",
+          "100019": "FONT_PROBE",
+          "100021": "SECOND_PROBE"
+        },
+        "no_net_retained": true,
+        "reference_occurrences": 6
+      }
+    }
+  ],
+  "guard_tests": "18 passed in0.79s",
+  "native_proof": "1 passed in5.05s; one native10 refill per original baseline/table-order/renumber input",
+  "native_version": "10.0.6",
+  "netcode_geometry_equal": true,
+  "preliminary_controls": "Initial one-network control passed; replaced by two labelled physical networks after coordinator requested stronger coverage. The first target10 generated-format control had no numeric root table; target9-format authored inputs explicitly exercise numeric references using actual native10.",
+  "royal_transformed_or_runtime_claimed": false,
+  "scope": "Two labelled electrical networks plus explicit NO_NET. Complete literal name to terminal sets checked before and after. No Royal transformation, ordinary cache normalization or production acceptance.",
+  "source_sha256": {
+    "tests/_native_netcode_refs.py": "c84a1684119b5af898b9a237e0a8f8aaea23e7cb5f080209ad66384dd900c26b",
+    "tests/kicad/board/test_native_netcode_order.py": "9ab110439bb31a08badde1757291c32ba9981831620dd99ca4757c3ca9927dd9",
+    "tests/unit/backends/kicad/test_native_netcode_reference_controls.py": "6858415c7ba8dd3b48f0e79f85a32123f65c969bf863e1f79754718f8b9e253c"
+  },
+  "table_order_geometry_equal": true
+}

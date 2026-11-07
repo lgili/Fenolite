@@ -1,0 +1,396 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Fenolite contributors
+"""A human can accept exact content; acceptance never invalidates its own review (c0262)."""
+
+import json
+import shutil
+from pathlib import Path
+
+import pytest
+from _checkcli import run
+
+ROOT = Path(__file__).resolve().parents[3]
+
+
+@pytest.fixture
+def tree(tmp_path):
+    path = tmp_path / "records"
+    shutil.copytree(ROOT / "tests/data/library_rules/good", path)
+    return path
+
+
+def check(monkeypatch, tmp_path, path):
+    return run(monkeypatch, tmp_path, "library", "check", str(path))
+
+
+def accept(monkeypatch, tmp_path, path, sha):
+    return run(
+        monkeypatch,
+        tmp_path,
+        "library",
+        "review",
+        str(path),
+        "--accept",
+        "--reviewer",
+        "human-reviewer",
+        "--sheet",
+        sha[:12],
+        "--timestamp",
+        "2026-11-02T00:00:00Z",
+        "--confirm",
+    )
+
+
+@pytest.fixture(params=["repository", "vendored"])
+def nested_tree(tmp_path, request):
+    root = tmp_path / "nested"
+    selected = {}
+    for kind, folder, source, ident in (
+        ("symbol", "symbols", "pins", "RuleChipPins"),
+        ("footprint", "footprints", "packages", "RuleChip"),
+        ("device", "devices", "devices", "RuleChipDevice"),
+    ):
+        category = Path("cc0") if request.param == "repository" else Path()
+        target = root / folder / category / "Rules" / ident / "record.toml"
+        target.parent.mkdir(parents=True)
+        shutil.copyfile(ROOT / f"tests/data/library_rules/good/{source}/chip.toml", target)
+        manifest = {
+            "schema": "fenolite.library-item.v0",
+            "kind": kind,
+            "id": f"Rules:{ident}",
+            "version": "1.0.0",
+            "title": ident,
+            "summary": "Authored nested review control",
+            "spdx": "CC0-1.0",
+            "tags": [],
+            "files": ["record.toml"],
+            "depends": [],
+            "executes": False,
+        }
+        target.with_name("item.json").write_text(json.dumps(manifest))
+        selected[kind] = target
+    return selected
+
+
+def test_nested_device_review_and_dependency_staleness(monkeypatch, tmp_path, nested_tree):
+    path = nested_tree["device"]
+    code, reply, _, _ = check(monkeypatch, tmp_path, path)
+    assert code == 0, reply
+    assert len(reply["result"]["items"]) == 1
+    sha = reply["result"]["items"][0]["sheet"]["sha256"]
+    assert accept(monkeypatch, tmp_path, path, sha)[0] == 0
+    assert check(monkeypatch, tmp_path, path)[1]["result"]["items"][0]["review"]["state"] == "accepted"
+    dependency = nested_tree["symbol"]
+    dependency.write_text(dependency.read_text().replace('name = "P1"', 'name = "EDITED"'))
+    code, reply, _, _ = check(monkeypatch, tmp_path, path)
+    assert code == 5
+    assert "library.review-stale" in {finding["code"] for finding in reply["issues"]}
+
+
+@pytest.mark.parametrize("manifest", [None, "invalid", "mismatch", "unlisted", "too_deep"])
+def test_nested_device_does_not_trust_unbound_manifest(monkeypatch, tmp_path, nested_tree, manifest):
+    path = nested_tree["device"]
+    metadata = path.with_name("item.json")
+    if manifest is None:
+        metadata.unlink()
+    elif manifest == "invalid":
+        metadata.write_text("{")
+    elif manifest == "too_deep":
+        deeper = path.parent / "extra" / "deeper" / "deeper_again" / "record.toml"
+        deeper.parent.mkdir(parents=True)
+        shutil.move(path, deeper)
+        shutil.move(metadata, deeper.with_name("item.json"))
+        path = deeper
+    else:
+        value = json.loads(metadata.read_text())
+        if manifest == "mismatch":
+            value["id"] = "Rules:OtherDevice"
+        else:
+            value["files"] = ["other.toml"]
+        metadata.write_text(json.dumps(value))
+    code, reply, _, _ = check(monkeypatch, tmp_path, path)
+    assert code == 5
+    assert any("unresolved symbol" in finding["message"] for finding in reply["issues"])
+
+
+@pytest.mark.parametrize(
+    "target", ["pins/chip.toml", "packages/chip.toml", "devices/chip.toml", "packages/waived_connector.toml"]
+)
+def test_accept_check_check_and_revoke(monkeypatch, tmp_path, tree, target):
+    from fenolite.catalog import records
+
+    path = tree / target
+    before = path.read_bytes()
+    code, reply, _, _ = check(monkeypatch, tmp_path, path)
+    assert code == 0, reply
+    sha = reply["result"]["items"][0]["sheet"]["sha256"]
+    code, accepted, _, _ = accept(monkeypatch, tmp_path, path, sha)
+    assert code == 0, accepted
+    assert accepted["receipt"]
+    for _ in range(2):
+        code, reply, _, _ = check(monkeypatch, tmp_path, path)
+        assert code == 0, reply
+        row = reply["result"]["items"][0]
+        assert row["review"]["state"] == "accepted" and row["sheet"]["sha256"] == sha
+    code, reply, _, _ = run(monkeypatch, tmp_path, "library", "review", str(path), "--revoke", "--confirm")
+    assert code == 0, reply
+    # Revoke restores semantic content; canonical writing deliberately normalizes source formatting.
+    if target.startswith("packages/chip"):
+        import tomllib
+
+        assert tomllib.loads(path.read_text()) == tomllib.loads(before.decode())
+    else:
+        assert records.parse_record(path.read_text()) == records.parse_record(before.decode())
+
+
+def test_edited_record_dependency_and_reformat(monkeypatch, tmp_path, tree):
+    path = tree / "devices/chip.toml"
+    sha = check(monkeypatch, tmp_path, path)[1]["result"]["items"][0]["sheet"]["sha256"]
+    assert accept(monkeypatch, tmp_path, path, sha)[0] == 0
+    path.write_text("\n# whitespace only\n" + path.read_text())
+    assert check(monkeypatch, tmp_path, path)[0] == 0
+    pins = tree / "pins/chip.toml"
+    pins.write_text(pins.read_text().replace('name = "P1"', 'name = "CHANGED"'))
+    code, reply, _, _ = check(monkeypatch, tmp_path, path)
+    assert code == 5 and "library.review-stale" in {f["code"] for f in reply["issues"]}
+    assert reply["result"]["items"][0]["effective_evidence"] == "INFERRED"
+
+
+def test_review_preconditions_state_and_stale_sheet(monkeypatch, tmp_path, tree):
+    path = tree / "pins/chip.toml"
+    assert run(monkeypatch, tmp_path, "library", "review", str(path))[0] == 0
+    assert run(monkeypatch, tmp_path, "library", "review", str(path), "--reviewer", "who")[0] == 2
+    before = path.read_bytes()
+    assert accept(monkeypatch, tmp_path, path, "a" * 64)[0] == 4
+    assert path.read_bytes() == before
+    for reviewer in ("", "name@example.test"):
+        assert (
+            run(
+                monkeypatch,
+                tmp_path,
+                "library",
+                "review",
+                str(path),
+                "--accept",
+                "--reviewer",
+                reviewer,
+                "--sheet",
+                "a" * 64,
+                "--confirm",
+            )[0]
+            == 2
+        )
+    path.write_text(path.read_text().replace('evidence = "INFERRED"', 'evidence = "KICAD-VERIFIED (10.0.6)"'))
+    assert accept(monkeypatch, tmp_path, path, "a" * 64)[0] == 7
+
+
+def test_error_blocks_review_and_bad_waiver(monkeypatch, tmp_path, tree):
+    path = tree / "pins/chip.toml"
+    path.write_text(path.read_text().replace('"-5.08mm"', '"-0.127mm"'))
+    assert accept(monkeypatch, tmp_path, path, "a" * 64)[0] == 5
+    path.write_text(path.read_text() + '\n[[waiver]]\ncode="library.review-stale"\nreason="invalid"\n')
+    code, reply, _, _ = check(monkeypatch, tmp_path, path)
+    assert code == 5 and "library.record-invalid" in {f["code"] for f in reply["issues"]}
+
+
+def test_authored_description_suffix_edit_stales_accepted_content(monkeypatch, tmp_path, tree):
+    path = tree / "packages/waived_connector.toml"
+    sha = check(monkeypatch, tmp_path, path)[1]["result"]["items"][0]["sheet"]["sha256"]
+    assert accept(monkeypatch, tmp_path, path, sha)[0] == 0
+    suffix = "; land pattern remains INFERRED and requires part-specific review"
+    text = path.read_text()
+    text = text.replace('summary = "Cable-end pin 1"', 'summary = "Cable-end pin 1' + suffix + '"')
+    path.write_text(text)
+    code, reply, _, _ = check(monkeypatch, tmp_path, path)
+    assert code == 5 and "library.review-stale" in {f["code"] for f in reply["issues"]}
+
+
+def test_accept_plan_refuses_changed_referenced_record(monkeypatch, tmp_path, tree):
+    path = tree / "devices/chip.toml"
+    sha = check(monkeypatch, tmp_path, path)[1]["result"]["items"][0]["sheet"]["sha256"]
+    args = (
+        "library",
+        "review",
+        str(path),
+        "--accept",
+        "--reviewer",
+        "human-reviewer",
+        "--sheet",
+        sha,
+        "--timestamp",
+        "2026-11-02T00:00:00Z",
+    )
+    code, planned, _, _ = run(monkeypatch, tmp_path, *args, "--dry-run")
+    assert code == 0, planned
+    before = path.read_bytes()
+    package = tree / "packages/chip.toml"
+    package.write_text(package.read_text().replace('length="0.8mm"', 'length="0.9mm"'))
+    code, _, error, _ = run(monkeypatch, tmp_path, *args, "--confirm", "--plan", planned["result"]["plan_id"])
+    assert code == 4 and error["code"] == "FEN-4002"
+    assert path.read_bytes() == before
+
+
+def test_device_review_on_a_later_day_keeps_its_digest(monkeypatch, tmp_path, nested_tree):
+    """c0266 task 6.2: a device record holds its evidence twice (header and device). A renewed acceptance on
+    another day must store the digest of the record as written, or a record with an origin is refused by
+    every strict read (the library audit) as unreviewed."""
+    from fenolite.catalog import records
+
+    path = nested_tree["device"]
+    origin = 'origin = { library = "Synthetic", version = "1", element = "e1", licence = "CC0-1.0" }\n'
+    text = path.read_text().replace('licence = "CC0-1.0"\n', 'licence = "CC0-1.0"\n' + origin, 1)
+    path.write_text(text.replace('evidence = "INFERRED"', 'evidence = "UNVERIFIED"'))
+    for day in ("2026-11-02", "2026-11-04"):
+        sha = check(monkeypatch, tmp_path, path)[1]["result"]["items"][0]["sheet"]["sha256"]
+        code = run(
+            monkeypatch,
+            tmp_path,
+            "library",
+            "review",
+            str(path),
+            "--accept",
+            "--reviewer",
+            "human-reviewer",
+            "--sheet",
+            sha[:12],
+            "--timestamp",
+            f"{day}T00:00:00Z",
+            "--confirm",
+        )[0]
+        assert code == 0
+        written = path.read_text()
+        assert f'evidence = "CORPUS-VERIFIED (review {day})"' in written
+        record = records.parse_record(written, file=str(path))
+        assert record.header.reviewed_by[-1].record_sha256 == records.record_digest(record)
+        assert check(monkeypatch, tmp_path, path)[1]["result"]["items"][0]["review"]["state"] == "accepted"
+
+
+def _other_viewer(monkeypatch):
+    """The packaged viewer of a later Fenolite: only the page code differs."""
+    from fenolite.view import export
+
+    viewer_2 = export.template().replace("</head>", "<!-- viewer 2 --></head>", 1)
+    monkeypatch.setattr(export, "_packaged", lambda: viewer_2)
+
+
+def _state(monkeypatch, tmp_path, path):
+    code, reply, _, _ = check(monkeypatch, tmp_path, path)
+    return code, reply["result"]["items"][0]
+
+
+def test_viewer_change_keeps_a_content_pinned_acceptance(monkeypatch, tmp_path, tree):
+    """c0415: viewer assets are not reviewed content."""
+    path = tree / "pins/chip.toml"
+    _, row = _state(monkeypatch, tmp_path, path)
+    assert accept(monkeypatch, tmp_path, path, row["sheet"]["sha256"])[0] == 0
+    assert f'content_sha256 = "{row["sheet"]["content_sha256"]}"' in path.read_text()
+    _other_viewer(monkeypatch)
+    code, after = _state(monkeypatch, tmp_path, path)
+    assert code == 0 and after["review"]["state"] == "accepted"
+    assert after["sheet"]["sha256"] != row["sheet"]["sha256"]
+    assert after["sheet"]["content_sha256"] == row["sheet"]["content_sha256"]
+    path.write_text(path.read_text().replace('name = "P1"', 'name = "EDITED"'))
+    code, edited = _state(monkeypatch, tmp_path, path)
+    assert code == 5 and edited["review"]["state"] == "stale"
+
+
+def pin(monkeypatch, tmp_path, path):
+    return run(monkeypatch, tmp_path, "library", "review", str(path), "--pin-content", "--confirm")
+
+
+def _legacy(monkeypatch, tmp_path, path):
+    """An acceptance as written before c0415: sheet_sha256 and no content_sha256."""
+    _, row = _state(monkeypatch, tmp_path, path)
+    assert accept(monkeypatch, tmp_path, path, row["sheet"]["sha256"])[0] == 0
+    lines = path.read_text().splitlines(True)
+    path.write_text("".join(line for line in lines if not line.startswith("content_sha256")))
+    return row
+
+
+def test_legacy_acceptance_still_verifies_by_sheet_bytes(monkeypatch, tmp_path, tree):
+    path = tree / "pins/chip.toml"
+    _legacy(monkeypatch, tmp_path, path)
+    code, row = _state(monkeypatch, tmp_path, path)
+    assert code == 0 and row["review"]["state"] == "accepted"
+    _other_viewer(monkeypatch)
+    code, row = _state(monkeypatch, tmp_path, path)
+    assert code == 5 and row["review"]["state"] == "stale"
+
+
+@pytest.mark.parametrize("target", ["pins/chip.toml", "packages/chip.toml", "devices/chip.toml"])
+def test_pin_content_upgrades_a_fresh_legacy_acceptance(monkeypatch, tmp_path, tree, target):
+    import tomllib
+
+    path = tree / target
+    before = _legacy(monkeypatch, tmp_path, path)
+    review_before = tomllib.loads(path.read_text())["reviewed_by"]
+    code, reply, _, _ = pin(monkeypatch, tmp_path, path)
+    assert code == 0, reply
+    assert reply["result"]["action"] == "pin-content"
+    data = tomllib.loads(path.read_text())
+    (review_after,) = data["reviewed_by"]
+    assert review_after.pop("content_sha256") == before["sheet"]["content_sha256"]
+    assert [review_after] == review_before
+    assert data["evidence"].startswith("CORPUS-VERIFIED")
+    pinned = path.read_bytes()
+    assert pin(monkeypatch, tmp_path, path)[0] == 0
+    assert path.read_bytes() == pinned
+    _other_viewer(monkeypatch)
+    code, row = _state(monkeypatch, tmp_path, path)
+    assert code == 0 and row["review"]["state"] == "accepted"
+
+
+def test_pin_content_refuses_a_stale_legacy_acceptance(monkeypatch, tmp_path, tree):
+    path = tree / "pins/chip.toml"
+    _legacy(monkeypatch, tmp_path, path)
+    _other_viewer(monkeypatch)
+    before = path.read_bytes()
+    code, _, error, _ = pin(monkeypatch, tmp_path, path)
+    assert code == 4 and error["code"] == "FEN-4002" and "Rules:" in error["message"]
+    assert path.read_bytes() == before
+
+
+def test_pin_content_is_exclusive_with_accept_and_revoke(monkeypatch, tmp_path, tree):
+    path = tree / "pins/chip.toml"
+    for flag in ("--accept", "--revoke"):
+        code, _, _, _ = run(monkeypatch, tmp_path, "library", "review", str(path), "--pin-content", flag)
+        assert code == 2
+    assert run(monkeypatch, tmp_path, "library", "check", str(path), "--pin-content")[0] == 2
+
+
+def test_pin_content_with_the_viewer_that_wrote_the_acceptance(monkeypatch, tmp_path, tree):
+    """c0415: an acceptance written by an older viewer is pinned when that viewer reproduces its sheet."""
+    from importlib import resources
+
+    path = tree / "pins/chip.toml"
+    before = _legacy(monkeypatch, tmp_path, path)
+    viewer_1 = tmp_path / "viewer-1"
+    viewer_1.mkdir()
+    static = resources.files("fenolite.view").joinpath("static")
+    for name in ("page.html", "viewer.css", "viewer.js"):
+        (viewer_1 / name).write_text(static.joinpath(name).read_text(encoding="utf-8"), encoding="utf-8")
+    _other_viewer(monkeypatch)
+    assert pin(monkeypatch, tmp_path, path)[0] == 4
+    edited = tmp_path / "viewer-edited"
+    edited.mkdir()
+    for name in ("page.html", "viewer.css", "viewer.js"):
+        (edited / name).write_text((viewer_1 / name).read_text(encoding="utf-8") + "\n", encoding="utf-8")
+    flags = ("library", "review", str(path), "--pin-content", "--confirm", "--viewer")
+    code, _, error, _ = run(monkeypatch, tmp_path, *flags, str(edited))
+    assert code == 4 and error["code"] == "FEN-4002"
+    code, reply, _, _ = run(monkeypatch, tmp_path, *flags, str(viewer_1))
+    assert code == 0, reply
+    assert f'content_sha256 = "{before["sheet"]["content_sha256"]}"' in path.read_text()
+    code, row = _state(monkeypatch, tmp_path, path)
+    assert code == 0 and row["review"]["state"] == "accepted"
+
+
+def test_viewer_flag_needs_pin_content_and_the_three_files(monkeypatch, tmp_path, tree):
+    path = tree / "pins/chip.toml"
+    assert run(monkeypatch, tmp_path, "library", "review", str(path), "--viewer", str(tmp_path))[0] == 2
+    assert run(monkeypatch, tmp_path, "library", "check", str(path), "--viewer", str(tmp_path))[0] == 2
+    _legacy(monkeypatch, tmp_path, path)
+    code, _, error, _ = run(
+        monkeypatch, tmp_path, "library", "review", str(path), "--pin-content", "--viewer", str(tmp_path)
+    )
+    assert code == 3 and error["code"] == "FEN-3001"

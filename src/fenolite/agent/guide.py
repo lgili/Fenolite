@@ -68,7 +68,16 @@ hold, which the build for target 9 refuses with exit 7)."""
 PAGES_BEGIN = "<!-- pages:begin -->"
 PAGES_END = "<!-- pages:end -->"
 """The two marker lines of the start page; ``tools/gen_agent_guide.py`` writes the index between them."""
-GENERATED_TOPICS = ("commands", "dsl-reference")
+GENERATED_TOPICS = (
+    "commands",
+    "commands-1",
+    "commands-2",
+    "commands-3",
+    "commands-4",
+    "commands-5",
+    "commands-6",
+    "dsl-reference",
+)
 """The topics that ``tools/gen_agent_guide.py`` writes; every other reference page is written by hand."""
 
 _BUILD_CALLS = "the build calls it; a script never does"
@@ -77,6 +86,8 @@ _RETURNED = "a record that a call of the script returns; a script never names it
 _ERROR = "the error a wrong call raises; the build reports it, a script does not catch it"
 _PANEL = "a panel script's name, not a design's: page fabrication shows it and a test runs that sample"
 _INTENT = "mechanical intent of a locked anchor (c0096); constrained placement is not taught by the guide yet"
+_CATALOG = "fenolite blocks show calls it to read a block's record; a design script never does"
+_DEFAULT = "the default that param() takes when none is given; a script leaves the default out"
 DSL_NOT_TAUGHT: Mapping[str, str] = MappingProxyType(
     {
         "to_model": _BUILD_CALLS,
@@ -86,6 +97,7 @@ DSL_NOT_TAUGHT: Mapping[str, str] = MappingProxyType(
         "copper": _BUILD_CALLS,
         "meanders": _BUILD_CALLS,
         "generated": _BUILD_CALLS,
+        "role_copper": _BUILD_CALLS,
         "fields": _BUILD_CALLS,
         "moves": _BUILD_CALLS,
         "module_moves": _BUILD_CALLS,
@@ -93,6 +105,8 @@ DSL_NOT_TAUGHT: Mapping[str, str] = MappingProxyType(
         "planes": _BUILD_CALLS,
         "pad_zones": _BUILD_CALLS,
         "drawing_sheet_source": _BUILD_CALLS,
+        "drawn_schematic": _BUILD_CALLS,
+        "block_schematics": _BUILD_CALLS,
         "stackup_locked": _BUILD_CALLS,
         "outline_locked": _BUILD_CALLS,
         "via_protection_locked": _BUILD_CALLS,
@@ -113,12 +127,17 @@ DSL_NOT_TAUGHT: Mapping[str, str] = MappingProxyType(
         "PadRef": _RETURNED,
         "Placement": _RETURNED,
         "Length": _RETURNED,
+        "Delay": _RETURNED,
+        "Loss": _RETURNED,
         "Quantity": _RETURNED,
         "RuleArea": _RETURNED,
         "MeanderIntent": _RETURNED,
         "GeneratedIntent": _RETURNED,
+        "RoleCopperIntent": _RETURNED,
         "Trace": _RETURNED,
         "DslError": _ERROR,
+        "describe": _CATALOG,
+        "REQUIRED": _DEFAULT,
         "MechanicalIntent": _INTENT,
     }
 )

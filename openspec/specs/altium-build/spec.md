@@ -173,13 +173,13 @@ Two Altium builds of the same script SHALL give byte-identical files under `--ou
 - **THEN** every component of the sample has the same unique id in both schematics
 
 ### Requirement: Altium build evidence
-The Altium `build` envelope SHALL carry `lens.altium.ALTIUM_BUILD_EVIDENCE`, whose level is `INFERRED` and whose hypotheses are every `H-A-SCH-*` and `H-A-PRJ-*` row registered by this change, combined (lowest wins) with `backends.altium.project.EVIDENCE`.
-- The level MUST stay `INFERRED` for every build, even after author reports: an author report covers the files the maintainer opened, never an arbitrary design, and never promotes an operation (`verification-evidence`, "Author reports never promote an operation").
-- `fenolite capabilities` MUST list the writer as experimental with this evidence (`cli-contract`, "Experimental features in capabilities").
+The Altium `build` envelope SHALL combine the write evidence of the kinds actually written with input evidence, lowest wins.
+- A kind remains experimental until "Graduation of a write kind" holds; an author report never promotes an operation.
+- `fenolite capabilities` MUST compute graduated and experimental kinds from the matrix.
 
 #### Scenario: Sample envelope
 - **WHEN** the sample is built with `--target altium --dry-run --json`
-- **THEN** `evidence.level` is `INFERRED`, and `evidence.hypotheses` contains `H-A-SCH-OPEN`, `H-A-SCH-NETS` and `H-A-PRJ-OPEN`
+- **THEN** the evidence is the lowest of the inputs and written kinds, and ungraduated kinds are named in `altium.experimental`
 
 ### Requirement: Altium sample project
 `examples/altium_sample/design.py` (CC0-1.0, authored for Fenolite) SHALL be a design for the Altium target that uses every feature of this change: parts in two modules and at the top level, a part with four used pins, two `Power` interfaces sharing their low net, signal nets of two pins, and a footprint on every part.
@@ -453,6 +453,8 @@ The Altium build SHALL take the footprint of each footprint link from one of two
 
 ### Requirement: PCB library outputs
 The Altium build SHALL plan `<name>.PcbLib` (`project.pcblib_name`) when at least one KiCad footprint is written, with `pcblib.write_pcblib` and one `pcblib.LibFootprint` per distinct `kicad` link whose footprint resolves and passes `pcblib.check_footprint`.
+- A footprint with net-tie groups (`FootprintDef.net_ties`) MUST NOT be refused for a graphic on a copper layer (change c0448): the library writes such a graphic on `F.Cu` or `B.Cu` as it writes a graphic of another layer, and names any other one in `altium.primitive-dropped`; the PCB document writes it as a conversion does (`altium-pcb-writer`, "Copper of a net-tie footprint", change c0431). A copper graphic of a footprint without net-tie groups is still refused.
+- A pad margin that the model holds (`Pad.mask_margin`, `Pad.paste_margin`) is written as a manual expansion (`altium-pcb-writer`, change c0440) and MUST NOT be named by `altium.primitive-dropped` (change c0448); a margin the model does not hold, because its KiCad child is no single number, still is.
 - A refused footprint MUST give one `altium.footprint-unsupported` warning that names the link and the reason, and MUST NOT be written. Items the check drops MUST give one `altium.primitive-dropped` warning per footprint, naming each kind and count; texts, properties and 3D model links MUST give one `altium.footprint-extras-dropped` info per footprint.
 - Two distinct `kicad` links whose footprints get equal storage names under the MS-CFB order (`project.storage_name`), such as `Mini:R` and `Other:R`, MUST give `altium.footprint-name-collision` (warning), and neither footprint is written: no part gets the wrong footprint.
 - The planned write MUST have the kind `altium_pcblib`. `lens.altium.PCB_WRITE_KINDS` MUST be `("altium_pcbdoc", "altium_pcblib")`; `project.WRITE_KINDS` MUST NOT change.
@@ -474,16 +476,23 @@ The Altium build SHALL plan `<name>.PcbLib` (`project.pcblib_name`) when at leas
 - **WHEN** it is built with `--target altium --dry-run --json`
 - **THEN** the exit code is 0, `issues` holds `altium.footprint-unsupported` naming the pad, and the planned library holds the two other footprints
 
+#### Scenario: A net tie with copper and pads with a mask margin are written
+- **GIVEN** the authored board `tests/data/kicad/convert/net_tie_copper.kicad_pcb` (net tie `NT1` whose `F.Cu` line joins its two pads), its pad 1 given `(solder_mask_margin 0.05)`, imported with `import --to python`
+- **WHEN** `uv run pytest tests/unit/lens/test_build_altium_parity.py -n 0 -q` builds it with `--target altium --confirm`
+- **THEN** the library and the document hold `NT1`, the document's `NT1` is a component of kind 4 that owns a top-layer track between its pads, pad 1 has solder mask mode manual with 0.05 mm, no `altium.footprint-unsupported` or `altium.primitive-dropped` names `NT1`, and `convert --to altium` of the same board writes the same three items
+
 #### Scenario: Edited library refused
 - **GIVEN** a confirmed blink build in `B` and one byte of `B/blink.PcbLib` changed afterwards
 - **WHEN** the build runs again with `--confirm`
 - **THEN** the exit code is 7 with `FEN-7001`, `build.layout-exists` names `B/blink.PcbLib`, and no file changes
 
 ### Requirement: PCB document output
-The Altium build SHALL plan an experimental `<name>.PcbDoc` from `pcbdoc.write_pcbdoc` when the design has a board outline without cutouts and without arcs (`design-model`, "Board outline arcs") and every component that has a footprint link has a `kicad` link whose footprint is in the planned `<name>.PcbLib`. Otherwise it MUST give one `altium.pcbdoc-not-written` info that names the reason (no board, cutouts, arcs, Altium footprint links, or the footprints not written) and the components concerned.
+The Altium build SHALL plan an experimental `<name>.PcbDoc` from `pcbdoc.write_pcbdoc` when the design has a board outline whose board ring has at least three vertices (`design-model`, "Board outline arcs"; an arc is the vertex at its start, its mid is none), and every component that has a footprint link has a `kicad` link whose footprint is in the planned `<name>.PcbLib`. Otherwise it MUST give one `altium.pcbdoc-not-written` info that names the reason (no board, a board ring of arcs with fewer than three vertices, Altium footprint links, or the footprints not written) and the components concerned.
+- An arc of the board ring MUST be written as one arc vertex, as a conversion writes it (`altium-pcb-writer`, "Board outline arcs", change c0441), not refused (change c0448; before, the document was not written).
 - Components without a footprint link MUST be left off the board, as Altium's change order would leave them.
-- The parts of `design.hole()` (`design-dsl`, "Board holes in the DSL"), whose symbols are in the library `Fenolite_Holes`, are not components of the Altium build: they MUST be left out of the schematic, of `<name>.PcbLib` and of the components of the document, and they do not count as components with a footprint link. The build MUST hand each one to the document as a board hole instead (`altium-pcb-writer`, "Non-plated holes and slots"). A round hole that is not plated becomes a `Hole` of the part's `drill` at the part's placement, written as the free pad record of that requirement and counted under the kind `hole` of `result.pcb.written`. A slot (`length`) and a plated hole (`pad`) have no record there, because the board hole of the model is round and has neither copper nor a net: each MUST give one `altium.not-lowered` info whose `where` is `hole/<component id>`, naming the ref and what the record lacks, and MUST be counted under `hole` of `result.pcb.not_lowered`. The pin of a plated hole is then absent from its net in the Altium project, and the message MUST say so. The courtyard of a hole part has no counterpart on a free pad and is not written. Without a PCB document the hole parts are counted by the `holes` issue of the next rule.
+- The parts of `design.hole()` (`design-dsl`, "Board holes in the DSL"), whose symbols are in the library `Fenolite_Holes`, are not components of the Altium build: they MUST be left out of the schematic, of `<name>.PcbLib` and of the components of the document, and they do not count as components with a footprint link. The build MUST hand each one to the document as a board hole instead (`altium-pcb-writer`, "Non-plated holes and slots"). A hole that is not plated becomes a `Hole` of the part's `drill` at the part's placement, with the part's `length` and its slot axis turned by the part's rotation (`design-model`, "Slotted board holes"), written as the free pad record of that requirement and counted under the kind `hole` of `result.pcb.written`. A plated hole (`pad`) has no record there, because the board hole of the model has neither copper nor a net: it MUST give one `altium.not-lowered` info whose `where` is `hole/<component id>`, naming the ref and what the record lacks, and MUST be counted under `hole` of `result.pcb.not_lowered`. The pin of a plated hole is then absent from its net in the Altium project, and the message MUST say so. The courtyard of a hole part has no counterpart on a free pad and is not written. Without a PCB document the hole parts are counted by the `holes` issue of the next rule.
 - A placed component MUST take its DSL placement. An unplaced component MUST be staged right of the outline as the KiCad build stages it (`lens.build.STAGING_OFFSET`, `STAGING_GAP`, top side, angle 0), and the build MUST give one `altium.pcb-staged` info naming the staged refs. With a copper source, a component takes the source's placement instead, and none is staged ("Copper from a routed KiCad board").
+- The cut-outs and slots of the outline (`lowered_outline`, `kicad-file-backend`) MUST be written as the regions of "Board cut-out regions" (`altium-pcb-writer`) when `pcbdoc.CUTOUT_REGIONS` is true, and counted under `cutout` of `result.pcb.written`; while it is false, each MUST give one `altium.not-lowered` info whose `where` is `cutout/<k>`, `slot/<name>`, or the items of a merged group joined by `+`, and be counted under `cutout` of `result.pcb.not_lowered`.
 - When the PCB document is planned, the board, the placements and the net classes MUST NOT be reported by `altium.not-lowered`: the document holds them ("Copper in an Altium build"). Differential pairs still are. A board's keep-outs, texts, graphics and holes are written, or reported item by item, as "Complete board in an Altium build" states; only a build without a PCB document reports them with one issue per kind, and these kinds extend the list of c0032's `altium.not-lowered` row.
 - The planned write MUST have the kind `altium_pcbdoc`, and the project file MUST list it as `[Document2]`.
 - The document MUST follow c0032's edited-output rule: a document changed in Altium is refused with `FEN-7001`, and `--discard-layout` replaces it with a `.bak`. Fenolite never merges an edited document.
@@ -502,10 +511,20 @@ The Altium build SHALL plan an experimental `<name>.PcbDoc` from `pcbdoc.write_p
 - **WHEN** it is built with `--target altium --dry-run --json`
 - **THEN** `B/blink.PcbDoc` is planned, `issues` holds `altium.pcb-staged` naming `R1`, and `R1`'s component record has the position the KiCad build of the same variant stages it at, converted as `altium-pcb-writer` "PCB document placement" says
 
-#### Scenario: An outline with arcs, no document
+#### Scenario: An outline with arcs is written
 - **GIVEN** a blink variant with `board(outline=shape.rect(mm(0), mm(0), mm(50), mm(30), radius=mm(2)))`
 - **WHEN** it is built with `--target altium --dry-run --json`
-- **THEN** the exit code is 0, no `.PcbDoc` is planned, and `issues` holds `altium.pcbdoc-not-written` naming the arcs
+- **THEN** the exit code is 0, `B/blink.PcbDoc` is planned, no `altium.pcbdoc-not-written` is given, and the board record holds four arc vertices of radius 2 mm
+
+#### Scenario: Build and conversion write one outline
+- **GIVEN** the board of "A net tie with copper and pads with a mask margin are written", its `Edge.Cuts` rectangle replaced by lines and one arc, imported with `import --to python`
+- **WHEN** it is built with `--target altium --confirm` and converted with `convert --to altium`
+- **THEN** both documents hold a board record with the same vertices, relative to the first, and the same arc vertex
+
+#### Scenario: A round board, no document
+- **GIVEN** a blink variant with `board(outline=shape.circle(mm(25), mm(15), mm(60)))`, a ring of two arcs
+- **WHEN** it is built with `--target altium --dry-run --json`
+- **THEN** no `.PcbDoc` is planned, and `altium.pcbdoc-not-written` names the arcs, not a missing outline
 
 #### Scenario: A round hole becomes a free pad
 - **GIVEN** a blink variant with `d.hole("H1", mm(4), mm(4), drill=mm(3.2))`
@@ -515,7 +534,17 @@ The Altium build SHALL plan an experimental `<name>.PcbDoc` from `pcbdoc.write_p
 #### Scenario: A plated hole and a slot are reported
 - **GIVEN** a blink variant with `h2 = d.hole("H2", mm(46), mm(4), drill=mm(3.2), pad=mm(6))`, `connect(gnd, h2[1])` and `d.hole("H3", mm(25), mm(4), drill=mm(1), length=mm(3))`
 - **WHEN** it is built with `--target altium --dry-run --json`
-- **THEN** the exit code is 0, `B/blink.PcbDoc` is planned without them, `result.pcb.not_lowered` holds `hole` with the count 2, and `issues` holds two `altium.not-lowered` infos whose `where` starts with `hole/`: one names `H2`, its copper and the net `GND`, the other names `H3` and its slot
+- **THEN** the exit code is 0, `B/blink.PcbDoc` is planned with `H3` and without `H2`, `result.pcb.not_lowered` holds `hole` with the count 1 and `result.pcb.written` holds `hole` with the count 1, and `issues` holds one `altium.not-lowered` info whose `where` starts with `hole/`, naming `H2`, its copper and the net `GND`
+
+#### Scenario: Cut-outs are written after native acceptance
+- **GIVEN** the shared fixture `tests/data/slots/design.py` and the native-accepted default `pcbdoc.CUTOUT_REGIONS` true
+- **WHEN** it is built with `--target altium --dry-run --json`
+- **THEN** `B/slots.PcbDoc` is planned, `result.pcb.written` holds `cutout` with the count 3 and `hole` with the count 1, `result.pcb.not_lowered` has no `cutout`, and no `altium.not-lowered` info names `slot/S1`, `slot/S2+slot/S3` or `cutout/1`
+
+#### Scenario: Cut-outs while the gate is off
+- **GIVEN** the shared fixture `tests/data/slots/design.py` and `pcbdoc.CUTOUT_REGIONS` explicitly overridden to false in the regression
+- **WHEN** it is built with `--target altium --dry-run --json`
+- **THEN** `B/slots.PcbDoc` is planned, `result.pcb.not_lowered` holds `cutout` with the count 3, and three `altium.not-lowered` infos have the `where` `slot/S1`, `slot/S2+slot/S3` and `cutout/1`
 
 ### Requirement: PCB issue codes
 `lens.altium.ALTIUM_ISSUE_CODES` SHALL gain these rows. This requirement extends c0032's "Altium build issue codes", whose closed-set rule and scenarios hold for them.
@@ -797,21 +826,27 @@ The PCB writers SHALL be documented as c0032's "Building for Altium is documente
 - **THEN** each prints a non-zero count, and `uv run pytest tests/unit/test_format_facts.py tests/unit/test_provenance.py` passes
 
 ### Requirement: Copper in an Altium build
-The Altium build SHALL write copper and net classes into the planned `<name>.PcbDoc` from exactly one copper source per build, and it SHALL invent no copper.
-- `lens.altium.build_altium(design, …, copper=2, planes=None, copper_source=None)` MUST take the copper layer count of the script (`fenolite.dsl.Design.copper`), its planes ("Internal planes in an Altium build") and at most one `lens.altium.CopperSource(design, origin, where="")`, whose `origin` is `script` or `board`. `cli/cmd_build.py` MUST pass the count and the planes.
+The Altium build SHALL write copper and net classes into the planned `<name>.PcbDoc` from exactly one copper source per build, and it SHALL invent no copper: a computed pour is derived from the written document alone ("Pour mode of an Altium build").
+
+#### Scenario: Detailed contract for copper in an altium build
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
+The Altium build SHALL write copper and net classes into the planned `<name>.PcbDoc` from exactly one copper source per build, and it SHALL invent no copper: a computed pour is derived from the written document alone ("Pour mode of an Altium build").
+- `lens.altium.build_altium(design, …, copper=2, planes=None, copper_source=None, pour="computed")` MUST take the copper layer count of the script (`fenolite.dsl.Design.copper`), its planes ("Internal planes in an Altium build"), at most one `lens.altium.CopperSource(design, origin, where="")`, whose `origin` is `script` or `board`, and the pour mode. `cli/cmd_build.py` MUST pass the count, the planes and the pour mode.
 - The sources are: **model**, the tracks, arcs, vias and zones of `design.board` itself (tests, and routers that return model copper, c0016 and c0023); **script**, "Script copper in an Altium build"; **board**, "Copper from a routed KiCad board". A `copper_source` given together with copper in `design.board` MUST raise `ValueError`: one source per build.
 - The copper layers MUST be the copper layers of `design.board.layers` when it holds any, else `F.Cu`, `B.Cu` for `copper=2` and `F.Cu`, `In1.Cu`, `In2.Cu`, `B.Cu` for `copper=4`. `lens.altium.pcb_document` MUST pass them as `PcbDocSpec.copper_layers`.
 - `pcb_document` MUST pass the source's tracks, arcs, vias and zones to the spec, each net id replaced by its net name, and one `pcbdoc.NetClassSpec` per `design.circuit.netclasses` entry with the names of its nets. Net classes always come from `design`, never from a source.
 - The stack values MUST come from `design.board.stackup` when it holds one copper layer per copper layer of the board, in order, with exactly one dielectric between neighbours (for four layers the middle one is the `core`, the outer two are `prepreg`); otherwise from `docboard.StackSpec.default`. A stack-up that is present and does not fit MUST give one `altium.not-lowered` info with `where` = `stackup`.
 - Coordinates MUST be read in the frame of the placements, the frame in which the KiCad build writes the same script's board.
 - The build's `result` MUST gain `copper`, present whenever the PCB document is planned: an object with `source` (`none`, `model`, `script` or `board`), `from` (the path given to `--copper-from`, else `null`), `layers`, `planes` (an object from layer name to net name), `tracks`, `arcs`, `vias`, `zones`, `net_classes` (counts of what is written) and `placements_from_board` (a count).
-- When at least one polygon is written, the build MUST give one `altium.zones-unpoured` info that names the count and the Altium command "Tools » Polygon Pours » Repour All".
+- When at least one polygon is written unpoured, the build MUST give one `altium.zones-unpoured` info that names the count and the Altium command "Tools » Polygon Pours » Repour All". When at least one polygon is written poured, it MUST give one `altium.zones-poured` info ("Computed pours are experimental" of `altium-pour`).
 - A build of a design without copper, planes and net classes MUST give the PCB document bytes of c0035: the four copper storages stay empty.
-- The same copper MUST give the same `<name>.PcbDoc` bytes from each of the three sources.
+- The same copper MUST give the same `<name>.PcbDoc` bytes from each of the three sources, in each pour mode.
 
 #### Scenario: Routed model
 - **GIVEN** the routed sample's model: the blink design with `copper=4`, five tracks (two on `F.Cu`, one on each other copper layer), one arc, three through vias, one `GND` zone on `In1.Cu` and `B.Cu`, and the class `PWR`
-- **WHEN** `build_altium` runs on it
+- **WHEN** `build_altium` runs on it with the pour mode `outline`
 - **THEN** `routed.PcbDoc` is planned, its summary `copper` holds `"source": "model"`, `"layers": 4`, `"planes": {}`, `"tracks": 5`, `"arcs": 1`, `"vias": 3`, `"zones": 2` and `"net_classes": 1`, `issues` holds one `altium.zones-unpoured` naming 2 polygons, and no issue is an error
 
 #### Scenario: Layer count from the script
@@ -853,11 +888,12 @@ The Altium build SHALL write each inner layer that the script declares as a plan
 
 ### Requirement: Script copper in an Altium build
 When the design carries resolved script copper, the Altium build SHALL write it. The design carries it as a `CopperSource` with `origin="script"`, whose `design` is the model that the KiCad build of the same script holds in memory after c0028's copper intents are resolved (`lens.build.build_design(…, copper_intents=…).design`): footprints placed, tracks and vias in the frame of the placements, nets of the script.
-- **Hand-over in the build command.** When `dsl.copper(design)` is not empty and `--copper-from` is absent, `cli/cmd_build.py` MUST run `lens.build.build_design` in memory with the script's model, its placement requests, its copper layer count and the intents, for the KiCad target of the context, and MUST pass `CopperSource(<that build's design>, "script")` to `build_altium`. No file of that KiCad build is written or planned, no layout of `--out` is read, and `kicad-cli` is not run. A script without intents MUST build as before, without the in-memory build.
+- **Hand-over in the build command.** When `dsl.copper(design)`, `dsl.generated(design)` or `dsl.role_copper(design)` is not empty and `--copper-from` is absent, `cli/cmd_build.py` MUST run `lens.build.build_design` in memory with the script's model, its placement requests, its copper layer count, the intents, the generated records and the role-copper request with the planner `fenolite.roles.copper.plan`, for the KiCad target of the context, and MUST pass `CopperSource(<that build's design>, "script")` to `build_altium`. No file of that KiCad build is written or planned, no layout of `--out` is read, and `kicad-cli` is not run. A script without intents, generated records and role copper MUST build as before, without the in-memory build.
+- **Generated and role copper.** The source's generated and role zones MUST be written as polygons, its generated rule areas as keep-outs ("Rule areas, board items and area rules in an Altium build"), and its role clearance rules (`role.sw.*`, `role.hv.*`) as rules of the model; the in-memory build's `kicad.generate.*` and `roles.*` issues MUST pass into `issues` unchanged.
 - **Zones.** The model given to `build_altium` MUST then hold no zone: the zones that the script declares (`design-dsl`, "Zones in the DSL") are in the source, which holds them as the KiCad build keeps them, so the build still takes one source.
 - **Refusal.** When the in-memory build reports an error or returns no files, the Altium build MUST plan no file and exit 5 with those errors unchanged (`kicad.copper.*`, `kicad.frame.*`, `build.*`); `result.copper` and `result.pcb_document` are `null`. `lens.altium.refused_altium(design, *, name, issues, project_exists=False, form=…, sheets=…)` MUST give that output: no file, the given issues and the summary of a refused Altium build.
-- **Nothing silent.** The warnings and infos of the in-memory build whose code starts with `kicad.copper.` or `kicad.frame.`, and its `layout.unplaced` warnings, MUST pass into `issues` unchanged, before the issues of the Altium build. So an intent that creates nothing (`kicad.copper.end-unplaced`, `kicad.copper.stitch-empty`) and dropped stitch candidates (`kicad.copper.stitch-skipped`) are reported. Its other warnings and infos concern KiCad files that are not written and MUST NOT pass.
-- **Both sources.** With `--copper-from` the board wins ("Copper from a routed KiCad board"): the intents MUST NOT be resolved, and the build MUST give one `altium.not-lowered` info whose `where` is the path as given and whose message names the count and the keys of the intents. The kind "copper intents" extends the list of c0032's `altium.not-lowered` row.
+- **Nothing silent.** The warnings and infos of the in-memory build whose code starts with `kicad.copper.`, `kicad.generate.`, `roles.` or `kicad.frame.`, and its `layout.unplaced` warnings, MUST pass into `issues` unchanged, before the issues of the Altium build. So an intent that creates nothing (`kicad.copper.end-unplaced`, `kicad.copper.stitch-empty`) and dropped stitch candidates (`kicad.copper.stitch-skipped`) are reported. Its other warnings and infos concern KiCad files that are not written and MUST NOT pass.
+- **Both sources.** With `--copper-from` the board wins ("Copper from a routed KiCad board"): the intents MUST NOT be resolved, and the build MUST give one `altium.not-lowered` info whose `where` is the path as given and whose message names the count and the keys of the intents. The kind "copper intents" extends the list of c0032's `altium.not-lowered` row. Generated and role-copper records with `--copper-from` MUST NOT be resolved and MUST give `kicad.generate.altium` ("Generated copper codes").
 - **Evidence.** With a script source the envelope MUST also combine `backends.kicad.copper.EVIDENCE` and `backends.kicad.frame.EVIDENCE`, lowest wins; the level stays `INFERRED` and the build stays experimental.
 - The build MUST check a script source as "Copper from a routed KiCad board" checks a board (components, footprints, pad nets, outline, copper nets), so a source built from another script is refused. It MUST take the source's placements and give no `altium.placement-from-board` for this origin.
 - The lens MUST NOT import `fenolite.dsl` or resolve intents itself: `lens.altium` receives a model (`package-layering`).
@@ -901,6 +937,10 @@ When the design carries resolved script copper, the Altium build SHALL write it.
 #### Scenario: Script without intents is unchanged
 - **WHEN** `fenolite build examples/blink_2layer/design.py --out B --target altium --dry-run --json` runs
 - **THEN** `result.copper.source` is `none`, and the planned `blink.PcbDoc` equals the committed `tests/data/altium/blink/blink.PcbDoc`
+
+#### Scenario: Role copper built for Altium
+- **WHEN** `fenolite build examples/roles/buck_shunt/good_roles.py --out B --target altium --dry-run --json` runs
+- **THEN** the exit code is 0, `result.copper.source` is `script`, `result.copper.zones` counts the role zones of the KiCad build of the same script, and no issue is `kicad.generate.altium`
 
 ### Requirement: Copper from a routed KiCad board
 `fenolite build DESIGN.py --out DIR --target altium --copper-from BOARD.kicad_pcb` SHALL copy the tracks, arcs, vias and zones of a routed KiCad board of the same design into `<name>.PcbDoc`, after checking that the board matches the design. This requirement extends "Altium build target" and `design-dsl` "Build command".
@@ -1661,3 +1701,148 @@ until an Altium author report or verification kit proves application.
 #### Scenario: The model helper retains computed behavior
 - **WHEN** the geo extra is installed and the same sample is written with omitted `pour` or explicit `computed`
 - **THEN** both polygon pours are present and the result identifies computed mode
+
+### Requirement: Impedance targets in an Altium build
+An Altium build SHALL keep the impedance targets of a design ("Impedance targets in the rules model") in the model and in `.fenolite/` only, and SHALL report them in one `altium.not-lowered` info whose `where` is `impedance`, naming the targets sorted by name and the number of rules derived from them. No Altium document holds a target: `docs/formats/altium/` records no fact about the record of an impedance profile.
+
+#### Scenario: Detailed contract for impedance targets in an altium build
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
+An Altium build SHALL keep the impedance targets of a design ("Impedance targets in the rules model") in the model and in `.fenolite/` only, and SHALL report them in one `altium.not-lowered` info whose `where` is `impedance`, naming the targets sorted by name and the number of rules derived from them. No Altium document holds a target: `docs/formats/altium/` records no fact about the record of an impedance profile.
+- **Derived rules.** The rules that `to_model` derives from a target are rules of the design, and "Rules in an Altium build" (c0084) applies to them as to any rule: each `track_width_<target>_<layer>` rule carries a layer and MUST be reported with the reason `scope-unsupported` ("Scoped rule records"), and each `diff_pair_gap_<target>_<layer>` rule MUST be reported with the reason `no-counterpart` (`altium-pcb-writer`, "Rule lowering table", as c0104 leaves it). Each gives one `altium.not-lowered` warning at `design-rules/<kind>` and one entry of `result.rules.not_lowered`; none is written, and none is left out of that account.
+- **Files.** Every planned file outside `.fenolite/` MUST equal, byte for byte, the file of the same design without the targets, which is also the design without their derived rules. `.fenolite/rules.json` holds the targets and the derived rules.
+- **Checks.** `build.impedance-layer` MUST be reported as in a KiCad build, and refuses the build. The other five codes of "Impedance targets in a build" (`design-dsl`) are about what KiCad's DRC and KiCad's project do; an Altium build gives them only where the script is judged through the KiCad build in memory ("Script copper in an Altium build"), as that build reports them.
+- **Reading.** No Altium document reads into an `ImpedanceTarget`: `RuleSet.impedance` of an imported Altium design is empty.
+- A design without targets MUST give no info at `impedance`.
+
+#### Scenario: Target in an Altium build
+- **GIVEN** `examples/altium_sample/design.py` and a variant that puts two of its signal nets in a class `SE50` with a target `SE50` whose traces are on `F.Cu` and `B.Cu`
+- **WHEN** `uv run pytest tests/unit/lens/test_altium_rules.py -k impedance` builds both with `--target altium --dry-run --json`
+- **THEN** the variant's planned files outside `.fenolite/` equal the example's built with the same class and no target; its `issues` hold one `altium.not-lowered` info at `impedance` naming `SE50` and two derived rules, and two `altium.not-lowered` warnings at `design-rules/track_width` naming `track_width_SE50_F.Cu` and `track_width_SE50_B.Cu` with the reason `scope-unsupported`; `result.rules.not_lowered` holds both
+
+#### Scenario: Pair target in an Altium build
+- **GIVEN** a variant with a `USB2` pair of the class `USB90` and a differential target on `F.Cu`
+- **WHEN** it is built with `--target altium --dry-run --json`
+- **THEN** the build does not fail, and `issues` hold one warning at `design-rules/track_width` (`scope-unsupported`) and one at `design-rules/diff_pair_gap` (`no-counterpart`) beside the info at `impedance`
+
+### Requirement: Signal and plane limits in an Altium build
+An Altium build of a script whose signal layers (copper count minus declared planes) exceed 16, or whose planes exceed 16, SHALL give `altium.stack-signal-limit` (error) with the hint "declare planes= for the layers beyond 16 signal layers, or build for KiCad", exit 5 and write nothing, instead of the default stack of `altium.not-lowered`. Any other count of `COPPER_COUNTS` builds as "Script layer counts in an Altium build" states.
+
+#### Scenario: Twenty layers without planes
+- **GIVEN** a blink variant with `copper=20` and no plane
+- **WHEN** it is built with `--target altium --dry-run --json`
+- **THEN** the exit code is 5, `issues` hold one `altium.stack-signal-limit` naming 20 signal layers, and nothing is planned
+
+#### Scenario: Twenty layers with four planes
+- **GIVEN** the same variant with planes on `In1.Cu`, `In6.Cu`, `In12.Cu` and `In18.Cu`
+- **WHEN** it is built with `--target altium --dry-run --json`
+- **THEN** the exit code is 0 and the planned document has 20 copper layers, four of them planes
+
+### Requirement: Coverage items in an Altium build
+An Altium build SHALL write the coverage items of change c0277 that a record of the writer holds (copper texts and graphics with their net, pad shapes the writer maps, zone arcs, overrides with a rule form) and SHALL report each other item: `altium.group-skipped`, `altium.image-skipped`, `altium.verbatim-skipped` (warnings), teardrops, dimension kinds and model references as `altium.not-lowered`, and arcs written as segments as `altium.zone-arc-flattened` (info). No item is dropped silently.
+
+#### Scenario: Every item accounted for
+- **GIVEN** the coverage example `examples/board_coverage/design.py`
+- **WHEN** it is built with `--target altium --dry-run --json`
+- **THEN** each item of the script is either in the planned document or named by exactly one of these issues
+
+### Requirement: Experimental notice per kind
+`fenolite build --target altium` SHALL report `altium.experimental` (info) once, naming the kinds it wrote whose write is experimental in the evidence matrix, and SHALL NOT report it when no written kind is experimental.
+- The envelope evidence MUST be the lowest level of the write cells of the kinds written, combined with the evidence of the inputs; it MUST NOT be fixed at `INFERRED`.
+
+#### Scenario: All kinds graduated
+- **GIVEN** a tree in which every Altium write kind graduated
+- **WHEN** the blink is built for Altium
+- **THEN** no `altium.experimental` is reported, and the envelope level is the lowest level of the kinds written
+
+#### Scenario: One kind still experimental
+- **GIVEN** a tree in which the harness kind is experimental
+- **WHEN** a design with a typed interface is built with module sheets
+- **THEN** `altium.experimental` names `altium_harness` only
+
+### Requirement: Altium acceptance project
+The repository SHALL hold an acceptance project for the second backend's write side and a script `tools/acceptance_v03.py` that builds it for KiCad and for Altium, runs `fenolite check` on both, compares the two at level 5 of `equivalent`, runs `fenolite roundtrip --level rta3` on the Altium project, and compares the KiCad board with KiCad's import of the Altium documents at level 5.
+
+#### Scenario: Acceptance run
+- **WHEN** `uv run pytest tests/kicad/acceptance/test_v03_acceptance.py -rA` runs with KiCad 10.0.6
+- **THEN** every step of the script passes, and the probe `acceptance-v03` records `equal`
+
+### Requirement: Scope of the acceptance project
+The acceptance project SHALL use every item that the written scope lists: a stack of six copper layers, blind and buried vias, board texts, a keep-out, a non-plated hole, bodies, polygons, rules of every exact kind, a module tree two levels deep, a bus, an output job and a drawing sheet.
+
+#### Scenario: Every written item is used
+- **WHEN** the acceptance project is built for Altium
+- **THEN** each item of the written scope appears in the written documents
+
+### Requirement: Record of the acceptance runs
+`docs/evidence/altium-acceptance.md` SHALL record each run of `tools/acceptance_v03.py` with the versions of Fenolite, KiCad and Altium, the result of each step, and the id of the kit run made on the same tree.
+
+#### Scenario: A run is recorded
+- **WHEN** the acceptance script has run on a tree
+- **THEN** the page holds a row with the three versions, each step's result and the kit run id, or says that no kit run was made on that tree
+
+### Requirement: Draftsman document in an Altium build
+With `--altium-draftsman on`, a written PCB document and `draftsman.NATIVE_WRITE` true, the Altium build SHALL plan `<name>.PCBDwf` (kind `altium_draftsman`), listed in the project file after the output job, and fill `result.draftsman`. Otherwise it MUST plan none and give `altium.draftsman-not-written` (info) naming the reason; with `off` every file keeps its bytes.
+
+#### Scenario: Gate off
+- **GIVEN** `NATIVE_WRITE` false
+- **WHEN** the routed blink is built with `--target altium --altium-draftsman on --dry-run --json`
+- **THEN** the exit code is 0, no `.PCBDwf` is planned, `result.draftsman` is `null`, and `issues` holds `altium.draftsman-not-written` naming the gate
+
+#### Scenario: Document planned
+- **GIVEN** `NATIVE_WRITE` set true in the test
+- **WHEN** the same build runs
+- **THEN** `B/blink.PCBDwf` is planned with the kind `altium_draftsman` and `B/blink.PrjPcb` lists it after `blink.OutJob`
+
+### Requirement: Draftsman output in the output job
+When the build writes `<name>.PCBDwf` and an output job, the job SHALL hold one more output of the type `PCBDrawing`, the category `Documentation` and the document path `<name>.PCBDwf`, enabled for the PDF container. A build without the document MUST write the job it wrote before.
+
+#### Scenario: The job names the drawing
+- **GIVEN** `NATIVE_WRITE` set true in the test
+- **WHEN** the routed blink is built with `--altium-draftsman on` and `blink.OutJob` is read with `read_outjob`
+- **THEN** it holds seven outputs, the last of the type `PCBDrawing` bound to `blink.PCBDwf` and enabled for the PDF container
+
+### Requirement: Title-block parameters in the project file
+When the build writes a Draftsman document, the project file it writes SHALL hold one `[Parameter<n>]` section with `Name` and `Value` per non-empty field of `design.title_block(...)`, in the order of its arguments. A build without the document MUST write the project file it wrote before.
+
+#### Scenario: Title and revision
+- **GIVEN** the routed blink with `design.title_block(title="Blink", revision="B")` and `NATIVE_WRITE` set true in the test
+- **WHEN** it is built with `--altium-draftsman on` and `blink.PrjPcb` is read with the project reader
+- **THEN** its parameters are `Title` = `Blink` and `Revision` = `B`, in that order
+
+### Requirement: Panel project of an Altium board
+`fenolite panel … --target altium` SHALL write `<name>.PcbDoc` and a project `<name>.PrjPcb` that lists the panel document alone; with an Embedded Board Array the board's document stays where `build --target altium` wrote it and is referenced, not copied. A source that is a `.kicad_pcb` MUST give the flattened form.
+
+#### Scenario: Panel project files
+- **GIVEN** the fixture built with `--target altium` into `B` and a copy `T.py` of `tests/data/panels/tabs.py` whose `board=` names `B/board.PcbDoc`
+- **WHEN** `fenolite panel T.py --out P --target altium --confirm --plan <id>` runs
+- **THEN** `P/tabs.PcbDoc` and `P/tabs.PrjPcb` are written, the project lists `[Document1]` `tabs.PcbDoc` and no other document, and `B/board.PcbDoc` keeps its bytes
+
+### Requirement: Pour mode of an Altium build
+Altium build, conversion and panel commands SHALL accept `--altium-pour outline|computed`. The corresponding writer APIs SHALL accept `pour=`. Defaults, missing-extra behavior, reporting and rewrite rules MUST follow the scenarios below.
+
+#### Scenario: Detailed contract for pour mode of an altium build
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
+`fenolite build --target altium`, `fenolite convert --to altium` and `fenolite panel --target altium` SHALL take `--altium-pour outline|computed` and pass it to `pcbdoc.write_pcbdoc` (`altium-pcb-writer`, "Polygon pour modes"); `lower.write_design`, `AltiumBackend.write` and `lens.altium.build_altium` SHALL take it as `pour=`. The default of the three commands and of those three functions SHALL be `computed` (the maintainer's decision of 2026-10-26, roadmap "Open decisions", row 48); `AltiumBackend.model_roundtrip` SHALL keep `outline`. A change of the default SHALL be a recorded decision of the maintainer.
+- `computed` by default without the `geo` extra MUST write every polygon unpoured, as `outline` does, and MUST add one `altium.pour-unavailable` (warning) naming `fenolite[geo]`.
+- `result.pcb.pour` MUST hold `mode`, `poured` (a count), `unpoured` (an object from reason to count), `evidence` (the level) and `hypotheses` (the ids the poured polygons used), and MUST be present whenever the PCB document is planned.
+- An explicit `--altium-pour computed` without the `geo` extra MUST exit 6 with a hint naming `fenolite[geo]` and write nothing.
+- A rewrite of a read document (`rewrite=True`) with `computed` MUST pour every polygon again.
+- The page of the agent guide that teaches `build` MUST name `--altium-pour` (`tests/unit/agent/test_pages.py`).
+
+#### Scenario: Computed pour of the routed sample
+- **WHEN** `uv run pytest tests/unit/lens/test_altium_pour_build.py -k routed` builds the routed sample with `--altium-pour computed`
+- **THEN** `result.pcb.pour.poured` is 2, `result.pcb.pour.unpoured` is empty, the written document holds regions with the indices of both polygons, and no issue is an error
+
+#### Scenario: The default pours
+- **WHEN** `fenolite build examples/board_40parts/design.py --target altium --dry-run --json` runs with the `geo` extra (its script declares one `GND` zone on `F.Cu` and `B.Cu`; the kit's `routed` script gets its polygon from `kit_model`, which `build` does not run)
+- **THEN** `result.pcb.pour.mode` is `computed` and one `altium.zones-poured` names 2 polygons
+
+#### Scenario: The extra is missing
+- **GIVEN** `pyclipper` cannot be imported
+- **WHEN** the same build runs with `--altium-pour computed`, and again without the option
+- **THEN** the first exits 6 with an error naming `fenolite[geo]` and plans no file; the second exits 0, plans the document with both polygons unpoured, and gives `altium.zones-unpoured` and one `altium.pour-unavailable`
+

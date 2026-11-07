@@ -16,6 +16,7 @@ import re
 import subprocess
 import sys
 import tomllib
+import urllib.parse
 import zipfile
 from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass, field
@@ -26,6 +27,7 @@ REPO = HERE.parents[1]
 CFB_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
 MAX_BYTES = 64 * 1024 * 1024
 ZIP_SUFFIXES = (".zip", ".whl")
+WEB_URL = re.compile(r"\bhttps?://[^\s<>\"'`]+", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -141,6 +143,22 @@ def _byte_offset(text: str, index: int, encoding: str) -> int:
     return index
 
 
+def _web_paths(text: str) -> list[tuple[int, int]]:
+    """Path spans only: query/fragment values and other URI schemes stay checked."""
+    spans: list[tuple[int, int]] = []
+    for match in WEB_URL.finditer(text):
+        try:
+            url = urllib.parse.urlsplit(match.group())
+            if not url.hostname:
+                continue
+            _ = url.port  # Invalid authorities do not exempt any bytes.
+        except ValueError:
+            continue
+        start = match.start() + len(url.scheme) + 3 + len(url.netloc)
+        spans.append((start, start + len(url.path)))
+    return spans
+
+
 def scan_bytes(path: str, data: bytes, config: Config) -> list[Hit]:
     """All hits in one file's bytes (and, for zip archives, in each member)."""
     hits: set[Hit] = set()
@@ -150,8 +168,15 @@ def scan_bytes(path: str, data: bytes, config: Config) -> list[Hit]:
     active = [p for p in config.patterns if any(_glob(path.split("!", 1)[0], g) for g in p.paths)]
     active = [p for p in active if not any(_glob(path, wp) and wid == p.id for wp, wid in config.waivers)]
     for encoding, text in _decodings(data):
+        web_paths = _web_paths(text) if any(p.id == "abs-user-path" for p in active) else []
         for pattern in active:
             for match in pattern.regex.finditer(text):
+                if (
+                    pattern.id == "abs-user-path"
+                    and not pattern.private
+                    and any(start <= match.start() and match.end() <= end for start, end in web_paths)
+                ):
+                    continue
                 hits.add(Hit(path, _byte_offset(text, match.start(), encoding), pattern.id))
     if path.lower().endswith(ZIP_SUFFIXES) and zipfile.is_zipfile(io.BytesIO(data)):
         with zipfile.ZipFile(io.BytesIO(data)) as archive:

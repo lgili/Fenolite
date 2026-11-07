@@ -1,0 +1,857 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.import-provenance.v1",
+  "title": "ImportProvenanceFile",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "fenolite.import-provenance.v1"
+    },
+    "fidelity": {
+      "$ref": "#/$defs/Fidelity"
+    },
+    "design": {
+      "type": "string"
+    },
+    "licence": {
+      "type": "string"
+    },
+    "copyright": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "source": {
+      "$ref": "#/$defs/ImportSource"
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/InputFile"
+      }
+    },
+    "upgrade": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Upgrade"
+      }
+    },
+    "fenolite": {
+      "type": "string"
+    },
+    "tools": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "date": {
+      "type": "string"
+    },
+    "notices": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "findings": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer"
+      }
+    },
+    "equivalence": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ImportEquivalence"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "copy": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "design",
+    "licence",
+    "copyright",
+    "source",
+    "inputs",
+    "upgrade",
+    "fenolite",
+    "tools",
+    "date",
+    "notices",
+    "findings",
+    "equivalence"
+  ],
+  "$defs": {
+    "CanonicalNativeJson": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CanonicalNativeJson"
+          }
+        }
+      ]
+    },
+    "DerivedCacheCanonicalNets": {
+      "description": "Every net paired under a canonical name, by rule: rows [side, declared name, pairing key].",
+      "type": "object",
+      "properties": {
+        "slash": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "description": "Nets whose stored {slash} was read as the / of their label text."
+        },
+        "unconnected_single_pad": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "description": "unconnected-( nets of exactly one pad whose name KiCad derives from that pad, keyed by its reference and number."
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "slash",
+        "unconnected_single_pad"
+      ]
+    },
+    "DerivedCacheCrossings": {
+      "type": "object",
+      "properties": {
+        "rings_with_proper_crossings": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "proper_edge_pair_crossings": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "rings_with_proper_crossings",
+        "proper_edge_pair_crossings"
+      ]
+    },
+    "DerivedCacheIdentityPreparation": {
+      "description": "Private identity and order preparation of side b's native input copy only (c0384 2.1). By c0275's",
+      "type": "object",
+      "properties": {
+        "scope": {
+          "type": "string",
+          "enum": [
+            "private-native-input-copy"
+          ]
+        },
+        "side": {
+          "type": "string",
+          "enum": [
+            "b"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "applied",
+            "unneeded",
+            "refused"
+          ]
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "label": {
+          "type": "string",
+          "enum": [
+            "L7",
+            "L7 after identity preparation",
+            "L7 after order preparation",
+            "L7 after identity and order preparation"
+          ]
+        },
+        "rewritten": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "description": "Every rewritten object: [kind, side-b identity, side-a identity]."
+        },
+        "moved": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            }
+          },
+          "description": "Every moved root segment, arc or via: [kind, side-b identity, old position, new position], positions 0-based among the root segments, arcs and vias."
+        },
+        "identical_pairs": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "description": "Side-b identities of each admitted pair of fully identical pads."
+        },
+        "source_aliases": {
+          "$ref": "#/$defs/DerivedCacheSourceAliases"
+        },
+        "canonical_nets": {
+          "$ref": "#/$defs/DerivedCacheCanonicalNets"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "side",
+        "status",
+        "reason",
+        "label",
+        "rewritten",
+        "moved",
+        "identical_pairs",
+        "source_aliases",
+        "canonical_nets"
+      ]
+    },
+    "DerivedCacheRuleDelta": {
+      "description": "Uninterpreted native JSON canonicalization; not judged rule/geometry semantics.",
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "a": {
+          "$ref": "#/$defs/CanonicalNativeJson"
+        },
+        "b": {
+          "$ref": "#/$defs/CanonicalNativeJson"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "a",
+        "b"
+      ]
+    },
+    "DerivedCacheSettingDelta": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "a_canonical_sha256": {
+          "type": "string"
+        },
+        "b_canonical_sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "a_canonical_sha256",
+        "b_canonical_sha256"
+      ]
+    },
+    "DerivedCacheSide": {
+      "type": "object",
+      "properties": {
+        "raw_caches": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "raw_non_simple_rings": {
+          "$ref": "#/$defs/DerivedCacheCrossings"
+        },
+        "native_input_sha256": {
+          "type": "string"
+        },
+        "qualified_caches_removed_from_private_input": {
+          "type": "boolean",
+          "enum": [
+            true
+          ]
+        },
+        "input_files": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "command": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "exit": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "outcome": {
+          "type": "string"
+        },
+        "stdout_sha256": {
+          "type": "string"
+        },
+        "stderr_sha256": {
+          "type": "string"
+        },
+        "output_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "regenerated_caches": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "native_non_simple_rings": {
+          "$ref": "#/$defs/DerivedCacheCrossings"
+        },
+        "exact_geometry_sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "raw_caches",
+        "raw_non_simple_rings",
+        "native_input_sha256",
+        "qualified_caches_removed_from_private_input",
+        "input_files",
+        "command",
+        "exit",
+        "outcome",
+        "stdout_sha256",
+        "stderr_sha256",
+        "output_sha256"
+      ]
+    },
+    "DerivedCacheSides": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "$ref": "#/$defs/DerivedCacheSide"
+        },
+        "b": {
+          "$ref": "#/$defs/DerivedCacheSide"
+        }
+      },
+      "additionalProperties": false
+    },
+    "DerivedCacheSourceAliases": {
+      "type": "object",
+      "properties": {
+        "note": {
+          "type": "string",
+          "enum": [
+            "source alias, not rewritten"
+          ]
+        },
+        "count": {
+          "type": "integer"
+        },
+        "identities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Side-b identities kept because their side-a identity names several objects."
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "note",
+        "count",
+        "identities"
+      ]
+    },
+    "DerivedCacheSummary": {
+      "description": "Existing common-tool receipt, not raw-cache equality or a DRC safety certificate.",
+      "type": "object",
+      "properties": {
+        "judged_project_keys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unjudged_project_rule_deltas": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DerivedCacheRuleDelta"
+          }
+        },
+        "unjudged_project_setting_deltas": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DerivedCacheSettingDelta"
+          }
+        },
+        "whole_project_json_equality_claimed": {
+          "type": "boolean",
+          "enum": [
+            false
+          ]
+        },
+        "whole_native_rule_file_equality_claimed": {
+          "type": "boolean",
+          "enum": [
+            false
+          ]
+        },
+        "tool": {
+          "type": "string",
+          "enum": [
+            "kicad-cli"
+          ]
+        },
+        "version": {
+          "type": "string"
+        },
+        "raw_cache_equality_claimed": {
+          "type": "boolean",
+          "enum": [
+            false
+          ]
+        },
+        "drc_safety_gate_claimed": {
+          "type": "boolean",
+          "enum": [
+            false
+          ]
+        },
+        "sides": {
+          "$ref": "#/$defs/DerivedCacheSides"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "equal",
+            "differs",
+            "native-failed",
+            "native-config-changed",
+            "native-cache-unqualified"
+          ]
+        },
+        "complete_regenerated_geometry_equal": {
+          "type": "boolean"
+        },
+        "normal_zone_priorities_normalized": {
+          "type": "boolean",
+          "enum": [
+            false
+          ]
+        },
+        "identity_preparation": {
+          "$ref": "#/$defs/DerivedCacheIdentityPreparation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "judged_project_keys",
+        "unjudged_project_rule_deltas",
+        "unjudged_project_setting_deltas",
+        "whole_project_json_equality_claimed",
+        "whole_native_rule_file_equality_claimed",
+        "tool",
+        "version",
+        "raw_cache_equality_claimed",
+        "drc_safety_gate_claimed",
+        "sides",
+        "status"
+      ]
+    },
+    "Fidelity": {
+      "type": "object",
+      "properties": {
+        "accepted": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/VerifySourceNewAcceptedItem"
+          }
+        },
+        "proof": {
+          "$ref": "#/$defs/FidelityProof"
+        }
+      },
+      "additionalProperties": false
+    },
+    "FidelityProof": {
+      "type": "object",
+      "properties": {
+        "derived_cache": {
+          "$ref": "#/$defs/DerivedCacheSummary"
+        },
+        "native_project_rules": {
+          "$ref": "#/$defs/NativeProjectRulesSummary"
+        },
+        "levels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "skipped": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "fenolite": {
+          "type": "string"
+        },
+        "against": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "date": {
+          "type": "string"
+        },
+        "script_sha256": {
+          "type": "string"
+        },
+        "tolerances": {
+          "$ref": "#/$defs/VerifySourceTolerances"
+        },
+        "generated_read_files": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "generated read-set paths mapped to SHA-256"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "levels"
+      ]
+    },
+    "ImportEquivalence": {
+      "type": "object",
+      "properties": {
+        "equivalent": {
+          "type": "boolean"
+        },
+        "levels": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "equivalent",
+        "levels"
+      ]
+    },
+    "ImportSource": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "url",
+        "revision"
+      ]
+    },
+    "InputFile": {
+      "description": "One file read: its base name, SHA-256 of its original bytes, format and format version.",
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "sha256",
+        "format"
+      ]
+    },
+    "NativeProjectRulesSummary": {
+      "description": "Scoped exact native context; unknown rule properties are explicitly outside coverage.",
+      "type": "object",
+      "properties": {
+        "scope": {
+          "type": "string"
+        },
+        "judged_keys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unjudged_absent_fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "judged_count": {
+          "type": "integer"
+        },
+        "source_major": {
+          "type": "integer"
+        },
+        "generated_major": {
+          "type": "integer"
+        },
+        "a_read_files": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "b_read_files": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "unjudged": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "judged_keys",
+        "unjudged_absent_fields",
+        "judged_count",
+        "source_major",
+        "generated_major",
+        "a_read_files",
+        "b_read_files",
+        "unjudged"
+      ]
+    },
+    "Upgrade": {
+      "description": "One upgrade of a file on a private copy (decision 13).",
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "tool": {
+          "type": "string"
+        },
+        "tool_version": {
+          "type": "string"
+        },
+        "from_version": {
+          "type": "integer"
+        },
+        "to_version": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sha256_before": {
+          "type": "string"
+        },
+        "sha256_after": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "tool",
+        "tool_version",
+        "from_version",
+        "to_version",
+        "sha256_before",
+        "sha256_after"
+      ]
+    },
+    "VerifySourceNewAcceptedItem": {
+      "type": "object",
+      "properties": {
+        "attribution": {
+          "type": "string"
+        },
+        "decided": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "level": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "where": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "attribution",
+        "decided",
+        "field",
+        "id",
+        "kind",
+        "level",
+        "reason",
+        "where"
+      ]
+    },
+    "VerifySourceTolerances": {
+      "type": "object",
+      "properties": {
+        "angle_udeg": {
+          "type": "integer"
+        },
+        "frame": {
+          "type": "string"
+        },
+        "length_nm": {
+          "type": "integer"
+        },
+        "length_ppm": {
+          "type": "integer"
+        },
+        "pixel_ppm": {
+          "type": "integer"
+        },
+        "render_pitch_um": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "angle_udeg",
+        "frame",
+        "length_nm",
+        "length_ppm",
+        "pixel_ppm",
+        "render_pitch_um"
+      ]
+    }
+  }
+}

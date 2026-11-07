@@ -27,7 +27,7 @@ sha256 = "123e209e6245cbcc344c1c70b425dcb44a12cd0a2d05f00a39d3f2e7ff307ffa"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "oracle", "origin:kicad-demos", "downgrade-demo"]
+uses = ["rt0", "oracle", "origin:kicad-demos", "downgrade-demo", "rtf"]
 notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 3382011 bytes."
 
 [[file]]
@@ -38,7 +38,7 @@ sha256 = "d5f4162d4c766448832723d139f9e0fcb88a17c82340f10f6f6dc6c2042f0d69"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "oracle", "origin:kicad-demos"]
+uses = ["rt0", "oracle", "origin:kicad-demos", "rtf"]
 notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 883812 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -49,7 +49,7 @@ sha256 = "0ab45f4f8c90ac877e3313a1888d875107f2be3fc2b2f40cfb7927873b35260c"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "oracle", "origin:kicad-demos"]
+uses = ["rt0", "oracle", "origin:kicad-demos", "rtf"]
 notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 158878 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -60,7 +60,7 @@ sha256 = "9be2caf4c257a93fc2b3904add1061a4d2e23cde502a7846513ae7db6b214c30"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "oracle", "origin:kicad-demos"]
+uses = ["rt0", "oracle", "origin:kicad-demos", "rtf"]
 notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 173660 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -71,7 +71,7 @@ sha256 = "a740ce7fde77ab6af191e23ece21e57d36bb3c29325879248520dcd9ab47b57e"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "oracle", "origin:kicad-demos"]
+uses = ["rt0", "oracle", "origin:kicad-demos", "rtf"]
 notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 622284 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -82,7 +82,7 @@ sha256 = "e61179b68ac151376f5552f91a8acc2aed46f0cc4cd9c771049490735cdbf3f8"
 license = "CC-BY-SA-4.0"
 license_variant = "Apache-2.0"
 embeddable = false
-uses = ["rt0", "oracle", "origin:kicad-demos", "heavy"]
+uses = ["rt0", "oracle", "origin:kicad-demos", "heavy", "rtf"]
 notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); 84806775 bytes."
 
 [[file]]
@@ -93,7 +93,7 @@ sha256 = "392cf6bf4b9b62beb435f965ccd7671a46decb17f947b74bfde482acd2132a5e"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "oracle", "origin:kicad-demos"]
+uses = ["rt0", "oracle", "origin:kicad-demos", "rtf"]
 notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 2770404 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -104,7 +104,7 @@ sha256 = "7f17191488b51f8782efc0a3b9ce7b5748a4e771ff0babb34ec0369ffcf43be5"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "oracle", "origin:kicad-demos"]
+uses = ["rt0", "oracle", "origin:kicad-demos", "rtf"]
 notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 85718 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -115,7 +115,7 @@ sha256 = "149b2dce16e0f59adb78f87068f4137b7dafca0e991a0b21fdd967c873fd5ee9"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "oracle", "origin:kicad-demos"]
+uses = ["rt0", "oracle", "origin:kicad-demos", "rtf"]
 notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); format 20241030; 1942567 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -126,7 +126,7 @@ sha256 = "44b7c119a0d05c98e9f294659879184038a5f6c30073c04d9536990429ca413e"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "oracle", "origin:kicad-demos"]
+uses = ["rt0", "oracle", "origin:kicad-demos", "rtf"]
 notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 2000139 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -137,7 +137,7 @@ sha256 = "a577ba5e2b337c9b827f3c30256161a1893da8303d278fb7db10dba4f02ea810"
 license = "CC-BY-SA-4.0"
 license_variant = "CC-BY-SA-4.0"
 embeddable = false
-uses = ["rt0", "oracle", "origin:kicad-demos"]
+uses = ["rt0", "oracle", "origin:kicad-demos", "rtf"]
 notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 2433726 bytes."
 
 [[file]]
@@ -148,7 +148,7 @@ sha256 = "1ca70b620506818eb0227e2863bbd573d1fec1672072dc43d0dbe8475e69c8fb"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "oracle", "origin:kicad-demos", "downgrade-demo"]
+uses = ["rt0", "oracle", "origin:kicad-demos", "downgrade-demo", "rtf"]
 notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); format 20260206; 643403 bytes."
 
 [[file]]
@@ -159,7 +159,7 @@ sha256 = "535dbe212f43a8bab12b23277e176a94ac9694177258af2981c0e7b08e4b7252"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-P-2.0"
 embeddable = false
-uses = ["rt0", "oracle", "origin:kicad-demos"]
+uses = ["rt0", "oracle", "origin:kicad-demos", "rtf"]
 notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 3549654 bytes."
 
 [[file]]
@@ -170,7 +170,7 @@ sha256 = "cd87e6d1b20fe0d129d9a9c807af3118c67749eff44b1f032d85c047a814c6dc"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-P-2.0"
 embeddable = false
-uses = ["rt0", "oracle", "origin:kicad-demos"]
+uses = ["rt0", "oracle", "origin:kicad-demos", "rtf"]
 notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 147777 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -181,7 +181,7 @@ sha256 = "d0dee876715fcdd3f656dd6a77cc1141c39bec4d6f8492a3784d38edd6b9a998"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "oracle", "origin:kicad-demos"]
+uses = ["rt0", "oracle", "origin:kicad-demos", "rtf"]
 notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 336473 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -192,7 +192,7 @@ sha256 = "0d26bf9b6d561e32cf610d428541d6433e60b45e1838f34f73467e25b9144814"
 license = "CC-BY-SA-4.0"
 license_variant = "Apache-2.0"
 embeddable = false
-uses = ["rt0", "oracle", "origin:kicad-demos"]
+uses = ["rt0", "oracle", "origin:kicad-demos", "rtf"]
 notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 4541774 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -203,7 +203,7 @@ sha256 = "f620675158ddd5c61e5ce9e15f4c92b230ae1df1cbcec6c502b8ce266e4007ea"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "oracle", "origin:kicad-demos"]
+uses = ["rt0", "oracle", "origin:kicad-demos", "rtf"]
 notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 5787523 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -214,7 +214,7 @@ sha256 = "1c76ac238b04babc238d2d50585858988fb3f6c4f8d0fbacc738cfe4862fff5b"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "oracle", "origin:kicad-demos", "heavy"]
+uses = ["rt0", "oracle", "origin:kicad-demos", "heavy", "rtf"]
 notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); 69638531 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -225,7 +225,7 @@ sha256 = "a36d3d6f7e9f82412acee8636a76ee1cbd5d0790eaa9fd7aef99c555dbb29fc5"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "oracle", "origin:kicad-demos", "rt2-9"]
+uses = ["rt0", "oracle", "origin:kicad-demos", "rt2-9", "rtf"]
 notes = "Demo board at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 124831 bytes; differs from or is absent at 10.0.6."
 
 [[file]]
@@ -236,7 +236,7 @@ sha256 = "4bd316f0609b689c90add7426362ece5763dd3a4443a3d26fd73bce987a438aa"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "oracle", "origin:kicad-demos", "rt2-9"]
+uses = ["rt0", "oracle", "origin:kicad-demos", "rt2-9", "rtf"]
 notes = "Demo board at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 1015246 bytes; differs from or is absent at 10.0.6."
 
 [[file]]
@@ -247,7 +247,7 @@ sha256 = "470e9b32954f3c92e1c74c5b4c29934adf28b6fd60f504803942466163da99d9"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "oracle", "origin:kicad-demos", "rt2-9"]
+uses = ["rt0", "oracle", "origin:kicad-demos", "rt2-9", "rtf"]
 notes = "Demo board at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 698533 bytes; differs from or is absent at 10.0.6."
 
 [[file]]
@@ -258,7 +258,7 @@ sha256 = "8a435448b5ecace39581fadc5476ab0b428662d222a3d6ea3dc7ee56bdd7e9bb"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-P-2.0"
 embeddable = false
-uses = ["malformed", "origin:kicad-demos"]
+uses = ["malformed", "origin:kicad-demos", "rtf"]
 notes = "Demo board at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 3549305 bytes; differs from or is absent at 10.0.6. Malformed as published: a spliced line closes the root list at byte 14111, so the strict parser rejects it with 'content after the root list'; kicad-cli 10.0.6 loads it (exit 0) and silently ignores the remaining bytes."
 
 [[file]]
@@ -269,7 +269,7 @@ sha256 = "611b0ec42ac66d520555bf60e752301491f9e0095ec84564047fd7c718f1be1c"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "oracle", "origin:kicad-demos", "rt2-9"]
+uses = ["rt0", "oracle", "origin:kicad-demos", "rt2-9", "rtf"]
 notes = "Demo board at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 13155 bytes; differs from or is absent at 10.0.6."
 
 [[file]]
@@ -280,7 +280,7 @@ sha256 = "d23c9e029e586546dd5b6c4fcc9b992740373ae2c4d0a2a774ad78b9514b11a2"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "oracle", "origin:kicad-demos", "rt2-9"]
+uses = ["rt0", "oracle", "origin:kicad-demos", "rt2-9", "rtf"]
 notes = "Demo board at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 701695 bytes; differs from or is absent at 10.0.6."
 
 [[file]]
@@ -291,7 +291,7 @@ sha256 = "4344cf98eac9e48262bc6092add7c0dffe27b560627d0658e5129250e7226e9e"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 58053 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -1556,7 +1556,7 @@ sha256 = "aa5b004bb45d70028612f6591b2cd5fa4754095e7542dbbca974753e4399526a"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["project", "origin:kicad-demos", "downgrade-demo"]
+uses = ["project", "origin:kicad-demos", "downgrade-demo", "rtf"]
 notes = "Demo project file at tag 10.0.6 (commit caf7377e9cb6); 23441 bytes."
 
 [[file]]
@@ -1567,7 +1567,7 @@ sha256 = "55438416ca7fd46b5bad22da2693e9c43240060977d06daabcba084aa17e2804"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["project", "origin:kicad-demos"]
+uses = ["project", "origin:kicad-demos", "rtf"]
 notes = "Demo project file at tag 10.0.6 (commit caf7377e9cb6); 16908 bytes. Identical at tag 9.0.9.1."
 
 [[file]]
@@ -1578,7 +1578,7 @@ sha256 = "8a943fac4b0cc3ed4fa83ccc83a6e15b9326178845ada0aa906df63f0672e975"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["project", "origin:kicad-demos"]
+uses = ["project", "origin:kicad-demos", "rtf"]
 notes = "Demo project file at tag 10.0.6 (commit caf7377e9cb6); 15516 bytes. Identical at tag 9.0.9.1."
 
 [[file]]
@@ -1589,7 +1589,7 @@ sha256 = "8ca4caec049e921d8cae59f2eddb5ca612c18010da8191ea1d30651a00aa07c9"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["project", "origin:kicad-demos"]
+uses = ["project", "origin:kicad-demos", "rtf"]
 notes = "Demo project file at tag 10.0.6 (commit caf7377e9cb6); 15482 bytes. Identical at tag 9.0.9.1."
 
 [[file]]
@@ -1600,7 +1600,7 @@ sha256 = "b9908a96e6113e6e51f488482108dc87aa5d9bcd838f9e3345c85e0db09bffa9"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["project", "origin:kicad-demos"]
+uses = ["project", "origin:kicad-demos", "rtf"]
 notes = "Demo project file at tag 10.0.6 (commit caf7377e9cb6); 16229 bytes. Identical at tag 9.0.9.1."
 
 [[file]]
@@ -1611,7 +1611,7 @@ sha256 = "afef3270ffbaa078e6136ea87f9a2fbbc2a186bab5073aae6bf8aae871ef30aa"
 license = "CC-BY-SA-4.0"
 license_variant = "Apache-2.0"
 embeddable = false
-uses = ["project", "origin:kicad-demos"]
+uses = ["project", "origin:kicad-demos", "rtf"]
 notes = "Demo custom rules file at tag 10.0.6 (commit caf7377e9cb6); 1003 bytes."
 
 [[file]]
@@ -1622,7 +1622,7 @@ sha256 = "36a2d42b52b71cde1709a17c058d509a62e85e34341134d5e079af74db527191"
 license = "CC-BY-SA-4.0"
 license_variant = "Apache-2.0"
 embeddable = false
-uses = ["project", "origin:kicad-demos"]
+uses = ["project", "origin:kicad-demos", "rtf"]
 notes = "Demo project file at tag 10.0.6 (commit caf7377e9cb6); 47388 bytes."
 
 [[file]]
@@ -1633,7 +1633,7 @@ sha256 = "d6ca906944730a3eae31ba3d9240c6966424b0d80ba76e80710e39d7b23c4637"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["project", "origin:kicad-demos"]
+uses = ["project", "origin:kicad-demos", "rtf"]
 notes = "Demo project file at tag 10.0.6 (commit caf7377e9cb6); 16747 bytes."
 
 [[file]]
@@ -1644,7 +1644,7 @@ sha256 = "ea9d9b756ae3b51d485c2dcb904f09aaee0190e4b584f038c3094536e7a9334a"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["project", "origin:kicad-demos"]
+uses = ["project", "origin:kicad-demos", "rtf"]
 notes = "Demo project file at tag 10.0.6 (commit caf7377e9cb6); 12083 bytes. Identical at tag 9.0.9.1."
 
 [[file]]
@@ -1655,7 +1655,7 @@ sha256 = "ea1bc47355f707e1c4743af3e1c29e939bb5eaf4621c071bdac3841c43545538"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["project", "origin:kicad-demos"]
+uses = ["project", "origin:kicad-demos", "rtf"]
 notes = "Demo project file at tag 10.0.6 (commit caf7377e9cb6); 15273 bytes. Identical at tag 9.0.9.1."
 
 [[file]]
@@ -1666,7 +1666,7 @@ sha256 = "d64469625e0a2d874a7073dd13145a37ab1d33218cc2150fb55fe6f424911fa5"
 license = "CC-BY-SA-4.0"
 license_variant = "CC-BY-SA-4.0"
 embeddable = false
-uses = ["project", "origin:kicad-demos"]
+uses = ["project", "origin:kicad-demos", "rtf"]
 notes = "Demo project file at tag 10.0.6 (commit caf7377e9cb6); 18178 bytes."
 
 [[file]]
@@ -1677,7 +1677,7 @@ sha256 = "3b0ac39da5af86d0baa2a64da55a89c39ba00148dc82b54f3062f5c3650a5cc5"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["project", "origin:kicad-demos", "downgrade-demo"]
+uses = ["project", "origin:kicad-demos", "downgrade-demo", "rtf"]
 notes = "Demo project file at tag 10.0.6 (commit caf7377e9cb6); 17842 bytes."
 
 [[file]]
@@ -1688,7 +1688,7 @@ sha256 = "a25ffa7ff829d5eaff27b29724b57821ce2ee7fd39ae367b9ea078d290e37690"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-P-2.0"
 embeddable = false
-uses = ["project", "origin:kicad-demos"]
+uses = ["project", "origin:kicad-demos", "rtf"]
 notes = "Demo project file at tag 10.0.6 (commit caf7377e9cb6); 17192 bytes. Identical at tag 9.0.9.1."
 
 [[file]]
@@ -1699,7 +1699,7 @@ sha256 = "3671c9041c477226ef0a915977f1fbfede9e0206c78c5abf8b51941c41e265ac"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-P-2.0"
 embeddable = false
-uses = ["project", "origin:kicad-demos"]
+uses = ["project", "origin:kicad-demos", "rtf"]
 notes = "Demo project file at tag 10.0.6 (commit caf7377e9cb6); 15415 bytes. Identical at tag 9.0.9.1."
 
 [[file]]
@@ -1908,7 +1908,7 @@ sha256 = "ee60a96f93cc36549b52da9b3eea9547d5ea1e83a671c449668987edfb73a901"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["project", "origin:kicad-demos"]
+uses = ["project", "origin:kicad-demos", "rtf"]
 notes = "Demo project file at tag 10.0.6 (commit caf7377e9cb6); 15502 bytes. Identical at tag 9.0.9.1."
 
 [[file]]
@@ -1919,7 +1919,7 @@ sha256 = "3d479ef334a9f1b35a487e5b300a995826c7bf180ccc01380b6bb9ca88c8a7a9"
 license = "CC-BY-SA-4.0"
 license_variant = "Apache-2.0"
 embeddable = false
-uses = ["project", "origin:kicad-demos"]
+uses = ["project", "origin:kicad-demos", "rtf"]
 notes = "Demo project file at tag 10.0.6 (commit caf7377e9cb6); 20770 bytes."
 
 [[file]]
@@ -1930,7 +1930,7 @@ sha256 = "329241ed4d9d176ef51adcec457a7c072e4bbc1b6500738622ebeaeba74d6c7f"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["project", "origin:kicad-demos"]
+uses = ["project", "origin:kicad-demos", "rtf"]
 notes = "Demo project file at tag 10.0.6 (commit caf7377e9cb6); 17203 bytes."
 
 [[file]]
@@ -1941,7 +1941,7 @@ sha256 = "90f428d6594827b01257218aaf92a73d4d5307d5535bb7e49462ca426adf0199"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["project", "origin:kicad-demos"]
+uses = ["project", "origin:kicad-demos", "rtf"]
 notes = "Demo custom rules file at tag 10.0.6 (commit caf7377e9cb6); 2004 bytes. Identical at tag 9.0.9.1."
 
 [[file]]
@@ -1952,7 +1952,7 @@ sha256 = "bda72a1d94f4ddfc6a918fd430f459d2d82b124e508646db1f49f071f29ebf5d"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["project", "origin:kicad-demos"]
+uses = ["project", "origin:kicad-demos", "rtf"]
 notes = "Demo project file at tag 10.0.6 (commit caf7377e9cb6); 40013 bytes."
 
 [[file]]
@@ -1963,7 +1963,7 @@ sha256 = "7e1475026afe90cd879c5df94489cc7908bca82cb54737f6d21b37853793ef4c"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["project", "origin:kicad-demos"]
+uses = ["project", "origin:kicad-demos", "rtf"]
 notes = "Demo project file at tag 9.0.9.1 (commit 70b072d9f77f); 15442 bytes."
 
 [[file]]
@@ -1974,7 +1974,7 @@ sha256 = "4e1a83995707d2b926dc2e40a71d77937d815cd06cdfd4c717a468d01ed73613"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["project", "origin:kicad-demos"]
+uses = ["project", "origin:kicad-demos", "rtf"]
 notes = "Demo project file at tag 9.0.9.1 (commit 70b072d9f77f); 15789 bytes."
 
 [[file]]
@@ -1996,7 +1996,7 @@ sha256 = "f7cd36e256cedfc0b63cce200783f241c19aa2cbbcbeb1b6b3286c89e11138a1"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["project", "origin:kicad-demos"]
+uses = ["project", "origin:kicad-demos", "rtf"]
 notes = "Demo project file at tag 9.0.9.1 (commit 70b072d9f77f); 16318 bytes."
 
 [[file]]
@@ -2095,7 +2095,7 @@ sha256 = "8a4fab6d173fc26eed0ef26609de71432ccef87cfc8b0792f7a0afea1d8b6747"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["project", "origin:kicad-demos"]
+uses = ["project", "origin:kicad-demos", "rtf"]
 notes = "Demo project file at tag 9.0.9.1 (commit 70b072d9f77f); 15438 bytes."
 
 [[file]]
@@ -2106,7 +2106,7 @@ sha256 = "d188716e7d3ca35ca757ce3679c778e5f065e359d98783670c36e55e1acdcb20"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["project", "origin:kicad-demos"]
+uses = ["project", "origin:kicad-demos", "rtf"]
 notes = "Demo project file at tag 9.0.9.1 (commit 70b072d9f77f); 16434 bytes."
 
 [[file]]
@@ -2688,7 +2688,7 @@ sha256 = "adf319d48ed84d685e3660995650cf30a7998b05930c51655fb759c5945bce4f"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "downgrade-demo"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "downgrade-demo", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250610; 189243 bytes."
 
 [[file]]
@@ -2699,7 +2699,7 @@ sha256 = "b40a486994138c07a45d20e08e6f42405e4b99a88e82a3d55f23704ca9ddc0e7"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus", "downgrade-demo"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus", "downgrade-demo", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250610; 187616 bytes."
 
 [[file]]
@@ -2710,7 +2710,7 @@ sha256 = "87c70624b7ef5d5e920cf3fb961bcbdf84d7a9e209fbfbee7240251b7cd26cd6"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "downgrade-demo"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "downgrade-demo", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250610; 35247 bytes."
 
 [[file]]
@@ -2721,7 +2721,7 @@ sha256 = "c9558c21e63bda58d6893943c54ebbe9372d37373449cfab5c546f20db19293c"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "downgrade-demo"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "downgrade-demo", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250610; 60068 bytes."
 
 [[file]]
@@ -2732,7 +2732,7 @@ sha256 = "57adc114d891f568263b153a0b72bb0c3c99dcec0d1d40f7d2ca991038561afd"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "downgrade-demo"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "downgrade-demo", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250610; 67592 bytes."
 
 [[file]]
@@ -2743,7 +2743,7 @@ sha256 = "745b39eb73b97ae3d655921ac36fd38a5622b1b62de9eee23f2a2f8720074e0e"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "downgrade-demo"]
+uses = ["rt0", "sch", "origin:kicad-demos", "downgrade-demo", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250610; 118901 bytes."
 
 [[file]]
@@ -2754,7 +2754,7 @@ sha256 = "62c448d1135746caba304569459e0a39ab4851b29b1eeef57859e2315b816ca3"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "downgrade-demo"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "downgrade-demo", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250610; 140477 bytes."
 
 [[file]]
@@ -2765,7 +2765,7 @@ sha256 = "16cacf7bd02b47c8247e5d62c855d8ba76d9e7f97bb58508118f57bfc50d199e"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "downgrade-demo"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "downgrade-demo", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250610; 71209 bytes."
 
 [[file]]
@@ -2776,7 +2776,7 @@ sha256 = "ef6f503f39f79a94ad6550268565d7418dde96b296f5f2971c97383603da18a3"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-multi", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-multi", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 97798 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -2787,7 +2787,7 @@ sha256 = "8a2d0359a0f3e647378034d84ab72b09dd7aa42f8b1f5e7fa0ff28ae369beee9"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 55220 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -2798,7 +2798,7 @@ sha256 = "80576c542e9ce473538c30ed24b7cd7e9152fe7922ebdb518928aa815b858ff1"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 54994 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -2809,7 +2809,7 @@ sha256 = "b3b8c3b199382f414e4b4b6661978f9b72e0879a99453cdfbbb6dd366c5a5a13"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 367007 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -2820,7 +2820,7 @@ sha256 = "88c30801ce6ca909f356bad9d56ea9fdc4e28b8a0de64caf4d066fc6491244e5"
 license = "CC-BY-SA-4.0"
 license_variant = "Apache-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 638320 bytes."
 
 [[file]]
@@ -2831,7 +2831,7 @@ sha256 = "fee1d255a97df42a699818deece36980f6d8bb2f0f1bf48fe799e6652d92067f"
 license = "CC-BY-SA-4.0"
 license_variant = "Apache-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 1288331 bytes."
 
 [[file]]
@@ -2842,7 +2842,7 @@ sha256 = "127c4cf2fe5f48ee5d2db4c1ad94fbe2f55f30aa9a53ab4b12704fb205e6b6bc"
 license = "CC-BY-SA-4.0"
 license_variant = "Apache-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 1015701 bytes."
 
 [[file]]
@@ -2853,7 +2853,7 @@ sha256 = "bd943f5c309046e09a1c99e443e1ce23a0c922291371ca60839412694351340b"
 license = "CC-BY-SA-4.0"
 license_variant = "Apache-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 261547 bytes."
 
 [[file]]
@@ -2864,7 +2864,7 @@ sha256 = "05e24208b02c0761d9ed48171ce765d8e91430735a58349e31f7aa45a1d01346"
 license = "CC-BY-SA-4.0"
 license_variant = "Apache-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-multi"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-multi", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 236499 bytes."
 
 [[file]]
@@ -2875,7 +2875,7 @@ sha256 = "14e3b338feb6bac2bdf958c406ee6de7ed3e4629ded0d968b6eed6cab05a6d1a"
 license = "CC-BY-SA-4.0"
 license_variant = "Apache-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 498685 bytes."
 
 [[file]]
@@ -2886,7 +2886,7 @@ sha256 = "ebd17d39c52477297d055c74779497dab11ae6e51458b10030f4deb61794136f"
 license = "CC-BY-SA-4.0"
 license_variant = "Apache-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 630747 bytes."
 
 [[file]]
@@ -2897,7 +2897,7 @@ sha256 = "ef8f96b6faffbbae1407e8f05056aa8f98b061b2d0a15ec1e1698bc189d5f600"
 license = "CC-BY-SA-4.0"
 license_variant = "Apache-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 596625 bytes."
 
 [[file]]
@@ -2908,7 +2908,7 @@ sha256 = "4e280e053b1d8ba0ee2a3191248a9bd7c46d9bf2f5d737361a23402954c98b27"
 license = "CC-BY-SA-4.0"
 license_variant = "Apache-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 488470 bytes."
 
 [[file]]
@@ -2919,7 +2919,7 @@ sha256 = "8a6998aad647a2ae2e67fa2bffd62347a71683c3df41f731f5e68dee857d5323"
 license = "CC-BY-SA-4.0"
 license_variant = "Apache-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 376723 bytes."
 
 [[file]]
@@ -2930,7 +2930,7 @@ sha256 = "d48a025c9e213a7ff601731ce0e96526b454ef9161dbfc07f66ba65cee0d7559"
 license = "CC-BY-SA-4.0"
 license_variant = "Apache-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 864680 bytes."
 
 [[file]]
@@ -2941,7 +2941,7 @@ sha256 = "3df968fe0dc304073b1b9425256e2c4967c930ac0956242ae5a4a01f85c09e16"
 license = "CC-BY-SA-4.0"
 license_variant = "Apache-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 1123377 bytes."
 
 [[file]]
@@ -2952,7 +2952,7 @@ sha256 = "adbc3997093bc617abfe23e03d06f8085ce9662636f039a42e808513a46a33d3"
 license = "CC-BY-SA-4.0"
 license_variant = "Apache-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 953262 bytes."
 
 [[file]]
@@ -2963,7 +2963,7 @@ sha256 = "940cb06421de5eaea77a6d54f2778f8c1d05024c478e5f04f487958e14b28a1e"
 license = "CC-BY-SA-4.0"
 license_variant = "Apache-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 752466 bytes."
 
 [[file]]
@@ -2974,7 +2974,7 @@ sha256 = "60d94bc61e32de2c8b0dbd759ba8cf21c9db24d1063e7b8fee61076d2a3cf3fc"
 license = "CC-BY-SA-4.0"
 license_variant = "Apache-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 759611 bytes."
 
 [[file]]
@@ -2985,7 +2985,7 @@ sha256 = "dedbbbe2842256c3b84153e7ae147beeb6b5741bc412b377cac96addbd8a7ce8"
 license = "CC-BY-SA-4.0"
 license_variant = "Apache-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 597008 bytes."
 
 [[file]]
@@ -2996,7 +2996,7 @@ sha256 = "309f447586550989959917e18ffae8207a36be8505f648f404190881359d865e"
 license = "CC-BY-SA-4.0"
 license_variant = "Apache-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 892603 bytes."
 
 [[file]]
@@ -3007,7 +3007,7 @@ sha256 = "b406e5f8d1903f7d094c1109020a1912a1473c08ffbc0c64640742850f7f7809"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 319467 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3018,7 +3018,7 @@ sha256 = "a1109092165ecec0d677142294330258c8990247e804f260d7682fda82602214"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 315012 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3029,7 +3029,7 @@ sha256 = "3750dc3866cce42d96220c39dde5c7c88589207810487581047a71d541b1fb5b"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 168265 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3040,7 +3040,7 @@ sha256 = "2c98b5d37f5b60c9187474017d7b754e8b4a1d45f4115dcbecf1a745ab175e0e"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-multi", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-multi", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 270893 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3051,7 +3051,7 @@ sha256 = "e47aecee9416d51fb5aed36d008a0442d3d6d68abfc5224bcdb5c5bb4a690fcf"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 170457 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3062,7 +3062,7 @@ sha256 = "434f095724ba741e3b15a1a1fedce93b8262ffdd1144a61ef4c0966791279f04"
 license = "CC-BY-SA-4.0"
 license_variant = "CC-BY-SA-4.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-multi"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-multi", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 150397 bytes."
 
 [[file]]
@@ -3073,7 +3073,7 @@ sha256 = "dd5b65cdbfa1735d21bd6b6e00b61b386bb89b8f1c9a282f753ed63c20387f87"
 license = "CC-BY-SA-4.0"
 license_variant = "CC-BY-SA-4.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 543800 bytes."
 
 [[file]]
@@ -3084,7 +3084,7 @@ sha256 = "ba1e342f29ba5b6150f6d71bdeefaea6e2c1874482ccc5ddec3293dfa314ca9d"
 license = "CC-BY-SA-4.0"
 license_variant = "CC-BY-SA-4.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 225866 bytes."
 
 [[file]]
@@ -3095,7 +3095,7 @@ sha256 = "cf92bff8aebe19e45444f13b2ccd1c8ad578df6a226acd5381e2eff95e2fc08f"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus", "downgrade-demo"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus", "downgrade-demo", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20260101; 229174 bytes."
 
 [[file]]
@@ -3106,7 +3106,7 @@ sha256 = "8cbf575b53b205280ca277df8affc6477cf20c5d06c63c267cd6fb19b6d771ae"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "downgrade-demo"]
+uses = ["rt0", "sch", "origin:kicad-demos", "downgrade-demo", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20260101; 97976 bytes."
 
 [[file]]
@@ -3117,7 +3117,7 @@ sha256 = "3636dcd5252ae18b2651dce4480a61765bd37b2e601679c3c1465dc8ca21fad8"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-P-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 139320 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3128,7 +3128,7 @@ sha256 = "f9e17eb92e5a11eb2db9a6f71835006d4f59fa487ea6c1577565f1b6522c09ab"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-P-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 4014 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3139,7 +3139,7 @@ sha256 = "7b78116155a966443ad8a8192fe5ca09668f4bf4e59bc58370762195cf8456c6"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-P-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 67694 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3150,7 +3150,7 @@ sha256 = "e6f3273cb98b22ee2a90ee65857cb4035ea11fcf3d19fdddfd0c5d1926ddd2bd"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-P-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 261719 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3161,7 +3161,7 @@ sha256 = "b53b9a766126616e839c10bfeae26aeee85132f48cf1ba84722354d366a63a6b"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-P-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 205310 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3172,7 +3172,7 @@ sha256 = "d1c824ffcfe88dfa1bded5a341afa8775f4e59c56b95174dd7e8ab081d95caff"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-P-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 232912 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3403,7 +3403,7 @@ sha256 = "5271d5d1472d4dab645870f97e62785be9eb95b793e1b8cf0d8ca607de95a985"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 166499 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3414,7 +3414,7 @@ sha256 = "ee88a17d35fb54070d9c0e38af0d4a656d52f3703559944c1261e1037c577aef"
 license = "CC-BY-SA-4.0"
 license_variant = "Apache-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 302281 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3425,7 +3425,7 @@ sha256 = "232f8236bc89eed24f7b89509ea422347994ca8e576524f0229e2bd1eca5093d"
 license = "CC-BY-SA-4.0"
 license_variant = "Apache-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 1116190 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3436,7 +3436,7 @@ sha256 = "0110ee91bd8eb39ba7c4d08703bca193f72337b25928ad2babc86dc3c54d1cde"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 380549 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3447,7 +3447,7 @@ sha256 = "b736ce2d5a17fa94fcd64c656435031730b3b8524342dd4e1d19a917adbd1d6f"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 176303 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3458,7 +3458,7 @@ sha256 = "c09706718277aefb6d9b1ea49825237d026191e6d91d44c7e75aa0eba682900d"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 288187 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3469,7 +3469,7 @@ sha256 = "59f6d8152af769371bd35a08dc11c1bdf9c3b4e56ab079f389a0584d1a4574c7"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 126999 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3480,7 +3480,7 @@ sha256 = "9b757497857c061632fd09cc3d0a236843c1c164f0b864a78b22c88c1fd96a58"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 132056 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3491,7 +3491,7 @@ sha256 = "970c766b745d299ca0b47b05a51baf628bf114a6bfe007736beb7ccd0548fd09"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 198217 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3502,7 +3502,7 @@ sha256 = "40a46f70b6731962a4afa5858b54d3bbf55ac3e4b1a95c7c905b698ae99eb0e3"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 377836 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3513,7 +3513,7 @@ sha256 = "4d3ced775e49f56704b036bf56b9bf90d3d403b29bc9434eca47a8f18bea5ce1"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 110564 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3524,7 +3524,7 @@ sha256 = "4942247e550814ae0add0aa80864956bfd35470b8e9774ee4e99fc31d655c948"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 987454 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3535,7 +3535,7 @@ sha256 = "000b342b036d7e7731871ca1ddebc71dc00e64afefac3ac4c383ccc24fa6ef97"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 1078707 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3546,7 +3546,7 @@ sha256 = "fb8f40e676e37069e98b8dffef303148288b556705f0203472f609116f47fb82"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 275318 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3557,7 +3557,7 @@ sha256 = "7f5d60fcebe3752ba2975724b60f31e050164ef43287943eb68a345edfc5d2e6"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 132305 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3568,7 +3568,7 @@ sha256 = "387cf92f575f78afa6f9310e9b753bfeb17388ebbb86c4360c1a206dfcd6934e"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 1261444 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3579,7 +3579,7 @@ sha256 = "afa21638aa44735987e97d5648b5c0f3452b72dfcd5119338fa95e22f41c146b"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 1233191 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3590,7 +3590,7 @@ sha256 = "d8ff041ed2987a3c0719bf5cdc7d67b2597bcc4a0a864041585c9afd0613a91b"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 1335535 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3601,7 +3601,7 @@ sha256 = "2c7cab85da7cdde39f6c576b477ea6558e2146196ebcbd788b305b5cf534175c"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 436875 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3612,7 +3612,7 @@ sha256 = "d391e2243f610983130ecc88d25336424ab6fe462d86e9915857b0666bd559a4"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 937123 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3623,7 +3623,7 @@ sha256 = "c9bf69883fdce135b4363717b306bc956d121d7907d6b7ec2ff5283b8939bbe6"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 898837 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3634,7 +3634,7 @@ sha256 = "0543b36e5888e5e17b448554ab3946a658c842ba75915aa705c73dc9ede9885c"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 376142 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3645,7 +3645,7 @@ sha256 = "3e1619fbf0f05668aa2dac6632f4972604baae9ec1509f56e934dbc17f30c706"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 1416470 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3656,7 +3656,7 @@ sha256 = "845bfa141acd4dc2a5489aee8a74976d6a45c5f5e0106da21272d4d6b4cdf1bc"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 367563 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3667,7 +3667,7 @@ sha256 = "931ec5588e9b3135149cff29c885f8a98a83ad4820b2e361466e58aa20acedb6"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 783987 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3678,7 +3678,7 @@ sha256 = "0e7b55b9ebe23670147f7a70bef1500fcd8ac112ab6110923fe45673edc5d429"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-old", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-old", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20230819; 1351573 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3689,7 +3689,7 @@ sha256 = "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-multi", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-multi", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 642335 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3700,7 +3700,7 @@ sha256 = "52c56ff5652a366599669ac28a67f0a8eee7c560fb8ca57a25136b30a8f13b18"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 52083 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3711,7 +3711,7 @@ sha256 = "201f060bfe9a65a8cf9346c391e630d5bd12cf552ad0a7f2c33efba0e34e5a16"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-multi", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-multi", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 161471 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3722,7 +3722,7 @@ sha256 = "d1504d7659d6786019033753c8190ecdedcc6c875640f76bc6264ca00c31e73f"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 153232 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3733,7 +3733,7 @@ sha256 = "c201f38f7619cc4c3a1e56e46128d3fe746660f56aa87a05c99d457923ab391d"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 878437 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3744,7 +3744,7 @@ sha256 = "356ae56e243f8d8cce7a8bda7aec21bd0a02a32f288429334f73a2688bb1725e"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 529249 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3755,7 +3755,7 @@ sha256 = "3875c3e16e03872be6095b8137a85fc94992e3207ad31cd6dea425954ade9c93"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 633671 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3766,7 +3766,7 @@ sha256 = "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-multi", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-multi", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 249837 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3777,7 +3777,7 @@ sha256 = "4616b90ca042cc85326be17f8ab8330aaa06938bcea79591862bb86085803573"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 30226 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3788,7 +3788,7 @@ sha256 = "11569225b001676b85498528a9accbdef4b815618fdcf8c6ffc9306c6ef2628c"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-multi", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-multi", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 85506 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3799,7 +3799,7 @@ sha256 = "e4cfcb9cff297a9724b064bd8a1f722bdc8b6438c071cf720bc97ba25c8ef6cf"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-multi", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-multi", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 333922 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3810,7 +3810,7 @@ sha256 = "61d7229a38ee677a0d49bee45c77ed86d26836b26646d017c5715ea45cf148a4"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 165344 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3821,7 +3821,7 @@ sha256 = "62a121ea4587a7783e2dff9591dbabd65921dceea904923f05e687c073db2720"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 239464 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3832,7 +3832,7 @@ sha256 = "4cc3e74f2e47304bd3b360b18bab55d378573bc491b4f210aebe533890aa3dcb"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 558200 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3843,7 +3843,7 @@ sha256 = "23e26501427cee90be09e9b3afdf4ff105cc3e940771234f907a876970e509fe"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 450688 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3854,7 +3854,7 @@ sha256 = "db54a9ab8f1dab24ac72e5c1db199f2e52e8d423a4f180b7b5b59508f90c592c"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 345139 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3865,7 +3865,7 @@ sha256 = "81a8d975deb066e345074573611a569f6f533cd5fd04a941ad2ea57b92a5d8d7"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 428260 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3876,7 +3876,7 @@ sha256 = "609845f4c59160015ab194e0667d6a5e1abeae0a1fb484e16c1a3c00ff0cf05c"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 486016 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3887,7 +3887,7 @@ sha256 = "e1d4d19d3cdf5d81ab42ccc919154bfdd99f328cf6b6294765df0ee3e3fbb58b"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 186655 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3898,7 +3898,7 @@ sha256 = "6ad4226e2520ee2da04631af3b87a6a5f3864fe381399e7ed395611b29b9f495"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 643402 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3909,7 +3909,7 @@ sha256 = "9752e91a609c1476780fe0d6260e5c91c1ed7be2233c637fac8ccdbb94f0750f"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 222763 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3920,7 +3920,7 @@ sha256 = "6f4886c6231b918824beebef23cd056c584a49f29b5ae997411a321d07f35362"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 612497 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
@@ -3931,7 +3931,7 @@ sha256 = "3e6436bd16ae3875dc96f0f98bdb42de34db15db7046caafa0b42c89ca3090bd"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9", "rtf"]
 notes = "Demo schematic at tag 9.0.9.1 (commit 70b072d9f77f); format 20250114; 17497 bytes; differs from or is absent at 10.0.6."
 
 [[file]]
@@ -3942,7 +3942,7 @@ sha256 = "f5149ad1285cb506283e0eb2b1818141103cedf2f5929c992c1fa50f3a599055"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9", "rtf"]
 notes = "Demo schematic at tag 9.0.9.1 (commit 70b072d9f77f); format 20250114; 1641 bytes; differs from or is absent at 10.0.6."
 
 [[file]]
@@ -3953,7 +3953,7 @@ sha256 = "0714ab9909f116018327661f82fa0f9b9770ac4bc5c288278e41db5e34cc5b09"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-9", "rtf"]
 notes = "Demo schematic at tag 9.0.9.1 (commit 70b072d9f77f); format 20250114; 202334 bytes; differs from or is absent at 10.0.6."
 
 [[file]]
@@ -3964,7 +3964,7 @@ sha256 = "81603cf93062d586f336da043316a493c1b8359e79bd64867af09767c665357f"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-9", "rtf"]
 notes = "Demo schematic at tag 9.0.9.1 (commit 70b072d9f77f); format 20250114; 96155 bytes; differs from or is absent at 10.0.6."
 
 [[file]]
@@ -3975,7 +3975,7 @@ sha256 = "3da8e1a25050b5df073544c2c99482ddf2965f5a5518b9945cff80bbc099044a"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus", "sch-9", "rtf"]
 notes = "Demo schematic at tag 9.0.9.1 (commit 70b072d9f77f); format 20250114; 196687 bytes; differs from or is absent at 10.0.6."
 
 [[file]]
@@ -3986,7 +3986,7 @@ sha256 = "37c9b424b5dc9ef482c57af711ed67464c86cbce5cfaa57dbd4bbd88e20153c4"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-9", "rtf"]
 notes = "Demo schematic at tag 9.0.9.1 (commit 70b072d9f77f); format 20250114; 90856 bytes; differs from or is absent at 10.0.6."
 
 [[file]]
@@ -4085,7 +4085,7 @@ sha256 = "970f9d58e9f31ce117107e88dc2818fc39b5f34b1740dc4d4df4978acccbc7be"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9", "rtf"]
 notes = "Demo schematic at tag 9.0.9.1 (commit 70b072d9f77f); format 20250114; 6588 bytes; differs from or is absent at 10.0.6."
 
 [[file]]
@@ -4096,7 +4096,7 @@ sha256 = "a7fb63d6ee425f17c27ab8d3e94973ba65042de64634e085801389323749770a"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9", "rtf"]
 notes = "Demo schematic at tag 9.0.9.1 (commit 70b072d9f77f); format 20250114; 291613 bytes; differs from or is absent at 10.0.6."
 
 [[file]]

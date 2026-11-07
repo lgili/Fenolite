@@ -59,6 +59,24 @@ def test_unconnected_names() -> None:
     )
 
 
+def test_a_pin_named_like_its_number_is_named_as_without_a_name() -> None:
+    """KiCad leaves out a pin name equal to the pin number (S-1490); the control pin keeps its name, and
+    ``netnames.unconnected_name`` gives KiCad's name for each pin (c0384 1.4, applied by c0408)."""
+    outcome = _probes.run("sch-unconnected-samename")
+    found = gen.samename_nets()
+    differ: dict[str, str] = {}
+    for (ref, number), name in sorted(found.items()):
+        ours = netnames.unconnected_name(
+            ref, unit=1, unit_count=1, pin_name=dict(gen.SAME_PINS)[number], pad_number=number
+        )
+        print(f"  {ref} pin {number}: {name}  (netnames: {'equal' if ours == name else ours})")
+        if ours != name:
+            differ[name] = ours
+    print(f"sch-unconnected-samename: {outcome}")
+    assert outcome == "absent", found
+    assert found and not differ, differ
+
+
 def test_label_names() -> None:
     """A global label's text is the net name; a slash is stored as ``{slash}``."""
     found = gen.label_nets(gen.LABEL_TEXTS)

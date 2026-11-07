@@ -1,6 +1,33 @@
 {
   "schema": "fenolite.altium-graduation.v0",
   "kinds": {
+    "altium_draftsman": {
+      "hypotheses": [
+        "H-A-DWF-CONTAINER",
+        "H-A-DWF-FIELD",
+        "H-A-DWF-GEOM",
+        "H-A-DWF-IMPORT",
+        "H-A-DWF-KIT",
+        "H-A-DWF-MINIMAL",
+        "H-A-DWF-PARAMS",
+        "H-A-DWF-READBACK",
+        "H-A-DWF-TEMPLATE"
+      ],
+      "write_level": "INFERRED",
+      "own_readback": "tests/unit/backends/altium/test_draftsman_write.py::test_readback",
+      "missing": [
+        "H-A-DWF-CONTAINER is not release-verified",
+        "H-A-DWF-FIELD is not release-verified",
+        "H-A-DWF-GEOM is not release-verified",
+        "H-A-DWF-IMPORT is not release-verified",
+        "H-A-DWF-KIT is not release-verified",
+        "H-A-DWF-MINIMAL is not release-verified",
+        "H-A-DWF-PARAMS is not release-verified",
+        "H-A-DWF-READBACK is not release-verified",
+        "H-A-DWF-TEMPLATE is not release-verified",
+        "write cell has no current committed kit hypothesis"
+      ]
+    },
     "altium_harness": {
       "hypotheses": [
         "H-A-SCH-HARN-FILE",
@@ -32,6 +59,7 @@
     },
     "altium_outjob": {
       "hypotheses": [
+        "H-A-DWF-OUTJOB",
         "H-A-OUTJOB-GERBER-ACCEPT",
         "H-A-OUTJOB-GERBER-LAYERS",
         "H-A-OUTJOB-GERBER-RECORD",
@@ -42,6 +70,7 @@
       "write_level": "INFERRED",
       "own_readback": "tests/unit/backends/altium/test_outjob_write.py::test_readback",
       "missing": [
+        "H-A-DWF-OUTJOB is not release-verified",
         "H-A-OUTJOB-GERBER-ACCEPT is not release-verified",
         "H-A-OUTJOB-GERBER-LAYERS is not release-verified",
         "H-A-OUTJOB-GERBER-RECORD is not release-verified",
@@ -100,10 +129,12 @@
         "H-A-PCBX-KEEPOUT",
         "H-A-PCBX-KICAD",
         "H-A-PCBX-MECH",
+        "H-A-PCBX-NETTIE",
         "H-A-PCBX-READBACK",
         "H-A-PCBX-REPOUR",
         "H-A-PCBX-STACK",
         "H-A-PCBX-TEXT",
+        "H-A-PCBX-TEXT-TT",
         "H-A-PCBX-VIA-FULL",
         "H-A-PCBX-VIASPAN",
         "H-A-RULE-CLEARANCE-CELLS",
@@ -159,7 +190,9 @@
         "H-A-PCBX-FPTEXT is not release-verified",
         "H-A-PCBX-HOLE is not release-verified",
         "H-A-PCBX-MECH is not release-verified",
+        "H-A-PCBX-NETTIE is not release-verified",
         "H-A-PCBX-READBACK is not release-verified",
+        "H-A-PCBX-TEXT-TT is not release-verified",
         "H-A-RULE-CLEARANCE-CELLS is not release-verified",
         "H-A-RULE-CLEARANCE-FORMS is not release-verified",
         "H-A-RULE-FILE is not release-verified",
@@ -214,6 +247,7 @@
     "altium_prjpcb": {
       "hypotheses": [
         "H-A-CONV-SCHEMATIC",
+        "H-A-DWF-PARAMS",
         "H-A-ECO-NETCLASS",
         "H-A-ECO-PRJ-KEYS",
         "H-A-ECO-ROOMS",
@@ -245,6 +279,7 @@
       "own_readback": "tests/unit/backends/altium/test_readback.py::test_hierarchy_sample_reads_back_in_both_forms",
       "missing": [
         "H-A-CONV-SCHEMATIC is not release-verified",
+        "H-A-DWF-PARAMS is not release-verified",
         "H-A-ECO-NETCLASS is not release-verified",
         "H-A-ECO-PRJ-KEYS is not release-verified",
         "H-A-ECO-ROOMS is not release-verified",
@@ -275,6 +310,7 @@
     "altium_schdoc_ascii": {
       "hypotheses": [
         "H-A-CONV-SCHEMATIC",
+        "H-A-DWF-PARAMS",
         "H-A-ECO-NETCLASS",
         "H-A-ECO-PRJ-KEYS",
         "H-A-ECO-ROOMS",
@@ -306,6 +342,7 @@
       "own_readback": "tests/unit/backends/altium/test_readback.py::test_hierarchy_sample_reads_back_in_both_forms",
       "missing": [
         "H-A-CONV-SCHEMATIC is not release-verified",
+        "H-A-DWF-PARAMS is not release-verified",
         "H-A-ECO-NETCLASS is not release-verified",
         "H-A-ECO-PRJ-KEYS is not release-verified",
         "H-A-ECO-ROOMS is not release-verified",
@@ -336,6 +373,7 @@
     "altium_schdoc_binary": {
       "hypotheses": [
         "H-A-CONV-SCHEMATIC",
+        "H-A-DWF-PARAMS",
         "H-A-ECO-NETCLASS",
         "H-A-ECO-PRJ-KEYS",
         "H-A-ECO-ROOMS",
@@ -372,6 +410,7 @@
       "own_readback": "tests/unit/backends/altium/test_readback.py::test_hierarchy_sample_reads_back_in_both_forms",
       "missing": [
         "H-A-CONV-SCHEMATIC is not release-verified",
+        "H-A-DWF-PARAMS is not release-verified",
         "H-A-ECO-NETCLASS is not release-verified",
         "H-A-ECO-PRJ-KEYS is not release-verified",
         "H-A-ECO-ROOMS is not release-verified",
@@ -418,6 +457,7 @@
     },
     "altium_schlib": {
       "hypotheses": [
+        "H-A-SCHLIB-GEN-PARTS",
         "H-A-SCHLIB-IMPLIDX",
         "H-A-SCHLIB-KICAD",
         "H-A-SCHLIB-KICAD9",
@@ -436,6 +476,7 @@
       "write_level": "INFERRED",
       "own_readback": "tests/unit/backends/altium/test_schlib.py::test_round_trip_of_a_mapped_symbol",
       "missing": [
+        "H-A-SCHLIB-GEN-PARTS is not release-verified",
         "H-A-SCHLIB-IMPLIDX is not release-verified",
         "H-A-SCHLIB-MULTIPART is not release-verified",
         "H-A-SCHLIB-OPEN is not release-verified",

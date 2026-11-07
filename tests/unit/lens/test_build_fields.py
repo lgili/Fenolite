@@ -187,6 +187,9 @@ def test_requests_apply_in_name_order() -> None:
         justify: str | None = None
         outside: str | None = None
         gap: int | None = None
+        bold: bool | None = None
+        italic: bool | None = None
+        face: str | None = None
         locked: bool = False
 
     requests: list[FieldRequestLike] = [Request("Value", visible=False), Request("Reference", outside="top")]

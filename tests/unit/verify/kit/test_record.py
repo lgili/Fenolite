@@ -240,3 +240,13 @@ def test_the_record_names_a_project_file_that_the_tool_saved_again(run: tuple[Pa
     assert "the field kit_resaved is missing" in record.record_problems(
         {key: value for key, value in made.items() if key != "kit_resaved"}
     )
+
+
+@pytest.mark.parametrize("version", ["AD 24.5", "AD 26.5"])
+def test_simulated_record_shape_accepts_explicit_tool_family(run, version):
+    folder, verdict = run
+    # Syntax control only: this fixture is simulated and no record is published.
+    revised = dataclasses.replace(verdict, altium_version=version)
+    made = record.run_record(revised, archive=record.archive_bytes(folder, verdict))
+    assert record.record_problems(made) == []
+    assert made["altium_version"] == version

@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as an example: a round 1.5 mm test pad.
+schema = "fenolite.package.v0"
+id = "Example:TestPad_D1.5"
+version = "1.0.0"
+summary = "Round 1.5 mm test pad (illustrative)"
+licence = "CC0-1.0"
+evidence = "UNVERIFIED"
+generator = "explicit"
+kind = "smd"
+flags = ["exclude_from_bom"]
+
+[[pad]]
+number = "1"
+shape = "circle"
+size = ["1.5mm", "1.5mm"]
+at = ["0mm", "0mm"]
+layers = ["F.Cu", "F.Mask"]
+
+[[graphic]]
+kind = "circle"
+layer = "F.CrtYd"
+points = [["0mm", "0mm"], ["1mm", "0mm"]]
+width = "0.05mm"

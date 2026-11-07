@@ -6,39 +6,102 @@ from __future__ import annotations
 
 import dataclasses
 import re
-from collections import defaultdict
-from collections.abc import Mapping
-from pathlib import Path
+from collections import Counter, defaultdict
+from collections.abc import Mapping, Sequence
+from pathlib import Path, PurePosixPath
 from typing import Any, cast
 
 from fenolite.backends.kicad import layers
+from fenolite.convert.report import SCHEMATIC_REFUSED
 from fenolite.convert.sources import SourceProject
 from fenolite.core.errors import Issue
 from fenolite.core.ids import derived_id
+from fenolite.core.libnames import FREE_PAD_PREFIX, library_name
+from fenolite.core.units import Nm
 from fenolite.model.base import ExtBag
-from fenolite.model.board import FootprintInstance, Layer, Pad
+from fenolite.model.board import Board, FootprintInstance, Graphic, Keepout, Layer, Pad, Via
 from fenolite.model.circuit import Component, Net, PinRef
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef, ModelPlacement, SymbolDef
-from fenolite.model.rules import Rule
+from fenolite.model.rules import RuleSubject
+
+_DEFAULT_CLASS = "Default"
+"""The net class of a net that names none (``checks.clearance.DEFAULT_CLASS``)."""
 
 
 class Ledger:
     def __init__(self) -> None:
         self.lost: dict[str, dict[str, list[str]]] = defaultdict(lambda: defaultdict(list))
         self.changed: dict[str, dict[str, list[str]]] = defaultdict(lambda: defaultdict(list))
+        self.kept: dict[str, dict[str, list[str]]] = defaultdict(lambda: defaultdict(list))
 
     def drop(self, kind: str, ident: str, reason: str) -> None:
         self.lost[kind][reason].append(ident)
 
+    def keep(self, kind: str, ident: str, reason: str) -> None:
+        """An item the target cannot hold, kept in the model for an Altium write (change c0424)."""
+        self.kept[kind][reason].append(ident)
+
     def change(self, kind: str, ident: str, reason: str) -> None:
-        for ids in self.changed[kind].values():
+        """An entity is counted once per kind: a second change of ``ident`` joins its earlier reason, so
+        neither fact is lost (an arc outline flattened and then a mixed pad connection, change c0409)."""
+        for earlier, ids in self.changed[kind].items():
             if ident in ids:
                 ids.remove(ident)
+                if reason not in earlier.split("; "):
+                    reason = f"{earlier}; {reason}"
+                else:
+                    reason = earlier
+                break
         self.changed[kind][reason].append(ident)
 
 
-def map_layers(design: Design, target: int, ledger: Ledger) -> Design:
+DRILL_LAYERS = ("Altium.DrillGuide", "Altium.DrillDrawing")
+"""The Altium layers of drill guides and drill drawings (``LAYERS`` 55 and 73), which a conversion writes on
+KiCad user rows named so (change c0428)."""
+
+
+def plane_id(layer: Layer) -> int | None:
+    """The Altium id of an imported copper layer that is an internal plane (39 to 54, Internal Plane 1 to
+    16), from its ``altium`` bag; ``None`` for any other layer."""
+    bag = layer.ext.get("altium")
+    ident = dict(bag.payload).get("layer_id", "") if bag is not None and layer.kind == "copper" else ""
+    return int(ident) if ident.isdecimal() and 39 <= int(ident) <= 54 else None
+
+
+def written_name(row: str) -> str | None:
+    """The Altium name the writer gives the copper row ``row`` of a KiCad board when nothing names it:
+    ``Top Layer``, ``Bottom Layer`` and ``Mid-Layer <k>`` for ``In<k>.Cu`` (``pcbrecords.copper_stack``);
+    ``None`` for any other row."""
+    found = re.fullmatch(r"In(\d+)\.Cu", row)
+    if found is not None:
+        return f"Mid-Layer {found.group(1)}"
+    return {"F.Cu": "Top Layer", "B.Cu": "Bottom Layer"}.get(row)
+
+
+def copper_rows(table: Sequence[Layer], sources: Mapping[str, Layer]) -> tuple[Layer, ...]:
+    """The KiCad rows ``table`` with each row that an internal plane of ``sources`` (by row name) reaches
+    typed ``power`` and named after the plane's Altium name, as KiCad's own import makes it (change c0466,
+    S-2201), and each copper row that a signal layer reaches named after its Altium name when the writer
+    would write another (``written_name``, S-2254); every other row as it is."""
+    planes = {name: layer for name, layer in sources.items() if plane_id(layer) is not None}
+    typed = layers.with_plane_types(table, tuple(planes)) if planes else tuple(table)
+    made: list[Layer] = []
+    for row in typed:
+        source = sources.get(row.name)
+        bag = source.ext.get("altium") if source is not None else None
+        name = dict(bag.payload).get("altium_name", "") if bag is not None else ""
+        if name and row.kind == "copper" and (row.name in planes or name != written_name(row.name)):
+            pairs = (*(p for p in row.ext["kicad"].payload if p[0] != "user_name"), ("user_name", name))
+            row = dataclasses.replace(row, ext={**row.ext, "kicad": ExtBag(None, pairs)})
+        made.append(row)
+    return tuple(made)
+
+
+def map_layers(design: Design, target: int, ledger: Ledger, source: Design | None = None) -> Design:
+    """``design`` on KiCad's rows for ``target``. ``source`` is the import whose copper layers still hold
+    their ``altium`` bags (``design``'s are cleaned): its internal planes become ``power`` rows and its copper
+    layers keep their Altium names (change c0466, ``copper_rows``)."""
     board = design.board
     if board is None:
         raise ValueError("Altium conversion requires a board")
@@ -59,6 +122,8 @@ def map_layers(design: Design, target: int, ledger: Ledger) -> Design:
     )
     for old, new in zip(copper, mapped_copper, strict=True):
         mapping[old.name] = new
+    originals = {x.name: x for x in source.board.layers} if source is not None and source.board else {}
+    table = copper_rows(table, {mapping[layer.name]: originals.get(layer.name, layer) for layer in copper})
     if len(copper) != count:
         ledger.change(
             "stackup",
@@ -69,6 +134,9 @@ def map_layers(design: Design, target: int, ledger: Ledger) -> Design:
     mechanical = sorted(
         (n for n in names if re.fullmatch(r"Mech\.\d+", n)), key=lambda n: int(n.split(".")[1])
     )
+    # change c0428: the drill drawing and drill guide layers take user rows after the mechanical layers,
+    # named as the import names them, as the mechanical layers are
+    mechanical += [n for n in DRILL_LAYERS if n in names]
     user = layers.user_rows(min(45, len(mechanical)), target=target)
     extra: list[Layer] = []
     for source_name, row in zip(mechanical, user, strict=False):
@@ -108,6 +176,7 @@ def map_layers(design: Design, target: int, ledger: Ledger) -> Design:
                 graphics=mapped(fp.graphics, "footprint-graphic"),
                 texts=mapped(fp.texts, "footprint-text"),
                 fields=mapped(fp.fields, "footprint-text"),
+                keepouts=mapped(fp.keepouts, "keep-out"),
             )
         )
     board = dataclasses.replace(
@@ -128,98 +197,155 @@ def map_layers(design: Design, target: int, ledger: Ledger) -> Design:
     return dataclasses.replace(design, board=board)
 
 
-def keepouts(design: Design, ledger: Ledger) -> Design:
-    """Closed connected Keep-Out outlines become rule areas; open/branching outlines are explicit losses."""
+KEEPOUT_AREA = "a filled keep-out shape becomes a rule area"
+KEEPOUT_BAND = (
+    "a keep-out track becomes a rule area of the band its width covers (arc chord error at most 5000 nm)"
+)
+KEEPOUT_NO_AREA = "a keep-out line that covers no area"
+KEEPOUT_NO_OUTLINE = "a keep-out drawing has no supported outline"
+
+
+def _keepout_rings(graphic: Any) -> list[tuple[Any, ...]] | None:
+    """The rings a drawing on the Keep-Out layer keeps out (change c0407): a filled polygon or rectangle (a
+    region or a fill) and a closed outline of width 0 their outline; a line, an arc, a circle and each side of
+    an outline drawn with a width the band that width covers, one ring per stroke, as KiCad 10.0.6 imports
+    keep-out tracks (``pcb-records.md``, "Regions and keep-outs"). ``None`` for a drawing of another kind;
+    ``GeometryError`` or ``ValueError`` when it covers no area."""
+    from fenolite.core.coords import Point
+    from fenolite.geometry.bands import arc_band, segment_band
+    from fenolite.geometry.polygon import Polygon
+
+    points = tuple(graphic.points)
+    if graphic.kind == "rect" and len(points) == 2:
+        a, b = points
+        points = (a, Point(b.x, a.y), b, Point(a.x, b.y))
+    if graphic.kind in ("polygon", "rect") and (graphic.filled or graphic.width <= 0):
+        return [Polygon(points[:-1] if points[0] == points[-1] else points).outer]
+    if graphic.kind in ("polygon", "rect"):
+        ring = points[:-1] if points[0] == points[-1] else points
+        return [segment_band(a, ring[(i + 1) % len(ring)], graphic.width) for i, a in enumerate(ring)]
+    if graphic.kind == "line" and len(points) == 2:
+        return [segment_band(points[0], points[1], graphic.width)]
+    if graphic.kind == "arc" and len(points) == 3:
+        return [arc_band(points[0], points[1], points[2], graphic.width)]
+    if graphic.kind == "circle" and len(points) == 2:
+        centre, edge = points
+        dx, dy = edge.x - centre.x, edge.y - centre.y
+        far = Point(centre.x - dx, centre.y - dy)
+        return [
+            arc_band(edge, Point(centre.x - dy, centre.y + dx), far, graphic.width),
+            arc_band(far, Point(centre.x + dy, centre.y - dx), edge, graphic.width),
+        ]
+    return None
+
+
+ALL_RESTRICTIONS = 0x1F
+"""The restrictions of a drawing of the Keep-Out layer whose value is not known (change c0410): all."""
+_KEEPOUT_RECORD = re.compile(r"(Tracks6|Arcs6|Fills6|Regions6)/Data#(\d+)")
+
+
+def _restrictions(value: int) -> tuple[bool, bool, bool, bool]:
+    """The restrictions of the rule areas a drawing of the Keep-Out layer gives, from the restrictions value
+    of its keep-out record (S-1711, change c0420, N3): 1 vias, 2 tracks, 4 poured copper, 8 and 16 together
+    pads (``pcb-records.md``, "Regions and keep-outs"). (vias, tracks, poured copper, pads)."""
+    return bool(value & 0x01), bool(value & 0x02), bool(value & 0x04), value & 0x18 == 0x18
+
+
+def keepout_restrictions(source: SourceProject, design: Design) -> dict[str, int]:
+    """The restrictions value of each drawing of the Keep-Out layer (a board's or a footprint's) that is a
+    keep-out, by graphic id, read from its record in the source document (change c0420, N2 and N3;
+    ``adapter.copper.keepout_layer_restrictions``), as ``zone_outlines`` reads a polygon. A drawing whose
+    record is not found, or that is no keep-out, has no entry."""
+    from fenolite.backends.altium.adapter.copper import keepout_layer_restrictions
+
+    board = design.board
+    if board is None:
+        return {}
+    drawn = [g for g in board.graphics if g.layer == "Altium.KeepOut"]
+    drawn += [g for fp in board.footprints for g in fp.graphics if g.layer == "Altium.KeepOut"]
+    found = board_document(source, design)
+    documents: dict[str, Any] = {}
+    held: dict[str, int] = {}
+    for graphic in drawn:
+        where = graphic.provenance
+        match = _KEEPOUT_RECORD.fullmatch(where.locator if where else "")
+        document = _source_document(source, found, where, documents) if match else None
+        if document is None or match is None:
+            continue
+        records = {"Tracks6": document.tracks, "Arcs6": document.arcs, "Fills6": document.fills}
+        records["Regions6"] = document.regions
+        items, index = records[match.group(1)], int(match.group(2))
+        value = keepout_layer_restrictions(items[index]) if index < len(items) else None
+        if value is not None:
+            held[graphic.id] = value
+    return held
+
+
+def keepouts(design: Design, ledger: Ledger, restrictions: Mapping[str, int] | None = None) -> Design:
+    """The drawings of the Keep-Out layer as rule areas on every copper layer (``_keepout_rings``): a filled
+    shape one area, a keep-out track or arc the band of its width (change c0407). A drawing that covers no
+    area, or of a kind without an outline, is an explicit loss. Each area forbids tracks, vias, pads and
+    poured copper (change c0410): a Keep-Out layer keep-out applies on every copper layer (S-1710), and KiCad
+    10.0.6 imports a keep-out track or region there with all four (``pcb-records.md``, "Regions and
+    keep-outs"); a drawing whose id ``restrictions`` names (``keepout_restrictions``) forbids only what its
+    keep-out record forbids (change c0420, N2 and N3). A drawing of a footprint gives a rule area of that
+    footprint, in its pad frame (change c0411); a free drawing one of the board. A track, arc or circle
+    without a keep-out record (one ``restrictions`` lacks) names each of its areas with its stroke
+    (``keepout_lines.marker``), so the Altium writer gives it back as that stroke (change c0442)."""
+    from fenolite.backends.altium import keepout_lines
     from fenolite.geometry.errors import GeometryError
-    from fenolite.geometry.polygon import Polygon, assemble_rings
-    from fenolite.geometry.shapes import Arc, Segment
-    from fenolite.geometry.transform import Transform
-    from fenolite.model.board import Keepout
 
     board = design.board
     assert board is not None
-    collected: list[tuple[Any, str]] = [(g, "graphic") for g in board.graphics if g.layer == "Altium.KeepOut"]
+    copper = tuple(layer.name for layer in board.layers if layer.kind == "copper")
+
+    def areas_of(graphic: Any, kind: str) -> list[Keepout]:
+        value = (restrictions or {}).get(graphic.id, ALL_RESTRICTIONS)
+        no_vias, no_tracks, no_copper_pour, no_pads = _restrictions(value)
+        try:
+            rings = _keepout_rings(graphic)
+        except (GeometryError, ValueError, IndexError, TypeError):
+            ledger.drop(kind, graphic.id, KEEPOUT_NO_AREA)
+            return []
+        if rings is None:
+            ledger.drop(kind, graphic.id, KEEPOUT_NO_OUTLINE)
+            return []
+        filled = graphic.kind in ("polygon", "rect") and (graphic.filled or graphic.width <= 0)
+        ledger.change(kind, graphic.id, KEEPOUT_AREA if filled else KEEPOUT_BAND)
+        # a plain stroke (no keep-out record) carries itself in the name of its areas (change c0442)
+        plain = restrictions is not None and graphic.id not in restrictions
+        return [
+            Keepout(
+                id=derived_id("kpo", "conversion", graphic.id if index == 0 else f"{graphic.id}:{index}"),
+                outline=ring,
+                layers=copper,
+                no_tracks=no_tracks,
+                no_vias=no_vias,
+                no_pads=no_pads,
+                no_copper_pour=no_copper_pour,
+                name=(keepout_lines.marker(graphic, index) or "") if plain else "",
+            )
+            for index, ring in enumerate(rings)
+        ]
+
+    areas = list(board.keepouts)
+    for graphic in board.graphics:
+        if graphic.layer == "Altium.KeepOut":
+            areas.extend(areas_of(graphic, "graphic"))
     footprints: list[FootprintInstance] = []
     for fp in board.footprints:
-        frame = Transform.placement(fp.position, fp.rotation)
-        collected.extend(
-            (dataclasses.replace(g, points=tuple(frame.apply(p) for p in g.points)), "footprint-graphic")
-            for g in fp.graphics
-            if g.layer == "Altium.KeepOut"
-        )
+        drawn = [g for g in fp.graphics if g.layer == "Altium.KeepOut"]
+        if not drawn:
+            footprints.append(fp)
+            continue
+        own = [area for g in drawn for area in areas_of(g, "footprint-graphic")]
         footprints.append(
-            dataclasses.replace(fp, graphics=tuple(g for g in fp.graphics if g.layer != "Altium.KeepOut"))
-        )
-    areas = list(board.keepouts)
-    copper = tuple(layer.name for layer in board.layers if layer.kind == "copper")
-    pending: list[tuple[Arc | Segment, Any, str]] = []
-    for graphic, kind in collected:
-        if graphic.kind in ("polygon", "rect"):
-            points = graphic.points
-            if graphic.kind == "rect" and len(points) == 2:
-                a, b = points
-                from fenolite.core.coords import Point
-
-                points = (a, Point(b.x, a.y), b, Point(a.x, b.y))
-            try:
-                points = Polygon(points[:-1] if points[0] == points[-1] else points).outer
-            except (GeometryError, IndexError):
-                ledger.drop(kind, graphic.id, "a keep-out line that encloses no area")
-                continue
-            areas.append(
-                Keepout(
-                    id=derived_id("kpo", "conversion", graphic.id),
-                    outline=points,
-                    layers=copper,
-                    no_tracks=True,
-                    no_vias=True,
-                    no_copper_pour=True,
-                )
+            dataclasses.replace(
+                fp,
+                graphics=tuple(g for g in fp.graphics if g.layer != "Altium.KeepOut"),
+                keepouts=(*fp.keepouts, *own),
             )
-            ledger.change(kind, graphic.id, "a closed keep-out outline becomes a rule area")
-        elif graphic.kind in ("line", "arc") and len(graphic.points) in (2, 3):
-            try:
-                piece = Segment(*graphic.points) if graphic.kind == "line" else Arc(*graphic.points)
-                pending.append((piece, graphic, kind))
-            except (GeometryError, TypeError):
-                ledger.drop(kind, graphic.id, "a keep-out line that encloses no area")
-        else:
-            ledger.drop(kind, graphic.id, "a keep-out drawing has no supported outline")
-    # Partition disconnected contours so one dangling segment never discards a separate closed ring.
-    while pending:
-        group = [pending.pop(0)]
-        ends = {group[0][0].start, group[0][0].end}
-        changed = True
-        while changed:
-            changed = False
-            for item in pending[:]:
-                if {item[0].start, item[0].end} & ends:
-                    pending.remove(item)
-                    group.append(item)
-                    ends.update((item[0].start, item[0].end))
-                    changed = True
-        try:
-            rings = assemble_rings(item[0] for item in group)
-            for ring in rings:
-                areas.append(
-                    Keepout(
-                        id=derived_id("kpo", "conversion", group[0][1].id + str(len(areas))),
-                        outline=ring.polygonize(),
-                        layers=copper,
-                        no_tracks=True,
-                        no_vias=True,
-                        no_copper_pour=True,
-                    )
-                )
-            for _, graphic, kind in group:
-                ledger.change(
-                    kind,
-                    graphic.id,
-                    "a closed keep-out outline becomes a rule area (arc chord error at most 5000 nm)",
-                )
-        except GeometryError:
-            for _, graphic, kind in group:
-                ledger.drop(kind, graphic.id, "a keep-out line that encloses no area")
+        )
     return dataclasses.replace(
         design,
         board=dataclasses.replace(
@@ -231,8 +357,24 @@ def keepouts(design: Design, ledger: Ledger) -> Design:
     )
 
 
-ZONE_ARC_REASON = "an outline with arc vertices is written as a polygon (arc chord error at most 5000 nm)"
+ZONE_ARC_REASON = (
+    "an outline with arc vertices is written as chords within the polygon's ARCRESOLUTION; the board carries "
+    "the arcs for the way back"
+)
+"""An Altium polygon with arc vertices (change c0463, task 1.3): the import chords each arc within the
+polygon's ``ARCRESOLUTION`` (``adapter.arcring``), and the conversion carries the vertices
+(``convert.zonearcs``)."""
+ZONE_ARC_FLAT = "an outline with arc vertices is written as a polygon (arc chord error at most 5000 nm)"
+"""A zone whose record's arcs the import could not chord (no ``ARCRESOLUTION``, or an arc that misses its
+vertices) or a copy of an Embedded Board Array: its record flattened at KiCad's chord error, as before
+change c0463."""
 ZONE_NO_OUTLINE = "a zone outline with arc vertices that the source document does not give"
+ZONE_NO_AREA = (
+    "not written: its polygon record outlines no area (its vertices coincide), so it pours no copper and "
+    "the board made and checked is the same without it"
+)
+"""A zone whose polygon record is read but whose vertices enclose no area (change c0428): left out as a
+``changed`` zone, not a loss, since nothing a board holds differs."""
 
 
 def _arc_ring(vertices: Any) -> tuple[Any, ...]:
@@ -261,53 +403,160 @@ def _arc_ring(vertices: Any) -> tuple[Any, ...]:
     return Polygon(tuple(points)).outer
 
 
-def zone_outlines(source: SourceProject, design: Design, ledger: Ledger) -> Design:
-    """Zones whose imported outline is empty (an Altium polygon with an arc vertex,
-    ``altium.import.zone-arc``) get the flattened outline of the source document's polygon record; KiCad
-    9.0.9 cannot report DRC on a zone without an outline. A zone whose record cannot be found or encloses
-    no area is dropped."""
+def _source_document(source: SourceProject, found: Path | None, where: Any, documents: dict[str, Any]) -> Any:
+    """The PCB document that ``where`` (a provenance) names, read once into ``documents`` by file name;
+    ``None`` when it cannot be read or its SHA-256 differs from the one recorded. ``found`` is the board
+    document of the project (``board_document``)."""
     from fenolite.backends.altium.read.pcb import read_pcbdoc
     from fenolite.core.errors import FenoliteError
     from fenolite.core.io import sha256_bytes
+
+    if where is None:
+        return None
+    path = (
+        found
+        if found is not None and found.name == where.file
+        else source.path
+        if source.path.suffix.lower() == ".pcbdoc"
+        else source.root / where.file
+    )
+    if where.file not in documents:
+        documents[where.file] = None
+        try:
+            data = path.read_bytes()
+            if not where.file_sha256 or sha256_bytes(data) == where.file_sha256:
+                documents[where.file] = read_pcbdoc(data, file=where.file)
+        except (OSError, FenoliteError):
+            pass
+    return documents[where.file]
+
+
+POLYGON_RECORD = re.compile(r"Polygons6/Data#(\d+)")
+
+
+def polygon_outline(document: Any, locator: str) -> tuple[tuple[Any, ...], str]:
+    """The flattened outline (``_arc_ring``) of the polygon record that ``locator`` names in ``document`` (a
+    read PCB document), with an empty reason; or no outline and the reason: ``ZONE_NO_OUTLINE`` when the
+    record is not there, ``ZONE_NO_AREA`` when it encloses no area (change c0428)."""
     from fenolite.geometry.errors import GeometryError
 
+    match = POLYGON_RECORD.fullmatch(locator)
+    if document is None or match is None or int(match.group(1)) >= len(document.polygons):
+        return (), ZONE_NO_OUTLINE
+    try:
+        ring = _arc_ring(document.polygons[int(match.group(1))].vertices)
+    except (GeometryError, ValueError, IndexError, ZeroDivisionError):
+        return (), ZONE_NO_AREA
+    return (ring, "") if len(ring) >= 3 else ((), ZONE_NO_AREA)
+
+
+def polygon_ring(document: Any, locator: str) -> tuple[Any, ...]:
+    """The outline of ``polygon_outline``; empty when the record is not there or encloses no area."""
+    return polygon_outline(document, locator)[0]
+
+
+def arc_outlines(
+    design: Design, document: Any
+) -> tuple[Design, tuple[str, ...], tuple[tuple[str, str], ...]]:
+    """``design`` whose zones without an outline (an Altium polygon with an arc vertex,
+    ``altium.import.zone-arc``) take the flattened outline of their record in ``document``, the PCB document
+    they were read from; the ids of the zones outlined, and of those dropped, which no record outlines, each
+    with its reason (``polygon_outline``). The
+    copies of an Embedded Board Array take their outlines so from the referenced document before they are
+    moved (change c0428)."""
+    board = design.board
+    if board is None or all(len(zone.outline) >= 3 for zone in board.zones):
+        return design, (), ()
+    zones: list[Any] = []
+    outlined: list[str] = []
+    dropped: list[tuple[str, str]] = []
+    for zone in board.zones:
+        if len(zone.outline) >= 3:
+            zones.append(zone)
+            continue
+        ring, why = polygon_outline(document, zone.provenance.locator if zone.provenance else "")
+        if not ring:
+            dropped.append((zone.id, why))
+            continue
+        zones.append(dataclasses.replace(zone, outline=ring))
+        outlined.append(zone.id)
+    board = dataclasses.replace(board, zones=tuple(zones))
+    return dataclasses.replace(design, board=board), tuple(outlined), tuple(dropped)
+
+
+def _polygon_record(source: SourceProject, found: Path | None, zone: Any, documents: dict[str, Any]) -> Any:
+    """The polygon record a zone was read from (``Polygons6/Data#<n>`` of its provenance's document), or
+    ``None``."""
+    where = zone.provenance
+    match = POLYGON_RECORD.fullmatch(where.locator) if where is not None else None
+    if match is None:
+        return None
+    document = _source_document(source, found, where, documents)
+    index = int(match.group(1))
+    return document.polygons[index] if document is not None and index < len(document.polygons) else None
+
+
+def arc_zones(source: SourceProject, design: Design) -> dict[str, tuple[str, Any]]:
+    """Per zone id, the polygon of the source's board document whose outline holds arc vertices and whose
+    chorded ring the zone's outline is (change c0463, task 1.3): its ``UNIQUEID`` (empty without one) and
+    its ``ArcPolygon``. A zone of another document (a copy of an Embedded Board Array) is not carried: a copy
+    is moved and turned."""
+    from fenolite.backends.altium.adapter.arcring import ArcPolygon
+
+    board = design.board
+    found = board_document(source, design)
+    if board is None or found is None:
+        return {}
+    documents: dict[str, Any] = {}
+    arcs: dict[str, tuple[str, Any]] = {}
+    for zone in board.zones:
+        if zone.provenance is None or zone.provenance.file != found.name or len(zone.outline) < 3:
+            continue
+        record = _polygon_record(source, found, zone, documents)
+        if record is None or not any(vertex.kind != 0 for vertex in record.vertices):
+            continue
+        polygon = ArcPolygon(tuple(record.vertices), record.record.get("ARCRESOLUTION") or "")
+        if polygon.matches(zone.outline) is not None:
+            arcs[zone.id] = (record.record.get("UNIQUEID") or "", polygon)
+    return arcs
+
+
+def zone_outlines(source: SourceProject, design: Design, ledger: Ledger) -> Design:
+    """Zones whose outline holds arc vertices: one the import chorded (``altium.import.zone-arc``, change
+    c0463) is counted ``changed`` (``ZONE_ARC_REASON``); one it left empty gets the outline of the source
+    document's polygon record flattened at KiCad's chord error (``ZONE_ARC_FLAT``), since KiCad 9.0.9 cannot
+    report DRC on a zone without an outline. A zone whose record cannot be found or encloses no area is
+    dropped."""
     board = design.board
     assert board is not None
-    if all(zone.outline for zone in board.zones):
+    located = [zone.provenance.locator for zone in board.zones if zone.provenance is not None]
+    if all(len(zone.outline) >= 3 for zone in board.zones) and not any(
+        POLYGON_RECORD.fullmatch(locator) for locator in located
+    ):
         return design
     from fenolite.model.board import Zone
 
     documents: dict[str, Any] = {}
     zones: list[Zone] = []
+    # a project may keep its board in a subfolder: the board document is found as for the rules (c0371)
+    found = board_document(source, design)
     for zone in board.zones:
-        if zone.outline:
+        if len(zone.outline) >= 3:  # change c0428: an outline of 1 or 2 points is no outline either
             zones.append(zone)
+            record = _polygon_record(source, found, zone, documents)
+            if record is not None and any(vertex.kind != 0 for vertex in record.vertices):
+                ledger.change("zone", zone.id, ZONE_ARC_REASON)
             continue
         where = zone.provenance
-        match = re.fullmatch(r"Polygons6/Data#(\d+)", where.locator if where else "")
         ring: tuple[Any, ...] = ()
-        if where is not None and match:
-            path = source.path if source.path.suffix.lower() == ".pcbdoc" else source.root / where.file
-            if where.file not in documents:
-                documents[where.file] = None
-                try:
-                    data = path.read_bytes()
-                    if not where.file_sha256 or sha256_bytes(data) == where.file_sha256:
-                        documents[where.file] = read_pcbdoc(data, file=where.file)
-                except (OSError, FenoliteError):
-                    pass
-            document = documents[where.file]
-            index = int(match.group(1))
-            if document is not None and index < len(document.polygons):
-                try:
-                    ring = _arc_ring(document.polygons[index].vertices)
-                except (GeometryError, ValueError, IndexError, ZeroDivisionError):
-                    ring = ()
-        if len(ring) < 3:
-            ledger.drop("zone", zone.id, ZONE_NO_OUTLINE)
+        why = ZONE_NO_OUTLINE
+        if where is not None and POLYGON_RECORD.fullmatch(where.locator):
+            ring, why = polygon_outline(_source_document(source, found, where, documents), where.locator)
+        if not ring:
+            (ledger.change if why == ZONE_NO_AREA else ledger.drop)("zone", zone.id, why)
             continue
         zones.append(dataclasses.replace(zone, outline=ring))
-        ledger.change("zone", zone.id, ZONE_ARC_REASON)
+        ledger.change("zone", zone.id, ZONE_ARC_FLAT)
     return dataclasses.replace(design, board=dataclasses.replace(board, zones=tuple(zones)))
 
 
@@ -329,18 +578,8 @@ def _clean(value: Any) -> Any:
     return value
 
 
-def _name(value: str) -> str:
-    text = re.sub(r"[^\w.-]", "_", value).strip(". ") or "unnamed"
-    if text.upper() in {
-        "CON",
-        "PRN",
-        "AUX",
-        "NUL",
-        *(f"COM{i}" for i in range(1, 10)),
-        *(f"LPT{i}" for i in range(1, 10)),
-    }:
-        text = "_" + text
-    return text
+def _name(value: str, *, allow_space: bool = False) -> str:
+    return library_name(value, allow_space=allow_space)  # shared with ``equivalent`` (change c0435)
 
 
 def board_document(source: SourceProject, design: Design) -> Path | None:
@@ -352,48 +591,408 @@ def board_document(source: SourceProject, design: Design) -> Path | None:
     if where is None or not where.file:
         return None
     path = source.root / where.file
-    return path if path.is_file() else None
+    if path.is_file():
+        return path
+    # the provenance names the file alone; a project may keep it in a subfolder (``PCB/Board.PcbDoc``,
+    # change c0371): take the PCB document of that name that the project lists and whose bytes the
+    # provenance hashed
+    from fenolite.backends.altium.read.project import load_project
+    from fenolite.core.io import sha256_bytes
+
+    if source.path.suffix.lower() != ".prjpcb":
+        return None
+    try:
+        listed = load_project(source.path).documents
+    except (OSError, ValueError):
+        return None
+    found = [
+        item.file
+        for item in listed
+        if item.document.kind == "pcb"
+        and item.present
+        and item.file is not None
+        and item.file.name == where.file
+    ]
+    if where.file_sha256:
+        found = [
+            candidate for candidate in found if sha256_bytes(candidate.read_bytes()) == where.file_sha256
+        ]
+    return found[0] if len(found) == 1 else None
 
 
-def rule_records(source: SourceProject, design: Design) -> tuple[dict[str, str], ...]:
-    """The rule records of the source's PCB document as key-value maps; none when it cannot be read."""
+PLANE_KIND = "plane"
+PLANE_REASON = (
+    "the conversion gives an internal plane no zone: the copper of the plane's net region (its Split Plane "
+    "polygon, or the whole layer without one) is not in the KiCad board"
+)
+"""Why an internal plane is lost on the way to KiCad (change c0461). KiCad's own import holds each Split Plane
+polygon as an unfilled zone of its net on a ``power`` layer (``pcb-copper.md``, S-2201)."""
+
+
+def plane_losses(source: SourceProject, design: Design, ledger: Ledger) -> int:
+    """Count each net region of an internal plane of the chain lost under ``plane`` (change c0461): each
+    ``Split Plane`` polygon of the source document on the plane's layer (id ``<layer id>:polygon-<index in
+    Polygons6>``), or the plane's layer itself when the document holds none on it. The number of items."""
+    from fenolite.backends.altium.read.cfb import read_compound
+    from fenolite.convert import altium_storages as storages
+    from fenolite.core.errors import FenoliteError
+
+    board = design.board
+    if board is None:
+        return 0
+    planes: dict[str, str] = {}
+    for layer in board.layers:
+        bag = layer.ext.get("altium")
+        ident = dict(bag.payload).get("layer_id", "") if bag is not None and layer.kind == "copper" else ""
+        if ident.isdecimal() and 39 <= int(ident) <= 54:  # Internal Plane 1 to 16
+            planes[f"PLANE{int(ident) - 38}"] = layer.id
+    if not planes:
+        return 0
+    splits: dict[str, list[int]] = defaultdict(list)
+    path = board_document(source, design)
+    data = b""
+    if path is not None:
+        try:
+            compound = read_compound(path)
+            data = compound.read("Polygons6/Data") if "Polygons6/Data" in compound else b""
+        except (OSError, FenoliteError):
+            data = b""
+    for index, record in enumerate(storages.records(data)):
+        fields = storages.fields(record)
+        layer_name = fields.get("LAYER", "").upper()
+        if fields.get("POLYGONTYPE") == "Split Plane" and layer_name in planes:
+            splits[layer_name].append(index)
+    count = 0
+    for name, layer_id in planes.items():
+        for index in splits.get(name, []) or [None]:
+            ident = layer_id if index is None else f"{layer_id}:polygon-{index}"
+            ledger.drop(PLANE_KIND, ident, PLANE_REASON)
+            count += 1
+    return count
+
+
+def pcb_document(source: SourceProject, design: Design) -> Any:
+    """The source's PCB document as read; ``None`` when it cannot be read."""
     from fenolite.backends.altium.read.pcb import read_pcbdoc
     from fenolite.core.errors import FenoliteError
 
     path = board_document(source, design)
     if path is None:
-        return ()
+        return None
     try:
-        document = read_pcbdoc(path.read_bytes(), file=path.name)
+        return read_pcbdoc(path.read_bytes(), file=path.name)
     except (OSError, FenoliteError):
+        return None
+
+
+def rule_records(source: SourceProject, design: Design) -> tuple[dict[str, str], ...]:
+    """The rule records of the source's PCB document as key-value maps; none when it cannot be read."""
+    document = pcb_document(source, design)
+    if document is None:
         return ()
     return tuple({key: value or "" for key, value in record.fields} for record in document.rules)
+
+
+class RuleSubjects:
+    """The subject of each pad and via of the source for an expansion record (change c0462, design D6): its
+    net, the net classes that hold it (read from the document's classes: an Altium net may be in several),
+    its component's designator, its one copper layer (a surface pad only) and its hole."""
+
+    def __init__(self, design: Design, document: Any) -> None:
+        from fenolite.backends.altium.adapter.layers import copper_layers_of
+        from fenolite.backends.altium.read.scopedoc import scope_document
+        from fenolite.model.pairs import net_bases
+
+        circuit = design.circuit
+        board = design.board
+        names = {netclass.id: netclass.name for netclass in circuit.netclasses}
+        self._nets = {
+            net.id: (net.name, names.get(net.netclass_id or "", _DEFAULT_CLASS)) for net in circuit.nets
+        }
+        self._bases = net_bases(net.name for net in circuit.nets)
+        self.refs = {component.id: component.ref for component in circuit.components}
+        self.copper = (
+            frozenset(layer.name for layer in board.layers if layer.kind == "copper") if board else ()
+        )
+        self.document = (
+            None
+            if document is None
+            else scope_document(document, copper_layers_of(board.layers) if board is not None else None)
+        )
+        classes = self.document.classes if self.document is not None else None
+        self._groups = (
+            None
+            if classes is None
+            else tuple(
+                (c.name.casefold(), c.superclass, frozenset(m.casefold() for m in c.members))
+                for c in classes
+                if c.kind == 0
+            )
+        )
+
+    def _net(self, net_id: str | None) -> tuple[str | None, str | None, str | None]:
+        name, netclass = self._nets.get(net_id, (None, None)) if net_id is not None else (None, None)
+        return name, netclass, self._bases.get(name) if name is not None else None
+
+    def classes(self, net_id: str | None) -> frozenset[str] | None:
+        """The case-folded names of the document's net classes that hold the net (none without a net);
+        ``None`` when the document is not read, so a ``netclass`` leaf compares the neutral class."""
+        if self._groups is None:
+            return None
+        name = self._net(net_id)[0]
+        if name is None:
+            return frozenset()
+        folded = name.casefold()
+        return frozenset(group for group, every, members in self._groups if every or folded in members)
+
+    def pad(self, pad: Pad, component_id: str | None) -> RuleSubject:
+        from fenolite.convert import openings
+
+        net, netclass, base = self._net(pad.net_id)
+        ref = self.refs.get(component_id) if component_id is not None else None
+        return openings.pad_subject(pad, self.copper, net, netclass, ref, base)
+
+    def via(self, via: Via) -> RuleSubject:
+        net, netclass, base = self._net(via.net_id)
+        return RuleSubject("via", net=net, netclass=netclass, diff_pair=base, hole=via.drill)
+
+
+def source_scope(source: SourceProject, design: Design) -> Any:
+    """The ``read.scope.ScopeDocument`` of the source's PCB document (change c0462), with which the scopes
+    of its rule records are read; ``None`` when the document cannot be read."""
+    return RuleSubjects(design, pcb_document(source, design)).document
+
+
+def pad_rules(design: Design, records: Sequence[Mapping[str, str]], subjects: RuleSubjects) -> dict[str, Any]:
+    """Pad id → the ``openings.RuleExpansions`` of each pad of ``design``: the mask and paste expansions of
+    the records that govern it, each scope read with the full grammar (change c0462, design D6)."""
+    from fenolite.convert import openings
+
+    board = design.board
+    if board is None:
+        return {}
+    mask = openings.expansion_rules(records, openings.MASK_RULE, subjects.document)
+    paste = openings.expansion_rules(records, openings.PASTE_RULE, subjects.document)
+    return {
+        pad.id: openings.pad_expansions(
+            mask, paste, subjects.pad(pad, fp.component_id), subjects.classes(pad.net_id)
+        )
+        for fp in board.footprints
+        for pad in fp.pads
+    }
+
+
+VIA_MASK_CHANGED = (
+    "KiCad opens every untented via by the board's one mask margin; this via's opening differs from the "
+    "most frequent one, which the board takes (change c0445)"
+)
+VIA_RULE_SCOPED = (
+    "the via takes its mask from the rules and a SolderMaskExpansion rule whose scope Fenolite cannot judge "
+    "for it comes first; the next rule that selects the via was applied (changes c0445, c0462)"
+)
+VIA_MASK_STATE, VIA_MASK_EXPANSION = 66, 54
+"""The offsets of a via record's solder-mask cache state and top expansion (``pcb-copper.md``, "Via")."""
+
+
+def via_margins(
+    source: SourceProject, records: Sequence[Mapping[str, str]], subjects: RuleSubjects | None = None
+) -> tuple[dict[str, Nm], tuple[str, ...]]:
+    """Via id → the growth of its mask opening beyond its copper (change c0445), for each via of the source
+    that is untented on a side and whose record or rule gives one (``openings.via_margin``), and the ids of
+    those that take the rule while a rule Fenolite cannot judge for them comes first (``ViaRule.scoped``).
+    Each via takes the record whose scope selects it (``openings.via_governing``, change c0462); without
+    ``subjects`` the scopes are read without the document. A via is found by the locator of its provenance
+    in ``Vias6``."""
+    import struct
+
+    from fenolite.backends.altium.adapter.units import pcb_length
+    from fenolite.backends.altium.read.pcbprims import ViaRecord
+    from fenolite.convert import openings
+
+    board = source.design.board
+    document = pcb_document(source, source.design)
+    if board is None or document is None:
+        return {}, ()
+    if subjects is None:
+        subjects = RuleSubjects(source.design, None)
+    mask = openings.expansion_rules(records, openings.MASK_RULE, subjects.document)
+    found: dict[str, Nm] = {}
+    scoped: list[str] = []
+    for via in board.vias:
+        if via.protection.tenting_front and via.protection.tenting_back:
+            continue
+        locator = via.provenance.locator if via.provenance is not None else ""
+        head, _, index = locator.partition("#")
+        if head != "Vias6/Data" or not index.isdigit() or int(index) >= len(document.vias):
+            continue
+        record = document.vias[int(index)]
+        if not isinstance(record, ViaRecord) or len(record.tail) <= VIA_MASK_STATE - 31:
+            continue
+        state = record.tail[VIA_MASK_STATE - 31]
+        units = struct.unpack_from("<i", record.tail, VIA_MASK_EXPANSION - 31)[0]
+        rule = openings.via_governing(mask, subjects.via(via), subjects.classes(via.net_id))
+        margin = openings.via_margin(via.diameter, via.drill, state, pcb_length(units), rule)
+        if margin is not None:
+            found[via.id] = margin
+            if rule.scoped and state != openings.VIA_MODE_MANUAL:
+                scoped.append(via.id)
+    return found, tuple(scoped)
+
+
+def _mode(margins: Mapping[str, Nm]) -> Nm:
+    counts = Counter(margins.values())
+    return min(counts, key=lambda value: (-counts[value], value))
+
+
+def board_mask(board: Board, margins: Mapping[str, Nm], ledger: Ledger, scoped: Sequence[str] = ()) -> Board:
+    """``board`` with the mask margin of its untented vias (change c0445): the most frequent of ``margins``
+    (the smallest of a tie); each via with another one, and each of ``scoped`` (``via_margins``), is counted
+    changed. With a margin other than 0, a pad without a margin of its own gets 0, so it keeps the opening
+    it had."""
+    if not margins:
+        return board
+    margin = _mode(margins)
+    for ident, value in sorted(margins.items()):
+        if value != margin:
+            ledger.change("via", ident, VIA_MASK_CHANGED)
+        elif ident in scoped:
+            ledger.change("via", ident, VIA_RULE_SCOPED)
+    if margin == 0:
+        return dataclasses.replace(board, mask_margin=margin)
+
+    def kept(pad: Pad) -> Pad:
+        masked = any(name.endswith(".Mask") for name in pad.layers)
+        return dataclasses.replace(pad, mask_margin=0) if masked and pad.mask_margin is None else pad
+
+    footprints = tuple(
+        dataclasses.replace(fp, pads=tuple(kept(pad) for pad in fp.pads)) for fp in board.footprints
+    )
+    return dataclasses.replace(board, footprints=footprints, mask_margin=margin)
+
+
+def _fill_ids(board: Board | None) -> frozenset[str]:
+    """The ids of the graphics of ``board``, a board's and a footprint's, read from an Altium fill."""
+    from fenolite.backends.altium import fills
+
+    if board is None:
+        return frozenset()
+    graphics = (*board.graphics, *(g for fp in board.footprints for g in fp.graphics))
+    return frozenset(g.id for g in graphics if fills.read_fill(g))
+
+
+def _marked_fills(board: Board, ids: frozenset[str]) -> Board:
+    """``board`` whose graphics of ``ids`` (``_fill_ids`` of the source, which ``_clean`` leaves without
+    provenance) carry the fill marker as their KiCad uuid (change c0450, ``backends.altium.fills``), so that
+    a conversion back writes them as fills."""
+    from fenolite.backends.altium import fills
+
+    def mark(graphic: Graphic) -> Graphic:
+        return fills.marked(graphic) if graphic.id in ids else graphic
+
+    footprints = tuple(
+        dataclasses.replace(fp, graphics=tuple(mark(g) for g in fp.graphics)) for fp in board.footprints
+    )
+    return dataclasses.replace(board, graphics=tuple(mark(g) for g in board.graphics), footprints=footprints)
+
+
+def stroke_names(board: Board | None) -> dict[str, str]:
+    """The marker name (``keepout_lines.marker``) of each rule area of ``board``, a board's or a footprint's,
+    that a keep-out stroke of copper gave, by area id: built from the stroke in the pair ``stroke`` of its
+    Altium bag (``adapter.copper.STROKE_KEY``), the first area of a stroke its first ring, and kept when the
+    area is that ring of the stroke's band (``keepout_lines.intact``; change c0450). A keep-out fill's area
+    takes ``keepout_lines.fill_marker`` of its corners (change c0455)."""
+    from fenolite.backends.altium import keepout_lines
+    from fenolite.backends.altium.adapter.copper import STROKE_KEY
+
+    if board is None:
+        return {}
+    names: dict[str, str] = {}
+    for areas in (board.keepouts, *(fp.keepouts for fp in board.footprints)):
+        seen: dict[str, int] = {}
+        for area in areas:
+            held = area.ext.get("altium")
+            value = next((v for k, v in held.payload if k == STROKE_KEY), None) if held is not None else None
+            if not value or not area.layers:
+                continue
+            filled = keepout_lines.read_fill(value)  # a keep-out fill (change c0455)
+            if filled is not None:
+                fill_name = keepout_lines.fill_marker(*filled)
+                if fill_name is not None and keepout_lines.intact(area, fill_name):
+                    names[area.id] = fill_name
+                continue
+            found = keepout_lines.read_stroke(value, area.layers[0])
+            if found is None:
+                continue
+            part = seen.get(value, 0)
+            seen[value] = part + 1
+            name = keepout_lines.marker(found[0], part, restrictions=found[1])
+            if name is not None and keepout_lines.intact(area, name):
+                names[area.id] = name
+    return names
+
+
+def _named_strokes(board: Board, names: Mapping[str, str]) -> Board:
+    """``board`` whose rule areas of ``names`` (``stroke_names`` of the source, which ``_clean`` leaves
+    without a bag) carry their stroke's marker as their name and no other name (change c0450,
+    ``backends.altium.keepout_lines``): a conversion back writes each as its keep-out track or arc."""
+    if not names:
+        return board
+
+    def name(areas: tuple[Keepout, ...]) -> tuple[Keepout, ...]:
+        return tuple(dataclasses.replace(a, name=names[a.id]) if a.id in names else a for a in areas)
+
+    footprints = tuple(dataclasses.replace(fp, keepouts=name(fp.keepouts)) for fp in board.footprints)
+    return dataclasses.replace(board, keepouts=name(board.keepouts), footprints=footprints)
 
 
 def prepare(source: SourceProject, name: str, target: int, ledger: Ledger) -> Design:
     from fenolite.backends.kicad._fpmap import aligned_slot_pad
     from fenolite.convert import openings
 
-    records = rule_records(source, source.design)
-    expansions = openings.RuleExpansions(
-        mask=openings.rule_expansion(records, openings.MASK_RULE),
-        paste=openings.rule_expansion(records, openings.PASTE_RULE),
+    document = pcb_document(source, source.design)
+    records = (
+        () if document is None else tuple({k: v or "" for k, v in record.fields} for record in document.rules)
     )
+    subjects = RuleSubjects(source.design, document)
+    # the pads' own mask and paste modes, read before ``_clean`` empties their bags (change c0440: every pad
+    # took the rule's expansion, so a pad with a manual expansion came out with another opening)
+    source_board = source.design.board
+    own = {
+        pad.id: openings.source_pairs(pad)
+        for fp in (source_board.footprints if source_board is not None else ())
+        for pad in fp.pads
+    }
+    expansions = pad_rules(source.design, records, subjects)  # change c0462: the record that governs each pad
 
     design = map_layers(
-        keepouts(_clean(zone_outlines(source, source.design, ledger)), ledger), target, ledger
+        keepouts(
+            _clean(zone_outlines(source, source.design, ledger)),
+            ledger,
+            keepout_restrictions(source, source.design),
+        ),
+        target,
+        ledger,
+        source.design,
     )
     board = design.board
     assert board is not None
+    board = _marked_fills(board, _fill_ids(source.design.board))
+    board = _named_strokes(board, stroke_names(source.design.board))
+    from fenolite.backends.altium import unions
+
+    board = unions.marked(board, unions.members(source.design.board))  # change c0460
     refs = {component.id: component.ref for component in design.circuit.components}
     allocated: dict[str, str] = {}
     used: set[str] = set()
     footprints: list[FootprintInstance] = []
     links: dict[str, str] = {}
+    source_links: dict[str, str] = {}  # change c0451: the source's link, carried as a KiCad property
     for fp in sorted(board.footprints, key=lambda f: (refs.get(f.component_id, ""), f.id)):
-        raw = fp.lib_ref or f"FREE_{fp.id}"
+        if fp.lib_ref:
+            source_links.setdefault(fp.component_id, fp.lib_ref)
+        raw = fp.lib_ref or f"{FREE_PAD_PREFIX}{fp.id}"
         if raw not in allocated:
-            candidate = _name(raw.rsplit(":", 1)[-1])
+            candidate = _name(raw.rsplit(":", 1)[-1], allow_space=True)
             base = candidate
             index = 2
             while candidate.casefold() in used:
@@ -414,44 +1013,48 @@ def prepare(source: SourceProject, name: str, target: int, ledger: Ledger) -> De
                 continue
             if aligned is not pad:
                 ledger.change("pad", pad.id, "the circular pad rotates to its slot axis")
-            opened, reasons = openings.open_pad(aligned, expansions)
+            opened, reasons = openings.open_pad(
+                aligned, expansions.get(pad.id, openings.RuleExpansions()), own.get(pad.id, {})
+            )
             for reason in reasons:
                 ledger.drop(openings.KIND, pad.id, reason)
             pads.append(opened)
-        for body in fp.bodies:
-            ledger.drop("body", body.id, "the imported body has no portable KiCad model file")
+        # change c0423: KiCad holds no body; ``convert.models`` writes each as a model file and reports it
         footprints.append(dataclasses.replace(fp, lib_ref=link, pads=tuple(pads), bodies=()))
     for hole in board.holes:
         ledger.drop("hole", hole.id, "a standalone hole has no footprint")
     board = dataclasses.replace(board, footprints=tuple(footprints), holes=())
+    margins, scoped = via_margins(source, records, subjects)
+    board = board_mask(board, margins, ledger, scoped)  # change c0445: the vias' mask
+    from fenolite.convert import altium_zones  # change c0409: the pour settings of the Altium rules
+
+    board = altium_zones.connect_zones(
+        board, design, altium_zones.board_styles(source.design.board, subjects.document), refs, ledger
+    )
+    board = altium_zones.zone_clearances(board, design, ledger)
+    from fenolite.convert import altium_strings  # change c0409, B10
+
+    board = altium_strings.board_strings(board, ledger)
     rules = design.rules
     if rules is not None:
-        from fenolite.backends.kicad.lowering import lower_rules
-        from fenolite.core.errors import FenoliteError
+        from fenolite.convert import altium_rules  # change c0424: the fate of every rule
 
-        kept_rules: list[Rule] = []
-        for rule in rules.rules:
-            try:
-                result = lower_rules(
-                    dataclasses.replace(rules, rules=(rule,)), target=target, allow_lossy=True
-                )
-                if any(issue.severity in ("warning", "error") for issue in result.issues):
-                    ledger.drop("rule", rule.id, "the target cannot write this imported rule")
-                    continue
-                kept_rules.append(rule)
-            except (FenoliteError, ValueError) as error:
-                ledger.drop("rule", rule.id, f"the target cannot write this imported rule: {error}")
-        rules = dataclasses.replace(rules, rules=tuple(kept_rules))
+        rules = altium_rules.lower_rules(rules, target, ledger, source.design.rules)
     components = tuple(
         dataclasses.replace(c, lib_footprint_ref=links.get(c.id, c.lib_footprint_ref))
         for c in design.circuit.components
     )
-    return dataclasses.replace(
-        design,
-        header=dataclasses.replace(design.header, name=name),
-        board=board,
-        rules=rules,
-        circuit=dataclasses.replace(design.circuit, components=components),
+    from fenolite.convert import altium_links  # change c0451: the source's links through KiCad
+
+    return altium_links.carry(
+        dataclasses.replace(
+            design,
+            header=dataclasses.replace(design.header, name=name),
+            board=board,
+            rules=rules,
+            circuit=dataclasses.replace(design.circuit, components=components),
+        ),
+        source_links,
     )
 
 
@@ -477,7 +1080,7 @@ def footprint_files(
     from fenolite.backends.kicad.embed import local_footprint
     from fenolite.backends.kicad.libs import LibRow, LibTable, write_lib_table
     from fenolite.backends.kicad.mod import read_footprint, write_footprint
-    from fenolite.backends.kicad.sexpr import Atom, dumps, parse
+    from fenolite.backends.kicad.sexpr import Atom, Node, dumps, parse
     from fenolite.backends.kicad.versions import FORMAT_VERSIONS, FileKind
 
     board = design.board
@@ -499,6 +1102,10 @@ def footprint_files(
                 *local.children[1:],
             )
         )
+        placed = (placements or {}).get(fp.id, ())
+        if placed:  # the board's footprint holds the same models (change c0409); the placements write them
+            models = [child for child in local.children if isinstance(child, Node) and child.name == "model"]
+            local = local.with_children(child for child in local.children if child not in models)
         definition = read_footprint(dumps(local))
         pattern = fp.lib_ref.rsplit(":", 1)[-1]
         properties = {**definition.properties, "Reference": "REF**", "Value": pattern}
@@ -507,7 +1114,7 @@ def footprint_files(
             name=pattern,
             library=name,
             properties=properties,
-            placements=(placements or {}).get(fp.id, ()),
+            placements=placed,
         )
         written = write_footprint(definition, target=target, allow_lossy=True)
         # Reference/value positions are useful in the library; board-specific identifiers are not.
@@ -534,6 +1141,159 @@ class Part:
     footprint: FootprintDef
     parents: tuple[SymbolDef, ...] = ()
     symbol_origin: str = "project"
+
+
+DUPLICATE_DESIGNATORS = (
+    "a designator that several imported parts share is kept by each part on the board and written "
+    "<designator>_<n> for each other part (change c0428)"
+)
+
+DUPLICATE_PLACED = (
+    "several parts on the board share a designator: the generated schematic needs distinct ones, and "
+    "renaming them would change the board"
+)
+
+
+def distinct_designators(design: Design, ledger: Ledger) -> Design:
+    """``design`` with distinct designators, as a schematic needs (change c0428). Where several components
+    share one, each that has a footprint on the board keeps it (or the first, when none has), and each other
+    takes ``<designator>_<n>``, ``n`` counting from 2 past the designators in use; its path too when it was
+    the designator. The board keeps every footprint's designator, so the written board does not change; the
+    schematic and the design that the conversion verifies take the new ones. A ``schematic`` change names
+    the rule."""
+    groups: dict[str, list[int]] = {}
+    components = design.circuit.components
+    for index, component in enumerate(components):
+        if component.ref:
+            groups.setdefault(component.ref, []).append(index)
+    if all(len(found) == 1 for found in groups.values()):
+        return design
+    placed: set[str] = (
+        {fp.component_id for fp in design.board.footprints} if design.board is not None else set()
+    )
+    used = set(groups)
+    renamed = list(components)
+    for ref, found in groups.items():
+        if len(found) == 1:
+            continue
+        keepers = {i for i in found if components[i].id in placed} or {found[0]}
+        n = 2
+        for index in found:
+            if index in keepers:
+                continue
+            while f"{ref}_{n}" in used:
+                n += 1
+            name = f"{ref}_{n}"
+            used.add(name)
+            component = components[index]
+            renamed[index] = dataclasses.replace(
+                component, ref=name, path=name if component.path == ref else component.path
+            )
+    if renamed == list(components):
+        return design
+    ledger.change("schematic", design.header.id, DUPLICATE_DESIGNATORS)
+    return dataclasses.replace(design, circuit=dataclasses.replace(design.circuit, components=tuple(renamed)))
+
+
+PAGE_ROUNDS = 7
+"""How many times a refused page of a generated schematic is split again (1, 2, 4, … 64 pages)."""
+
+
+def _source_sheets(parts: list[Part], source: Design) -> list[Part]:
+    """``parts`` with each part of a flat circuit on the sheet of its source schematic document, when the
+    parts come from several documents: the generator gives each sheet a KiCad sheet of its own. A circuit
+    with modules keeps its paths, and a part from no schematic document stays on the root (change c0372).
+    The documents are those of the ``source`` design's components: the lowered design holds no provenance."""
+    if any("/" in part.path for part in parts):
+        return parts
+    of = {
+        component.id: component.provenance.file
+        for component in source.circuit.components
+        if component.provenance is not None and component.provenance.file.lower().endswith(".schdoc")
+    }
+    files = {part.component.id: of[part.component.id] for part in parts if part.component.id in of}
+    if len(set(files.values())) < 2:
+        return parts
+    names: dict[str, str] = {}
+    for file in sorted(set(files.values()), key=str.casefold):
+        stem = _sheet_name(PurePosixPath(file.replace("\\", "/")).stem)
+        name, n = stem, 1
+        while name.casefold() in {taken.casefold() for taken in names.values()}:
+            n += 1
+            name = f"{stem}-{n}"
+        names[file] = name
+    return [
+        dataclasses.replace(part, path=f"{names[files[part.component.id]]}/{part.path}")
+        if part.component.id in files
+        else part
+        for part in parts
+    ]
+
+
+def _sheet_name(stem: str) -> str:
+    """A sheet name from a document stem: a ``/`` or ``.`` would split or join module paths."""
+    return re.sub(r"[/.]", "_", stem).strip() or "sheet"
+
+
+def _pages(parts: list[Part], pages: Mapping[str, int]) -> tuple[list[Part], dict[str, str]]:
+    """``parts`` with the parts of each module that ``pages`` splits spread, in the natural order of their
+    paths, over that many sibling modules ``<module>-<n>`` (``page-<n>`` for the root); and the module of
+    each page → the module it splits."""
+    from fenolite.backends.kicad.schlayout import natural_key
+
+    by_module: dict[str, list[Part]] = defaultdict(list)
+    for part in parts:
+        by_module[part.path.rpartition("/")[0]].append(part)
+    out: list[Part] = []
+    split: dict[str, str] = {}
+    for module, members in by_module.items():
+        count = pages.get(module, 1)
+        if count <= 1:
+            out += members
+            split[module] = module
+            continue
+        members = sorted(members, key=lambda part: natural_key(part.path))
+        parent, _, leaf = module.rpartition("/")
+        for n in range(count):
+            page = f"{leaf}-{n + 1}" if module else f"page-{n + 1}"
+            page = f"{parent}/{page}" if parent else page
+            split[page] = module
+            chunk = members[n * len(members) // count : (n + 1) * len(members) // count]
+            out += [
+                dataclasses.replace(part, path=f"{page}/{part.path.rpartition('/')[2]}") for part in chunk
+            ]
+    return out, split
+
+
+def _paged_schematic(design: Design, parts: list[Part], name: str, target: int, generate: Any) -> Any:
+    """The generated schematic of ``parts``; a sheet that no page size fits is split into pages, twice as
+    many each round, until every page fits, a page holds one part, or ``PAGE_ROUNDS`` ends (change c0372)."""
+    sizes: dict[str, int] = defaultdict(int)
+    for part in parts:
+        sizes[part.path.rpartition("/")[0]] += 1
+    pages: dict[str, int] = {}
+    generated = None
+    for _ in range(PAGE_ROUNDS):
+        laid, split = _pages(parts, pages)
+        generated = generate(design, laid, name=name, target=target, layout="readable", allow_lossy=True)
+        errors = [issue for issue in generated.issues if issue.severity == "error"]
+        refused = {
+            split.get("" if issue.where == name else issue.where)
+            for issue in errors
+            if issue.code == "build.schematic-too-large"
+        }
+        if (
+            not errors
+            or any(issue.code != "build.schematic-too-large" for issue in errors)
+            or None in refused
+        ):
+            break
+        grow = {module for module in refused if module is not None and pages.get(module, 1) < sizes[module]}
+        if not grow:
+            break
+        for module in grow:
+            pages[module] = min(2 * pages.get(module, 1), sizes[module])
+    return generated
 
 
 def schematic_files(
@@ -601,8 +1361,8 @@ def schematic_files(
         )
         parts.append(Part(component, component.path or component.ref, definition, footprint))
     references = [part.component.ref for part in parts]
-    if len(set(references)) != len(references):
-        ledger.drop("schematic", design.header.id, "the imported circuit has duplicate designators")
+    if len(set(references)) != len(references):  # several parts on the board share one (change c0428)
+        ledger.drop("schematic", design.header.id, DUPLICATE_PLACED)
         return {}, ()
     winners = {member: net.id for net in design.circuit.nets for member in net.members}
     nets: list[Net] = []
@@ -635,12 +1395,13 @@ def schematic_files(
             no_connects=tuple(sorted(flags, key=lambda member: (member.component_id, member.pin))),
         ),
     )
-    generated = generate_schematic(
-        design, parts, name=name, target=target, layout="readable", allow_lossy=True
+    generated = _paged_schematic(
+        design, _source_sheets(parts, source.design), name, target, generate_schematic
     )
     if any(issue.severity == "error" for issue in generated.issues):
-        ledger.drop("schematic", design.header.id, "the schematic generator refused the imported circuit")
-        return {}, generated.issues
+        # a declared loss that needs --allow-lossy, not an error finding that blocks the board (change c0372)
+        ledger.drop("schematic", design.header.id, SCHEMATIC_REFUSED)
+        return {}, tuple(issue for issue in generated.issues if issue.severity != "error")
     files = {f"{name}.kicad_sch": sch.write_schematic(generated.sheet, target=target, allow_lossy=True).text}
     for file, sheet in generated.children.items():
         files[file] = sch.write_schematic(sheet, target=target, allow_lossy=True).text

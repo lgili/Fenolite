@@ -23,6 +23,8 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "tests" / "unit" / "verify" / "kit"))
 from _simulate import DATE, VERSION, simulate, simulated_judge  # noqa: E402
 
+pytestmark = pytest.mark.long_flow
+
 CONTRACT = (ROOT / "docs" / "cli-contract.md").read_text(encoding="utf-8")
 
 
@@ -68,7 +70,7 @@ def test_build_is_deterministic_and_follows_the_write_rules(
     assert run(monkeypatch, tmp_path, *args, "--out", "b", "--confirm")[0] == 0
     assert snapshot(tmp_path / "a") == snapshot(tmp_path / "b")
     result = env["result"]
-    names = ["flat", "tree", "routed", "board6", "libs", "pour", "pour4"]
+    names = ["flat", "tree", "routed", "board6", "libs", "pour", "pour4", "pour-hatched", "slots"]
     assert [s["name"] for s in result["samples"]] == names
     assert result["kit_sha256"] == load_kit(tmp_path / "a").digest and result["seed"] == 1
     assert result["scripted"] == ["K2.1", "K2.2", "K2.3", "K2.4", "K2.5"]
@@ -275,3 +277,26 @@ def test_a_file_of_another_kind_is_named_by_verify(monkeypatch: pytest.MonkeyPat
         "resave: the file is a schematic document, and the step wants a PCB document: "
         "save board6.PcbDoc of the sample, not another document of its project"
     ]
+
+
+@pytest.mark.parametrize("passed,synthetic", [(True, False), (False, False), (True, True)])
+def test_verdict_evidence_uses_only_actual_passing_hypotheses(passed: bool, synthetic: bool) -> None:
+    from types import SimpleNamespace
+
+    from fenolite.cli import cmd_kit
+
+    verdict = SimpleNamespace(
+        passed=passed,
+        synthetic=synthetic,
+        hypotheses=(
+            SimpleNamespace(id="H-A-WRITE-SCHDOC", outcome="pass"),
+            SimpleNamespace(id="H-A-KIT-STABLE", outcome="pending"),
+            SimpleNamespace(id="H-A-PH-LAYOUT", outcome="fail"),
+        ),
+    )
+    evidence = cmd_kit._verdict_evidence(verdict)
+    if passed and not synthetic:
+        assert evidence.level.value == "ALTIUM-VERIFIED(kit)"
+        assert evidence.hypotheses == ("H-A-WRITE-SCHDOC",)
+    else:
+        assert evidence == cmd_kit.UNVERIFIED_RUN

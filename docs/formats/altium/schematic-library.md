@@ -304,12 +304,14 @@ The reverse of the importer's mapping (rows above):
 | `pin_numbers_hidden` | number not shown (0x10 clear) |
 | hidden pin | 0x04 |
 
-With `--altium-symbols graphics` (the default since change c0086) a symbol of one unit and one body
-style whose graphics are all lines, rectangles, polygons and circles is drawn from them, each graphic as
-the record of `schematic-records.md` ("Graphics the writer draws"), with its own coordinates. A symbol of
-several units or body styles (`SymbolGraphic` names neither), a symbol without graphics, and a KiCad symbol
-whose library text holds an arc, a Bezier curve or a text (which the model does not hold) are drawn as
-below, with one `altium.symbol-simplified` info. With `--altium-symbols generic` every symbol is drawn as
+With `--altium-symbols graphics` (the default since change c0086) a symbol whose graphics are all lines,
+rectangles, polygons and circles is drawn from them, each graphic as the record of `schematic-records.md`
+("Graphics the writer draws"), with its own coordinates. Since change c0261 a graphic names its unit and
+body style: in a symbol of several units each graphic is drawn on the part of its unit (`OWNERPARTID`, unit
+0 on Part Zero) and graphics of other body styles are dropped; a derived symbol is written flat. A symbol
+in which a part would draw nothing (no graphic of its own unit and no common graphic), a symbol without
+graphics, and a KiCad symbol whose library text holds an arc, a Bezier curve or a text (which the model
+does not hold) are drawn as below, with one `altium.symbol-simplified` info. With `--altium-symbols generic` every symbol is drawn as
 below.
 
 Each part gets one rectangle: the bounding box of the body ends of its pins and of the Part Zero pins,

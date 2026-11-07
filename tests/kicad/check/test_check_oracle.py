@@ -63,9 +63,11 @@ def test_canary(tmp_path: Path) -> None:
     assert drc["evidence"]["oracle"] == f"kicad-cli {version()}"
     assert [s["name"] for s in env["result"]["stages"]] == [
         "model.validate",
+        "circuit.rules",  # change c0252: right after model.validate
         "erc.kicad",
         "copper.clearance",
         "length.rules",
+        "topology.rules",  # c0258: the tool-free topology check follows length rules
         "placement.rules",
         "roles.rules",
         "zone.fill",

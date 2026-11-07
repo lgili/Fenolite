@@ -25,6 +25,7 @@ from _probes import major
 from fenolite.backends.kicad.frame import board_pads
 from fenolite.backends.kicad.outline import board_outline
 from fenolite.backends.kicad.pcb import read_board
+from fenolite.backends.kicad.sexpr import parse
 
 pytestmark = pytest.mark.needs_kicad
 
@@ -128,9 +129,10 @@ def test_rebuild_is_the_identity(name: str, tmp_path: Path) -> None:
     """Item 1: a second build keeps the fills and the routes, byte for byte.
 
     The recorded projects are those of v0.1, built before a build wrote a schematic (c0061). Without a
-    schematic a build plans no new byte. With one, the first build adds the schematic and its symbol
-    libraries and renames, in the board, the nets of unconnected pads; from then on a build is the
-    identity again, and the fills and routes are kept throughout."""
+    schematic a build plans no new byte but the base record ``fenolite-base.json``, which a build writes
+    since c0250 and which the recorded projects predate. With a schematic, the first build adds the
+    schematic and its symbol libraries and renames, in the board, the nets of unconnected pads; from then
+    on a build is the identity again, and the fills and routes are kept throughout."""
     folder, _board, example, target = _copy(name, tmp_path)
     recorded = _files(folder)
 
@@ -146,20 +148,40 @@ def test_rebuild_is_the_identity(name: str, tmp_path: Path) -> None:
             or hashlib.sha256(Path(write["path"]).read_bytes()).hexdigest() != write["sha256"]
         ]
 
-    assert not changed("--schematic", "skip"), "without a schematic the build plans new bytes"
+    base = "fenolite-base.json"  # the base record of the three-way merge (c0250)
+    assert changed("--schematic", "skip") == [base], "without a schematic the build plans new bytes"
     stem = Path(_board).stem
     added = {f"{stem}.kicad_sch", "sym-lib-table", "Mini.kicad_sym", "fenolite.kicad_sym"}
     # one sheet per module (c0070): the 40-part board has the modules bank1 and bank2, the blink has none
     sheets = {"bank1.kicad_sch", "bank2.kicad_sch"} if stem == "board_40parts" else set()
-    assert set(changed()) == added | sheets | {f"{stem}.kicad_pcb"}
+    assert set(changed()) == added | sheets | {f"{stem}.kicad_pcb", f"{stem}.kicad_pro", base}
     code, envelope, error = _build(folder, example, target, "--confirm")
     assert code == 0, error
     assert "zone.fill-stale" not in [issue["code"] for issue in envelope["issues"]]
     first = _files(folder)
     assert {rel for rel in first if first[rel] != recorded.get(rel)} == {
-        f"{stem}.kicad_pcb", f"{stem}.kicad_sch", "sym-lib-table", "lib/Mini.kicad_sym",
-        "lib/fenolite.kicad_sym", *(f"sheets/{sheet}" for sheet in sheets),
+        f"{stem}.kicad_pcb", f"{stem}.kicad_pro", f"{stem}.kicad_sch", "sym-lib-table", "lib/Mini.kicad_sym",
+        "lib/fenolite.kicad_sym", base, *(f"sheets/{sheet}" for sheet in sheets),
     }  # fmt: skip
+    # c0344 binds project identity caches to the newly emitted sheets. Every other
+    # project value still equals the recorded project, including physical rules.
+    project_key = f"{stem}.kicad_pro"
+    original_project = json.loads(recorded[project_key])
+    current_project = json.loads(first[project_key])
+    root = parse(first[f"{stem}.kicad_sch"].decode("utf-8"))
+    root_uuid = root.find("uuid").atoms()[0].value
+    assert current_project["schematic"]["top_level_sheets"] == [
+        {"filename": f"{stem}.kicad_sch", "name": stem, "uuid": root_uuid}
+    ]
+    identities = [[root_uuid, stem]]
+    for sheet in root.nodes("sheet"):
+        name = next(p for p in sheet.nodes("property") if p.atoms()[0].value == "Sheetname")
+        identities.append([sheet.find("uuid").atoms()[0].value, name.atoms()[1].value])
+    assert sorted(current_project["sheets"]) == sorted(identities)
+    assert len(identities) == 1 + len(sheets)
+    current_project["schematic"]["top_level_sheets"] = original_project["schematic"]["top_level_sheets"]
+    current_project["sheets"] = original_project["sheets"]
+    assert current_project == original_project
     assert _top_level(first[f"{stem}.kicad_pcb"].decode("utf-8"), ("segment", "via")) == _top_level(
         recorded[f"{stem}.kicad_pcb"].decode("utf-8"), ("segment", "via")
     )

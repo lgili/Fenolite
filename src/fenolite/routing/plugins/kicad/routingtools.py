@@ -36,6 +36,7 @@ from fenolite.core.evidence import Evidence
 from fenolite.model.board import Arc, Track, Via
 from fenolite.model.pairs import split_pair_name
 from fenolite.routing.budget import Budget, exhausted
+from fenolite.routing.external_delta import board_delta
 from fenolite.routing.merge import RoutingError, apply
 from fenolite.routing.protocol import (
     FinishedRun,
@@ -411,7 +412,8 @@ class KicadRoutingToolsRouter:
     def route(self, job: RoutingJob) -> RoutingResult:
         """Route the job's nets group by group in a temporary project folder, inside the job's budget,
         returning the copper of the runs that finished and the issues of the others."""
-        status = self.available()
+        prepared = job.extra.get("external_status")
+        status = prepared if isinstance(prepared, RouterStatus) else self.available()
         if not status.available or self.path is None:
             return RoutingResult(
                 unrouted=tuple(net.name for net in job.nets),
@@ -420,7 +422,8 @@ class KicadRoutingToolsRouter:
                 tool_version=status.version or "",
                 evidence=Evidence(),
             )
-        budget = Budget(job.budget or self.budget or DEFAULT_BUDGET)
+        shared = job.extra.get("routing_budget")
+        budget = shared if isinstance(shared, Budget) else Budget(job.budget or self.budget or DEFAULT_BUDGET)
         issues: list[Issue] = []
         routed: list[str] = []
         unrouted: list[str] = []
@@ -550,6 +553,16 @@ class KicadRoutingToolsRouter:
                         continue
                     old_ids = {item.id for item in _copper(baseline)}
                     after = _copper(result)
+                    if job.extra.get("external_candidate") is True:
+                        checked = board_delta(baseline, result, names)
+                        if checked.reason:
+                            issues.append(Issue("route.tool-failed", "error", checked.reason, step.where))
+                            unrouted.extend(counted)
+                            runs.append(RouterRun(names, tier, seconds, "failed"))
+                            job.progress.done(unit, detail="refused delta")
+                            continue
+                        old_ids = set[str]()
+                        after = (*checked.copper.tracks, *checked.copper.arcs, *checked.copper.vias)
                     absent = old_ids - {item.id for item in after}
                     issues.extend(
                         Issue(

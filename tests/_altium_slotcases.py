@@ -123,7 +123,9 @@ def candidate_document(name: str, *, arc: bool = False) -> bytes:
         ring: Sequence[Point],
         frame: pcbdoc.Frame,
         _keepout: int | None = None,
+        net: int = rec.NO_INDEX,  # change c0412: the net index of a copper region
     ) -> None:
+        del net
         points = [(rec.to_units(frame(p).x), rec.to_units(frame(p).y)) for p in ring]
         self.regions.append(candidate_record(layer, fields, points, shape_based=False))
         self.shapes.append(
@@ -426,3 +428,67 @@ __all__ = [
     "relative",
     "runner",
 ]
+
+
+SLOT_PADS: tuple[tuple[str, int, int, int, int], ...] = (
+    ("1", MM, 2_150_000, 0, 0),
+    ("2", 2_150_000, MM, 0, 0),
+    ("3", MM, 2_150_000, 30_000_000, 0),
+    ("4", 2_150_000, MM, 30_000_000, 0),
+    ("5", MM, 2_150_000, 90_000_000, 45_000_000),
+    ("6", 2_150_000, MM, 0, 30_000_000),
+)
+"""The slot pads of ``slot_library`` (change c0416): number, ``Pad.drill``, ``Padstack.hole_length``,
+``Padstack.hole_rotation`` and ``Pad.rotation``. Pads 2, 4 and 6 hold the slot length below the hole size,
+as an Altium record may; pads 3 and 4 have a hole rotation that no ``KiCad`` oval holds."""
+
+
+def slot_library() -> bytes:
+    """A PCB library of one footprint ``SL`` with the six through-hole slot pads of ``SLOT_PADS``, 4 mm
+    round, 6 mm apart, authored for Fenolite (change c0416). KiCad 10.0.6's ``fp upgrade`` writes the slot
+    length along the pad's x axis and the hole size across it, and loses the two slots at 30°
+    (``pcb-records.md``)."""
+    from fenolite.backends.altium.pcblib import LibFootprint, write_pcblib
+    from fenolite.core.coords import Size
+    from fenolite.model.board import Pad, Padstack
+    from fenolite.model.library import FootprintDef
+
+    pads = tuple(
+        Pad(id=f"pad{number}", number=number, kind="thru_hole", shape="circle", size=Size(4 * MM, 4 * MM),
+            position=Point(index * 6 * MM, 0), rotation=turn, drill=drill, layers=("*.Cu", "*.Mask"),
+            padstack=Padstack(id=f"pst{number}", hole_shape="slot", hole_length=length, hole_rotation=axis))
+        for index, (number, drill, length, axis, turn) in enumerate(SLOT_PADS)
+    )  # fmt: skip
+    return write_pcblib([LibFootprint(FootprintDef(id="fp", name="SL", pads=pads))], filename="slots.PcbLib")
+
+
+def short_slot_document() -> bytes:
+    """The board of a candidate document with the six slots of ``SLOT_PADS`` as free plated pads ``P1`` to
+    ``P6`` on Multi-Layer, 4 mm round, at X 10, 18 … 50 mm and Y 20 mm (KiCad frame), each record holding
+    the hole size ``Pad.drill``, the slot length ``hole_length``, the slot rotation and the pad rotation
+    as given, so a slot length may be below the hole size (kit Part H, change c0416)."""
+    from fenolite.backends.altium import pcbdoc
+
+    original = pcbdoc.free_records
+
+    def free_records(spec: PcbDocSpec, copper: pcbdoc._Copper) -> pcbdoc._Free:  # pyright: ignore[reportPrivateUsage]
+        out = original(spec, copper)
+        for index, (number, drill, length, axis, turn) in enumerate(SLOT_PADS):
+            at = copper.frame(Point((10 + 8 * index) * MM, 20 * MM))
+            x, y = rec.to_units(at.x), rec.to_units(at.y)
+            size = rec.to_units(4 * MM)
+            out.pads.append(
+                rec.pad_record(
+                    name=f"P{number}", layer=rec.MULTI_LAYER, x=x, y=y, size=(size, size), shape=1,
+                    rotation=rec.degrees_of(turn), hole=rec.to_units(drill), plated=True,
+                    hole_shape=rec.HOLE_SHAPE_SLOT, slot_length=rec.to_units(length),
+                    slot_rotation=rec.degrees_of(axis),
+                )
+            )  # fmt: skip
+        return out
+
+    pcbdoc.free_records = free_records  # type: ignore[assignment]
+    try:
+        return write_pcbdoc(PcbDocSpec(outline=BOARD), filename="holes.PcbDoc")
+    finally:
+        pcbdoc.free_records = original  # type: ignore[assignment]

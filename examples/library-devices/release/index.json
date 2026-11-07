@@ -1,0 +1,195 @@
+{
+  "archives": [
+    {
+      "bytes": 1219,
+      "name": "devices-cc0.tar.gz",
+      "sha256": "8d22ead8b925368539da347667230135a8bac7d5ad2b031dded20206baa7da16"
+    },
+    {
+      "bytes": 1152,
+      "name": "footprints-cc0.tar.gz",
+      "sha256": "060bdfccb883019ae52f673132cbb523c1458e928ac5ed6b73c3c55fb00042bf"
+    },
+    {
+      "bytes": 1128,
+      "name": "symbols-cc0.tar.gz",
+      "sha256": "ba7d9ae2fa7ef60d761389535d517a920c879d88f9e9ecf690ac46d7b99bdb87"
+    }
+  ],
+  "commit": "0000000000000000000000000000000000000000",
+  "items": [
+    {
+      "archive": "symbols-cc0.tar.gz",
+      "authors": [
+        "Fenolite contributors"
+      ],
+      "bytes": 2079,
+      "depends": [],
+      "evidence": "UNVERIFIED",
+      "executes": false,
+      "family": "cc0",
+      "files": [
+        {
+          "bytes": 294,
+          "path": "LICENSE",
+          "sha256": "82d5ca06c0caac0ed773fafccda6b30892e97511a583363f0b3181d815a74a78"
+        },
+        {
+          "bytes": 80,
+          "path": "NOTICE",
+          "sha256": "db30ef31bf6b09af1a11ca6190b3c321f87a7d7e0927d6676afec03f46ce2807"
+        },
+        {
+          "bytes": 710,
+          "path": "PROVENANCE.json",
+          "sha256": "5684e0217179334fa42c0ae9061ba7337e901f54ef8a1be240df606f33771e3f"
+        },
+        {
+          "bytes": 334,
+          "path": "item.json",
+          "sha256": "9205811607fdb32d6841d0056097ff990325972c11d046855208025549cd7620"
+        },
+        {
+          "bytes": 661,
+          "path": "record.toml",
+          "sha256": "90feb70615564fd5c60e83cd5c7f48a231398667450794dc4e285581972aae80"
+        }
+      ],
+      "gallery": "symbols/FenoliteDevices/DemoTwoPin/index.html",
+      "id": "FenoliteDevices:DemoTwoPin",
+      "kind": "symbol",
+      "notice": "2026-11-01: authored for Fenolite as illustrative data; no upstream CAD payload",
+      "path": "symbols/cc0/FenoliteDevices/DemoTwoPin",
+      "proof": null,
+      "reciprocal": false,
+      "spdx": "CC0-1.0",
+      "summary": "Authored for Fenolite as illustrative test data (c0266).",
+      "tags": [],
+      "title": "Demo266:TwoPin",
+      "tree": "fenolite-tree-1:1dc5126a47f18ddb3ada542bdecb2d124477514680c2d3a88dc481e2adaa89d1",
+      "upstream": null,
+      "version": "1.0.0"
+    },
+    {
+      "archive": "footprints-cc0.tar.gz",
+      "authors": [
+        "Fenolite contributors"
+      ],
+      "bytes": 2132,
+      "depends": [],
+      "evidence": "UNVERIFIED",
+      "executes": false,
+      "family": "cc0",
+      "files": [
+        {
+          "bytes": 294,
+          "path": "LICENSE",
+          "sha256": "82d5ca06c0caac0ed773fafccda6b30892e97511a583363f0b3181d815a74a78"
+        },
+        {
+          "bytes": 80,
+          "path": "NOTICE",
+          "sha256": "db30ef31bf6b09af1a11ca6190b3c321f87a7d7e0927d6676afec03f46ce2807"
+        },
+        {
+          "bytes": 713,
+          "path": "PROVENANCE.json",
+          "sha256": "b3e1a1dbb53f69ac0392ac82049d7ab8d1e3299d7860c13bbded7fbfdb321f94"
+        },
+        {
+          "bytes": 337,
+          "path": "item.json",
+          "sha256": "6e34adc015336af6d7f01cd6e849d241e24f01829a67353a7bade24e234abc22"
+        },
+        {
+          "bytes": 708,
+          "path": "record.toml",
+          "sha256": "d9133e2e2745a85d44ea59d8979a80a9389297958f948ff4495b118382928fae"
+        }
+      ],
+      "gallery": "footprints/FenoliteDevices/DemoTwoPad/index.html",
+      "id": "FenoliteDevices:DemoTwoPad",
+      "kind": "footprint",
+      "notice": "2026-11-01: authored for Fenolite as illustrative data; no upstream CAD payload",
+      "path": "footprints/cc0/FenoliteDevices/DemoTwoPad",
+      "proof": null,
+      "reciprocal": false,
+      "spdx": "CC0-1.0",
+      "summary": "Authored for Fenolite as illustrative test data (c0266).",
+      "tags": [],
+      "title": "Demo266:TwoPad",
+      "tree": "fenolite-tree-1:0e6278b5b3926b1b3702015524871dda6d786cbcb89c1f9f450bb1ddd5765968",
+      "upstream": null,
+      "version": "1.0.0"
+    },
+    {
+      "archive": "devices-cc0.tar.gz",
+      "authors": [
+        "Fenolite contributors"
+      ],
+      "bytes": 2306,
+      "depends": [
+        {
+          "id": "FenoliteDevices:DemoTwoPin",
+          "kind": "symbol",
+          "version": "1.0.0"
+        },
+        {
+          "id": "FenoliteDevices:DemoTwoPad",
+          "kind": "footprint",
+          "version": "1.0.0"
+        }
+      ],
+      "evidence": "UNVERIFIED",
+      "executes": false,
+      "family": "cc0",
+      "files": [
+        {
+          "bytes": 294,
+          "path": "LICENSE",
+          "sha256": "82d5ca06c0caac0ed773fafccda6b30892e97511a583363f0b3181d815a74a78"
+        },
+        {
+          "bytes": 80,
+          "path": "NOTICE",
+          "sha256": "db30ef31bf6b09af1a11ca6190b3c321f87a7d7e0927d6676afec03f46ce2807"
+        },
+        {
+          "bytes": 707,
+          "path": "PROVENANCE.json",
+          "sha256": "695c4a12f795f04bbbb02a84fe05a5fdebb3e861687210eb2bfbd9250b899306"
+        },
+        {
+          "bytes": 545,
+          "path": "item.json",
+          "sha256": "64778bc23265aa7122fa0a3d11aa1a1adb40d3b9469011443ae79bdc781ce004"
+        },
+        {
+          "bytes": 680,
+          "path": "record.toml",
+          "sha256": "aeb710fdd3b20d93d580ce662f367bf8fbe21129362c73200630598a8ede95ee"
+        }
+      ],
+      "gallery": "devices/FenoliteDevices/Demo900/index.html",
+      "id": "FenoliteDevices:Demo900",
+      "kind": "device",
+      "notice": "2026-11-01: authored for Fenolite as illustrative data; no upstream CAD payload",
+      "path": "devices/cc0/FenoliteDevices/Demo900",
+      "proof": null,
+      "reciprocal": false,
+      "spdx": "CC0-1.0",
+      "summary": "Authored for Fenolite as illustrative test data (c0266).",
+      "tags": [],
+      "title": "Demo266:Demo900",
+      "tree": "fenolite-tree-1:d815d29a1784c1139fe0c54d0cd121bbd0440b1c9935bbb7bfc6cd0def54cb49",
+      "upstream": null,
+      "version": "1.0.0"
+    }
+  ],
+  "name": "fenolite-library-demo",
+  "requires": {
+    "fenolite": ">=0.7"
+  },
+  "schema": "fenolite.library-index.v0",
+  "version": "0.1.0"
+}

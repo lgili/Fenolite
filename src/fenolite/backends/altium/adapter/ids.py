@@ -34,6 +34,7 @@ EXT_KEYS: tuple[str, ...] = (
     "plane_cuts",
     "origin",
     "polygon_connect",
+    "kept_rule",
     "stack_mode",
     "corner_percent",
     "shape",
@@ -65,10 +66,33 @@ EXT_KEYS: tuple[str, ...] = (
     "scope2",
     "rule_kind",
     "cell",
+    "layer_value",
     "cells_not_lifted",
+    "kept_record",
+    "stroke",
+    "union_index",
+    "stroke_font",
+    "text_tail",
 )
 """The closed table of extension-bag keys, in bag order; each is a row of
 ``docs/formats/altium/import.md``, "Extension-bag keys"."""
+STROKE_FONT_KEY = "stroke_font"
+"""The key of a stroke text's font (change c0460, S-2253): ``<bold><italic> <name>``, each flag ``0`` or
+``1``, as the text record holds them though a stroke text draws with neither."""
+TEXT_TAIL_KEY = "text_tail"
+"""The key of the bytes from 137 on of the first subrecord of a text on Mechanical 17 to 32 (change c0450,
+task 4.5), as lowercase hex: the record holds the layer's long id at 226 of them, which the 137-byte form
+the writer writes has no room for, and bytes that no other source gives."""
+UNION_KEY = "union_index"
+"""The key of a union member's union index (change c0460, ``backends.altium.unions``)."""
+VIA_UNION_OFFSET = 70
+"""The offset of a via's union index in its subrecord (change c0460, S-2190)."""
+TRACK_UNION_OFFSET = 36
+"""The offset of a track's union index in the long form of its subrecord (49 bytes; change c0460, S-2190)."""
+TEXT_UNION_OFFSET = 119
+"""The offset of a text's union index in the long form of its first subrecord (change c0460, S-2190)."""
+ARC_UNION_OFFSET = 48
+"""The offset of an arc's union index in the long form of its subrecord (60 bytes; change c0460, S-2190)."""
 _ORDER = {key: position for position, key in enumerate(EXT_KEYS)}
 
 

@@ -1,0 +1,2221 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.result.route.v0",
+  "title": "RouteResult",
+  "type": "object",
+  "properties": {
+    "plan": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolPlan"
+      }
+    },
+    "plan_id": {
+      "type": "string"
+    },
+    "issues_summary": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolIssueSummary"
+      }
+    },
+    "recovery": {
+      "$ref": "#/$defs/ProtocolRecovery"
+    },
+    "page": {
+      "$ref": "#/$defs/ProtocolPage"
+    },
+    "native_check": {
+      "enum": [
+        "not-run",
+        "candidate-facts",
+        "acceptance-findings"
+      ]
+    },
+    "board": {
+      "type": "string"
+    },
+    "budget": {
+      "$ref": "#/$defs/RouteBudget"
+    },
+    "connections": {
+      "$ref": "#/$defs/RouteConnections"
+    },
+    "escape": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RouteEscapeItem"
+      }
+    },
+    "fills_stale": {
+      "type": "boolean"
+    },
+    "gate": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/GateSummary"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "log": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "not_attempted": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "open": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RouteOpenItem"
+          }
+        },
+        {
+          "$ref": "#/$defs/ProposalOpen"
+        }
+      ]
+    },
+    "pairs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RoutePairsItem"
+      }
+    },
+    "plane_fanout": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/RoutePlaneFanout"
+        }
+      ]
+    },
+    "plane_layers": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "resumed": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/RouteResumed"
+        }
+      ]
+    },
+    "rip_kept": {
+      "$ref": "#/$defs/RouteRipKept"
+    },
+    "ripped": {
+      "type": "integer"
+    },
+    "roles": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RouteRolesItem"
+      }
+    },
+    "routed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "router": {
+      "type": "string"
+    },
+    "runs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RouteRunsItem"
+      }
+    },
+    "selected": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "tool_version": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "tracks": {
+      "type": "integer"
+    },
+    "unrouted": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "vias": {
+      "type": "integer"
+    },
+    "mode": {
+      "type": "string"
+    },
+    "order": {
+      "type": "string"
+    },
+    "proposals": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Proposal"
+      }
+    },
+    "rejected": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProposalRejected"
+      }
+    },
+    "locked": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProposalLocked"
+      }
+    },
+    "next": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "accepted": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProposalAccepted"
+      }
+    },
+    "decision": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "record": {
+      "type": "string"
+    },
+    "replayed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "stale": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProposalStale"
+      }
+    },
+    "forgotten": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "removed": {
+      "type": "integer"
+    },
+    "drc_unattributed": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/GateFinding"
+      }
+    },
+    "bundles": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProposalBundle"
+          }
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "controls": {
+      "$ref": "#/$defs/ProposalControls"
+    },
+    "role_fields": {
+      "$ref": "#/$defs/ProposalRoleFields"
+    },
+    "external": {
+      "$ref": "#/$defs/ProposalExternal"
+    },
+    "completion": {
+      "$ref": "#/$defs/ProposalCompletion"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "GateDropped": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GateFinding"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "id",
+        "findings"
+      ]
+    },
+    "GateFinding": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "uuids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "type",
+        "severity",
+        "description",
+        "uuids",
+        "items"
+      ]
+    },
+    "GateSummary": {
+      "type": "object",
+      "properties": {
+        "tool_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "runs": {
+          "type": "integer"
+        },
+        "refilled": {
+          "type": "boolean"
+        },
+        "items": {
+          "type": "integer"
+        },
+        "kept": {
+          "type": "integer"
+        },
+        "dropped": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GateDropped"
+          }
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GateFinding"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "tool_version",
+        "runs",
+        "refilled",
+        "items",
+        "kept",
+        "dropped",
+        "findings"
+      ]
+    },
+    "Proposal": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "net": {
+          "type": "string"
+        },
+        "ends": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProposalEnd"
+          }
+        },
+        "region": {
+          "type": "string"
+        },
+        "candidates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProposalCandidate"
+          }
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "alternatives": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProposalAlternative"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "id",
+        "subject",
+        "kind",
+        "net",
+        "ends",
+        "region",
+        "candidates",
+        "reason",
+        "alternatives"
+      ]
+    },
+    "ProposalAccepted": {
+      "type": "object",
+      "properties": {
+        "candidate": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "facts": {
+          "$ref": "#/$defs/ProposalFacts"
+        },
+        "source": {
+          "type": "string"
+        },
+        "tool": {
+          "$ref": "#/$defs/ProposalTool"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "candidate",
+        "subject",
+        "facts"
+      ]
+    },
+    "ProposalAlternative": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string"
+        },
+        "region": {
+          "type": "string"
+        },
+        "then": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "kind",
+        "text",
+        "command",
+        "region"
+      ]
+    },
+    "ProposalBundle": {
+      "description": "c0367: one negotiated atomic unit; member geometry stays in the candidate rows.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "fingerprint": {
+          "type": "string"
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "subjects": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "id",
+        "fingerprint",
+        "members",
+        "subjects"
+      ]
+    },
+    "ProposalCandidate": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "relaxed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "items": {
+          "$ref": "#/$defs/ProposalItems"
+        },
+        "geometry": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ProposalTrack"
+              },
+              {
+                "$ref": "#/$defs/ProposalVia"
+              }
+            ]
+          }
+        },
+        "facts": {
+          "$ref": "#/$defs/ProposalFacts"
+        },
+        "rejected": {
+          "type": "boolean"
+        },
+        "bundle": {
+          "type": "string"
+        },
+        "tool": {
+          "$ref": "#/$defs/ProposalTool"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "id",
+        "source",
+        "relaxed",
+        "items",
+        "geometry",
+        "facts",
+        "rejected"
+      ]
+    },
+    "ProposalCandidateRoleFields": {
+      "description": "c0366: the fields after a candidate and its conservative reference and exposure bounds.",
+      "type": "object",
+      "properties": {
+        "fingerprint": {
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/ProposalFieldProvenance"
+        },
+        "limits": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProposalRoleLimit"
+          }
+        },
+        "preferences": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProposalRolePreference"
+          }
+        },
+        "unknowns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "missing_limits": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "input_fingerprint": {
+          "type": "string"
+        },
+        "input_provenance": {
+          "$ref": "#/$defs/ProposalFieldProvenance"
+        },
+        "confirmed_reference_length_lower_bound_nm": {
+          "type": "integer"
+        },
+        "unconfirmed_reference_length_nm": {
+          "type": "integer"
+        },
+        "switching_exposure_upper_bound_nm": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "fingerprint",
+        "provenance",
+        "limits",
+        "preferences",
+        "unknowns",
+        "missing_limits",
+        "input_fingerprint",
+        "input_provenance",
+        "confirmed_reference_length_lower_bound_nm",
+        "unconfirmed_reference_length_nm",
+        "switching_exposure_upper_bound_nm"
+      ]
+    },
+    "ProposalCompletion": {
+      "description": "c0370: the physical open count and every subject's state; never a completion claim.",
+      "type": "object",
+      "properties": {
+        "state": {
+          "enum": [
+            "open",
+            "unchecked"
+          ]
+        },
+        "open": {
+          "type": "integer"
+        },
+        "fill": {
+          "enum": [
+            "saved",
+            "simulated"
+          ]
+        },
+        "subjects": {
+          "$ref": "#/$defs/ProposalCompletionSubjects"
+        },
+        "checks": {
+          "enum": [
+            "not-run"
+          ]
+        },
+        "complete": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "state",
+        "open",
+        "fill",
+        "subjects",
+        "checks",
+        "complete"
+      ]
+    },
+    "ProposalCompletionSubjects": {
+      "type": "object",
+      "properties": {
+        "proposed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unknown": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "no-candidate": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rejected": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "not-attempted": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "proposed",
+        "unknown",
+        "no-candidate",
+        "rejected",
+        "not-attempted"
+      ]
+    },
+    "ProposalControls": {
+      "description": "c0369: the regeneration controls a reviewed viewer action repeats.",
+      "type": "object",
+      "properties": {
+        "schema": {
+          "enum": [
+            "fenolite.proposal_controls.v0"
+          ]
+        },
+        "router_options": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "external_routers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "nets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "kinds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "candidate_limit": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "requirements": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "timeout": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "gate": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "portable": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "schema",
+        "router_options",
+        "external_routers",
+        "nets",
+        "kinds",
+        "groups",
+        "candidate_limit",
+        "requirements",
+        "timeout",
+        "gate",
+        "portable"
+      ]
+    },
+    "ProposalCopper": {
+      "type": "object",
+      "properties": {
+        "before": {
+          "type": "integer"
+        },
+        "after": {
+          "type": "integer"
+        },
+        "new": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProposalCopperFinding"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "before",
+        "after",
+        "new"
+      ]
+    },
+    "ProposalCopperFinding": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "gap": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "layer",
+        "items",
+        "gap"
+      ]
+    },
+    "ProposalDrc": {
+      "type": "object",
+      "properties": {
+        "new": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProposalDrcFinding"
+          }
+        },
+        "evidence": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "new",
+        "evidence"
+      ]
+    },
+    "ProposalDrcFinding": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "type",
+        "items"
+      ]
+    },
+    "ProposalEnd": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "at": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "kind",
+        "name",
+        "layers"
+      ]
+    },
+    "ProposalExternal": {
+      "description": "c0368: the external routers asked for, their refusals and the subjects they did not attempt.",
+      "type": "object",
+      "properties": {
+        "requested": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "refusals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProposalExternalRefusal"
+          }
+        },
+        "not_attempted": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProposalExternalNotAttempted"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "requested",
+        "refusals",
+        "not_attempted"
+      ]
+    },
+    "ProposalExternalNotAttempted": {
+      "type": "object",
+      "properties": {
+        "subject": {
+          "type": "string"
+        },
+        "router": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "subject",
+        "router"
+      ]
+    },
+    "ProposalExternalRefusal": {
+      "type": "object",
+      "properties": {
+        "subject": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "router": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "subject",
+        "reason",
+        "router",
+        "details"
+      ]
+    },
+    "ProposalFacts": {
+      "type": "object",
+      "properties": {
+        "vias": {
+          "type": "integer"
+        },
+        "length": {
+          "type": "integer"
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "bends": {
+          "type": "integer"
+        },
+        "conflicts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "fill": {
+          "type": "string"
+        },
+        "current": {
+          "type": "string"
+        },
+        "relaxed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "closes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "open": {
+          "$ref": "#/$defs/ProposalOpen"
+        },
+        "copper_check": {
+          "$ref": "#/$defs/ProposalCopper"
+        },
+        "roles": {
+          "$ref": "#/$defs/ProposalRoles"
+        },
+        "loop": {
+          "$ref": "#/$defs/ProposalLoop"
+        },
+        "drc": {
+          "$ref": "#/$defs/ProposalDrc"
+        },
+        "not_evaluated": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProposalNotEvaluated"
+          }
+        },
+        "role_fields": {
+          "$ref": "#/$defs/ProposalCandidateRoleFields"
+        }
+      },
+      "additionalProperties": true
+    },
+    "ProposalFieldProvenance": {
+      "type": "object",
+      "properties": {
+        "board": {
+          "type": "string"
+        },
+        "roles": {
+          "type": "string"
+        },
+        "profile": {
+          "type": "string"
+        },
+        "fill": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "board",
+        "roles",
+        "profile",
+        "fill"
+      ]
+    },
+    "ProposalItems": {
+      "type": "object",
+      "properties": {
+        "tracks": {
+          "type": "integer"
+        },
+        "vias": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "tracks",
+        "vias"
+      ]
+    },
+    "ProposalLocked": {
+      "type": "object",
+      "properties": {
+        "candidate": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "present": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "candidate",
+        "subject",
+        "present"
+      ]
+    },
+    "ProposalLoop": {
+      "type": "object",
+      "properties": {
+        "group": {
+          "type": "string"
+        },
+        "area": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ratio_permille": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "bound": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "group",
+        "area",
+        "ratio_permille",
+        "bound"
+      ]
+    },
+    "ProposalNotEvaluated": {
+      "type": "object",
+      "properties": {
+        "fact": {
+          "enum": [
+            "closes",
+            "open",
+            "copper_check",
+            "roles",
+            "loop",
+            "drc"
+          ]
+        },
+        "why": {
+          "enum": [
+            "no-gate",
+            "no-role-loop",
+            "outside-role-reach",
+            "no-kicad-cli",
+            "budget",
+            "external-trial-failed"
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "fact",
+        "why"
+      ]
+    },
+    "ProposalOpen": {
+      "type": "object",
+      "properties": {
+        "before": {
+          "type": "integer"
+        },
+        "after": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "before"
+      ]
+    },
+    "ProposalRejected": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "id",
+        "subject",
+        "reason"
+      ]
+    },
+    "ProposalRoleFields": {
+      "description": "c0366: the role search fields in force (``result.role_fields``).",
+      "type": "object",
+      "properties": {
+        "fingerprint": {
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/ProposalFieldProvenance"
+        },
+        "limits": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProposalRoleLimit"
+          }
+        },
+        "preferences": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProposalRolePreference"
+          }
+        },
+        "unknowns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "missing_limits": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "fingerprint",
+        "provenance",
+        "limits",
+        "preferences",
+        "unknowns",
+        "missing_limits"
+      ]
+    },
+    "ProposalRoleFinding": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "where": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string"
+        },
+        "measure": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "where",
+        "severity",
+        "measure"
+      ]
+    },
+    "ProposalRoleLimit": {
+      "type": "object",
+      "properties": {
+        "victim": {
+          "type": "string"
+        },
+        "aggressor": {
+          "type": "string"
+        },
+        "distance_nm": {
+          "type": "integer"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "origin": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "victim",
+        "aggressor",
+        "distance_nm",
+        "kind",
+        "origin"
+      ]
+    },
+    "ProposalRolePreference": {
+      "type": "object",
+      "properties": {
+        "victim": {
+          "type": "string"
+        },
+        "aggressor": {
+          "type": "string"
+        },
+        "within_nm": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "victim",
+        "aggressor",
+        "within_nm"
+      ]
+    },
+    "ProposalRoles": {
+      "type": "object",
+      "properties": {
+        "before": {
+          "type": "integer"
+        },
+        "after": {
+          "type": "integer"
+        },
+        "new": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProposalRoleFinding"
+          }
+        },
+        "cleared": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProposalRoleFinding"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "before",
+        "after",
+        "new",
+        "cleared"
+      ]
+    },
+    "ProposalStale": {
+      "type": "object",
+      "properties": {
+        "candidate": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "why": {
+          "type": "string"
+        },
+        "bundle": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "candidate",
+        "subject",
+        "why"
+      ]
+    },
+    "ProposalTool": {
+      "description": "c0368: the identity of the external router that made a candidate.",
+      "type": "object",
+      "properties": {
+        "router": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "inputs": {
+          "type": "string"
+        },
+        "job": {
+          "type": "string"
+        },
+        "deterministic": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "router",
+        "version",
+        "inputs",
+        "job",
+        "deterministic"
+      ]
+    },
+    "ProposalTrack": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "track"
+          ]
+        },
+        "layer": {
+          "type": "string"
+        },
+        "width": {
+          "type": "integer"
+        },
+        "points": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "items": false,
+            "minItems": 2,
+            "maxItems": 2
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "kind",
+        "layer",
+        "width",
+        "points"
+      ]
+    },
+    "ProposalVia": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "via"
+          ]
+        },
+        "at": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "diameter": {
+          "type": "integer"
+        },
+        "drill": {
+          "type": "integer"
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "kind",
+        "at",
+        "diameter",
+        "drill",
+        "layers"
+      ]
+    },
+    "ProtocolIssueSummary": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "by_severity": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "counts indexed by severity"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "count",
+        "by_severity"
+      ]
+    },
+    "ProtocolPage": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "next": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "limit",
+        "offset",
+        "total",
+        "next"
+      ]
+    },
+    "ProtocolPlan": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "overwrite": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "kind",
+        "bytes",
+        "sha256",
+        "overwrite"
+      ]
+    },
+    "ProtocolRecovery": {
+      "type": "object",
+      "properties": {
+        "failed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "preserved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "failed",
+        "preserved"
+      ]
+    },
+    "RouteBudget": {
+      "type": "object",
+      "properties": {
+        "exhausted": {
+          "type": "boolean"
+        },
+        "seconds": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "spent": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "exhausted",
+        "seconds",
+        "spent"
+      ]
+    },
+    "RouteConnections": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": "integer"
+        },
+        "before": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "after",
+        "before"
+      ]
+    },
+    "RouteEscapeItem": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "nets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "pitch": {
+          "type": "integer"
+        },
+        "ref": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "kind",
+        "nets",
+        "pitch",
+        "ref"
+      ]
+    },
+    "RouteOpenItem": {
+      "type": "object",
+      "properties": {
+        "connections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RouteOpenItemConnectionsItem"
+          }
+        },
+        "islands": {
+          "type": "integer"
+        },
+        "net": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "connections",
+        "islands",
+        "net"
+      ]
+    },
+    "RouteOpenItemConnectionsItem": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "$ref": "#/$defs/RouteOpenItemConnectionsItemA"
+        },
+        "b": {
+          "$ref": "#/$defs/RouteOpenItemConnectionsItemB"
+        },
+        "length": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b",
+        "length"
+      ]
+    },
+    "RouteOpenItemConnectionsItemA": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "position": {
+          "$ref": "#/$defs/RouteOpenItemConnectionsItemAPosition"
+        },
+        "where": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "kind",
+        "layers",
+        "position",
+        "where"
+      ]
+    },
+    "RouteOpenItemConnectionsItemAPosition": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "integer"
+        },
+        "y": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "x",
+        "y"
+      ]
+    },
+    "RouteOpenItemConnectionsItemB": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "position": {
+          "$ref": "#/$defs/RouteOpenItemConnectionsItemBPosition"
+        },
+        "where": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "kind",
+        "layers",
+        "position",
+        "where"
+      ]
+    },
+    "RouteOpenItemConnectionsItemBPosition": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "integer"
+        },
+        "y": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "x",
+        "y"
+      ]
+    },
+    "RoutePairsItem": {
+      "type": "object",
+      "properties": {
+        "gap": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "negative": {
+          "type": "string"
+        },
+        "positive": {
+          "type": "string"
+        },
+        "routed": {
+          "type": "boolean"
+        },
+        "width": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "gap",
+        "name",
+        "negative",
+        "positive",
+        "routed",
+        "width"
+      ]
+    },
+    "RoutePlaneFanout": {
+      "type": "object",
+      "properties": {
+        "failed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "joined": {
+          "type": "integer"
+        },
+        "nets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "pads": {
+          "type": "integer"
+        },
+        "tracks": {
+          "type": "integer"
+        },
+        "vias": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "failed",
+        "joined",
+        "nets",
+        "pads",
+        "tracks",
+        "vias"
+      ]
+    },
+    "RouteResumed": {
+      "type": "object",
+      "properties": {
+        "nets": {
+          "type": "integer"
+        },
+        "runs": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "nets",
+        "runs"
+      ]
+    },
+    "RouteRipKept": {
+      "type": "object",
+      "properties": {
+        "locked": {
+          "type": "integer"
+        },
+        "script": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "locked",
+        "script"
+      ]
+    },
+    "RouteRolesItem": {
+      "type": "object",
+      "properties": {
+        "connections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RouteRolesItemConnectionsItem"
+          }
+        },
+        "copper": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "corridors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "findings_after": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RouteRolesItemFindingsAfterItem"
+          }
+        },
+        "findings_before": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RouteRolesItemFindingsBeforeItem"
+          }
+        },
+        "group": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "proposal": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/RouteRolesItemProposal"
+            }
+          ]
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "status": {
+          "type": "string"
+        },
+        "propose": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "connections",
+        "copper",
+        "corridors",
+        "findings_after",
+        "findings_before",
+        "group",
+        "kind",
+        "proposal",
+        "reason",
+        "status"
+      ]
+    },
+    "RouteRolesItemConnectionsItem": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "string"
+        },
+        "b": {
+          "type": "string"
+        },
+        "form": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "key": {
+          "type": "string"
+        },
+        "layer": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "length": {
+          "type": "integer"
+        },
+        "net": {
+          "type": "string"
+        },
+        "vias": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b",
+        "form",
+        "key",
+        "layer",
+        "length",
+        "net",
+        "vias"
+      ]
+    },
+    "RouteRolesItemFindingsAfterItem": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "measure": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "severity": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "measure",
+        "severity"
+      ]
+    },
+    "RouteRolesItemFindingsBeforeItem": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "measure": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "severity": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "measure",
+        "severity"
+      ]
+    },
+    "RouteRolesItemProposal": {
+      "type": "object",
+      "properties": {
+        "command": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "region": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "command",
+        "kind",
+        "region",
+        "text"
+      ]
+    },
+    "RouteRunsItem": {
+      "type": "object",
+      "properties": {
+        "nets": {
+          "type": "integer"
+        },
+        "outcome": {
+          "type": "string"
+        },
+        "seconds": {
+          "type": "number"
+        },
+        "tier": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "nets",
+        "outcome",
+        "seconds",
+        "tier"
+      ]
+    }
+  }
+}

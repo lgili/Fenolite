@@ -2,9 +2,7 @@
 
 ## Purpose
 Check a KiCad project without writing to it: `fenolite check` runs model validation, ERC lite, KiCad's DRC on a closed copy of the project with a rules canary, and the RT1 round trip, in a fixed order, each stage with its own status and evidence. `fenolite inspect` summarises a file's header and counts, and `fenolite doctor` reports the `kicad-cli` binaries and their command matrices. Contract: `docs/cli-contract.md`; facts: `docs/formats/kicad/cli.md` and `docs/formats/kicad/drc.md`.
-
 ## Requirements
-
 ### Requirement: Check command input
 `fenolite check PATH` SHALL be registered by `src/fenolite/cli/cmd_check.py` with `mutates=False`, and SHALL check the KiCad project that `PATH` names, or the documents of another backend that `PATH` names (**Document input**), without writing any file. Every bullet below but **Document input** describes the KiCad path.
 - **Board.** The board MUST be found with `fenolite.backends.kicad.projectset.resolve_board(PATH)` (`kicad-oracle`, "Check project copy set"). An ambiguous folder MUST exit 2 with `FEN-2001` and a hint listing the candidates. A missing path or board MUST exit 3 with `FEN-3001`.
@@ -1392,13 +1390,13 @@ A height limit whose area the board does not hold gives `placement.rule-unresolv
 
 ### Requirement: Waivers in the check
 `fenolite.checks.waivers` SHALL apply a design's waivers (`design-model`, "Waivers in the findings layer") to the findings of `check`, so that one accepted finding no longer counts as an error while it stays listed.
-- **Input.** `run_checks(…, waivers=())` MUST pass the waivers to `copper_stage(…, waivers=…)` and to `drc_stage(…, waivers=…)`. `fenolite check` MUST pass `Design.findings.waivers` of the `.fenolite/` model of a built project, and no waiver for a native project or when `.fenolite/` cannot be loaded.
-- **Document input.** `run_document_checks(…, waivers=())` ("Document check pipeline") MUST pass the waivers to its `copper.clearance` stage, and `fenolite check` on a built Altium project MUST pass the waivers of its `.fenolite/` model the same way, so one script gets the same verdict for an accepted copper finding on both targets. That pipeline has no DRC stage: a `kicad.drc.*` waiver is `unjudged` there with `stage-not-run`. Waivers reach no other stage of either pipeline: `kicad.erc.*` and `parity.*` findings are never waived.
-- **Matching.** `waiver_matches(waiver, code, names, gap=None)` MUST be true exactly when `code == waiver.code`, `len(names) == len(waiver.items)`, some one-to-one assignment of items to names has every item matching its name by `fnmatch.fnmatchcase`, and, when `waiver.min_gap` is set, `gap` is not `None` and `gap >= waiver.min_gap`. The names of a copper finding are the `where` of its two `CopperRef`s and its gap is `CopperFinding.gap`; the names of a DRC entry are the locations of its items as "DRC findings as issues" gives them, and it has no gap.
+- **Input.** `run_checks(…, waivers=())` MUST pass the waivers to `copper_stage(…, waivers=…)`, to `drc_stage(…, waivers=…)` and to the stage `circuit.rules`, and `cmd_build` MUST apply them to its `circuit.*` issues the same way. `fenolite check` MUST pass `Design.findings.waivers` of the `.fenolite/` model of a built project, and no waiver for a native project or when `.fenolite/` cannot be loaded.
+- **Document input.** `run_document_checks(…, waivers=())` ("Document check pipeline") MUST pass the waivers to its `copper.clearance` stage, and `fenolite check` on a built Altium project MUST pass the waivers of its `.fenolite/` model the same way, so one script gets the same verdict for an accepted copper finding on both targets. That pipeline has no DRC stage: a `kicad.drc.*` waiver is `unjudged` there with `stage-not-run`; its `circuit.rules` stage takes the `circuit.*` waivers. Waivers reach no other stage of either pipeline: `kicad.erc.*` and `parity.*` findings are never waived.
+- **Matching.** `waiver_matches(waiver, code, names, gap=None)` MUST be true exactly when `code == waiver.code`, `len(names) == len(waiver.items)`, some one-to-one assignment of items to names has every item matching its name by `fnmatch.fnmatchcase`, and, when `waiver.min_gap` is set, `gap` is not `None` and `gap >= waiver.min_gap`. The names of a copper finding are the `where` of its two `CopperRef`s and its gap is `CopperFinding.gap`; the names of a DRC entry are the locations of its items as "DRC findings as issues" gives them, and it has no gap. A `circuit.*` finding has one name, its requirement row's id without the code, no gap, and matches only when the waiver's `digest` also equals the row's digest ("Waivers that expire").
 - **Effect.** The issue of a matched finding MUST keep its code and `where`, take severity `info`, and end with ` (waived by <name>: <reason>)`, naming the first matching waiver in name order. A finding that no waiver matches is unchanged, and no finding is removed. A stage whose every error was waived MUST have status `ok`; waivers change no evidence.
-- **Judged waivers.** A waiver is judged in a run when the stage of its code ran with a verdict, `copper.clearance` for a `copper.*` code and `drc.kicad` with a report for a `kicad.drc.*` code, and its code is not `type_code(<oracle>, t)` for a type `t` of `UNREPEATABLE_TYPES = ("clearance", "hole_clearance", "unconnected_items", "shorting_items")`, whose entries KiCad does not repeat from run to run (`H-K-DRC-REPEAT`, `H-K-VIA-RENET`). A waiver of such a type is applied when it matches and is never judged, so two runs of `check` differ in nothing that "Check output is deterministic" does not already allow.
-- **Stale waivers.** Each judged waiver that matched no finding MUST give one `check.waiver-unmatched` warning, `where` the waiver's name, whose message names its code and items and says that the finding is gone or its items were renamed.
-- **Result.** `CheckReport.waivers` and `result.waivers` of `check` MUST hold `declared` (the count), `matched` (name → number of findings matched, for judged waivers), `unmatched` (names) and `unjudged` (name → `stage-not-run` or `not-repeatable`), each sorted by name.
+- **Judged waivers.** A waiver is judged in a run when the stage of its code ran with a verdict, `copper.clearance` for a `copper.*` code, `drc.kicad` with a report for a `kicad.drc.*` code and `circuit.rules` not skipped for a `circuit.*` code, and its code is not `type_code(<oracle>, t)` for a type `t` of `UNREPEATABLE_TYPES = ("clearance", "hole_clearance", "unconnected_items", "shorting_items")`, whose entries KiCad does not repeat from run to run (`H-K-DRC-REPEAT`, `H-K-VIA-RENET`). A waiver of such a type is applied when it matches and is never judged, so two runs of `check` differ in nothing that "Check output is deterministic" does not already allow.
+- **Stale waivers.** Each judged waiver that matched no finding, and whose code and items match no finding under another digest, MUST give one `check.waiver-unmatched` warning, `where` the waiver's name, whose message names its code and items and says that the finding is gone or its items were renamed. A waiver whose code and items match under another digest gives `check.waiver-expired` instead.
+- **Result.** `CheckReport.waivers` and `result.waivers` of `check` MUST hold `declared` (the count), `matched` (name → number of findings matched, for judged waivers), `unmatched` (names), `expired` (names) and `unjudged` (name → `stage-not-run` or `not-repeatable`), each sorted by name.
 
 #### Scenario: Waived clearance between two pads
 - **GIVEN** a built project whose `.fenolite/` model holds the waiver `pitch` of code `copper.clearance`, items `J1-3` and `J1-4` and reason `fixed by the mating connector`, and whose board has the pads `J1-3` and `J1-4` 0.25 mm apart under a class clearance of 0.3 mm
@@ -1433,6 +1431,11 @@ A height limit whose area the board does not hold gives `placement.rule-unresolv
 - **GIVEN** the native `two_layer` project
 - **WHEN** `fenolite check tests/data/kicad/board/two_layer.kicad_pcb --stages copper.clearance --json` runs
 - **THEN** `result.waivers.declared` is 0 and the `copper.short` of its fill and pad stays an error
+
+#### Scenario: A waived rating on the circuit stage
+- **GIVEN** the `bad` variant of `examples/circuit/sensor` with `design.waive("circuit.rating-voltage", "C1:voltage", reason="bench is current-limited", digest=<the row's digest>)`, built in `tmp_path`
+- **WHEN** `uv run pytest tests/unit/checks/test_waivers.py -k circuit` runs `fenolite check <dir> --stages circuit.rules --json` and builds it with `--dry-run --json`
+- **THEN** in both replies the `circuit.rating-voltage` issue of `C1` has severity `info` and ends with `(waived by circuit.rating-voltage:C1:voltage: bench is current-limited)`, and `result.waivers.matched` of the check names the waiver once
 
 ### Requirement: Exclusions in the DRC stage
 `checks.drc.drc_stage(…, exclusions=())` SHALL take the project's stored DRC exclusions (`backend-protocol`, "Stored exclusions source") and SHALL say, for each, whether KiCad still applies it, because `pcb drc` ignores an exclusion that matches nothing without a message (`H-K-DRC-EXCL`). `run_checks` MUST pass `validator.stored_exclusions(project)` when `isinstance(validator, ExclusionSource)` is true, and none otherwise.
@@ -1496,3 +1499,442 @@ A height limit whose area the board does not hold gives `placement.rule-unresolv
 - **GIVEN** a fake `RolesJudge` in `tests/unit/checks/fakes.py` that returns one `roles.loop-area` warning
 - **WHEN** `uv run pytest tests/unit/checks/test_roles_stage.py -k fake` calls `run_checks` with it and `stages=("roles.rules",)` on a board with a stored role
 - **THEN** the stage has status `ok` and that one issue, and without the judge it is skipped with `not-judged`
+
+### Requirement: Circuit stage
+`fenolite check` SHALL gain the default stage `circuit.rules`, right after `model.validate` in `STAGE_ORDER` and `DOCUMENT_STAGES`, judging the `.fenolite/` model through the package `checks.circuit`. It MUST run no tool and MUST NOT be in `ORACLE_STAGES`. It MUST be skipped with `no-model` without a readable model, and with `no-parameters` when the model holds no param, port or `ground` or `logic` interface and the contract half (c0253) has nothing either.
+
+#### Scenario: A board without parameters is unchanged
+- **WHEN** `fenolite check` runs with `--stages circuit.rules --json` on the built blink of `examples/blink_2layer/`
+- **THEN** the stage is `skipped` with the reason `no-parameters`, and the exit code is 0
+
+#### Scenario: A native board has no model
+- **WHEN** `fenolite check tests/data/kicad/board/two_layer.kicad_pcb --stages circuit.rules --json` runs
+- **THEN** the stage is `skipped` with the reason `no-model`, and the exit code is 0
+
+#### Scenario: The good variant passes
+- **GIVEN** the `good` variant of `examples/sensor_rails/`, built in `tmp_path`
+- **WHEN** `uv run pytest tests/unit/checks/test_circuit_stage.py -k good` runs `fenolite check <dir> --json`
+- **THEN** `result.stages` names `circuit.rules` after `model.validate` with status `ok`, and no issue starts with `circuit.`
+
+### Requirement: Rail voltage check
+The stage SHALL give the error `circuit.rail-voltage`, a key of `ISSUE_CODES`, for a rail whose set voltages (from design interfaces and `out` power ports) do not intersect, and for each `in` power port whose accepted range does not contain the rail's voltage. The issue MUST name the rail, the port and both ranges.
+
+#### Scenario: Sensor on a 5 V rail
+- **GIVEN** a model whose rail `5V0` has the voltage 4.75 V to 5.25 V and a sensor port `vdd` that accepts 1.71 V to 3.6 V
+- **WHEN** `circuit_issues` runs
+- **THEN** it returns one `circuit.rail-voltage` naming `5V0`, the sensor's `vdd`, `1.71V..3.6V` and `4.75V..5.25V` in c0246's text
+
+### Requirement: Rail current check
+The stage SHALL give the error `circuit.rail-current`, a key of `ISSUE_CODES`, when the sum of the upper bounds of the draws of a rail's loads exceeds the sum of the lower bounds of its sources' capacities. A block's `out` port hides the `out` ports inside that block on the same rail. The issue MUST name both sums and the sources.
+
+#### Scenario: Over budget
+- **GIVEN** the `bad` variant of `examples/sensor_rails/`, whose loads on `3V3` draw up to 1.15 A from the block port `buck/VOUT` of 1 A
+- **WHEN** `circuit_issues` runs on its model
+- **THEN** it returns one `circuit.rail-current` naming `3V3`, `1.15A`, `1A` and `buck/VOUT`, and no finding for the regulator part inside `buck`
+
+#### Scenario: 1.2 A load on a 1 A source fails
+- **GIVEN** a rail `5V0` with one `out` port stating `current` 1 A, one `in` port stating `current` up to 1.2 A, and one `inout` connector port that states no current
+- **WHEN** `circuit_issues` runs
+- **THEN** it returns one `circuit.rail-current` naming `1.2A` and `1A`, because draws are never added to capacity; with the load at 0.8 A it returns none
+
+### Requirement: Rail sources check
+The stage SHALL give the error `circuit.rail-sources`, a key of `ISSUE_CODES`, for each rail driven by two or more unhidden `out` power ports, unless the rail is `shared` or every one of those ports has `share`. The issue MUST name the rail and the ports.
+
+#### Scenario: Two regulators on one rail
+- **GIVEN** a rail `5V0` with the `out` ports `buck1/VOUT` and `J2.vbus`, and no sharing declared
+- **WHEN** `circuit_issues` runs
+- **THEN** it returns one `circuit.rail-sources` naming `5V0`, `buck1/VOUT` and `J2.vbus`; with `shared=True` on the rail it returns none
+
+### Requirement: Rails without a value
+The stage SHALL give the warning `circuit.rail-unset`, a key of `ISSUE_CODES`, for a rail whose ports state limits when no voltage is set, and for a rail whose loads state a draw when no source states a capacity. The issue MUST name what could not be judged.
+
+#### Scenario: No voltage to judge against
+- **GIVEN** a rail `3V3` with no voltage set and a sensor port `vdd` that accepts 1.71 V to 3.6 V
+- **WHEN** `circuit_issues` runs
+- **THEN** it returns one `circuit.rail-unset` naming `3V3` and the sensor's `vdd`, and no `circuit.rail-voltage`
+
+### Requirement: Logic level check
+For each logic reader and driver on one net (the driver being an `out` port, an `inout` port with output levels, or an I2C line's pull-up rail) whose reference rails differ, the stage SHALL give the error `circuit.logic-level` when the driver's `output_high_min` is below the reader's `input_high_min`, its `output_low_max` is above the reader's `input_low_max`, or its rail's upper bound is above the reader's `abs_max`, and the warning `circuit.logic-unknown` naming each missing threshold.
+
+#### Scenario: 3.3 V output into a 1.8 V input
+- **GIVEN** a sensor port `int_` (`out`, reference `3V3` at 3.201 V to 3.399 V, `output_high_min` 2.9 V, `output_low_max` 0.4 V) on one net with an MCU port `pa3` (`in`, reference `1V8`, `abs_max` -0.3 V to 1.98 V, `input_high_min` 1.17 V, `input_low_max` 0.63 V)
+- **WHEN** `circuit_issues` runs
+- **THEN** it returns one `circuit.logic-level` naming `int_`, `pa3`, `3V3`, `3.399V` and `1.98V`, for the withstand comparison only
+
+#### Scenario: A weak high level
+- **GIVEN** a driver with `output_high_min` 2.4 V and `output_low_max` 0.4 V on a 3.3 V rail and a reader on a 5 V rail with `input_high_min` 3.5 V, `input_low_max` 1.5 V and `abs_max` up to 5.5 V
+- **WHEN** `circuit_issues` runs
+- **THEN** it returns one `circuit.logic-level` naming `2.4V` and `3.5V`
+
+#### Scenario: Thresholds not stated
+- **GIVEN** the ports of "A weak high level" without `output_high_min` on the driver
+- **WHEN** `circuit_issues` runs
+- **THEN** it returns one `circuit.logic-unknown` naming the driver and `output_high_min`, and no `circuit.logic-level`, although the driver's rail is 3.3 V
+
+#### Scenario: Same reference passes
+- **WHEN** both ports refer to `3V3`
+- **THEN** it returns no `circuit.logic-level` and no `circuit.logic-unknown`
+
+### Requirement: Bus pull-up check
+The stage SHALL give the warning `circuit.bus-pullup`, a key of `ISSUE_CODES`, for each pull-up of an I2C line (as "Interface checks in a build" of `design-dsl` defines it) whose rail is not the bus's reference rail, whose resistance range is not within the intersection of the `pullup` bounds of the bus and its ports, or whose worst-case current (the rail's upper bound over the resistance's lower bound) exceeds a bus port's `output_current_max`.
+
+#### Scenario: Pulled up to the wrong rail
+- **GIVEN** an I2C bus with the reference `3V3` and 4.7 kΩ pull-ups to `5V0`
+- **WHEN** `circuit_issues` runs
+- **THEN** it returns two `circuit.bus-pullup`, naming `SDA` and `SCL`, `5V0` and `3V3`
+
+#### Scenario: A pull-up stronger than a port sinks
+- **GIVEN** an I2C bus pulled up to `3V3` (up to 3.399 V) through 470 Ω ± 1 % resistors, and a sensor port with `output_current_max` 3 mA
+- **WHEN** `circuit_issues` runs
+- **THEN** it returns two `circuit.bus-pullup` naming the sensor port, `3mA` and the pull-up current in c0246's text
+
+### Requirement: Companion check
+The stage SHALL give the warning `circuit.requires-missing`, a key of `ISSUE_CODES`, for each `requires` entry of a port that is not met: `pullup` when a line of the port has no pull-up, `supply` when the reference port's `hv` net (or the port's own) is not a rail with a set voltage and a source or rig supply, and `chip_select` when a `cs` member's net has no other pin. The issue MUST name the port, the entry and what is missing.
+
+#### Scenario: A sensor without pull-ups
+- **GIVEN** a sensor whose device port `i2c` has `requires = ["pullup", "supply"]`, joined to an MCU's `i2c1` with a pull-up on `SDA` only, and its `vdd` on a rail `3V3` with a voltage and a source
+- **WHEN** `circuit_issues` runs
+- **THEN** it returns one `circuit.requires-missing` naming the sensor's `i2c`, `pullup` and `SCL`, and none for `supply`
+
+### Requirement: Split device ports
+The stage SHALL give the warning `circuit.port-split`, a key of `ISSUE_CODES`, for each member of a device port whose pins are on two nets, naming the part, the port and the nets. The parameters of that member MUST NOT be judged.
+
+#### Scenario: VDD and VDDA split
+- **GIVEN** an MCU whose port `vdd` holds `VDD` and `VDDA`, with `VDD` on `3V3` and `VDDA` on `3V3A`
+- **WHEN** `circuit_issues` runs
+- **THEN** it returns one `circuit.port-split` naming the MCU, `vdd`, `3V3` and `3V3A`, and no `circuit.rail-voltage` for that port
+
+### Requirement: Contracts in the circuit stage
+The stage `circuit.rules` of c0252 SHALL also judge the contracts of `electrical-contracts`: ratings, operating ranges, the policy, expectations and the rig. Its summary MUST hold `requirements` and `halves.contracts` (`ran` or `no-contracts`, the latter when the model has no `fenolite.device` component, expectation or rig element). The stage MUST be skipped with `no-parameters` only when `no-contracts` holds too. Its place, name, skip `no-model` and tool-free run stay c0252's.
+
+#### Scenario: A failing rating gates the check
+- **GIVEN** the `bad` variant of `examples/circuit/sensor` built in `tmp_path`
+- **WHEN** `uv run pytest tests/unit/checks/circuit/test_stage.py -k gate` runs `fenolite check <dir> --stages model.validate,circuit.rules --json`
+- **THEN** the stage `circuit.rules` has status `errors`, the issues hold `circuit.rating-voltage` as an error, its summary holds `requirements`, and the exit code is 5
+
+#### Scenario: Contracts alone run the stage
+- **GIVEN** a built design with one device part and one expectation, and no rail, port or interface parameter
+- **WHEN** `fenolite check <dir> --stages circuit.rules --json` runs
+- **THEN** the stage is not skipped, its summary holds the expectation's row, and `summary.halves` is `{"contracts": "ran", "rails": "no-parameters"}`
+
+#### Scenario: A board without a model is unchanged
+- **WHEN** `fenolite check tests/data/kicad/board/two_layer.kicad_pcb --stages circuit.rules --json` runs
+- **THEN** the stage is `skipped` with c0252's reason `no-model`, and the exit code is 0
+
+### Requirement: Device records injected into the circuit stage
+`cmd_check`, `cmd_build` and `cmd_roles` SHALL resolve each component's `fenolite.device` through the catalog and the project's records (c0248) and classify the parts with `fenolite.roles.classify`, and SHALL pass both to `circuit_issues(model, *, devices=..., classes=...)` and the stage. `checks` MUST NOT import `catalog` or `roles`. Without `devices`, rating rows MUST be `unknown`; without `classes`, class-specific rows MUST be `unknown`.
+
+#### Scenario: A fake mapping
+- **GIVEN** the `bad` variant built in `tmp_path`
+- **WHEN** `uv run pytest tests/unit/checks/circuit/test_stage.py -k injected` calls `run_checks` with `stages=("circuit.rules",)` once with the resolved devices and once with none
+- **THEN** the first gives the four designed findings, and the second gives no `circuit.rating-*` finding and one `circuit.rating-missing` info
+
+### Requirement: Finding subjects
+`fenolite.checks.stages.StageResult` SHALL gain `subjects: tuple[tuple[Subject, ...], ...] = ()`, empty or of the length of `issues`, where `checks.subjects.Subject(kind, id, name)` names one model entity: `kind` in the closed tuple `SUBJECT_KINDS`, `id` its model id and `name` its human form (`U1`, `U1-4`, `3V3`). Non-empty `subjects` of another length than `issues` MUST raise `ValueError`.
+
+#### Scenario: Misaligned subjects refused
+- **WHEN** `uv run pytest tests/unit/checks/test_subjects.py -k misaligned` builds a `StageResult` with two issues and one subject tuple
+- **THEN** `ValueError` is raised
+
+#### Scenario: Closed kinds
+- **WHEN** `SUBJECT_KINDS` is read
+- **THEN** it is `component`, `pin`, `pad`, `net`, `netclass`, `interface`, `track`, `arc`, `via`, `zone`, `rule_area`, `rule`
+
+### Requirement: Subjects in the check result
+`fenolite check` SHALL put in `result.subjects` one `{issue, items}` per issue that has subjects, `issue` being its index in the envelope's `issues` and `items` its subjects as `{kind, id, name}`, in the order of the issues. The envelope and its issue object MUST NOT change, and the output MUST stay deterministic.
+
+#### Scenario: Envelope unchanged
+- **WHEN** `uv run pytest tests/consistency -k envelope` validates every command's reply
+- **THEN** every issue object still has exactly the keys `code`, `severity`, `message`, `where`, `hint` and `retryable`
+
+### Requirement: Stages that name their subjects
+The stages `circuit.rules` (c0253), `copper.clearance`, `length.rules`, `placement.rules` and `roles.rules` SHALL give subjects for each of their issues that names a model entity.
+
+#### Scenario: A rating finding names its part and net
+- **GIVEN** an authored built project whose capacitor `C1` is rated below its rail `V12` (c0253)
+- **WHEN** `uv run pytest tests/unit/checks/test_subjects.py -k rating` runs `fenolite check <dir> --stages circuit.rules --json`
+- **THEN** `result.subjects` holds one entry whose `issue` is the index of that finding and whose items are the component `C1` and the net `V12` with the ids that `fenolite.dsl.KEYS` derives
+
+#### Scenario: A length finding names its net
+- **GIVEN** the pair-skew project of `tests/_lengthbench.py`
+- **WHEN** `uv run pytest tests/unit/checks/test_subjects.py -k length` runs the stage `length.rules`
+- **THEN** the `length.skew-out-of-range` issue has the subjects `SK_P` and `SK_N` of kind `net`
+
+#### Scenario: Visible indices after concise output and pagination
+- **GIVEN** findings with subjects, including multiple findings of one code
+- **WHEN** check uses --format concise or --limit and --cursor
+- **THEN** subject indices refer to the visible issues and a concise finding retains the subjects of all grouped findings
+
+### Requirement: Waivers that expire
+Each requirement row SHALL carry `digest`: the first 16 hexadecimal digits of the SHA-256 of the canonical JSON of its `id`, the ranges of its value and limit, the limit's kind and both sources. Each `circuit.*` issue's hint MUST end with `digest <digest>`. A `circuit.*` waiver whose code and item match a finding under another digest MUST NOT waive it and MUST give one `check.waiver-expired` warning naming the waiver, both digests and the row.
+
+#### Scenario: A changed rating expires the waiver
+- **GIVEN** the project of "A waived rating on the circuit stage", then its capacitor's device record edited from `abs_max` 16 V to 20 V and the project built again
+- **WHEN** `uv run pytest tests/unit/checks/test_waivers.py -k expired` runs `fenolite check <dir> --stages circuit.rules --json`
+- **THEN** the `circuit.rating-voltage` issue of `C1` is an error again with the limit 10 V, one `check.waiver-expired` warning names the waiver and both digests, `result.waivers.expired` names it, and the exit code is 5
+
+### Requirement: Circuit waiver codes
+`checks.codes.ISSUE_CODES` SHALL hold `check.waiver-expired` (warning), documented in `docs/cli-contract.md` and `explain.toml`, and every `circuit.*` code of c0252 and c0253 SHALL also allow `info`, the severity of a waived finding.
+
+#### Scenario: Waived severities are allowed
+- **WHEN** `uv run pytest tests/unit/checks -k codes` reads `ISSUE_CODES`
+- **THEN** `check.waiver-expired` is a key with severity `warning`, and every key that starts with `circuit.` allows `info`
+
+### Requirement: Voltage propagation through links
+After the stated sources of c0253, a net without a stated voltage SHALL take the hull of the stated voltages of the nets it reaches through links: two-net parts of class `ferrite`, `fuse` or `net_tie`, a `jumper` whose class the user stated, and a `resistor` or `shunt` whose `value_range` is exactly 0 Ω. No other part MAY be crossed. A stated net keeps its value; linked stated nets that do not overlap give `circuit.value-conflict`. `design.contracts(propagate=False)` turns it off.
+
+#### Scenario: An analog rail behind a ferrite
+- **GIVEN** the `good` variant of `examples/circuit/ferrite`: the rail `3V3` at 3.201 V to 3.399 V, a ferrite `FB1` from `3V3` to `3V3A`, no voltage set on `3V3A`, and a sensor port `vdda` (`in`, 1.71 V to 3.6 V) on `3V3A`
+- **WHEN** `uv run pytest tests/unit/checks/circuit/test_propagate.py` runs the stage
+- **THEN** `3V3A` has the voltage 3.201 V to 3.399 V, the row of `vdda` passes, and no `circuit.rail-unset` names `3V3A`; in the `bad` variant, where a 10 Ω resistor replaces `FB1`, `3V3A` has no voltage and one `circuit.rail-unset` names it
+
+### Requirement: Origins of applied values
+Every voltage and current bound SHALL record its origin: `declared` (a design rail or an `out` port), `rig`, `role`, `requirements`, `option` (`--current`) or `propagated`, the last with `via` (the link references in order) and `from` (the stated net). The requirement row's `value` MUST hold `origin`, and its text form MUST read `propagated via <refs> from <net>`.
+
+#### Scenario: The origin of a propagated value
+- **GIVEN** the `good` variant of `examples/circuit/ferrite`
+- **WHEN** `fenolite check <dir> --stages circuit.rules --json` runs
+- **THEN** the row of the sensor's `vdda` has `value.origin` `{"from": "3V3", "kind": "propagated", "via": ["FB1"]}`, and the row of a part on `3V3` has `value.origin.kind` `declared`
+
+### Requirement: Decidable stages of requirement rows
+Each requirement row SHALL carry `decidable`: `build` for `circuit.*` rows, `place` for `roles.loop-area` and `roles.gate-loop`, `route` for every other judged `roles.*` row. A `place` row is reached when every component of its subject is inside the board outline, a `route` row when also no net of its subject has an open connection. A row not reached that does not fail MUST have status `deferred`, MUST give no issue, and is counted in `summary.deferred`; a failing row stays `fail`.
+
+#### Scenario: Track width before routing
+- **GIVEN** a built project whose net `VBUS` has a confirmed role with `milliamps` 2000 and still one open connection, and whose parts are inside the outline
+- **WHEN** `uv run pytest tests/unit/checks/circuit/test_decidable.py` runs `fenolite check <dir> --stages roles.rules,circuit.rules --json`
+- **THEN** the row `roles.width-current:VBUS` has status `deferred` and `decidable` `route`, no `roles.width-current` names `VBUS`, `summary.deferred` of `roles.rules` is `{"route": 1}`, and no row of `circuit.rules` is deferred
+
+### Requirement: Stable requirement row ids
+A requirement row id SHALL be built from references, port paths, net names, interface names and expectation ids only, in the closed forms of `design.md` (decision 7), and never from entity ids, positions or seeds. Two builds of one design with different seeds, or with its statements reordered, MUST give the same ids.
+
+#### Scenario: Ids survive a reordered script
+- **GIVEN** `examples/circuit/sensor/bad.py` and a copy whose part and connect statements are reordered, built with `--seed 1` and `--seed 2`
+- **WHEN** `uv run pytest tests/unit/checks/circuit/test_matrix.py -k stable` collects the row ids of `circuit.rules`
+- **THEN** the four sorted id lists are equal
+
+### Requirement: Drawn schematic stage
+`fenolite.checks.drawn.drawn_stage(netlist, circuit) -> StageResult` SHALL be the stage `schematic.drawn`, which compares an injected drawn netlist with the built circuit through `drawn_connect.compare`. `cmd_check` MUST compute the netlist from the sheets on disk for built input whose build record names a drawn schematic, and only then list the stage, in the default set. The stage MUST write nothing and run no tool.
+
+#### Scenario: Unchanged project passes
+- **GIVEN** a confirmed build of `examples/drawn/design.py` in `B`
+- **WHEN** `fenolite check B --json` runs
+- **THEN** `result.stages` holds `schematic.drawn` with status `ok` and no issue
+
+#### Scenario: Connectivity edited in KiCad
+- **GIVEN** the same build whose sheet then gets, by token edit, one wire end moved from `R1` pin 1 to `R1` pin 2
+- **WHEN** `fenolite check B --json` runs
+- **THEN** the exit code is 5 and one `drawn.netlist-differs` error names `R1-1`
+
+#### Scenario: Not listed elsewhere
+- **WHEN** `fenolite check tests/data/kicad/board/two_layer.kicad_pcb --json` runs
+- **THEN** `result.stages` holds no `schematic.drawn`
+
+### Requirement: Drawn schematic stage issue codes
+The stage `schematic.drawn` SHALL report the codes of `drawn_connect.ISSUE_CODES` with their severities, and `checks.codes.ISSUE_CODES` MUST gain them. An error makes the stage `failed` and the exit code 5; warnings leave it `ok`.
+
+#### Scenario: Warning only
+- **GIVEN** the build of the example whose label `SDA` is renamed by token edit
+- **WHEN** `fenolite check B --json` runs
+- **THEN** the exit code is 0 and the stage holds one `drawn.net-name-differs` warning
+
+### Requirement: Combined contract repairs
+The combined library/import/viewer/block batch MUST pass its focused contract
+proofs and the complete hermetic fast gate. Repairs SHALL preserve supported
+defaults, byte pins, evidence limits and strict comparison/refusal behavior.
+
+#### Scenario: Concrete integration failure
+- **GIVEN** a failure from the complete frozen-candidate run
+- **WHEN** its direct production or stale-contract cause is repaired
+- **THEN** the original assertion is satisfied by the specified behavior and its focused proof passes
+- **AND** integration closure waits for the repeated complete gate and exact published-head CI
+
+#### Scenario: Native check expectation drift
+- **GIVEN** an authored fixture checked with an actual installed KiCad CLI
+- **WHEN** a specified stage or device metadata info is absent from the old expectation
+- **THEN** the test retains the literal ordered stages and exact code/severity counts
+- **AND** error and warning comparisons, native gates and original CI receipts remain unchanged
+
+#### Scenario: Appended optional component field
+- **GIVEN** the native-identity selector appended after the historical value-range and board-only fields
+- **WHEN** the exact component-tail contract is checked
+- **THEN** all three names remain in their specified order and the absent value-range default stays None
+- **AND** model/schema bytes and ordinary build pins remain unchanged
+
+#### Scenario: Temporary-directory aliases
+- **GIVEN** two valid path spellings of the same actual temporary directory
+- **WHEN** a cleanup regression verifies that the private tree was removed
+- **THEN** identity is compared through resolved paths and deletion from inside that tree still fails
+- **AND** successful and exceptional bodies retain their isolation and original results
+
+### Requirement: Public registry agreement
+Issue explanations, severity tables, capability lists and reserved DSL attribute tables MUST agree with actual public behavior. A hermetic test SHALL declare external resource requirements truthfully rather than silently bypass its proof.
+
+#### Scenario: Existing public attribute or issue
+- **WHEN** the combined public interfaces are audited
+- **THEN** all actual reserved attributes and issue severities are represented and tested
+- **AND** unavailable resources are not reported as successful native verification
+
+### Requirement: Current comparisons preserve historical measurements
+Current corpus expectations SHALL reflect specified shared-reference pairing while preserving raw duplicate counts and dated historical tables. New measurements MUST bind source commit and input hashes, assert all remaining differences and writer-ledger rows, and retain actual native-version limits. Historical ambiguity counts MUST NOT justify new comparison exclusions.
+
+#### Scenario: A shared reference gains deterministic pairing
+- **WHEN** c0277 pairs equally repeated references by placement
+- **THEN** the current comparison omits only the obsolete ambiguity and preserves every other finding
+- **AND** historical counts and exact native CI receipts remain unchanged
+
+### Requirement: Supplier fixture names respect residue policy
+Authored supplier authentication fixtures SHALL use role names that pass existing residue filename
+policies. Their response bytes, source citations and provider access policies MUST remain unchanged;
+no detector waiver or production-readiness promotion is allowed.
+
+#### Scenario: Authentication response fixture renamed
+- **GIVEN** an authored authentication response and source sidecar rejected by the filename detector
+- **WHEN** both files and their references are renamed by role
+- **THEN** supplier and residue proofs pass with identical payload/sidecar hashes and unchanged detection
+
+### Requirement: Authored portability preserves exact inputs
+Authored proofs SHALL retain exact archive and member bytes across ZIP host defaults. Block upgrades SHALL find an available circuit cache with either native path separator. Candidate kits SHALL retain the same library sources across drives without weakening plan binding or native acceptance gates.
+
+#### Scenario: Windows planned cache path
+- **WHEN** a validated build returns a backslash-separated circuit cache path
+- **THEN** the upgrade shows the exact changed-part circuit difference
+
+#### Scenario: Windows ZIP creator default
+- **WHEN** authored fixtures are generated with the Windows ZIP creator default
+- **THEN** complete checked archive bytes and all member payloads remain identical
+
+#### Scenario: Candidate kit across drives
+- **WHEN** the authored kit and its source libraries have different drive roots
+- **THEN** library tables use the same rooted sources and changed input bytes still invalidate review
+- **AND** native outcomes remain unjudged
+
+### Requirement: Portable library checks and document proofs
+Library checks MUST accept read-only inputs on another Windows drive without an internal path error. UTF-8 legal, source, policy and review documents SHALL be decoded explicitly in their proof assertions. Findings, input digests and planned writes MUST retain their existing meaning; global encoding switches and content transliteration SHALL NOT substitute for portability proofs.
+
+#### Scenario: Windows default codec and cross-drive input
+- **GIVEN** UTF-8 public text that cp1252 cannot decode and a library input on another drive
+- **WHEN** its document proofs and library CLI run under those platform conditions
+- **THEN** the original assertions, finding thresholds and reviewed sheet/input contracts still hold
+- **AND** native Windows and exact-head CI results are claimed only after actual execution
+
+#### Scenario: Explicit drawn-coordinate rounding
+- **WHEN** the existing Altium coordinate-rounding warning is documented
+- **THEN** the CLI table names `drawn.coordinate-rounded` as a warning accepted only with explicit `--allow-lossy`
+- **AND** refusal without that option, coordinate behavior and native byte pins are unchanged
+
+#### Scenario: Drawn backend evidence ownership
+- **GIVEN** the existing inferred drawn-writer claim carried by Altium builds
+- **WHEN** backend declarations and imports are checked
+- **THEN** the writer declares that same claim and imports only the permitted pure module
+- **AND** the lens reuses its declaration without changing evidence grades, write gates or native bytes
+
+### Requirement: Portable private block cleanup
+The block-test runner MUST restore the caller's working directory before removing
+its private temporary tree, on both successful and exceptional exits. It SHALL
+retain import, argument, bytecode and random-state isolation and preserve an
+authored failure rather than replacing it with a cleanup error.
+
+#### Scenario: Windows-style directory lock
+- **GIVEN** a cleanup implementation that rejects deleting the active working directory
+- **WHEN** an authored block usage or test finishes
+- **THEN** cleanup runs outside that directory and the public runner reports the authored result
+
+#### Scenario: Authored failure
+- **WHEN** authored code raises while inside the private working directory
+- **THEN** the caller's directory is restored before deletion and the original exception is retained
+
+### Requirement: Authored block payload collection boundary
+Repository pytest discovery SHALL exclude only the authored self-test payload `tests/data/blocks/lib/tests/test_divider.py`. The actual block runner MUST still execute its functions. Ordinary and neighboring tests MUST remain collectable with bytecode enabled. The data-manifest validator MUST continue rejecting undeclared cache files; no global bytecode suppression may substitute for this proof.
+
+#### Scenario: Normal collection leaves the payload clean
+- **GIVEN** the actual repository pytest policy and authored block fixture in an isolated copy
+- **WHEN** pytest collects with bytecode enabled
+- **THEN** public controls collect and create normal bytecode, while the fixture does neither
+
+#### Scenario: Explicit execution and strict manifest
+- **WHEN** the block runner executes the fixture and a failing function is planted
+- **THEN** it reports the actual pass/failure, restores bytecode state and creates no fixture cache
+- **AND** the unchanged manifest validator rejects a separately injected undeclared bytecode file
+
+### Requirement: Bounded authored byte-failure evidence
+The internal byte guard SHALL preserve its exact comparison. When explicitly enabled, a mismatch of the authored `board_40parts@altium` row MUST retain only its same-run staged PcbDoc and a bounded stream/runtime receipt outside the checkout. It MUST NOT rebuild, change a baseline, capture unrelated rows or inputs, overwrite prior evidence, or turn a failure into success.
+
+#### Scenario: Original staged file is retained
+- **WHEN** the authored row has a forced digest mismatch with capture enabled
+- **THEN** the original assertion fails, the build runs once, and the retained file equals its staged bytes and digest
+- **AND** the receipt's stream hashes match that file
+
+#### Scenario: Capture is outside its boundary
+- **WHEN** the row matches, capture is disabled, the row is unrelated, or the destination is inside the checkout
+- **THEN** no diagnostic PcbDoc is written and the comparison result is unchanged
+
+#### Scenario: Staging or evidence is unavailable
+- **WHEN** staged bytes are missing or damaged, or the diagnostic already exists
+- **THEN** no arbitrary payload is copied or existing evidence replaced
+- **AND** the original digest mismatch still fails
+
+### Requirement: Mac failure artifact stays scoped
+The Mac unit job SHALL upload only the fixed authored diagnostic PcbDoc and its receipt after failure. It MUST NOT upload temporary trees, plan stores or unrelated/private inputs. Successful rows and other platforms MUST retain their existing behavior.
+
+#### Scenario: Fixed failure artifact
+- **WHEN** the workflow contract is checked
+- **THEN** capture is enabled only for Mac and the failure upload lists exactly those two external files without a wildcard
+
+### Requirement: Early Mac observation preserves strict unit outcome
+The Mac unit job SHALL run the same strict authored single-row guard before the complete unit step and immediately upload only its two diagnostic files. Only this preprobe MAY continue after failure. The complete unit step MUST retain its strict outcome and late capture, using a distinct artifact name.
+
+#### Scenario: Early evidence does not replace the complete test result
+- **WHEN** the early guard fails or matches
+- **THEN** the complete unit step still runs without continue-on-error
+- **AND** a matching early guard leaves capture available for a later mismatch
+
+### Requirement: Bounded same-run geometry hashes
+The enabled authored guard SHALL trace geometry only after source and destination checks, restore wrapped methods in finally, and call the build once. A failed authored capture MUST retain bounded integer-geometry hashes/counts and operation parameters in its existing receipt, without vertices or paths. Matching/default/private cases MUST publish no trace; errors MUST preserve the original assertion and output bytes.
+
+#### Scenario: Original geometry is observed once
+- **WHEN** the exact authored guard has a forced mismatch with tracing enabled
+- **THEN** its retained receipt contains same-run operation hashes while its native bytes and one-build assertion behavior stay unchanged
+
+#### Scenario: Trace is unavailable or outside its boundary
+- **WHEN** source checks fail, operation/size limits are reached, hashing fails, or the build raises
+- **THEN** private geometry is not retained, limits remain explicit, methods are restored, and the original outcome stays in control
+
+### Requirement: Topology stage
+`fenolite check` SHALL gain the default stage `topology.rules`, right after `length.rules` in `STAGE_ORDER`, as "Check stages and statuses" allows. It MUST run no tool, MUST NOT be in `ORACLE_STAGES` or `DOCUMENT_STAGES`, MUST be skipped with `no-topology` when the design holds none and with `read-refused` when the board read was refused, and every issue MUST carry subjects (c0256).
+
+#### Scenario: Default order
+- **GIVEN** the native `two_layer` project and a fake `kicad-cli` 10.0.6
+- **WHEN** `uv run pytest tests/unit/cli/test_check_cmd.py -k default_stages` runs `fenolite check <project> --json`
+- **THEN** `result.stages` names `topology.rules` right after `length.rules`, skipped with `no-topology`
+
+### Requirement: Topology stage summary and evidence
+The stage's `summary` SHALL hold `topologies`, `constraints` (count per kind), `judged` and `not_judged`; its evidence MUST be `Evidence.combine` of `Evidence(Level.INFERRED, hypotheses=("H-G-TOPO-DELAY",))` and the read's evidence, and `UNVERIFIED` when it gave `topology.input-missing`.
+
+#### Scenario: Not judged without inputs
+- **GIVEN** the example of `examples/topologies/` with the propagation of `In1.Cu` removed
+- **WHEN** `uv run pytest tests/unit/checks/test_topology_stage.py -k input_missing` runs the stage
+- **THEN** it gives `topology.input-missing`, `not_judged` counts the constraints on that layer, and the stage evidence is `UNVERIFIED`
+
+### Requirement: Topology judgement codes
+`fenolite.checks.codes.ISSUE_CODES` SHALL hold `topology.delay-out-of-range`, `topology.skew-out-of-range`, `topology.loss-over-budget`, `topology.stub-too-long` and `topology.order`, each of severity `error` or `warning` as its constraint sets, with a table in `explain.toml` and a line in `docs/cli-contract.md`.
+
+#### Scenario: Judgement literals are keys
+- **WHEN** `uv run pytest tests/unit/checks -k codes` collects every issue-code literal under `src/fenolite/checks/`
+- **THEN** each of these five `topology.*` literals is a key of `ISSUE_CODES` with the severities `error` and `warning`
+
+### Requirement: Topology input codes
+`fenolite.checks.codes.ISSUE_CODES` SHALL hold `topology.bridge-missing` (error), `topology.input-missing` (warning), `topology.path-through-zone` (warning) and `topology.unrouted` (info), with a table in `explain.toml` and a line in `docs/cli-contract.md`; a constraint given `input-missing`, `path-through-zone` or `unrouted` MUST NOT be judged.
+
+#### Scenario: An unrouted end
+- **GIVEN** the example of `examples/topologies/` with no copper to `U4`
+- **WHEN** `uv run pytest tests/unit/checks/test_topology_stage.py -k unrouted` runs the stage
+- **THEN** it gives one `topology.unrouted` info naming `U4-CLK`, and no delay issue for the path to `U4`
+
+### Requirement: Governing rules explained by check
+`fenolite check --explain-rules` SHALL add `result.rules`: for each subject (a net, or a pad, track or via kind of a net) and rule kind matched by at least two rules, `{subject, kind, governing, rank, overrides}`, with rules as `{name, id, priority, rank}`, sorted by subject then kind, computed with `rule_precedence` and running no tool.
+
+#### Scenario: Governing rule printed
+- **GIVEN** the rules of `rules-model`, "A class rule over a net rule"
+- **WHEN** `uv run pytest tests/unit/cli/test_check_cmd.py -k explain_rules` runs `fenolite check <project> --stages model.validate --explain-rules --json` with no `kicad-cli`
+- **THEN** `result.rules` holds one entry for `CLK` and `track_width` whose `governing` is the class rule and whose `overrides` holds the net rule, and no subprocess ran
+

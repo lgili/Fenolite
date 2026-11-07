@@ -1,0 +1,49 @@
+{
+  "architecture_tests": {
+    "elapsed_seconds": 3.58,
+    "passed": 67
+  },
+  "authoring_red": {
+    "elapsed_seconds": 0.25,
+    "positive_failed_before_fix": 1
+  },
+  "complete_example_and_generated_byte_guards": {
+    "baseline_updates": 0,
+    "elapsed_seconds": 20.82,
+    "passed": 159
+  },
+  "external_failed_pilots_retained": true,
+  "external_v8_full_certificate_summary_sha256": "dfcb6f0305bd094f4bb5d37b1b473edcbeae8c792b5dc5885802a6281bccde50",
+  "focused_geometry_pour_controls": {
+    "elapsed_seconds": 4.29,
+    "passed": 100
+  },
+  "full_validation": "pending root-owned exact-head CI; no all-corpus/fullfast claim",
+  "mathematical_correction": "Tip-to-corresponding-tip distance alone did not prove a notch impossible. The refuted hypothesis is retained externally; final negative uses an actual protected integer corner flattened by every prescribed subdivision.",
+  "native_ecc83": {
+    "assertions_or_baselines_changed": false,
+    "elapsed_seconds": 8.97,
+    "passed": 1,
+    "test": "tests/kicad/convert/test_triangle.py::test_demo_boards[04]",
+    "tool": "KiCad10.0.6"
+  },
+  "new_author_controls": 15,
+  "no_approximate_fallback_or_acceptance_by_samples": true,
+  "no_cache_or_interval_counter_change": true,
+  "pyright_errors": 0,
+  "remaining_actual_public_failures": {
+    "altium-third-party-pcbdoc-03": "exact geometry index-comparison budget exceeded",
+    "altium-third-party-pcbdoc-05": "exact geometry implicated enumeration-node budget exceeded; non-omitted cleanup outside this proposal scope"
+  },
+  "scope": "Reviewed bounded exact subdivision proposal generation; original global certificate/distance and fallback producer files byte-unchanged",
+  "source_files_sha256": {
+    "src/fenolite/backends/altium/pour.py": "c4402122dcc945d42f046a5d1765deaef954a245363e09999bf678e49a0b10e3",
+    "src/fenolite/geometry/boolean/_exact_refinement.py": "bda5d15ecc2525e7d370c4493d853f9e90ad1e07bedb1da2cc4730ba018825a1",
+    "tests/unit/backends/altium/test_exact_refinement_proposal.py": "afc8a621a7ea05e76eca4aa30cc55d4e9c5092a2aafc6acb1a5d06aadbae116b"
+  },
+  "unchanged_full_certificate_source_sha256": {
+    "src/fenolite/geometry/boolean/_exact_distance.py": "1eb008628a331e966641692e6985689b681e35e732648a879cd372477a46e514",
+    "src/fenolite/geometry/boolean/_exact_realization.py": "cd2f2d483da524c286f99c9dcb91080caf7ddb00fb70d40fe14ed1f98b17dcb7",
+    "src/fenolite/geometry/boolean/_exact_repair.py": "409e28adbe000f2cac7cbf8e35840eb5500dcfe918b23cd9979f267cb404a629"
+  }
+}

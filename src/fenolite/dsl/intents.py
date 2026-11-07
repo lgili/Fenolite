@@ -21,8 +21,9 @@ from fenolite.core.coords import Point
 from fenolite.core.units import Nm
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.part import Net, Part
+from fenolite.dsl.relative import Edges
 from fenolite.dsl.units import as_nm
-from fenolite.model.board import ViaProtection
+from fenolite.model.board import Teardrop, ViaProtection
 
 if TYPE_CHECKING:
     from fenolite.dsl.design import Design
@@ -34,8 +35,9 @@ VIA_KINDS = ("through", "blind", "buried", "micro")
 
 
 @dataclass(frozen=True, slots=True)
-class PadRef:
-    """The pads of a part with one number, as a script names them; ``index`` picks one of several."""
+class PadRef(Edges):
+    """The pads of a part with one number, as a script names them; ``index`` picks one of several. Its
+    edges (``u1.pad("VDD").center_y``) are placement references of the pad's box (change c0255)."""
 
     part: Part
     number: str
@@ -141,6 +143,8 @@ class ViaIntent:
     layers: tuple[str, str] | None = None
     protection: ViaProtection = ViaProtection()
     locked: bool = False
+    teardrop: Teardrop | None = None
+    free: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -161,7 +165,58 @@ class StitchIntent:
     locked: bool = False
 
 
-CopperIntent = TrackIntent | ViaIntent | StitchIntent
+@dataclass(frozen=True, slots=True)
+class TrackTableIntent:
+    """Many straight tracks of one net, layer and width (``Design.track_table``, change c0275): each row
+    ``(x1, y1, x2, y2)`` in the written board frame. Row ``i`` is the copper item ``seg[i]`` of ``key``."""
+
+    key: str
+    net: str | None
+    """``None``: copper on no net (change c0375)."""
+    layer: str
+    width: Nm
+    rows: tuple[tuple[int, int, int, int], ...]
+    locked: bool = False
+    table: str = "track"
+
+
+@dataclass(frozen=True, slots=True)
+class ArcTableIntent:
+    """Many arcs of one net, layer and width (``Design.arc_table``): each row ``(sx, sy, mx, my, ex, ey)``
+    in the written board frame. Row ``i`` is the copper item ``arc[i]`` of ``key``."""
+
+    key: str
+    net: str | None
+    """``None``: copper on no net (change c0375)."""
+    layer: str
+    width: Nm
+    rows: tuple[tuple[int, int, int, int, int, int], ...]
+    locked: bool = False
+    table: str = "arc"
+
+
+@dataclass(frozen=True, slots=True)
+class ViaTableIntent:
+    """Many vias of one net, size, kind, span and protection (``Design.via_table``): each row ``(x, y)`` in
+    the written board frame. Row ``i`` is the copper item ``via[i]`` of ``key``."""
+
+    key: str
+    net: str
+    diameter: Nm
+    drill: Nm
+    rows: tuple[tuple[int, int], ...]
+    kind: str = "through"
+    layers: tuple[str, str] | None = None
+    protection: ViaProtection = ViaProtection()
+    locked: bool = False
+    table: str = "via"
+    teardrop: Teardrop | None = None
+    free: bool = False
+
+
+TableIntent = TrackTableIntent | ArcTableIntent | ViaTableIntent
+"""A copper table: rows of plain integers, no pad and no anchor (``docs/dsl.md``, "Copper tables")."""
+CopperIntent = TrackIntent | ViaIntent | StitchIntent | TableIntent
 
 MEANDER_SIDES = ("left", "right")
 """The sides of a segment a meander can stand on, seen along the segment as KiCad displays the board."""
@@ -212,6 +267,8 @@ class _Via:
     layers: tuple[str, str] | None = None
     protection: ViaProtection = ViaProtection()
     locked: bool = False
+    teardrop: Teardrop | None = None
+    free: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -230,7 +287,15 @@ class _Stitch:
     locked: bool = False
 
 
-Recorded = _Track | _Via | _Stitch
+@dataclass(frozen=True, slots=True)
+class _Table:
+    """A copper table as a script records it: the intent with the net's name, and the ``Net``."""
+
+    intent: TableIntent
+    net: Net | None
+
+
+Recorded = _Track | _Via | _Stitch | _Table
 
 
 def _origin() -> Point:
@@ -373,6 +438,82 @@ def _protection(value: object, what: str) -> ViaProtection:
     return value
 
 
+MAX_TEARDROP_RATIO = 1_000_000
+"""The largest teardrop ratio, in parts per million: the whole size of the pad or via."""
+
+
+def _flag(value: object, what: str) -> bool | None:
+    if value is not None and not isinstance(value, bool):
+        raise DslError(f"{what} is True, False or None, not {value!r}")
+    return value
+
+
+def _ratio(value: object, what: str) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise DslError(f"{what} is an int of parts per million (500_000 is one half), not {value!r}")
+    if not 0 <= value <= MAX_TEARDROP_RATIO:
+        raise DslError(f"{what} is from 0 to {MAX_TEARDROP_RATIO} parts per million, not {value}")
+    return value
+
+
+def _positive(value: object, what: str) -> Nm | None:
+    if value is None:
+        return None
+    nm = as_nm(value, name=what)
+    if nm <= 0:
+        raise DslError(f"{what} must be above 0, not {nm} nm")
+    return nm
+
+
+def teardrop(
+    *,
+    max_length: object = None,
+    max_width: object = None,
+    length_ratio: object = None,
+    width_ratio: object = None,
+    curved: object = None,
+    filter_ratio: object = None,
+    two_segments: object = None,
+    prefer_zones: object = None,
+    enabled: object = True,
+) -> Teardrop:
+    """Teardrop settings of a pad or via (``docs/dsl.md``, "Teardrops"; change c0277). ``max_length`` and
+    ``max_width`` are lengths; ``length_ratio``, ``width_ratio`` and ``filter_ratio`` are ints of parts per
+    million of the pad or via size; ``curved``, ``two_segments`` and ``prefer_zones`` are bools. A value of
+    ``None`` writes nothing, so the tool's own default applies. ``enabled=False`` turns teardrops off.
+    Pass the result as ``teardrop=`` to ``Design.via`` or ``Design.via_table``."""
+    on = _flag(enabled, "teardrop(): enabled")
+    if on is None:
+        raise DslError("teardrop(): enabled is True or False, not None")
+    return Teardrop(
+        enabled=on,
+        max_length=_positive(max_length, "teardrop(): max_length"),
+        max_width=_positive(max_width, "teardrop(): max_width"),
+        length_ratio=_ratio(length_ratio, "teardrop(): length_ratio"),
+        width_ratio=_ratio(width_ratio, "teardrop(): width_ratio"),
+        curved=_flag(curved, "teardrop(): curved"),
+        filter_ratio=_ratio(filter_ratio, "teardrop(): filter_ratio"),
+        two_segments=_flag(two_segments, "teardrop(): two_segments"),
+        prefer_zones=_flag(prefer_zones, "teardrop(): prefer_zones"),
+    )
+
+
+def _free(value: object, what: str) -> bool:
+    """``free=`` of a via call (change c0277): ``True`` writes KiCad's ``(free yes)``."""
+    if not isinstance(value, bool):
+        raise DslError(f"{what}: free must be a bool, not {value!r}")
+    return value
+
+
+def _teardrop(value: object, what: str) -> Teardrop | None:
+    """``teardrop=`` of a via call: ``None`` or the value of ``teardrop()``."""
+    if value is not None and not isinstance(value, Teardrop):
+        raise DslError(f"{what}: teardrop must be None or the value of teardrop(), not {value!r}")
+    return value
+
+
 def via_step(
     x: object,
     y: object = None,
@@ -494,6 +635,8 @@ def record_via(
     layers: object = None,
     locked: object = False,
     protection: object = None,
+    teardrop: object = None,
+    free: object = False,
 ) -> None:
     name = check_key(design, key)
     what = f"via {name}"
@@ -510,6 +653,8 @@ def record_via(
         _via_layers(layers, via_kind, what),
         _protection(protection, what),
         _locked(locked, what),
+        _teardrop(teardrop, what),
+        _free(free, what),
     )
 
 
@@ -576,6 +721,131 @@ def record_stitch(
         _protection(protection, what),
         _locked(locked, what),
     )
+
+
+TABLE_WIDTHS = {"track": 4, "arc": 6, "via": 2}
+"""The length of a row of each table kind."""
+
+
+def _rows(key: str, call: str, rows: object, width: int) -> tuple[tuple[int, ...], ...]:
+    """The rows of a table, checked, in the written board frame (``BOARD_ORIGIN`` added to every pair)."""
+    what = f"{call} {key}"
+    if isinstance(rows, (str, bytes)) or not isinstance(rows, Sequence):
+        raise DslError(f"{what}: rows_nm must be a tuple of rows of int nanometres, not {rows!r}")
+    listed = cast("Sequence[object]", rows)
+    if not listed:
+        raise DslError(f"{what}: rows_nm is empty; a table holds at least one row")
+    origin = _origin()
+    found: list[tuple[int, ...]] = []
+    for index, row in enumerate(listed):
+        if isinstance(row, (str, bytes)) or not isinstance(row, Sequence):
+            raise DslError(f"{what}: row {index} must be a tuple of {width} int nanometres, not {row!r}")
+        values = tuple(cast("Sequence[object]", row))
+        if len(values) != width:
+            raise DslError(f"{what}: row {index} has {len(values)} values, not {width}: {row!r}")
+        for value in values:
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise DslError(
+                    f"{what}: row {index} holds {value!r}, which is not an int; rows_nm are integer "
+                    "nanometres in the frame of place()"
+                )
+        numbers = cast("tuple[int, ...]", values)
+        moved = tuple(v + (origin.x if i % 2 == 0 else origin.y) for i, v in enumerate(numbers))
+        if width == 4 and moved[:2] == moved[2:]:
+            raise DslError(f"{what}: row {index} is a segment of zero length")
+        if width == 6:
+            sx, sy, mx, my, ex, ey = moved
+            if (mx - sx) * (ey - sy) - (my - sy) * (ex - sx) == 0:
+                raise DslError(f"{what}: row {index} does not make an arc: its three points are on one line")
+        found.append(moved)
+    return tuple(found)
+
+
+def _table_layer(design: Design, value: object, what: str) -> str:
+    layer = _layer(value, f"{what}: layer")
+    if layer not in design.copper_layers:
+        raise DslError(
+            f"{what}: layer {layer!r} is not a copper layer of this board ({', '.join(design.copper_layers)})"
+        )
+    return layer
+
+
+def _table_size(value: object, what: str) -> Nm:
+    size = _size(value, what)
+    if size is None:
+        raise DslError(f"{what} is required: a Length such as mm('0.25')")
+    return size
+
+
+def record_table(
+    design: Design,
+    table: str,
+    key: object,
+    *,
+    net: object,
+    rows: object,
+    layer: object = None,
+    width: object = None,
+    diameter: object = None,
+    drill: object = None,
+    kind: object = "through",
+    layers: object = None,
+    locked: object = False,
+    protection: object = None,
+    teardrop: object = None,
+    free: object = False,
+) -> None:
+    """Record one copper table of ``table`` kind (``track``, ``arc`` or ``via``; change c0275)."""
+    call = f"{table}_table"
+    name = check_key(design, key)
+    what = f"{call} {name}"
+    # a track or arc table may lie on no net (change c0375); a via table names its net
+    chosen = _net(net, what, required=table == "via")
+    flag = _locked(locked, what)
+    found = _rows(name, call, rows, TABLE_WIDTHS[table])
+    intent: TableIntent
+    if table == "via":
+        via_kind = _kind(kind, what)
+        size = _table_size(diameter, f"{what}: diameter")
+        hole = _table_size(drill, f"{what}: drill")
+        # a drill equal to the diameter is a via without a ring, which a source document can hold
+        # (change c0426); a larger drill is refused
+        if hole > size:
+            raise DslError(f"{what}: the drill {hole} nm is larger than the diameter {size} nm")
+        span = _via_layers(layers, via_kind, what)
+        if span is not None:
+            for named in span:
+                _table_layer(design, named, what)
+        assert chosen is not None
+        intent = ViaTableIntent(
+            name, chosen.name, size, hole, cast("tuple[tuple[int, int], ...]", found), via_kind, span,
+            _protection(protection, what), flag, teardrop=_teardrop(teardrop, what),
+            free=_free(free, what),
+        )  # fmt: skip
+    else:
+        on = _table_layer(design, layer, what)
+        size = _table_size(width, f"{what}: width")
+        if table == "track":
+            intent = TrackTableIntent(
+                name,
+                None if chosen is None else chosen.name,
+                on,
+                size,
+                cast("tuple[tuple[int, int, int, int], ...]", found),
+                flag,
+            )
+        else:
+            intent = ArcTableIntent(
+                name,
+                None if chosen is None else chosen.name,
+                on,
+                size,
+                cast("tuple[tuple[int, int, int, int, int, int], ...]", found),
+                flag,
+            )
+    if chosen is not None:
+        design.register_net(chosen)
+    design.copper_intents[name] = _Table(intent, chosen)
 
 
 def record_meander(
@@ -690,9 +960,13 @@ def copper(design: Design) -> tuple[CopperIntent, ...]:
             found.append(
                 ViaIntent(
                     key, at, net_name, item.diameter, item.drill, item.kind, item.layers,
-                    item.protection, item.locked,
+                    item.protection, item.locked, item.teardrop, item.free,
                 )
             )  # fmt: skip
+        elif isinstance(item, _Table):
+            if item.net is not None:
+                _net_name(design, item.net, key)
+            found.append(item.intent)
         else:
             found.append(
                 StitchIntent(
@@ -722,18 +996,23 @@ __all__ = [
     "Anchor",
     "AnchorRef",
     "ArcStep",
+    "ArcTableIntent",
     "CopperIntent",
     "MeanderIntent",
     "PadEnd",
     "PadRef",
     "Recorded",
     "StitchIntent",
+    "TableIntent",
     "TrackIntent",
+    "TrackTableIntent",
     "ViaIntent",
+    "ViaTableIntent",
     "ViaStep",
     "arc_to",
     "copper",
     "meanders",
     "protect",
+    "teardrop",
     "via_step",
 ]

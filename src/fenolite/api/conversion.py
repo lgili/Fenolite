@@ -21,7 +21,7 @@ from typing import Any
 
 import fenolite.convert as convert_package
 from fenolite.api.equivalence import EquivalenceResult, equivalent
-from fenolite.api.sides import read_schematic
+from fenolite.api.sides import _with_source_bom, read_schematic  # pyright: ignore[reportPrivateUsage]
 from fenolite.backends import registry
 from fenolite.backends.base import BoardFrame
 from fenolite.checks.equivalence import Profile, load_profiles
@@ -34,6 +34,7 @@ from fenolite.convert.rings import RING_KIND, RingDifference, compare_rings
 from fenolite.convert.schematic import root_schematic
 from fenolite.core.errors import FenoliteError, Issue
 from fenolite.core.evidence import Evidence, Level
+from fenolite.model.design import Design
 
 
 @cache
@@ -141,6 +142,23 @@ def _schematic(
     return found.report.differences if found.report is not None else ()
 
 
+def _placed(design: Design) -> Design:
+    """``design`` with only the components that a footprint of its board places or that are BOM-only
+    (c0334, read back with the board), and their net members: what a written board can hold. The written
+    schematic is compared with the others (change c0371)."""
+    if design.board is None:
+        return design
+    placed = {fp.component_id for fp in design.board.footprints}
+    placed |= {c.id for c in design.circuit.components if c.bom_only}
+    circuit = design.circuit
+    nets = tuple(
+        replace(net, members=tuple(m for m in net.members if m.component_id in placed))
+        for net in circuit.nets
+    )
+    components = tuple(c for c in circuit.components if c.id in placed)
+    return replace(design, circuit=replace(circuit, components=components, nets=nets))
+
+
 def _rings(conversion: Conversion, written: Path) -> tuple[RingDifference, ...]:
     """The edge rings of the source against those of the written board read back (change c0170;
     ``convert.rings``): each backend's ``BoardFrame.board_edges``. Nothing when a backend gives none."""
@@ -172,7 +190,7 @@ def verify_conversion(conversion: Conversion, *, profile: Profile | None = None)
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(data)
         compared = equivalent(
-            conversion.design,
+            _placed(conversion.design) if conversion.schematic is not None else conversion.design,
             folder / conversion.read_back,
             profile=chosen,
             # A free pad reads back as a component with no designator (a board-only footprint): it is a
@@ -241,6 +259,9 @@ def convert(
     ``fenolite.convert.convert_project``; its errors are raised unchanged. Without ``verify`` the result
     holds no comparison, one ``convert.no-verify`` warning, and the evidence ``UNVERIFIED``."""
     prepared = convert_package.read_source(Path(source))
+    # Reuse private API source preparation before the writer; retain the original rule/input context.
+    if prepared.backend == "kicad" and (root := root_schematic(prepared)) is not None:
+        prepared = replace(prepared, design=_with_source_bom(prepared.design, root))
     if to == "altium" and prepared.backend == "kicad" and (root := root_schematic(prepared)) is not None:
         prepared = replace(prepared, schematic=read_schematic(root).design)
     conversion = convert_project(

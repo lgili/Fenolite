@@ -1,0 +1,26 @@
+# Authored for Fenolite (CC0-1.0). Numbers from the JST XH connector data sheet (S-0324), top entry header
+# without boss: square post 0.64 mm, 2.5 mm pitch, body B = 2.5 mm per circuit + 2.4 mm, 5.75 mm deep with the
+# post row 2.35 mm from one face and 3.40 mm from the other, 7 mm high; PC board hole 0.9 mm for 3 circuits or
+# more (2 circuits: 1.0 mm).
+schema = "fenolite.package.v0"
+family = "connector"
+summary = "JST XH-style top entry header, 2.5 mm pitch"
+evidence = "INFERRED"
+sources = ["S-0324"]
+
+series = "XH"
+positions = "3..16"
+pitch = "2.5mm"
+name_pattern = "CONN{n}_{series}_P{pitch}"
+body = { length = { per_position = "2.5mm", extra = "2.4mm" }, width = "5.75mm", height = "7mm", offset = "0.525mm" }
+pin = { width = "0.64mm", thickness = "0.64mm", length_below = "3.4mm" }
+mount = "tht"
+orientation = "vertical"
+
+[generate]
+lands = 1
+drawing = 1
+
+[land]
+source = "S-0324 PC board layout"
+drill = "0.9mm"

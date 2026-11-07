@@ -86,6 +86,95 @@ def _edit_footprint(text: str, ref: str, change: Callable[[Node], Node]) -> str:
     return dumps(root.with_children(children), style="kicad")
 
 
+def _set_field(node: Node, name: str, value: str) -> Node:
+    children: list[Node | Atom] = []
+    for child in node.children:
+        if isinstance(child, Node) and child.name == "property" and child.atoms()[0].value == name:
+            items = list(child.children)
+            index = [i for i, c in enumerate(items) if isinstance(c, Atom)][1]
+            items[index] = Atom.string(value)
+            child = child.with_children(items)
+        children.append(child)
+    return node.with_children(children)
+
+
+def _set_id(node: Node, lib_id: str) -> Node:
+    items = list(node.children)
+    index = next(i for i, c in enumerate(items) if isinstance(c, Atom))
+    items[index] = Atom.string(lib_id)
+    return node.with_children(items)
+
+
+def _lock(node: Node) -> Node:
+    items = list(node.children)
+    first = next(i for i, c in enumerate(items) if isinstance(c, Node))
+    return node.with_children([*items[:first], parse("(locked yes)"), *items[first:]])
+
+
+def _edit_symbols(text: str, ref: str, change: Callable[[Node], Node], unit: int | None = None) -> str:
+    root = parse(text)
+    children: list[Node | Atom] = []
+    found = 0
+    for child in root.children:
+        if isinstance(child, Node) and child.name == "symbol" and _reference(child) == ref:
+            held = child.find("unit")
+            if unit is None or (held is not None and int(held.atoms()[0].value) == unit):
+                child = change(child)
+                found += 1
+        children.append(child)
+    assert found >= 1, f"{ref}: no symbol"
+    return dumps(root.with_children(children), style="kicad")
+
+
+def edit_properties(
+    board_text: str | None, schematic_text: str | None, changes: Mapping[str, Mapping[str, object]]
+) -> tuple[str | None, str | None]:
+    """The stand-in for edits of values, footprints, references, user properties and positions made in
+    KiCad (change c0250). ``changes`` maps a reference to its changes: ``value``, ``footprint`` (the
+    library id of the footprint, and the symbol's ``Footprint`` field), ``reference``, ``properties`` (name
+    to text), ``move`` (``(dx, dy)`` of the footprint) and ``locked`` (the footprint gets ``(locked
+    yes)``). A change applies to each text that is given; ``unit`` limits a symbol change to one unit."""
+    board, schematic = board_text, schematic_text
+    for ref, change in changes.items():
+        fields: dict[str, str] = {}
+        if "value" in change:
+            fields["Value"] = str(change["value"])
+        if "footprint" in change:
+            fields["Footprint"] = str(change["footprint"])
+        for name, text in dict(change.get("properties", {})).items():  # type: ignore[call-overload]
+            fields[str(name)] = str(text)
+        if "reference" in change:
+            fields["Reference"] = str(change["reference"])
+        if board is not None:
+            board_fields = {k: v for k, v in fields.items() if k != "Footprint"}
+
+            def on_board(
+                node: Node, board_fields: dict[str, str] = board_fields, change: Mapping[str, object] = change
+            ) -> Node:
+                for name, text in board_fields.items():
+                    node = _set_field(node, name, text)
+                if "footprint" in change:
+                    node = _set_id(node, str(change["footprint"]))
+                if change.get("locked"):
+                    node = _lock(node)
+                return node
+
+            board = _edit_footprint(board, ref, on_board)
+            if "move" in change:
+                dx, dy = change["move"]  # type: ignore[misc]
+                board = move_footprint(board, str(fields.get("Reference", ref)), dx, dy)
+        if schematic is not None and fields:
+
+            def on_sheet(node: Node, fields: dict[str, str] = fields) -> Node:
+                for name, text in fields.items():
+                    node = _set_field(node, name, text)
+                return node
+
+            unit = change.get("unit")
+            schematic = _edit_symbols(schematic, ref, on_sheet, int(unit) if unit is not None else None)  # type: ignore[call-overload]
+    return board, schematic
+
+
 def move_property(text: str, ref: str, name: str, dx: Nm, dy: Nm) -> str:
     """``text`` with the property ``name`` of the footprint of ``ref`` moved by ``(dx, dy)``."""
 
@@ -345,6 +434,7 @@ __all__ = [
     "add_items",
     "add_to_footprint",
     "edit_blink",
+    "edit_properties",
     "footprint_node",
     "group_members",
     "move_footprint",

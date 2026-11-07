@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite: asymmetric pad for bottom chamfer mirror tests (c0282).
+(footprint "ExactChamfer"
+  (version 20241229)
+  (generator "fenolite")
+  (layer "F.Cu")
+  (attr smd)
+  (pad "1" smd roundrect
+    (at 0.3 -0.7 35)
+    (size 2 1.4)
+    (layers "F.Cu" "F.Paste" "F.Mask")
+    (roundrect_rratio 0)
+    (chamfer_ratio 0.2)
+    (chamfer top_left bottom_right)
+    (uuid "00000000-0000-4000-8000-000000000282")
+  )
+)

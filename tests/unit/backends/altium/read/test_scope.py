@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""The closed scope grammar (capability altium-project-reader, "Closed scope grammar")."""
+"""The closed scope grammar (capability altium-project-reader, "Closed scope grammar"). Change c0462 reads
+mixed operators by Altium's precedence and InNet's wildcards; ``test_scope_c0462.py`` holds its own cases."""
 
 from __future__ import annotations
 
@@ -32,9 +33,19 @@ def test_class_and_item_kind() -> None:
         ("InNetClass('PWR')", Selector("netclass", "PWR")),
         ("InComponent('U1')", Selector("ref", "U1")),
         ("InNet('net with space')", Selector("net", "net with space")),
+        ("InNet('No Net')", Selector("not", items=(Selector("all"),))),  # S-2214
         ("IsTrack", TRACK),
         ("IsVia", VIA),
         ("IsPad", Selector("item_kind", "pad")),
+        ("InPolygon", Selector("item_kind", "zone")),
+        ("InPoly", Selector("item_kind", "zone")),
+        (
+            "InPolygon And (Not InNetClass('HV'))",
+            Selector(
+                "and",
+                items=(Selector("item_kind", "zone"), Selector("not", items=(Selector("netclass", "HV"),))),
+            ),
+        ),
         ("InNet('A') And InNet('B')", Selector("and", items=(NET_A, NET_B))),
         ("InNet('A') && InNet('B') And IsTrack", Selector("and", items=(NET_A, NET_B, TRACK))),
         ("InNet('A') Or InNet('B')", Selector("or", items=(NET_A, NET_B))),
@@ -42,6 +53,13 @@ def test_class_and_item_kind() -> None:
         ("Not IsVia", Selector("not", items=(VIA,))),
         ("Not (InNet('A') Or IsVia)", Selector("not", items=(Selector("or", items=(NET_A, VIA)),))),
         ("(InNet('A'))", NET_A),
+        ("InNet('A') AND InNet('B')", Selector("and", items=(NET_A, NET_B))),
+        ("IsVia or IsTrack", Selector("or", items=(VIA, TRACK))),
+        ("not InNet('A')", Selector("not", items=(NET_A,))),
+        (
+            "(InNet('A') OR InNet('B')) and IsTrack",
+            Selector("and", items=(Selector("or", items=(NET_A, NET_B)), TRACK)),
+        ),
         (
             "(InNet('A') Or InNet('B')) And IsTrack",
             Selector("and", items=(Selector("or", items=(NET_A, NET_B)), TRACK)),
@@ -52,18 +70,16 @@ def test_accepted(text: str, selector: Selector) -> None:
     assert parse_scope(text) == selector
 
 
-def test_mixed_operators_without_parentheses() -> None:
-    """Scenario "Mixed operators without parentheses" (the rule side is in test_rule_map.py)."""
-    reason = parse_scope("InNet('A') Or InNet('B') And IsTrack")
-    assert isinstance(reason, str) and "mixes the operators And and Or" in reason
+def test_mixed_operators_by_precedence() -> None:
+    """Scenario "Mixed operators by Altium's precedence" (change c0462): And binds tighter than Or."""
+    assert parse_scope("InNet('A') Or InNet('B') And IsTrack") == Selector(
+        "or", items=(NET_A, Selector("and", items=(NET_B, TRACK)))
+    )
 
 
-def test_layer_and_wildcard_refused() -> None:
-    """Scenario "Layer and wildcard refused"."""
+def test_layer_refused_without_a_document() -> None:
     layer = parse_scope("OnLayer('Top Layer')")
-    wildcard = parse_scope("InNet('PWR*')")
     assert isinstance(layer, str) and "OnLayer" in layer
-    assert isinstance(wildcard, str) and "character *" in wildcard
 
 
 @pytest.mark.parametrize(
@@ -71,21 +87,15 @@ def test_layer_and_wildcard_refused() -> None:
     [
         ("InNet('A') And All", "All stands below the top level"),
         ("(All)", "All stands below the top level"),
-        ("OnTopLayer", "layer function OnTopLayer"),
+        ("OnTopLayer", "OnTopLayer reads the document's layers"),
         ("InNet('A') And OnLayer('Top Layer')", "OnLayer"),
         ("IsPolygon", "function IsPolygon"),
-        ("InNet('A?')", "character ?"),
-        ("InNet('[A]')", "character ["),
-        ("InNet('A]')", "character ]"),
         ("InNet('')", "is empty"),
         ("InNet('A", "unclosed quote"),
-        ("InNet('a'b')", "takes one quoted value"),
+        ("InNet('a'b')", "takes quoted values"),
         ("InNet('a''b')", "quote '"),
-        ("InNet(A)", "one quoted value"),
+        ("InNet(A)", "takes quoted values"),
         ("InNet", "ends where"),
-        ("Not IsVia And IsTrack", "Not must be the whole"),
-        ("IsTrack And Not IsVia", "mixes Not with And"),
-        ("Not Not IsVia", "operator Not stands where an operand"),
         ("IsTrack IsVia", "text left over"),
         ("InNet('A')) ", "text left over"),
         ("(IsTrack", "not closed"),
@@ -93,8 +103,7 @@ def test_layer_and_wildcard_refused() -> None:
         ("", "empty"),
         ("   ", "empty"),
         ("Width > 10", "function Width"),
-        ("'A'", "quoted value"),
-        ("InNet('A') AND InNet('B')", "text left over"),
+        ("'A'", "gives a string"),
         ("all", "function all"),
     ],
 )
@@ -145,3 +154,9 @@ def test_layer_conditions(text: str, found: LayerScope) -> None:
 )
 def test_no_layer_condition(text: str) -> None:
     assert parse_layer_scope(text) is None
+
+
+def test_named_polygon_stays_outside() -> None:
+    """Scenario "Pour copper" (change c0412): ``InPolygon`` reads without an argument only."""
+    assert isinstance(parse_scope("InPolygon('GND')"), str)
+    assert isinstance(parse_scope("InNamedPolygon('GND')"), str)

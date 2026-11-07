@@ -13,11 +13,13 @@ needs ``kicad-cli``.
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
+from fenolite.api import _cross_backend, _native_rules
+from fenolite.api._drawn import DRAWN_EVIDENCE, read_drawn_side, root_schematic, schematic_level
 from fenolite.api.sides import (
     DEFAULT_TIMEOUT,
     ReadSide,
@@ -26,11 +28,14 @@ from fenolite.api.sides import (
     import_tool,
     imported,
     read_side,
+    source_hashes,
 )
 from fenolite.backends.kicad import altium_import
 from fenolite.checks.equivalence import (
-    LEVEL_NAMES,
+    ALL_LEVEL_NAMES,
     LEVELS,
+    PRESENTATION_LEVEL,
+    SCHEMATIC_LEVEL,
     EquivalenceReport,
     Profile,
     Tolerances,
@@ -41,9 +46,12 @@ from fenolite.checks.equivalence import (
     select_profile,
 )
 from fenolite.checks.equivalence import codes as equivalence_codes
-from fenolite.checks.equivalence.model import FRAMES, Difference, Frame
+from fenolite.checks.equivalence.exclusions import apply_rules
+from fenolite.checks.equivalence.model import FRAMES, Difference, Frame, LevelResult
+from fenolite.checks.equivalence.norm import MASK_NONE, MASK_RULES, MaskOf, own_mask
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence
+from fenolite.model.board import Pad
 from fenolite.model.design import Design
 
 AGAINST = ("kicad-import",)
@@ -52,6 +60,10 @@ PCB_DOCUMENT = ".pcbdoc"
 TOLERANCE_FIELDS = ("length_nm", "angle_udeg", "length_ppm")
 SideInput = str | Path | Design
 """A side: a path of any side the command reads, or a design."""
+Presentation = Callable[[ReadSide, ReadSide], LevelResult]
+"""What runs level 8 on two sides as read: the renderer lives in ``fenolite.view``, which ``api`` does not
+import, so the caller passes it (``fenolite equivalent`` does)."""
+API_LEVELS: tuple[int | Literal["S"], ...] = (*LEVELS, PRESENTATION_LEVEL, "S")
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,6 +82,7 @@ class Side:
     footprints: int
     tool_version: str | None = None
     power_symbols: int | None = None
+    source_files: tuple[tuple[Path, str], ...] = ()
 
     def to_json(self) -> dict[str, Any]:
         row: dict[str, Any] = {
@@ -84,6 +97,8 @@ class Side:
             row["tool_version"] = self.tool_version
         if self.power_symbols is not None:
             row["power_symbols"] = self.power_symbols
+        if self.source_files:
+            row["files"] = source_hashes(self.source_files)
         return row
 
 
@@ -139,7 +154,7 @@ class EquivalenceResult:
             "levels": [
                 {
                     "level": level.level,
-                    "name": LEVEL_NAMES[level.level],
+                    "name": ALL_LEVEL_NAMES[level.level],
                     "compared": level.compared,
                     "differences": len(level.differences),
                     "excluded": len(level.excluded),
@@ -175,7 +190,7 @@ def public_side(side: ReadSide) -> Side:
     source = side.netlist_source or ("board" if footprints else "circuit")
     return Side(
         side.name, side.sha256, side.backend, side.kind, source, len(side.design.circuit.components),
-        footprints, side.tool_version, side.power_symbols,
+        footprints, side.tool_version, side.power_symbols, side.source_files,
     )  # fmt: skip
 
 
@@ -207,15 +222,92 @@ def _tolerances(given: Tolerances | Mapping[str, int] | None, profile: Profile |
         raise SideUsageError(str(error), where="tolerances") from None
 
 
+def mask_of(design: Design) -> MaskOf:
+    """The solder-mask expansion of a pad of ``design`` for level 3 (change c0440): its own margin; on a
+    board read from Altium, its manual expansion (the bag's ``mask``, ``<mode>,<units>``), ``MASK_NONE``
+    for mode 0, and for a pad that follows the rules the expansion of the kept record that governs it, as
+    the conversion chooses it (change c0462, design D6), else ``MASK_RULES``. A pad before whose record comes
+    one whose scope cannot be judged without the document gives no statement (``None``)."""
+    from fenolite.backends.altium.adapter.rules import KEPT_RULE, kept_fields
+    from fenolite.backends.altium.adapter.units import pcb_length
+    from fenolite.convert.altium_to_kicad import RuleSubjects
+    from fenolite.convert.openings import MASK_RULE, expansion_rules, governing_expansion
+
+    board = design.board
+    if board is None or "altium" not in board.ext:
+        return own_mask
+    held = board.ext["altium"]
+    texts = [str(text) for name, text in held.payload if name == KEPT_RULE]
+    rules = expansion_rules((dict(kept_fields(text)[1]) for text in texts), MASK_RULE)
+    subjects = RuleSubjects(design, None)
+    owners = {pad.id: fp.component_id for fp in board.footprints for pad in fp.pads}
+
+    def expansion(pad: Pad) -> int | str | None:
+        if pad.mask_margin is not None:
+            return pad.mask_margin
+        held = pad.ext.get("altium")
+        text = next((str(v) for k, v in (held.payload if held is not None else ()) if k == "mask"), None)
+        if text is None:
+            found = governing_expansion(
+                rules, subjects.pad(pad, owners.get(pad.id)), subjects.classes(pad.net_id)
+            )
+            if found.unread:
+                return None
+            return MASK_RULES if found.value is None else found.value
+        mode, _, units = text.partition(",")
+        if mode == "0":
+            return MASK_NONE
+        try:
+            return pcb_length(int(units or "0")) if mode == "2" else None
+        except ValueError:
+            return None
+
+    return expansion
+
+
 def _path(given: str | Path) -> Path:
     return existing(Path(given))
+
+
+def _read_side(given: SideInput, *, schematic: bool, kicad_cli: str | None, timeout: float) -> ReadSide:
+    if schematic and not isinstance(given, Design):
+        root = root_schematic(existing(Path(given)))
+        if root is not None:
+            # S reads the actual sheet even when a project has no board, a cached model differs, or a
+            # symbol has no footprint. Its side metadata therefore identifies the native root sheet.
+            return read_drawn_side(root)
+    return read_side(given, kicad_cli=kicad_cli, timeout=timeout)
+
+
+def _schematic_report(
+    a: SideInput,
+    b: SideInput,
+    side_a: ReadSide,
+    side_b: ReadSide,
+    *,
+    tolerances: Tolerances,
+    frame: Frame,
+    profile: Profile | None,
+) -> EquivalenceReport:
+    roots: list[Path] = []
+    for name, given in (("a", a), ("b", b)):
+        root = None if isinstance(given, Design) else root_schematic(Path(given))
+        if root is None:
+            raise SideUsageError(f"side {name} has no drawn schematic it reads", where="level")
+        roots.append(root)
+    level = schematic_level(
+        roots[0], roots[1], side_a.design.circuit, side_b.design.circuit, tolerances=tolerances
+    )
+    if level is None:
+        raise SideUsageError("side a or b has no readable drawn schematic", where="level")
+    return EquivalenceReport((apply_rules(level, profile.rules if profile else ()),), tolerances, frame)
 
 
 def equivalent(
     a: SideInput,
     b: SideInput | None,
     *,
-    level: int | None = None,
+    level: int | Literal["S"] | None = None,
     tolerances: Tolerances | Mapping[str, int] | None = None,
     frame: Frame | None = None,
     ignore_refs: Sequence[str] = (),
@@ -223,6 +315,8 @@ def equivalent(
     against: str | None = None,
     kicad_cli: str | None = None,
     timeout: float = DEFAULT_TIMEOUT,
+    strict: bool = False,
+    presentation: Presentation | None = None,
 ) -> EquivalenceResult:
     """Compare ``a`` with ``b`` (capability design-equivalence, "Public equivalence API").
 
@@ -231,7 +325,12 @@ def equivalent(
     converts the Altium PCB document ``a`` to, compared under the importer's exclusion profile. ``level``
     ``None`` runs the highest level both sides hold. ``tolerances`` is a ``Tolerances``, or a mapping of
     the fields to set over the profile's values (else 0); ``frame`` ``None`` is the profile's frame, else
-    ``absolute`` (``relative`` for the triangle).
+    ``absolute`` (``relative`` for the triangle). ``strict`` runs the item rule of level 5 too (the level run
+    must be 5 or more). ``level`` 8 runs the levels 1 to 7 (to the highest both sides hold when a side has no
+    footprint) and then ``presentation`` on the two sides; a side without a board is a usage fault. Explicit
+    ``level="S"`` compares only actual schematic sheets, including resolved pin connectivity, without a
+    netlist export. It refuses ``strict``, ``ignore_refs`` and the PCB import triangle; scoped S profile
+    rules and the existing geometry tolerances apply. Integer/default output bytes stay unchanged.
 
     A usage fault raises ``SideUsageError``, a ``ValueError``; a missing path ``SideMissingError``; a
     reader's error keeps its type and code; a missing or wrong ``kicad-cli`` raises ``ToolMissingError`` or
@@ -241,15 +340,31 @@ def equivalent(
         raise SideUsageError(f"against is one of {', '.join(AGAINST)}, got {against!r}", where="against")
     if (b is None) == (against is None):
         raise SideUsageError("give b or against='kicad-import', not both and not neither", where="b")
-    if level is not None and (type(level) is not int or level not in LEVELS):
-        raise SideUsageError(f"level is one of {', '.join(map(str, LEVELS))}, got {level!r}", where="level")
+    is_schematic = type(level) is str and level == SCHEMATIC_LEVEL
+    if level is not None and not (is_schematic or type(level) is int and level in API_LEVELS):
+        raise SideUsageError(
+            f"level is one of {', '.join(map(str, API_LEVELS))}, got {level!r}", where="level"
+        )
+    if level == PRESENTATION_LEVEL and presentation is None:
+        raise SideUsageError("level 8 renders the sides: pass presentation", where="level")
+    if is_schematic:
+        if against is not None:
+            raise SideUsageError(
+                "level S reads actual sheets; the PCB import triangle has none", where="level"
+            )
+        if strict:
+            raise SideUsageError("strict requires a numeric level of 5 or higher", where="strict")
+        if ignore_refs:
+            raise SideUsageError(
+                "level S compares complete sheets; ignore_refs does not filter drawings", where="ignore_refs"
+            )
     if frame is not None and frame not in FRAMES:
         raise SideUsageError(f"frame is one of {', '.join(FRAMES)}, got {frame!r}", where="frame")
     notices: list[Issue] = []
     if against is None:
         assert b is not None
-        side_a = read_side(a, kicad_cli=kicad_cli, timeout=timeout)
-        side_b = read_side(b, kicad_cli=kicad_cli, timeout=timeout)
+        side_a = _read_side(a, schematic=is_schematic, kicad_cli=kicad_cli, timeout=timeout)
+        side_b = _read_side(b, schematic=is_schematic, kicad_cli=kicad_cli, timeout=timeout)
         applied = profile
         chosen_frame: Frame = frame or (profile.frame if profile else "absolute")
     else:
@@ -291,18 +406,63 @@ def equivalent(
             )
         chosen_frame = frame or (applied.frame if applied else "relative")
     chosen = _tolerances(tolerances, applied)
+    if is_schematic:
+        assert b is not None
+        report = _schematic_report(
+            a, b, side_a, side_b, tolerances=chosen, frame=chosen_frame, profile=applied
+        )
+        return EquivalenceResult(
+            report,
+            public_side(side_a),
+            public_side(side_b),
+            applied,
+            (*difference_issues(report), *side_a.issues, *side_b.issues),
+            Evidence.combine(side_a.evidence, side_b.evidence, DRAWN_EVIDENCE),
+        )
+    # Across backends each side is completed with what it keeps outside its design (change c0421); the
+    # triangle compares KiCad's own import under its exclusion profile and stays as read.
+    keepout_layers: tuple[frozenset[str], frozenset[str]] = (frozenset(), frozenset())
+    compared_a, compared_b = side_a, side_b
+    across = against is None and side_a.backend != side_b.backend
+    if against is None:
+        given_a = None if isinstance(a, Design) else Path(a)
+        given_b = None if b is None or isinstance(b, Design) else Path(b)
+        completed = _cross_backend.complete(side_a, side_b, paths=(given_a, given_b))
+        compared_a, compared_b, keepout_layers = completed.a, completed.b, completed.keepout_layers
+    highest = max_level(compared_a.design, compared_b.design)
+    run = highest if level is None else level
+    assert isinstance(run, int)
+    if run == PRESENTATION_LEVEL:
+        bare = " and ".join(n for n, side in (("a", side_a), ("b", side_b)) if side.design.board is None)
+        if bare:
+            raise SideUsageError(
+                f"level 8 renders a board on both sides, and side {bare} holds none", where="level"
+            )
+        run = 7 if highest >= 4 else highest
+    if strict and run < 5:
+        raise SideUsageError(
+            f"strict compares the copper of level 5, and the level run is {run}", where="strict"
+        )
     try:
         report = compare_designs(
-            side_a.design,
-            side_b.design,
-            level=max_level(side_a.design, side_b.design) if level is None else level,
+            compared_a.design,
+            compared_b.design,
+            level=run,
             tolerances=chosen,
             frame=chosen_frame,
             ignore_refs=tuple(ignore_refs),
             rules=applied.rules if applied else (),
+            strict=strict,
+            keepout_layers=keepout_layers,
+            across=across,
+            masks=(mask_of(compared_a.design), mask_of(compared_b.design)),
         )
     except ValueError as error:
         raise SideUsageError(str(error), where="level") from None
+    report = _native_rules.augment(report, side_a, side_b, applied.rules if applied else ())
+    if level == PRESENTATION_LEVEL and presentation is not None:
+        rendered = apply_rules(presentation(side_a, side_b), applied.rules if applied else ())
+        report = replace(report, levels=(*report.levels, rendered))
     notices += _import_messages(side_b.messages)
     evidence = Evidence.combine(side_a.evidence, side_b.evidence)
     if against is not None:
@@ -317,4 +477,13 @@ def equivalent(
     )
 
 
-__all__ = ["AGAINST", "EquivalenceResult", "Side", "SideInput", "equivalent", "public_side"]
+__all__ = [
+    "AGAINST",
+    "API_LEVELS",
+    "EquivalenceResult",
+    "Presentation",
+    "Side",
+    "SideInput",
+    "equivalent",
+    "public_side",
+]

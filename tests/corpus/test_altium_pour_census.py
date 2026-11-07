@@ -7,6 +7,8 @@ says what Altium saved; it raises no row above ``CORPUS-VERIFIED`` and says noth
 
 from __future__ import annotations
 
+import os
+
 import pytest
 from _corpus import CorpusItem, manifest_items, require
 
@@ -120,12 +122,21 @@ def test_regions_thresholds(item: CorpusItem) -> None:
 
 TIME_LIMIT_S = 60.0
 """Task 3.6 of change c0215: above this for one document the plan comes back to the maintainer."""
+TIME_LIMITS_S = {"altium-third-party-pcbdoc-08": 270.0}
+"""Rows with their own limit, by the coordinator's decision of 2026-11-07 (change c0463, design D7): with its
+Clearance matrices read cell by cell, ``-08`` pours 32 of its 33 polygons and takes 175.2 s alone (209 s with
+two workers); the limit is that time × 1.5, rounded up to 10 s. A known difference for the performance work
+of v0.8."""
+RUNNER_FACTOR = 3.5 if os.environ.get("CI") else 1.0
+"""The limits are measured on an Apple M4. On 2026-11-07 the GitHub runner of the kicad-10 job took 542.1 s
+for ``-08`` (168 s on the M4 at the same commit, ``0e2823e5d``) beside another test of that row: 3.2 times.
+Under ``CI`` each limit is that factor rounded up to 0.5 times larger (c0469)."""
 
 
 @pytest.mark.parametrize("item", DOCUMENTS, ids=lambda item: item.id)
 def test_pour_time(item: CorpusItem) -> None:
-    """Reading a public document and pouring every polygon of it stays within ``TIME_LIMIT_S``
-    (``docs/evidence/altium-pour.md``, "Time")."""
+    """Reading a public document and pouring every polygon of it stays within ``TIME_LIMIT_S``, or the row's
+    own limit of ``TIME_LIMITS_S`` (``docs/evidence/altium-pour.md``, "Time")."""
     import importlib.util
     import time
 
@@ -138,35 +149,124 @@ def test_pour_time(item: CorpusItem) -> None:
     result = pour_reading(read_pour(path.read_bytes(), file=path.name))
     elapsed = time.perf_counter() - start
     assert result.polygons
-    assert elapsed < TIME_LIMIT_S, (item.id, elapsed)
+    assert elapsed < TIME_LIMITS_S.get(item.id, TIME_LIMIT_S) * RUNNER_FACTOR, (item.id, elapsed)
 
 
 POUR_CENSUS: dict[str, tuple[int, dict[str, int], dict[str, tuple[str, ...]]]] = {
-    "altium-third-party-pcbdoc-01": (5, {"depends-on-refused": 3, "polygon-cutout": 2}, {}),
+    "altium-third-party-pcbdoc-01": (
+        5,
+        {},
+        {
+            "B.Cu Top Layer-No Net": ("M1", "M2", "M3", "M4"),
+            "F.Cu Top Layer-No Net": ("M1", "M2", "M3", "M4"),
+        },
+    ),
     "altium-third-party-pcbdoc-02": (
-        12, {"depends-on-refused": 3, "outline": 1, "outline-arc": 2, "polygon-cutout": 6}, {},
+        12,
+        {},
+        {
+            "F.Cu GND_L01_P018": ("M1", "M2"), "F.Cu NETC6_1_L01_P002": ("M2",),
+            "B.Cu GND_L04_P017": ("M1", "M2"),
+        },
     ),
     "altium-third-party-pcbdoc-03": (1, {}, {"B.Cu GND_L02_P000": ("M2", "M3", "M4")}),
-    "altium-third-party-pcbdoc-04": (9, {"depends-on-refused": 5, "rule-scope": 4}, {}),
+    "altium-third-party-pcbdoc-04": (
+        9,
+        {},
+        {
+            "F.Cu GND_L01_P014": ("M1", "M2"), "F.Cu 5V_L01_P011": ("M2",), "F.Cu 5V_L01_P007": ("M1", "M2"),
+            "F.Cu NETL1_2_L01_P008": ("M1", "M2"), "F.Cu LED_L01_P010": ("M2",),
+            "F.Cu NETC2_1_L01_P009": ("M1", "M2"), "In1.Cu GND_L02_P012": ("M2",),
+            "In2.Cu GND_L03_P013": ("M2",), "B.Cu GND_L04_P005": ("M2",),
+        },
+    ),
     "altium-third-party-pcbdoc-05": (
-        2, {}, {"B.Cu GND_BOTTOM": ("M2",), "F.Cu GND_TOP": ("M2", "M3", "M4")},
+        2, {}, {"B.Cu GND_BOTTOM": ("M2",), "F.Cu GND_TOP": ("M2",)},
     ),
     "altium-third-party-pcbdoc-06": (
-        10, {"connect-scope": 1, "depends-on-refused": 6, "polygon-cutout": 3}, {},
+        10,
+        {},
+        {
+            "F.Cu GND_L01_P008": ("M2", "M3"), "F.Cu GND_L01_P007": ("M1", "M2", "M3", "M4"),
+            "F.Cu GND_L01_P006": ("M1", "M2", "M3", "M4"), "F.Cu VBUS_L01_P000": ("M2",),
+            "B.Cu GND_L02_P009": ("M1", "M2", "M3"),
+        },
     ),
     "altium-third-party-pcbdoc-07": (
-        9, {"depends-on-refused": 1, "outline": 1, "outline-arc": 4, "rule-scope": 3}, {},
+        9,
+        {},
+        {
+            "In2.Cu \u00b8": ("M2",), "In1.Cu \u00b8": ("M2",), "F.Cu \u00b8": ("M2",),
+            "B.Cu \u00b8": ("M2",),
+        },
     ),
     "altium-third-party-pcbdoc-08": (
         33,
-        {"connect-scope": 2, "depends-on-refused": 13, "outline-arc": 6, "polygon-cutout": 2,
-         "rule-scope": 10},
-        {},
+        {"neck-bound": 1},
+        {
+            "F.Cu NONET_L-01_P-001": ("M2",), "F.Cu BB_SYS_L01_P065": ("M2", "M4"), "F.Cu \u00b8": ("M2",),
+            "B.Cu NONET_L-01_P-001": ("M2",), "B.Cu 3V3_WIFI_L06_P070": ("M2",),
+            "In2.Cu NONET_L-01_P-001": ("M2",), "In3.Cu NONET_L-01_P-001": ("M2",),
+            "In3.Cu \u00b8": ("M2", "M3"), "In4.Cu NONET_L-01_P-001": ("M2", "M3", "M4"),
+            "In1.Cu NONET_L-01_P-001": ("M2", "M3", "M4"),
+        },
     ),
 }  # fmt: skip
-"""Row → its polygons, the refused ones per reason, and the failed criteria of each compared polygon (by
-layer and name) against the regions the document holds (``docs/evidence/altium-pour.md``, census of
-2026-10-26). M1 passes on every compared polygon."""
+"""Row → its polygons, the refused ones per reason, and the failed criteria of each compared polygon (by layer
+and name) against the regions the document holds (``docs/evidence/altium-pour.md``, census of 2026-10-26).
+Until change c0462, M1 passed on every compared polygon. On 2026-11-04 (change c0377) one polygon of ``-08``
+is no longer refused for a rule scope, since the RF clearance rules now read; an earlier refused polygon of
+its layer lies within its reach, so it is refused as ``depends-on-refused``. Since lote-26 a polygon cut-out
+is taken out of the area instead of refusing the polygon (``polygon-cutout``), so those polygons go on to the
+next criteria and are refused for a connect scope, an unmapped rule or a rule scope.
+
+Change c0462 (2026-11-06) reads the Clearance scopes of ``-04`` (``HasFootprint``) and ``-07`` (``InPolygon``
+against ``InAnyDifferentialPair``), so the pour refuses none of their polygons for a rule. With change c0463's
+arc outlines ``-07`` refuses none either. The polygons that pour now fail M1 or M2 against the saved regions:
+9 of 9 in ``-04`` (7 by M1) and 9 of 9 in ``-07`` (1 by M1; its polygons share one name, so the verdicts of a
+layer share a key). These failures are the pour's geometry, not the rules read. Poured without the newly read
+rule, 4 of the 9 polygons of ``-04`` keep their M1 ratio; the rule lowers the ratio of 4 others (one from a
+failure to a pass) and raises one (3.61 to 3.85). On ``-07`` the rule turns no failure into a pass. A known
+item of task 5.2, for change c0463. Task 4.3 refuses the second Clearance matrix of ``-08`` (``matrix-kind``:
+its fills and regions differ) before its scope is read, so its 13 polygons move from ``rule-scope`` to
+``rule-unmapped``.
+
+Task 4.5 reads the Polygon Connect Style scopes with the document, so no polygon is refused ``connect-scope``.
+The one polygon of ``-06`` and the two of ``-08`` that were go on to the Clearance rules and are refused
+``rule-unmapped`` (their governing Clearance matrix is refused ``matrix-kind``, task 4.3). The 5 polygons of
+``-01`` (2 ``connect-scope``, 3 ``depends-on-refused``) now pour, and every one fails against the saved
+regions: 4 by M1, with ratios 2.28 to 4.01, and one by M2 (ratio 0.30); with c0463's edge, conductor and
+pinch (S-2227) the M1 ratios are 1.27 to 4.01. The 5 hold the nets GND, VDD, CHG+
+and VBB but share the name ``Top Layer-No Net``, so the verdicts of a layer share a key. The cause is not
+measured yet; a known item for change c0463.
+
+Change c0463 (2026-11-06, S-2227) keeps Altium's distance from the board's edge (the corner of its polygon
+around the clearance) and draws a relief conductor over its own pad outside the outline: the three planes
+of ``-04`` and P21 of ``-07`` now pass M1, so 4 polygons of ``-04`` and none of ``-07`` fail it. What is
+left on the top layer of ``-04`` is copper Fenolite keeps and Altium removes, joined to the rest through
+narrow channels. Parting a pinch that the neck removal's discs close again takes M3 and M4 off the top
+polygon of ``-05``.
+
+Task 5.1 (S-2214) reads ``InDifferentialPairClass`` as the pairs' copper for every rule kind, so no polygon
+of ``-08`` is refused for a rule scope; the refusal of task 4.3 (``matrix-kind``) comes first there, so its
+counts stay those above.
+
+Task 4.3 (S-2227) reads ``-02``: the pour reads a Clearance with the in-footprint pad-pair flag as if the
+flag were off (it pairs no pads), a polygon cut-out keeps no clearance, and a via without a pad joins a
+polygon of its net. All 12 polygons pour; the GND planes fail M1 (4.46 and 3.98) by a band along the
+board's edge that Altium pours and its one Clearance keeps free, and ``P002`` fails M2 against the saved
+pour only. On ``-06`` the pad-pair record maps, so one polygon is refused ``depends-on-refused`` instead.
+
+Task 5.2 (2026-11-06): on every row no polygon is refused ``rule-scope`` or ``connect-scope``. The polygons
+refused ``rule-unmapped`` (``-06``, ``-08``) were refused for records that the design names and ``map_rules``
+refuses: ``IGNOREPADTOPADCLEARANCEINFOOTPRINT=TRUE`` (``keys``) and the matrices of task 4.3 of c0462
+(``matrix-kind``), each listed in ``test_altium_rule_kinds_c0462.py::POUR_UNREAD``.
+
+Change c0463, task 4.3 (S-2227), reads those records for the pour (``pour.pour_rule_fields``): a Clearance
+matrix whose arc and track, or fill and region, cells differ is read cell by cell for the polygon's row, and
+a Board Outline Clearance matrix whose outline and cut-out cells differ keeps the outline's value from both.
+``POUR_UNREAD`` is empty. Every polygon of ``-06`` pours; of ``-08`` all but one, whose exact neck cut exceeds
+its resource bound (``neck-bound``)."""
 
 
 @pytest.mark.parametrize("item", DOCUMENTS, ids=lambda item: item.id)
@@ -174,7 +274,8 @@ def test_pour_census(item: CorpusItem) -> None:
     """Scenario "Census counts are pinned": every polygon is poured or refused with a reason of
     ``pour.REASONS``, and each poured one is compared by M1 to M4 with the regions the document holds. A
     failed comparison is listed (``-rA``) with its polygon and its places; it fails nothing, since a saved
-    pour may be stale, or poured by another version or with AdvancedPour."""
+    pour may be stale, or poured by another version or with AdvancedPour. A shelved polygon and one on a
+    plane are Altium's own outcome and count under ``exact`` (change c0463)."""
     import importlib.util
 
     if importlib.util.find_spec("pyclipper") is None:
@@ -189,7 +290,8 @@ def test_pour_census(item: CorpusItem) -> None:
     for polygon in result.polygons:
         if not polygon.poured:
             assert polygon.reason in REASONS, (item.id, polygon.reason)
-            refused[polygon.reason] = refused.get(polygon.reason, 0) + 1
+            key = "exact" if polygon.exact else polygon.reason  # change c0463, D4
+            refused[key] = refused.get(key, 0) + 1
     found = compare_computed(reading, result)
     failed = {f"{v.layer} {v.name}": v.failed for v in found.polygons if not v.passed}
     for verdict in found.polygons:
@@ -197,4 +299,4 @@ def test_pour_census(item: CorpusItem) -> None:
         for failure in verdict.failures:
             print(f"    {failure.criterion} {failure.message} {failure.at or ''}")
     assert (len(result.polygons), refused, failed) == POUR_CENSUS[item.id]
-    assert all(verdict.ratio <= 1 for verdict in found.polygons)
+    assert all((verdict.ratio <= 1) == ("M1" not in verdict.failed) for verdict in found.polygons)

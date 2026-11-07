@@ -10,6 +10,7 @@ from typing import Literal
 from fenolite.backends.base import BoardFrame
 from fenolite.core.coords import Point
 from fenolite.geometry import BBox
+from fenolite.model.board import rule_areas
 from fenolite.model.design import Design
 from fenolite.placement.legality import outline_rings
 
@@ -70,7 +71,7 @@ def placement_preview(
     rows.append(
         f'<path d="{path}" fill="#dce8dd" fill-rule="evenodd" stroke="#45574a" stroke-width="{stroke}"/>'
     )
-    for keepout in sorted(board.keepouts, key=lambda k: k.id):
+    for keepout in sorted(rule_areas(board), key=lambda k: k.id):
         if not keepout.layers or layer in keepout.layers:
             rows.append(
                 f'<polygon data-keepout="{escape(keepout.id, quote=True)}" '

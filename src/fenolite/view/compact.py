@@ -29,6 +29,8 @@ import base64
 import gzip
 import json
 import re
+import struct
+import zlib
 from typing import Any, cast
 
 SCHEMA_V0 = "fenolite.view_scene.v0"
@@ -212,10 +214,24 @@ def expand(scene: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+_GZIP_HEADER = b"\x1f\x8b\x08\x00\x00\x00\x00\x00\x02\xff"
+"""Deflate, no flags, time stamp 0, best compression, operating system 255 (unknown): RFC 1952."""
+
+
+def _gzip(data: bytes) -> bytes:
+    """``data`` as one gzip member whose bytes do not depend on the Python version or the host.
+
+    ``gzip.compress(data, mtime=0)`` writes the operating-system byte that zlib was built with (3 on Unix, 10
+    on Windows) on Python 3.11 and 3.12, and 255 on 3.13; a review sheet, and the ``sheet_sha256`` its review
+    accepts, then changed with the interpreter. This header is the one Python 3.13 writes."""
+    deflated = zlib.compress(data, level=9, wbits=-15)
+    return _GZIP_HEADER + deflated + struct.pack("<LL", zlib.crc32(data), len(data) & 0xFFFFFFFF)
+
+
 def pack(scene: dict[str, Any]) -> str:
-    """A scene for a standalone page: its compact JSON, gzipped (fixed time stamp) and base64-encoded."""
+    """A scene for a standalone page: its compact JSON, gzipped (fixed header) and base64-encoded."""
     text = json.dumps(compact(scene), separators=(",", ":"), ensure_ascii=False).encode("utf-8")
-    return PACKED + base64.b64encode(gzip.compress(text, mtime=0)).decode("ascii")
+    return PACKED + base64.b64encode(_gzip(text)).decode("ascii")
 
 
 def unpack(value: str | dict[str, Any]) -> dict[str, Any]:

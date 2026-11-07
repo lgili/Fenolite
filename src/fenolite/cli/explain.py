@@ -24,6 +24,8 @@ TABLES: tuple[tuple[str, str], ...] = (
     ("fenolite.analysis.codes", "ISSUE_CODES"),
     ("fenolite.api.trials", "ISSUE_CODES"),
     ("fenolite.backends.altium.adapter.codes", "IMPORT_ISSUE_CODES"),
+    ("fenolite.backends.altium.edit.integrity", "INTEGRITY_ISSUE_CODES"),
+    ("fenolite.backends.altium.edit.session", "EDIT_ISSUE_CODES"),
     ("fenolite.backends.altium.read.pcbprops", "PCB_READ_ISSUE_CODES"),
     ("fenolite.backends.altium.read.sch.issues", "ISSUE_CODES"),
     ("fenolite.backends.altium.read.sheet", "ISSUE_CODES"),
@@ -53,37 +55,54 @@ TABLES: tuple[tuple[str, str], ...] = (
     ("fenolite.backends.kicad.stackup", "MERGE_ISSUE_CODES"),
     ("fenolite.backends.kicad.stackup", "READ_ISSUE_CODES"),
     ("fenolite.backends.kicad.stackup", "WRITE_ISSUE_CODES"),
+    ("fenolite.backends.kicad.verbatim", "ISSUE_CODES"),
     ("fenolite.backends.kicad.via_protection", "ISSUE_CODES"),
     ("fenolite.backends.kicad.via_protection", "WRITE_ISSUE_CODES"),
     ("fenolite.backends.kicad.wks", "ISSUE_CODES"),
     ("fenolite.backends.kicad.zones", "MERGE_ISSUE_CODES"),
     ("fenolite.backends.kicad.zones", "PAD_ZONE_ISSUE_CODES"),
     ("fenolite.backends.specctra.dsn", "ISSUE_CODES"),
+    ("fenolite.catalog.footprints.codes", "ISSUE_CODES"),
+    ("fenolite.catalog.generate.symbol", "ISSUE_CODES"),
+    ("fenolite.catalog.records", "LIBRARY_ISSUE_CODES"),
     ("fenolite.checks.codes", "ISSUE_CODES"),
     ("fenolite.checks.diffgate", "ISSUE_CODES"),
     ("fenolite.checks.equivalence.codes", "ISSUE_CODES"),
     ("fenolite.checks.parity", "PARITY_ISSUE_CODES"),
     ("fenolite.checks.readiness", "READY_ISSUE_CODES"),
     ("fenolite.cli._gate", "ISSUE_CODES"),
+    ("fenolite.cli.blockvendored", "ISSUE_CODES"),
+    ("fenolite.cli.cmd_blocks", "ISSUE_CODES"),
     ("fenolite.cli.cmd_doctor", "ISSUE_CODES"),
     ("fenolite.cli.cmd_fmt", "ISSUE_CODES"),
     ("fenolite.cli.cmd_kit", "ISSUE_CODES"),
     ("fenolite.cli.cmd_restore", "ISSUE_CODES"),
     ("fenolite.cli.cmd_roundtrip", "ISSUE_CODES"),
+    ("fenolite.cli.cmd_verify_source", "ISSUE_CODES"),
     ("fenolite.cli.codes", "ISSUE_CODES"),
     ("fenolite.convert.codes", "ISSUE_CODES"),
     ("fenolite.exports.codes", "ISSUE_CODES"),
     ("fenolite.exports.impedance", "ISSUE_CODES"),
+    ("fenolite.importer.codes", "ISSUE_CODES"),
     ("fenolite.lens.altium", "ALTIUM_ISSUE_CODES"),
     ("fenolite.lens.altium_copper", "COPPER_ISSUE_CODES"),
     ("fenolite.lens.altium_schematic", "ISSUE_CODES"),
     ("fenolite.lens.build", "BUILD_ISSUE_CODES"),
+    ("fenolite.lens.edits", "EDIT_ISSUE_CODES"),
     ("fenolite.lens.preserve", "PRESERVE_ISSUE_CODES"),
     ("fenolite.lens.sync", "SYNC_ISSUE_CODES"),
     ("fenolite.library.codes", "ISSUE_CODES"),
+    ("fenolite.library.importer.templates", "CATALOG_ISSUE_CODES"),
+    ("fenolite.library.rules", "ISSUE_CODES"),
     ("fenolite.model.design", "MODEL_ISSUE_CODES"),
+    ("fenolite.model.drawn_connect", "ISSUE_CODES"),
+    ("fenolite.model.pins", "PIN_ISSUE_CODES"),
     ("fenolite.panel.codes", "ISSUE_CODES"),
+    ("fenolite.pick.codes", "ISSUE_CODES"),
+    ("fenolite.pick.grammar.codes", "ISSUE_CODES"),
+    ("fenolite.pick.supplier_policy", "SUPPLIER_ISSUE_CODES"),
     ("fenolite.placement.codes", "ISSUE_CODES"),
+    ("fenolite.placement.codes", "LAYOUT_ISSUE_CODES"),
     ("fenolite.reuse.codes", "ISSUE_CODES"),
     ("fenolite.roles.codes", "ISSUE_CODES"),
     ("fenolite.routing.codes", "ISSUE_CODES"),
@@ -91,6 +110,7 @@ TABLES: tuple[tuple[str, str], ...] = (
     ("fenolite.schematic.composition", "ISSUE_CODES"),
     ("fenolite.silk.codes", "ISSUE_CODES"),
     ("fenolite.templates.spec", "ISSUE_CODES"),
+    ("fenolite.testing.blocks", "ISSUE_CODES"),
     ("fenolite.tidy.codes", "ISSUE_CODES"),
 )
 """``(module, name)`` of every mapping of the package whose name ends in ``ISSUE_CODES``, sorted."""
@@ -123,6 +143,11 @@ def _spelled(key: str) -> list[str]:
     if ORACLE not in key:
         return [key]
     return [key.replace(ORACLE, oracle) for oracle in ORACLES]
+
+
+def table_codes(table: Mapping[str, object]) -> tuple[str, ...]:
+    """Expanded keys of a registered issue table, using the same family/oracle rules as all_codes."""
+    return tuple(code for key in table for code in _spelled(key))
 
 
 @cache

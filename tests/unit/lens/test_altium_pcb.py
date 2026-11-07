@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import tempfile
 from decimal import Decimal
+from fractions import Fraction
 from pathlib import Path
 
 import pytest
@@ -99,7 +100,9 @@ def test_pad_extras_refusals_and_drops(tmp_path: Path) -> None:
     defn = read_footprint(path, library="X")
     first, second = (pad_extras(defn)[p.id] for p in defn.pads)
     assert first.refusal is None  # an oval drill is written as a slot (change c0170)
-    assert first.dropped == ("solder mask margin",) and second == type(second)()
+    # the model holds the margin and the pad writer writes it (changes c0440, c0448): nothing is dropped
+    assert defn.pads[0].mask_margin == 100_000
+    assert first.dropped == () and second == type(second)()
     path.write_text(source.replace("(drill 0.9)", "(drill 0.9 (offset 0.1 0))", 1), encoding="utf-8")
     offset = read_footprint(path, library="X")
     assert pad_extras(offset)[offset.pads[0].id].refusal == (
@@ -717,7 +720,8 @@ def test_plane_variant_builds(tmp_path: Path) -> None:
     assert copper["layers"] == 4 and copper["vias"] == 3  # type: ignore[index]
     doc = read_pcbdoc(output.files["routed.PcbDoc"])
     assert doc.copper_chain == [1, 39, 3, 32] and doc.plane_nets == {1: "GND"}
-    assert doc.board["PLANE1NETNAME"] == "GND" and [p.layer for p in doc.polygons] == ["BOTTOM"]
+    # change c0389 task 2.7: the plane gets its Split Plane polygon on its net after the pours
+    assert doc.board["PLANE1NETNAME"] == "GND" and [p.layer for p in doc.polygons] == ["BOTTOM", "PLANE1"]
     assert sorted(t.prefix.layer for t in doc.free_tracks) == [1, 1, 3, 32] and len(doc.vias) == 3
     (merged,) = [i for i in output.issues if i.code == "altium.plane-zone-merged"]
     assert merged.severity == "info" and "the GND zone on In1.Cu at (1, 1) mm" in merged.message
@@ -928,7 +932,8 @@ def test_copper_does_not_depend_on_the_sheet_mode(tmp_path: Path) -> None:
     doc = read_pcbdoc(board.files["altium_hier_board.PcbDoc"])
     assert doc.copper_chain == [1, 39, 3, 32] and doc.plane_nets == {1: "GND"}
     assert all(c["SOURCEUNIQUEID"].count("\\") == 2 for c in doc.components)
-    assert [c.name for c in doc.classes] == ["PWR", "driver", "led"] and len(doc.rules) == 5
+    assert [c.name for c in doc.classes] == ["PWR", "driver", "led"] and len(doc.rules) == 7
+    assert {"PlaneConnect", "PlaneClearance"} <= {r.name for r in doc.rules}  # c0389 task 2.7
 
 
 # --- every board component links to a schematic component (H-A-SCH-HIER-ECO, step H7) ------------------
@@ -1092,25 +1097,36 @@ def build_blink_script(root: Path, text: str, new: str) -> BuildOutput:
     )
 
 
-def test_an_outline_with_arcs_no_document(tmp_path: Path) -> None:
-    """Scenario "An outline with arcs, no document"."""
+def _outline_vertices(document: bytes) -> list[tuple[int, Fraction]]:
+    from fenolite.backends.altium.read.pcb import read_pcbdoc
+
+    return [(v.kind, v.radius) for v in read_pcbdoc(document).board.outline]
+
+
+def test_an_outline_with_arcs_is_written(tmp_path: Path) -> None:
+    """Scenario "An outline with arcs is written" (change c0448; before, c0102 wrote no document)."""
+    from fenolite.backends.altium.pcbrecords import to_units
+
     rounded = (
         "from fenolite.dsl import shape\n"
         "design.board(outline=shape.rect(mm(0), mm(0), mm(50), mm(30), radius=mm(2)))\n"
     )
     output = build_blink_script(tmp_path, "design.board(mm(50), mm(30))\n", rounded)
     assert not [i for i in output.issues if i.severity == "error"]
-    assert "blink.PcbLib" in output.files and "blink.PcbDoc" not in output.files
-    (found,) = [i for i in output.issues if i.code == "altium.pcbdoc-not-written"]
-    assert "arcs" in found.message and output.summary["pcb_document"] is None
+    assert "blink.PcbDoc" in output.files
+    assert not [i for i in output.issues if i.code == "altium.pcbdoc-not-written"]
+    arcs = [radius for kind, radius in _outline_vertices(output.files["blink.PcbDoc"]) if kind == 1]
+    # the circle through the three points of each corner, within one unit of rounding
+    assert len(arcs) == 4 and all(abs(radius - to_units(2_000_000)) <= 1 for radius in arcs)
 
 
-def test_a_milled_slot_plans_the_document(tmp_path: Path) -> None:
+def test_a_milled_slot_plans_the_document(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Change c0168 (Decision 5): an outline with slots plans the PCB document; while
     ``pcbdoc.CUTOUT_REGIONS`` is false each slot is reported by name, in the build and in the lowering of
     a model."""
-    from fenolite.backends.altium import lower
+    from fenolite.backends.altium import lower, pcbdoc
 
+    monkeypatch.setattr(pcbdoc, "CUTOUT_REGIONS", False)
     slotted = (
         "design.board(mm(50), mm(30))\ndesign.slot(mm(40), mm(15), length=mm(8), width=mm(2), name='V')\n"
     )
@@ -1129,10 +1145,12 @@ def test_a_milled_slot_plans_the_document(tmp_path: Path) -> None:
 
 
 def test_a_round_board_names_its_arcs_not_a_missing_outline(tmp_path: Path) -> None:
+    """Scenario "A round board, no document": two arc vertices are fewer than the board record holds."""
     round_board = (
         "from fenolite.dsl import shape\ndesign.board(outline=shape.circle(mm(25), mm(15), mm(60)))\n"
     )
     output = build_blink_script(tmp_path, "design.board(mm(50), mm(30))\n", round_board)
+    assert "blink.PcbDoc" not in output.files
     (found,) = [i for i in output.issues if i.code == "altium.pcbdoc-not-written"]
     assert "arcs" in found.message and "no board outline" not in found.message
 
@@ -1166,13 +1184,11 @@ def test_a_round_hole_becomes_a_free_pad(tmp_path: Path) -> None:
 
 
 def test_holes_without_a_document_are_counted_by_the_holes_issue(tmp_path: Path) -> None:
-    rounded = (
-        "from fenolite.dsl import shape\n"
-        "design.board(outline=shape.rect(mm(0), mm(0), mm(50), mm(30), radius=mm(2)))\n"
+    holes = (
         'design.hole("H1", mm(4), mm(4), drill=mm(3.2))\n'
         'design.hole("H3", mm(25), mm(4), drill=mm(1), length=mm(3))\n'
-    )
-    output = build_blink_script(tmp_path, "design.board(mm(50), mm(30))\n", rounded)
+    )  # no board outline, so no document (an outline with arcs plans one since change c0448)
+    output = build_blink_script(tmp_path, "design.board(mm(50), mm(30))\n", holes)
     assert "blink.PcbDoc" not in output.files
     (found,) = [i for i in output.issues if i.code == "altium.not-lowered" and i.where == "holes"]
     assert found.message.startswith("2 ")

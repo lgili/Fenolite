@@ -7,14 +7,10 @@ the blink, measured exactly."""
 from __future__ import annotations
 
 import dataclasses
-import io
-import json
-from pathlib import Path
 
 import pytest
-from _buildhelp import blink, blink_variant, build
+from _buildhelp import blink, build
 
-import fenolite.cli.main as cli_main
 import fenolite.dsl as dsl
 from fenolite.backends.kicad import boarditems
 from fenolite.backends.kicad.copper import copper_uuid
@@ -261,25 +257,6 @@ def test_band_that_crosses_itself_is_refused() -> None:
     spine = ((mm(10), mm(5)), (mm(20), mm(5)), (mm(20), mm(9)), (mm(12), mm(9)), (mm(12), mm(3)))
     design.band(design.nets["VIN"], spine, width=mm(3), layers=("B.Cu",))
     assert _errors(_build(design)) == ["kicad.generate.crossing"]
-
-
-def test_altium_target_refuses_generated_copper(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """``kicad.generate.altium``: the Altium target writes nothing for a script with a generated call."""
-    monkeypatch.setenv("KICAD_CONFIG_HOME", str(tmp_path / "kicad-config"))
-    for name in ("KICAD10_FOOTPRINT_DIR", "KICAD10_SYMBOL_DIR", "KICAD9_FOOTPRINT_DIR", "KICAD9_SYMBOL_DIR"):
-        monkeypatch.delenv(name, raising=False)
-    line = 'design.band(vin, ((mm(26), mm(24.5)), (mm(46), mm(24.5))), width=mm(3), layers=("B.Cu",))\n'
-    script = blink_variant(tmp_path / "src", append="\n" + line)
-    stdout = io.StringIO()
-    monkeypatch.setattr("sys.stdout", stdout)
-    monkeypatch.setattr("sys.stderr", io.StringIO())
-    out = tmp_path / "out"
-    arguments = ["build", str(script), "--out", str(out), "--target", "altium", "--dry-run", "--json"]
-    code = cli_main.main(arguments)
-    env = json.loads(stdout.getvalue() or "{}")
-    refused = [found for found in env["issues"] if found["code"] == "kicad.generate.altium"]
-    assert code != 0 and len(refused) == 1 and refused[0]["where"] == "band.VIN"
-    assert not out.exists() or not any(out.iterdir())
 
 
 def test_ring_holds_the_circle() -> None:

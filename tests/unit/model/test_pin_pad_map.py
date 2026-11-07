@@ -105,7 +105,7 @@ def test_one_pad_per_pin_keeps_its_bytes() -> None:
     circuit = canonical.loads(BEFORE, Circuit)
     assert circuit.components[0].pin_pad_map == (("1", "2"), ("2", "1"))
     assert canonical.dumps(circuit) == BEFORE
-    assert canonical.dump_texts(Design.new("d", seed=1))["meta.json"].count('"schema_version": "0"') == 1
+    assert canonical.dump_texts(Design.new("d", seed=1))["meta.json"].count('"schema_version": "1.1"') == 1
 
 
 def test_pad_named_by_two_pins() -> None:

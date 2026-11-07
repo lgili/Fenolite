@@ -1,0 +1,206 @@
+{
+  "repository": "lgili/Fenolite",
+  "run_id": 41708879698,
+  "head_sha": "985f59a1d01a612b2eac0219243199896c24075a",
+  "observed_original_status": "completed",
+  "observed_original_conclusion": "failure",
+  "authorization": "Maintainer requested deletion of failed/cancelled CI runs; coordinator explicitly authorized this single terminal failed run after complete retention.",
+  "all_14_job_logs_preserved": true,
+  "all_6_artifact_zip_bytes_preserved": true,
+  "all_6_server_digests_and_sizes_match": true,
+  "all_zip_member_CRCs_verified": true,
+  "before_delete_all_14_jobs_completed": true,
+  "delete": {
+    "method": "DELETE",
+    "endpoint": "repos/lgili/Fenolite/actions/runs/41708879698",
+    "gh_exit": 0,
+    "http_status": 204,
+    "response_path": "retention/delete-response.txt",
+    "date_response_header": "Date: Tue, 03 Nov 2026 22:08:45 GMT"
+  },
+  "verification": {
+    "method": "GET",
+    "endpoint": "repos/lgili/Fenolite/actions/runs/41708879698",
+    "gh_exit": 1,
+    "http_status": 404,
+    "message": "Not Found",
+    "response_path": "retention/verify-get-response.txt",
+    "date_response_header": "Date: Tue, 03 Nov 2026 22:08:45 GMT"
+  },
+  "receipt_utc": "2026-11-03T22:09:04.488914+00:00",
+  "other_runs_mutated": false,
+  "rerun_or_push_performed": false,
+  "failure_remains_failure": true,
+  "deletion_does_not_mean_CI_passed": true,
+  "external_complete_receipt_sha256": "0731079408fa4321aaba941f21d02838acf81dd0d79d58b3bec81e8ccb03308f",
+  "external_manifest_sha256": "9b830ffc2cbe90beb41a6834d17dc5cd88b3ed3f4a091108a73560d2eb747c94",
+  "job_logs": [
+    {
+      "id": 126171394030,
+      "name": "mcp (the official MCP client against fenolite mcp)",
+      "status": "completed",
+      "conclusion": "success",
+      "bytes": 20805,
+      "sha256": "891ff999efdbd19448b16060349409975a67d188e605bb5de53186586374ec9d"
+    },
+    {
+      "id": 126171394269,
+      "name": "unit (windows-latest, py3.12)",
+      "status": "completed",
+      "conclusion": "success",
+      "bytes": 85771,
+      "sha256": "66577fb85d4e4bbba9cc0406a091c0913d58e15b788cc8cc48cc1efa0738776b"
+    },
+    {
+      "id": 126171394424,
+      "name": "wheel (the built package installs alone)",
+      "status": "completed",
+      "conclusion": "success",
+      "bytes": 21136,
+      "sha256": "cf2c98b4618d7fd09d2a429059e2f10a5d64a25973d71e3d62cafb2d91862b58"
+    },
+    {
+      "id": 126171394428,
+      "name": "unit (ubuntu-latest, py3.12)",
+      "status": "completed",
+      "conclusion": "success",
+      "bytes": 70146,
+      "sha256": "b50f6945d687cfa3616baa6fe310bb2974cbc4c01c8d861dce98e89e34c0dfce"
+    },
+    {
+      "id": 126171394431,
+      "name": "viewer (visual tests)",
+      "status": "completed",
+      "conclusion": "success",
+      "bytes": 44730,
+      "sha256": "28caec4c9eec401ec73bf1a4b22aaf587d215007265a1d9c2757e2a4c80149ec"
+    },
+    {
+      "id": 126171394457,
+      "name": "dco (every commit is signed off)",
+      "status": "completed",
+      "conclusion": "success",
+      "bytes": 15666,
+      "sha256": "fc18aa303274ea72f728691e4320b84f654cc9377ccc04b1bd7156a70e0672d1"
+    },
+    {
+      "id": 126171394460,
+      "name": "unit (macos-latest, py3.12)",
+      "status": "completed",
+      "conclusion": "success",
+      "bytes": 72044,
+      "sha256": "fbfc36d8e3b8bb3828397351111f9d60b6e04cb30e409565ac16f4b15bcd3343"
+    },
+    {
+      "id": 126171394540,
+      "name": "routing (KiCad 10, pinned KiCadRoutingTools and Freerouting)",
+      "status": "completed",
+      "conclusion": "success",
+      "bytes": 60302,
+      "sha256": "edaaef67e8c45c37cdb158432f4cbf49b853de4f84a4e1968e05449bb9e1e277"
+    },
+    {
+      "id": 126171394556,
+      "name": "unit (ubuntu-latest, py3.11)",
+      "status": "completed",
+      "conclusion": "success",
+      "bytes": 67233,
+      "sha256": "2d6914cb144ab302881fb4c6f5b985f78168c151cce4c6cc398f1a9c7d899a0b"
+    },
+    {
+      "id": 126171394674,
+      "name": "kicad-10 (kicad-cli oracle and corpus)",
+      "status": "completed",
+      "conclusion": "failure",
+      "bytes": 368635,
+      "sha256": "014e4eb36c889f4848842d7abf57462ab6da185e2b8fcf5b28ddbb9334d1a68b"
+    },
+    {
+      "id": 126171394700,
+      "name": "unit (ubuntu-latest, py3.13)",
+      "status": "completed",
+      "conclusion": "success",
+      "bytes": 67241,
+      "sha256": "2eb025a6dadcb6612d56eb0c52d6758c0c84ff03f441c2d7d52cbb00f91016fa"
+    },
+    {
+      "id": 126171394705,
+      "name": "routing (KiCad 9, pinned KiCadRoutingTools and Freerouting)",
+      "status": "completed",
+      "conclusion": "success",
+      "bytes": 59251,
+      "sha256": "559c177662dbd7a0d16e225d15931ef72cea877a98b60e382eb461a931431f30"
+    },
+    {
+      "id": 126171394740,
+      "name": "kicad-9 (kicad-cli 9.0 oracle)",
+      "status": "completed",
+      "conclusion": "success",
+      "bytes": 1951631,
+      "sha256": "3ac138d8cafad5c225d11d9bd22774c872f9369925c7d892d271be0401ab8d94"
+    },
+    {
+      "id": 126224639714,
+      "name": "drawn-floor (same-commit native10 upgrade qualification)",
+      "status": "completed",
+      "conclusion": "failure",
+      "bytes": 13887,
+      "sha256": "3cc295c22a528d39d5b5731703641355c3992534bd2954f0120a30796e48ba07"
+    }
+  ],
+  "artifacts": [
+    {
+      "id": 13273449573,
+      "name": "drawn-floor-kicad-10",
+      "bytes": 10621,
+      "sha256": "0fe3d150b447fc8ba757c9332b2af5b42cff654f5e32f2d6a1b1d47ee5101beb",
+      "server_digest": "sha256:0fe3d150b447fc8ba757c9332b2af5b42cff654f5e32f2d6a1b1d47ee5101beb",
+      "zip_crc_verified": true
+    },
+    {
+      "id": 13272991010,
+      "name": "drawn-floor-kicad-9",
+      "bytes": 7339,
+      "sha256": "78ddaa9dfc63a9845d41a84781a9fea57eb1088a697cba54a136d27933f4b101",
+      "server_digest": "sha256:78ddaa9dfc63a9845d41a84781a9fea57eb1088a697cba54a136d27933f4b101",
+      "zip_crc_verified": true
+    },
+    {
+      "id": 13272469122,
+      "name": "drawn-census-kicad-10",
+      "bytes": 390420,
+      "sha256": "13c210de5ded6c12fabde9d67e01102790f34f222b457e47176a53135bcc1e5d",
+      "server_digest": "sha256:13c210de5ded6c12fabde9d67e01102790f34f222b457e47176a53135bcc1e5d",
+      "zip_crc_verified": true
+    },
+    {
+      "id": 13272434225,
+      "name": "import-census",
+      "bytes": 7515,
+      "sha256": "1e179e5c80e839e67d5263291e09ff3e4274d829270e0624eac36b73482d13ac",
+      "server_digest": "sha256:1e179e5c80e839e67d5263291e09ff3e4274d829270e0624eac36b73482d13ac",
+      "zip_crc_verified": true
+    },
+    {
+      "id": 13272156813,
+      "name": "drawn-census-kicad-9",
+      "bytes": 689564,
+      "sha256": "c3b2c3efd6be9ec7a1144c2c1c7f8fd8e0f5cfb4a25f9e5adbd430fb8279786b",
+      "server_digest": "sha256:c3b2c3efd6be9ec7a1144c2c1c7f8fd8e0f5cfb4a25f9e5adbd430fb8279786b",
+      "zip_crc_verified": true
+    },
+    {
+      "id": 13267637364,
+      "name": "library-review",
+      "bytes": 20559525,
+      "sha256": "83bc1b88c71c8a7120defc4dbce8f0567c2bb6fdf06fb8fd4d4426e339b109f0",
+      "server_digest": "sha256:83bc1b88c71c8a7120defc4dbce8f0567c2bb6fdf06fb8fd4d4426e339b109f0",
+      "zip_crc_verified": true
+    }
+  ],
+  "job_logs_archive": {
+    "bytes": 446411,
+    "sha256": "09dfef7f5b57080683d17f9a02d5c2bd8ee346b16f77dbbd812c0fc333c60bbd",
+    "zip_crc_verified": true
+  }
+}

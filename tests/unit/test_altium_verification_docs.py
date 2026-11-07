@@ -5,8 +5,11 @@ documented", scenario "Pages name the levels and the codes"; change c0044)."""
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
+
+import pytest
 
 from fenolite.backends.altium.backend import READ_KINDS
 from fenolite.checks.codes import ISSUE_CODES
@@ -27,6 +30,21 @@ SKIPS = ("native-input", "no-schematic", "single-source", "not-judged", "read-re
 
 def _page(name: str) -> str:
     return (ROOT / "docs" / name).read_text(encoding="utf-8")
+
+
+def _drawn_proof_path() -> Path:
+    changes = ROOT / "openspec/changes"
+    candidates = [
+        changes / "c0276-drawn-schematic",
+        *sorted((changes / "archive").glob("*-c0276-drawn-schematic")),
+    ]
+    found = [path for path in candidates if path.is_dir()]
+    assert len(found) == 1, "expected exactly one c0276 change directory"
+    return found[0] / "native-visual-proof.json"
+
+
+def _drawn_visual_proof() -> dict:
+    return json.loads(_drawn_proof_path().read_text(encoding="utf-8"))
 
 
 def _section(text: str, heading: str) -> str:
@@ -154,7 +172,7 @@ def test_part_f_f0_names_the_fourteen_steps_with_their_expected_outcomes() -> No
         "H-A-DWF-CONTAINER",
         "H-A-DWF-FIELD",
         "fenolite kit verify",
-        "Altium Designer 26.5",
+        "Altium Designer 24.5.2.23",
     ):
         assert name in f0 or name in part, name
 
@@ -170,6 +188,23 @@ def test_part_f_reports_hold_no_altium_verified_row_without_a_report() -> None:
     register = _page("hypotheses.md")
     rows = [line for line in register.splitlines() if line.startswith("| H-A-DWF-")]
     assert rows and not [line for line in rows if "| ALTIUM-VERIFIED" in line]
+
+
+def test_part_f_fp_and_acceptance_cases_are_ready_and_gate_is_closed() -> None:
+    from fenolite.backends.altium import draftsman
+
+    part = _part_f()
+    assert [int(n) for n in re.findall(r"\*\*FP(\d)\*\*", part)] == list(range(1, 6))
+    assert [int(n) for n in re.findall(r"\*\*F(\d)\*\*", part)] == list(range(1, 9))
+    assert "status.json" in part and "unjudged" in part and "SHA256SUMS" in part
+    assert "FENOLITE_ALTIUM_F8" in part and "kit privacy scan" in part
+    correction = part[part.index("### Round FPC") : part.index("### Round F1")]
+    assert [int(n) for n in re.findall(r"\*\*FPC(\d+)\*\*", correction)] == list(range(1, 12))
+    assert "**D01 to D32**" in correction and "route P" in correction and "unjudged" in correction
+    reports = _section(_page("evidence/altium-draftsman.md"), "## Reports")
+    if draftsman.NATIVE_WRITE:
+        for case in ("FP1", "FP2", "FP3", "FP4"):
+            assert re.search(rf"\|\s*{case}\s*\|[^\n]*\|\s*as expected\s*\|", reports), case
 
 
 def _part_q() -> str:
@@ -231,7 +266,7 @@ def test_part_j_names_the_cases_with_their_expected_outcomes() -> None:
         assert name in part, name
     register = _page("hypotheses.md")
     rows = re.findall(r"^\| (H-A-(?:EDIT|INTEG)-[A-Z]+) \|", register, re.M)
-    assert len(rows) == 21
+    assert len(rows) == 23
     for row in rows:
         assert f"`{row}`" in part, row
         line = next(line for line in register.splitlines() if line.startswith(f"| {row} |"))
@@ -249,3 +284,142 @@ def test_part_j_reports_hold_no_altium_verified_row_without_a_report() -> None:
         if line.startswith(("| H-A-EDIT-", "| H-A-INTEG-"))
     ]
     assert rows and not [line for line in rows if "| ALTIUM-VERIFIED" in line]
+
+
+def test_drawn_report_acceptance_preserves_historical_failures_and_kit_scope() -> None:
+    section = _section(
+        _page("evidence/altium-schematic.md"), "## Drawn-sheet kit request (c0276, 2026-11-01)"
+    )
+    for words in (
+        "H-A-DRAWN-WRITE",
+        "INFERRED",
+        "pending",
+        "Altium is unavailable",
+        "--altium-format binary",
+        "--altium-format ascii",
+        ".fenolite/circuit.json",
+        "repeated instances",
+        "new copy",
+    ):
+        assert words in section
+    row = next(line for line in _page("hypotheses.md").splitlines() if line.startswith("| H-A-DRAWN-WRITE |"))
+    assert "INFERRED" in row and "formal-kit drawn step/source binding" in row
+    assert "Altium24.5.2.23" in row and "altium-drawn-native.md" in row
+    proof = _drawn_visual_proof()
+    approval = proof["maintainer_report_approval"]
+    assert approval["status"] == "APPROVED"
+    assert approval["answer"] == "Aprovo o relatório com essas limitações"
+    assert len(approval["reviewed_report_sha256"]) == 64
+    assert len(proof["captures"]) == 14
+    assert all(capture["operator_inspected"] for capture in proof["captures"])
+    assert proof["all_fourteen_native_sources_unchanged"]
+    assert len(proof["limitations"]) == 5
+    assert approval["writer_experimental"] and approval["CI_pending"]
+    assert not proof["hypothesis_level_changed"]
+    assert not proof["writer_graduation_claimed"] and not proof["current_CI_pass_claimed"]
+    observed = json.loads(_page("evidence/altium-drawn-native.json"))
+    assert not observed["full_gate_passed"] and not observed["evidence_promoted"]
+    assert len(observed["original_cases"]) == 6
+    assert all(case["connectivity_equal"] for case in observed["original_cases"])
+    assert any(case["compiler_messages"].get("[Error]", 0) for case in observed["original_cases"])
+    assert observed["native_saved_copies"]["complete_projects_reopened"] == 10
+    assert observed["native_negative_control"]["correctly_refused"]
+
+
+def test_clean_drawn_native_control_is_scoped_and_preserves_its_negative() -> None:
+    observed = json.loads(_page("evidence/altium-clean-drawn-native.json"))
+    assert "schema" not in observed  # internal evidence, not a new public persisted format
+    assert observed["native_version"] == "24.5.2.23"
+    assert observed["writer_source_commit"] == "da89051f6bd7cfe81cae5fd3daedaa3e8d565629"
+    assert (
+        observed["task_6_3_passed"] and not observed["full_gate_passed"] and not observed["evidence_promoted"]
+    )
+    assert observed["original_6_2_findings_preserved"]
+    assert observed["intentional_unused_pins"] == [["U1", "11"], ["U1", "12"]]
+    cases = {case["case"]: case for case in observed["cases"]}
+    assert len(cases) == 4
+    assert cases["unmarked-ascii"]["compiler_messages"] == {"[Error]": 2, "[Warning]": 2}
+    negative = cases["marked-broken-ascii"]
+    assert not negative["connectivity_equal"] and negative["native_groups"] == 40
+    assert len(negative["name_differences"]) == 4 and negative["compiler_messages"] == {"[Error]": 14}
+    positives = [cases[name] for name in ("marked-binary", "marked-ascii")]
+    assert len(observed["saved_reopened_cases"]) == 2
+    for case in positives + observed["saved_reopened_cases"]:
+        assert case["connectivity_equal"] and case["native_groups"] == 36
+        assert not case["name_differences"] and not case["blocking_messages"]
+        assert case["compiler_messages"] == {"[Info]": 1}
+    assert all(
+        case["all_pins"] == case["all_native_pins"] == 40
+        for case in observed["cases"] + observed["saved_reopened_cases"]
+    )
+    assert observed["original_mac_and_windows_files_unchanged"] == 60
+    assert len(observed["saved_documents"]) == len(observed["marker_comparisons"]) == 4
+    for case in observed["marker_comparisons"]:
+        assert case["positions_and_flags_exact"] and case["before"] == case["after"]
+        assert len(case["before"]) == (2 if case["file"] == "drawn_bus.SchDoc" else 0)
+    assert all(
+        case["all_native_name_partitions_equal"] and case["groups"] == 36
+        for case in observed["all_native_names_before_marking_and_after_save"].values()
+    )
+    assert "24.5.2.23" in _page("evidence/altium-drawn-native.md")
+
+
+@pytest.mark.parametrize("archived", [False, True])
+def test_drawn_proof_reader_active_or_archived_with_cp1252_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, archived: bool
+) -> None:
+    original = _drawn_proof_path().read_bytes()
+    source_root = ROOT
+    changes = tmp_path / "openspec/changes"
+    folder = changes / ("archive/2026-11-03-c0276-drawn-schematic" if archived else "c0276-drawn-schematic")
+    folder.mkdir(parents=True)
+    copied = folder / "native-visual-proof.json"
+    copied.write_bytes(original)
+    control = tmp_path / "locale-control.txt"
+    control.write_bytes("Aprovação “íntegra”".encode())
+    original_open = Path.open
+
+    def cp1252_open(path, mode="r", buffering=-1, encoding=None, errors=None, newline=None):
+        if "b" not in mode and encoding in (None, "locale"):
+            encoding = "cp1252"
+        return original_open(path, mode, buffering, encoding, errors, newline)
+
+    monkeypatch.setattr(Path, "open", cp1252_open)
+    with pytest.raises(UnicodeDecodeError):
+        control.read_text()
+    monkeypatch.setitem(globals(), "ROOT", tmp_path)
+    monkeypatch.setitem(
+        globals(), "_page", lambda name: (source_root / "docs" / name).read_text(encoding="utf-8")
+    )
+    assert _drawn_visual_proof() == json.loads(original.decode("utf-8"))
+    assert copied.read_bytes() == original
+    test_drawn_report_acceptance_preserves_historical_failures_and_kit_scope()
+
+
+@pytest.mark.parametrize("layout", ["missing", "file", "active-and-archive", "two-archives"])
+def test_drawn_proof_reader_refuses_missing_or_ambiguous_directories(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, layout: str
+) -> None:
+    original = _drawn_proof_path().read_bytes()
+    changes = tmp_path / "openspec/changes"
+    active = changes / "c0276-drawn-schematic"
+    archives = [
+        changes / "archive/2026-11-03-c0276-drawn-schematic",
+        changes / "archive/2026-11-04-c0276-drawn-schematic",
+    ]
+    if layout == "file":
+        changes.mkdir(parents=True)
+        active.write_bytes(b"not a directory")
+    folders = (
+        [active, archives[0]]
+        if layout == "active-and-archive"
+        else archives
+        if layout == "two-archives"
+        else []
+    )
+    for folder in folders:
+        folder.mkdir(parents=True)
+        (folder / "native-visual-proof.json").write_bytes(original)
+    monkeypatch.setitem(globals(), "ROOT", tmp_path)
+    with pytest.raises(AssertionError, match="exactly one c0276 change directory"):
+        _drawn_visual_proof()

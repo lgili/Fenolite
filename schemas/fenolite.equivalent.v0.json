@@ -6,9 +6,18 @@
   "type": "object",
   "properties": {
     "level": {
-      "type": "integer",
-      "minimum": 0,
-      "description": "the highest level run; 0 when none ran"
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "description": "the highest level run; 0 when none ran"
+        },
+        {
+          "enum": [
+            "S"
+          ]
+        }
+      ]
     },
     "equivalent": {
       "type": "boolean"
@@ -96,8 +105,17 @@
       "type": "object",
       "properties": {
         "level": {
-          "type": "integer",
-          "minimum": 1
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "enum": [
+                "S"
+              ]
+            }
+          ]
         },
         "kind": {
           "type": "string",
@@ -106,6 +124,7 @@
             "ref-ambiguous",
             "value",
             "dnp",
+            "bom-only",
             "pin-missing",
             "net",
             "footprint-missing",
@@ -115,9 +134,12 @@
             "pad-shape",
             "pad-size",
             "pad-drill",
+            "pad-slot",
             "pad-position",
             "pad-rotation",
             "pad-copper",
+            "net-tie-copper",
+            "pad-mask",
             "side",
             "position",
             "rotation",
@@ -126,7 +148,52 @@
             "route-vias",
             "route-length",
             "route-stub",
-            "route-unjudged"
+            "route-unjudged",
+            "track-missing",
+            "track-width",
+            "track-net",
+            "arc-missing",
+            "arc-width",
+            "arc-net",
+            "via-missing",
+            "via-size",
+            "via-drill",
+            "via-span",
+            "via-net",
+            "copper-locked",
+            "copper-no-net",
+            "netclass-missing",
+            "netclass-field",
+            "netclass-members",
+            "rule-missing",
+            "rule-field",
+            "ruleset-field",
+            "stackup-missing",
+            "stackup-field",
+            "layer-missing",
+            "layer-field",
+            "outline-missing",
+            "zone-missing",
+            "zone-field",
+            "keepout-missing",
+            "keepout-field",
+            "graphic-missing",
+            "graphic-field",
+            "text-missing",
+            "text-field",
+            "field-pose",
+            "hole-missing",
+            "dimension-missing",
+            "opaque-count",
+            "render-missing",
+            "render-pixels",
+            "sheet-missing",
+            "symbol-missing",
+            "symbol-pose",
+            "symbol-field",
+            "item-missing",
+            "item-field",
+            "drawn-net"
           ]
         },
         "where": {
@@ -157,8 +224,17 @@
       "type": "object",
       "properties": {
         "level": {
-          "type": "integer",
-          "minimum": 1
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "enum": [
+                "S"
+              ]
+            }
+          ]
         },
         "kind": {
           "type": "string",
@@ -167,6 +243,7 @@
             "ref-ambiguous",
             "value",
             "dnp",
+            "bom-only",
             "pin-missing",
             "net",
             "footprint-missing",
@@ -176,9 +253,12 @@
             "pad-shape",
             "pad-size",
             "pad-drill",
+            "pad-slot",
             "pad-position",
             "pad-rotation",
             "pad-copper",
+            "net-tie-copper",
+            "pad-mask",
             "side",
             "position",
             "rotation",
@@ -187,7 +267,52 @@
             "route-vias",
             "route-length",
             "route-stub",
-            "route-unjudged"
+            "route-unjudged",
+            "track-missing",
+            "track-width",
+            "track-net",
+            "arc-missing",
+            "arc-width",
+            "arc-net",
+            "via-missing",
+            "via-size",
+            "via-drill",
+            "via-span",
+            "via-net",
+            "copper-locked",
+            "copper-no-net",
+            "netclass-missing",
+            "netclass-field",
+            "netclass-members",
+            "rule-missing",
+            "rule-field",
+            "ruleset-field",
+            "stackup-missing",
+            "stackup-field",
+            "layer-missing",
+            "layer-field",
+            "outline-missing",
+            "zone-missing",
+            "zone-field",
+            "keepout-missing",
+            "keepout-field",
+            "graphic-missing",
+            "graphic-field",
+            "text-missing",
+            "text-field",
+            "field-pose",
+            "hole-missing",
+            "dimension-missing",
+            "opaque-count",
+            "render-missing",
+            "render-pixels",
+            "sheet-missing",
+            "symbol-missing",
+            "symbol-pose",
+            "symbol-field",
+            "item-missing",
+            "item-field",
+            "drawn-net"
           ]
         },
         "where": {
@@ -222,8 +347,17 @@
       "type": "object",
       "properties": {
         "level": {
-          "type": "integer",
-          "minimum": 1
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "enum": [
+                "S"
+              ]
+            }
+          ]
         },
         "name": {
           "type": "string",
@@ -232,7 +366,11 @@
             "netlist",
             "footprints",
             "placement",
-            "routing"
+            "routing",
+            "rules",
+            "geometry",
+            "presentation",
+            "schematic"
           ]
         },
         "compared": {
@@ -334,6 +472,13 @@
           "type": "integer",
           "minimum": 0,
           "description": "a schematic side's power symbols"
+        },
+        "files": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "exact board/project context inputs by unambiguous basename and SHA-256"
         }
       },
       "additionalProperties": false,

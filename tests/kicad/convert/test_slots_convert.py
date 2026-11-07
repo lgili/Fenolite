@@ -20,17 +20,15 @@ pytestmark = pytest.mark.needs_kicad
 
 def test_the_round_trip_keeps_every_ring() -> None:
     """The fixture's three inner rings are written as regions and come back as three cut-outs; its holes
-    come back as the footprints of ``design.hole``."""
+    come back as footprints of the board's own library, under the names the Altium file gives them (changes
+    c0433 and c0435)."""
     altium, back = sc.round_trip(sc.major())
     row = altium.report.row("cutout")
     assert row is not None and (row.source, row.lost) == (3, 0)
     row = back.report.row("cutout")
     assert row is not None and (row.source, row.written) == (3, 3)
-    names = sorted(name for name in back.files if name.startswith("lib/Fenolite_Holes.pretty/"))
-    assert names == [
-        "lib/Fenolite_Holes.pretty/NPTH_3.2mm.kicad_mod",
-        "lib/Fenolite_Holes.pretty/NPTH_Slot_1x3mm.kicad_mod",
-    ]
+    names = sorted(name for name in back.files if name.endswith(".kicad_mod"))
+    assert names == ["slots.pretty/NPTH_3.2mm.kicad_mod", "slots.pretty/NPTH_Slot_1x3mm.kicad_mod"]
 
 
 def test_the_converted_board_has_no_invalid_outline() -> None:

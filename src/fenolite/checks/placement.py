@@ -19,12 +19,14 @@ inputs give equal outputs.
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
 from fenolite.backends.base import BoardFrame, BoardPad, DesignRulesSource, PlacedExtent, ProjectSet
 from fenolite.checks.codes import issue
 from fenolite.checks.stages import StageResult, ran, skipped
+from fenolite.checks.subjects import for_issues
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
@@ -32,7 +34,7 @@ from fenolite.core.units import Nm, format_length
 from fenolite.geometry import Arc as GeoArc
 from fenolite.geometry import BBox, Circle, GeometryError, ceil_sqrt, floor_sqrt
 from fenolite.geometry.rings import interiors_intersect
-from fenolite.model.board import FootprintInstance, outward_height
+from fenolite.model.board import FootprintInstance, outward_height, rule_areas
 from fenolite.model.design import Design
 from fenolite.model.rules import HeightLimit, PadSelection, ProximityRule
 
@@ -388,7 +390,7 @@ def judge_heights(
         return RuleReport((), {})
     board = design.board
     footprints = board.footprints if board is not None else ()
-    keepouts = board.keepouts if board is not None else ()
+    keepouts = rule_areas(board) if board is not None else ()
     components = {c.id: c for c in design.circuit.components}
     by_id = {extent.footprint_id: extent for extent in extents}
     box = board_box(design)
@@ -698,7 +700,8 @@ def placement_stage(
     measures = measure(design, pads=pads, pitch=pitch)
     level = Evidence.combine(EVIDENCE, evidence) if judged else evidence
     summary = {"rules": families, "measures": measures.to_json()}
-    return ran(STAGE, tuple(issues), level, summary)
+    result = ran(STAGE, tuple(issues), level, summary)
+    return dataclasses.replace(result, subjects=for_issues(design, result.issues))
 
 
 __all__ = [

@@ -17,6 +17,7 @@ from typing import Any
 from urllib.parse import unquote, urlparse
 
 import pytest
+from _fidelity_corpus import project_rows, rtf_ids, rtf_problems, rtf_roots
 
 ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / "tests" / "corpus" / "manifest.toml"
@@ -42,6 +43,71 @@ ALTIUM_TAG_KINDS = {"altium-sch": ("schdoc", "schdot"), "altium-schlib": ("schli
 ALTIUM_TAG_NAMES = {"altium-sch": "schematic", "altium-schlib": "library"}
 NON_COMMERCIAL = re.compile(r"\bNC\b|-NC-|non-?commercial", re.IGNORECASE)
 HEAVY_BYTES = 20 * 1024 * 1024
+
+
+def test_rtf_selects_exactly_allow_listed_demo_project_inputs() -> None:
+    entries = tomllib.loads(MANIFEST.read_text(encoding="utf-8"))["file"]
+    assert rtf_problems(entries) == []
+    roots = rtf_roots(entries)
+    selected = rtf_ids(entries)
+    assert roots and {row["ref"] for row in roots} == {"9.0.9.1", "10.0.6"}
+    assert all(row["embeddable"] is False for row in entries if row["id"] in selected)
+    assert any("heavy" in row["uses"] for row in roots), "heavy roots remain selected, not silently cut"
+
+
+def _rtf_row(ident: str, suffix: str = ".kicad_pcb", **kwargs: Any) -> dict[str, Any]:
+    return {
+        "id": ident, "url": "https://example.invalid/ref/demo/board" + suffix,
+        "ref": "authored-ref", "license": "CC0-1.0", "license_variant": "",
+        "uses": ["origin:kicad-demos", "rtf"], **kwargs,
+    }  # fmt: skip
+
+
+@pytest.mark.parametrize("licence", ("CC-BY-NC-SA-4.0", "CC-BY-ND-4.0", "NOASSERTION"))
+def test_rtf_refuses_restricted_or_missing_licence(licence: str) -> None:
+    problems = rtf_problems([_rtf_row("authored", license=licence)])
+    assert problems and all("authored" in p and licence in p for p in problems)
+
+
+def test_rtf_checks_variant_and_exact_membership() -> None:
+    board = _rtf_row("authored")
+    assert rtf_problems([board]) == []
+    restricted = {**board, "license": "CC-BY-SA-4.0", "license_variant": "CC-BY-NC-SA-4.0"}
+    assert "CC-BY-NC-SA-4.0" in rtf_problems([restricted])[0]
+    assert "lacks rtf" in rtf_problems([{**board, "uses": ["origin:kicad-demos"]}])[0]
+    third = {**board, "uses": ["origin:third-party", "rtf"]}
+    assert "carries rtf" in rtf_problems([third])[0]
+
+
+@pytest.mark.parametrize("licence", ("Apache-2.0", "MIT", "GPL-2.0-or-later", "CERN-OHL-S-2.0"))
+def test_rtf_reuses_the_board_library_allow_list(licence: str) -> None:
+    assert rtf_problems([_rtf_row("authored", license=licence)]) == []
+
+
+def test_rtf_project_inputs_keep_ref_folder_and_file_kind() -> None:
+    board = _rtf_row("board")
+    project = _rtf_row("project", ".kicad_pro")
+    sheet = _rtf_row("sheet", ".kicad_sch", url="https://example.invalid/ref/demo/sub/child.kicad_sch")
+    other = _rtf_row("other", url="https://example.invalid/ref/other/board.kicad_pcb")
+    wrong_ref = {**project, "id": "wrong-ref", "ref": "other-ref"}
+    second_board = {**board, "id": "second", "url": "https://example.invalid/ref/demo/second.kicad_pcb"}
+    library = _rtf_row("library", ".kicad_sym")
+    rows = [board, project, sheet, other, wrong_ref, second_board, library]
+    assert [row["id"] for row in project_rows(board, rows)] == ["board", "project", "sheet"]
+
+
+def test_rtf_reuses_only_explicitly_identical_cross_tag_inputs() -> None:
+    board = _rtf_row(
+        "board", ref="9.0.9.1", url="https://example.invalid/raw/9.0.9.1/demos/authored/board.kicad_pcb"
+    )
+    child = _rtf_row(
+        "child",
+        ref="10.0.6",
+        url="https://example.invalid/raw/10.0.6/demos/authored/child.kicad_sch",
+        notes="Identical at tag 9.0.9.1.",
+    )
+    assert [row["id"] for row in project_rows(board, [board, child])] == ["board", "child"]
+    assert project_rows(board, [board, {**child, "notes": "not measured at another tag"}]) == [board]
 
 
 def _load_tool() -> ModuleType:
@@ -134,7 +200,33 @@ def manifest_problems(entries: list[dict[str, Any]]) -> list[str]:
                     problems.append(f"{ident}: project rows never carry {use}")
             if "origin:kicad-demos" not in uses:
                 problems.append(f"{ident}: project rows need origin:kicad-demos in uses")
+        problems += library_row_problems(ident, entry)
     return problems + altium_tag_problems(entries)
+
+
+LIBRARY_USE = re.compile(
+    r"library:(symbol|footprint|device|block|board)/[A-Za-z0-9][A-Za-z0-9_.+:/-]*@\d+\.\d+\.\d+"
+)
+
+
+def library_row_problems(ident: str, entry: dict[str, Any]) -> list[str]:
+    """The rule of "Library items in the corpus" (change c0279): a row of a fenolite-library item names it
+    in ``uses`` as ``library:<kind>/<id>@<version>``, carries ``origin:third-party``, and is embeddable only
+    under ``CC0-1.0``."""
+    uses = [str(use) for use in entry["uses"]]
+    marked = [use for use in uses if use.startswith("library:")]
+    if not marked:
+        return []
+    problems = [
+        f"{ident}: {use} is not library:<kind>/<id>@<version>"
+        for use in marked
+        if not LIBRARY_USE.fullmatch(use)
+    ]
+    if "origin:third-party" not in uses:
+        problems.append(f"{ident}: a library row needs origin:third-party in uses")
+    if entry["embeddable"] and entry["license"] != "CC0-1.0":
+        problems.append(f"{ident}: a library row under {entry['license']} cannot be embeddable")
+    return problems
 
 
 ALTIUM_SET = re.compile(r"^altium-set:(\d{2})$")
@@ -922,3 +1014,17 @@ def test_fetch_asks_again_after_a_rate_limit() -> None:
     with pytest.raises(Exception, match="429"):
         tool.download_with_retry("u", download=always_limited, sleep=pauses.append, attempts=3)
     assert pauses == [tool.RETRY_MAX_PAUSE_S, tool.RETRY_MAX_PAUSE_S]
+
+
+def test_share_alike_library_row_marked_embeddable() -> None:
+    """Scenario "Share-alike library row marked embeddable" (change c0279)."""
+    row = {
+        "id": "library-demo-sa-pad", "url": "https://github.com/lgili/fenolite-library/releases/download/v1.0.0/footprints-cc-by-sa.tar.gz",
+        "ref": "v1.0.0", "sha256": "0" * 64, "license": "CC-BY-SA-4.0", "license_variant": "",
+        "embeddable": True,
+        "uses": ["origin:third-party", "library:footprint/Demo:SA_PAD@1.0.0"], "notes": "",
+    }  # fmt: skip
+    problems = manifest_problems([row])
+    assert any(p.startswith("library-demo-sa-pad:") and "embeddable" in p for p in problems)
+    assert library_row_problems("x", {**row, "embeddable": False}) == []
+    assert library_row_problems("x", {**row, "embeddable": False, "uses": ["library:footprint/Demo:SA_PAD"]})

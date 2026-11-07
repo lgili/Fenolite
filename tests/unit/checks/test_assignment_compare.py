@@ -121,6 +121,26 @@ def test_element_with_two_labels_is_a_difference() -> None:
     assert (difference.element, difference.net_a) == ("J1-1", "x|y")
 
 
+def test_pads_of_one_number_on_a_net_and_on_no_net_agree() -> None:
+    """c0425: two pads of one number, one on a net and one on no net, on both sides under other net names,
+    are no difference; the labels map through the blocks of the single elements."""
+    a = netlist("a", ("J1-1", "x"), ("J1-1", NO_NET), ("R1-1", "x"), ("R2-1", NO_NET))
+    b = netlist("b", ("J1-1", "n"), ("J1-1", NO_NET), ("R1-1", "n"), ("R2-1", NO_NET))
+    for joined in (False, True):
+        assert compare(a, b, joined_no_net=joined).differences == ()
+    moved = netlist("b", ("J1-1", "m"), ("J1-1", NO_NET), ("R1-1", "n"), ("R2-1", NO_NET), ("R3-1", "m"))
+    (difference,) = compare(a, moved, joined_no_net=True).differences
+    assert (difference.element, difference.net_a, difference.net_b) == ("J1-1", "|x", "|m")
+    joined = netlist("b", ("J1-1", "n"), ("R1-1", "n"), ("R2-1", NO_NET))
+    (difference,) = compare(a, joined).differences
+    assert (difference.element, difference.net_a, difference.net_b) == ("J1-1", "|x", "n")
+
+
+def test_label_with_no_net_part_reads_no_net() -> None:
+    assert net_text("|x", {"x": "VIN"}) == "no net and VIN"
+    assert net_text(NO_NET, {}) == "no net"
+
+
 def test_single_pin_nets() -> None:
     a = netlist("a", ("T1-1", "solo"), ("R1-1", "x"), ("R2-1", "x"))
     b = netlist("b", ("T1-1", "n1"), ("R1-1", "n2"), ("R2-1", "n2"))

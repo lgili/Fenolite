@@ -1,0 +1,36 @@
+{
+  "artifact_sha256": {
+    "baseline-plans.json": "738150226a4e5ee5cf473f71966747539ad77e4261c7c278342781d6f6973520",
+    "candidate-plans.json": "de03b0c76a584497636fcfd8b5eb1a226c1e5af63e0925919dffaf30b641c084",
+    "integrated-plans-v1/capture.log": "e15cc76db5779e9bc8af131043a6f4f7a2164ba1b696ac5eeff1b20e48ef5b5e",
+    "integrated-plans-v1/capture.py": "73532482052b9c7a9cbbdc272f4c8a0b8945dd75cb0641ec7adb7620fc3893df",
+    "integrated-plans-v1/plans.json": "6707488ce3cfe5cbf7bb14478c8b4b2b5aca5fcb4a74ba9710bce31661df51ff"
+  },
+  "changes": [
+    {
+      "after": "e53f696cd65d58eddd30ffac83629a9ddcfa7ce8dc179965ef60b79c030731b7",
+      "before": "edd2a676026e54d06f40ff478371c3b4fb0746edf26f08e35ba44863044b4a21",
+      "case": "board_40parts@altium",
+      "file": ".fenolite/build.json"
+    },
+    {
+      "after": "9e3cabd7ab7fb0e204fb23c521a63a2985997266f272352d690b3e9a2cd14a98",
+      "before": "01fdc8486cd05e964850311b2e473487759ee11f81891da0bfe43220f8698911",
+      "case": "board_40parts@altium",
+      "file": "board_40parts.PcbDoc"
+    }
+  ],
+  "exit": 0,
+  "files": 1172,
+  "focused_byte_tests": {
+    "exit": 0,
+    "log_sha256": "65de7cda97b5466958edd0fe2f9ef53804518d589c56e13eca638a8c40135f08",
+    "passed": 76,
+    "seconds": 18.62
+  },
+  "matches_reviewed_pilot": true,
+  "rows": 75,
+  "schema": "fenolite.integrated-neck-cut-plans.v0",
+  "source_commit": "71d2ac939dd14f1288235ba004b792184d5fd9d7",
+  "unchanged_refusals": 10
+}

@@ -1,0 +1,17 @@
+{
+  "base_source": "28fc8fdaac7fedfb5c38a35918775dd5c1ccc073",
+  "runtime_file_sha256": "6757823edb87f6db835e8fa8ef05aedab0ed88bf52833093ea48f9645517fee7",
+  "capture_sha256": "5913c5112c0f7520be2d168a61b6b4cd286659b18854fdd8ed9524a61a66e0c1",
+  "authored_red_log_sha256": "3e3cc94a5af7fd07391ca5bbc38a88afd5247f3e3e9c3114483aed3f6fdd802d",
+  "geometry_passed": 664,
+  "geometry_log_sha256": "70877754cfb7c361b8ffda93666b9d3dbf4aaad5b3435d7a0cade0c58ac3accb",
+  "default_byte_example_passed": 111,
+  "default_byte_log_sha256": "37f2f30833a560aa88ace186fc379322aff9e2980580b1b05fc8e87be62af42d",
+  "native_log_sha256": "7f9569f2581964401665603f2d783128c34e11399078dc05f0de336261af5dff",
+  "native_caller_passed": false,
+  "native_seconds": 7.97,
+  "native_next_failure": "implicated proposal-node budget exceeded",
+  "strict_area2_and_exact_loss_unchanged": true,
+  "original_limits_unchanged": true,
+  "scope": "Frame orientation and complete component cancellation only. No scalar area is invented, no native caller/CI/whole-spec pass is claimed."
+}

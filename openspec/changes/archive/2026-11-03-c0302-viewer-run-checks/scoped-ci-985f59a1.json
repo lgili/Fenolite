@@ -1,0 +1,287 @@
+{
+  "schema": "fenolite.scoped-cac-closure.v1",
+  "spec": "c0302-viewer-run-checks",
+  "tested_implementation": "985f59a1d01a612b2eac0219243199896c24075a",
+  "scope_decision": "The maintainer clarified that problematic c0332 geometry was already excluded from this closure CI batch before the run. Its27known failures remain DEFERRED_NOT_PASSED; explicitly contracted skips remain skips.",
+  "CI_run": 41708879698,
+  "whole_workflow_result": "failure",
+  "KiCad10_job_result": "failure",
+  "global_success_claimed": false,
+  "later_CAC_runtime_validated": false,
+  "c0355_and_later_integration_CI_closed": false,
+  "successful_required_jobs": [
+    {
+      "id": 126171394030,
+      "name": "mcp (the official MCP client against fenolite mcp)",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394269,
+      "name": "unit (windows-latest, py3.12)",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394428,
+      "name": "unit (ubuntu-latest, py3.12)",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394431,
+      "name": "viewer (visual tests)",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394460,
+      "name": "unit (macos-latest, py3.12)",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394556,
+      "name": "unit (ubuntu-latest, py3.11)",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394700,
+      "name": "unit (ubuntu-latest, py3.13)",
+      "conclusion": "success"
+    }
+  ],
+  "native_proofs": [],
+  "KiCad10_proof_method": "No new selected native result is fabricated: own UI/bundle/server evidence comes from successful dedicated jobs; original complete native10 execution proves container/path/artifact reachability within authorized scope, but its geometry failures remain DEFERRED_NOT_PASSED.",
+  "log_bindings": {
+    "20261103T214312Z-metadata.json": {
+      "bytes": 36593,
+      "sha256": "cd7a28fbc69631a6f3613865fba28f4879ab79efcf2d6c6a2e2cc82879da73fe"
+    },
+    "kicad9-126171394740-completed.log": {
+      "bytes": 1951631,
+      "sha256": "3ac138d8cafad5c225d11d9bd22774c872f9369925c7d892d271be0401ab8d94"
+    },
+    "126171394674/logs.raw": {
+      "bytes": 368635,
+      "sha256": "014e4eb36c889f4848842d7abf57462ab6da185e2b8fcf5b28ddbb9334d1a68b"
+    }
+  },
+  "fast_proof": {
+    "source": "2c0540572c936303eb5c46a25002872648dfabad",
+    "receipt": "c0319-integration-repairs/fast13-receipt.json",
+    "receipt_sha256": "6b7c348011a8bafe24cc532e5ce74d505addecfd1dc3d56dba9f35bb80628a8e",
+    "command": "make check-fast PYTEST_MAX_WORKERS=2",
+    "exit": 0,
+    "log_sha256": "3e74d627e77139979c42ba6ca13e53344a23b8416aff252e747e34d56286abfe",
+    "tested_runtime_tests_tools_config_equal_to_985": true,
+    "rerun": false
+  },
+  "closed_remaining_tasks": [
+    "7.1"
+  ],
+  "authorized_normative_rebase": null,
+  "existing_supporting_records": [],
+  "limitations": [
+    "Original RED, incomplete, native skip and geometry-failure observations remain historical evidence.",
+    "No library item/catalog audit, review, publication, Altium evidence graduation, CAD quality or release gate is closed here.",
+    "Runtime/tests/tools/configuration in the isolated archive equal985; later root runtime remains separately pending."
+  ],
+  "native_skip_contracts": {},
+  "five_successful_unit_job_proofs": [
+    {
+      "id": 126171394269,
+      "name": "unit (windows-latest, py3.12)",
+      "conclusion": "success",
+      "raw_log_sha256": "66577fb85d4e4bbba9cc0406a091c0913d58e15b788cc8cc48cc1efa0738776b",
+      "native_absent_skip_records": [
+        {
+          "line": 681,
+          "text": "2026-11-03T20:49:03.1120552Z SKIPPED [1828] tests\\conftest.py:85: kicad-cli not found (install KiCad or set FENOLITE_KICAD_CLI)"
+        }
+      ]
+    },
+    {
+      "id": 126171394428,
+      "name": "unit (ubuntu-latest, py3.12)",
+      "conclusion": "success",
+      "raw_log_sha256": "b50f6945d687cfa3616baa6fe310bb2974cbc4c01c8d861dce98e89e34c0dfce",
+      "native_absent_skip_records": [
+        {
+          "line": 669,
+          "text": "2026-11-03T20:59:38.4044647Z SKIPPED [1829] tests/conftest.py:85: kicad-cli not found (install KiCad or set FENOLITE_KICAD_CLI)"
+        }
+      ]
+    },
+    {
+      "id": 126171394460,
+      "name": "unit (macos-latest, py3.12)",
+      "conclusion": "success",
+      "raw_log_sha256": "fbfc36d8e3b8bb3828397351111f9d60b6e04cb30e409565ac16f4b15bcd3343",
+      "native_absent_skip_records": [
+        {
+          "line": 689,
+          "text": "2026-11-03T20:51:38.0245480Z SKIPPED [1829] tests/conftest.py:85: kicad-cli not found (install KiCad or set FENOLITE_KICAD_CLI)"
+        }
+      ]
+    },
+    {
+      "id": 126171394556,
+      "name": "unit (ubuntu-latest, py3.11)",
+      "conclusion": "success",
+      "raw_log_sha256": "2d6914cb144ab302881fb4c6f5b985f78168c151cce4c6cc398f1a9c7d899a0b",
+      "native_absent_skip_records": [
+        {
+          "line": 626,
+          "text": "2026-11-03T21:05:28.6746328Z SKIPPED [1829] tests/conftest.py:85: kicad-cli not found (install KiCad or set FENOLITE_KICAD_CLI)"
+        }
+      ]
+    },
+    {
+      "id": 126171394700,
+      "name": "unit (ubuntu-latest, py3.13)",
+      "conclusion": "success",
+      "raw_log_sha256": "2eb025a6dadcb6612d56eb0c52d6758c0c84ff03f441c2d7d52cbb00f91016fa",
+      "native_absent_skip_records": [
+        {
+          "line": 626,
+          "text": "2026-11-03T20:42:06.8461004Z SKIPPED [1829] tests/conftest.py:85: kicad-cli not found (install KiCad or set FENOLITE_KICAD_CLI)"
+        }
+      ]
+    }
+  ],
+  "entry_refresh_archived_prerequisites": [],
+  "native10_selected_pass_inference_excludes_contracted_skips": true,
+  "viewer_job_proof": {
+    "id": 126171394431,
+    "conclusion": "success",
+    "raw_log_sha256": "28caec4c9eec401ec73bf1a4b22aaf587d215007265a1d9c2757e2a4c80149ec",
+    "bytes": 44730,
+    "explicit_command_and_summary_lines": [
+      {
+        "line": 212,
+        "text": "2026-11-03T20:03:01.3662380Z ##[group]Run uv run python tools/build_viewer.py --check"
+      },
+      {
+        "line": 213,
+        "text": "2026-11-03T20:03:01.3662861Z \u001b[36;1muv run python tools/build_viewer.py --check\u001b[0m"
+      },
+      {
+        "line": 462,
+        "text": "2026-11-03T20:03:28.2394624Z ##[group]Run uv run pytest tests/visual -q --basetemp \"$RUNNER_TEMP/visual\""
+      },
+      {
+        "line": 463,
+        "text": "2026-11-03T20:03:28.2395209Z \u001b[36;1muv run pytest tests/visual -q --basetemp \"$RUNNER_TEMP/visual\"\u001b[0m"
+      },
+      {
+        "line": 473,
+        "text": "2026-11-03T20:05:55.2841811Z 104 passed in 146.41s (0:02:26)"
+      }
+    ],
+    "all_visual_cases": 104,
+    "new_human_approval_inferred_from_visual_tests": false
+  },
+  "reviewed_eleven_PNG_reference_maps": {
+    "b02e09fea8145442f0af61f571e58a075385df9e": {
+      "tests/visual/refs/altium_board.png": "ce43befad13b4656bd1024146bbdc99ee2ec479d1a98522d323f4765807c5412",
+      "tests/visual/refs/altium_sheet.png": "ce47efa40dfa381ae2af70954850ec820cbb97866ed19daf38c12b046d5e2724",
+      "tests/visual/refs/draftsman.png": "8733f981adaeb4c1e1f24f7a4b5ad5819c3144ec007e9f15d544e206ff6dc90e",
+      "tests/visual/refs/footprint_library.png": "7217441b27fc084f79f0c3ff56700952f3c68a5c59aa33973643aa69c151182b",
+      "tests/visual/refs/kicad_board.png": "721ef6dbf2debbfbd8f6cf402a905e50a527501a861ec66441cff22f981b632b",
+      "tests/visual/refs/kicad_board_light.png": "81aea778887fe0364c6c29b9853a8a88350d20a981f51889883553783713ab98",
+      "tests/visual/refs/kicad_board_net.png": "d51aed04a6cdf7a0d9a2fb328f346446276b0d65787eb50246be358d83db6d39",
+      "tests/visual/refs/kicad_sheet.png": "3a6732fb553284610b61335ffbcc31c21615018003784baab8b2aa136174aa8c",
+      "tests/visual/refs/output_job.png": "96065f25f58ebeeefe1f5f1f4e0e2ed14f95437ceba1374c2970ced394565607",
+      "tests/visual/refs/roles_bad_buck.png": "cbfaf1063f8c6a599e2ef915d08c2b56fbbda2cf219051d231c77d59318fed8c",
+      "tests/visual/refs/symbol_library.png": "b54a6fbefe21f638c8cffdaa538f031d64e59f6d032f836a89007b879018dfaf"
+    },
+    "96d687d18450f429bcc57b60087f9e6f43dfb707": {
+      "tests/visual/refs/altium_board.png": "ce43befad13b4656bd1024146bbdc99ee2ec479d1a98522d323f4765807c5412",
+      "tests/visual/refs/altium_sheet.png": "ce47efa40dfa381ae2af70954850ec820cbb97866ed19daf38c12b046d5e2724",
+      "tests/visual/refs/draftsman.png": "8733f981adaeb4c1e1f24f7a4b5ad5819c3144ec007e9f15d544e206ff6dc90e",
+      "tests/visual/refs/footprint_library.png": "7217441b27fc084f79f0c3ff56700952f3c68a5c59aa33973643aa69c151182b",
+      "tests/visual/refs/kicad_board.png": "721ef6dbf2debbfbd8f6cf402a905e50a527501a861ec66441cff22f981b632b",
+      "tests/visual/refs/kicad_board_light.png": "81aea778887fe0364c6c29b9853a8a88350d20a981f51889883553783713ab98",
+      "tests/visual/refs/kicad_board_net.png": "d51aed04a6cdf7a0d9a2fb328f346446276b0d65787eb50246be358d83db6d39",
+      "tests/visual/refs/kicad_sheet.png": "3a6732fb553284610b61335ffbcc31c21615018003784baab8b2aa136174aa8c",
+      "tests/visual/refs/output_job.png": "96065f25f58ebeeefe1f5f1f4e0e2ed14f95437ceba1374c2970ced394565607",
+      "tests/visual/refs/roles_bad_buck.png": "cbfaf1063f8c6a599e2ef915d08c2b56fbbda2cf219051d231c77d59318fed8c",
+      "tests/visual/refs/symbol_library.png": "b54a6fbefe21f638c8cffdaa538f031d64e59f6d032f836a89007b879018dfaf"
+    },
+    "985f59a1d01a612b2eac0219243199896c24075a": {
+      "tests/visual/refs/altium_board.png": "ce43befad13b4656bd1024146bbdc99ee2ec479d1a98522d323f4765807c5412",
+      "tests/visual/refs/altium_sheet.png": "ce47efa40dfa381ae2af70954850ec820cbb97866ed19daf38c12b046d5e2724",
+      "tests/visual/refs/draftsman.png": "8733f981adaeb4c1e1f24f7a4b5ad5819c3144ec007e9f15d544e206ff6dc90e",
+      "tests/visual/refs/footprint_library.png": "7217441b27fc084f79f0c3ff56700952f3c68a5c59aa33973643aa69c151182b",
+      "tests/visual/refs/kicad_board.png": "721ef6dbf2debbfbd8f6cf402a905e50a527501a861ec66441cff22f981b632b",
+      "tests/visual/refs/kicad_board_light.png": "81aea778887fe0364c6c29b9853a8a88350d20a981f51889883553783713ab98",
+      "tests/visual/refs/kicad_board_net.png": "d51aed04a6cdf7a0d9a2fb328f346446276b0d65787eb50246be358d83db6d39",
+      "tests/visual/refs/kicad_sheet.png": "3a6732fb553284610b61335ffbcc31c21615018003784baab8b2aa136174aa8c",
+      "tests/visual/refs/output_job.png": "96065f25f58ebeeefe1f5f1f4e0e2ed14f95437ceba1374c2970ced394565607",
+      "tests/visual/refs/roles_bad_buck.png": "cbfaf1063f8c6a599e2ef915d08c2b56fbbda2cf219051d231c77d59318fed8c",
+      "tests/visual/refs/symbol_library.png": "b54a6fbefe21f638c8cffdaa538f031d64e59f6d032f836a89007b879018dfaf"
+    }
+  },
+  "recorded_previous_image_review": "c0300 design records maintainer delegation to re-review; c0300/c0301 tasks record actual inspection of all11unchangedPNG on2026-11-01. This is a prior review record, not a new human approval inferred from Playwright. c0305.6.1 already records the sixvariant look; this audit did not inspect or newly approve sixvariants.",
+  "source_bindings": {
+    ".github/workflows/ci.yml": {
+      "sha256": "fd42a446eed335b74eb02fbead70b12b3b9105d93ecac3dcffb8d70a6330bce8",
+      "bytes": 15496,
+      "executor_equal985": true
+    },
+    "tests/conftest.py": {
+      "sha256": "93d87eb105c3031eab751185e7d682d045763cdba5e4c41817f521f9adb5b4d2",
+      "bytes": 7439,
+      "executor_equal985": true
+    },
+    "tests/unit/cli/test_view_actions.py": {
+      "sha256": "588216b360167038357301c69518355e76117161fa4093369d621a71936a8c1c",
+      "bytes": 16503,
+      "executor_equal985": true
+    },
+    "tests/unit/view/test_server.py": {
+      "sha256": "11b96b6a9d086f84f9ec73ee5aa6d7272f0c4a322886bc154328c2b35bd20a37",
+      "bytes": 25058,
+      "executor_equal985": true
+    },
+    "tests/visual/test_actions.py": {
+      "sha256": "bdba34e382e4b4fb5d0d3058941d62af7f9bc51d4ed6b9f81705f793311e9d15",
+      "bytes": 12999,
+      "executor_equal985": true
+    },
+    "tests/visual/test_run.py": {
+      "sha256": "6b1afb63af820e5ca5df0201b55fecd6a271d8b9ad23fdacabe9598e13b2525c",
+      "bytes": 6643,
+      "executor_equal985": true
+    },
+    "tests/visual/test_roles.py": {
+      "sha256": "0c557d0c15bc110a8f20988d9ba1f3b4de7e8487627d676581dd81830a28e3c1",
+      "bytes": 6350,
+      "executor_equal985": true
+    },
+    "tests/unit/view/test_viewer_bundle.py": {
+      "sha256": "6d9fec98d88cf4454552d4a1183ab2222985c1af6a52638ba94fe94d0785a7cd",
+      "bytes": 5326,
+      "executor_equal985": true
+    },
+    "tools/build_viewer.py": {
+      "sha256": "dc9d261e11760a056dc7c33f9d8305e38ca8bb0b9964d2b2e967d4e6e427c35f",
+      "bytes": 2375,
+      "executor_equal985": true
+    },
+    "viewer/package-lock.json": {
+      "sha256": "d519f095ac278afd413197d43c0edf5c7102936fb225d0119da6bf976edc04f8",
+      "bytes": 15690,
+      "executor_equal985": true
+    },
+    "src/fenolite/view/static/manifest.json": {
+      "sha256": "92f6a4f7e4f104486995cccd16a88976560ec4ac2af7583b7d267e4a5c481136",
+      "bytes": 493,
+      "executor_equal985": true
+    }
+  },
+  "gate_review_citations": [],
+  "new_human_approval_or_image_generation": false,
+  "not_closed_by_this_archive": [
+    "c0303 missing3nativeCI action cases",
+    "c0305 missing6realvariant views",
+    "c0281 required archive order and11.4",
+    "later runtime/c0355 integration"
+  ]
+}

@@ -1,0 +1,102 @@
+{
+  "source_core": "5b0853b718e54f2ce487a2545a3ed44df7bd0f9a",
+  "upstream": {
+    "archive_sha256": null,
+    "commit": "97acc80c223d75520c03fc44cab63cd9a3202c42",
+    "licence_files": [
+      "LICENSE.CC-BY-SA-4.0"
+    ],
+    "path": "demos/multichannel",
+    "retrieved": "2026-10-31",
+    "source_location": "https://gitlab.com/kicad/code/kicad/-/tree/97acc80c223d75520c03fc44cab63cd9a3202c42/demos/multichannel",
+    "spdx_expression": "CC-BY-SA-4.0",
+    "url": "https://gitlab.com/kicad/code/kicad"
+  },
+  "item_name": "multichannel",
+  "version": "1.0.2",
+  "actual_build_target": "kicad-10",
+  "native_cli_observed": "10.0.6",
+  "native_project_schema_major": 9,
+  "source_CAD_inputs": 4,
+  "active_resources": [],
+  "nominal_tables": [
+    "fp-lib-table",
+    "sym-lib-table"
+  ],
+  "licence_sources_sha256": {
+    "LICENSE.CC-BY-SA-4.0": "00ba11b9a22d453aed299954eaca389d8efef441a4673d84e2dc4ae10ebc7ca5"
+  },
+  "licence_text_sha256": "17a696cf6cf01b8d795151556dfd51cc121c1b678a33d509d6548658c1008391",
+  "licence_bytes_equal_approved_item": true,
+  "original_authors": [
+    "KiCad project (no individual author is named in the demo's files)"
+  ],
+  "model_references": 21,
+  "unique_model_names": 2,
+  "model_scope": "name-only, no3Dassets/official libraries copied; geometry/licences/equality not judged",
+  "levels": {
+    "1": "equal",
+    "2": "equal",
+    "3": "equal",
+    "4": "equal",
+    "5": "equal",
+    "6": "equal",
+    "7": "equal",
+    "S": "equal",
+    "8": "equal"
+  },
+  "actual_skips": {},
+  "differences": 0,
+  "accepted": 0,
+  "excluded": 0,
+  "notices_exact": [
+    {
+      "level": 5,
+      "kind": "route-unjudged",
+      "where": "GND",
+      "field": "zones",
+      "a": "",
+      "b": "pieces=27"
+    },
+    {
+      "level": 5,
+      "kind": "route-unjudged",
+      "where": "vbias",
+      "field": "zones",
+      "a": "",
+      "b": "pieces=10"
+    }
+  ],
+  "native_project_unjudged": "custom DRU rules and unrelated native properties",
+  "raw_import_verbatim": true,
+  "import_dry_exit": 0,
+  "import_confirm_exit": 0,
+  "record_dry_exit": 0,
+  "record_confirm_exit": 0,
+  "replay_exit": 0,
+  "replay_equal": true,
+  "scoped_proof_version_audit_exit": 0,
+  "whole_frame_audit_exit": 5,
+  "remaining_findings": 7,
+  "payload_delta": {
+    "old_count": 46,
+    "new_count": 90,
+    "counts": {
+      "changed": 46,
+      "added": 44
+    }
+  },
+  "all_item_files_scanned": 95,
+  "private_hits": 0,
+  "private_waivers": 0,
+  "private_exclusions": 0,
+  "outputs_tree": "fenolite-tree-1:f5e4ecde505303936101b1c21e749b8c7247438c9dbb4d5e80eb240d74fe5f38",
+  "provenance_sha256": "e2509bae73c9bd5812c902c58efc2fafe0ea34706d9cfa9a8171d2b43eb54132",
+  "receipt_sha256": "b8549cb6fa7bb251a0adafb3d3aff556004dc33b59170012d37a203639c45a87",
+  "original_inputs_unchanged": true,
+  "authoritative_unchanged": true,
+  "outside_item_unchanged": true,
+  "published": false,
+  "promoted": false,
+  "CI_closure_claimed": false
+}

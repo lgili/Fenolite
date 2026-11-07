@@ -1,0 +1,6 @@
+schema = "fenolite.library.v0"
+name = "fenolite-library-demo"
+version = "1.0.0"
+
+[requires]
+fenolite = ">=0.7"

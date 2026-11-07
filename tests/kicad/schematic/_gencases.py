@@ -46,6 +46,7 @@ SLASH_TEXT = "mod/LED_A"
 CHAR_PINS: tuple[tuple[str, str], ...] = (
     ("1", "A B"), ("2", "A/B"), ("3", "V+"), ("4", "~"), ("5", "~{RST}"), ("6", "1WIRE"), ("7", "DUP"),
     ("8", "DUP"), ("9", "A-B_C.D"), ("10", "D{0}"),
+    ("11", "#"), ("12", "RESET#"), ("13", "A/# B"),
 )  # fmt: skip
 """Pin number and name of the probe symbol ``Probe:Chars``: one pin per character class."""
 
@@ -241,6 +242,11 @@ def unconnected_sheet(kind: str, target: int) -> str:
         chars = probe_symbol("Chars", [("passive", number, name) for number, name in CHAR_PINS])
         inst = Inst("Probe:Chars", "X1", FRAME_ORIGIN, tuple(n for n, _ in CHAR_PINS))
         return hand_sheet(target, [chars], [inst])
+    if kind == "samename":
+        same = probe_symbol("Same", [("passive", number, name) for number, name in SAME_PINS])
+        return hand_sheet(
+            target, [same], [Inst("Probe:Same", "J1", FRAME_ORIGIN, tuple(n for n, _ in SAME_PINS))]
+        )
     if kind == "unnamed":
         bare = probe_symbol("Bare", [("passive", "1", ""), ("passive", "16", "")])
         return hand_sheet(target, [bare], [Inst("Probe:Bare", "U1", FRAME_ORIGIN, ("1", "16"))])
@@ -271,6 +277,37 @@ def unconnected_names(kind: str) -> dict[tuple[str, str], tuple[str, str, str]]:
             )
             found[(symbol.ref, pin.number)] = (pin.name, ours, theirs.get((symbol.ref, pin.number), ""))
     return found
+
+
+SAME_PINS = (("1", "1"), ("2", "P2"), ("10", "10"))
+"""Pins named like their number (1, 10) and one control pin whose name differs (2, ``P2``)."""
+SAME_OMITTED = {
+    ("J1", "1"): "unconnected-(J1-Pad1)",
+    ("J1", "2"): "unconnected-(J1-P2-Pad2)",
+    ("J1", "10"): "unconnected-(J1-Pad10)",
+}
+"""KiCad's names if a pin name equal to its number is left out, as for a pin without a name (S-1490)."""
+
+
+@cache
+def samename_nets() -> dict[tuple[str, str], str]:
+    """(reference, pin number) → KiCad's net name for the pins of ``SAME_PINS``, all on no net."""
+    return nets_of(unconnected_sheet("samename", major()))
+
+
+def samename_outcome() -> str:
+    """Whether KiCad writes a pin name equal to the pin number into the net name: ``absent`` when it names
+    such a pin like a pin without a name and keeps the control pin's name, ``present`` when it writes those
+    names, ``inconclusive`` without the nets."""
+    found = {key: samename_nets().get(key) for key in SAME_OMITTED}
+    if None in found.values():
+        return "inconclusive"
+    if found == SAME_OMITTED:
+        return "absent"
+    kept = dict(
+        SAME_OMITTED, **{("J1", "1"): "unconnected-(J1-1-Pad1)", ("J1", "10"): "unconnected-(J1-10-Pad10)"}
+    )
+    return "present" if found == kept else "different"
 
 
 def unconnected_outcome(kind: str) -> str:
@@ -484,6 +521,7 @@ def gen_probes() -> Probes:
             )
     for kind in ("plain", "unnamed", "units", "chars"):
         probes[f"sch-unconnected-{kind}"] = (lambda kind=kind: unconnected_outcome(kind), both)
+    probes["sch-unconnected-samename"] = (samename_outcome, both)
     probes["sch-label-plain"] = (lambda: label_outcome(LABEL_TEXTS[:1]), both)
     probes["sch-label-chars"] = (lambda: label_outcome(LABEL_TEXTS), both)
     probes["sch-label-slash"] = (lambda: label_outcome((SLASH_TEXT,), netnames.stored_name), both)

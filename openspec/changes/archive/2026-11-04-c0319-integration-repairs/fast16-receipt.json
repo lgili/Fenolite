@@ -1,0 +1,33 @@
+{
+  "candidate_snapshot": "65615c282b64c5429bad677161fc7a84393609aa",
+  "clean_after": true,
+  "command": "make check-fast PYTEST_MAX_WORKERS=4",
+  "driver_sha256": "de37635e154c68592f48111c28e9b5e1a02514ba6c279aa2ee031ea4ec828d34",
+  "exit": 0,
+  "finished_utc": "2026-11-03T23:37:01.697015+00:00",
+  "head_unchanged": true,
+  "log_sha256": "193e1ff9bf80230d440e6fa6f1f2510ad76d2a68bdd000a9de3a1651b13ec960",
+  "native_or_full_suite": false,
+  "original_external_receipt_sha256": "492fdcb98d0cb0c4f2ae6730faab6e1b5e73680a5fe670790e0fc2dc7b1343cf",
+  "own_isolated_import": true,
+  "passed": 22471,
+  "private_gate_configured": true,
+  "schema": "fenolite.local-fast-gate.v0",
+  "scope": "Complete fast on clean source863; subsequent documentation/archive edits plus one documentary guard independently tested. This is not a whole CI verdict or an exact-head full-fast rerun.",
+  "seconds": 1146.1236470419972,
+  "skipped": 52,
+  "source_commit": "8635415af97fd4c1863941b3bf77c9125f4f2fc0",
+  "started_utc": "2026-11-03T23:17:55.562571+00:00",
+  "subsequent_focused_proof": {
+    "CI_claimed": false,
+    "command": "uv run pytest tests/unit/test_drawn_census.py tests/unit/test_drawn_context_evidence.py -q",
+    "passed": 54,
+    "receipt_sha256": "fd01444700d08900ca839c03525808abeb53fdde971c9e80b137368f28424ce4",
+    "seconds": 1.86
+  },
+  "subsequent_runtime_or_configuration_changes": [],
+  "subsequent_test_changes": [
+    "tests/unit/test_drawn_context_evidence.py"
+  ],
+  "whole_current_CI_passed": false
+}

@@ -1,0 +1,268 @@
+{
+  "date": "2026-11-03",
+  "scope": "Additional terminal CI housekeeping only, no push or green integration verdict.",
+  "archive_receipt_sha256": "e0e481b07d065a0646591f1c30e79d6cce364dda48f4b81154327794e25cfc7f",
+  "delete_receipt_sha256": "0cc735c25fc087b4cb8c286b640289d54612cb1e66eb98f2f7bd6c2db41d82cd",
+  "post_list_sha256": "e45130eb87e35e024ec8ad4a98a82a8b9d361a55dce8b0ed8230b72216700e67",
+  "all_preserved_files_hash_and_zip_crc_verified": true,
+  "runs": [
+    {
+      "id": 41681471834,
+      "head": "f97ebebeb799b3a02504b8f79a23aadacdf3cae8",
+      "conclusion": "failure",
+      "metadata": {
+        "file": "41681471834/run.json",
+        "bytes": 11584,
+        "sha256": "a81d54a7064d9dc1b2a2a7889354f9fd03ab4f4a6aa828738baa4b89c2bd10ee"
+      },
+      "jobs": [
+        {
+          "file": "41681471834/jobs-1.json",
+          "bytes": 60325,
+          "sha256": "9c4c9d1620661c4645671cb3df1a612b904969c2cbdcbc89e77d4f8e60d8191a"
+        }
+      ],
+      "artifacts": [
+        {
+          "file": "41681471834/artifact-13256452178.zip",
+          "bytes": 1278603,
+          "sha256": "5c56ec9ed872c52eab965782d3461dc1919302d303a3dfa273e8f5f1a1b07c8e",
+          "zip_entries": 2,
+          "zip_crc_verified": true,
+          "id": 13256452178,
+          "name": "ci-tests-unit-windows-latest-py3.12",
+          "expired": false
+        },
+        {
+          "file": "41681471834/artifact-13256062215.zip",
+          "bytes": 1272450,
+          "sha256": "84d1943a06705ba393e79b8c5141d0bc1fabd713fdfa4b89426142562902904c",
+          "zip_entries": 2,
+          "zip_crc_verified": true,
+          "id": 13256062215,
+          "name": "ci-tests-unit-ubuntu-latest-py3.12",
+          "expired": false
+        },
+        {
+          "file": "41681471834/artifact-13256056495.zip",
+          "bytes": 1271645,
+          "sha256": "5ecfd82f6b9d012e84bc23796b7de030ef75b21ea686a31c199b6a921815acb3",
+          "zip_entries": 2,
+          "zip_crc_verified": true,
+          "id": 13256056495,
+          "name": "ci-tests-unit-ubuntu-latest-py3.11",
+          "expired": false
+        },
+        {
+          "file": "41681471834/artifact-13255586464.zip",
+          "bytes": 68451,
+          "sha256": "1b02674896fc1cb2d27417ef3eedad3203cc50f90108ff4a858641bba4fcc2aa",
+          "zip_entries": 2,
+          "zip_crc_verified": true,
+          "id": 13255586464,
+          "name": "ci-tests-kicad-10-0",
+          "expired": false
+        },
+        {
+          "file": "41681471834/artifact-13255453242.zip",
+          "bytes": 384898,
+          "sha256": "246078b8bfabd0b0e5f4549c157ee710f21f7e4cd3e321b86629eb9500a0272e",
+          "zip_entries": 131,
+          "zip_crc_verified": true,
+          "id": 13255453242,
+          "name": "drawn-census-kicad-10-3",
+          "expired": false
+        },
+        {
+          "file": "41681471834/artifact-13255435861.zip",
+          "bytes": 3048,
+          "sha256": "91947d86257a3f7fea8146a3cb7e8d49d314cf3c3b62b09198308dfded38d92d",
+          "zip_entries": 2,
+          "zip_crc_verified": true,
+          "id": 13255435861,
+          "name": "ci-tests-routing-9",
+          "expired": false
+        },
+        {
+          "file": "41681471834/artifact-13255390734.zip",
+          "bytes": 336259,
+          "sha256": "074535aede388c95e9a67168f03ba17990adf1231cc9b081a8f4d6b4b586c92c",
+          "zip_entries": 131,
+          "zip_crc_verified": true,
+          "id": 13255390734,
+          "name": "drawn-census-kicad-9",
+          "expired": false
+        },
+        {
+          "file": "41681471834/artifact-13255358795.zip",
+          "bytes": 2981,
+          "sha256": "249860e4374f8b8bbd15c901a8bd99fbaff94924e10c348d9437dc4fc06df011",
+          "zip_entries": 2,
+          "zip_crc_verified": true,
+          "id": 13255358795,
+          "name": "ci-tests-routing-10",
+          "expired": false
+        },
+        {
+          "file": "41681471834/artifact-13255176299.zip",
+          "bytes": 119271,
+          "sha256": "e922ce87450489ec6397a366c49976fd8eb2627fe56b1b03e9cad812c6f0ed3b",
+          "zip_entries": 2,
+          "zip_crc_verified": true,
+          "id": 13255176299,
+          "name": "ci-tests-kicad-9",
+          "expired": false
+        },
+        {
+          "file": "41681471834/artifact-13254999352.zip",
+          "bytes": 91101,
+          "sha256": "4bd196f09eeed2a5b18617f2616ef7891932195f476dcb387c6ff4d9531fdc00",
+          "zip_entries": 2,
+          "zip_crc_verified": true,
+          "id": 13254999352,
+          "name": "ci-tests-kicad-10-3",
+          "expired": false
+        },
+        {
+          "file": "41681471834/artifact-13254947007.zip",
+          "bytes": 76066,
+          "sha256": "3f376ecdcc50152761cd27c5b3c24eba78167df58b7e8ea1a687fb0e3b755233",
+          "zip_entries": 2,
+          "zip_crc_verified": true,
+          "id": 13254947007,
+          "name": "ci-tests-kicad-10-2",
+          "expired": false
+        },
+        {
+          "file": "41681471834/artifact-13254494535.zip",
+          "bytes": 7657,
+          "sha256": "802f2ba9da6240f92ca0852d6c05fe8e2e0fd3488f9b804db0a30ef1a72d7adc",
+          "zip_entries": 19,
+          "zip_crc_verified": true,
+          "id": 13254494535,
+          "name": "import-census-1",
+          "expired": false
+        },
+        {
+          "file": "41681471834/artifact-13253885585.zip",
+          "bytes": 3116,
+          "sha256": "de9acc671405928c063cac71041bd49a78dc4fa504042c4b81ed3c112a6ecd22",
+          "zip_entries": 2,
+          "zip_crc_verified": true,
+          "id": 13253885585,
+          "name": "ci-tests-mcp",
+          "expired": false
+        },
+        {
+          "file": "41681471834/artifact-13253664403.zip",
+          "bytes": 58704,
+          "sha256": "d39206336bbd5adc151c2d8417f079820ca88df1d8fded32066d95d2a9743e07",
+          "zip_entries": 2,
+          "zip_crc_verified": true,
+          "id": 13253664403,
+          "name": "ci-tests-kicad-10-1",
+          "expired": false
+        },
+        {
+          "file": "41681471834/artifact-13253588485.zip",
+          "bytes": 1266058,
+          "sha256": "4a436b42f051cee8caa04ba8ba6721132a8c3466c1974a77cd344b2684cf4837",
+          "zip_entries": 2,
+          "zip_crc_verified": true,
+          "id": 13253588485,
+          "name": "ci-tests-unit-ubuntu-latest-py3.13",
+          "expired": false
+        },
+        {
+          "file": "41681471834/artifact-13253081376.zip",
+          "bytes": 5459,
+          "sha256": "69963dc7cb27dc2eba48e76c44d2ec1b2d8485277d9cef3a116ba8cd5e5d4db3",
+          "zip_entries": 2,
+          "zip_crc_verified": true,
+          "id": 13253081376,
+          "name": "ci-tests-viewer",
+          "expired": false
+        },
+        {
+          "file": "41681471834/artifact-13252079318.zip",
+          "bytes": 20554409,
+          "sha256": "e7577d063ffc86f25be0944a894334d73667e5ff86af8305c742b016662f9d4f",
+          "zip_entries": 162,
+          "zip_crc_verified": true,
+          "id": 13252079318,
+          "name": "library-review",
+          "expired": false
+        }
+      ],
+      "logs": {
+        "file": "41681471834/logs.zip",
+        "bytes": 10314,
+        "sha256": "c4b708e88741e4d5c7e1108f53dbe92e9a8dd1fb47c35d151c2efb71585baeee",
+        "zip_entries": 4,
+        "zip_crc_verified": true
+      },
+      "artifact_pages": [
+        {
+          "file": "41681471834/artifacts-1.json",
+          "bytes": 11966,
+          "sha256": "d3baa320cb12a7e66fcef9de69154347994539284443a54e9f7facf9a3faeddc"
+        }
+      ]
+    },
+    {
+      "id": 41681205419,
+      "head": "3ce918fd640571aa7c18a113e3b4e4f5f11e38f5",
+      "conclusion": "cancelled",
+      "metadata": {
+        "file": "41681205419/run.json",
+        "bytes": 11541,
+        "sha256": "3244d75cee5143530ed22ed99e6a88cd3d913dcf87cdbee557c2d9a4db63885f"
+      },
+      "jobs": [
+        {
+          "file": "41681205419/jobs-1.json",
+          "bytes": 17038,
+          "sha256": "849638498e2d7fecc996a1a78f2567565b12029795ca8b6e7ee59248f245b8fc"
+        }
+      ],
+      "artifacts": [],
+      "logs": {
+        "file": "41681205419/logs.zip",
+        "bytes": 22658,
+        "sha256": "fe584438d7b8bf55ecac69e047b59971fb84ac2c624774f6aef542faff2e04f5",
+        "zip_entries": 10,
+        "zip_crc_verified": true
+      },
+      "artifact_pages": [
+        {
+          "file": "41681205419/artifacts-1.json",
+          "bytes": 32,
+          "sha256": "244563f989470892c537c9a4622920af0d228ee4528f7d00c64a06d6cd95856c"
+        }
+      ]
+    }
+  ],
+  "deletions": [
+    {
+      "id": 41681471834,
+      "head": "f97ebebeb799b3a02504b8f79a23aadacdf3cae8",
+      "prior_conclusion": "failure",
+      "delete_exit": 0,
+      "post_get_404": true
+    },
+    {
+      "id": 41681205419,
+      "head": "3ce918fd640571aa7c18a113e3b4e4f5f11e38f5",
+      "prior_conclusion": "cancelled",
+      "delete_exit": 0,
+      "post_get_404": true
+    }
+  ],
+  "post_list": {
+    "runs": 297,
+    "failed_or_cancelled": 0,
+    "live": 0
+  },
+  "prior_deleted_runs": 11,
+  "cumulative_deleted_runs": 13
+}

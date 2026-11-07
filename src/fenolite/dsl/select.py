@@ -3,21 +3,23 @@
 """Selectors of ``design.rules.rule()``: which items a design rule holds for (``docs/dsl.md``, "Design
 rules").
 
-``net``, ``netclass``, ``ref``, ``item``, ``area`` and ``pair`` give leaves; ``&``, ``|`` and ``~`` combine
-them; ``ALL`` is every item and stands alone. A name may hold ``*``, which the model keeps as a glob. Whether
-a target writes a selector for a rule kind is decided by the lowering, not here.
+``net``, ``netclass``, ``ref``, ``item``, ``area``, ``pair``, ``zone``, ``hole`` and ``pad_type`` give
+leaves; ``&``, ``|`` and ``~`` combine them; ``ALL`` is every item and stands alone. A name may hold ``*``,
+which the model keeps as a glob. Whether a target writes a selector for a rule kind is decided by the
+lowering, not here.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
+from fenolite.core.units import Nm
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.interfaces import Interface
 from fenolite.dsl.items import RuleArea
 from fenolite.dsl.part import Net, Part
 from fenolite.model.pairs import PAIR_ROLES, coupled_name, pair_base
-from fenolite.model.rules import Selector
+from fenolite.model.rules import NO_NET, PAD_TYPES, Selector, hole_value
 
 ITEM_KINDS: tuple[str, ...] = ("track", "via", "pad", "zone")
 """The values of ``item()``."""
@@ -98,6 +100,13 @@ def area(area: str | RuleArea) -> Select:
     return Select(Selector("area", name))
 
 
+def no_net() -> Select:
+    """The items without a net: a pad that no net reaches, a netless track or zone (change c0409). KiCad
+    names such an item's net with the empty name, so the build writes ``A.NetName == ''``. The model selector
+    is ``model.rules.NO_NET``, ``not(net "*")``."""
+    return Select(NO_NET)
+
+
 def pair(x: Interface | str) -> Select:
     """The items on the two nets of a differential pair: a ``DiffPair``, a ``USB2`` or another interface
     of a pair kind, whose base is taken from its net names; or a base as text, ``"*"`` for every pair.
@@ -130,4 +139,46 @@ def pair(x: Interface | str) -> Select:
     return Select(Selector("diff_pair", base))
 
 
-__all__ = ["ALL", "ITEM_KINDS", "Select", "area", "item", "net", "netclass", "pair", "ref"]
+def zone(name: str) -> Select:
+    """The copper of the zones of a name (change c0462). A name may hold ``*``; letter case counts."""
+    name = _name(name, "zone")
+    if _FORBIDDEN & set(name):
+        raise DslError(f"select.zone() takes a name without ' \" ? [ ], not {name!r}")
+    return Select(Selector("zone", name))
+
+
+def hole(*, lo: Nm | None = None, hi: Nm | None = None) -> Select:
+    """The pads and vias whose finished hole diameter lies in ``lo..hi``, both ends included, in
+    nanometres (``mm("1.0")``); leave one end out for an open interval (change c0462)."""
+    for bound in (lo, hi):
+        if bound is not None and (isinstance(bound, bool) or not isinstance(bound, int)):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"select.hole() takes lengths in nanometres, not {bound!r}")
+    try:
+        return Select(Selector("hole", hole_value(lo, hi)))
+    except ValueError as error:
+        raise DslError(f"select.hole(): {error}") from None
+
+
+def pad_type(kind: str) -> Select:
+    """The pads of one type (change c0462): ``smd`` (no hole), ``th`` (a plated hole) or ``npth`` (a hole
+    that is not plated). A via is of no pad type."""
+    if kind not in PAD_TYPES:
+        raise DslError(f"select.pad_type() takes one of {', '.join(PAD_TYPES)}, not {kind!r}")
+    return Select(Selector("pad_type", kind))
+
+
+__all__ = [
+    "ALL",
+    "ITEM_KINDS",
+    "Select",
+    "area",
+    "hole",
+    "item",
+    "net",
+    "netclass",
+    "no_net",
+    "pad_type",
+    "pair",
+    "ref",
+    "zone",
+]

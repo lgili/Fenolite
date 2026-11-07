@@ -28,7 +28,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from fenolite.backends.altium.read.cfb import is_compound, open_compound
+from fenolite.backends.altium.read.cfb import holds_embedded_boards
 from fenolite.backends.altium.read.draftsman import read_draftsman
 from fenolite.backends.altium.read.dwfdraw import (
     BoardCopy,
@@ -945,14 +945,7 @@ def holds_panel(path: Path) -> bool:
     has a record count above 0 or data (``pcb-document.md``: its empty form is ``Header`` 0, no ``Data``)."""
     if path.suffix.lower() != ".pcbdoc":
         return False
-    data = path.read_bytes()
-    if not is_compound(data):
-        return False
-    document = open_compound(data)
-    header = document.read("EmbeddedBoards6/Header") if "EmbeddedBoards6/Header" in document else b""
-    count = int.from_bytes(header[:4], "little") if len(header) >= 4 else 0
-    body = document.read("EmbeddedBoards6/Data") if "EmbeddedBoards6/Data" in document else b""
-    return count > 0 or len(body) > 0
+    return holds_embedded_boards(path.read_bytes())
 
 
 def drawing_scene(path: Path) -> dict[str, Any]:

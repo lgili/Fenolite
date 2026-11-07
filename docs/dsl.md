@@ -1,5 +1,7 @@
 # The design DSL and `fenolite build`
 
+[Signal topologies](topologies.md) add ordered pin trees, series bridges and explicit timing/loss inputs.
+
 `fenolite.dsl` describes a board in plain Python: parts, nets, net classes, interfaces, an outline and
 placements. `fenolite build design.py --out DIR` runs the script and writes a KiCad 9.0 or 10.0
 project from it, or, with `--target altium`, an experimental Altium project (see "Building for
@@ -50,7 +52,66 @@ components from the part and reads none of this.
 Python facts are cited from `docs/evidence/sources.md` (S-0070 … S-0074); KiCad facts from
 `docs/formats/kicad/`. Everything else on this page is a Fenolite choice.
 
+## Generated footprints (c0260)
+
+`Footprint.from_package(text, *, library="Local", positions=None)` returns the footprint a package record
+(`fenolite.package.v0`, given as its text) describes, drawn by the generator of its family: pads, courtyard,
+silkscreen, fabrication drawing, extruded bodies and, under `drawing >= 1`, the STEP model path
+`${KIPRJMOD}/lib/<library>.3dshapes/<name>.step`, which `fenolite build` writes beside
+`lib/<library>.pretty/`. `positions` picks one position count of a connector series (default: the first).
+The footprint is sealed: `.pad()`, `.graphic()` and `.net_tie()` raise `DslError`. An unreadable record
+raises `DslError` naming `FEN-3004`, and an error finding of the generator one naming its `package.*` code.
+
+```python
+from pathlib import Path
+
+from fenolite.dsl import Design, Footprint, Part
+
+design = Design("demo")
+soic = Footprint.from_package(Path("packages/soic8.toml").read_text(encoding="utf-8"))
+design.add_footprint(soic)
+u1 = Part("U1", "Fenolite:Microcontroller", footprint=soic.lib_id)
+```
+
+The DSL reads no file itself; the families, keys, land calculator and conventions are in
+[Footprints from package records](footprint-generators.md), and `examples/generated/` uses one footprint of
+each family.
+
 ## Assembly and test features (c0118)
+
+A pad of an authored footprint may have a shape beyond a circle, a rectangle, an oval and a rounded
+rectangle (change c0277):
+
+```python
+from fenolite.dsl.footprint import circle, poly, segment
+
+fp.pad("1", at=(mm(0), mm(0)), size=(mm(1), mm(2)), shape="trapezoid", delta=(mm("0.2"), mm(0)))
+fp.pad("2", at=(mm(2), mm(0)), size=(mm(1), mm(1)), shape="rect", chamfer=250_000, corners=("top_left",))
+fp.pad("3", at=(mm(4), mm(0)), size=(mm(1), mm(1)), shape="roundrect", radius_ratio=200_000)
+fp.pad(
+    "4",
+    at=(mm(6), mm(0)),
+    size=(mm("0.5"), mm("0.5")),
+    shape="custom",
+    anchor="circle",
+    primitives=(segment((mm(0), mm(0)), (mm(0.6), mm(0)), width=mm(0.2)), circle((mm(0.6), mm(0)), mm(0.15))),
+)
+```
+
+- `delta` (a trapezoid only, required) says how much the opposite sides differ, along x or along y: one of
+  the two is 0 (KiCad's `rect_delta`).
+- `chamfer` (an `int` of parts per million of the shorter side, 0 to 500 000) cuts the `corners` (some of
+  `top_left`, `top_right`, `bottom_left`, `bottom_right`) of a `rect` or `roundrect` pad. A chamfered `rect`
+  is written as KiCad writes it: a `roundrect` without rounding.
+- `radius_ratio` (parts per million, a `roundrect` only) rounds the corners; without it KiCad's default
+  applies.
+- `shape="custom"` takes `anchor` (`circle` or `rect` of `size`) and `primitives`, a non-empty tuple made
+  by `poly(points, width=None, fill=True)`, `segment(start, end, width=)`, `circle(center, radius,
+  width=None, fill=True)` and `arc(start, mid, end, width=)` of `fenolite.dsl.footprint`, in the pad's frame.
+- A value outside these rules raises `DslError` naming the argument. The model holds
+  `Pad.trapezoid_delta`, `corner_ratio`, `chamfer_ratio`, `chamfer_corners`, `anchor_shape` and
+  `primitives` (`PadPrimitive`); a KiCad reader projects them from a read pad and keeps its children.
+  KiCad 10.0.6 keeps the written children on `fp upgrade` (`H-K-PAD-SHAPES`).
 
 A pad of an authored footprint takes a fabrication mark, the value KiCad calls the fabrication property of
 a pad:
@@ -128,7 +189,8 @@ design.tooling_hole("TH1", mm(46), mm(4), drill=mm(3), clear=mm(5))
 
 ## Authored symbols (c0058)
 
-`Symbol` declares a project-local one-unit symbol without reading any files. Add pins with exact DSL
+`Symbol` declares a project-local symbol without reading any files (one unit unless pins name others, see
+"Multi-unit and derived symbols"). Add pins with exact DSL
 lengths, then attach the definition to the design. A KiCad build resolves matching `Part.lib_id`s from
 these definitions and plans a `.kicad_sym` library and `sym-lib-table` row:
 
@@ -151,6 +213,35 @@ symbols available to KiCad project consumers. KiCad file facts follow S-0043 in
 `Symbol.line`, `Symbol.rect`, `Symbol.circle` and `Symbol.polygon` add ordered symbol-local graphics
 in integer nanometres. When present, these draw the symbol body; the generated pin-bounds rectangle
 is retained only for older definitions without explicit graphics.
+
+## Multi-unit and derived symbols (c0261)
+
+`Symbol.pin(..., unit=1, hidden=False, alternates=())` puts a pin in a unit (0: common to every unit),
+hides it (refused on a `power_in` pin) and gives it alternate functions as `(name, etype)` or
+`(name, etype, shape)` tuples. `Symbol.unit(number, name="")` names a unit, and `Symbol.graphic` and its
+shortcuts take `unit=` (0, the default, draws in every unit). Without these arguments a symbol keeps its
+one-unit definition and its library bytes.
+
+```python
+from fenolite.dsl import Symbol, mm
+
+q = Symbol("Example", "DUAL_OPAMP", reference="U")
+q.unit(1, "A")
+q.unit(2, "B")
+q.pin("1", "OUTA", etype="output", at=(mm(7.62), mm(0)), length=mm(2.54), rotation=180, unit=1)
+q.pin("7", "OUTB", etype="output", at=(mm(7.62), mm(0)), length=mm(2.54), rotation=180, unit=2)
+q.pin("8", "V+", etype="power_in", at=(mm(0), mm(7.62)), length=mm(2.54), rotation=270, unit=0)
+q.rect((mm(-5.08), mm(-5.08)), (mm(5.08), mm(5.08)), unit=1)
+q.rect((mm(-5.08), mm(-5.08)), (mm(5.08), mm(5.08)), unit=2)
+dr = q.derive("DUAL_OPAMP_TR", value="DUAL-OPAMP-TR")
+```
+
+`Symbol.derive(name, *, value="", footprint="", description="", datasheet="")` returns a `DerivedSymbol`:
+the base's drawing and pins, its own properties, written as `(extends "<base>")` in the base's library.
+`Design.add` takes it after its base (`DslError` otherwise). `Symbol.from_pins(table, *, library,
+footprint="", fp_filters=())` returns the symbol generated from a pin table, finished (its `pin`, `unit`
+and `graphic` raise `DslError`), with the table's variants in `variants` and the generator's findings in
+`issues`; see [Symbols from pin tables](symbols.md).
 
 ## Security: `build` executes the script
 
@@ -182,21 +273,48 @@ r1.place(mm(32), mm(9), rot=90, side="bottom")
 
 - `Design(name)`, `Module(name)`: containers; `add(*objs)` adds parts, modules, nets and interfaces.
   There is no implicit "current design".
-- `Part(ref, lib_id, footprint=None, value="", *, properties=None)`: `lib_id` is a symbol
-  `Library:Name`; `footprint=None` falls back to the symbol's `Footprint` property, and `value=""` to
-  its `Value` property. `properties` maps user property names to text ("User properties").
+- `Part(ref, lib_id, footprint=None, value=None, *, name=None, prefix=None, properties=None)`: `lib_id` is
+  a symbol `Library:Name`; `footprint=None` falls back to the symbol's `Footprint` property, and
+  `value=None` to its `Value` property. `value=""` keeps the value empty in a KiCad build (change c0364;
+  before it, `""` also took the symbol's `Value`); an Altium build writes the symbol's name as the comment
+  of a part without a value. `properties` maps user property names to text ("User properties").
+  The ref may be left out: the build then assigns one ("Reference designators and the design lock").
+  `height=` states how tall the part is ("Part heights and height limits"). `dnp=True` marks a part that
+  is not populated (change c0277): its schematic symbol is written with `(dnp yes)` and its board
+  footprint with the `dnp` attribute, KiCad's own marks, so `fenolite export bom` and `pnp` count it under
+  `counts.dnp`; its pins stay connected.
+- `Part(..., board_only=True)` is a part on the board only ("Board-only parts"; change c0277).
+- `Part(..., bom_only=True)` is a pinless purchasing accessory in the schematic and canonical BOM,
+  with no physical footprint or placement. It excludes `board_only`, devices, pad maps and electrical
+  connections; DNP remains independent. A footprint string is descriptive metadata only. KiCad preserves
+  its explicit `in_bom yes`/`on_board no` flags; Altium output currently refuses before writing.
+- `Part(..., footprint_definition="Local:Variant")` selects a KiCad geometry definition while preserving
+  the explicit `footprint="Original:Name"` as native PCB/schematic identity (change c0318). It requires
+  an explicit symbol and footprint, so device/query parts refuse it. An Altium build writes the selected
+  definition under its own name, with one `altium.footprint-definition` info when that name differs from
+  the native one (change c0412). The default empty string keeps ordinary resolution. An override may preserve a native empty
+  string; without an override, `footprint=""` remains invalid. The usual pad-map/electrical checks apply.
+- `Design.part(...)` and `Module.part(...)` take the arguments of `Part`, create the part and attach it.
 - `part[designator]` returns a pin handle; `connect(net, *pins)` joins pins to a net.
-- `no_connect(*pins)` marks pins as intentionally unconnected ("No-connect marks").
-- `Part.place(x, y, rot=0, side="top", locked=False)`, once per part.
-- `Part.field(name, *, dx, dy, rot, layer, visible, size, thickness, justify, outside, gap, locked)`,
+- `no_connect(*pins)` marks pins as intentionally unconnected ("No-connect marks"); `part.unused_no_connect()`
+  asks the build to mark the open pins of a part, and `series`, `decouple`, `pull_up` and `pull_down` wire
+  common patterns ("Connection helpers").
+- `Part.place(x, y, rot=0, side="top", locked=False)`, once per part; with references instead of `x, y`
+  (`right_of=u1`, `left=board.left + mm(2)`, `by=c5.pad(1)`) the build resolves it ("Relative placement").
+- `Part.field(name, *, dx, dy, rot, layer, visible, size, thickness, justify, outside, gap, locked, bold,
+  italic, face)`,
   once per field name: where the `Reference` or the `Value` of the part's footprint goes ("Field
   placement"). `fields(design)` returns the requests.
 - `Design.sheet(paper, …, drawing_sheet=…)` and `Design.title_block(…)`: the paper, your drawing sheet and the title block ("Drawing sheet and title block").
 - `Design.moved(old, new)`: a path alias that keeps the layout of a renamed part or module ("Path
   aliases"); `Design.moved_net(old, new)`: the same for a renamed net.
-- `Design.board(width, height, copper=2, planes=None)`, once per design. `copper` is 2, 4, 6 or 8
-  (`fenolite.dsl.design.COPPER_COUNTS`); any other value, a `bool` or a `float` included, is a
-  `DslError` that names the counts. `design.board(mm(50), mm(30), copper=6)` declares the layers `F.Cu`,
+- `Design.board(width, height, copper=2, planes=None)`, once per design. `copper` is an even count from 2
+  to 32 (`fenolite.dsl.design.COPPER_COUNTS`; 10 to 32 since change c0277); any other value, an odd
+  count, a `bool` or a `float` included, is a `DslError` that names the counts. KiCad refuses a table of
+  one copper layer, so `copper=1` is a `DslError` that says a single-sided board is `copper=2` with
+  nothing on `B.Cu` (`H-K-PCB-ONE-COPPER`). Every count gets zones, planes on any inner layer, script
+  copper, the copper guard and one Gerber per copper layer, as eight layers do; an Altium build refuses
+  more than 16 signal layers (the count less its planes) or 16 planes with `altium.stack-signal-limit`. `design.board(mm(50), mm(30), copper=6)` declares the layers `F.Cu`,
   `In1.Cu`, `In2.Cu`, `In3.Cu`, `In4.Cu` and `B.Cu`. `Design.copper_layers` gives those names for the
   declared count, top to bottom (`("F.Cu", "B.Cu")` before `board()`), and
   `fenolite.dsl.design.inner_layers(copper)` the inner ones. Both KiCad targets get the layer table that
@@ -236,24 +354,33 @@ r1.place(mm(32), mm(9), rot=90, side="bottom")
   signal harness with `--altium-sheets modules` (`docs/altium.md`, "Sheets and harnesses").
 - `I2C(sda, scl)`, `SPI(sck, mosi, miso, cs=(...))`, `UART(tx, rx)` and `USB2(dp, dn, vbus=None, gnd=None)`:
   buses with fixed roles, each with `attach(part, ...)` ("Typed interfaces").
-- `Quantity` and `ohm()`, `farad()`, `henry()`, `volt()`, `amp()`, `hertz()`, `watt()`, `second()`: exact
-  electrical values ("Quantities").
+- `Quantity` and `ohm()`, `farad()`, `henry()`, `volt()`, `amp()`, `hertz()`, `watt()`, `second()`,
+  `kelvin()` and `celsius()`: exact electrical values and temperatures ("Quantities", "Temperatures").
+- `Range`, `Tolerance`, `between()` and `pct()`: exact value ranges with worst-case arithmetic ("Ranges").
 - `to_model(design)` and `placements(design)` turn a DSL design into a model `Design` and the
   placement requests; `build` calls them.
+  KiCad import also preserves an original schematic footprint alias when only
+  its library namespace differs from the physical board name. The local
+  definition keeps exact board geometry; edited instances select explicit
+  variants with `footprint_definition`. A collision on one definition lookup
+  with incompatible payloads refuses; genuine basename changes are not hidden.
+
 
 Nothing of the DSL is re-exported from the root `fenolite` package: the DSL `Design` and the model
 `Design` are different classes.
 
 ### Names and paths
 
-- A design name matches `^[A-Za-z0-9][A-Za-z0-9_.-]*$`. Module names and refs match `[A-Za-z0-9_.+-]+`.
+- A design name matches `^[A-Za-z0-9][A-Za-z0-9_.-]*$`. Module names, part names and refs match
+  `[A-Za-z0-9_.+-]+`.
 - A module path is its name at the top and `<parent path>/<name>` below; a component path is
-  `<module path>/<ref>`, or `<ref>` at the top.
+  `<module path>/<key>`, or `<key>` at the top. The key of a part is its `name`, else its explicit ref,
+  else its reference prefix ("Reference designators and the design lock").
 - Net names are global and literal. A module-local net is named by the script, for example
   `Net(f"{m.path}/FB")`.
 - Errors are raised as `DslError` at the offending call, so the traceback points at the script line:
   duplicate paths, duplicate net, class or interface names, two `Net` objects with one name, a net in
-  two classes, a second `place()` or `board()`, a `copper` that is not 2, 4, 6 or 8, a plane or a zone
+  two classes, a second `place()` or `board()`, a `copper` that is not an even count from 2 to 32, a plane or a zone
   on a layer that the count does not have, one designator on two nets,
   an unknown `side`, an invalid name. Equal refs in different modules are reported by
   `Design.validate()` (`model.duplicate-ref`).
@@ -279,11 +406,18 @@ Nothing of the DSL is re-exported from the root `fenolite` package: the DSL `Des
   `m`, `k`, `M`, `G`) and optionally the unit's symbol (`Ω`, `ohm` or `R`; `F`; `H`; `V`; `A`; `Hz`; `W`;
   `s`), with blanks allowed after the number; or the letter code of IEC 60062, where the prefix letter, or
   `R` for ohms, stands for the decimal point (`4k7`, `2R2`, `1n5`). A `float`, a `bool`, another unit's
-  symbol or a text that does not parse raises `DslError` naming the input. Only volts and amperes may be
-  negative.
+  symbol or a text that does not parse raises `DslError` naming the input. Only volts, amperes and kelvin
+  (a temperature difference) may be negative.
 - **Comparison.** `ohm("4k7") == ohm("4.7k") == ohm("4.7 kΩ") == ohm(4700)`, with one hash. Ordering needs
   one unit (`TypeError` otherwise). `+` and `-` take two quantities of one unit; `*` and `/` take an `int`
-  or a `Fraction`.
+  or a `Fraction`. The one product of two quantities is a square (change c0274): `volt(a) * volt(b)` and
+  `amp(a) * amp(b)` give a range of `volt_squared` or `ampere_squared` ("Ranges"); any other pair raises
+  `TypeError`.
+- **Temperatures** (change c0274). `kelvin(x)` is a value in kelvin and `celsius(x)` is `kelvin(x + 273.15)`
+  exactly; `celsius` takes an `int`, a `Fraction` or a decimal text, and a value below absolute zero raises
+  `DslError`. An absolute temperature and a difference share the unit, as in SI; the text tells them apart:
+  `temperature_text()` of a quantity or a range prints degrees Celsius (`between(celsius(-20), celsius(70))`
+  prints `-20°C..70°C`), and `text()` prints kelvin, the form of a difference (`kelvin(15)` prints `15K`).
 - **Text.** `text()` scales the value by the largest prefix from `p` to `G` that keeps it at least 1 and
   prints the shortest exact decimal, the prefix (`u` for micro) and the symbol: `4.7kΩ`, `100nF`, `3.3V`,
   `16MHz`. A value that is not a terminating decimal (`ohm(1) / 3`) raises `DslError` when printed.
@@ -291,7 +425,84 @@ Nothing of the DSL is re-exported from the root `fenolite` package: the DSL `Des
   henries of 1 or more without a prefix have none and raise.
 - **Parts.** `Part(..., value=ohm("4k7"))` stores `4.7kΩ`, so two spellings of one value are one value in
   the model and in the outputs. Pass `value=q.text(code=True)` for ASCII, or a plain string as before. A
-  quantity never reaches the model or `.fenolite/`.
+  quantity never reaches the model or `.fenolite/`; a part value given as a range ("Ranges") does.
+- **Ranges.** A quantity with a range operand gives a `Range` (`volt("1") + between(...)`), the quantity
+  counting as `[q, q]` with nominal `q`; `q.pct()`, `q.min()`, `q.max()` and `q.within()` are in "Ranges".
+
+## Ranges
+
+A `Range` (change c0246) is an exact interval of one unit with an optional nominal: `unit` (a unit of
+`Quantity`, or `"ratio"` for a dimensionless value), `low` and `high` (`Fraction`, or `None` for an
+unbounded side) and the nominal. There is no solver: a range is computed forwards and compared.
+
+```python
+from fenolite.dsl import between, farad, ohm, pct, volt, amp
+
+v33 = volt("3.3").pct(3)  # 3.3V (3.201V..3.399V)
+c_in = farad("10u").pct(-20, 80)  # 10uF (8uF..18uF)
+r_top = ohm("100k").pct(pct(1))  # a Tolerance value gives the same range as pct(1)
+ripple = between(volt(0), volt("30m"))  # 0V..30mV, no nominal
+i_load = amp("1.5").max()  # 0A..1.5A
+v_in = volt("4.5").min()  # 4.5V.. (unbounded above)
+vout = volt("0.8").pct(1) * (1 + r_top / ohm("31.6k").pct(1))
+assert vout.within(volt("3.3").pct(5))
+```
+
+- **Constructors.** `q.pct(p)` is `[q − |q|·p/100, q + |q|·p/100]` with nominal `q` (`p >= 0`);
+  `q.pct(lo, hi)` runs from `lo` % to `hi` % (`lo <= 0 <= hi`); `q.pct(t)` takes a `Tolerance`, which
+  `pct(p)` or `pct(lo, hi)` builds without a unit. `q.max()` is `[0, q]` without nominal (`q >= 0`; use
+  `between` for a negative range); `q.min()` is `[q, unbounded)`. `between(a, b, *, nominal=None)` takes
+  two quantities of one unit with `a <= b`. A per-cent is an `int`, a `Fraction` or a decimal text
+  (`"0.5"`); a float, a bool or another text raises `DslError`, as does an inconsistent range.
+- **Reading back.** `r.min`, `r.max` and `r.nominal` are quantities (a `Fraction` for a ratio), or `None`;
+  a negative bound of a unit other than volts and amperes raises `DslError` when read as a quantity.
+  Equality and hashing compare all four fields; `<` between ranges raises `TypeError`.
+- **Arithmetic.** `+`, `-`, `*`, `/` and unary `-` take ranges, quantities, `int` and `Fraction` (a ratio)
+  on either side and give the exact worst-case range: `[a0+b0, a1+b1]`, `[a0−b1, a1−b0]`, the minimum
+  and maximum of the four bound products, and `a · [1/b1, 1/b0]`. The nominal of a result is the same
+  operation on the nominals when both have one. Dividing by a range that holds zero raises `DslError`.
+- **One-sided ranges** (change c0274). A range with an unbounded side enters arithmetic when the result
+  keeps a bound: `+` and `-` combine bounds side by side, a side being unbounded when an operand is
+  (`volt("4.5").min() + volt("0.2")` is `4.7V..`), and unary `-` swaps the sides. `*` and `/` apply when
+  both operands have a low bound of at least 0: `[a0·b0, a1·b1]` and `[a0/b1, a1/b0]`, an unbounded high
+  staying unbounded and `a0/b1` taken as 0 when `b1` is (`amp("1").min() * ohm("2")` is `2V..`). A
+  signed one-sided product, a divisor whose low bound is 0, and a result unbounded on both sides
+  (`volt("4.5").min() - volt("1").min()`) raise `DslError` naming the operation. One-sided results carry no
+  nominal. Interval arithmetic does not know that two operands are the
+  same value, so `r / r` is wider than `[1, 1]`: a result can be wider than the true range, never
+  narrower.
+- **Units.** `+` and `-` take one unit. `*` and `/` follow the closed tables `quantity.UNIT_PRODUCTS` and
+  `quantity.UNIT_QUOTIENTS`, definitions of SI derived units; any other pair raises `TypeError` naming both
+  units.
+
+  | `*` | gives | `/` | gives |
+  |---|---|---|---|
+  | X · ratio, ratio · X | X | X / X | ratio |
+  | volt · ampere | watt | X / ratio | X |
+  | ampere · ohm | volt | volt / ohm, watt / volt | ampere |
+  | ohm · farad | second | volt / ampere | ohm |
+  | hertz · second | ratio | watt / ampere | volt |
+  | volt · volt | volt_squared | henry / ohm, ratio / hertz | second |
+  | ampere · ampere | ampere_squared | ratio / second | hertz |
+  | ampere_squared · ohm | watt | volt_squared / ohm | watt |
+  | | | watt / ohm | ampere_squared |
+
+  `volt_squared` and `ampere_squared` (change c0274) exist in the DSL and the judge only: they print `V²`
+  and `A²`, their bounds are read as `low` and `high` (not as quantities), and lowering such a range to
+  the model raises `DslError`: `volt("13.2") * volt("13.2") / ohm("990")` is exactly 176 mW.
+
+- **Containment.** `a.within(b)` is true when every value of `a` lies in `b`, an unbounded side of `b`
+  holding everything on that side; `a` and `b` are ranges or quantities of one unit (`TypeError`
+  otherwise).
+- **Text.** `text()` and `str()` print `3.3V (3.201V..3.399V)`, or `3V..3.6V` without a nominal, and
+  `4.5V..` for an unbounded side; a ratio prints as a plain decimal. A value that does not terminate is
+  rounded outward (low down, high up, nominal to nearest) to four significant digits after a `~`:
+  `~0.3333..~0.6667`. `text()` never raises.
+- **Part values.** `Part(..., value=ohm("10k").pct(1))` stores `10kΩ` as the value, exactly as
+  `value=ohm("10k")` does, and the range as `Part.value_range`. A part value range needs a nominal, two
+  bounds, a unit (not a ratio) and no negative bound of a unit other than volts and amperes, else
+  `DslError` naming the ref. `to_model` stores it as `Component.value_range`, a `ValueRange` of exact
+  decimals (`docs/design-model.md`, "Value ranges"); no written KiCad or Altium file changes.
 
 ## Typed interfaces
 
@@ -336,10 +547,175 @@ spi.attach(u4, role="peripheral", sck="SCK", mosi="SDI", miso="SDO", cs="CS", cs
   - `build.diff-pair-gap-shadowed`: the nets of a pair are in a class with a `diff_pair_gap`, and KiCad
     would report two tracks laid at that gap ("Differential pairs" below).
   - `build.i2c-pullup-missing`: an I2C line has no part of exactly two pins between it and the `hv` net of
-    a `Power` interface. A pull-up on another board, or in a resistor array, is not seen: ignore the
-    warning then.
+    a `Power` (`Rail`) interface or of a `power` port of a block or a device (change c0252). A pull-up on
+    another board, or in a resistor array, is not seen: ignore the warning then. Whether it is the right
+    rail is `circuit.bus-pullup` ("Interface parameters" below).
 - **Altium build.** The four kinds are kept in the model and named in the `altium.not-lowered` info for
   interfaces; their nets are written as plain nets.
+
+## Rails, grounds and logic
+
+Change c0252 gives supplies, grounds and logic lines their own interfaces:
+
+```python
+from fenolite.dsl import Ground, Logic, Rail, amp, between, ohm, volt
+
+gnd = design.ground("GND")  # the net GND and the Ground on it
+v12 = design.rail("V12", voltage=volt("12").pct(10), ground=gnd)  # the net, the Rail V12/GND
+v33 = design.rail("3V3", ground=gnd)  # its voltage comes from the source port that drives it
+irq = Logic(Net("IRQ"), reference=v33)  # a logic line and the rail its levels refer to
+bus = I2C(sda, scl, reference=v33, pullup=between(ohm("2k"), ohm("10k")))
+```
+
+- `Rail(hv, lv=None, *, name=None, voltage=None, shared=False)` is the kind `power` with the members `hv`
+  and, when given, `lv`; the default name is `<hv>/<lv>` or `<hv>`. `Power` is another name of `Rail`, and a
+  rail without parameters gives the model of `Power(hv, lv)` byte for byte. `shared=True` lets several
+  sources drive the rail.
+- `Ground(gnd, *, name=None)` is the kind `ground` (member `gnd`), `Logic(io, *, name=None, reference=None)`
+  the kind `logic` (member `io`); the default name of each is its net's name. A `reference` is a `Rail` or a
+  power port handle; anything else raises `DslError`. The buses `I2C`, `SPI`, `UART` and `USB2` take
+  `reference=` too, and `I2C` takes `pullup=`, the resistance range it accepts.
+- `design.rail(name, *, voltage=None, ground=None, shared=False)` and `design.ground(name)` create and add
+  the net and the interface in one call; `ground` is a `Ground` or a `Net`. A name already used by a net
+  raises `DslError`.
+- **Net-like interfaces.** A `Rail`, a `Ground`, a `Logic`, and a port of kind `power`, `ground` or
+  `logic`, stand for their main member (`hv`, `gnd`, `io`): `connect(v12, j1[1])`, `decouple(v33, gnd, c1)`.
+
+## Interface parameters
+
+Each kind has a closed parameter table, `fenolite.dsl.interfaces.PARAMETERS`. Every value is a c0246
+range or quantity of the parameter's unit, never a float, and comes from the script or a device record:
+
+| kind | parameter | semantics | unit | `out` port | `in` port | `inout` port | design interface |
+|---|---|---|---|---|---|---|---|
+| `power` | `voltage` | alias | volt | sets (the operating promise) | bounds (the range it accepts) | bounds | sets |
+| `power` | `current` | sum | ampere | adds capacity | adds draw | refused | refused |
+| `logic`, buses | `abs_max` | bound | volt | the range the pin withstands | as `out` | as `out` | refused |
+| `logic`, buses | `input_high_min`, `input_low_max` | bound | volt | refused | thresholds | thresholds | refused |
+| `logic`, buses | `output_high_min`, `output_low_max` | bound | volt | output levels | refused | output levels | refused |
+| `logic`, buses | `output_current_max` | bound | ampere | what the output sinks or sources | refused | as `out` | refused |
+| `logic`, buses | `reference` | link | a rail | the reference rail | the reference rail | the reference rail | the reference rail |
+| `i2c` | `pullup` | bound | ohm | refused | the accepted range | the accepted range | the accepted range |
+
+- **alias**: one value per rail; the design interface and `out` ports set it, and the rail's voltage is
+  their intersection. `in` ports bound it: the rail must lie within each.
+- **sum**: `out` ports add capacity, `in` ports add draw, and the worst case is checked: the sum of the
+  draws' upper bounds against the sum of the capacities' lower bounds. Loads are never added to sources.
+- **Direction.** `current` needs `direction="in"` (a load) or `direction="out"` (a source); on an `inout`
+  port, c0251's default (a connector, a jumper, a test point), it raises `DslError`.
+- A power `voltage` is an *operating* range, judged exactly; the absolute ratings of a part stay on its
+  device pins. A parameter the table does not allow for the kind and direction, or one set twice, raises
+  `DslError`.
+- **Ports.** `b.port("VOUT", Rail, direction="out", voltage=vout, current=amp(1))`, or `port.set(...)` later
+  in the block; `share=True` lets an out power port share its rail; `reference=` names its rail.
+
+## Companions
+
+A port may state what must be connected for it to work: `b.port("I2C", I2C, requires=("pullup",
+"supply"), reference=vdd)`, or `requires = [...]` in a device's `[[interfaces]]` table. The vocabulary is
+closed: `pullup` (`i2c`, `logic`: each line has a pull-up), `supply` (logic and buses with a reference, and
+`in` power ports: the rail has a voltage and a source) and `chip_select` (`spi`: each `cs` net goes
+somewhere). An entry outside it, or one the kind does not take, raises `DslError`; an unmet entry is the
+warning `circuit.requires-missing`.
+
+## Electrical contracts
+
+Change c0253 lets a script state what its parts must withstand and what its circuit must achieve. The stage
+`circuit.rules` of `fenolite check` (and `fenolite build`) judges it on the built model; nothing is judged
+at script time. The full guide, with the sources of each value and the requirement table, is
+[contracts.md](contracts.md).
+
+```python
+from fenolite.dsl import (
+    at_least,
+    at_most,
+    between,
+    celsius,
+    current_of,
+    kelvin,
+    rating_of,
+    ratio,
+    select,
+    sink,
+    supply,
+    value_of,
+    voltage_of,
+    within,
+)
+
+design.derating(capacitor_voltage=ratio(50), source="our rule 4.2")  # at most 50 % of the rating
+design.derating(capacitor_voltage=ratio(80), parts=select.ref("C1*"))  # a part scope wins
+design.derating(temperature_margin=kelvin(15))  # a temperature rating narrowed by 15 K at each end
+design.operating(ambient=between(celsius(-20), celsius(70)))
+design.contracts(unknown="warning")  # each row that cannot be judged is a warning, not one info count
+design.rig(
+    supply(v12, gnd, voltage=volt("12").pct(10), current=amp(3), name="bench"),
+    sink(v33, gnd, current=amp("0.2"), name="probe"),
+)
+design.expect(within(voltage_of(v33), rating_of(sen, "voltage", pin="VDD", limit="operating")), "VDD range")
+```
+
+| name | what it records |
+|---|---|
+| `design.derating(*, parts=None, source="", **keys)` | per-mille limits of `abs_max` ratings by key (`capacitor_voltage`, `resistor_power`, `inductor_current`, `pin_voltage`, ... and `temperature_margin`); Fenolite ships none |
+| `design.operating(*, ambient)` | the ambient temperature range, a kelvin range |
+| `design.contracts(*, unknown="info")` | `"warning"` makes each row that cannot be judged a warning |
+| `design.expect(test, reason)`, `b.expect(test, reason)` | an expectation, id `<instance path>/expect#<n>` (`design/expect#1` at the top level) |
+| `design.rig(*elements)` | the test rig: `supply(pos, neg=None, *, voltage, current=None, name=None)` and `sink(net, ret=None, *, current, name=None)`; an omitted `neg` or `ret` is the design's one ground |
+| `within(a, b)`, `at_least(a, b)`, `at_most(a, b)` | the tests of an expectation, judged pass, unsure or fail on worst-case ranges |
+| `value_of(part)`, `rating_of(part, key, pin=None, limit="abs_max")`, `voltage_of(x)`, `current_of(x)` | handles that the stage reads from the model; `+ - * /` on handles, ranges, quantities and exact numbers builds an expression |
+| `ratio(p)` | a derating, "at most `p` % of the rating", stored in whole per-mille |
+
+- A derating is `ratio(p)`, never `pct()`: c0246's `pct()` is a ± tolerance, and `derating(...=pct(50))`
+  raises `DslError` with the hint `ratio(50)`. A ratio above 100 %, a key outside the table and a value that
+  is not whole per-mille raise `DslError`.
+- A handle, an expression or a test has no truth value and no order: `if rating_of(l1, "current"):` raises
+  `DslError`, and so does `expect(True, ...)`; write `within(a, b)` so that both ranges are recorded.
+- `rating_of` raises `DslError` listing what the device states when it lacks the key, the pin or the kind.
+- A rig is a record of the rules layer, never a part: it reaches no netlist, schematic, board, BOM or export.
+  It names only nets that have a pin of a board part, and its names are unique.
+
+## Connecting interfaces
+
+`connect` keeps its net form and gains an interface form: when every argument is an interface or a port,
+each member joins the member of the same name of every other argument, through the port nets of blocks.
+
+```python
+connect(v33, mcu.vdd, sen.vdd)  # hv to hv, lv to lv where both sides have it
+connect(I2C(Net("SDA"), Net("SCL")), mcu.i2c1, sen.i2c)  # SDA to SDA, SCL to SCL
+connect(u1.uart, u2.uart)  # two UART ports cross: tx joins rx
+```
+
+- **Compatibility.** Equal kinds join (a harness with equal entries, an SPI with the same chip selects); a
+  net joins the main member of a `power`, `ground` or `logic` interface or port. Any other pair raises
+  `DslError` naming both kinds and names (`cannot connect ground `GND` to power port `buck1/VIN``), and
+  nothing is connected.
+- An optional member (`power.lv`, `usb2.vbus`, `usb2.gnd`) joins only where both sides have it; a missing
+  required member raises `DslError`. A `UART` bus interface joined to a port raises: its side is not known,
+  so use `attach(side=...)`.
+- Net names follow the port-net rule of "Blocks": the group's script-named net, else the path of its
+  preferred port member (`U2/i2c1.sda`). Name a bus interface first for readable names.
+- `pull_up(target, rail, *resistors)` also takes an `i2c` port (two resistors, `sda` then `scl`) and a
+  `Logic` line or `logic` port (one), and a net-like rail.
+
+## Device ports
+
+A device record declares its interface ports in `[[interfaces]]` tables (`docs/devices.md`, "Interface
+ports"). `part.port("vdd")` and `part.vdd` give a port handle whose members are the part's pins, through port
+nets owned by the part's path; an unknown name raises `DslError` naming the device's ports. Every declared
+port becomes a model `Port` owned by the component, with the net of each member, whether the script reached
+it or connected the pins by function. A member whose pins end on two nets (`VDD` and `VDDA` on two rails)
+is left out of the port and gives `circuit.port-split`.
+
+The parameters are judged by the stage `circuit.rules` of `fenolite check` and by `fenolite build`, from the
+model alone (`docs/cli-contract.md`, "Circuit stage"): `circuit.rail-voltage`, `circuit.rail-current`,
+`circuit.rail-sources`, `circuit.rail-unset`, `circuit.logic-level`, `circuit.logic-unknown`,
+`circuit.bus-pullup`, `circuit.requires-missing` and `circuit.port-split`. An error stops the build's
+write. `examples/sensor_rails/` shows a good and a bad variant.
+
+A device record may also offer interface options on several pin sets (`[[options]]`); `part.take(I2C)`
+takes one, and `fenolite build` chooses its pins, lists them in `result.pins` and keeps them in the `[pins]`
+section of the design lock: see `docs/pins.md` (change c0257).
 
 ## Ids: the key table
 
@@ -361,13 +737,15 @@ Every object that `to_model` or the build creates gets `derived_id(prefix, "dsl"
 | net | `net` | `net:<name>` |
 | net class | `cls` | `netclass:<name>` |
 | interface | `itf` | `interface:<kind>:<name>` |
+| block port | `prt` | `port:<owner path>:<port name>`, the owner path being the block instance path (change c0251) |
 | layer | `lay` | `layer:<KiCad name>` |
-| zone | `zon` | `zone:<zone name>` |
+| zone | `zon` | `zone:<key>` (the name unless `key=` is given) |
 | rule | `rul` | `rule:<kind>` (board minimum), `rule:<kind>:<class name>` (class minimum), `rule:named:<rule name>` (a rule of `rule()`) |
-| rule area | `kpo` | `area:<area name>` |
+| rule area | `kpo` | `area:<key>` (the name unless `key=` is given) |
 | board text | `txt` | `text:<drawing key>` |
 | board graphic | `gfx` | `graphic:<drawing key>` |
 | dimension | `dim` | `dimension:<drawing key>` |
+| group | `grp` | `group:<key>` (the name unless `key=` is given; change c0277) |
 | stack-up | `stk` | `stackup` |
 | stack-up entry | `sly` | `stack_layer:<k>`, k from 0, top to bottom |
 | impedance target | `imp` | `impedance:<target name>`; its derived rules are `rule:named:<derived rule name>` (change c0105) |
@@ -378,7 +756,24 @@ Footprints and pads are keyed by the component path through the KiCad embedder.
 
 `board(width, height)` declares a rectangle. `board(outline=path)` declares any closed ring instead, and
 `cutout(path)` adds a cut-out to either form; exactly one form of `board()` is given. `slot()` adds a
-milled slot (change c0167).
+milled slot (change c0167). An edge of the outline that a footprint's own `Edge.Cuts` draws (a USB
+connector's notch) is not written again: KiCad joins the footprint's edges to the board's (change c0277;
+`H-K-OUTLINE-FPEDGE`).
+
+`board(..., outline_width=mm("0.23"))` sets one nonnegative stroke width for generated KiCad root
+edges, including cut-outs and slots. Zero is explicit; `None` keeps the existing 0.1 mm default.
+Footprint edges retain their own strokes. An explicit width change follows the outline rebuild policy;
+hand-edited outline geometry keeps its existing precedence unless `locked=True`.
+
+`board(..., technical_layers=None)` keeps the complete standard non-copper table. An explicit
+sequence selects only those standard rows, in canonical order: `F.Adhes`, `B.Adhes`, `F.Paste`,
+`B.Paste`, `F.SilkS`, `B.SilkS`, `F.Mask`, `B.Mask`, `Dwgs.User`, `Cmts.User`, `Eco1.User`,
+`Eco2.User`, `Edge.Cuts`, `Margin`, `F.CrtYd`, `B.CrtYd`, `F.Fab`, `B.Fab`. Names must be unique;
+`Edge.Cuts` is required for the outline. Copper and `User.n` rows are not part of this selection:
+`copper=` and `design.user_layers()` still declare them independently. The existing model layer rows
+carry the selection without a new persisted field. An item referencing an omitted layer, including
+a footprint pad/field or an image, refuses the build rather than being removed or reassigned. The
+`board-workflow` guide page has a complete executable example omitting the unused Eco rows.
 
 ```python
 from fenolite.dsl import arc_to, mm, shape
@@ -481,7 +876,7 @@ and centring on the paper would move every part when the paper size changes.
 Parts without `place()` are staged in one row, in component-path order, 5 mm right of the outline (of
 the box of its rings, arcs included) and
 top-aligned with it, 2 mm apart, on the top side at 0° and unlocked, each with a `layout.unplaced`
-warning.
+warning. A block with a layout strategy and no pose is staged first, as one box ("Block layout").
 
 ## Scripts
 
@@ -518,6 +913,32 @@ warning.
   KiCad 9.0.9 and 10.0.6 compare net names in custom-rule conditions without regard to case
   (`H-K-DRU-COND`, `docs/formats/kicad/rules.md`); the build refuses such names whatever is measured.
 
+## Devices
+
+A part can be placed from a **device**: one reviewed record that joins a symbol, a footprint, the map from
+pin function to pads, an identity, ratings and an evidence label (change c0248; the format, its sources and
+its review are in `docs/devices.md`).
+
+```python
+u1 = design.part("U1", device="Example:BUCK_6V_2A")  # Part(...) and design.add(...) in one call
+r1 = design.part("R1", device="Fenolite:R_0603", value=ohm("4k7"))
+connect(vin, u1.VIN, r1.P1)
+```
+
+- `Part(ref, device=ID)` takes exactly one of `lib_id` and `device`; with a device, `footprint` and
+  `pad_map` are refused, `value` defaults to the device's, and `Manufacturer`, `MPN` and the device's
+  properties join the part's (a conflicting `MPN` raises `DslError`). `part.device` is the `DeviceDef`.
+- `design.part(...)` and `module.part(...)` build a `Part` and add it, with or without a device.
+  `design.devices(*records)` registers `DeviceDef` records (or device records with their parts) that win over the records of
+  `devices/` beside the script
+  and over the shipped `Fenolite:` devices.
+- On a device part, `u1.VIN` and `u1["VIN"]` are checked when they are called: a wrong name raises
+  `PinNameError` (a `DslError` and an `AttributeError`) naming the closest functions. A function named like
+  an attribute of `Part` is reached as `u1["place"]`. `u1.pad("GND")` is the first pad of a function.
+- The build resolves a function to all its symbol pins, checks the device against its symbol and footprint
+  (`build.device-mismatch`), writes the device's datasheet as the `Datasheet` field and reports the devices
+  in `result.devices`. A design without device parts builds exactly as before.
+
 ## No-connect marks
 
 ```python
@@ -527,8 +948,9 @@ no_connect(u1[11], u1[12])  # NRST and OSC_IN are left open on purpose
 ```
 
 - `no_connect(*pins)` takes the pin handles that `connect` takes, of one part or of several. A call
-  without arguments does nothing, and marking a designator twice keeps one mark. There is no `Part`
-  method for marks, no automatic marking of unused pins and no way to remove a mark.
+  without arguments does nothing, and marking a designator twice keeps one mark. There is no way to
+  remove a mark. `part.unused_no_connect()` asks the build to mark the part's open pins; the marks it
+  resolves are marks of this section ("Connection helpers").
 - **Errors.** Any argument that is not a pin handle raises `DslError`. Marking a designator that
   `connect` joined to a net raises `DslError` naming the ref, the designator and the net; connecting a
   marked designator raises `DslError` naming the ref and the designator. The earlier call stays in
@@ -549,6 +971,57 @@ no_connect(u1[11], u1[12])  # NRST and OSC_IN are left open on purpose
   as `REF-PIN`.
 - **Altium target.** Each marked pin gets a No ERC directive and no wire stub (`docs/altium.md`,
   "No-connect marks").
+
+## Connection helpers
+
+Plain functions of `fenolite.dsl` (change c0247) that lower to `connect`, no-connect marks and `near()`
+rules; none creates a part, picks a value or adds a model field.
+
+```python
+from fenolite.dsl import I2C, Net, connect, decouple, mm, pull_up, series
+
+connect(led_drv, u1[1])
+series(led_drv, r1, led_a, (d1.b, d1.a), gnd)  # LED_DRV-R1-LED_A, the LED turned around, to GND
+series(vin, f1, d1, vprot)  # returns (Net("F1-D1"),), the joint between F1 and D1
+decouple(v33, gnd, c3, c4, near=u2.pad(4), within=mm(3))  # rules decouple/C3 and decouple/C4
+pull_up(I2C(sda, scl), v33, r3, r4)  # R3 on SDA, R4 on SCL
+u1.unused_no_connect(keep=(5, "PA7"))  # mark every other open pin at build
+```
+
+- **Ends.** `part.a` and `part.b` are the pin handles `part["1"]` and `part["2"]`. Using them, or passing
+  the part to a helper, sets `part.two_terminal`: the build then checks that the symbol has exactly two
+  pins, else `build.not-two-terminal` (error, exit 5, nothing written) names the ref and the pin count. A
+  two-pin symbol numbered otherwise (`A`, `K`) fails with `build.unknown-pin` on `1`.
+- **`series(*chain)`.** The first and last items are nets, with at least one part between. An inner item
+  is a part (entered at `a`, left at `b`), a tuple of two distinct pin handles of one part (entered at the
+  first: `(d1.b, d1.a)` turns it around), or a net that names the joint between the parts beside it.
+  Two parts next to each other are joined by a new net named `<left path>-<right path>` (`F1-D1`,
+  `psu/F1-psu/D1`); the call returns the new nets in chain order. Two nets next to each other, a chain
+  without a part, a bad tuple, any other item, and a generated name another net of the design has raise
+  `DslError`.
+- **`decouple(rail, ground, *capacitors, near=None, within=None, severity="error")`.** Each capacitor's
+  `a` joins `rail` and its `b` joins `ground`. `near` and `within` come together or not at all (there is
+  no default distance); with them each capacitor gets the rule `decouple/<capacitor path>` of
+  `design.near(...)` ("Placement rules"), so a capacitor must be in a design and `near` takes what
+  `near()`'s anchor takes (a pin handle is refused with the hint `part.pad(<number>)`).
+- **`pull_up(target, rail, *resistors)` and `pull_down(target, ground, *resistors)`.** `target` is a net
+  (one resistor) or an `I2C` bus (two resistors: SDA, then SCL). Each resistor's `a` joins its signal net
+  and `b` the rail or ground. A count that differs, a signal net that is the rail, another interface (named
+  by its kind) and a value such as `ohm("4k7")` instead of a part ("a value does not choose a part")
+  raise `DslError`.
+- **Refusals connect nothing.** Every helper checks all its connections first: a pin on another net, a
+  marked pin, or a pin given two nets in one call raises `DslError` before any connection.
+- **`part.unused_no_connect(*, keep=())`.** Records `part.unused_request` (the `keep` designators, `str`
+  or `int`, as written); a second call raises `DslError`, and `connect` and `no_connect` stay allowed
+  after it. `to_model` is unchanged: the build reads `dsl.convert.unused_marks(design)` and
+  `dsl.convert.two_terminal(design)`. After nets and explicit marks are resolved, every pin of the part,
+  in pin-number order, that is on no net, not marked, not in `keep` (resolved like any designator,
+  `build.unknown-pin` when unknown) and not of type `no_connect` becomes an ordinary mark ("No-connect
+  marks"). Both the KiCad and the Altium build resolve it the same way.
+- **Must-connect pins.** A pin of type `power_in` is never marked: open, it gives
+  `build.must-connect-unconnected` (error, exit 5, nothing written) naming the ref, the pin number and
+  the name, with the hint "connect it, or list it in keep=". Only the symbol's pin types are checked: a
+  supply pin typed `passive` escapes the guard. A catalog device may flag more pins (change c0248).
 
 ## User properties
 
@@ -579,11 +1052,12 @@ such as a part number or a supplier code, as text.
   part). Adding one moves no other uuid. KiCad 9.0.9 and 10.0.6 load them without a library mismatch,
   and a 10.0.6 re-save keeps names, values and visibility (`H-K-VENDOR-PROPS`). `Component.properties`
   holds what `read_board` reads back.
-- Position, layer, visibility and size of these fields cannot be set yet (field placement, c0030).
+- `Part.field` can set the presentation of an exactly named declared user property (c0345).
 
 ## Field placement
 
-`Part.field("Reference", …)` and `Part.field("Value", …)` place the two text fields of the part's footprint.
+`Part.field("Reference", …)`, `Part.field("Value", …)` and requests for exactly named properties
+declared on that part place the corresponding footprint text fields.
 Without a request a field stays where the footprint library puts it. A footprint of the built-in catalog
 or of `dsl.Footprint` has no library file: its two fields are generated 1 mm above and below the
 footprint ("Authored footprints"), and a request moves or hides them like any other. A library footprint
@@ -596,8 +1070,10 @@ u1.field("Value", visible=False)
 r1.field("Reference", dx=mm(0), dy="-2.5mm", rot=0, justify="left", locked=True)
 ```
 
-- **Names.** Only `Reference` and `Value`. Every other property keeps the library's placement; user
-  properties are written hidden ("User properties").
+- **Names.** `Reference`, `Value`, or an exact key of that part's declared user properties, such as
+  `Part(..., properties={"MPN": "AUTHORED-1"})` followed by `part.field("MPN", visible=True)`.
+  Unknown names, a different letter case and other reserved library fields are refused. Without a
+  request user properties retain their default hidden presentation ("User properties").
 - **Frame.** `dx` and `dy` are lengths in the board frame, measured from the part's placement point (the
   point of `place()`, or the staging point), and are given together. `rot` is the angle of the text on the
   board in degrees. Both are independent of the part's own rotation: "2.5 mm above the part, horizontal"
@@ -624,6 +1100,27 @@ r1.field("Reference", dx=mm(0), dy="-2.5mm", rot=0, justify="left", locked=True)
 - **`locked`.** On a first build every request applies. On a rebuild over an existing board, a field
   edited in KiCad wins over an unlocked request; `locked=True` makes the request win (`docs/lens.md`,
   "Footprint fields").
+- **Overrides** (change c0277). `Part.override(*, clearance=None, mask_margin=None, paste_margin=None,
+  paste_ratio=None, zone_connection=None, thermal_gap=None, thermal_spoke_width=None)`, once per part, sets
+  the footprint-level settings of this part's instance: KiCad's footprint `clearance`, `solder_mask_margin`,
+  `solder_paste_margin`, `solder_paste_margin_ratio` (`paste_ratio` in parts per million, may be negative),
+  `zone_connect` (`solid`, `thermal`, `none`, `thru_hole_only`), `thermal_width` and `thermal_gap`, written
+  before the footprint's `attr` (`FootprintInstance.overrides`, `FootprintOverrides`). `Part.edit_pad(number,
+  **fields)` replaces `at`, `size`, `rotation`, `shape`, `drill`, `mask_margin` or `paste_margin` of every
+  pad of that number of this instance only; a number the footprint does not hold is `build.pad-unknown`
+  (error). The vendored library footprint is unchanged, and the copper guard judges the edited pads.
+- **3D models** (change c0277). `Part.model(name, *, offset=(0, 0, 0), rotation=(0, 0, 0), scale=("1", "1",
+  "1"), hidden=False)` adds one 3D model to the part's footprint instance; any call replaces the footprint's
+  own models for this part. `name` is a reference only (`"${KICAD10_3DMODEL_DIR}/Package_SO.3dshapes/
+  SOIC-8.step"`, `"3dmodels/cap.step"`): nothing is read, and `fenolite models --vendor` and the STEP export
+  resolve it as they resolve a library's. `offset` holds lengths in the footprint frame (Y down; `0` is no
+  offset), `rotation` angles in degrees counter-clockwise, `scale` positive decimal strings. The model holds
+  `FootprintInstance.models` (`ModelRef`).
+- **Font** (change c0277). `bold=True` or `False`, `italic=True` or `False` and `face="KiCad Font"` set the
+  field's font; `None` (the default) keeps the font the footprint gives. The build writes the flags into the
+  field's `effects` and leaves every other child as it is: `u1.field("Reference", dx=mm(0), dy=mm(-3),
+  bold=True, face="KiCad Font")`. `FootprintField.bold`, `italic` and `face` hold them; a KiCad reader does
+  not project them.
 - **Errors.** Another name, a second request for one field of one part, a request that sets nothing,
   `dx` without `dy`, a bare number for a length and any other value outside these rules raise `DslError`
   at the call. A footprint that has no such field is found by the build (`FEN-3004`).
@@ -640,8 +1137,13 @@ configuration, and another machine both find every footprint (`H-K-VENDOR-GLOBAL
   design's names. In KiCad's library check the vendored project row hides a global row of the same
   nickname, and with it the global library's other items (`H-K-VENDOR-SHADOW`, measured for DRC on both
   majors). The GUI footprint chooser is expected to behave the same; this is not probed.
-- **Only placed footprints:** no whole library and no 3D models (they stay at their
-  `${KICAD…_3DMODEL_DIR}` paths).
+- **Only placed footprints:** no whole library. A model of the official libraries, or any path under a
+  `${KICAD…}` variable, is never copied: it stays at its path. A model that a vendored footprint names as
+  `${KIPRJMOD}/<rel>` and that the script's folder holds is the project's own file, and the build copies it
+  byte for byte to `<rel>` in the built project (change c0458). KiCad reads such a path from the board's
+  folder, so without the copy the built board would show none of these models
+  (`docs/formats/kicad/libraries.md`, "3D models"). This is the case of a design that `fenolite import`
+  made from an Altium project: its `<library>.3dshapes` folder lies beside the script.
 - **Symbols** follow the same rule: the symbols the schematic uses are written to
   `lib/<nickname>.kicad_sym` with a `sym-lib-table` row each, flattened and never a whole library
   (`docs/schematic.md`, "The symbols and their libraries"). The licence note below applies to those
@@ -718,7 +1220,7 @@ design.stitch("ep", net=gnd, pitch=mm(1), region=u1.pad(33), diameter=mm(0.6), d
 | `via_step(x, y, *, to, diameter=None, drill=None, kind="through")`, `via_step(point, *, to, …)` | a via inside a track path, after which the track runs on the copper layer `to`; `kind` is `through`, `blind`, `buried` or `micro`. The point is two lengths, or one argument: an `(x, y)` pair or an anchor |
 | `arc_to(mid, end)` | an arc inside a track path: from the point of the element before it through `mid` to `end`, each an `(x, y)` point or an anchor; the path continues from `end` |
 | `design.track(key, *path, layer="F.Cu", width=None, net=None, locked=False)` | a track along `path`: pad references, `(x, y)` points, anchors, arc steps and via steps, starting on `layer` |
-| `design.via(key, x, y, *, net, diameter=None, drill=None, kind="through", layers=None, locked=False)`, `design.via(key, point, *, net, …)` | one via, at two lengths or at one point (an `(x, y)` pair or an anchor); a via that is not a through via names its two copper layers in `layers` |
+| `design.via(key, x, y, *, net, diameter=None, drill=None, kind="through", layers=None, locked=False, protection=None, teardrop=None, free=False)`, `design.via(key, point, *, net, …)` | one via, at two lengths or at one point (an `(x, y)` pair or an anchor); a via that is not a through via names its two copper layers in `layers`; `free=True` writes KiCad's `(free yes)`, a via that keeps its net when no track joins it (change c0277; `via_table` takes it too); a drill equal to the diameter is a via without a ring, as a source document can hold one, and a larger drill is refused (change c0426) |
 | `design.stitch(key, *, net, pitch, along=(), region=(), origin=None, diameter=None, drill=None, clearance=None, margin=None, locked=False)` | through vias every `pitch` along a polyline, or on a grid inside a region; `region=part.pad(number)` is the copper of that pad (a thermal array) |
 | `copper(design)` | the intents as frozen dataclasses in key order (`TrackIntent`, `ViaIntent`, `StitchIntent`, with `PadEnd`, `Anchor`, `ViaStep` and `ArcStep`), which the build resolves |
 
@@ -805,6 +1307,47 @@ design.meander("n_tune", track="usb_n", segment=1, match="usb_p", amplitude=mm(0
 - The meander does not avoid other copper; the copper guard judges the result. Corners are square.
 - `result.copper.meanders` of `fenolite build` counts the meanders that changed copper.
 
+### Copper tables
+
+`Design.track_table`, `arc_table` and `via_table` declare many items of one net at once, each row a tuple
+of integer nanometres in the frame of `place()` (change c0275). `fenolite import` writes a board's copper
+this way into `copper.py` (`docs/import.md`); a script may use them too.
+
+```python
+design.track_table(
+    "GND/F.Cu/1",
+    net=gnd,
+    layer="F.Cu",
+    width=mm("0.25"),
+    rows_nm=((10_160_000, 5_080_000, 12_700_000, 5_080_000),),
+)
+design.arc_table(
+    "GND/F.Cu/2",
+    net=gnd,
+    layer="F.Cu",
+    width=mm("0.25"),
+    rows_nm=((0, 0, 1_000_000, 1_000_000, 2_000_000, 0),),
+)
+design.via_table(
+    "GND/via/1", net=gnd, diameter=mm("0.6"), drill=mm("0.3"), rows_nm=((12_700_000, 7_620_000),)
+)
+```
+
+- Rows are `(x1, y1, x2, y2)`, `(sx, sy, mx, my, ex, ey)` (start, a point on the arc, end) and `(x, y)`.
+  The keyword `rows_nm` states the unit: the values are plain `int`s, so a table of thousands of rows stays
+  one line per row. Widths and via sizes are `Length` values and are required.
+- `via_table` takes `kind`, `layers`, `protection`, `teardrop` and `locked` as `via()` does; every table
+  takes `locked`. A via table also takes a blind via over both outer layers (`kind="blind"`,
+  `layers=("F.Cu", "B.Cu")`), as KiCad writes some (change c0277); `via()` and `via_step` refuse it.
+- `track_table` and `arc_table` without `net` write copper on no net, as a board may hold (change c0375);
+  `via_table` names its net.
+- Row `i` of table `key` is the copper item `seg[i]`, `arc[i]` or `via[i]` of the key: the build gives it
+  the copper uuid it derives for that item, so a rebuild keeps it, and the lens treats it as script copper.
+- **Errors at the call.** `DslError` names the key and the row index for a row of the wrong length, a value
+  that is not an `int` (a `bool` included), a segment of zero length or three arc points on one line; it
+  names `rows_nm` when it is empty, and refuses a layer outside the board's copper layers, a drill not
+  below the diameter and a key used by any copper intent.
+
 ## Zones
 
 A script declares its copper pours with `Design.zone`, after `board()`:
@@ -821,8 +1364,9 @@ design.zone(
 |---|---|---|
 | `net` | a `Net`, which joins the design, or `None` for a zone without a net | required |
 | `layers` | the copper layers of the pour, any of `Design.copper_layers`: `F.Cu`, `B.Cu` and the inner layers `In1.Cu` … `In<copper − 2>.Cu` of the count (`In6.Cu` is the deepest with `copper=8`); a refused name lists the board's layers | required |
-| `name` | names the zone across builds; unique in the design | the net's name; required when `net` is `None` |
-| `outline` | at least three `(x, y)` points in the frame of `place()` | the board rectangle |
+| `name` | names the zone across builds; unique in the design and without surrounding spaces, unless `key` is given: with a key the name is only written, and may repeat another zone's name or hold surrounding spaces, as an imported board's zones do (change c0375) | the net's name; required when `net` is `None` |
+| `key` | the zone's identity across builds when it has no name (change c0275), written nowhere in the board; with `key` and no `name` the zone has no name; unique among zones | the name |
+| `outline` | at least three `(x, y)` points in the frame of `place()`, which may hold `arc_to(mid, end)` steps as `board(outline=…)` does (change c0277): each is an arc edge, written in KiCad as an `arc` of the outline, polygonised by the copper check and written as segments in an Altium region | the board rectangle |
 | `priority` | an `int` of at least 0; a higher priority is filled first | 0 |
 | `clearance` | the distance the fill keeps from other nets (at least 0) | 0.5 mm |
 | `min_thickness` | the smallest width of copper that a fill keeps (above 0) | 0.25 mm |
@@ -831,10 +1375,11 @@ design.zone(
 | `islands` | `always` removes unconnected copper, `never` keeps it, `below_area` keeps islands of at least `min_island_area` | `always` |
 | `min_island_area` | a string with the unit `mm2`, such as `"2.5mm2"`; only with `islands="below_area"` | 10 mm² |
 | `locked` | the script wins over an edit of the zone in KiCad, and the zone is locked there | `False` |
+| `smoothing`, `smoothing_radius` | `chamfer` or `fillet` cuts or rounds the corners of the fill by `smoothing_radius` (a length of at least 0); the radius only with a smoothing (change c0277) | no smoothing |
 
 - **Defaults are KiCad's.** A setting left out takes the value KiCad gives a new zone
-  (`docs/design-model.md`, "Zone settings"). Hatched fills and corner smoothing are not DSL arguments;
-  the model API sets them.
+  (`docs/design-model.md`, "Zone settings"). Hatched fills are not DSL arguments; the model API sets
+  them.
 - **Lengths carry a unit**, as everywhere in the DSL: `clearance=0.3` is refused.
 - **One zone, several layers.** A zone on two layers is one KiCad zone. A second zone on the same net
   needs its own `name=`.
@@ -869,7 +1414,7 @@ design.zone(
   Altium's rules by default and unpoured with `--altium-pour outline` (`docs/altium.md`, "Copper"). With `--copper-from`, the zones of the routed board are written
   instead: that board already holds the script's zones.
 - `to_model` puts one `Zone` per call into `Board.zones`, in name order, with the id
-  `derived_id("zon", "dsl", "zone:<name>")`.
+  `derived_id("zon", "dsl", "zone:<key>")` (the key is the name unless `key=` is given).
 
 Without `outline`, a zone takes the box of the board ring: the smallest rectangle that holds its
 vertices and the mid points of its arcs, which for `board(width, height)` is the board rectangle.
@@ -903,7 +1448,7 @@ design.stackup(
 
 | entry | arguments |
 |---|---|
-| `stack.silkscreen(*, color="")` | no thickness |
+| `stack.silkscreen(*, color="", material="")` | no thickness; `material` names the ink (change c0277) |
 | `stack.mask(thickness, *, material="", epsilon_r=None, loss_tangent=None, color="")` | a thickness of at least 0 |
 | `stack.copper(thickness)` | a thickness above 0 |
 | `stack.core(thickness, *, material="", epsilon_r=None, loss_tangent=None, color="")` | a thickness above 0 |
@@ -1010,7 +1555,60 @@ design.track(
   (info); set it with `protection=` on those vias, or state it in the fabrication notes. Fenolite supplies
   no protection the script does not give, and checks none.
 
+## Teardrops
+
+A teardrop widens the copper where a track meets a pad or a via. KiCad draws it when it fills the board, from
+the teardrop settings of the pad or via; Fenolite writes the settings and no teardrop copper (change c0277):
+
+```python
+from fenolite.dsl import teardrop
+
+design.via("v1", mm(5), mm(5), net=gnd, teardrop=teardrop(max_length=mm(1), length_ratio=500_000))
+design.via_table("GND/via/1", net=gnd, diameter=mm("0.6"), drill=mm("0.3"), rows_nm=rows, teardrop=teardrop())
+```
+
+- `teardrop(*, max_length=None, max_width=None, length_ratio=None, width_ratio=None, curved=None,
+  filter_ratio=None, two_segments=None, prefer_zones=None, enabled=True)` returns a `Teardrop` of the model.
+  `max_length` and `max_width` are positive lengths; the three ratios are `int` parts per million of the pad
+  or via size, from 0 to 1 000 000 (`500_000` is one half); `curved`, `two_segments` and `prefer_zones` are
+  bools. `None` writes nothing, so KiCad's own default applies. `enabled=False` writes settings that turn
+  teardrops off. Any other value raises `DslError` naming the argument.
+- `teardrop=` on `Design.via` and `Design.via_table` takes that value or `None`; anything else raises
+  `DslError` naming the copper key. The build writes the via's `teardrops` child with the stated values
+  and `enabled`; a rebuild replaces the child of a script via with the script's settings.
+- `Design.teardrops(*, where=None, pads=True, vias=True, max_length=None, …, enabled=True)` takes the
+  arguments of `teardrop()` and a `select` expression: the build writes those settings on every pad and via
+  of the built board that `where` selects (`None`: all), a pad as the subject `pad` of its net, its net's
+  class (`Default` without one) and its part's reference, a via as the subject `via`. `pads=False` or
+  `vias=False` leaves that kind out. A pad or via that two calls select takes the later call
+  (`build.teardrops-overlap`, info, one per build); a via's own `teardrop=` wins over every call:
+
+  ```python
+  design.teardrops(where=select.netclass("PWR"), max_length=mm(1), length_ratio=500_000)
+  ```
+- The pads of a footprint no call selects keep the teardrop settings of the footprint's library file.
+  Teardrop zones are drawn by `fenolite fill` (KiCad), never by the build, and the copper guard does not
+  judge them.
+
 ## Design rules
+
+Ordered pad trees and delay/loss constraints are described in [Signal topologies](topologies.md).
+Specificity ranks selector scope; it changes no default rule priority:
+
+| selector | rank |
+|---|---|
+| `ALL`, `~a` | 0 |
+| `area(...)`, `item(...)`, model `layer(...)` | 1 |
+| `netclass(...)` | 2 |
+| `net(...)` with a glob | 3 |
+| `pair(...)`, `ref(...)` | 4 |
+| exact `net(...)` | 5 |
+
+An intersection `a & b` sums ranks; a union `a | b` takes the least. A two-sided rule sums both
+selectors. KiCad priority/name/id order still governs; a less specific winner gives `rules.shadowed`
+info once per rule pair. `design.rules.precedence("specificity")` opts into rank-derived priorities for
+calls without `priority=` (including pair, minimum and impedance rules); explicit values stay fixed.
+`check --explain-rules` shows governing and overridden rules using that same order.
 
 A net class says what the copper of its nets should be; a minimum says what the design-rule check must
 refuse. `design.rules.minimum(...)` declares minimums, and the build writes them where KiCad's DRC reads
@@ -1122,7 +1720,9 @@ design.rules.rule(
   least; among the others, 1 governs most, because KiCad applies the last matching rule.
 - **`layers`** is a tuple of KiCad layer names, for the kinds that take a layer clause.
 - **What each kind takes.** `courtyard_clearance` takes references only and selects whole footprints;
-  `silk_clearance` is board-wide; `creepage` takes nets and classes on both sides; the three hole and ring
+  `silk_clearance` is board-wide, and its `min` may be below zero, which lets silkscreen overlap by up to
+  that much (KiCad 9.0.9 and 10.0.6 read it, `H-K-DRU-NEG-SILK`; change c0427); every other `min` is at
+  least 0; `creepage` takes nets and classes on both sides; the three hole and ring
   kinds take any selector on one side and no layers.
 - **Errors at the call** (`DslError`, nothing recorded): an unknown kind, no limit, a bare number, a
   negative `min`, falling limits, `between` on another kind, a repeated name, an undeclared class, an unknown
@@ -1238,7 +1838,7 @@ design.rules.pair(
 
 ## Rule areas
 
-`design.rule_area(name, outline, *, layers=None, forbid=())` declares one rule area and returns its
+`design.rule_area(name, outline, *, layers=None, forbid=(), key=None, placement=None)` declares one rule area and returns its
 `RuleArea` record. It is the one call for rule areas and keep-outs: a keep-out is a rule area that forbids
 something.
 
@@ -1251,16 +1851,23 @@ design.rule_area(
 hv = design.rule_area("HV", [(mm(0), mm(0)), (mm(20), mm(0)), (mm(20), mm(30))], layers=("F.Cu",))
 ```
 
-- **`name`** matches `^[A-Za-z0-9_.+-]+$` and is unique. Two names that differ only in letter case are
+- **`name`** matches `^[A-Za-z0-9_.+/-]+$` (a slash since change c0277, as KiCad names its automatic
+  placement areas `auto-placement-area-/CH1/`) and is unique. Two names that differ only in letter case are
   refused: KiCad compares area names with letter case, so a rule written for one would miss the other.
+- **`key`** (change c0275) is the area's identity across builds, written nowhere in the board, in the
+  alphabet of copper keys; without it the key is the name. With a key the name may be `""`: an unnamed
+  area, which no `select.area` matches. Keys are unique; `fenolite import` keys the unnamed areas it reads.
 - **`outline`** holds at least three `(x, y)` points in the frame of `place()`. An outline is a polygon: a
   round keep-out is a polygon around the circle.
 - **`layers`** are copper layers of the board; `None` means every copper layer.
 - **`forbid`** takes `tracks`, `vias`, `pads`, `pours` and `footprints`. With an empty `forbid` the area
   forbids nothing and only rules select it (`select.area`, "Rules with selectors"). `footprints` makes
   the area a placement keep-out ("Placement rules" below).
+- **`placement`** (change c0277) makes the area a placement rule area of KiCad's multichannel tool for the
+  sheet it names, as KiCad names it (`"/CH1/"`): it is written as `(placement (enabled yes) (sheetname
+  "/CH1/"))`. Fenolite's placement does not read it; KiCad's "Repeat layout" does.
 - **In the model** each area is a `Keepout` with its `name`, in name order, with the id
-  `derived_id("kpo", "dsl", "area:<name>")`. `design.rule_areas` holds the records by name.
+  `derived_id("kpo", "dsl", "area:<key>")`. `design.rule_areas` holds the records by key.
 - **What a keep-out does.** KiCad's DRC reports a track (one that only crosses the edge too), a via or a
   pad in an area that forbids it as `items_not_allowed`, on the area's layers only, and its filler leaves
   an area that forbids pours out of every fill. Fenolite's copper check reports the same tracks, vias and
@@ -1272,6 +1879,79 @@ hv = design.rule_area("HV", [(mm(0), mm(0)), (mm(20), mm(0)), (mm(20), mm(30))],
 - **Altium.** An area that forbids something is written as a keep-out with its restrictions; its name has
   no place in the record and is reported, and an area that forbids nothing is reported and not written
   (`docs/altium.md`, "Rule areas, texts and dimensions").
+
+## Board-only parts
+
+A logo, a stitching via kept as a footprint, a mounting hole: KiCad marks a footprint that has no symbol
+with the `board_only` attribute, and such footprints often share a reference (`STITCH1`) or have one no
+part could take (`REF**`). `Part(..., board_only=True)` says it (change c0277):
+
+```python
+logo = Part("REF**", "Imported:Logo", footprint="Imported:Logo", name="logo", board_only=True)
+vias = [
+    Part("STITCH1", "Imported:Via", footprint="Imported:Via", name=f"stitch_{k}", board_only=True)
+    for k in range(1, 4)
+]
+```
+
+- **The ref is written as given**: any printable text without surrounding spaces, an empty one included,
+  and several board-only parts may share it. The build neither assigns nor renumbers it, and the design
+  lock holds no entry for it. `name=` then names the part across builds; it is required when the ref is
+  not a name of the path alphabet. A board-only part takes its ref as written, so `ref=None` is refused.
+- **On the board** its footprint carries KiCad's `board_only` attribute after its type, where KiCad writes
+  it. Its pins still connect it: `connect(gnd, vias[0][1])` puts its pad on `GND`.
+- **On the schematic** it has no symbol, as KiCad's board-only footprints, and its value is the one
+  `value=` gives (empty without it), not its symbol's.
+- **Comparisons** (`fenolite verify-source`, the import's self-check) pair footprints that share a
+  reference by their place (`docs/equivalence.md`, "Level 1").
+
+## User layers
+
+`design.user_layers(count, *, names=None)` declares the user layers `User.1` … `User.<count>` (1 to 45),
+once per design (change c0277). The board's layer table holds them after `B.Fab` as KiCad 9.0 and 10.0
+write them, at the odd numbers from 39, and `names` gives one the name KiCad shows:
+
+```python
+design.user_layers(9, names={"User.9": "plugins.config"})
+design.text("note", "ASSEMBLY NOTE", (mm(5), mm(5)), layer="User.2")
+```
+
+Texts, graphics and dimensions may go on a declared user layer. A rebuild adds a declared user layer the
+existing board lacks; one the board holds keeps its name there.
+
+## Verbatim items
+
+The last resort for what no call says (change c0277): an item kept as KiCad text.
+
+```python
+design.verbatim("art/qr", '(barcode (at 120 80) (layer "F.SilkS") (text "SN-0001") (type qr))')
+design.verbatim(
+    "rule/hv",
+    '(rule "hv" (constraint clearance (min 2mm)) (condition "A.NetClass == \'HV\'"))',
+    target="kicad_dru",
+)
+u1.verbatim("fab/mark", '(fp_line (start -1 0) (end 1 0) (stroke (width 0.1) (type solid)) (layer "F.Fab"))')
+```
+
+- **`design.verbatim(key, text, *, target="kicad_pcb")`** keeps a child of the board root, or with
+  `target="kicad_dru"` a rule of the rules file; **`part.verbatim(key, text)`** keeps a child of the part's
+  footprint. `key` matches the pattern of drawing keys and is unique (a part's within the part); `text` is
+  a non-empty string, which the DSL does not parse. Groups may hold a board item by its key.
+- **The build parses it** and refuses, as errors that stop it: text that is not one list
+  (`build.verbatim-invalid`); a head Fenolite writes itself (`build.verbatim-head`: the file's header, a
+  footprint, a track, a via, a zone, a drawing, a dimension, a group; a pad, a field, `at` or `layer` in a
+  footprint; anything but `rule` in the rules file); a layer the board does not hold
+  (`build.verbatim-layer`); a net the design does not hold, or one named by its number
+  (`build.verbatim-net`). Each item it writes gives one `build.verbatim-item` (info).
+- **What is written.** Every `uuid` child takes `embed.placement_uuid(<key>, "/verbatim/<n>")`, so two builds
+  agree and two items never share a uuid; a net is written in the form of the target (its number for 9);
+  other atoms, the `members` of a `generated` item among them, are written as they are. A board item goes
+  after every other root item, a part's at the end of its footprint, a rule at the end of the rules file.
+- **Versions.** The emit check gates the tokens as it gates a read board: a token KiCad 9 cannot read refuses
+  a target-9 build (`FEN-7001`), and `--allow-lossy` leaves the item out with a warning.
+- **Rebuilds.** An item replaces the one a build wrote before with its uuid; an item removed from the script
+  stays in the board until it is deleted there.
+- **Altium** has no record for KiCad text: each item is `altium.verbatim-skipped` (warning).
 
 ## Board drawings
 
@@ -1288,35 +1968,100 @@ design.polygon("flag", [(mm(10), mm(2)), (mm(12), mm(2)), (mm(11), mm(4))], laye
 design.dimension("width", (mm(0), mm(0)), (mm(50), mm(0)), offset=mm(-5))
 ```
 
-- **Layers.** A drawing goes on a silkscreen, solder-mask, fabrication or user layer: `F.SilkS`, `B.SilkS`,
-  `F.Mask`, `B.Mask`, `F.Fab`, `B.Fab`, `Dwgs.User`, `Cmts.User`, `Eco1.User` and `Eco2.User`. Copper is
-  refused: the copper check cannot see glyphs, KiCad reports a copper text across a track as a short, and
-  it does not report a copper line across a track at all. `Edge.Cuts` belongs to the outline of `board()`.
-- **`text(key, text, at, *, layer="F.SilkS", size=None, thickness=None, rot=0, justify=None)`**: one
-  printable line, 1 mm high with a 0.15 mm stroke unless `size` and `thickness` say otherwise. `justify`
-  is `left` or `right`, then `top` or `bottom`; without it the text is centred on `at`. A text on a back
-  layer is mirrored. A centred label close to the board edge reaches it: KiCad then warns with
-  `silk_edge_clearance`.
+- **Layers.** A drawing goes on a silkscreen, solder-mask, solder-paste, fabrication or user layer:
+  `F.SilkS`, `B.SilkS`, `F.Mask`, `B.Mask`, `F.Paste`, `B.Paste` (change c0427), `F.Fab`, `B.Fab`, `Dwgs.User`, `Cmts.User`, `Eco1.User` and `Eco2.User`, and the user
+  layers `design.user_layers()` declares. A text may also go on a copper layer of the board (change c0277):
+  KiCad reports a copper text across a track as a short, and the copper check, which draws no glyphs,
+  leaves it out (`copper.text-unchecked`, info). A graphic may go on a copper layer too and take
+  `net=`, a `Net` that joins the design: the copper check judges it as copper of that net (of no net
+  without one), so a copper shape across a pad of another net is a `copper.short`. A dimension stays
+  off copper. Lines, arcs and unfilled rectangles may explicitly declare root `Edge.Cuts` graphics
+  (c0349, c0401; a filled rectangle there is refused). Their complete
+  reconstruction together with footprint edges must exactly match the logical `board()` outline;
+  otherwise the writer refuses `kicad.board.outline-conflict`. On agreement it emits the explicit
+  physical edges and existing footprint edges, without synthetic outline duplicates. An imported
+  board whose outline is one root `gr_rect` keeps it as `design.rect(..., layer="Edge.Cuts")` instead of
+  four lines (c0401). Other drawing kinds still cannot target `Edge.Cuts`.
+- **`text(key, text, at, *, layer="F.SilkS", size=None, thickness=None, rot=0, justify=None,
+  knockout=False, bold=False, italic=False, face=None)`**: printable lines joined by `\n` (an empty text is
+  kept, as KiCad keeps one), 1 mm high with a 0.15 mm stroke unless `size` and `thickness` say otherwise.
+  `size` is a length, or a `(width, height)` pair of lengths for a font that is not square. `justify` is
+  `left` or `right`, then `top` or `bottom`; without it the text is centred on `at`. A text on a back layer
+  is mirrored. `knockout=True` cuts the text out of a filled box (a copper or silkscreen layer only);
+  `bold`, `italic` and `face` (a font name such as `KiCad Font`) style it (change c0277). A centred label
+  close to the board edge reaches it: KiCad then warns with `silk_edge_clearance`.
 - **`line(key, start, end)`, `rect(key, start, end)`, `circle(key, center, edge)`, `arc(key, start, mid,
-  end)` and `polygon(key, points)`** take `layer` and `width`; `rect`, `circle` and `polygon` take
-  `fill=False`. `width` is above 0 for a line, an arc and a shape that is not filled, and may be `mm(0)` for
-  a filled one. The three points of an arc are not on one line.
+  end)` and `polygon(key, points)`** take `layer`, `width` and `net=None`; `rect`, `circle` and `polygon`
+  take `fill=False`. `width` is above 0 for a line, an arc and a shape that is not filled, and may be
+  `mm(0)` for a filled one, or `None`: a filled shape without an outline, which KiCad writes with a stroke
+  width of −1 nm (`-0.000001`; change c0277). The three points of an arc are not on one line.
 - **`dimension(key, start, end, *, offset, layer="Dwgs.User", direction=None, units="mm", precision=4,
-  size=None, thickness=None, width=None)`**: a linear dimension. Without `direction` it is aligned with the
-  two points; with `horizontal` or `vertical` it measures that coordinate difference only. `offset` is the
-  signed distance of the dimension line from the measured points, KiCad's `height`: for a dimension from
-  left to right a negative offset puts the line above the points (towards smaller y), and for one from top
-  to bottom a negative offset puts it to their right. `units` is `mm` or `in`, `precision` 0 to 4
-  decimals. KiCad computes the text, its place and its angle from the points when it loads the board.
+  size=None, thickness=None, width=None, extension_offset=None, text_at=None)`**: a linear dimension.
+  Without `direction` it is aligned with the two points; with `horizontal` or `vertical` it measures that
+  coordinate difference only. `offset` is the signed distance of the dimension line from the measured
+  points, KiCad's `height`: for a dimension from left to right a negative offset puts the line above the
+  points (towards smaller y), and for one from top to bottom a negative offset puts it to their right.
+  `units` is `mm`, `in`, `mils` or `auto` (the units the board editor shows; change c0277), `precision` 0
+  to 4 decimals. `extension_offset` is the gap between a measured point and its extension line (`None`:
+  0.5 mm), `size` may be a `(width, height)` pair, as a text's, and `text_at` places the text by hand
+  (KiCad's `text_position_mode 2`; change c0277). KiCad computes the text, and without `text_at` its place
+  and its angle, from the points when it loads the board.
+- **`radial_dimension(key, center, edge, *, leader_length, layer="Dwgs.User", units="mm", precision=4,
+  size=None, thickness=None, width=None)`** (change c0277): the radius from `center` to the point `edge` of
+  a circle, shown with the prefix `R ` at the end of a leader `leader_length` long past `edge`.
+- **`leader(key, start, knee, *, text, frame="none", layer="Dwgs.User", size=None, thickness=None,
+  width=None, text_at=None, units="mm", precision=4)`** (change c0277): an arrow from `start` to `knee` and
+  the note `text` (one line), framed by `frame` (`none`, `rect` or `circle`). The text stands at `text_at`,
+  else 2 mm past the knee on the side the arrow points to.
+- **`center_mark(key, center, edge, *, layer="Dwgs.User", width=None)`** (change c0277): the cross of a
+  circle's centre, its arms reaching `edge`. It has no text.
+- **`image(key, file, at, *, layer="F.SilkS", scale="1")`** (change c0277): a picture on the board. `file` is
+  a PNG path relative to the script folder; the DSL does not read it, the build does, and the file is an
+  input of the build's plan (a changed picture changes the plan). `scale` is a positive decimal string
+  (`"0.5"` draws it at half its size). A file that is not there is `build.image-missing`, one that is not a
+  PNG `build.image-format` (errors, nothing is written). The model holds an `Image` (`img`) with the base64
+  text of the file in `Board.images`; `result.board_items.images` counts them. An Altium build reports each
+  image (`altium.image-skipped`, warning).
 - **In the model** a text is a `Text` (`txt`), a graphic a `Graphic` (`gfx`) and a dimension a `Dimension`
   (`dim`), each in key order; `design.drawings` holds the records by key.
 - **Errors at the call** (`DslError`, nothing recorded): no `board()` yet, a key used twice, a layer that
-  takes no drawing, an empty or multi-line text, a bare number for a length, corners of a rectangle that
-  share a coordinate, a `direction` whose difference is 0, a `precision` outside 0 to 4.
+  takes no drawing, a text with a character that is not printable (a line break excepted), a knockout off
+  copper and silkscreen, a bare number for a length, corners of a rectangle that
+  share a coordinate, a `direction` whose difference is 0, a `precision` outside 0 to 4, a
+  `leader_length` that is not a positive length, a leader's `text` that is empty or of several lines, a
+  `frame` outside `none`, `rect` and `circle`.
 - **Rebuilds.** As for rule areas: script drawings are written again on every build, and what was drawn
   in KiCad stays.
-- **Altium.** Centred texts and graphics are written; a justified text and a dimension are reported and
-  not written (`docs/altium.md`).
+- **Altium.** Centred texts and graphics are written; a justified text, a text of several lines or in a
+  copper layer, a knocked-out, bold, italic or face text, and a dimension are reported and not written
+  (`docs/altium.md`).
+
+## Groups
+
+A group gathers board items that move together in KiCad: a logo and its frame, a block of parts (change
+c0277).
+
+```python
+design.text("silk/logo", "LOGO", (mm(5), mm(5)))
+design.group("logo", r1, "silk/logo", locked=True)
+design.group("", "logo", d1, key="power")  # a group may hold a group declared before it
+```
+
+- **`group(name, *members, locked=False, key=None)`**: members are parts and keys of drawings, zones, rule
+  areas and earlier groups, at least one. `name` is the name KiCad shows, `""` for an unnamed group with
+  a `key`; the key, else the name, names the group across builds and in other groups, so two groups may
+  share a name under different keys. `locked=True` writes `(locked yes)`.
+- **In the model** a group is a `Group` (`grp`) of `Board.groups`, in key order, whose `member_ids` are the
+  ids of its parts' components and of its items, sorted.
+- **The KiCad writer** writes each group after the zones, as KiCad does: `(group "name" (uuid …) [(locked
+  yes)] (members "…" …))`, a part by the uuid of its footprint, the members sorted.
+- **Errors at the call** (`DslError`, nothing recorded): no member, a part not added to the design, a key
+  that names no item or more than one, a member already in a group, a key used twice, a name that is not
+  printable, `locked` not a bool. A group is declared after its members, so it cannot hold itself.
+- **Rebuilds.** A group of the script replaces the group of the same uuid in the board; a group drawn in
+  KiCad stays, and one removed from the script stays in the board until it is deleted there.
+- **Altium.** The document has no group record: each group is reported as `altium.not-lowered` (info) and
+  its members are written alone (`docs/altium.md`).
 
 ## Placement rules
 
@@ -1420,6 +2165,30 @@ design.part_class(q1, "transistor", terminals={"gate": "1", "kelvin_source": "2"
   `fenolite roles --confirm` stored in `.fenolite/rules.json`. A script without a role call gives the
   model, and the bytes, it gave before.
 
+### Role copper
+
+`design.role_copper()` (change c0243; `docs/roles.md`, "Role copper") asks the build to generate, after
+placement, the copper of the confirmed and declared roles: a band per `power` and `switch_node` net sized
+by its current, ground planes with stitching, via arrays at layer changes, and a clearance rule with a
+keep-out band around each high-voltage net at the distance of your requirements file.
+
+```python
+design.role_copper(requirements="requirements.toml")
+design.role_copper(ground_layers=("In1.Cu", "B.Cu"), stitch_pitch=mm(4), temp_rise=10)
+```
+
+- `role_copper(*, kinds=…, layers=None, ground_layers=None, ground_fill="reference", connection=None,
+  stitch_pitch=None, temp_rise=None, widen=None, corridors=True, keep=(), regenerate=(),
+  requirements=None)` records plain data, returned by `fenolite.dsl.role_copper(design)` as a
+  `RoleCopperIntent`. `kinds` picks among `power`, `switch_node`, `ground` and `high_voltage`; `layers`
+  maps a kind to its layers; `connection` maps a kind to `solid`, `thermal`, `thru_hole_only` or `none`;
+  `temp_rise` is in kelvin; `widen` is per mille; `keep` and `regenerate` name role items; `requirements`
+  names a file beside the script.
+- A second call, an unknown kind, mode or layer raises `DslError`. The build resolves the record after the
+  roles, the script copper and the generated records, and writes ordinary locked zones, rule areas, vias
+  and tracks named `role.*`, and the rules `role.sw.*` and `role.hv.*`; an Altium build resolves it in its
+  in-memory KiCad build.
+
 ## Copper guard
 
 `fenolite build` refuses to write a board whose copper shorts two nets or breaks the clearance in force
@@ -1483,6 +2252,365 @@ design.title_block(title="Blink", revision="B", variables={"PROJECT_CODE": "X1"}
   script. Without these calls the board keeps the ones it has (`docs/lens.md`).
 - `result.drawing_sheet` of `build` holds `source`, `file` and `items`, or `null`.
 
+## Drawn schematic
+
+```python
+design.load_schematic("schematic.toml")
+```
+
+- **`design.load_schematic(path)`** (change c0276) draws the schematic from a drawn schematic file beside
+  the script, schema `fenolite.drawn-schematic.v0`, instead of generating it: symbol poses, wires,
+  junctions, labels, buses, power symbols and sheets (`docs/drawn-schematic.md`). It is called at most once;
+  a path that does not end in `.toml`, an absolute path or a path that leaves the script's folder raises
+  `DslError`. The DSL does not read the file, and `to_model` is unchanged.
+- The script stays the only source of the nets: the build proves that the drawing means them, and refuses
+  it otherwise. `dsl.drawn_schematic(design)` gives the path, or `None` for a generated schematic.
+- `fenolite sync --to-source` copies a drawing edited in KiCad back into the file, and
+  `--freeze-schematic` writes it from a generated schematic once.
+- **`symbol_contexts="symbol-contexts.toml"`** requires the sibling native snapshot index for
+  imported local property variants (c0327, `docs/symbol-contexts.md`). It records only a DSL input:
+  model/S fields stay unchanged. Missing/stale/unsafe bindings refuse; build/sync plans bind every
+  index and asset. Contextual projects require KiCad schematic output in this phase.
+
+## Reference designators and the design lock
+
+A part may be written without a ref (change c0249). Its identity is its path; the build gives it a ref
+and records the ref in the design lock, so that it never changes by itself.
+
+```python
+reg = Module("reg")
+design.add(reg)
+u = reg.part(lib_id="Fenolite:Linear_Regulator", footprint="Fenolite:SOT223_3_Diodes")  # path reg/U
+c_in = reg.part(name="c_in", lib_id="Fenolite:Capacitor", footprint="Fenolite:Chip_0805")  # reg/c_in
+j1 = design.part("J1", "Fenolite:Connector_2", footprint="Fenolite:Header_1x2_P2.54")  # explicit, path J1
+y = design.part(lib_id="Device:Crystal", footprint="Crystal:HC49", prefix="Y")  # path Y
+```
+
+- **Keys.** The last segment of a component path is `name=` when given, else the explicit ref (so the
+  paths of existing scripts do not change), else the part's reference prefix. A second part without a
+  name and with the same prefix in one container raises `DslError` at its call, asking for `name=`: a
+  counter would make a path depend on the order of the statements.
+- **Prefixes.** `prefix=` (matching `[A-Z][A-Z_]*`), else the `reference` of a `Fenolite:` catalog
+  symbol (`Fenolite:Inductor` gives `L`). The device catalog (c0248) adds the device's `ref_prefix`. A part
+  without a ref and without a known prefix raises `DslError` ("give a ref, a prefix or a device").
+- **Assignment.** `fenolite.dsl.lock.assign_refs(design, lock, *, moves)` is pure. Explicit refs are taken
+  as written. A locked ref is kept, unless it is now another part's explicit ref (`lock.ref-taken`) or does
+  not start with the part's prefix (`lock.ref-prefix-changed`). Every other part gets, per prefix, the
+  lowest free number `n ≥ 1`, the parts taken in natural path order.
+- **Natural path order.** A path is split into maximal runs of digits and non-digits, compared in turn:
+  two digit runs by value and then by length, two other runs by code point, a digit run first. So `ch2/R`
+  comes before `ch10/R`. The order does not depend on statement order, `--seed` or `PYTHONHASHSEED`.
+- **The lock file** is `<script stem>.lock` beside the script (`design.py` gives `design.lock`), or the file
+  of `fenolite build --lock FILE`. It is canonical TOML of schema `fenolite.lock.v0`: a header comment,
+  `schema`, `design`, then `[refs]` (path to ref, every part, explicit refs included) with keys in code-point
+  order. The sections `[picks]` (c0254) and `[pins]` (c0257) are reserved: content there is refused
+  (`FEN-3002`) until their change lands. A malformed lock (an unknown key, a wrong type, an invalid ref,
+  two paths with one ref) is `FEN-3004`.
+- **Writing.** `fenolite build` plans the lock as one more write, kind `lock`, only when its bytes change,
+  and only for a design with a part without an explicit ref or one that already has a lock. A design of
+  explicit refs builds exactly as before and gets no lock. An error finding plans no lock write.
+- **Hand edits are honoured.** `"reg/C" = "C7"` renumbers that part on the next build when `C7` is free.
+  Deleting the file renumbers everything from scratch.
+- **`moved()`.** An alias new to old carries the lock entries of `old` to `new` (`lock.ref-moved`); an entry
+  whose path is gone and that no alias carries is released (`lock.ref-released`, warning), and its number
+  may be given to another part later. A changed ref alone never loses layout: footprints are matched by
+  uuid and path (`docs/lens.md`).
+- **`--frozen`.** `fenolite build --frozen` refuses any change of the lock (a new, released, moved or
+  replaced ref, another design name) with exit 7 and `FEN-7004`, one `lock.changed` issue per change, and
+  writes nothing, also with `--dry-run`. A difference of formatting only is no change.
+- `to_model(design, *, refs=None)` takes the refs; without them it assigns against an empty lock. Ids stay
+  derived from paths, never from refs. `result.lock` of `build` reports `file`, `exists`, `written`,
+  `frozen` and `changes` (`docs/cli-contract.md`, "build").
+
+## Blocks
+
+A block is a reusable circuit with ports and recorded parameters (change c0251; the example is
+`examples/blocks/design.py`). It is a plain function marked with `@block`; nothing is collected behind the
+script's back, and stepping through it in a debugger shows ordinary calls.
+
+```python
+from fenolite.dsl import Design, Net, block, connect, mm, ohm
+
+
+@block
+def channel(b, *, r_en=ohm("10k"), x=mm(20)):
+    vin = b.port("VIN", direction="in")  # kind Net: one member
+    gnd = b.port("GND", direction="in")
+    en = b.port("EN", direction="out", optional=True)
+    fb = b.net("FB")  # the net ch0/FB in the instance ch0
+    r = b.part("R_EN", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value=r_en)
+    connect(vin, r[1])  # a port is wired like a net
+    connect(fb, r[2], en)
+    r.place(x, mm(10))
+
+
+ch0 = design.use(channel, "ch0", x=mm(20))
+connect(Net("VIN"), ch0.VIN)  # the port net takes the name VIN
+```
+
+- **The decorator.** `@block` or `@block(name="buck")` checks the signature when it decorates: the builder is
+  the one positional parameter, every other parameter is keyword-only with a recordable default or none,
+  and there is no `*args` and no `**kwargs`. The block name is the function's name or `name=`. Calling the
+  block directly raises `DslError` naming `design.use`. Two different functions with one block name in one
+  design are refused at the second `use`.
+- **Instances.** `design.use(block, name, **params)` and `b.use(...)` inside a block create a `Block` (a
+  `Module` named `name`, path `<parent path>/<name>`), add it, run the function once with it as `b`, and
+  return a `BlockInstance`. The function must return `None`. If it raises, the block stays added and the
+  error propagates. A block is a module everywhere: its path, its sheet, its model `Module`.
+- **The builder `b`.** `b.part(name, lib_id, *, footprint, value, ref, prefix, properties, pad_map, height)`
+  creates, adds and returns the part of local name `name` (the leaf of its path, `ch0/R_EN`); `b.net(name)`
+  gives the local net `<block path>/<name>`; `b.port(...)`; `b.use(...)`; `b.add(...)`; and the read-only
+  `b.path`, `b.name` and `b.params`. A local part name, or a port or local net name, used twice in one block
+  raises `DslError`. A `Part("R7", ...)` added with `b.add` takes its ref as its local name and gets an
+  allocated board ref like a part of `b.part`. A plain `Net("X")` made inside a block is still the global
+  net `X`.
+- **Parameters.** The keyword arguments are bound to the signature, the defaults applied, before the
+  function runs; an unknown, missing or unrecordable argument raises `DslError` naming it. Each value is
+  recorded on the model `Module` as `BlockParam(name, type, text)`, ordered by name, with `Module.block` the
+  block name: `bool` (`true`/`false`), `int`, `str`, `Length` (integer nm), `Quantity` (`Quantity.text()`)
+  `Range` (`range`, `Range.text()`) and `None` (`none`, empty). A float, a list, a part or a net cannot be
+  recorded: build such objects inside the block.
+- **Ports.** `b.port(name, kind=Net, *, direction="inout", optional=False)`; `direction` is `in`, `out` or
+  `inout`, and `kind` is `Net` or an interface class: `Power` (`hv`, `lv`), `DiffPair` (`p`, `n`), `I2C`
+  (`sda`, `scl`), `UART` (`tx`, `rx`), `USB2` (`dp`, `dn`, `vbus`, `gnd`), `SPI` (`sck`, `mosi`, `miso`,
+  `cs0`; `selects=n` for n chip selects) and `Harness` (`members=(...)`). `handle.sda` or `handle["sda"]`
+  is the port net of one member. A port of one member is net-like: `connect` takes it as its net or as a pin
+  argument. Outside, `inst.VIN` and `inst.port("VIN")` are the same handle. A port name equal to `path`,
+  `block`, `params`, `part`, `port`, `place`, `layout`, `module` or an edge (`left`, `right`, `top`,
+  `bottom`, `center_x`, `center_y`) raises `DslError`. Each port is a model `Port` with the id
+  `port:<block path>:<port name>`.
+- **Port nets and their names.** A port net has no name of its own: `connect` binds nets and port nets into
+  groups. A group with one script-named net (a `Net` or a local net) takes its name. A group without one
+  takes the path of its preferred port member, an `out` port first, then the smallest path in code-point
+  order: `<block path>/<port>` for a port of one member, `<block path>/<port>.<member>` otherwise. So
+  `connect(buck1.VOUT, buck2.VIN)` gives the net `buck1/VOUT` whatever the order of the calls, and
+  `connect(v33, buck1.VOUT)` gives `3V3`. Joining two script-named nets through ports raises `DslError`:
+  Fenolite never merges named nets. Connecting a group to a named net later renames its copper; record
+  the old name with `moved_net()` to keep it.
+- **Refs.** The board ref of a block part is `ref=` when given (global, checked like any ref), else the
+  lock's ref for its path, else the next free ref of its prefix ("Reference designators and the design
+  lock"). Two instances never type the same ref.
+- **Checks.** Two warnings of the KiCad build (`docs/cli-contract.md`, "build"):
+  - `build.port-unused`: a port that is not `optional` has nothing outside its block (no pin, net, port or
+    interface) on any member; `where` is `<block path>/<port>`.
+  - `build.block-net-escape`: a script-named net joins pins inside and outside a block that no port of the
+    block binds it to, often a global net closed over by the function; the hint is "declare a port".
+- **Schematics.** The KiCad sheet of a block instance is shown as `<name> (<block name>)`, for example
+  `ch0 (channel)`; its file stays `sheets/<path>.kicad_sch`. In Altium block composition each instance that
+  owns parts gives an implicit `schematic_block` (`docs/schematic-composition.md`). Each port member has a
+  **sheet name**, `<port>` for a port of kind `Net` and `<port>_<member>` otherwise (`I2C_sda`): the KiCad
+  hierarchical label and sheet pin, and the Altium port and sheet entry, of that member (change c0269,
+  `docs/schematic.md`, "Block sheets"). `b.port` raises `DslError` when a sheet name of the new port is a
+  sheet name of an earlier port of the block (a port `I2C_sda` beside an `I2C` port).
+- **Block schematic groups.** `b.schematic(schematic_group(key, *members, title=None, anchor=None,
+  after=None, flow="left-to-right"), ...)` declares, once per block, the groups of the block's own parts:
+  their order, their anchors and their flow (`left-to-right` or `top-to-bottom`). Every instance reuses
+  them: KiCad's readable layout orders the block's sheet by them, and Altium block composition gives one
+  `schematic_block` keyed `<instance path>/<key>` each. A member is a part handle or a local part name;
+  the groups come in call order, each moved after the group its `after` names, and the members in the
+  order given, the anchor first. `b.schematic` raises `DslError` naming the block for a key that is not a
+  name or is used twice, a member that is not a part of the block itself (a nested block's part belongs to
+  the nested block's sheet) or is in two groups, an anchor that is no member, an `after` that names no
+  group of the call or makes a cycle, another `flow`, and a second call. Parts in no group form the
+  default group, last, in the flow of a module's sheet. The groups are not composition intent: they never
+  give "unused intent", a KiCad build never refuses them, and an Altium build without block composition
+  ignores them. `fenolite.dsl.block_schematics(design)` gives each instance with its groups, for the
+  build; nothing reaches the circuit model.
+
+  ```python
+  @block
+  def rc_filter(b):
+      r1 = b.part("R", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value="10k")
+      c1 = b.part("C", "Fenolite:Capacitor", footprint="Fenolite:Chip_0603", value="100n")
+      ...
+      b.schematic(schematic_group("chain", r1, c1, title="Filter", anchor=r1))
+  ```
+- **When to keep `Module`.** Use a block for anything repeated or reused; keep `Module` for grouping parts
+  whose refs and nets the script names by hand.
+
+### Block records, parameter metadata and versions
+
+A block may carry a **record** (change c0268; `docs/blocks.md`): its identity, version, licence, evidence
+and sources, its parameters with meaning, unit and limits, and its ports with docs, all in the code that
+defines it.
+
+```python
+from fenolite.dsl import Rail, block, param, volt
+
+
+@block(
+    id="Acme:divider",  # <namespace>:<name>, each part [A-Za-z0-9_.+-]+
+    version="1.0.0",  # MAJOR.MINOR.PATCH, MAJOR stays 1
+    summary="Resistive divider",  # one line, at most 120 characters
+    category="analog",
+    licence="MIT",  # an SPDX expression; Apache-2.0 for Fenolite: blocks
+    sources=("my notes",),
+)
+def divider(
+    b,
+    *,
+    vout=param(volt("3.3").pct(5), doc="target output range"),
+    ratio=param(2, min=1, max=10),
+    series=param("E96", choices=("E24", "E96")),
+):
+    hi = b.port("HI", Rail, direction="in", doc="input")
+    ...
+```
+
+- **Keywords.** `id`, `version`, `summary`, `category` (`analog`, `power`, `protection`, `interface`,
+  `indicator`, `timing`, `connector` or `other`, the default), `licence` (required but for the namespace
+  `Fenolite`), `evidence` (a label of the evidence vocabulary, `INFERRED` by default), `sources`, `replaces`
+  (an id) and `deprecated` (`{"by": id, "since": version, "reason": text}`). `id` and `version` go
+  together; `id` and `name` cannot both be given; the other keywords need an id. A bad value raises
+  `DslError` at decoration naming the block and the keyword. A block without `id` is a **project block**,
+  as before: no record header, no version and no lock entry.
+- **Reserved namespace.** `Fenolite:` ids belong to the blocks shipped under `fenolite.blocks`; a block of
+  another module with such an id raises `DslError`. A shipped block is `Apache-2.0` and names at least one
+  `S-` source of `docs/evidence/sources.md`.
+- **`param(default=REQUIRED, *, doc="", unit=None, min=None, max=None, choices=None)`** is a parameter's
+  default with its metadata. `@block` checks that the default is recordable, matches `unit` (a unit name
+  such as `volt` or `ampere`, or `length`), lies within `min` and `max` (both ends of a range) and is one of
+  `choices` (at least two distinct values of one type), and that `doc` is one line of at most 200
+  characters. `use` refuses, before the function runs, a value of another unit, outside the limits or not
+  a choice, naming the parameter, the value and what is allowed. The metadata stays in the record: the
+  model keeps `BlockParam(name, type, text)` only.
+- **Port docs.** `b.port(..., doc="input")` documents a port in the record; the model's `Port` has no doc.
+- **Identity.** A block with a record is named by its id: the model `Module` holds `block = "<id>"` and
+  `block_version = "<version>"`, the KiCad sheet is shown as `sense_a (Acme:divider)`, and two different
+  functions with one id in one design are refused at the second `use`.
+- **The lock.** Each instance of a block with a record, at any depth, is pinned in the lock section
+  `[blocks]` as `"<instance path>" = "<id>@<version>"`, and a design with such an instance has a lock. The
+  first build plans the entry (`block-locked`). A build whose block version differs from the locked one
+  reports `lock.block-version` (error) and writes nothing: review the new version with `fenolite blocks
+  show ID` and change the entry by hand. Another id at a locked path replaces the entry
+  (`lock.block-replaced`, info); an entry whose path is no recorded instance is dropped
+  (`lock.block-released`, info). Entries follow `design.moved()` of the instance, and `build --frozen`
+  refuses any change of the section (`FEN-7004`). A deprecated block builds with `block.deprecated`
+  (warning) once per id, naming its replacement.
+- **`describe(block)`** gives the block's record without a build (`docs/blocks.md`).
+
+## Relative placement
+
+A part may be placed by references instead of coordinates (change c0255; the example is
+`examples/relative/pads.py`). The script records the request; the build measures the footprints and
+resolves it to integer nanometres, then records how (`result.placement.relative`).
+
+```python
+board = design.board(mm(40), mm(30))  # board() returns the board as a reference
+u1.place(mm(18), mm(15))
+c1.place(left_of=u1.pad(1), gap=mm(2), by=c1.pad(2))  # pad 2 of C1, 2 mm left of U1's pad 1
+c2.place(right_of=u1, gap=mm(1))  # courtyards 1 mm apart, centres aligned
+j1.place(left=board.left + mm(2), center_y=board.center_y)
+r1.place(below=c2, gap=mm(1), align="start")  # left edges equal
+```
+
+- **Relations.** `right_of=R` puts the part's box left edge at `R.right + gap`; `left_of` its right edge at
+  `R.left - gap`; `above` its bottom edge at `R.top - gap`; `below` its top edge at `R.bottom + gap` (Y
+  down). `gap` is a length, 0 by default (touching courtyards are legal). One relation per call. `align`
+  sets the other axis: `"center"` (the default), `"start"` (left or top edges equal) or `"end"`.
+- **References** are a `Part`, a pad (`u1.pad(n)`, `index=` for one of several), a block instance and the
+  board (`design.board(...)` returns it; also `design.board_ref`). Each has the edges `left`, `right`,
+  `top`, `bottom`, `center_x` and `center_y`.
+- **Edge keys** `left`, `right`, `top`, `bottom`, `center_x` and `center_y` put that edge of the part's box
+  at a length of the frame or at an edge expression: one edge plus or minus a length (`board.left +
+  mm(2)`, `u1.right`). Nothing else combines: `board.left * 2` or two edges raise `DslError`.
+- **`by=part.pad(n)`** measures the part by one of its own pads: the relation and the edges use that pad's
+  box, and `align="center"` puts the pad's centre (its position) in line with the reference's centre.
+- **Axes.** Each axis is set by exactly one source: X by `x`, `left`, `right`, `center_x`, `right_of` or
+  `left_of`; Y by `y`, `top`, `bottom`, `center_y`, `above` or `below`. An explicit key wins over `align`.
+  Two sources for an axis, an axis with none, or `gap` or `align` without a relation raise `DslError`.
+- **Boxes.** A part's box is its courtyard box (else its pad boxes) turned by `rot` and mirrored for the
+  bottom side; a turn that is not a quarter turn takes the bounds rounded outward; a centre is
+  `(a + b) // 2`. A block's box is the union of its placed parts' boxes; the board's is the outline's box.
+- **Order.** Requests resolve in the order of their references, ties by path; a cycle is
+  `layout.relative-cycle` (error), and a reference with no placement `layout.relative-unresolved`
+  (warning; the part is staged).
+- **Locked.** `locked=True` makes the request level 1 of "Placement precedence" (`docs/lens.md`); every
+  reference must then be locked too (a locked part, a pad of one, a locked block, or the board), else the
+  build raises `DslError` naming it.
+- **The board wins over an unlocked request**, as over an absolute `place()`; with the base record the
+  request is the code side of the three-way merge, and a request follows the merged position of its
+  reference, so a follower follows a reference moved in KiCad unless it was moved by hand itself.
+
+## Block layout
+
+A block instance can be moved as one piece, arrange its own parts, or bring its proven layout (change
+c0255; the example is `examples/relative/blocks.py`).
+
+```python
+@block
+def channel(b):
+    u = b.part("U", ...)
+    u.place(mm(0), mm(0))  # the block's own frame
+    l = b.part("L", ...)
+    l.place(right_of=u, gap=mm(1))
+    b.layout(row(gap=mm(1)))  # the block's other parts, in a row
+
+
+p1 = design.use(channel, "ch0")
+p1.place(mm(10), mm(8), rot=90)  # the whole block, rigidly
+p2 = design.use(channel, "ch1")
+p2.place(below=p1, gap=mm(2), align="start")
+p3 = design.use(channel, "ch2")
+p3.layout(reuse="channel.kicad_pcb", copper=True)
+```
+
+- **Pose.** `inst.place(x, y, rot=0, locked=False)`, or with the relations and edge keys of a part measured
+  on the block's box, sets the instance's pose in its parent frame. Every placement in the body is in the
+  block's frame and composed with the pose; without a pose the frame is the parent's, so a block written
+  with board coordinates builds unchanged. A block does not place itself: the body has no `b.place`.
+- **References in a body** stay in the block: its own parts and nested instances. A part outside the block,
+  or the board, raises `DslError`, since it would not move with the block.
+- **Strategies.** `row(gap=0, align="start", at=None)`, `column(...)`, `grid(columns, gap=0, at=None)` and
+  `pack(width, gap=0, at=None)` place the frame's parts that have no request (and nested instances without a
+  pose, as one box each), in creation order, from `at` in the frame. A row aligns top edges (`start`),
+  centres or bottom edges; a column left edges, centres or right edges; a grid uses cells of the largest box
+  plus `gap`; `pack` fills shelves within `width`, tallest first, and a box wider than `width` takes its own
+  shelf with `layout.strategy-overflow`, as does a strategy that puts a part beyond the outline.
+  `place(rot=90)` without a position turns a part the strategy
+  places. `b.layout(...)` is the block's default, `inst.layout(...)` wins over it, and `design.layout(...)`
+  is the top level's. One strategy per frame.
+- **Group staging.** A top-level block with a strategy and no pose, when the top has no strategy, is staged
+  as one box at the start of the staging row, its parts keeping their strategy positions; each part still
+  gives `layout.unplaced`.
+- **Reuse.** `layout(reuse=PATH, copper=False)` places the block's parts that nothing else places from a
+  board laid out for the block alone (`PATH` relative to the file that defines the block for `b.layout`, to
+  the script for `inst.layout`). Parts map by block-local path (`C`, `led/R`; a board built from one
+  instance `ch` of the block, whose paths read `ch/C`, maps too), at their positions in that board's frame
+  of `place()` composed with the pose. A part the board lacks is staged with `reuse.unknown-part`
+  (warning); one whose pads differ is `reuse.no-fit`. With `copper=True` its tracks, arcs, vias and zones
+  are copied, nets mapped by port (`VIN`, `PORT.member`) and local net (`A`), each copy locked and
+  regenerated on every build; a net that is neither is `reuse.port-unmapped` (error).
+- **Moving a laid-out block.** `.fenolite/build.json` records each block's resolved pose. When the script
+  changes it, the parts kept from the board move with the block by `new ∘ old⁻¹`, with the copper joined
+  only to their pads, and the build gives `layout.block-moved` (info); copper to other parts stays, with
+  `place.copper-left`.
+
+## Part queries and generators
+
+A passive may be written by what it must be (change c0254; the full page is `docs/picking.md`):
+
+```python
+design.defaults(resistor={"case": "0603", "tolerance": pct(1)})  # design level
+r = design.part(device=resistor(ohm("10k")))  # resistor(10kΩ, tolerance<=1%, case=0603)
+c = design.part(device=capacitor(farad("10u"), rating=volt(25), case="0805"))
+```
+
+- `resistor`, `capacitor` and `inductor` return a `PartQuery` of plain data: a value (a quantity, or a
+  c0246 range that the row's worst-case span must lie in) and the closed keys of the kind (`tolerance`,
+  `power`, `voltage`, `rating`, `current`, `saturation`, `dcr`, `tempco`, `case`, `series`, `dielectric`,
+  `row`). An unknown key, a value of another unit, a float, or a range with `tolerance=` raise `DslError`.
+- `Design.defaults(**kinds)` and a block's `b.defaults(**kinds)` cascade design → block → call; the most
+  specific level wins and `None` removes a key. `r.query.text()` is the canonical text the lock compares.
+- A query part has the pins `1` and `2` until the build picks its device; the build resolves every query
+  against the design lock and the catalog, never the script.
+- Generators create query parts with a request and connect them: `voltage_divider(b, hi, mid, lo, *,
+  target, ref=None, vin=None, current, series=None, name=None)`, `rc_lowpass(b, inp, out, gnd, *, corner,
+  r=None, c=None)`, `led_resistor(b, supply, led, *, current, vf, vs)`, `i2c_pull_ups(b, bus, supply, *,
+  bus_capacitance, vdd, mode=None)` and `shunt(b, hi, lo, *, current, full_scale)`. A bare quantity where a
+  range is needed (`current` of the divider), a divider without `ref` or `vin`, or a used part name raise
+  `DslError`.
+
 ## Path aliases (`moved()`)
 
 `design.moved(old, new)` records that the part or the module at path `new` was at `old` in an earlier
@@ -1513,9 +2641,11 @@ under a renamed module needs no call: the module alias covers it.
 
 ## Determinism
 
-A build is a pure function of the script and the Fenolite version: ids come from keys, files hold no
-date, and sets are never iterated in hash order, so builds with different `--seed`, `--timestamp` and
-`PYTHONHASHSEED` values (S-0072) are byte-identical. `--seed` and `--timestamp` are accepted and unused.
+A build is a pure function of the script, its design lock and the Fenolite version: ids come from keys,
+files hold no date, and sets are never iterated in hash order, so builds with different `--seed`,
+`--timestamp` and `PYTHONHASHSEED` values (S-0072) are byte-identical. `--seed` and `--timestamp` are
+accepted and unused. A build leaves the script folder unchanged, except for the design lock, which it
+writes only when its content changes.
 
 ## Output layout
 
@@ -1611,12 +2741,13 @@ design.add_footprint(tie)
   A pad outside the group, and a track near a tied pad, are judged as on any footprint. The bridge
   itself is a graphic, which the copper check does not see.
 - A footprint from a KiCad library keeps the groups its file has; they cannot be edited from a script.
-- `--target altium` writes the pads and no mark that ties them, and says so (`docs/altium.md`).
+- `--target altium` writes the pads and marks the component a net tie (`COMPONENTKIND` 4). It reports
+  only groups that the whole-component mark cannot say (`docs/altium.md`).
 
 ## Waivers
 
-`design.waive()` accepts one finding of `fenolite check`, or of the copper guard of the build, with a
-reason. The finding stays listed, as `info`, with the waiver's name and reason, so the exit code no
+`design.waive()` accepts one finding of `fenolite check`, of the copper guard of the build or of its
+circuit hook, with a reason. The finding stays listed, as `info`, with the waiver's name and reason, so the exit code no
 longer counts it and nothing is hidden.
 
 ```python
@@ -1624,6 +2755,9 @@ design.waive("copper.clearance", "J1-3", "J1-4", reason="fixed by the mating con
 design.waive("copper.clearance", "J1-*", "*", min_gap=mm(0.15), reason="shield can keep-out")
 design.waive("kicad.drc.via-dangling", "*", reason="test points")
 design.waive("kicad.drc.courtyards-overlap", tp1, "U1", reason="stacked by design")
+design.waive(
+    "circuit.rating-voltage", "C3:voltage", reason="bench is current-limited", digest="9f2c4a1b0d3e5f67"
+)
 ```
 
 - **Code.** `copper.short`, `copper.clearance`, `copper.zone-overlap`, or a finding of KiCad's DRC as
@@ -1631,6 +2765,13 @@ design.waive("kicad.drc.courtyards-overlap", tp1, "U1", reason="stacked by desig
   `rules-unchecked`, `parity-unchecked`) are not findings. ERC and parity findings are not waived: an
   ERC finding has its own means in the script (`no_connect`, a power flag), and a parity finding is a
   defect of the build.
+- **Circuit findings** (change c0274): a `circuit.*` code of an error or a warning, with one item, the
+  exact row id without the code (`C3:voltage`, `buck1/expect#1`; a finding without a row by its
+  `where`), and `digest=`, the 16 lowercase hexadecimal digits its hint ends with (`fenolite check
+  --matrix` lists them too). The waiver accepts the numbers that were judged: when the value or the
+  limit changes (a rating, a pick, a value kept from a CAD edit), the digest differs, the finding stands
+  again and `check.waiver-expired` says why. A pattern, a missing digest, a digest on another code and
+  `circuit.policy-missing` (an info) are refused.
 - **Items.** One name per item of the finding, as its `where` prints it: `REF-PIN` for a pad, `REF` for a
   footprint, a locator for a track, a via or a zone, `@x,y` for an item without a name. The order does not
   matter, a `Part` stands for its reference, and `*`, `?` and `[…]` are patterns. A copper finding has two
@@ -1684,3 +2825,20 @@ that these calls stand, so c0096 offers no hole or keep-out call of its own. `Ho
 `Keepout.intent` remain in the model for model callers and readers; no script call fills them.
 The anchor's metadata is in `placements` output; a build and rebuild do not retain it in native files
 or the regenerable `.fenolite/` cache, and the physical locked position remains enforced.
+
+## Tests of a design
+
+Use [fenolite.testing](testing.md) to query a built design, assert connectivity, inspect tool-free findings
+and compare canonical SVG goldens. The helpers are separate from design scripts and require no pytest plugin.
+
+## Starter blocks
+
+`fenolite.blocks` exports five authored circuits for `design.use`: `voltage_divider`,
+`rc_lowpass`, `led_indicator`, `i2c_pullups` and `protected_input`. Their exact interval
+expectations run on every build. See the [generated block index](blocks/index.md)
+for parameters, ports, expectations, usages and captured layouts. LED electrical data
+and protection limits must be supplied; illustrative example records are UNVERIFIED.
+
+### Declared native project floor ownership
+
+`design.kicad_project("native/project.kicad_pro", sha256="<64 lowercase hex digits>", preserve_minimums=True)` declares a portable digest-bound native baseline. The optional bool defaults False, retaining authored DSL minimum planning/output precedence. Import emits True to preserve the five native project hard floors independently of actual DRU override rules. It changes no canonical model field; native-context comparison names its supported scope separately. Changed input bytes require reviewing the digest and a new plan.

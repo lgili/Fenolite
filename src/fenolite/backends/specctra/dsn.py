@@ -24,6 +24,11 @@ gives the file text, the names it wrote and its findings. It reads no file and i
   is reported, the edge clearance among them: the format has no clearance from the board edge, and keep-out
   bands along the edges lost a route on the oracle bench (``H-G-DSN-EDGE-2``). A call without the two
   arguments, for a design without a rule, writes what it wrote before.
+- **Rule order** (change c0403). Clearance rules between classes are taken in KiCad's order (the order of
+  ``fenolite.checks.clearance.rule_precedence``): the governing rule of a class pair, the last that covers
+  it, sets the pair's value, and a class against itself may go below the class's own clearance, its other
+  pairs kept by ``class_class``. Board-wide rules stay floors. A value written above the governing rule's
+  gives ``specctra.rule-widened``.
 
 Every fact behind this module is ``INFERRED`` until the probes of ``H-G-DSN-ACCEPT``, ``H-G-DSN-UNITS`` and
 ``H-G-DSN-PROTECT`` are recorded; the lists of change c0107 follow ``H-G-DSN-LAYERS``, ``H-G-DSN-PLANE``,
@@ -45,6 +50,7 @@ from fenolite.core.evidence import Evidence, Level
 from fenolite.core.units import Nm, round_half_even_div
 from fenolite.geometry import DEFAULT_TOL, Circle, GeometryError, Polygon, convex_hull
 from fenolite.geometry import Arc as GeometryArc
+from fenolite.model.board import rule_areas
 from fenolite.model.circuit import NetClass
 from fenolite.model.design import Design
 from fenolite.model.rules import Rule, Selector
@@ -229,7 +235,8 @@ def _classes_of(selector: Selector | None) -> frozenset[str] | None:
 @dataclass
 class _Lowered:
     """The rules of a design as the Specctra subset carries them (``docs/formats/specctra/dsn.md``,
-    "Routing rules"). Values combine by maximum: the router keeps at least what any rule asks."""
+    "Routing rules"). Board-wide clearances and widths combine by maximum; a clearance between classes is
+    the governing rule's (change c0403)."""
 
     clearance: int
     width: int
@@ -237,6 +244,13 @@ class _Lowered:
     class_width: dict[str, int] = field(default_factory=lambda: {})
     layer_width: dict[str, dict[str, int]] = field(default_factory=lambda: {})
     pairs: dict[tuple[str, str], int] = field(default_factory=lambda: {})
+
+
+def _precedence(rule: Rule) -> tuple[bool, int, str, str]:
+    """The sort key of ``fenolite.checks.clearance.rule_precedence``, which a backend may not import:
+    priority 0 first, then descending priority (priority 1 last); ties by name, then id. The later rule
+    governs (``H-K-DRU-ORDER``; change c0403)."""
+    return (rule.priority != 0, -rule.priority, rule.name, rule.id)
 
 
 def _lower_rules(
@@ -250,7 +264,12 @@ def _lower_rules(
     """Lower ``rules`` over the written ``classes`` (name → model class) by the closed table; a rule the
     subset cannot carry gives ``specctra.rule-not-sent``, a dropped layer clause ``specctra.rule-widened``.
     ``unclassed`` says that some written net has no class (change c0197: a one-sided clearance cannot reach
-    it)."""
+    it).
+
+    Clearances between classes follow KiCad's order (change c0403): of the rules that cover a pair of
+    written classes, the last in ``_precedence`` order sets the pair's ``class_class``, and the last
+    two-sided rule that names a class on both sides sets the class's own clearance, even below the class's
+    value. Board-wide rules stay floors."""
     low = _Lowered(defaults.clearance, defaults.width)
     for name, cls in classes.items():
         low.class_clearance[name] = cls.clearance or defaults.clearance
@@ -258,8 +277,11 @@ def _lower_rules(
     opt_set: set[str] = set()
     own_width = {name for name, cls in classes.items() if cls.track_width}
     """Classes that hold a width of their own: a board-wide preferred width leaves them (change c0197)."""
-    self_clearance: dict[str, int] = {}
-    """A class against itself: the last rule that names it on both sides (change c0197)."""
+    covers: list[tuple[Rule, int, list[tuple[str, str]]]] = []
+    """Each clearance rule between classes, its ``min`` and the class pairs it covers, ``(a, a)`` for a
+    class against itself, ``a < b`` otherwise: resolved in ``_precedence`` order below (change c0403)."""
+    board_floor = 0
+    """The largest board-wide clearance: a floor of every class's own value."""
 
     def not_sent(rule: Rule, why: str) -> None:
         issues.append(
@@ -311,6 +333,7 @@ def _lower_rules(
                 widened(rule)
             if not side_a and not side_b:
                 raise_clearance(frozenset(), rule.min)
+                board_floor = max(board_floor, rule.min)
                 continue
             if not side_a or not side_b:
                 # one-sided (change c0197): a pair against every other written class, and no raise of the
@@ -318,9 +341,7 @@ def _lower_rules(
                 named = side_a or side_b
                 others = sorted(set(low.class_clearance) - named)
                 pairs = [(c, o) for c in sorted(named) if c in low.class_clearance for o in others]
-                for c, o in pairs:
-                    key = (c, o) if c < o else (o, c)
-                    low.pairs[key] = max(low.pairs.get(key, 0), rule.min)
+                covers.append((rule, rule.min, [(c, o) if c < o else (o, c) for c, o in pairs]))
                 if DEFAULT_CLASS in named and DEFAULT_CLASS not in low.class_clearance:
                     # the nets without a class: the default rule is theirs, and every class keeps its value
                     low.clearance = max(low.clearance, rule.min)
@@ -332,18 +353,19 @@ def _lower_rules(
                     )
                 continue
             lost = False
+            covered: list[tuple[str, str]] = []
             for a in sorted(side_a):
                 for b in sorted(side_b):
                     if a == b:
                         if a in low.class_clearance:
-                            self_clearance[a] = rule.min  # the later rule of the board wins
+                            covered.append((a, a))
                         elif a == DEFAULT_CLASS:
                             low.clearance = max(low.clearance, rule.min)
                     elif a in low.class_clearance and b in low.class_clearance:
-                        key = (a, b) if a < b else (b, a)
-                        low.pairs[key] = max(low.pairs.get(key, 0), rule.min)
+                        covered.append((a, b) if a < b else (b, a))
                     elif DEFAULT_CLASS in (a, b):
                         lost = True
+            covers.append((rule, rule.min, covered))
             if lost:
                 not_sent(rule, "the nets without a class have no class to pair in the design file")
         elif rule.kind == "edge_clearance":
@@ -420,9 +442,83 @@ def _lower_rules(
                     low.width = fit("", low.width)
             if not side_a:
                 low.width = fit("", low.width)
-    for name, value in self_clearance.items():  # the class's own value and board-wide rules stay floors
-        low.class_clearance[name] = max(low.class_clearance[name], value)
+    _govern(low, covers, board_floor, unclassed, issues)
     return low
+
+
+def _govern(
+    low: _Lowered,
+    covers: Sequence[tuple[Rule, int, Sequence[tuple[str, str]]]],
+    board_floor: int,
+    unclassed: bool,
+    issues: list[Issue],
+) -> None:
+    """Write the clearances between classes from their governing rules (change c0403, F8).
+
+    The rules are taken in ``_precedence`` order and the last that covers a pair governs it, as in KiCad:
+    a higher-priority rule may set a pair below a one-sided or earlier rule (before c0403 the maximum of
+    every rule was written). A governing rule of a class against itself may lower the class's own
+    clearance; the class then keeps its previous value against every other written class by a
+    ``class_class`` pair, unless a rule governs that pair. Nets without a class have no class to pair, so
+    with such nets the class keeps its value. Board-wide rules stay floors. Each value written above the
+    governing rule's gives ``specctra.rule-widened`` naming the rule."""
+    pair_rule: dict[tuple[str, str], int] = {}
+    self_rule: dict[str, tuple[Rule, int]] = {}
+    for rule, value, keys in sorted(covers, key=lambda cover: _precedence(cover[0])):
+        for a, b in keys:
+            if a == b:
+                self_rule[a] = (rule, value)
+            else:
+                pair_rule[(a, b)] = value
+    low.pairs.update(pair_rule)
+    previous = dict(low.class_clearance)
+    """Each class's value before its own rule: the class clearance raised by the board-wide rules."""
+    kept = {
+        name: max(value, self_rule[name][1]) if name in self_rule else value
+        for name, value in previous.items()
+    }
+    """What each class keeps against the others: its previous value, or its own rule's when that is above."""
+
+    def widened(rule: Rule, name: str, written: int, why: str) -> None:
+        issues.append(
+            Issue(
+                "specctra.rule-widened",
+                "info",
+                f"the clearance rule {rule.name!r} asks {_mm(self_rule[name][1])} between the nets of "
+                f"{name}; {why}, so {_mm(written)} is written",
+                where=rule.name,
+            )
+        )
+
+    for name in sorted(self_rule):
+        rule, value = self_rule[name]
+        if value >= previous[name]:
+            low.class_clearance[name] = value
+            continue
+        if unclassed:
+            widened(
+                rule,
+                name,
+                previous[name],
+                "the nets without a class would take it against them, and the class keeps its value",
+            )
+            continue
+        written = max(value, board_floor)
+        if written > value:
+            widened(rule, name, written, "a board-wide clearance rule is a floor")
+        if written >= previous[name]:
+            continue
+        low.class_clearance[name] = written
+        for other in sorted(previous):
+            key = (name, other) if name < other else (other, name)
+            if other == name or key in pair_rule:
+                continue
+            low.pairs[key] = max(low.pairs.get(key, 0), kept[name], kept[other])
+
+
+def _mm(value: int) -> str:
+    """``value`` (nanometres) in millimetres, for a message."""
+    return f"{value / 1_000_000:g} mm"
 
 
 class _Writer:
@@ -887,7 +983,7 @@ class _Writer:
             structure.append(SNode("plane", (net_out[plane_net], shape)))
         for cutout in self.outline[1:]:
             structure.append(SNode("keepout", (SNode("polygon", (SIGNAL_LAYER, "0", *self.flat(cutout))),)))
-        for keepout in board.keepouts:
+        for keepout in rule_areas(board):
             if len(keepout.outline) < 3 or not (keepout.no_tracks or keepout.no_vias):
                 continue
             kind = (

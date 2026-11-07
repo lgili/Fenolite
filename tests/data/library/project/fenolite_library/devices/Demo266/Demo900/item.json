@@ -1,0 +1,26 @@
+{
+  "depends": [
+    {
+      "id": "Demo266:TwoPin",
+      "kind": "symbol",
+      "version": "1.0.0"
+    },
+    {
+      "id": "Demo266:TwoPad",
+      "kind": "footprint",
+      "version": "1.0.0"
+    }
+  ],
+  "executes": false,
+  "files": [
+    "record.toml"
+  ],
+  "id": "Demo266:Demo900",
+  "kind": "device",
+  "schema": "fenolite.library-item.v0",
+  "spdx": "CC0-1.0",
+  "summary": "Authored for Fenolite as illustrative test data (c0266).",
+  "tags": [],
+  "title": "Demo266:Demo900",
+  "version": "1.0.0"
+}

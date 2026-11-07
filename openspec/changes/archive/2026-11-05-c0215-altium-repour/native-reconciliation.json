@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "date": "2026-11-03",
+  "scope": "Literal read-only native coverage reconciliation; no new CAD/runtime/CI/grad/evidence claim",
+  "source_commits_not_interchangeable": [
+    "615c2814",
+    "b5f6c84ade0cd74690874143bc1de96605279522"
+  ],
+  "rows": [
+    {
+      "criterion": "6.4a nativeKiCad import proof",
+      "status": "already executed; CIonlyremaining",
+      "measured": "ActualKiCad10.0.6plus16independent controls passed17tests3.92s. Allfills/holes/zoneidentity/XOR bounds retained, conservative continuous10nmcertificate and refusal/bridge/11nm negatives pass.",
+      "proof": "openspec/changes/c0215-altium-repour/tasks.md",
+      "remaining_or_reconciliation": "No nativeKiCad rerun needed merely for this audit. The literal exact-source CI clause remains unchecked."
+    },
+    {
+      "criterion": "7.4 historicalK6.1",
+      "status": "historical different scope",
+      "measured": "Classicrouted nativeRepourAll/save/pour/copper checks pass on outline output.",
+      "proof": "docs/evidence/altium-native-acceptance.md",
+      "remaining_or_reconciliation": "Not the later computed-vs-reference probe suite; avoid calling every K6 repour never run."
+    },
+    {
+      "criterion": "7.4 computedpour/pour4K6.2\u2013K6.11",
+      "status": "not executed in existing receipts",
+      "measured": "c0215introduces21polygon2layer sampleP0\u2013P10 plus4layer probes and computed/reference pairs; no recorded round exists in altium-pour.md.",
+      "proof": "docs/evidence/altium-pour.md",
+      "remaining_or_reconciliation": "Needs this specific source-bound round, probesM1\u2013M4/declaredpoints, PolygonManager vsRepourAll, savedcomputed before/after, flaggedcounts andAdvancedPouroff, then kit verify/record. No olderK6or acceptance_v03substitution."
+    },
+    {
+      "criterion": "7.4 evidence/promotion",
+      "status": "open aggregate",
+      "measured": "Corpus3compared polygons failM2 (twoalsoM3/M4); no full nativecomputed-pour pass or kit record supplied.",
+      "proof": "openspec/changes/c0215-altium-repour/tasks.md",
+      "remaining_or_reconciliation": "Keep7.4and6.4aunchecked; no M3relaxation, newgolden, hypothesis promotion or CIinference."
+    }
+  ],
+  "source_proof_sha256": {
+    "openspec/changes/c0215-altium-repour/tasks.md": "93bcdc543d2a90c04f18113f7630c5b78a502c0f5f86efb1efbd8876b259fdc4",
+    "docs/evidence/altium-native-acceptance.md": "8c6a62210f3023b5f29940402f46a46d494bc7d51f466467aabcadd496234b5d",
+    "docs/evidence/altium-pour.md": "4d47bcec47e8bc5fd6f695bb65def989e9f87d99c1fda03b6d53b106e9249718"
+  },
+  "unchecked_tasks_changed": false,
+  "criteria_source_base_commit": "b1e9349a1de97a2597eae3eb788c3308fb745983"
+}

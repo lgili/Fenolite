@@ -107,7 +107,13 @@ def test_a_rounded_board_writes_the_stackup_and_items_of_the_rectangle(target: i
     rounded = build_script(variant(ROUNDED, append=ITEMS), target)
     for output in (rectangle, rounded):
         assert not [i for i in output.issues if i.severity == "error"], [i.code for i in output.issues]
-        assert output.summary["board_items"] == {"rule_areas": 2, "texts": 1, "graphics": 5, "dimensions": 1}
+        assert output.summary["board_items"] == {
+            "rule_areas": 2,
+            "texts": 1,
+            "graphics": 5,
+            "dimensions": 1,
+            "images": 0,
+        }
     assert stackup_node(board_text(rounded)) == stackup_node(board_text(rectangle))
     assert '(copper_finish "ENIG")' in stackup_node(board_text(rounded))
     assert '(material "FR4")' in stackup_node(board_text(rounded))

@@ -97,18 +97,20 @@ def _part(component: Component, footprint_dnp: bool) -> BomPart:
 
 
 def parts_from_model(design: Design) -> tuple[BomPart, ...]:
-    """One part per component that has a placed footprint, in natural order of the reference.
+    """Placed components and explicit pinless BOM-only items, in natural order of the reference.
 
     Left out: a component whose footprint has the attribute ``board_only`` or ``exclude_from_bom``, and a
     reference that starts with ``#``.
     """
     board = design.board
-    if board is None:
-        return ()
     components = {component.id: component for component in design.circuit.components}
-    parts: dict[str, BomPart] = {}
+    parts: dict[str, BomPart] = {
+        component.id: _part(component, False)
+        for component in design.circuit.components
+        if component.bom_only and not component.ref.startswith(VIRTUAL_PREFIX)
+    }
     left_out: set[str] = set()
-    for footprint in board.footprints:
+    for footprint in board.footprints if board else ():
         component = components.get(footprint.component_id)
         if component is None:
             continue

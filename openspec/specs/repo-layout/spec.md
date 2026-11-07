@@ -16,7 +16,7 @@ The repository SHALL contain a `src`-layout Python package named `fenolite` that
 - **THEN** the output and exit code are identical to `fenolite --version`
 
 ### Requirement: Zero runtime dependencies in the core
-`pyproject.toml` SHALL declare `dependencies = []`. All third-party packages SHALL live in optional extras, and the only extras allowed are `geo`, `kicad-ipc`, `mcp`, `dev` and `oracles`. The former `route` extra is removed: it named a package that no code imports, and routers run as subprocesses and register through entry points.
+`pyproject.toml` SHALL declare `dependencies = []`. All third-party packages SHALL live in optional extras, and the only extras allowed are `geo`, `kicad-ipc`, `dev` and `oracles`. The former `route` extra is removed: it named a package that no code imports, and routers run as subprocesses and register through entry points. The former `mcp` extra is removed (change c0195): the MCP server uses the standard library, and the official SDK is a test oracle in `oracles`.
 
 #### Scenario: Invariant test rejects a runtime dependency
 - **GIVEN** a contributor adds `"shapely"` to `[project].dependencies`
@@ -24,7 +24,7 @@ The repository SHALL contain a `src`-layout Python package named `fenolite` that
 - **THEN** the test fails naming the offending dependency
 
 #### Scenario: Invariant test rejects an unknown extra
-- **GIVEN** a contributor adds an extra named `fast`, or adds `route` back
+- **GIVEN** a contributor adds an extra named `fast`, or adds `route` or `mcp` back
 - **WHEN** `pytest tests/unit/test_pyproject_invariants.py` runs
 - **THEN** the test fails naming the unknown extra
 

@@ -5,6 +5,8 @@
 from fenolite.core.errors import Severity
 
 ISSUE_CODES: dict[str, Severity] = {
+    "cli.evidence-unsound": "warning",
+    "cli.deprecated": "warning",
     "plan.not-staged": "warning",
 }
 

@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "date": "2026-11-03",
+  "scope": "Literal read-only native coverage reconciliation; no new CAD/runtime/CI/grad/evidence claim",
+  "source_commits_not_interchangeable": [
+    "615c2814",
+    "b5f6c84ade0cd74690874143bc1de96605279522"
+  ],
+  "rows": [
+    {
+      "criterion": "5.3 PartT PADSTACK/T6",
+      "status": "historical native coverage",
+      "measured": "AD26.5 authored four-layer Full Stack and actual PcbLib placement passed: In1 round1.2\u00d71.2mm, In2rect1.4\u00d71.1mm. The native report explicitly excludes connector masks and other stack cases.",
+      "proof": "docs/evidence/altium-padstack-part-t.md",
+      "remaining_or_reconciliation": "Do not repeat that measured Full Stack placement. Connector mask/paste inspection remains unproved for PartT."
+    },
+    {
+      "criterion": "5.3 SCHEMATIC/T2",
+      "status": "historical native coverage",
+      "measured": "Corrected converted public project compiles without errors, with18warnings; explicit no-connect pins retained.",
+      "proof": "docs/evidence/altium-native-acceptance.md",
+      "remaining_or_reconciliation": "Retain warnings/source-vintage; it does not cover the DIFAT or PADSTACK compile cases."
+    },
+    {
+      "criterion": "5.3 SCHEMATIC/T3",
+      "status": "existing receipt mapping",
+      "measured": "Later report supersedes the earlier unpoured failure: public SCHEMATIC native saved copy has one polygon/one fill after native rebuild.",
+      "proof": "docs/evidence/altium-native-acceptance.md",
+      "remaining_or_reconciliation": "Bind the corresponding existing saved-file receipt before asking for another repour; no new native pass is inferred for other cases."
+    },
+    {
+      "criterion": "5.3 SCHEMATIC/T4",
+      "status": "existing receipt mapping",
+      "measured": "After offset repair, actual native DRC reports0clearance plus25unrouted,9mask-sliver,152silk-to-mask,60silk-to-silk; earlier23clearance fault is preserved.",
+      "proof": "docs/evidence/altium-native-acceptance.md",
+      "remaining_or_reconciliation": "The literal T4 asks category counts, not DRC-clean output. Reconcile this dated receipt with its repaired source before declaring the entire DRC step untested."
+    },
+    {
+      "criterion": "5.3 SCHEMATIC/T5 inspection",
+      "status": "literal observation covered",
+      "measured": "S0731/stable-link retry matches all68components automatically; four valid removals are the2explicitly unconnected nets and2PCB-only classes. No component additions/removals or footprint replacements; ECO closed without Execute.",
+      "proof": "docs/evidence/altium-native-acceptance.md",
+      "remaining_or_reconciliation": "T5 explicitly requests ECO inspection without executing on the only copy. Do not invent an execution requirement; full PartT remains incomplete."
+    },
+    {
+      "criterion": "5.3 T1all docs / DIFAT T1\u2013T6 / remaining PADSTACK / connector masks",
+      "status": "not established by these receipts",
+      "measured": "Root SCHEMATIC opening and the four-layer placement are recorded, but no complete case\u00d7T1\u2013T6 report exists for all3converted projects, especially the large DIFAT case.",
+      "proof": "docs/evidence/altium-pcb.md",
+      "remaining_or_reconciliation": "Only genuinely unmatched cases need native work; acceptance_v03 and old generic kit use different input identities."
+    },
+    {
+      "criterion": "5.3 aggregate +4hypotheses",
+      "status": "open aggregate",
+      "measured": "No complete PartT report settles all4conversion hypotheses; source-specific partial observations above remain retained.",
+      "proof": "openspec/changes/c0160-convert-to-altium/tasks.md",
+      "remaining_or_reconciliation": "Leave5.3unchecked and do not promote hypothesis/evidence or claim closure."
+    }
+  ],
+  "source_proof_sha256": {
+    "docs/evidence/altium-padstack-part-t.md": "e7dd14f7d07a61545ea23e63fc86446cbda78701a8a3e203e8342d40849aee84",
+    "docs/evidence/altium-native-acceptance.md": "8c6a62210f3023b5f29940402f46a46d494bc7d51f466467aabcadd496234b5d",
+    "docs/evidence/altium-pcb.md": "49572520569b8eea2aee2eb4c660040c00c101d8ac99c0228ef079cc8a2a8d7d",
+    "openspec/changes/c0160-convert-to-altium/tasks.md": "6735cc1062093c33c1b2eb59ebd4b0220e5ac8301db1f0ddd1febb8af6059f80"
+  },
+  "unchecked_tasks_changed": false,
+  "criteria_source_base_commit": "b1e9349a1de97a2597eae3eb788c3308fb745983"
+}

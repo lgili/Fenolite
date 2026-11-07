@@ -71,3 +71,30 @@ def test_only_unknown_body_is_mapped_without_unmapped_issue() -> None:
     assert design.board and len(design.board.footprints[0].bodies) == 1
     assert any(i.code == "altium.import.body-unknown" for i in issues)
     assert not any(i.code == "altium.import.unmapped" for i in issues)
+
+
+@pytest.mark.parametrize(
+    "fields,interval",
+    [
+        # Kit case Z2 (S-1604): a cylinder of height 2 mm, a sphere of radius 1 mm centred on the face (mil
+        # texts as saved, 1 nm above the millimetre).
+        ({"MODEL.MODELTYPE": "2", "STANDOFFHEIGHT": "0mil", "OVERALLHEIGHT": "78.7402mil"}, (0, 2_000_001)),
+        (
+            {"MODEL.MODELTYPE": "3", "STANDOFFHEIGHT": "-39.3701mil", "OVERALLHEIGHT": "39.3701mil"},
+            (-1_000_001, 1_000_001),
+        ),
+    ],
+)
+def test_cylinder_and_sphere_heights_are_known(fields: dict[str, str], interval: tuple[int, int]) -> None:
+    doc = rec.document(
+        components=[rec.component("U1")],
+        storages={"ComponentBodies6": {"Data": rec.body_bytes(fields=fields)}},
+    )
+    issues: list[Issue] = []
+    design = import_board(doc, file="authored.PcbDoc", sha256=rec.SHA, issues=issues)
+    assert design.board
+    (body,) = design.board.footprints[0].bodies
+    assert not body.projection_unknown and body.kind == "extruded"
+    assert (body.z_min, body.z_max) == interval
+    assert not any(i.code == "altium.import.body-unknown" for i in issues)
+    assert not [i for i in design.validate() if i.severity == "error"]

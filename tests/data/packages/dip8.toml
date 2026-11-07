@@ -1,0 +1,18 @@
+# Authored for Fenolite (CC0-1.0). Numbers from the onsemi PDIP-8 case outline 626-05 (S-0985): D, E1, A,
+# A1, b, C, L and e of its table; the row spacing is its 0.300 in (7.62 mm) lower bound of E.
+schema = "fenolite.package.v0"
+family = "dip"
+name = "DIP8_B9.59x6.605_P2.54"
+summary = "8-lead plastic dual in-line, 2.54 mm pitch, 7.62 mm rows"
+evidence = "INFERRED"
+sources = ["S-0985"]
+
+pins = 8
+pitch = "2.54mm"
+row_spacing = "7.62mm"
+body = { length = "9.02mm..10.16mm", width = "6.10mm..7.11mm", height = "5.33mm max", standoff = "0.38mm min" }
+lead = { width = "0.35mm..0.56mm", thickness = "0.20mm..0.36mm", length = "2.92mm..3.81mm" }
+
+[generate]
+lands = 1
+drawing = 1

@@ -12,6 +12,8 @@ import _rulecases as rc
 import pytest
 from _probes import run
 
+from fenolite.model.rules import NO_NET
+
 pytestmark = pytest.mark.needs_kicad
 
 
@@ -30,7 +32,32 @@ def test_condition(key: str) -> None:
     assert run(f"dru-cond-{key}") == "present"
 
 
+def test_no_net() -> None:
+    """``A.NetName == ''`` selects the items without a net (change c0409, ``H-K-DRU-NONET``): a netless
+    track 4 mm from a netted one violates a 5 mm rule, a netted pair as far apart does not."""
+    made = rb.builder()
+    made.pair("probe", "", "NN1")
+    made.pair("control", "NN2", "NN3")
+    (result,) = (rc.run(made.build(), rc.lowered(rc.rule(a=NO_NET))),)
+    rb.require_canary(result.report, result.bench)
+    assert result.between("probe", None), "the netless track has no violation"
+    assert not result.between("control", None), "the netted pair has a violation"
+
+
 def test_letter_case_recorded() -> None:
     (result,) = rc.condition("case")
     rb.require_canary(result.report, result.bench)
     assert run("dru-cond-case") in ("present", "absent")
+
+
+@pytest.mark.parametrize("key", rc.LEAF_KEYS_C0462)
+def test_leaf_c0462(key: str) -> None:
+    """The leaves of change c0462 as S-2213 writes them (``rulemap.hole_condition``, ``PAD_TYPE_NAMES``):
+    the outcome is recorded per version; the key joins ``SELECTOR_SUPPORT`` only where it is ``present``."""
+    from fenolite.backends.kicad.rulemap import SELECTOR_SUPPORT
+
+    for result in rc.condition(key):
+        rb.require_canary(result.report, result.bench)
+    outcome = run(f"dru-cond-{key}")
+    assert outcome in ("present", "absent")
+    assert (rc.major() in SELECTOR_SUPPORT.get(key, frozenset())) == (outcome == "present")

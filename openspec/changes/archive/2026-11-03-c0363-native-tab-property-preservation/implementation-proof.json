@@ -1,0 +1,88 @@
+{
+  "base_runtime": "c65280a9",
+  "consolidated_proposal_and_RED_commit": "d4d8eaa7",
+  "scope": "U+0009 TAB in valid native KiCad custom property values alongside existing LF. No public API, model, comparator, dependency, acceptance or waiver added.",
+  "runtime_files_sha256": {
+    "src/fenolite/importer/vendor.py": "6ec11f9cc516f60dd9576ad3ee0410fdd47799a52919e79c7535e55eae1021b4",
+    "src/fenolite/importer/emit/design.py": "3b8b8247fd3d821abb88d856c69211e1da444b32a12699858d9e0b920ecaaa67",
+    "tests/_native_custom.py": "aaa6b11c62f4a1dd0145e040118f2a7ed0d4c1a0d0586eabc81322b5884df97d",
+    "tests/unit/importer/test_native_custom_property.py": "a94e4935be31f83f63851fcb72d3ac82bfb470c334705f2e0f5fb7cbca02ba61",
+    "tests/unit/importer/test_native_mirror_property.py": "4376ce54f6fa5c543f983fae59f9de82b65ec2cd9c327578ae1ced49f3235fc3",
+    "tests/unit/importer/test_native_tab_property.py": "1acf19133c447a4c172acaba72758001ea9ec84823ff277079e12d2f44960d3c"
+  },
+  "native_TAB_preflight": "Exactly one measured field; source backend KiCad; existing size/layer/thickness/anchor/font/effects validation before vendorization; no emitted request or Part.properties TAB declaration. Raw native TAB shape/duplicate/unknown/flag guard is separate; LF behavior retained.",
+  "test_results": {
+    "focused": 120,
+    "deselected_full_cases": 12,
+    "structural_import_graph_evidence_vendor_and_bytes": 172,
+    "import_python_freshness": 2,
+    "native_complete_9_0_9": 2,
+    "native_complete_10_0_6": 2,
+    "native_levels": "1,2,3,4,5,6,7,8,S",
+    "native_accepted_or_differences": 0,
+    "fresh_native_value_and_unlocked_flag": "exact; independent native value assertions (no L7 property-value-detection claim)",
+    "distinct_variants": "exact two native values, one definition per distinct value",
+    "printable_Part_override": "actual build.property-conflict / exit5 / no plan",
+    "retained_negatives": [
+      "Part.properties LF/TAB",
+      "TAB native name",
+      "CR/NUL/other native controls",
+      "reserved names",
+      "duplicate native property or headers",
+      "unknown property/flag/font/justify",
+      "anisotropic/missing thickness/unsupported layer",
+      "missing pose",
+      "unmeasured source backend"
+    ]
+  },
+  "defaults": {
+    "base_runtime": "c65280a9",
+    "baseline_checkout": "759e9819 (runtime identical to c65280a9; proposal/test-only descendants)",
+    "plans": 75,
+    "files": 1137,
+    "all_complete_maps_and_exits_identical": true,
+    "before_sha256": "284c9e6d405f341fbe3be5c111c5b4fffad6d58f6b9fc21b44c3dde992180646",
+    "after_sha256": "7d308f2185ef1c333b6226e8ce0040fc3a932c15003c20243e6fe4b432723524"
+  },
+  "public_CM5": {
+    "manifest_id": "kicad-demo-10-0-6-pcb-01",
+    "source_sha256": "123e209e6245cbcc344c1c70b425dcb44a12cd0a2d05f00a39d3f2e7ff307ffa",
+    "source_unchanged": true,
+    "actual_dry_import_exit": 0,
+    "error": null,
+    "counts": {
+      "parts": 112,
+      "nets": 159,
+      "tracks": 1884,
+      "arcs": 200,
+      "vias": 444,
+      "zones": 13,
+      "rule_areas": 1,
+      "drawings": 219,
+      "tables": 355
+    },
+    "retained_issues": {
+      "info": 46,
+      "warning": 1
+    },
+    "confirmed_or_promoted": false,
+    "required_CI": "PENDING"
+  },
+  "static": {
+    "ruff": "passed",
+    "ruff_format": "6files unchanged",
+    "pyright": "0errors/0warnings/0informations both runtime modules",
+    "openspec": "strict passed"
+  },
+  "external_receipts_sha256": {
+    "focused-final.log": "ce018cd161fa45c2da6d4c9e903797ab08f464faee1d6f38064a304a9cd9a0cb",
+    "structural-final.log": "59346e007e7574cdd846f4b43de44143c76f852456de0e222720371672505535",
+    "import-python-freshness-final.log": "997821a9ec539ae809e08bedf3e4cb85ee223ac79ead427730eef0341ca4c9e5",
+    "native-full9-final.log": "e76066469127e4212b524f33b0ffeba3bacf942bac7b35a99e3d9bd6149678f2",
+    "native-full10-final.log": "24b1729532d7fbe630d6ce5009fc6b3e47e90e0ae21e8d54c16b67477e68a109",
+    "default-comparison-final.json": "182204ecbb0fda7677f86b587731807bb17af23901746ec73d34710fca273101",
+    "cm5-actual-dry-final.json": "2c3f6d5a3043aecf520d92aa0bfc0d6a5040eb78c8d64cfe3684ac2f3d7ff286"
+  },
+  "private_scan": "required precommit hook with private lists enabled; no new exclusions or waivers",
+  "full_CI_exact_commit": "PENDING"
+}

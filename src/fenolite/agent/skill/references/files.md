@@ -1,7 +1,7 @@
 ---
 topic: files
 title: Reading, comparing and undoing
-summary: Read a file Fenolite did not write, tell whether editing it is safe, compare two files or two designs, and undo a confirmed write.
+summary: Inspect files Fenolite did not write, compare designs and undo writes.
 ---
 
 # Reading, comparing and undoing
@@ -22,25 +22,22 @@ document, and reports its `kind`, its `format_version`, the KiCad `major` that w
 (`supported`, or why it is not) and `counts`: footprints, pads, nets, tracks, vias, zones. Start here
 with any file you are handed. `--streams` lists the streams of an Altium compound file.
 
-For more than counts, `net`, `pads`, `region` and `neighbors` (pages `routing`, `placement`) read any
-KiCad board. To look at a board or an Altium sheet, or at every one of a project, without its tool:
-
 ```fenolite-cmd
-fenolite view blink/altium/blink.PrjPcb --json
-fenolite view blink/altium/blink.PrjPcb --doc blink.SchDoc --json
-fenolite view blink/build/blink.kicad_pcb --export blink/views/board.html --dry-run --json
-fenolite view blink/build/blink.kicad_pcb --check checks.json --report conversion.json --report fabrication.json --json
+fenolite inspect blink/design.lock --blocks --json
+fenolite blocks where Acme:divider . --json
+fenolite blocks list --from blocks.py --json
+fenolite blocks show Acme:divider --from blocks.py --json
 ```
 
-`view` replies with the project's documents and a summary of one board, or of the one `--doc` names;
-`--compare OLD` draws what changed since OLD (a board or sheet) and counts it in `result.compare`; `--variant NAME` shows an Altium variant; `--check FILE|run` draws `check` findings and counts them in `result.check`; `--select REF` opens at a part or net; `--marks FILE` lists a person's review marks (`fenolite.review.v0`) in `result.marks`; `--theme` takes a KiCad colour theme; `--export` plans one HTML page that a person opens, and `--serve`
-(for a person, not an agent) serves it live.
+`--blocks` lists the block versions a lock or a `circuit.json` pins; `blocks where` finds every lock that
+uses a block. `show` gives a block's record (`doc` its page); `--from` imports the file, running its code.
 
-`result.review` and the page's Review panel distinguish not-run, passed, failed and limited stages.
-`--report FILE` loads a recorded convert/export reply, once per command; use `--check` for checks.
-Loading does not run the operation. Missing/mismatched input hashes remain historical and limited;
-a matching hash binds only the named document. Original hints and Locate support reviewing findings,
-not marking them fixed. Export generation alone does not attest successful readback or fabrication readiness.
+For more than counts, `net`, `pads`, `region` and `neighbors` (pages `routing`, `placement`) read any
+KiCad board. Page `viewer` covers board and sheet views, live checks, reviewed actions and net roles.
+
+```fenolite-cmd
+fenolite view blink/build/blink.kicad_pcb --json
+```
 
 ## Is it safe to edit this file?
 
@@ -60,32 +57,6 @@ only:
 
 `result.level` is the highest level that holds. Exit 5 with `roundtrip.failed` (`where`: the first
 difference) means the write would change the file: edit it in KiCad, not with Fenolite.
-
-## Working on the owner's project
-
-```fenolite-cmd
-fenolite doctor --sessions project --json
-fenolite snapshot project/board.kicad_pcb --out work --confirm --json
-fenolite publish work --to project --receipt work/snapshot.json --dry-run --json
-fenolite refs work --json
-fenolite refs work --repoint C:/old/libs=C:/new/libs --dry-run --json
-```
-
-Do not edit the owner's files in place while they may be open:
-
-1. `doctor --sessions` lists the files open in KiCad (`safety.open-session`) and the files a sync client
-   keeps only online. Ask the owner to close them; every writing command repeats that warning for a file
-   of its plan.
-2. `snapshot` copies the board with its companions only when no save fell inside the copy, and writes
-   `snapshot.json`. Work on the copy.
-3. `publish` puts the copy back. It replaces a file only when its hash is still the one of
-   `snapshot.json`. A file the owner saved since is `safety.changed-since-receipt`, and nothing is written:
-   tell the owner, take a new snapshot, and do the edit again. Keep the envelope of the publish: it is the
-   receipt of the next one.
-4. `refs` lists the paths the documents hold. `refs.outside` means the copy still depends on another folder;
-   `--repoint OLD=NEW` rewrites a prefix in the KiCad documents.
-
-Exit 3 with `FEN-3007` means a file is kept only online: ask the owner to make the folder available offline.
 
 ## What changed between two files?
 
@@ -137,6 +108,54 @@ fenolite convert blink/build --to altium --out blink/altium --dry-run --json
 `result.report` counts what is written, changed or lost per kind and reason. A lost pad, copper or
 fitted flag needs `--allow-lossy` (exit 7); an unexplained difference exits 5.
 
+## A board as code
+
+```fenolite-cmd
+fenolite import blink/build/blink.kicad_pro --to python --out blink/code --dry-run --json
+```
+
+The output holds `design.py`, `copper.py` (`track_table`, `arc_table`, `via_table` rows in nm; no `net`:
+copper on no net), `lib/`, `design.lock` and `PROVENANCE.json`. Hierarchies add `sheets/*.py` factories:
+repeated source sheets share one function, local nets stay local, and boundary nets pass as keywords. It
+builds before comparing (`result.equivalence`); `import.unequal` exits 5. Unexpressed items exit 7
+(`FEN-7001`) unless `--allow-lossy`. State `--licence`, `--copyright`, `--source`, `--timestamp`; publish
+where rights allow.
+
+A KiCad project with sheets also writes `schematic.toml` and `load_schematic`: its embedded source
+symbols and drawn wires survive. A self-check reads that drawing back before
+staging; a changed source sheet invalidates the reviewed plan. Board-only inputs keep generated symbols.
+Power poses preserve `mirror = "x"` or `"y"`; level S compares that mirror too.
+Pinless native graphic symbols and excluded visible passive instances stay opaque; active electrical symbols refuse.
+Bare embedded aliases keep native geometry under the source library namespace (`_Source` if absent).
+A drawn unit's optional `symbol` selects a compatible native body; sync retains it, including pin-pad variants.
+For local metadata snapshots, read `guide equivalent-s`.
+
+Imported physical variants keep the native `footprint` name and select local geometry with
+`footprint_definition`. It needs explicit symbol and footprint; device/query parts refuse it.
+The original name is written into the KiCad PCB and schematic (Altium: the definition's); pads come
+from the selected definition, with the usual pin-map and electrical checks.
+
+```fenolite-design
+from fenolite.dsl import Design, Part, mm
+design = Design("variant")
+design.board(mm(20), mm(20))
+r = Part("R1", "Fenolite:Resistor", footprint="Original:R", footprint_definition="Fenolite:Chip_0603")
+design.add(r)
+r.place(mm(10), mm(10))
+```
+
+A table is one net's copper, each row in integer nm in the frame of `place()`:
+
+```fenolite-design
+from fenolite.dsl import Design, Net, mm
+
+design = Design("tables")
+design.board(mm(50), mm(30))
+gnd = Net("GND")
+rows = ((10_000_000, 10_000_000, 15_000_000, 10_000_000),)
+design.track_table("GND/F.Cu/1", net=gnd, layer="F.Cu", width=mm("0.25"), rows_nm=rows)
+```
+
 ## The canonical print
 
 ```fenolite-cmd
@@ -148,6 +167,8 @@ fenolite fmt blink/build/blink.kicad_pcb --dry-run --json
 writes nothing; a file that is not gives `fmt.would-change` and exit 5. `fmt FILE --confirm` rewrites
 it in that print: the content stays and only the layout changes. It is not KiCad's formatter: KiCad may
 lay the file out again when it saves it.
+
+For device-record migration, read `library-items`.
 
 ## Undoing a confirmed write
 
@@ -164,5 +185,65 @@ fenolite restore blink/last-write.json --confirm --json
 when a written file changed since (`restore.changed-since`), never deletes a file the write created
 (`restore.kept`), and has nothing to do when `receipt.undo` is `null` (`--no-backup`). Its own receipt
 undoes it.
+
+## The design lock
+
+A script with parts written without a ref gets `<script>.lock` beside it: every part path and its ref,
+written by `build` through the plan. Commit it, and review its changes like code. An edit of a ref there
+renumbers that part; deleting the file renumbers all. `--frozen` refuses any change (exit 7,
+`FEN-7004`, page `recovery`): run it in CI or before a release. `--lock FILE` names another file.
+
+```fenolite-cmd
+fenolite build reg/design.py --out reg/build --frozen --dry-run --json
+fenolite build reg/design.py --out reg/build --lock reg/release.lock --dry-run --json
+```
+
+## Parts chosen by parameters
+
+`build` picks a passive from the local catalog (shipped families,
+`fenolite catalog list --kind family`, and `devices/` beside the script), records it in the lock's
+`[picks]`. Generators report `gen.achieved`.
+
+```fenolite-design
+from fenolite.dsl import I2C, Design, Net, amp, between, capacitor, connect, farad, henry, hertz, inductor
+from fenolite.dsl import i2c_pull_ups, led_resistor, mm, ohm, pct, rc_lowpass, resistor, shunt, volt
+from fenolite.dsl import voltage_divider
+
+design = Design("picks")
+design.board(mm(30), mm(20))
+design.defaults(resistor={"case": "0603", "tolerance": pct(1)})  # b.defaults(...), then the call, win
+v, fb, gnd, a = Net("V3V3"), Net("FB"), Net("GND"), Net("LED_A")
+r = design.part(device=resistor(ohm("10k")))  # pins 1 and 2 until the pick
+c = design.part(device=capacitor(farad("100n"), rating=volt(25), dielectric="X7R"))
+connect(v, r[1], c[1])
+connect(gnd, r[2], c[2])
+coil = inductor(henry("4u7"), current=amp(1))  # no shipped inductor family: rows in devices/
+voltage_divider(design, v, fb, gnd, target=volt("3.3").pct(5), ref=volt("0.6").pct(1),
+                current=between(amp("40u"), amp("100u")))
+rc_lowpass(design, fb, Net("F"), gnd, corner=hertz(1000).pct(10), c=capacitor(farad("10n"), dielectric="C0G"))
+led_resistor(design, v, a, current=between(amp("2m"), amp("5m")), vf=volt(2), vs=volt("3.3").pct(3))
+i2c_pull_ups(design, I2C(Net("SDA"), Net("SCL")), v, bus_capacitance=between(farad("50p"), farad("100p")),
+             vdd=volt("3.3").pct(3))
+shunt(design, v, Net("LOAD"), current=between(amp(0), amp("5m")), full_scale=volt("0.1").pct(2))
+```
+
+`pick` lists each pick and its state; a query that the locked part no longer meets is `pick.stale`
+(exit 5), fixed by `--update` through the plan. `--propose` writes `UNVERIFIED` rows to
+`devices/proposed/`, which only a query naming them (`row=`) picks.
+
+```fenolite-cmd
+fenolite pick picks/design.py --json
+fenolite pick picks --candidates C_in --limit 5 --json
+fenolite pick picks --update C_in --dry-run --json
+fenolite pick picks --propose "capacitor(10uF, dielectric=X7R)" --from rows.csv --dry-run --json
+```
+
+A grammar family in `devices/` gives exact MPNs; `family` decodes, encodes, lints, expands it.
+
+```fenolite-cmd
+fenolite family encode "capacitor(100nF, case=0603)" --project picks --json
+fenolite family decode EX05C471JBT --project picks --json
+fenolite family lint picks/devices/example_mlcc.toml --json
+```
 
 Read next: `checks`, `altium`, `recovery`.

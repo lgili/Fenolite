@@ -1,0 +1,297 @@
+{
+  "source": "S-1308",
+  "writer_source": "b5f6c84ade0cd74690874143bc1de96605279522",
+  "native_version": "Altium Designer24.5.2.23",
+  "source_pcb_sha256": "2a78551faf793ea1c95843b1fac518c175caba105c03fc722566412c9ebd212e",
+  "native_saved_pcb_sha256": "64f43648437e427b894bccbb0bbe8a6150eb606d313803dc34fdcee97cd56734",
+  "native_saved_unchanged": true,
+  "native_csv_sha256": "ae800875fef8b788147a930c68dbeffa0a32ed68c1ce6c00e5de24430297b195",
+  "collection_manifest_sha256": "470ed94332567492e8ce83de827a4ff11a586787c65de0ebbb880647ab0764c9",
+  "comparison_script_sha256": "4f54522d4af87b8ed73fe5b2ee7acf4997a5467a61c0f1e5d034984a7b9897c4",
+  "all_reads_exclusive": true,
+  "original_prepared_files_unchanged": 50,
+  "native_csv_layer_rows": 15,
+  "source_paste_layers_not_reported_by_native_csv": [
+    "Top Paste",
+    "Bottom Paste"
+  ],
+  "copper_order": [
+    "Top Layer",
+    "Mid-Layer 1",
+    "Mid-Layer 2",
+    "Mid-Layer 3",
+    "Mid-Layer 4",
+    "Bottom Layer"
+  ],
+  "core_order": [
+    "Dielectric 1",
+    "Dielectric 2",
+    "Dielectric 3",
+    "Dielectric 4",
+    "Dielectric 5"
+  ],
+  "measurements": [
+    {
+      "name": "Top Overlay",
+      "native": {
+        "Number": "",
+        "Name": "Top Overlay",
+        "Type": "Overlay",
+        "Material": "",
+        "Thickness (mil)": "",
+        "Weight (oz)": "",
+        "Dk": "",
+        "Orientation": "",
+        "Copper Orientation": ""
+      }
+    },
+    {
+      "name": "Top Solder",
+      "native": {
+        "Number": "",
+        "Name": "Top Solder",
+        "Type": "Solder Mask",
+        "Material": "Solder Resist",
+        "Thickness (mil)": "0.4",
+        "Weight (oz)": "",
+        "Dk": "3.5",
+        "Orientation": "",
+        "Copper Orientation": ""
+      },
+      "source_thickness_mil": "0.4",
+      "native_thickness_mil": "0.4",
+      "native_minus_source_mil": "0.0"
+    },
+    {
+      "name": "Top Layer",
+      "native": {
+        "Number": "1",
+        "Name": "Top Layer",
+        "Type": "Signal",
+        "Material": "",
+        "Thickness (mil)": "1.378",
+        "Weight (oz)": "1",
+        "Dk": "",
+        "Orientation": "Top",
+        "Copper Orientation": "Above"
+      }
+    },
+    {
+      "name": "Dielectric 1",
+      "native": {
+        "Number": "",
+        "Name": "Dielectric 1",
+        "Type": "Core",
+        "Material": "TEST",
+        "Thickness (mil)": "9.843",
+        "Weight (oz)": "",
+        "Dk": "4",
+        "Orientation": "",
+        "Copper Orientation": ""
+      },
+      "source_thickness_mil": "9.8425",
+      "native_thickness_mil": "9.843",
+      "native_minus_source_mil": "0.0005"
+    },
+    {
+      "name": "Mid-Layer 1",
+      "native": {
+        "Number": "2",
+        "Name": "Mid-Layer 1",
+        "Type": "Signal",
+        "Material": "",
+        "Thickness (mil)": "1.378",
+        "Weight (oz)": "1",
+        "Dk": "",
+        "Orientation": "Top",
+        "Copper Orientation": "Below"
+      }
+    },
+    {
+      "name": "Dielectric 2",
+      "native": {
+        "Number": "",
+        "Name": "Dielectric 2",
+        "Type": "Core",
+        "Material": "TEST",
+        "Thickness (mil)": "9.843",
+        "Weight (oz)": "",
+        "Dk": "4",
+        "Orientation": "",
+        "Copper Orientation": ""
+      },
+      "source_thickness_mil": "9.8425",
+      "native_thickness_mil": "9.843",
+      "native_minus_source_mil": "0.0005"
+    },
+    {
+      "name": "Mid-Layer 2",
+      "native": {
+        "Number": "3",
+        "Name": "Mid-Layer 2",
+        "Type": "Signal",
+        "Material": "",
+        "Thickness (mil)": "1.378",
+        "Weight (oz)": "1",
+        "Dk": "",
+        "Orientation": "Top",
+        "Copper Orientation": "Below"
+      }
+    },
+    {
+      "name": "Dielectric 3",
+      "native": {
+        "Number": "",
+        "Name": "Dielectric 3",
+        "Type": "Core",
+        "Material": "TEST",
+        "Thickness (mil)": "9.843",
+        "Weight (oz)": "",
+        "Dk": "4",
+        "Orientation": "",
+        "Copper Orientation": ""
+      },
+      "source_thickness_mil": "9.8425",
+      "native_thickness_mil": "9.843",
+      "native_minus_source_mil": "0.0005"
+    },
+    {
+      "name": "Mid-Layer 3",
+      "native": {
+        "Number": "4",
+        "Name": "Mid-Layer 3",
+        "Type": "Signal",
+        "Material": "",
+        "Thickness (mil)": "1.378",
+        "Weight (oz)": "1",
+        "Dk": "",
+        "Orientation": "Top",
+        "Copper Orientation": "Below"
+      }
+    },
+    {
+      "name": "Dielectric 4",
+      "native": {
+        "Number": "",
+        "Name": "Dielectric 4",
+        "Type": "Core",
+        "Material": "TEST",
+        "Thickness (mil)": "9.843",
+        "Weight (oz)": "",
+        "Dk": "4",
+        "Orientation": "",
+        "Copper Orientation": ""
+      },
+      "source_thickness_mil": "9.8425",
+      "native_thickness_mil": "9.843",
+      "native_minus_source_mil": "0.0005"
+    },
+    {
+      "name": "Mid-Layer 4",
+      "native": {
+        "Number": "5",
+        "Name": "Mid-Layer 4",
+        "Type": "Signal",
+        "Material": "",
+        "Thickness (mil)": "1.378",
+        "Weight (oz)": "1",
+        "Dk": "",
+        "Orientation": "Top",
+        "Copper Orientation": "Below"
+      }
+    },
+    {
+      "name": "Dielectric 5",
+      "native": {
+        "Number": "",
+        "Name": "Dielectric 5",
+        "Type": "Core",
+        "Material": "TEST",
+        "Thickness (mil)": "9.843",
+        "Weight (oz)": "",
+        "Dk": "4",
+        "Orientation": "",
+        "Copper Orientation": ""
+      },
+      "source_thickness_mil": "9.8425",
+      "native_thickness_mil": "9.843",
+      "native_minus_source_mil": "0.0005"
+    },
+    {
+      "name": "Bottom Layer",
+      "native": {
+        "Number": "6",
+        "Name": "Bottom Layer",
+        "Type": "Signal",
+        "Material": "",
+        "Thickness (mil)": "1.378",
+        "Weight (oz)": "1",
+        "Dk": "",
+        "Orientation": "Bottom",
+        "Copper Orientation": "Below"
+      }
+    },
+    {
+      "name": "Bottom Solder",
+      "native": {
+        "Number": "",
+        "Name": "Bottom Solder",
+        "Type": "Solder Mask",
+        "Material": "Solder Resist",
+        "Thickness (mil)": "0.4",
+        "Weight (oz)": "",
+        "Dk": "3.5",
+        "Orientation": "",
+        "Copper Orientation": ""
+      },
+      "source_thickness_mil": "0.4",
+      "native_thickness_mil": "0.4",
+      "native_minus_source_mil": "0.0"
+    },
+    {
+      "name": "Bottom Overlay",
+      "native": {
+        "Number": "",
+        "Name": "Bottom Overlay",
+        "Type": "Overlay",
+        "Material": "",
+        "Thickness (mil)": "",
+        "Weight (oz)": "",
+        "Dk": "",
+        "Orientation": "",
+        "Copper Orientation": ""
+      }
+    }
+  ],
+  "via_types": [
+    [
+      "1",
+      "Thru 1:6",
+      "Thru",
+      "Top Layer-Bottom Layer",
+      "Board Layer Stack"
+    ],
+    [
+      "2",
+      "Blind 1:2",
+      "Blind",
+      "Top Layer-Mid-Layer 1",
+      "Board Layer Stack"
+    ],
+    [
+      "3",
+      "Buried 2:3",
+      "Buried",
+      "Mid-Layer 1-Mid-Layer 2",
+      "Board Layer Stack"
+    ]
+  ],
+  "thickness_comparison": "Native decimal display: each core 9.843mil versus encoded9.8425mil, difference0.0005mil (12.7nm); matches three-decimal half-up rounding, not exact thickness equality or an assertion of the internal native precision. Copper and mask displayed values match encoded decimals.",
+  "native_no_impedances": true,
+  "native_no_back_drills": true,
+  "pcb_save_requested": false,
+  "layer_edit_requested": false,
+  "parent_task5_3_complete": false,
+  "write_kind_graduated": false,
+  "scope": "Complete actual Layer Stack Manager CSV; layer order/types/material/Dk and declared via spans compared. No paste-layer inspection, impedance simulation, physical manufacture, full kit, graduation or current CI claim."
+}

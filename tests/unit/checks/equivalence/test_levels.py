@@ -21,6 +21,7 @@ from fenolite.checks.equivalence import (
 )
 from fenolite.checks.equivalence.levels import level_components, level_netlist
 from fenolite.core.coords import Point, Size
+from fenolite.model.design import Design
 
 
 def _kinds(report: EquivalenceReport, level: int) -> list[tuple[str, str]]:
@@ -74,6 +75,30 @@ def test_level1_empty_reference_is_ambiguous() -> None:
     result, refs = level_components(a, a)
     assert [(d.kind, d.where, d.a, d.b) for d in result.differences] == [("ref-ambiguous", "", "1", "1")]
     assert refs == ("R1",)
+
+
+def _stitched(name: str, values: tuple[str, str], ref: str = "STITCH1") -> object:
+    pads = {ref: [_cases.pad("1")], "R1": [_cases.pad("1")]}
+    found = _cases.design([(ref, values[0]), (ref, values[1]), ("R1", "")], pads, name=name)
+    assert found.board is not None
+    moved = tuple(
+        dataclasses.replace(fp, position=Point(1_000_000 * k, 0))
+        for k, fp in enumerate(found.board.footprints)
+    )
+    return dataclasses.replace(found, board=dataclasses.replace(found.board, footprints=moved))
+
+
+@pytest.mark.parametrize("ref", ["STITCH1", ""])
+def test_shared_references_are_paired_by_placement(ref: str) -> None:
+    """Footprints that share a reference, equally many on each side and each placed once, are paired in
+    placement order (change c0277): the second one is ``REF#2`` on both sides."""
+    a = _stitched("a", ("", ""), ref)
+    same = compare_designs(a, _stitched("b", ("", ""), ref), level=4)  # type: ignore[arg-type]
+    assert same.equivalent and same.levels[0].compared == 3
+    changed = compare_designs(a, _stitched("b", ("", "x"), ref), level=4)  # type: ignore[arg-type]
+    assert [(d.level, d.kind, d.where) for d in changed.differences] == [(1, "value", f"{ref}#2")]
+    ignored = compare_designs(a, a, level=4, ignore_refs=(ref or "x",))  # type: ignore[arg-type]
+    assert not ref or [d.kind for d in ignored.differences] == []
 
 
 # --- level 2 ---------------------------------------------------------------------------------------
@@ -167,6 +192,78 @@ def test_level3_changed_pad_is_located() -> None:
     loose = compare_designs(a, b, level=3, tolerances=Tolerances(length_nm=100))
     assert _kinds(loose, 3) == [("pad-drill", "D1-1")]
     assert exact.levels[2].compared == 4 and exact.levels[2].summary == {"footprints": 2, "copper_unknown": 0}
+
+
+def test_level3_slot_drill_compares_widths() -> None:
+    """B3 (change c0407): a slot held as drill 2.15 mm and length 1.0 mm (an Altium record whose slot length
+    is below its hole size) and the same oval held as drill 1.0 mm and length 2.15 mm along the other axis
+    (KiCad's ``(drill oval 1 2.15)`` read back) are one hole: no ``pad-drill``. A width that differs still is
+    one, reported as the widths."""
+    from fenolite.model.board import Padstack
+
+    a = _cases.two_layer()
+    mm = 1_000_000
+
+    def slot(length: int, rotation: int) -> Padstack:
+        return Padstack(id="pst-slot", hole_shape="slot", hole_length=length, hole_rotation=rotation)
+
+    altium = _cases.with_pad(a, "D1", "1", drill=2_150_000, padstack=slot(mm, 0))
+    kicad = _cases.with_pad(a, "D1", "1", drill=mm, padstack=slot(2_150_000, 90_000_000))
+    assert not [
+        d for d in compare_designs(altium, kicad, level=3).levels[2].differences if d.kind == "pad-drill"
+    ]
+    wider = _cases.with_pad(a, "D1", "1", drill=1_200_000, padstack=slot(2_150_000, 90_000_000))
+    (drill,) = [
+        d for d in compare_designs(altium, wider, level=3).levels[2].differences if d.kind == "pad-drill"
+    ]
+    assert (drill.where, drill.a, drill.b) == ("D1-1", str(mm), "1200000")
+
+
+def test_level3_slot_compares_length_and_axis() -> None:
+    """Change c0416: a slot is read by its extents, as KiCad's oval is. Drill 2.15 mm with length 1.0 mm at
+    0° and drill 1.0 mm with length 2.15 mm at 90° are one slot (``fp upgrade`` 10.0.6 writes the first as
+    ``(drill oval 1 2.15)``). A longer slot, a slot along the other axis and a round hole of the slot's width
+    are a ``pad-slot`` each; the widths agree, so no ``pad-drill``."""
+    from fenolite.model.board import Padstack
+
+    a = _cases.two_layer()
+    mm = 1_000_000
+
+    def slot(length: int, rotation: int) -> Padstack:
+        return Padstack(id="pst-slot", hole_shape="slot", hole_length=length, hole_rotation=rotation)
+
+    def kinds(one: Design, other: Design) -> list[tuple[str, str, str, str]]:
+        found = compare_designs(one, other, level=3).levels[2].differences
+        return [(d.kind, d.where, d.a, d.b) for d in found if d.kind in ("pad-slot", "pad-drill")]
+
+    altium = _cases.with_pad(a, "D1", "1", drill=2_150_000, padstack=slot(mm, 0))
+    kicad = _cases.with_pad(a, "D1", "1", drill=mm, padstack=slot(2_150_000, 90_000_000))
+    assert kinds(altium, kicad) == []
+    longer = _cases.with_pad(a, "D1", "1", drill=mm, padstack=slot(3 * mm, 90_000_000))
+    assert kinds(altium, longer) == [("pad-slot", "D1-1", "2150000@90000000", "3000000@90000000")]
+    across = _cases.with_pad(a, "D1", "1", drill=mm, padstack=slot(2_150_000, 0))
+    assert kinds(altium, across) == [("pad-slot", "D1-1", "2150000@90000000", "2150000@0")]
+    turned = _cases.with_pad(a, "D1", "1", drill=mm, padstack=slot(2_150_000, 270_000_000))
+    assert kinds(altium, turned) == []  # a slot is the same turned by a half turn
+    round_hole = _cases.with_pad(a, "D1", "1", drill=mm)
+    assert kinds(altium, round_hole) == [("pad-slot", "D1-1", "2150000@90000000", "")]
+
+
+def test_level3_slot_of_equal_numbers_is_a_round_hole() -> None:
+    """Change c0416: KiCad reads ``(drill oval d d)`` as a round drill, so a slot whose two numbers are equal
+    is a round hole of that size and gives no ``pad-slot`` against one; its axis is not compared."""
+    from fenolite.checks.equivalence import norm
+    from fenolite.model.board import Padstack
+
+    a = _cases.two_layer()
+    mm = 1_000_000
+    stack = Padstack(id="pst", hole_shape="slot", hole_length=mm, hole_rotation=0)
+    even = _cases.with_pad(a, "D1", "1", drill=mm, padstack=stack)
+    round_hole = _cases.with_pad(a, "D1", "1", drill=mm)
+    found = compare_designs(even, round_hole, level=3).levels[2].differences
+    assert not [d for d in found if d.kind in ("pad-slot", "pad-drill")]
+    (pad,) = [p for p in _cases.footprint(even, "D1").pads if p.number == "1"]
+    assert norm.slot_form(pad) is None
 
 
 def test_level3_placement_does_not_reach_it() -> None:
@@ -308,7 +405,7 @@ def test_a_design_compared_with_itself() -> None:
     assert report.equivalent and report.translation == Point(0, 0) and report.frame == "absolute"
     assert [level.compared for level in report.levels] == [2, 4, 4, 2]
     assert difference_issues(report) == ()
-    assert [len(compare_designs(design, design, level=n).levels) for n in LEVELS] == [1, 2, 3, 4, 5]
+    assert [len(compare_designs(design, design, level=n).levels) for n in LEVELS] == [1, 2, 3, 4, 5, 6, 7]
 
 
 def test_level_above_what_both_sides_hold() -> None:
@@ -323,8 +420,8 @@ def test_level_above_what_both_sides_hold() -> None:
         compare_designs(board, empty, level=4)
     with pytest.raises(ValueError, match="side a and b holds none"):
         compare_designs(bare, empty, level=3)
-    for level in (0, 6, True, "4"):
-        with pytest.raises(ValueError, match="level is one of 1, 2, 3, 4, 5"):
+    for level in (0, 8, True, "4", "S"):
+        with pytest.raises(ValueError, match="level is one of 1, 2, 3, 4, 5, 6, 7"):
             compare_designs(board, board, level=level)  # type: ignore[arg-type]
 
 

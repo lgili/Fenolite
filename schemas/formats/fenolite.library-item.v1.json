@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.library-item.v1",
+  "title": "LibraryItemFile",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "fenolite.library-item.v1"
+    },
+    "kind": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "spdx": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "depends": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Depend"
+      }
+    },
+    "executes": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "kind",
+    "id",
+    "version",
+    "title",
+    "summary",
+    "spdx",
+    "tags",
+    "files",
+    "depends",
+    "executes"
+  ],
+  "$defs": {
+    "Depend": {
+      "description": "An exact dependency of an item: ``kind``, ``id`` and ``version``.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "id",
+        "version"
+      ]
+    }
+  }
+}

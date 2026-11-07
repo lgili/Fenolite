@@ -1,0 +1,110 @@
+{
+  "schema": "fenolite.closure-local-addendum.v1",
+  "date": "2026-11-03",
+  "base": "0102716d7ae2d4749a93b1bc2dee6d8b22d3e29d",
+  "actual_archives_unchanged": 42,
+  "local_task_closures": [
+    {
+      "change": "c0350-native-root-hierarchical-labels",
+      "task": "2.1",
+      "commit": "5a9e6933a267374aecaca6e8477384345ad9cd4a",
+      "proof": "local-proof-20261103.json"
+    },
+    {
+      "change": "c0329-sheet-custom-properties",
+      "task": "3.2",
+      "commit": "b6f4d6d634b4a3b145267137ba67ad0d81bec844",
+      "proof": "local-proof-20261103.json"
+    },
+    {
+      "change": "c0330-root-sheet-presentation-identity",
+      "task": "2.1",
+      "commit": "ee50a2f3aa2d0fe7272606c793e123b801b7ed8a",
+      "proof": "local-proof-20261103.json"
+    }
+  ],
+  "fast18": {
+    "source": "ad8cbf2e5d66c6a6b549244c948fef97dac263ea",
+    "command": "make check-fast PYTEST_MAX_WORKERS=4",
+    "exit": 0,
+    "passed": 22516,
+    "skipped": 52,
+    "pytest_seconds": "1045.31",
+    "driver_seconds": 1137.2292516250163,
+    "log_sha256": "1c40d2f9c51f58106abb5f725e9ac54398da29dded826ef22a2c47ccb1619ba1",
+    "driver_sha256": "f77d06e668c6d54f8d707fb0f14b4aa4ecc519f7200015eea17af948f237a07d",
+    "receipt_sha256": "40a34a2308025c7e6dfdcb9eb9e680c610007a00bc34917b1e57d5e564eab3aa",
+    "clean_after": true,
+    "head_unchanged": true,
+    "private_residue_gate": "on",
+    "static": "Ruff check/format, pyright src and residue passed on that source"
+  },
+  "source_scope": {
+    "ad8_to_candidate_runtime_test_tool_diff": [],
+    "paths": [
+      "src/fenolite/model/drawn_connect.py",
+      "src/fenolite/backends/kicad/drawn.py",
+      "src/fenolite/model/drawn.py",
+      "src/fenolite/checks/equivalence",
+      "src/fenolite/view/scene.py",
+      "src/fenolite/lens/drawn.py",
+      "src/fenolite/view/kicad",
+      "tests/unit/backends/kicad/test_drawn_root_hlabels.py",
+      "tests/unit/model/test_drawn_sheet_properties.py",
+      "tests/unit/backends/kicad/test_drawn_sheet_properties.py",
+      "tests/fidelity",
+      "tools/gen_schemas.py",
+      "tools/gen_evidence_matrix.py",
+      "tools/gen_agent_guide.py"
+    ],
+    "claim": "Relevant code/test/tool paths unchanged; later viewer UI/documentary-reader integration is separate, not an exact-current whole-fast/CI claim."
+  },
+  "generator_checks": [
+    {
+      "command": "python tools/gen_schemas.py --check",
+      "exit": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "command": "python tools/gen_evidence_matrix.py --check",
+      "exit": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "command": "python tools/gen_agent_guide.py --check",
+      "exit": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "later_integrated_proofs": {
+    "c0305": "45a2074c direct six-view inspection;6.2 CI remains open",
+    "c0168": [
+      "258128e6 functional default",
+      "26c1a8a9 S6 observation",
+      "ad8cbf2e explicit negative controls;5.2 aggregate remains open"
+    ],
+    "c0246": [
+      "97091978 native-job test",
+      "f7fc669f local direct native trial;4.2/4.4 CI remain open"
+    ],
+    "windows_documentary_utf8": "04ecac47; original source723 Windows2failed/22599passed/4369skipped retained",
+    "archive_reader": "864367c3",
+    "viewer_layer_order": "0102716d;14 actual layers, configurable UI;native review3.3 remains open",
+    "later_census_documentation": "72084c2a integrated by coordinator as2fd29fe7 after this candidate base"
+  },
+  "limits": [
+    "No current whole-CI green claim",
+    "Fast18 source ad8 excludes later UI/readers; central integration check is separate",
+    "Mac locked per coordinator; no GUI action taken",
+    "No new tests/native/Royal/CI/push/archive",
+    "No release/tag/dev/main publication",
+    "Human reviews/native aggregate gates and library publication remain pending"
+  ],
+  "cleanup_review": {
+    "candidates": 4,
+    "cherry_pick_non_changelog_files_equal": 31,
+    "removed": 0,
+    "bundles_required_before_any_future_removal": true
+  },
+  "reconciliation_task": "2.21"
+}

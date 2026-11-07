@@ -15,7 +15,9 @@ Read this file before changing anything. Humans: this is also the short version 
    `make check-fast` and focused tests; do not run the full suite here (maintainer's decision,
    2026-10-14). Batch accumulated changes and publish the batch to its working branch for CI's
    parallel unit and KiCad jobs. Confirm the required jobs on the exact commit before merging
-   or closing changes that require full validation. Never report an interrupted local run as
+   or closing changes that require full validation. With layered CI, `ci-fast` is iteration feedback only;
+   require `ci-complete` (including the coverage audit) on the exact tested commit. See `docs/ci.md`.
+   Never report an interrupted local run as
    passed. Other local worktrees also use `make check-fast`. Never start several full suites
    on one machine; parallel CI jobs use separate runners.
 5. Update `CHANGELOG.md` under `## [Unreleased]` for every change.
@@ -35,6 +37,9 @@ Read this file before changing anything. Humans: this is also the short version 
 - **No runtime dependencies in the core.** `pyproject.toml` `dependencies` stays empty; third-party
   packages go to an extra and are imported lazily.
 - **Copyleft only across a process boundary.** Run GPL/AGPL tools as subprocesses; never import them.
+- **Third-party material lives only in `fenolite-library`** (github.com/lgili/fenolite-library): symbols,
+  footprints, devices, blocks and boards derived from third-party sources go there, never into this
+  repository, each item with its upstream licence, NOTICE and `PROVENANCE.json`.
 - **Never commit** anything under `private/`, KiCad official library files, or absolute user paths.
 - Every `.py` file starts with the SPDX and copyright lines.
 

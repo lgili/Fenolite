@@ -1,0 +1,381 @@
+{
+  "block": "Fenolite:rc_lowpass",
+  "circuit": {
+    "components": [
+      {
+        "id": "cmp_7ba42bc3-5d14-56f5-bf65-dbab1a6b214b",
+        "lib_footprint_ref": "Fenolite:Chip_0603",
+        "lib_symbol_ref": "Fenolite:Capacitor",
+        "pin_pad_map": [
+          [
+            "1",
+            "1"
+          ],
+          [
+            "2",
+            "2"
+          ]
+        ],
+        "pins": [
+          {
+            "id": "pin_7b474d87-ed9e-5a43-87f1-a8ab87d3a563",
+            "name": "A",
+            "number": "1"
+          },
+          {
+            "id": "pin_4497c103-27c2-58d4-b28f-4ccaa032722d",
+            "name": "B",
+            "number": "2"
+          }
+        ],
+        "properties": {
+          "Reference": "C1",
+          "Value": "100nF",
+          "fenolite.device": "Fenolite:C_0603_X7R_50V@100n",
+          "fenolite.device.sha256": "010f0a65018c7989e1e041c6937f1e36e99107ee8819cec1eeee646bcdab37ca",
+          "fenolite.path": "dut/filter_C"
+        },
+        "ref": "C1",
+        "value": "100nF",
+        "value_range": {
+          "high": {
+            "e": -8,
+            "m": 11
+          },
+          "low": {
+            "e": -8,
+            "m": 9
+          },
+          "nominal": {
+            "e": -7,
+            "m": 1
+          },
+          "unit": "farad"
+        }
+      },
+      {
+        "id": "cmp_6104712d-0a99-58ee-b224-51801209f2d1",
+        "lib_footprint_ref": "Fenolite:Header_1x3_P2.54",
+        "lib_symbol_ref": "Fenolite:Connector_3",
+        "pins": [
+          {
+            "id": "pin_0896bc0e-8dc6-5f47-85ad-0f1a6fcbd408",
+            "name": "Passive",
+            "number": "1"
+          },
+          {
+            "id": "pin_81bc8905-1251-5c29-90c3-a384127a5fc7",
+            "name": "Passive",
+            "number": "3"
+          },
+          {
+            "id": "pin_b1c4d44c-aa96-528e-90f8-57264044338f",
+            "name": "Passive",
+            "number": "2"
+          }
+        ],
+        "properties": {
+          "Reference": "J1",
+          "Value": "Connector_3",
+          "fenolite.path": "J1"
+        },
+        "ref": "J1",
+        "value": "Connector_3"
+      },
+      {
+        "id": "cmp_d7ae5c58-f173-5efb-b99e-0a8ab7f6a6e0",
+        "lib_footprint_ref": "Fenolite:Chip_0603",
+        "lib_symbol_ref": "Fenolite:Resistor",
+        "pin_pad_map": [
+          [
+            "1",
+            "1"
+          ],
+          [
+            "2",
+            "2"
+          ]
+        ],
+        "pins": [
+          {
+            "id": "pin_3ba5498b-5bc0-5d14-b972-773007a84086",
+            "name": "A",
+            "number": "1"
+          },
+          {
+            "id": "pin_21805fd5-3dc7-5e3b-a79e-6f50240de6d8",
+            "name": "B",
+            "number": "2"
+          }
+        ],
+        "properties": {
+          "Reference": "R1",
+          "Value": "1k58",
+          "fenolite.device": "Fenolite:R_0603_E96_1pct@1k58",
+          "fenolite.device.sha256": "3385cfbd44e1b8386abb30711a31b07430f72af21d567f06c36eb20a57d2754a",
+          "fenolite.path": "dut/filter_R"
+        },
+        "ref": "R1",
+        "value": "1k58",
+        "value_range": {
+          "high": {
+            "e": -1,
+            "m": 15958
+          },
+          "low": {
+            "e": -1,
+            "m": 15642
+          },
+          "nominal": {
+            "e": 1,
+            "m": 158
+          },
+          "unit": "ohm"
+        }
+      }
+    ],
+    "modules": [
+      {
+        "block": "Fenolite:rc_lowpass",
+        "block_version": "1.0.0",
+        "component_ids": [
+          "cmp_7ba42bc3-5d14-56f5-bf65-dbab1a6b214b",
+          "cmp_d7ae5c58-f173-5efb-b99e-0a8ab7f6a6e0"
+        ],
+        "id": "mod_3d99db9e-935d-58fc-b9f2-d51e263fb9f1",
+        "params": [
+          {
+            "name": "c",
+            "text": "100nF",
+            "type": "quantity"
+          },
+          {
+            "name": "c_tolerance",
+            "text": "10",
+            "type": "int"
+          },
+          {
+            "name": "corner",
+            "text": "1kHz (800Hz..1.2kHz)",
+            "type": "range"
+          },
+          {
+            "name": "series",
+            "text": "E96",
+            "type": "str"
+          },
+          {
+            "name": "voltage",
+            "text": "5V",
+            "type": "quantity"
+          }
+        ],
+        "path": "dut"
+      }
+    ],
+    "nets": [
+      {
+        "id": "net_4ff0f8a7-657b-569c-b55b-ef3a08034f99",
+        "members": [
+          {
+            "component_id": "cmp_6104712d-0a99-58ee-b224-51801209f2d1",
+            "pin": "3"
+          },
+          {
+            "component_id": "cmp_7ba42bc3-5d14-56f5-bf65-dbab1a6b214b",
+            "pin": "2"
+          }
+        ],
+        "name": "dut/GND"
+      },
+      {
+        "id": "net_96dfdd8c-685c-5b9c-9558-19ea6dcc6b76",
+        "members": [
+          {
+            "component_id": "cmp_6104712d-0a99-58ee-b224-51801209f2d1",
+            "pin": "1"
+          },
+          {
+            "component_id": "cmp_d7ae5c58-f173-5efb-b99e-0a8ab7f6a6e0",
+            "pin": "1"
+          }
+        ],
+        "name": "dut/IN"
+      },
+      {
+        "id": "net_6aa1d074-da20-5537-9ba2-1110160b03c1",
+        "members": [
+          {
+            "component_id": "cmp_6104712d-0a99-58ee-b224-51801209f2d1",
+            "pin": "2"
+          },
+          {
+            "component_id": "cmp_7ba42bc3-5d14-56f5-bf65-dbab1a6b214b",
+            "pin": "1"
+          },
+          {
+            "component_id": "cmp_d7ae5c58-f173-5efb-b99e-0a8ab7f6a6e0",
+            "pin": "2"
+          }
+        ],
+        "name": "dut/OUT"
+      }
+    ],
+    "ports": [
+      {
+        "direction": "in",
+        "id": "prt_ff45f0a3-5f2a-5aee-8678-31dc48cfd533",
+        "kind": "ground",
+        "members": {
+          "gnd": "net_4ff0f8a7-657b-569c-b55b-ef3a08034f99"
+        },
+        "name": "GND",
+        "owner": "mod_3d99db9e-935d-58fc-b9f2-d51e263fb9f1"
+      },
+      {
+        "direction": "in",
+        "id": "prt_59a5c706-e299-582c-9044-ad6573b7bcee",
+        "kind": "net",
+        "members": {
+          "net": "net_96dfdd8c-685c-5b9c-9558-19ea6dcc6b76"
+        },
+        "name": "IN",
+        "owner": "mod_3d99db9e-935d-58fc-b9f2-d51e263fb9f1"
+      },
+      {
+        "direction": "out",
+        "id": "prt_8e1e654c-fa99-51cd-a530-ef7bf1ed2ebf",
+        "kind": "net",
+        "members": {
+          "net": "net_6aa1d074-da20-5537-9ba2-1110160b03c1"
+        },
+        "name": "OUT",
+        "owner": "mod_3d99db9e-935d-58fc-b9f2-d51e263fb9f1"
+      }
+    ]
+  },
+  "rules": {
+    "contracts": {
+      "expects": [
+        {
+          "id": "dut/expect#1",
+          "instance": "dut",
+          "origin": "fenolite.blocks.rc:57",
+          "reason": "cut-off in range",
+          "test": {
+            "a": {
+              "a": {
+                "num": [
+                  1,
+                  1
+                ]
+              },
+              "b": {
+                "a": {
+                  "a": {
+                    "num": [
+                      157079632679,
+                      25000000000,
+                      314159265359,
+                      50000000000
+                    ]
+                  },
+                  "b": {
+                    "component": "cmp_d7ae5c58-f173-5efb-b99e-0a8ab7f6a6e0",
+                    "ref": "value"
+                  },
+                  "op": "mul"
+                },
+                "b": {
+                  "component": "cmp_7ba42bc3-5d14-56f5-bf65-dbab1a6b214b",
+                  "ref": "value"
+                },
+                "op": "mul"
+              },
+              "op": "div"
+            },
+            "b": {
+              "lit": {
+                "high": {
+                  "e": 2,
+                  "m": 12
+                },
+                "low": {
+                  "e": 2,
+                  "m": 8
+                },
+                "nominal": {
+                  "e": 3,
+                  "m": 1
+                },
+                "unit": "hertz"
+              }
+            },
+            "op": "within"
+          }
+        },
+        {
+          "id": "dut/expect#2",
+          "instance": "dut",
+          "origin": "fenolite.blocks.rc:58",
+          "reason": "capacitor voltage rating",
+          "test": {
+            "a": {
+              "component": "cmp_7ba42bc3-5d14-56f5-bf65-dbab1a6b214b",
+              "key": "voltage",
+              "limit": "abs_max",
+              "ref": "rating"
+            },
+            "b": {
+              "lit": {
+                "high": {
+                  "e": 0,
+                  "m": 5
+                },
+                "low": {
+                  "e": 0,
+                  "m": 5
+                },
+                "nominal": {
+                  "e": 0,
+                  "m": 5
+                },
+                "unit": "volt"
+              }
+            },
+            "op": "at_least"
+          }
+        }
+      ],
+      "rig": [
+        {
+          "kind": "supply",
+          "name": "bench",
+          "neg": "net_4ff0f8a7-657b-569c-b55b-ef3a08034f99",
+          "pos": "net_96dfdd8c-685c-5b9c-9558-19ea6dcc6b76",
+          "voltage": {
+            "high": {
+              "e": 0,
+              "m": 5
+            },
+            "low": {
+              "e": 0,
+              "m": 5
+            },
+            "nominal": {
+              "e": 0,
+              "m": 5
+            },
+            "unit": "volt"
+          }
+        }
+      ]
+    },
+    "id": "rst_79ddd1f3-309e-5f3a-b8e0-d09f3a2dcd3d"
+  },
+  "schema": "fenolite.block-golden.v0",
+  "seed": 0,
+  "timestamp": "2026-01-01T00:00:00Z",
+  "usage": "usage/rc_lowpass.py",
+  "version": "1.0.0"
+}

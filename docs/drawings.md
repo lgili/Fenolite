@@ -8,8 +8,8 @@ project and its folder never change, and the items exist only in the copy, which
 export.
 
 The drawing kinds take a KiCad board. An Altium document or project is refused with exit 2 (`FEN-2001`),
-as for every export kind: an Altium project gets its drawings from Altium, through the output job that
-`fenolite build --target altium` writes (`docs/altium.md`) or through Draftsman. `--all` does not select
+as for every export kind: see [Draftsman document](altium.md#draftsman-document) for the Altium build's
+closed native gate, candidate drawing and output-job procedure. `--all` does not select
 a drawing kind, and no `--preset` reaches one.
 
 ## Files

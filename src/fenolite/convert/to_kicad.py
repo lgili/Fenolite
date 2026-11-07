@@ -21,10 +21,13 @@ with ``allow_lossy``: the consent to a ``design`` loss is ``convert_project``'s,
 from __future__ import annotations
 
 import dataclasses
-from collections import defaultdict
+from collections import Counter, defaultdict
+from collections.abc import Mapping
+from decimal import Decimal
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING
 
+from fenolite.backends.altium.adapter.arcring import ArcPolygon
 from fenolite.backends.altium.pcbrecords import to_units
 from fenolite.backends.kicad import dru, resolver, sch, sym
 from fenolite.backends.kicad.embed import place_footprint
@@ -32,28 +35,37 @@ from fenolite.backends.kicad.mod import prepare_authored_definition, read_footpr
 from fenolite.backends.kicad.outline import edge_outline
 from fenolite.backends.kicad.triad import write_triad
 from fenolite.backends.kicad.versions import TARGET_MAJORS
+from fenolite.convert import altium_frame, strokefonts, texttails
+from fenolite.convert.arrays import ArrayItem, Copies, copies
 from fenolite.convert.direction import Direction, Options, Written
 from fenolite.convert.models import Placed, place_models
 from fenolite.convert.report import (
     DOWNGRADE_KINDS,
     DOWNGRADE_PREFIX,
+    EMBEDDED_BOARD_CUTOUT_COPIED,
     OVERLAP_NO_UNION,
     OVERLAP_NOT_ONE_RING,
     ConversionReport,
     census,
 )
 from fenolite.convert.sources import KICAD, SourceProject
-from fenolite.core.errors import Issue
+from fenolite.core.errors import FormatError, Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
 from fenolite.core.trig import FULL_TURN
 from fenolite.geometry.errors import BackendUnavailable, GeometryError
 from fenolite.geometry.rings import MERGE_TOL, CurvedRing, merge_groups, overlap_groups
 from fenolite.model import holes as model_holes
-from fenolite.model.board import FootprintAttribute, FootprintInstance, Hole, OutlineArc
+from fenolite.model.board import (
+    FootprintAttribute,
+    FootprintInstance,
+    Hole,
+    ModelRef,
+    OutlineArc,
+)
 from fenolite.model.circuit import Component
 from fenolite.model.design import Design
-from fenolite.model.library import FootprintDef, ModelPlacement
+from fenolite.model.library import PPM, FootprintDef, ModelPlacement
 
 EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-CONV-RETARGET", "H-K-PCB-WRITE"))
 """The board writer's re-target: a KiCad 9 project converted to 10 loads in 10.0.6 and gives the DRC of the
@@ -259,18 +271,35 @@ __all__ = ["DIRECTION", "DOWNGRADE_PROFILE", "EVIDENCE", "PROFILE", "WRITER_KIND
 
 
 if TYPE_CHECKING:
+    from fenolite.convert import altium_planes
     from fenolite.convert.altium_to_kicad import Ledger
+    from fenolite.convert.rulecarrier import Carried
 
 EDGE_LAYER = "Edge.Cuts"
 HOLE_KIND = "hole"
 CUTOUT_KIND = "cutout"
+EMBEDDED_BOARD_KIND = "embedded-board"
+SHARED_FOOTPRINT_KIND = "shared-footprint"
+SHARED_FOOTPRINT_REASON = "the source links several footprints to one component"
 PAD_MARGIN_KIND = "pad-margin"
 """The report kind of an imported pad whose margin is not certain (change c0223, ``convert.openings``)."""
+FOOTPRINT_GRAPHIC_KIND = "footprint-graphic"
+"""The report kind of a line, arc, circle, rectangle or region of an imported footprint (change c0409): the
+footprint's own graphics, written as its ``fp_*`` children on the layer ``map_layers`` gives them."""
+FOOTPRINT_TEXT_KIND = "footprint-text"
+"""The report kind of a text of an imported footprint that is not its designator or comment (change c0409):
+since change c0422 written as an ``fp_text user`` of its footprint on the layer ``map_layers`` gives it."""
 MODEL_KIND = "model"
 """The report kind of an embedded 3D model of an imported footprint (change c0223, ``convert.models``)."""
+BODY_KIND = "body"
+"""The report kind of a component body (change c0423, ``convert.models``): a generated or carried model."""
 PLATED_REASON = "a plated hole is written as a pad of its footprint without a net"
 """The reason a plated board hole is counted changed under ``hole`` (change c0170): KiCad holds it as the
 numbered pad of a generated footprint, which no net reaches."""
+HOLE_REASON = "a board hole is written as a board-only footprint of the Fenolite_Holes library"
+"""The reason an unplated board hole is counted changed under ``hole`` (change c0420): KiCad holds no hole
+outside a footprint (c0167), so the hole is the unnumbered pad of a generated footprint
+(``generated_holes``), a component without a reference that the generated schematic does not show."""
 MERGED_REASON = "merged"
 """The reason a group of overlapping cut-outs is counted changed under ``cutout`` (change c0170): it is
 written as one ring, the union of its members, which is the area that is milled."""
@@ -417,22 +446,103 @@ def merged_cutouts(design: Design, ledger: Ledger) -> tuple[Design, int]:
     return dataclasses.replace(design, board=board), len(groups)
 
 
+def _carried_rules(source: SourceProject, design: Design, rules_text: str | None) -> tuple[Carried, ...]:
+    """Every rule record of the source's PCB document with the rule lists of ``rules_text`` that its rules
+    gave (change c0434, ``rulecarrier``); none when the document cannot be read or holds no rule."""
+    from fenolite.backends.altium.adapter.rules import kept_fields, kept_text
+    from fenolite.backends.altium.read.pcb import read_pcbdoc
+    from fenolite.backends.kicad.lowering import written_names
+    from fenolite.convert.altium_to_kicad import board_document
+    from fenolite.convert.rulecarrier import Carried, dru_blocks, dru_shapes
+
+    path = board_document(source, source.design)
+    if path is None:
+        return ()
+    try:
+        records = read_pcbdoc(path.read_bytes(), file=path.name).rules
+    except (OSError, FormatError):
+        return ()
+    names: dict[int, list[str]] = {}
+    if design.rules is not None and source.design.rules is not None:
+        # the prepared rules keep their ids, not their provenance: the source's rules name the record
+        written = written_names(design.rules, design)
+        for rule in source.design.rules.rules:
+            locator = rule.provenance.locator if rule.provenance is not None else ""
+            head, _, index = locator.partition("#")
+            if head.endswith("/Data") and index.isdigit():
+                names.setdefault(int(index), []).extend(written.get(rule.id, ()))
+    blocks, shapes = dru_blocks(rules_text), dru_shapes(rules_text)
+    carried: list[Carried] = []
+    for index, record in enumerate(records):
+        fields = tuple(record.record.fields)
+        if "RULEKIND" not in [key for key, _value in fields]:
+            continue
+        number, pairs = kept_fields(kept_text(record.kind_number, fields))
+        held = {n: blocks[n] for n in names.get(index, ()) if n in blocks}
+        carried.append(Carried(number, pairs, held, {n: shapes[n] for n in held}))
+    return tuple(carried)
+
+
 def write_altium(source: SourceProject, options: Options) -> Written:
     """Altium to a coherent KiCad project and derived libraries (c0161). Overlapping cut-outs are merged
     (``merged_cutouts``), and each board hole is the generated footprint of ``design.hole``
     (``generated_holes``), its library written beside the board (change c0170)."""
-    from fenolite.convert.altium_to_kicad import Ledger, footprint_files, prepare, schematic_files
+    from fenolite.backends.altium.read.cfb import holds_embedded_boards
+    from fenolite.convert.altium_to_kicad import (
+        PLANE_KIND,
+        ZONE_ARC_FLAT,
+        ZONE_NO_AREA,
+        Ledger,
+        board_document,
+        distinct_designators,
+        footprint_files,
+        plane_losses,
+        prepare,
+        schematic_files,
+    )
 
     ledger = Ledger()
+    arrays: tuple[ArrayItem, ...] = ()
+    copied = Copies(source.design, ())
+    document = board_document(source, source.design)
+    if document is not None and holds_embedded_boards(data := document.read_bytes()):  # change c0374
+        copied = copies(document, data, source.design, source.root)  # changes c0386 and c0428: the copies
+        arrays = copied.items
+        source = dataclasses.replace(source, design=copied.design)
     counts = census(source.design)
+    planes = plane_losses(source, source.design, ledger)  # change c0461: no plane has copper in KiCad
+    if planes:
+        counts[PLANE_KIND] = planes
+    if arrays:
+        counts[EMBEDDED_BOARD_KIND] = len(arrays)
+    for entry in arrays:
+        (ledger.change if entry.placed else ledger.drop)(EMBEDDED_BOARD_KIND, entry.item, entry.reason)
+    for ident in copied.outlined:  # change c0428: a copy's zones take their records' outlines
+        ledger.change("zone", ident, ZONE_ARC_FLAT)
+    for ident, why in copied.dropped:  # a pour without area is left out as a change (change c0428)
+        (ledger.change if why == ZONE_NO_AREA else ledger.drop)("zone", ident, why)
+    if copied.dropped:
+        counts["zone"] = counts.get("zone", 0) + len(copied.dropped)
+    for ident in copied.cutouts:  # change c0428: a copy carries its board's cut-outs
+        ledger.change(CUTOUT_KIND, ident, EMBEDDED_BOARD_CUTOUT_COPIED)
     source_board = source.design.board
     if source_board is not None:  # change c0223: the openings and the models of the imported footprints
         counts[PAD_MARGIN_KIND] = sum(len(fp.pads) for fp in source_board.footprints)
         bodies = [body for fp in source_board.footprints for body in fp.bodies]
         counts[MODEL_KIND] = sum(1 for body in bodies if body.kind == "model")
+        # the footprints' own graphics (change c0409) and texts (change c0422) are counted and written
+        counts[FOOTPRINT_GRAPHIC_KIND] = sum(len(fp.graphics) for fp in source_board.footprints)
+        counts[FOOTPRINT_TEXT_KIND] = sum(len(fp.texts) for fp in source_board.footprints)
+        # change c0371: a component that several footprints link reads back as several components
+        linked = Counter(fp.component_id for fp in source_board.footprints)
+        shared = [fp.id for fp in source_board.footprints if linked[fp.component_id] > 1]
+        if shared:
+            counts[SHARED_FOOTPRINT_KIND] = len(shared)
+            for ident in shared:
+                ledger.change(SHARED_FOOTPRINT_KIND, ident, SHARED_FOOTPRINT_REASON)
     merged, cutouts = merged_cutouts(source.design, ledger)
-    if cutouts:
-        counts[CUTOUT_KIND] = cutouts
+    if cutouts or copied.cutouts:
+        counts[CUTOUT_KIND] = max(cutouts, len(copied.cutouts))
     board = merged.board
     holes = board.holes if board is not None else ()
     if board is not None:
@@ -440,16 +550,19 @@ def write_altium(source: SourceProject, options: Options) -> Written:
     source = dataclasses.replace(source, design=merged)
     name = options.name or source.name
     design = prepare(source, name, options.kicad_version, ledger)
+    assert design.board is not None
+    carried_storages = _carried_storages(source, design, ledger, counts)  # change c0450
     # the holes join the prepared board as placed footprints, which ``prepare`` would derive and clean
     assert design.board is not None
     design, holes, plated = generated_holes(
         dataclasses.replace(design, board=dataclasses.replace(design.board, holes=holes))
     )
-    for ident in plated:
-        ledger.change(HOLE_KIND, ident, PLATED_REASON)
+    for hole in board.holes if board is not None else ():  # change c0420: no hole changes kind unreported
+        ledger.change(HOLE_KIND, hole.id, PLATED_REASON if hole.id in plated else HOLE_REASON)
     issues: list[Issue] = []
+    placed = _placed_models(source, design, name, copied)
+    design = _with_models(design, placed.placements)  # change c0409: the board's footprints hold them too
     texts = write_triad(design, name=name, target=options.kicad_version, allow_lossy=True, issues=issues)
-    placed = _placed_models(source, design, name)
     texts.update(
         footprint_files(
             design,
@@ -467,24 +580,72 @@ def write_altium(source: SourceProject, options: Options) -> Written:
         ledger.change(MODEL_KIND, body, reason)
     for body, reason in placed.lost.items():
         ledger.drop(MODEL_KIND, body, reason)
+    for body, reason in placed.bodies_changed.items():  # change c0423: every body is a model file or a loss
+        ledger.change(BODY_KIND, body, reason)
+    for body, reason in placed.bodies_lost.items():
+        ledger.drop(BODY_KIND, body, reason)
     for key, definition in holes.items():
         texts[f"{HOLE_FOLDER}/{key}{FOOTPRINT_SUFFIX}"] = write_footprint(
             definition, target=options.kicad_version
         )
+    design = distinct_designators(design, ledger)  # change c0428: after the board is written
     schematic, notes = schematic_files(source, design, name, options.kicad_version, ledger)
     texts.update(schematic)
     issues.extend(notes)
     counts["schematic"] = 1
-    unmapped = [issue for issue in source.issues if issue.code == "altium.import.rule-unmapped"]
-    counts["rule"] = counts.get("rule", 0) + len(unmapped)
-    for index, issue in enumerate(unmapped):
-        ledger.drop("rule", f"unmapped-rule-group-{index}", f"unmapped imported rule group: {issue.message}")
+    from fenolite.convert import altium_rules  # change c0424: each rule record has its own fate
+
+    records = altium_rules.record_fates(source.design, ledger)
+    if records:
+        counts["rule"] = counts.get("rule", 0) + records
+    carried = _carried_rules(source, design, texts.get(f"{name}.kicad_dru"))
+    board_items = dict(carried_storages)
+    # change c0449, task 4.3: the stored heights of each placed model, for the way back; c0464: the layers
+    if placed.heights or placed.layers:
+        from fenolite.convert.models import HEIGHTS_PROPERTY, heights_text
+
+        board_items[HEIGHTS_PROPERTY] = heights_text(placed.heights, placed.layers).encode("utf-8")
+    if placed.ids:  # change c0449: each placed model's record ID and checksums, for the way back
+        from fenolite.convert.models import IDS_PROPERTY, ids_text
+
+        board_items[IDS_PROPERTY] = ids_text(placed.ids).encode("utf-8")
+    arcs = _carried_arcs(source, design)
+    if arcs:  # change c0463, task 1.3: the arc vertices of each chorded polygon, for the way back
+        from fenolite.convert import zonearcs
+
+        board_items[zonearcs.PROPERTY] = zonearcs.carrier_text(arcs).encode("utf-8")
+    planes = _carried_planes(source, design)
+    if (
+        planes.planes or planes.signals or planes.names
+    ):  # change c0466: each plane's net, pull-back and splits, and the
+        # inner signal layers' ids, for the way back
+        from fenolite.convert import altium_planes
+
+        board_items[altium_planes.PROPERTY] = altium_planes.carrier_text(planes).encode("utf-8")
+    fonts = strokefonts.found(source.design.board)
+    if fonts:  # change c0460, S-2253: each stroke text's font name and flags, for the way back
+        board_items[strokefonts.PROPERTY] = strokefonts.carrier_text(fonts)
+    tails = texttails.found(source.design.board)
+    if tails:  # change c0450, task 4.5: the long form of each text on Mechanical 17 to 32, for the way back
+        board_items[texttails.PROPERTY] = texttails.carrier_text(tails)
+    frame = altium_frame.found(source.design.board, design.board)
+    if frame is not None:  # change c0467: the source's origin and the edge's corner, for the way back
+        board_items[altium_frame.PROPERTY] = altium_frame.carrier_text(frame).encode("utf-8")
+    if carried:  # change c0434: every rule record travels in the board, for the way back
+        from fenolite.convert import rulecarrier
+
+        board_items[rulecarrier.PROPERTY] = rulecarrier.carrier_text(carried).encode("utf-8")
+    if board_items:  # changes c0434 and c0450: one write of every carried board property
+        from fenolite.backends.kicad.boardcarrier import with_carried
+
+        texts[f"{name}.kicad_pcb"] = with_carried(texts[f"{name}.kicad_pcb"], board_items)
     report = ConversionReport.of(
         source=counts,
         changed={
             kind: {r: tuple(ids) for r, ids in reasons.items()} for kind, reasons in ledger.changed.items()
         },
         lost={kind: {r: tuple(ids) for r, ids in reasons.items()} for kind, reasons in ledger.lost.items()},
+        kept={kind: {r: tuple(ids) for r, ids in reasons.items()} for kind, reasons in ledger.kept.items()},
     )
     files = {key: value.encode("utf-8") for key, value in texts.items()}
     files.update(model_files)
@@ -498,33 +659,145 @@ def write_altium(source: SourceProject, options: Options) -> Written:
     )
 
 
-def _placed_models(source: SourceProject, design: Design, name: str) -> Placed:
+def _carried_planes(source: SourceProject, design: Design) -> altium_planes.Carried:
+    """The internal planes of the source to carry into ``design``, the written KiCad design (change c0466,
+    ``altium_planes.found``)."""
+    from fenolite.convert import altium_planes
+    from fenolite.convert.altium_to_kicad import pcb_document
+
+    return altium_planes.found(source.design, design, pcb_document(source, source.design))
+
+
+def _carried_arcs(source: SourceProject, design: Design) -> list[tuple[str, str, ArcPolygon]]:
+    """The arc polygons of the source's board document whose zones the written board holds (change c0463,
+    task 1.3; ``altium_to_kicad.arc_zones``), each as ``(KiCad uuid, UNIQUEID, polygon)`` for
+    ``zonearcs.carrier_text``."""
+    from fenolite.backends.kicad.pcb import kicad_uuid
+    from fenolite.convert.altium_to_kicad import arc_zones
+
+    board = design.board
+    found = arc_zones(source, source.design)
+    if board is None or not found:
+        return []
+    return [(kicad_uuid(zone), *found[zone.id]) for zone in board.zones if zone.id in found]
+
+
+def _carried_storages(
+    source: SourceProject, design: Design, ledger: Ledger, counts: dict[str, int]
+) -> dict[str, bytes]:
+    """The carried storages of the source's PCB document as ``boardcarrier.with_carried`` items, by property
+    name (change c0450, ``convert.altium_storages``); each index-bound storage that holds a record, and each
+    frame-bound one that holds data (change c0459), is counted lost under ``altium-storage``. A document that
+    cannot be read carries nothing."""
+    from fenolite.backends.altium import unions
+    from fenolite.convert import altium_storages as storages
+    from fenolite.convert.altium_to_kicad import board_document
+    from fenolite.core.errors import FenoliteError
+
+    board = design.board
+    path = board_document(source, source.design)
+    if board is None or path is None:
+        return {}
+    try:
+        found = storages.found_in(path)
+    except (OSError, FenoliteError):
+        return {}
+    if not found.carried and not found.index_bound and not found.frame_bound:
+        return {}
+    # change c0464: the Board6 settings are fields of a record, not a storage, and are not counted
+    held = [name for name in found.carried if name != storages.PREFIX + storages.SETTINGS]
+    if held or found.index_bound or found.frame_bound:
+        counts[storages.KIND] = len(held) + len(found.index_bound) + len(found.frame_bound)
+    for name in found.index_bound:
+        ledger.drop(storages.KIND, name, storages.INDEX_BOUND_REASON)
+    for name in found.frame_bound:  # change c0459: a copy would lie in the source's frame
+        ledger.drop(storages.KIND, name, storages.FRAME_BOUND[name])
+    items = storages.items(found)
+    members = unions.members(source.design.board)
+    if storages.PREFIX + "UnionNames" in found.carried and members:  # change c0460: the union members
+        items[storages.PREFIX + unions.CARRIER] = unions.carried_map(members)
+    return items
+
+
+def _placed_models(source: SourceProject, design: Design, name: str, copied: Copies | None = None) -> Placed:
     """The embedded models of the source board's bodies, placed for the derived library ``name`` (change
-    c0223, ``convert.models``); none when the source has no PCB document."""
+    c0223, ``convert.models``), and a generated model per footprint for its other bodies (change c0423);
+    none when the source has no board. The bodies of an array's copies take the models of their referenced
+    document, in the frame of the footprint they were copied from (change c0428)."""
     from fenolite.backends.altium.backend import AltiumBackend
     from fenolite.convert.altium_to_kicad import board_document
 
     board, prepared = source.design.board, design.board
-    document = board_document(source, source.design)
-    if board is None or prepared is None or document is None:
+    if board is None or prepared is None:
         return Placed()
+    document = board_document(source, source.design)
+    backend = AltiumBackend()
     names = {fp.id: fp.lib_ref.rsplit(":", 1)[-1] for fp in prepared.footprints}
     return place_models(
         board.footprints,
-        AltiumBackend().body_models(document),
+        backend.body_models(document) if document is not None else (),
         name,
         lambda fp: names.get(fp.id, fp.lib_ref.rsplit(":", 1)[-1]),
+        backend.body_forms(document) if document is not None else (),
+        {
+            file: (backend.body_models(path), backend.body_forms(path))
+            for file, path in (copied or Copies(source.design, ())).documents.items()
+            if document is None or path.name != document.name
+        },
+        copied.frames if copied is not None else None,
     )
 
 
+def _scale_text(ppm: int) -> str:
+    """A scale in ppm as the decimal a ``ModelRef`` holds: 1 000 000 → ``"1"``, 1 250 000 → ``"1.25"``."""
+    return format((Decimal(ppm) / PPM).normalize(), "f")
+
+
+def _with_models(design: Design, placements: Mapping[str, tuple[ModelPlacement, ...]]) -> Design:
+    """``design`` whose board footprints hold the models ``placements`` gives them (change c0409, B9): the
+    board writes them as its footprints' ``model`` children, so an import, which derives its library from the
+    board, keeps them as the derived library does."""
+    board = design.board
+    if board is None or not placements:
+        return design
+    footprints = tuple(
+        dataclasses.replace(
+            fp,
+            models=tuple(
+                ModelRef(
+                    placement.path,
+                    placement.offset,
+                    placement.rotation,
+                    (
+                        _scale_text(placement.scale[0]),
+                        _scale_text(placement.scale[1]),
+                        _scale_text(placement.scale[2]),
+                    ),
+                )
+                for placement in placements[fp.id]
+            ),
+        )
+        if placements.get(fp.id)
+        else fp
+        for fp in board.footprints
+    )
+    return dataclasses.replace(design, board=dataclasses.replace(board, footprints=footprints))
+
+
 def placed_in(text: str, key: str) -> list[ModelPlacement]:
-    """The ``model`` paths of a written library footprint ``key`` (``.kicad_mod``), as placements."""
-    if not key.endswith(".kicad_mod"):
+    """The ``model`` paths of a written library footprint ``key`` (``.kicad_mod``) or of the footprints of a
+    written board (``.kicad_pcb``, change c0423), as placements."""
+    if not key.endswith((".kicad_mod", ".kicad_pcb")):
         return []
     from fenolite.backends.kicad.sexpr import parse
 
+    root = parse(text)
+    holders = root.nodes("footprint") if key.endswith(".kicad_pcb") else [root]
     return [
-        ModelPlacement(path=child.atoms()[0].value) for child in parse(text).nodes("model") if child.atoms()
+        ModelPlacement(path=child.atoms()[0].value)
+        for holder in holders
+        for child in holder.nodes("model")
+        if child.atoms()
     ]
 
 

@@ -1,0 +1,85 @@
+{
+  "accepted": [],
+  "all_levels": {
+    "1": "equal",
+    "2": "equal",
+    "3": "equal",
+    "4": "equal",
+    "5": "equal",
+    "6": "equal",
+    "7": "equal",
+    "8": "equal",
+    "S": "equal"
+  },
+  "confirmation_sha256": "7d9bbd7d9930379ad37bf9ae4d9393853a1f9bcf4677bc4092ed5b07a55688fd",
+  "core_commit": "40d27f47dcd0094f99e5378387b28ba09f97d04a",
+  "differences": [],
+  "full_native_context_summary": {
+    "a_read_files": {
+      "video.kicad_pcb": "f620675158ddd5c61e5ce9e15f4c92b230ae1df1cbcec6c502b8ce266e4007ea",
+      "video.kicad_pro": "329241ed4d9d176ef51adcec457a7c072e4bbc1b6500738622ebeaeba74d6c7f"
+    },
+    "b_read_files": {
+      "video.kicad_pcb": "2fd43211dbdc0dcbc8603cca91cceac275f75a9245119d508659ed694b3fcba2",
+      "video.kicad_pro": "4e4e3488072cd7fa430f895e4fd2d86c31055a9452cfca339442815dacb46d42"
+    },
+    "generated_major": 10,
+    "judged_count": 21,
+    "judged_keys": [
+      "min_clearance",
+      "min_copper_edge_clearance",
+      "min_through_hole_diameter",
+      "min_track_width",
+      "min_via_diameter",
+      "netclass.Default.clearance",
+      "netclass.Default.track_width",
+      "netclass.Default.via_diameter",
+      "netclass.Default.via_drill",
+      "netclass.Default.diff_pair_width",
+      "netclass.Default.diff_pair_gap",
+      "netclass.Default.diff_pair_via_gap",
+      "netclass.Default.numbered-pad-partition-membership",
+      "netclass.pwr.clearance",
+      "netclass.pwr.track_width",
+      "netclass.pwr.via_diameter",
+      "netclass.pwr.via_drill",
+      "netclass.pwr.diff_pair_width",
+      "netclass.pwr.diff_pair_gap",
+      "netclass.pwr.diff_pair_via_gap",
+      "netclass.pwr.numbered-pad-partition-membership"
+    ],
+    "scope": "five-supported-floors-and-represented-netclass-fields-and-verified-membership",
+    "source_major": 10,
+    "unjudged": "custom DRU rules and unrelated native properties",
+    "unjudged_absent_fields": []
+  },
+  "generated_record_sha256": "93c050cee3790c1446cc52f253e7602d2a572f01779d22a9f5b4bd25069e7e72",
+  "import_target": 10,
+  "proof_sha256": "88defae8dc03c0165bc120cc5ff647cb44ba982a2e66940e2f7de45bf75a2af8",
+  "public_pin_or_ci_claimed": false,
+  "source_default_singletons_in_strict_compared_membership": [
+    [
+      "BUS1-A1"
+    ],
+    [
+      "BUS1-A7"
+    ],
+    [
+      "BUS1-A19"
+    ],
+    [
+      "BUS1-A60"
+    ],
+    [
+      "BUS1-B7"
+    ],
+    [
+      "BUS1-B8"
+    ],
+    [
+      "BUS1-B60"
+    ]
+  ],
+  "strict_comparator_unchanged": true,
+  "verify_target": 10
+}

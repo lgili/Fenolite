@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[2]
 GUIDE_PATH = "src/fenolite/agent/skill/SKILL.md"
 SKILL = ROOT / GUIDE_PATH
 README = ROOT / "README.md"
-RELEASE = "0.6"
+RELEASE = "0.7"
 """The version the README describes: the newest release record under ``docs/release/``."""
 BLOCK = re.compile(r"^```fenolite-loop\n(.*?)^```$", re.MULTILINE | re.DOTALL)
 PROJECT = "blink"
@@ -289,14 +289,14 @@ def test_readme_describes_the_release() -> None:
 @pytest.mark.parametrize(
     ("old", "new", "named"),
     [
-        ("**Status: version 0.6.**", "**Status: pre-alpha.**", "pre-alpha"),
-        ("**Status: version 0.6.**", "**Status: version 0.5.**", "version 0.6"),
+        ("**Status: version 0.7.**", "**Status: pre-alpha.**", "pre-alpha"),
+        ("**Status: version 0.7.**", "**Status: version 0.6.**", "version 0.7"),
         ("experimental", "new", "what is experimental"),
         ("pip install fenolite\n", "uv sync\n", "pip install fenolite"),
         (
-            "https://github.com/lgili/Fenolite/blob/main/docs/release/v0.6.md",
+            "https://github.com/lgili/Fenolite/blob/main/docs/release/v0.7.md",
             "the-release-notes",
-            "docs/release/v0.6.md",
+            "docs/release/v0.7.md",
         ),
         ("It installs no other package.", "It is byte-identical to KiCad's own files.", "byte identity"),
     ],

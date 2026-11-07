@@ -50,7 +50,7 @@ def test_a_simulated_run_of_the_pour_steps_passes(kit: Path) -> None:
     verdict = _verdict(kit)
     assert verdict.synthetic
     group = [step for step in verdict.steps if step.id.startswith("K6.") and step.id != "K6.1"]
-    assert [step.id for step in group] == [f"K6.{n}" for n in range(2, 12)]
+    assert [step.id for step in group] == [f"K6.{n}" for n in range(2, 13)]
     assert all(step.outcome == "pass" for step in group), [(s.id, s.reasons) for s in group if s.reasons]
     rows = _rows(verdict)
     assert all(rows[ident] == "pass" for ident in POUR_ROWS), {i: rows[i] for i in POUR_ROWS}

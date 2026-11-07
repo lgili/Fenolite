@@ -76,16 +76,25 @@ The module `fenolite.lens.preserve` SHALL hold the layout preservation of `build
 - **THEN** `R1` is matched with key `uuid` to the original node, and the copy is the only orphan
 
 ### Requirement: Placement precedence
-`lens.preserve.effective_placements(placements, match, *, design, board, source={})` SHALL decide each part's placement with the fixed precedence: a locked `place()`, then the existing board, then the part's entry in the placements file (`source`, "Placements file"), then `place()`, then the build's staging (later, c0022's placer). `prepare` SHALL call it, and `cmd_build` SHALL pass the result to `build_design` as its `placements`.
+`lens.preserve.effective_placements(placements, match, *, design, board, source={}, base=None, takes=(), resolver=None)` SHALL decide each part's placement by the fixed precedence written in `docs/lens.md`, "Placement precedence": (1) a locked `place()`, absolute or relative, composed with its block poses; (2) the existing board, merged per property with the part's *request* by the three-way rule of `edit-merge` ("Three-way property merge") against the base record `base` of the output folder, and without a base for the part winning as before; (3) the part's `source` entry (the edits file, or a legacy placements file); (4) an unlocked `place()`, absolute or relative, composed with its block poses; (5) the strategy of the innermost enclosing frame that has one, a layout strategy or a block layout reuse (`placement-in-code`, `layout-reuse`); (6) the build's staging. Levels 3 to 5 are the part's request, the *code* side of the merge. `prepare` SHALL call it, and `cmd_build` SHALL pass the result to `build_design` as its `placements`.
 - `placements` MUST be `dsl.placements(design)` (c0011): component path → an object with `at`, `rotation`, `side` and `locked`. "Locked" means `place(…, locked=True)` in the script.
-- `source` MUST map component paths to `SourcePlacement` entries. An entry that wins MUST be given as a `KeptPlacement` with the entry's position, rotation, side and lock, so the build writes the entry's lock; that lock gives the entry no precedence.
-- For a matched part: a locked `place()` MUST win. Otherwise, when its footprint is off the board, the part's `source` entry MUST win, then its `place()`, and without either the part MUST be left unplaced, so the build stages it again (`layout.unplaced`). Otherwise the footprint's own position, rotation, side and lock MUST be used, as a `KeptPlacement`.
+- `source` MUST map component paths to `SourcePlacement` entries: the position keys of the edits file (`edit-merge`, "Edits file schema"), or the entries of a legacy placements file ("Placements file"). An entry that wins MUST be given as a `KeptPlacement` with the entry's position, rotation, side and lock, so the build writes the entry's lock; that lock gives the entry no precedence.
+- `base` MUST be the `BaseRecord` read from the output folder (`edit-merge`, "Base record file"), or `None`. `takes` MUST be the parsed `--take` resolutions (`edit-merge`, "Take option of build").
+- **Two properties.** The placement is merged as two properties: `position` (x and y) and `rotation` (rotation and side together, because a side change mirrors the footprint and its rotation then reads differently). The footprint's lock in KiCad is no merged property: a kept placement keeps the board's lock.
+- For a matched part: a locked `place()` MUST win. Otherwise, when its footprint is off the board, the part's request MUST win, and without one the part MUST be left unplaced, so the build stages it again (`layout.unplaced`). Otherwise, when `base` holds the part, each property MUST take the result of the three-way rule, where *code* is the request (none when the part has none), *CAD* is the footprint's value and *base* is the part's base entry; a request that was removed from the script (code none, base set) MUST keep the board's value, so removing a request never moves a part. Otherwise (no base for the part) the footprint's own position, rotation, side and lock MUST be used, as a `KeptPlacement`, and `edit.base-missing` (info) MUST be given once per build naming the count of such parts.
+- **A footprint locked in KiCad** whose property the code changed while the board kept its base value MUST NOT be moved silently: the property is a conflict with the reason `cad-locked` (`edit-merge`, "Conflict record").
+- A property that the code changed over an unchanged board value MUST take the code's value, re-placing the footprint ("Kept and re-placed footprints"), and MUST give `edit.code-wins` (info) naming the part, the property and both values.
 - A footprint is off the board when its position lies outside the closed box `outline.outline_box(design)` (`kicad-file-backend`, "Board outline as rings"), which holds the arcs of the outline as well as its points, and only when the board's edge content is absent or is exactly that outline ("Board content outside the design is kept"). Otherwise no footprint counts as off the board.
 - For an unmatched part: a locked `place()`, then its `source` entry, then its `place()`; otherwise it is left unplaced and staged by the build.
-- Without an existing board, `prepare` MUST return what `effective_placements` gives with an empty match and `board=None`, which is `placements` unchanged when `source` is empty, and no match. With `board=None` no footprint is off the board, and a design without an outline has none either.
-- An unlocked `place()` whose position, rotation or side differs from a kept board placement MUST give `layout.place-overridden` (info), naming the part and both placements, with the hint "lock the placement in the script, move the footprint in KiCad, or re-run with --discard-layout". When it differs from a `source` entry that wins, the same code MUST be given with the hint "lock the placement in the script, or edit placements.toml".
+- Without an existing board, `prepare` MUST return what `effective_placements` gives with an empty match and `board=None`, which is `placements` unchanged when `source` is empty, and no match. With `board=None` no footprint is off the board, a design without an outline has none either, and `base` is not read.
+- An unlocked `place()` whose position, rotation or side differs from a kept board placement MUST give `layout.place-overridden` (info), naming the part and both placements, with the hint "lock the placement in the script, move the footprint in KiCad, or re-run with --discard-layout". When it differs from a `source` entry that wins, the same code MUST be given with the hint "lock the placement in the script, or edit edits.toml".
 - A `source` entry of a part that keeps a board placement different from the entry MUST give `layout.source-stale` (info) naming the part and both placements, with the hint "run fenolite sync --to-source". An entry that names no part of the design MUST give `layout.source-unknown` (warning).
 - A locked `place()` that differs from the board's position, rotation, side or lock MUST give `layout.place-forced` (warning), because the footprint is then re-placed from its definition ("Kept and re-placed footprints").
+- Relative requests (`dsl.relative_requests(design)`), block poses and strategies MUST be resolved by `resolver`, which `cmd_build` injects from `placement.relative` and `placement.strategies` (`lens` imports neither), in the order of `placement-in-code`, "Resolution order". `resolver(fixed)` gives the code placement of every part it places, composed with its block poses, given the placements `fixed` that the board or the `source` decided; `lens.preserve.resolving` calls it with no fixed placement, decides, and calls it again with the decided placements that differ from their code placement until those stop changing, so a relative request follows the merged position of its reference. Without `resolver`, `placements` is the code side unchanged.
+- A relative request decides at the level of its lock (1 or 4); a part with an unlocked request MUST NOT be placed by a strategy. A part kept from the board keeps its slot in its frame's strategy. A part that no level 1 to 5 places is left unplaced and staged; a part of a strategy group staged as one box is staged at its strategy position (`placement-in-code`, "Strategy groups without a pose").
+- A part kept from the board MUST be moved rigidly with its block when the block's resolved pose differs from the pose of the last build (`placement-in-code`, "Rigid block moves"); the base entries of the block's parts move with it, so the rigid move is no change of either side.
+- A relative request that `layout.place-overridden` names MUST be given with its request text (`right_of=U1 gap=1mm`).
+- A conflict that no `--take` resolves MUST give `sync.conflict` (error), so the build plans no write; the footprint's placement in the returned mapping is then the board's.
 
 #### Scenario: The board wins over place()
 - **GIVEN** a confirmed target-10 blink build in `B` whose board was edited by `edit_blink`
@@ -113,7 +122,7 @@ The module `fenolite.lens.preserve` SHALL hold the layout preservation of `build
 - **THEN** `R1` takes the entry's placement as a `KeptPlacement`, and the issues hold one `layout.place-overridden` with the hint that names `placements.toml`
 
 #### Scenario: The board wins over a stale file
-- **GIVEN** the board edited by `edit_blink` and a `source` entry for `D1` at its `place()` position
+- **GIVEN** the board edited by `edit_blink`, a `source` entry for `D1` at its `place()` position and `base=None`
 - **WHEN** `effective_placements` runs
 - **THEN** `D1` keeps its board placement, and the issues hold one `layout.source-stale` naming `D1`
 
@@ -126,6 +135,51 @@ The module `fenolite.lens.preserve` SHALL hold the layout preservation of `build
 - **GIVEN** a confirmed build of a blink variant with `board(outline=shape.circle(mm(20), mm(20), mm(40)))` whose `R1` is placed at (20 mm, 5 mm), then rebuilt with `R1`'s `place()` removed
 - **WHEN** the build runs again with `--confirm`
 - **THEN** `R1` keeps its board position, which lies inside `outline_box` though outside the box of the outline's two vertices, and `issues` holds no `layout.unplaced`
+
+#### Scenario: A changed place() moves an unedited part
+- **GIVEN** a confirmed target-10 blink build in `B`, with its base record, after which `design.py` moves `R1`'s unlocked `place()` 3 mm to the right
+- **WHEN** the build runs again with `--confirm --json`
+- **THEN** `R1` is 3 mm right of its former position, `issues` hold one `edit.code-wins` naming `R1` and `position` and no `layout.place-overridden`, and the tracks of other parts keep their uuids
+
+#### Scenario: A hand move and a script move conflict
+- **GIVEN** the same build whose board gets `R1` moved 2 mm down by token edit, after which `design.py` moves `R1`'s `place()` 3 mm to the right
+- **WHEN** the build runs again with `--confirm --json`
+- **THEN** the exit code is 5, `issues` hold one `sync.conflict` naming `R1#position` with its base, code and CAD positions, and no file changes
+
+#### Scenario: A rotation in the script merges with a hand move
+- **GIVEN** the same build whose board gets `R1` moved 2 mm down by token edit, after which `design.py` gives `R1`'s `place()` the rotation 90
+- **WHEN** the build runs again with `--confirm`
+- **THEN** `R1` is at its board position with the rotation 90, and `issues` hold no `sync.conflict`
+
+#### Scenario: A footprint locked in KiCad is not moved silently
+- **GIVEN** the same build whose board gets `(locked yes)` on `R1` by token edit, after which `design.py` moves `R1`'s `place()` 3 mm to the right
+- **WHEN** the build runs again with `--dry-run --json`
+- **THEN** the exit code is 5 and `issues` hold one `sync.conflict` naming `R1#position` with the reason `cad-locked`
+
+#### Scenario: A board without a base record
+- **GIVEN** a confirmed target-10 blink build in `B` whose base record was deleted, as on a board built before this change, edited by `edit_blink`
+- **WHEN** the build runs again with `--confirm --json`
+- **THEN** `D1` keeps its board placement as before, `issues` hold one `edit.base-missing`, and the written folder holds a base record, so the next build merges three ways
+
+#### Scenario: A relative request on a fresh build
+- **GIVEN** no existing board, `u1.place(mm(14), mm(15))` and `c5.place(right_of=u1, gap=mm(1))` with an injected resolver
+- **WHEN** `effective_placements` runs
+- **THEN** `C5` is placed with its courtyard box 1 mm right of `U1`'s, and no issue is given
+
+#### Scenario: The board wins over a relative request
+- **GIVEN** a confirmed build of that design whose `C5` was moved in KiCad
+- **WHEN** the build runs again with `--confirm`
+- **THEN** `C5` keeps its board placement, and `issues` hold one `layout.place-overridden` naming `C5` and the request `right_of=U1 gap=1mm`
+
+#### Scenario: A follower follows its moved reference
+- **GIVEN** a confirmed build of that design whose `U1` was moved 4 mm down in KiCad and whose `C5` was not
+- **WHEN** the build runs again with `--confirm`
+- **THEN** `U1` keeps its board placement and `C5` is 4 mm lower, still 1 mm right of `U1`
+
+#### Scenario: A request wins over the strategy
+- **GIVEN** a block with `b.layout(row())`, an unplaced part `R1` and a part `C1` with `c1.place(below=r1)`, and no existing board
+- **WHEN** `effective_placements` runs
+- **THEN** `R1` is placed by the row, `C1` below `R1` by its request, and the row holds only `R1`
 
 ### Requirement: Kept and re-placed footprints
 `lens.preserve.merge_layout(built, board, match, *, net_aliases={}, identities={}) -> Merged` SHALL keep the existing board's own footprint node for every matched part that stays where the board has it, and SHALL use the built copy otherwise. `identities` maps the component path of an alias match to its identity map, which `build_design` computes from the part's definition (`embed.uuid_locators`); an alias match without one MUST be re-placed.
@@ -348,30 +402,30 @@ A rebuild SHALL keep the fills of a kept zone only when `zone_digest` of that zo
 - **THEN** `.fenolite/` holds the same seven files with the same bytes as before
 
 ### Requirement: Layout issue codes
-`lens.preserve` SHALL report its findings only with the codes of the closed table `PRESERVE_ISSUE_CODES`, which `lens.build.BUILD_ISSUE_CODES` includes; every `kicad.*` code, of the readers, the writers and the backend merges that later requirements call from `merge_layout`, the `rules.*` codes and the `model.*` codes MUST pass through unchanged.
+`lens.preserve` SHALL report its findings only with the codes of the closed table `PRESERVE_ISSUE_CODES`, which `lens.build.BUILD_ISSUE_CODES` includes; every `kicad.*` code, of the readers, the writers and the backend merges that later requirements call from `merge_layout`, the `rules.*` codes, the `model.*` codes and the codes of `lens.edits.EDIT_ISSUE_CODES` (`edit-merge`, "Edit merge error and warning codes", "Edit merge info codes"), which `BUILD_ISSUE_CODES` also includes, MUST pass through unchanged.
 
 | code | severity | when |
 |---|---|---|
 | `layout.copper-mismatch` | error | the board's copper layers differ from `board(copper=…)` |
-| `layout.source-invalid` | error | a table or key of `placements.toml` is invalid |
+| `layout.source-invalid` | error | a table or key of `edits.toml` or of a legacy `placements.toml` is invalid |
 | `layout.orphan` | warning | a footprint with `fenolite.path` matched no part and is removed |
 | `layout.alias-unused` | warning | a part alias, given or expanded from a module alias, matched nothing, or its part matched by uuid or path |
 | `layout.net-alias-unused` | warning | a `moved_net(old, new)` alias names no net of the board |
-| `layout.source-unknown` | warning | a table of `placements.toml` names no part of the design |
+| `layout.source-unknown` | warning | a table of `edits.toml` or of a legacy `placements.toml` names no part of the design |
 | `layout.place-forced` | warning | a locked `place()` re-placed a footprint whose board placement differed |
 | `layout.footprint-replaced` | warning | the part's footprint lib id changed; the footprint is re-placed |
 | `layout.net-removed` | warning | items on a net the design no longer has were dropped |
 | `layout.outline-kept` | warning | the board's edge content differs from the design's outline and is kept |
 | `zone.fill-stale` | warning | a zone's fills were dropped because a digest changed |
-| `layout.place-overridden` | info | an unlocked `place()` differs from the kept board placement or from the `placements.toml` entry that wins |
+| `layout.place-overridden` | info | an unlocked `place()` differs from the kept board placement or from the `edits.toml` or `placements.toml` entry that wins |
 | `layout.alias-used` | info | a part was matched through an alias and kept or re-placed under its new path |
 | `layout.net-alias-used` | info | items of a board net were kept under the net's new name |
-| `layout.source-stale` | info | a `placements.toml` entry differs from the kept board placement |
+| `layout.source-stale` | info | an `edits.toml` or `placements.toml` entry differs from the kept board placement |
 | `layout.board-only` | info | a footprint without `fenolite.path` matched no part and is kept |
 
 #### Scenario: Closed set enforced
 - **WHEN** `uv run pytest tests/unit/lens/test_preserve_issues.py -k closed_set` collects every issue code produced by the preservation tests
-- **THEN** each code other than `kicad.*`, `rules.*`, `model.*` and the codes of c0011's table is a key of `PRESERVE_ISSUE_CODES` with the severity of this table, and every key is produced by at least one test
+- **THEN** each code other than `kicad.*`, `rules.*`, `model.*`, the codes of `EDIT_ISSUE_CODES` and the codes of c0011's table is a key of `PRESERVE_ISSUE_CODES` with the severity of this table, and every key is produced by at least one test
 
 #### Scenario: Warnings do not fail
 - **GIVEN** the edited blink with `R1` removed from `design.py`
@@ -661,30 +715,34 @@ The preservation rules and the facts they rely on SHALL be documented in Fenolit
 - **THEN** the result has no `R1` entry, and the issues hold one `sync.symbol-off-grid` naming `R1`
 
 ### Requirement: Sync of the source tree
-`fenolite.lens.sync.plan_sync(design, existing, *, name, aliases, origin, placements_text, symbol_placements_text, sheets) -> SyncPlan` SHALL compute what `fenolite sync --to-source` writes and reports, without reading or writing a file, with `SyncPlan(files, result, issues)`.
+`fenolite.lens.sync.plan_sync(design, existing, *, name, aliases, origin, edits_text, placements_text=None, symbol_placements_text, sheets, base=None) -> SyncPlan` SHALL compute what `fenolite sync --to-source` writes and reports, without reading or writing a file, with `SyncPlan(files, result, issues)`.
 - `existing` MUST be the `ExistingProject` of the output folder; its board text MUST be present, and the board MUST be read, refused and matched as "Existing project files" and "Footprint matching" do, with `aliases.parts`. `aliases` holds the script's aliases, with the names of `moved_net()` in `nets`; `plan_sync` MUST resolve them against the board with `resolve_aliases`.
-- `files` MUST map `placements.toml` to `write_placements(extract_placements(…).placements, origin=origin)` when that text differs from `placements_text` (`None` when the file does not exist). When `sheets` is given, it MUST map `schematic-placements.toml` to the printed symbol placements when that text differs from `symbol_placements_text`.
-- `result` MUST hold `board` (the file name), `placements` (the number of entries), `unplaced`, `orphans` and `board_only` (references), `symbols` (the number of symbol entries, or `null` without `sheets`) and `files` (the names in `files`).
-- The issues MUST use only the codes of the closed table `SYNC_ISSUE_CODES`, besides those of the board read and of "Symbol placement extraction":
+- `base` MUST be the base record of the output folder, or `None` (`edit-merge`, "Base record file"). With `sheets`, the schematic is a second CAD side for the properties it holds (`edit-merge`, "CAD sides of a property").
+- `files` MUST map `edits.toml` to `lens.edits.write_edits(…)` of the edits that `lens.edits.capture_edits` gives (`edit-merge`, "Capture of CAD edits") when that text differs from `edits_text` (`None` when the file does not exist). When `edits_text` is `None` and `placements_text` is a legacy placements file, each of its entries whose part the board does not place MUST be carried into the capture as a position edit with the part's current request as its `over`, and `sync.placements-migrated` (info) MUST name `placements.toml` with the hint "delete placements.toml after reviewing edits.toml". `placements.toml` MUST NOT be written. When `sheets` is given, `files` MUST map `schematic-placements.toml` to the printed symbol placements when that text differs from `symbol_placements_text`.
+- `result` MUST hold `board` (the file name), `placements` (the number of parts whose position or rotation `edits.toml` holds), `edits` (a sorted list of `"<component path>#<property>"` captured), `pending` (the same form, for code changes that the next build writes over an unchanged CAD value), `conflicts` (the conflict records of `edit-merge`, "Conflict record"), `unplaced`, `orphans` and `board_only` (references), `symbols` (the number of symbol entries, or `null` without `sheets`) and `files` (the names in `files`).
+- A conflict MUST give `sync.conflict` (error); then `files` MUST be empty, because a conflict is resolved by a build first (`edit-merge`, "Take option of build").
+- The issues MUST use only the codes of the closed table `SYNC_ISSUE_CODES`, besides those of the board read, of `lens.edits.EDIT_ISSUE_CODES` and of "Symbol placement extraction":
 
 | code | severity | when |
 |---|---|---|
 | `sync.would-change` | error | with `--check`, a file would change |
+| `sync.conflict` | error | the code and a CAD side both changed a property since the base, to different values, or a recorded edit is stale (`edit-merge`, "Conflict record") |
 | `sync.orphan` | warning | a footprint with `fenolite.path` matches no part; the next build removes it |
 | `sync.net-dropped` | warning | the board holds copper on a net that no design net or alias covers; the next build drops it |
-| `sync.value-differs` | warning | the board's value, library footprint or user property of a matched part differs from the script's; the next build writes the script's |
+| `sync.value-differs` | warning | without a base for the part, the board's value, library footprint or user property of a matched part differs from the script's; the next build writes the script's |
 | `sync.symbol-off-grid` | warning | a symbol's position or frame cannot be written to `schematic-placements.toml` |
+| `sync.placements-migrated` | info | the entries of a legacy `placements.toml` were carried into `edits.toml` |
 
 - `sync.would-change` MUST be added by the command, not by `plan_sync`, and MUST name the file and its first table whose text differs.
 - `lens.sync.EVIDENCE` MUST equal `lens.preserve.EVIDENCE`.
 
 #### Scenario: Edited board synced
-- **GIVEN** a confirmed target-10 blink build in `B` edited by `edit_blink`, and no `placements.toml`
-- **WHEN** `plan_sync` runs with `placements_text=None`
-- **THEN** `files` holds `placements.toml` with tables for `D1`, `R1` and `U1`, `D1` at `x` 4 mm more than its `place()` value, and no issue is given
+- **GIVEN** a confirmed target-10 blink build in `B` edited by `edit_blink`, with its base record, and no `edits.toml`
+- **WHEN** `plan_sync` runs with `edits_text=None`
+- **THEN** `files` holds `edits.toml` with one table, for `D1`, whose `x` is 4 mm more than its `place()` value and whose `over` table holds the `place()` position, `result.edits` is `["D1#position"]`, and no issue is given
 
 #### Scenario: Nothing to write
-- **GIVEN** the same build and the text that the first run printed as `placements_text`
+- **GIVEN** the same build and the text that the first run printed as `edits_text`
 - **WHEN** `plan_sync` runs again
 - **THEN** `files` is empty
 
@@ -695,8 +753,23 @@ The preservation rules and the facts they rely on SHALL be documented in Fenolit
 
 #### Scenario: Value edited in KiCad
 - **GIVEN** the same build whose board gets `R1`'s value `4k7` by token edit, while `design.py` keeps `330`
+- **WHEN** `plan_sync` runs with the base record
+- **THEN** `edits.toml` holds `value = "4k7"` in the table of `R1` and `value = "330"` in its `over` table, `result.edits` lists `R1#value`, and no `sync.value-differs` is given
+
+#### Scenario: Value edited in KiCad without a base
+- **GIVEN** the same edited board and `base=None`
 - **WHEN** `plan_sync` runs
-- **THEN** the issues hold one `sync.value-differs` naming `R1`, `value`, `4k7` and `330`
+- **THEN** the issues hold one `sync.value-differs` naming `R1`, `value`, `4k7` and `330`, whose hint names `fenolite build --take cad:R1#value`, and `edits.toml` holds no `value` key
+
+#### Scenario: Conflict blocks the sync
+- **GIVEN** the same build whose board gets `R1`'s value `4k7` by token edit, after which `design.py` sets `470`
+- **WHEN** `plan_sync` runs with the base record
+- **THEN** the issues hold one `sync.conflict` naming `R1#value` with base `330`, code `470` and CAD `4k7`, and `files` is empty
+
+#### Scenario: Legacy placements migrated
+- **GIVEN** the edited build, no `edits.toml`, and the `placements.toml` that `fenolite sync --to-source` wrote before this change
+- **WHEN** `plan_sync` runs with that text as `placements_text`
+- **THEN** `files` holds `edits.toml` and not `placements.toml`, and the issues hold one `sync.placements-migrated`
 
 #### Scenario: Closed set
 - **WHEN** `uv run pytest tests/unit/lens/test_sync.py -k closed_set` collects the codes produced by its tests
@@ -1021,3 +1094,110 @@ A rebuild SHALL give a kept footprint the `Reference` or `Value` field that its 
 #### Scenario: A second rebuild changes nothing
 - **WHEN** the repaired project is built once more with `--dry-run`
 - **THEN** the plan holds no file with changed bytes
+
+### Requirement: Changed references keep the layout
+A rebuild whose only change to a part is its reference designator, assigned or renumbered through the design lock, SHALL keep that part's footprint with its position, rotation, side and copper, because footprints are matched by uuid and by the `fenolite.path` property and never by reference ("Footprint matching"). The written footprint MUST carry the new reference.
+
+#### Scenario: Lock edit renumbers without moving
+- **GIVEN** a confirmed target-10 build of `examples/lock/design.py` whose board was edited to move `buck/U` 3 mm to the right, and a lock then edited by hand from `"buck/U" = "U1"` to `"buck/U" = "U9"`
+- **WHEN** the build runs again with `--confirm --json`
+- **THEN** `result.preserved.kept` lists `buck/U`, its footprint keeps the moved position and carries the reference `U9`, and `issues` holds no `layout.unplaced` for it
+
+### Requirement: Adopted boards
+`fenolite import --adopt` SHALL also write `adopted/<name>.kicad_pcb` and its project file: the source board rewritten by token edits only, where each footprint takes the uuid `footprint_uuid(path)`, a `fenolite.path` property and the pad uuids a build derives, and each keyed item (track, arc, via, zone, rule area, drawing) takes the uuid its key derives. "Footprint matching" applies unchanged.
+
+#### Scenario: Build over an adopted board changes nothing
+- **GIVEN** a confirmed `--adopt` import of the authored two-sheet project into `out`
+- **WHEN** `fenolite build out/design.py --out out/adopted --confirm` runs, and then again
+- **THEN** every component is matched with key `uuid`, `orphans` and `board_only` are empty, no `kicad.copper.regenerated` or `kicad.copper.stale` is reported, and the second build writes the same bytes as the first
+
+#### Scenario: Only identities change
+- **GIVEN** the same adopted board and the source board, both read with `read_board`
+- **WHEN** they are compared with `equivalent` at levels 1 to 5
+- **THEN** no difference is reported, and the two texts differ only in `uuid` atoms and the added `fenolite.path` properties
+
+#### Scenario: KiCad loads the adopted board
+- **GIVEN** `kicad-cli` 9.0.9 or 10.0.6 and the adopted board of the authored project
+- **WHEN** `pcb drc --format json` runs on it and on the source
+- **THEN** both reports parse and hold the same violations and unconnected items
+
+### Requirement: Drawn schematic in the source tree
+For a design that loads a drawn schematic, `fenolite sync DESIGN --out DIR --to-source` SHALL extract the built project's sheets and plan the drawn file beside the script when its canonical text differs. With `--freeze-schematic` it SHALL plan `schematic.toml` from a generated schematic, with `drawn.frozen` (info) and a hint to call `design.load_schematic`. The script is never rewritten.
+
+#### Scenario: Wire moved in KiCad
+- **GIVEN** a confirmed build of the drawn example whose sheet then gets one wire moved by token edit, its connectivity unchanged
+- **WHEN** `fenolite sync examples/drawn/design.py --out B --to-source --dry-run --json` runs
+- **THEN** `result.plan` lists `schematic.toml`, and after `--confirm --plan <id>` a new build writes the moved wire
+
+#### Scenario: Freeze the blink
+- **GIVEN** a confirmed build of the blink
+- **WHEN** `fenolite sync examples/blink_2layer/design.py --out B --to-source --freeze-schematic --dry-run --json` runs
+- **THEN** `result.plan` lists `schematic.toml` and `issues` holds `drawn.frozen`
+
+### Requirement: Drawn schematic sync refuses changed nets
+Before it plans a drawn file, sync SHALL resolve the extracted sheets and compare them with the recorded circuit. A connectivity difference MUST plan nothing and exit 5 with `drawn.netlist-differs`, because a sync never changes nets; value, footprint and reference edits keep the rules of `edits.toml` (c0250).
+
+#### Scenario: Net changed in KiCad
+- **GIVEN** the build whose sheet gets one wire end moved to another pin
+- **WHEN** sync runs with `--to-source`
+- **THEN** the exit code is 5, `result.plan` lists no `schematic.toml`, and one `drawn.netlist-differs` error names the pin
+
+### Requirement: Explicit outline strokes across rebuilds
+An explicit `Outline.stroke_width` SHALL participate in outline equality so a changed script width follows the existing signed/locked replacement policy. An absent width MUST retain the existing geometry-only equality behavior. Hand-edited outline geometry MUST retain its existing precedence unless the outline is locked.
+
+#### Scenario: New script stroke on an existing board
+- **GIVEN** a board built with an explicit outline width
+- **WHEN** the script changes that width and builds over its unchanged native board
+- **THEN** the native root strokes use the new width and another build keeps the same bytes
+
+### Requirement: Exact technical rows without hidden references
+A fresh build SHALL preserve explicit technical layer selections and refuse any modeled item referencing an undeclared layer. It MUST retain strict native layer-table checks, ordinary default bytes and existing model/schema definitions. It SHALL NOT drop or reassign items to satisfy a shorter table.
+
+#### Scenario: Referenced omitted layer
+- **GIVEN** a drawing, footprint field/pad or image references an omitted technical layer
+- **WHEN** the design is built
+- **THEN** the build refuses with the existing undeclared-layer error and writes no candidate
+
+#### Scenario: Default board
+- **WHEN** technical_layers is absent or None
+- **THEN** model defaults and all recorded ordinary native file bytes remain unchanged
+
+### Requirement: Explicit digest-bound native project input
+A KiCad build MAY declare a portable native project input through design.kicad_project(path, sha256=...). The file SHALL be a checked declared input resolved within the script folder, parsed with the existing exact native JSON/version policy. Failed path/hash/format checks SHALL change nothing. No undeclared ambient project or output seed SHALL substitute for that input.
+
+#### Scenario: Portable generated import
+- **GIVEN** checked original project bytes
+- **WHEN** import emits Python and that complete folder is moved and built
+- **THEN** its explicit native sidecar/digest carries unmanaged project data and the plan names that input
+
+#### Scenario: A reviewed input changes
+- **WHEN** the template changes after plan review
+- **THEN** confirmation refuses with existing stale-plan behavior and no output changes
+
+### Requirement: Typed settings govern the explicit baseline
+The declared template SHALL initialize unmanaged project data while typed/code-owned settings and generated root/file/cache identities SHALL win afterward. The approved rebuild precedence SHALL be documented and tested. No-request builds SHALL retain existing bytes and preservation behavior.
+
+#### Scenario: Template conflicts with code-owned settings
+- **WHEN** typed design minima/stack/frame/root data conflict with the declared native baseline
+- **THEN** the final project reflects typed ownership and fresh generated identities, while unmanaged settings survive
+
+#### Scenario: Unsupported backend
+- **WHEN** an explicitly declared KiCad project template is requested for Altium
+- **THEN** the build refuses before staging even with allow-lossy
+
+### Requirement: Preservation evidence does not invent semantic coverage
+A retained native project key SHALL NOT be reported as globally modeled level6 semantics merely because it survives. Scoped native electrical/render/physical proofs SHALL remain explicit, complete and source-bound.
+
+#### Scenario: Inter-sheet display settings survive a fresh build
+- **GIVEN** non-default checked show/own-page/short/prefix/suffix settings
+- **WHEN** original project becomes generated Python and a fresh native project
+- **THEN** all5 controls and independently measured native effective text survive without an equivalence waiver
+
+### Requirement: Explicit imported floor ownership
+The existing declaration SHALL accept optional exact-bool preserve_minimums=False. False SHALL retain the original typed-minimum planning/output behavior. Explicit True SHALL retain the five supported native hard floors from the declared digest-bound baseline in every planner and final output while actual DRU override rules remain independent. The importer SHALL emit True. No canonical model field SHALL be introduced.
+
+#### Scenario: Source floor and actual override coexist
+- **GIVEN** a declared source hard floor0.01 and an actual custom rule0.7
+- **WHEN** preserve_minimums=True builds the project
+- **THEN** native Pro retains0.01, actual DRU retains0.7, and native DRC observes the override
+

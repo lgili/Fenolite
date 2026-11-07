@@ -1,0 +1,232 @@
+{
+  "change": "c0272",
+  "measured_on": "2026-11-03",
+  "code_commit": "497204fd23e1bde107fa04509ebb9b61bab1d14d",
+  "artifact_packet": "fenolite-cac-manual-starters-20261102",
+  "method": "Each footprint manually placed through KiCad properties after deleting generated copper; each body manually routed with native interactive router; protected_input zone drawn and filled in native GUI. Capture occurs before connector routing so host copper does not enter reusable assets. Full bench ports then manually routed to the connector. Native DRC runs on untouched private copies.",
+  "operator": "Codex through authorized KiCad GUI controls; no human layout-review claim",
+  "native_version": "10.0.6",
+  "evidence": "INFERRED",
+  "limits": [
+    "Authored illustrative devices; no fabrication, electrical ratings or human engineering approval inferred.",
+    "Local focused measurement does not close required exact-head KiCad9/10 CI."
+  ],
+  "rows": [
+    {
+      "block": "voltage_divider",
+      "manual_body_sha256": "89b52403f167eebc2f980f677d0efedc66ac9be582d1347d14d29fcb39a71879",
+      "complete_bench_sha256": "56b58c287cf26e15cf6f5db3645459affd94d7c890f2d02fc5567f41dabc3898",
+      "asset": "src/fenolite/blocks/layouts/voltage_divider.toml",
+      "asset_sha256": "beda568eb123b01b95df1dad474b85bdc65013668342dec00ad58bc8fefca7fc",
+      "capture": {
+        "instance": "dut",
+        "block": "Fenolite:voltage_divider",
+        "version": "1.0.0",
+        "file": "captured/voltage_divider.toml",
+        "parts": 2,
+        "left": [],
+        "tracks": 1,
+        "arcs": 0,
+        "vias": 0,
+        "zones": 0,
+        "hint": "add b.layout(reuse='captured/voltage_divider.toml', copper=True) to the block"
+      },
+      "capture_plan_id": "c873dfe74b1ca76c",
+      "capture_confirmation_sha256": "b8e99a15c80823359094343b413a42cc562486a1db882031d501e29632995734",
+      "native": {
+        "tool": "10.0.6",
+        "source_board_sha256": "56b58c287cf26e15cf6f5db3645459affd94d7c890f2d02fc5567f41dabc3898",
+        "native_ok": true,
+        "report_sha256": "4303c7fe30ff665e8ae68a89bad2768c46438cbb219e75a024d53819758bb801",
+        "findings": {
+          "violations": 0,
+          "unconnected_items": 0,
+          "schematic_parity": 0
+        },
+        "all_inputs_unchanged": true
+      },
+      "raw_native_report_sha256": "b58b10bb8d6eaedaadcdd29a649da03ccece686418e1c85b3e7f1b090c83727b"
+    },
+    {
+      "block": "rc_lowpass",
+      "manual_body_sha256": "393fe4f55e01d553130baf7501298b4a38545c4ed9c557440fe1cdb20b63fb48",
+      "complete_bench_sha256": "c844111267996ec0f2dffbb367dfdb1df236e7570bd894eba0fe577d182d6362",
+      "asset": "src/fenolite/blocks/layouts/rc_lowpass.toml",
+      "asset_sha256": "64c2633c0e0b928376e55b96dcecd484aeed295396e9dd04db7bc8af4b49cd78",
+      "capture": {
+        "instance": "dut",
+        "block": "Fenolite:rc_lowpass",
+        "version": "1.0.0",
+        "file": "captured/rc_lowpass.toml",
+        "parts": 2,
+        "left": [],
+        "tracks": 1,
+        "arcs": 0,
+        "vias": 0,
+        "zones": 0,
+        "hint": "add b.layout(reuse='captured/rc_lowpass.toml', copper=True) to the block"
+      },
+      "capture_plan_id": "d82aec8e75141e29",
+      "capture_confirmation_sha256": "0b3f09d0f4f4cef366934cfecdbf1feb1613d577f6d93c4953ee7f3190785db8",
+      "native": {
+        "tool": "10.0.6",
+        "source_board_sha256": "c844111267996ec0f2dffbb367dfdb1df236e7570bd894eba0fe577d182d6362",
+        "native_ok": true,
+        "report_sha256": "5f7c22e3724760df8d1f0b08da2f624a8dd306495a45164095363272810cdd17",
+        "findings": {
+          "violations": 0,
+          "unconnected_items": 0,
+          "schematic_parity": 0
+        },
+        "all_inputs_unchanged": true
+      },
+      "raw_native_report_sha256": "68d4cd9f00cbf6fb20a8eeedff516bb490e60eed9648ce4385464f6cdf5bdc77"
+    },
+    {
+      "block": "led_indicator",
+      "manual_body_sha256": "7fdc7b285685c6ac3d1fcd05f30c27168d58540d964c749bce651a8f43b18216",
+      "complete_bench_sha256": "603d87f75f4e21afa87df7b4d1ffba1344419583fe6cfd98019b8cf8675f3eea",
+      "asset": "src/fenolite/blocks/layouts/led_indicator.toml",
+      "asset_sha256": "4333f166576f52feecdb67cda49dfc66fe4e8f681834b313c3e4b98f3c71e06d",
+      "capture": {
+        "instance": "dut",
+        "block": "Fenolite:led_indicator",
+        "version": "1.0.0",
+        "file": "captured/led_indicator.toml",
+        "parts": 2,
+        "left": [],
+        "tracks": 1,
+        "arcs": 0,
+        "vias": 0,
+        "zones": 0,
+        "hint": "add b.layout(reuse='captured/led_indicator.toml', copper=True) to the block"
+      },
+      "capture_plan_id": "56d53fe3a3347733",
+      "capture_confirmation_sha256": "7e72b644a01ac39bec67676d286a536c5fd5273abd8b02a627b6c6e9ba1fd067",
+      "native": {
+        "tool": "10.0.6",
+        "source_board_sha256": "603d87f75f4e21afa87df7b4d1ffba1344419583fe6cfd98019b8cf8675f3eea",
+        "native_ok": true,
+        "report_sha256": "4f309a45d7134c598b6dc4793a39f3cdf02a1a3c1f0cc0e3d0084549ae6fdbf5",
+        "findings": {
+          "violations": 0,
+          "unconnected_items": 0,
+          "schematic_parity": 0
+        },
+        "all_inputs_unchanged": true
+      },
+      "raw_native_report_sha256": "ad71d513c8fc5c4774b49b73111e4ba6684e4bdf6b39b7eca4c392510436ca1b"
+    },
+    {
+      "block": "i2c_pullups",
+      "manual_body_sha256": "92c0bf883505188184237915c2d9c0fd2bc8afb106e509286753ea74fc9bb3ea",
+      "complete_bench_sha256": "bbde52a839acaeb31b37caa02c5a0d66b06b5369d2e5a6385c485660eac76e62",
+      "asset": "src/fenolite/blocks/layouts/i2c_pullups.toml",
+      "asset_sha256": "89e980af6003954fc26b2a3bd5bf0464606b6d4356d170fe13d9c1fa68197147",
+      "capture": {
+        "instance": "dut",
+        "block": "Fenolite:i2c_pullups",
+        "version": "1.0.0",
+        "file": "captured/i2c_pullups.toml",
+        "parts": 2,
+        "left": [],
+        "tracks": 1,
+        "arcs": 0,
+        "vias": 0,
+        "zones": 0,
+        "hint": "add b.layout(reuse='captured/i2c_pullups.toml', copper=True) to the block"
+      },
+      "capture_plan_id": "60d0a78bfee9034b",
+      "capture_confirmation_sha256": "91bf28b92a65ba67e72fe04816bae8f2dfa3f39c7f3966a0b22b03f1aca04426",
+      "native": {
+        "tool": "10.0.6",
+        "source_board_sha256": "bbde52a839acaeb31b37caa02c5a0d66b06b5369d2e5a6385c485660eac76e62",
+        "native_ok": true,
+        "report_sha256": "e0c663482b1a0de43d683cf13dace82cc3623f34a65a791bfd16849a8a211e09",
+        "findings": {
+          "violations": 0,
+          "unconnected_items": 0,
+          "schematic_parity": 0
+        },
+        "all_inputs_unchanged": true
+      },
+      "raw_native_report_sha256": "8650a1a02b746347eac439a0a9d43c91e94ef2e842d4aebaea40d854786a5d5b"
+    },
+    {
+      "block": "protected_input",
+      "manual_body_sha256": "eead20bce4f0f3d443ed231d4879f36c6f13adcd8630fb72b5f2c360578e1eb1",
+      "complete_bench_sha256": "c9fc21e74a972a60117a60e6cd05d253a230b1963f0722fc66abd72668e6d8b6",
+      "asset": "src/fenolite/blocks/layouts/protected_input.toml",
+      "asset_sha256": "f73398dc3a52cffe261aaa167b5e3ab957aeb0c0b06cb071810fea3187d55156",
+      "capture": {
+        "instance": "dut",
+        "block": "Fenolite:protected_input",
+        "version": "1.0.0",
+        "file": "captured/protected_input.toml",
+        "parts": 2,
+        "left": [],
+        "tracks": 2,
+        "arcs": 0,
+        "vias": 1,
+        "zones": 1,
+        "hint": "add b.layout(reuse='captured/protected_input.toml', copper=True) to the block"
+      },
+      "capture_plan_id": "dd170635e0bd61ed",
+      "capture_confirmation_sha256": "d4f0cac84297f1ca32bac711080978d1dfe9dd6f95bcd08e6d2c4dd2b34f21b6",
+      "native": {
+        "tool": "10.0.6",
+        "source_board_sha256": "c9fc21e74a972a60117a60e6cd05d253a230b1963f0722fc66abd72668e6d8b6",
+        "native_ok": true,
+        "report_sha256": "2f65e1e516971e121b36cf52ff6d4d46a6a4eaa59829f1a9811fd1e7c104424f",
+        "findings": {
+          "violations": 0,
+          "unconnected_items": 0,
+          "schematic_parity": 0
+        },
+        "all_inputs_unchanged": true
+      },
+      "raw_native_report_sha256": "4483dd12f34f85149b84003fa9eaa198c5287949546dadc2a43f1fd0c145a67c"
+    }
+  ],
+  "golden_plan_id": "eeab7b7d11947708",
+  "golden_plan": [
+    {
+      "path": "src/fenolite/blocks/golden/i2c_pullups.json",
+      "old_sha256": "1477025b3cbc3ce8a38fa735d37340c1435e1bd63f233f74e7deae2d466e9e34",
+      "new_sha256": "1477025b3cbc3ce8a38fa735d37340c1435e1bd63f233f74e7deae2d466e9e34"
+    },
+    {
+      "path": "src/fenolite/blocks/golden/led_indicator.json",
+      "old_sha256": "15095a56e6dcb6553f7a16018d652df182da46ec516bad8cb0b9b969fe22da45",
+      "new_sha256": "15095a56e6dcb6553f7a16018d652df182da46ec516bad8cb0b9b969fe22da45"
+    },
+    {
+      "path": "src/fenolite/blocks/golden/protected_input.json",
+      "old_sha256": "79671c2de6a89be6f18dd4b41ec6ac9a0a9cb7159965f5eceb2dba7ca650bf60",
+      "new_sha256": "79671c2de6a89be6f18dd4b41ec6ac9a0a9cb7159965f5eceb2dba7ca650bf60"
+    },
+    {
+      "path": "src/fenolite/blocks/golden/rc_lowpass.json",
+      "old_sha256": "a7269549ec702447c77e1064bcf935e8770031efa2250ea7dd3db8ce04203202",
+      "new_sha256": "a7269549ec702447c77e1064bcf935e8770031efa2250ea7dd3db8ce04203202"
+    },
+    {
+      "path": "src/fenolite/blocks/golden/voltage_divider.json",
+      "old_sha256": "9f7213f19015127f1da036a81048b8ec436208fe934baf5ae03d9845858d4b51",
+      "new_sha256": "9f7213f19015127f1da036a81048b8ec436208fe934baf5ae03d9845858d4b51"
+    }
+  ],
+  "golden_confirmation_sha256": "e9ccf0dd41c55d7d2af47513f42f50fd9495ca6c5c46e57ee1e627aaddff3e5a",
+  "block_test_sha256": "6ad34a80589c64aac0c9d0f16fe8d822e15d14ae2fbcbd4d1964103d7ecc86e7",
+  "focused_layout_tests": {
+    "passed": 8,
+    "duration_seconds": "3.06"
+  },
+  "preserved_failed_attempts": {
+    "protected_input-return-unnamed-via-attempt2.kicad_pcb": "f87deb9e7e968e257223aab00460e098672cbc0e4c66ee9a57c6ff3dacf32d22",
+    "rc_lowpass-manual-drc-attempt1.json": "1f3491768bbb696c69f07f041f8c971e1a9a9f6b2792be61c6407b15374e7f1e",
+    "rc_lowpass-manual-via-dangling-attempt1.kicad_pcb": "3d33c4b79497c1dac724c16f5071a9ac7b8b98911c0192deb1827067c88ff9c2",
+    "protected_input-host-int-failed-attempt1.kicad_pcb": "8dbdf43402d787c09ca00d5b01d91b5478c553f5910684ee0898fdbec92dc5e3",
+    "rc_lowpass-manual-native-receipt-attempt1.json": "0f5308af3b91c4789b94fef68deceefd72e7f9939c0de3342befe88f80a23f99"
+  }
+}

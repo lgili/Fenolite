@@ -91,7 +91,37 @@ What the rows show:
 - The documents of format version 22 have four root members more than those of version 21:
   `DocumentId`, `LayoutDrawingData`, `WiringDiagramData` and `WiringListInformationData` (the last three
   nil).
-- Round F0 adds what each step of Altium Designer 26.5 adds (task 2.2, the F0 half).
+- Round F0 adds what each pending step of the approved Altium Designer 24.5.2.23 adds (task 2.2, the F0 half).
+
+### Tree, round F0 (task 2.2, F0 half, 2026-11-04)
+
+Measured by `uv run python tools/draftsman_census.py --json --tree <F0 files>` on the documents that an
+agent saved on 2026-11-04 (S-1421), outside the repository. Names and counts only; no path or value of
+the documents. All 13 are format version 24, one chunk each, 38 root members.
+
+| step | decoded bytes | elements | under board data | under `Pages` | sheets (items) | items by kind | board data members filled |
+|---|---|---|---|---|---|---|---|
+| F0.1 | 53 882 | 1 844 | 8 | 18 | 1 (0) | none | none |
+| F0.2 | 53 882 | 1 844 | 8 | 18 | 1 (0) | none (same bytes as F0.1) | none |
+| F0.3 | 54 977 | 1 891 | 8 | 42 | 1 (1) | `Text` 1 | none |
+| F0.4 | 54 978 | 1 891 | 8 | 42 | 1 (1) | `Text` 1 | none |
+| F0.5 | 117 164 | 4 595 | 2 224 | 460 | 1 (1) | `BoardAssemblyViewData` 1 (Top, 1:1) | BOM, assembly, fabrication, layers geometry, embedded |
+| F0.6 | 129 547 | 5 043 | 2 224 | 902 | 1 (2) | `BoardAssemblyViewData` 2 (Top, Bottom) | as F0.5 |
+| F0.7 | 126 130 | 4 804 | 2 438 | 474 | 1 (2) | `DrillViewView` 1, `DrillTableBoardView` 1 | assembly, fabrication, drill table, embedded |
+| F0.8 | 82 091 | 3 003 | 1 012 | 124 | 1 (1) | `LayerStackLegendView` 1 | layer stack, embedded |
+| F0.9 | 121 179 | 4 732 | 2 224 | 582 | 1 (2) | `BoardAssemblyViewData` 1, `BillOfMaterialsView` 1 (side `All`) | as F0.5 |
+| F0.10 | 132 027 | 5 001 | 2 438 | 653 | 1 (4) | as F0.7, `Note` 1 (2 entries), `LinearDimension` 1 | as F0.7 |
+| F0.11 | 54 304 | 1 861 | 8 | 35 | 2 (0, 0) | none | none |
+| F0.12 | 117 189 | 4 595 | 2 224 | 460 | 1 (1) | as F0.5 | as F0.5 |
+| F0.13 (`.DwfDot`) | 127 900 | 4 867 | 2 438 | 537 | 1 (3) | as F0.10 without `LinearDimension` | as F0.7 |
+
+Every document holds 29 document parameters and no parameter text. The F0 half of gate G1 is answered on
+these files by Fenolite's reader (all decode). `test_f0_files_decode` first could not run: the kit privacy
+scan refuses the folder for its VM paths (S-1314). On the maintainer's decision of 2026-11-04 it ran with
+the VM's absolute work folder as the reviewed prefix (see "Observation intake") and passed on the twelve
+`PCBDwf` documents and `F0-13.DwfDot`, and again on the whole folder with its PDF output once the scan
+stopped reading PDF name objects as paths. Gate G1 is GO for decoding (task 1.5).
+Fact rows: `docs/formats/altium/draftsman.md`, "Round F0 as saved by Altium Designer 24.5.2.23".
 
 ### Phase 1 budget
 
@@ -121,7 +151,7 @@ corner, and the view counts are the same in both readings (corrected 2026-10-25)
 ## Part F: Draftsman documents
 
 Change c0172; pending, no Altium verification is claimed. Part F has three rounds: F0, observation files
-that the maintainer saves in Altium Designer 26.5 from a project Fenolite built (task 1.3); FP, probe
+that the maintainer saves in the approved Altium Designer 24.5.2.23 from a project Fenolite built (task 1.3); FP, probe
 documents written by Fenolite that decide gates G2 and G3 (task 3.2); F1 to F8, the acceptance of a
 build's document (task 6.1). Every file Altium saves stays in the maintainer's folder; only counts and
 element names derived from it enter the repository, after `fenolite kit verify`'s path scan.
@@ -178,7 +208,355 @@ Send the whole folder (with the files Altium saved and the project as Altium lef
 version (`AD <major>.<minor>`, from **Help » About**), the date, and one outcome per step. The files are
 read only after `fenolite kit verify`'s path scan has run on the folder (task 1.4).
 
+### Round FP: candidate probes
+
+Prepare with `FENOLITE_ALTIUM_PART_FP=<outside folder> uv run pytest
+tests/unit/backends/altium/test_part_f.py -k fp_candidates`. FP3 to FP5 can be prepared from the public
+fact rows. FP1 and FP2 are absent until the real F0.3 control is supplied through `FENOLITE_DWF_F0` and
+passes the kit privacy scan, including its decoded chunks. `status.json` names missing probes and keeps
+the native verdict `unjudged`; `SHA256SUMS` binds the exact handover bytes. Work on a copy.
+
+1. **FP1** Open the F0.3 control re-encoded into stored chunks. Expected: no message, the original Text.
+2. **FP2** Open that control with only the Text changed to `FENOLITE-22`. Expected: no message, the changed Text.
+3. **FP3** Open the document written from scratch with one sheet and one Text. Expected: no message, `FENOLITE-1`.
+4. **FP4** Open the minimal document with a top assembly shell; Import Changes from `blink_routed.PcbDoc`.
+   Expected: the board outline and top components fill the view. This settles `H-A-DWF-IMPORT` only when run.
+5. **FP5** Use `FP5.DwfDot` in File » New » Draftsman Document. Expected: a document with the current board.
+
+Report the date, exact version, file hashes, whether each opens without a message and what it shows.
+These probes settle `H-A-DWF-MINIMAL`, `H-A-DWF-IMPORT` and `H-A-DWF-TEMPLATE`; no probe has run here.
+
+### Round FPC: correction round (c0388 task 1.1)
+
+Prepare with `FENOLITE_DWF_F0=<reviewed F0 folder> FENOLITE_ALTIUM_PART_FPC=<outside folder> uv run pytest
+tests/unit/backends/altium/test_part_f.py -k fpc_correction_kit`, with `FENOLITE_KIT_REVIEWED_PREFIX` set
+to the VM's absolute work folder that a person reviewed. The kit holds the routed blink project, the probes
+below and `SHA256SUMS`. Every probe is stored uncompressed, as FP1 and FP2, which open (S-1589). FPC1 to
+FPC4 and FPC6 keep the candidates' relative `SourceDocumentName`; FPC5 and the drop series keep the
+absolute path of the empty F0.1 control, and the members taken from it may hold that path too, so the kit
+stays in the VM. `status.json` lists the dropped members and keeps the
+native verdict `unjudged`. Work on a copy.
+
+1. **FPC1** Open FP3 with the 32 root members it lacks taken from the empty F0.1 control (its own six
+   members kept, format version 22). Expected: no message, `FENOLITE-1` on one A4 sheet.
+2. **FPC2** Open FP4 corrected the same way; Import Changes from `blink_routed.PcbDoc`. Expected: no
+   message; the board outline and the top parts fill the view.
+3. **FPC3** Register the kit folder as a document template folder in Preferences (restore the setting
+   afterwards), then use `FPC3.DwfDot`, which holds FPC2, in File » New » Draftsman Document. Expected: a
+   document with the current board, and no error window.
+4. **FPC4** Open FP3 with only empty `ArrowStyles`, `FillStyles` and `LineStyles` added. Expected: no
+   message, `FENOLITE-1`. Opening tells whether the three style lists alone caused the refusal of S-1575.
+5. **FPC5** Open the empty F0.1 control with only its `Pages` replaced by FP3's sheet. Expected: no
+   message, `FENOLITE-1`. Opening tells whether the writer's sheet form is accepted.
+6. **FPC6** Open FPC1 with the control's format version 24 in place of 22. Expected: no message,
+   `FENOLITE-1`.
+7. **D01 to D32** Open each probe of `drop/`: the empty F0.1 control without one root member, named in
+   the file name. Expected: an empty A4 sheet. A probe that is refused names a member that the writer
+   needs.
+8. **FPC7** (added 2026-11-05, c0388 tasks 4.1 and 4.2) Open FPC1 with the writer's fabrication sheet in
+   place of its Text: the drill drawing view, the Drill Table, the Layer Stack Legend, the Note of two
+   entries, the board's two Linear Dimensions and the title Texts. Import Changes from
+   `blink_routed.PcbDoc`. Expected: no message; the table lists the drill sizes, the legend the two copper
+   layers, the note `1.` and `2.`, the dimensions 50 mm and 30 mm.
+9. **FPC8** FPC7 with `BoardSourceName` holding `blink_routed.PcbDoc` instead of nothing (finding 1).
+10. **FPC9** FPC7 with each note entry's `Id` a decimal number instead of 32 hexadecimal digits
+    (finding 2).
+11. **FPC10** FPC1 with the writer's bottom assembly sheet: a bottom view and a Bill Of Materials whose
+    `ViewSide` is `Bottom` and `ViewSideV2` 0 (finding 4). Expected: the table lists `D1` only.
+12. **FPC11** FPC1 with only the drill drawing view and the two Linear Dimensions (finding 5). Expected:
+    both dimensions on the outline's edges, no broken snap.
+
+`expected.md` lists the five findings of c0388's writer, the question each asks and the probes that answer
+it; finding 3 (style ids whose tables the candidate root lacks) is asked on FPC1 and FPC4.
+
+Report the date, the exact version, the file hashes and, per probe, whether it opens without a message and
+what it shows. G2 is decided again from this report only (c0388, task 1.1): it passes for the writer when
+FPC1 or FPC4 opens and FPC2 fills its view; FPC3 settles `H-A-DWF-TEMPLATE`. If no FPC probe opens, route P
+of c0172's Decision 9 is decided.
+
+Decided on 2026-11-05 (c0388 task 1.1, from the report of S-1606): **route P**. G2 does not pass, because
+FPC2 opens but does not fill its view. FPC3, the template route, gives no board view. The design of c0388
+gives the reasons.
+
+### Round F1 to F8: candidate acceptance
+
+Prepare with `FENOLITE_ALTIUM_PART_F=<outside folder> uv run pytest
+tests/unit/backends/altium/test_part_f.py -k accept_candidate_kit`. The routed blink gains an authored
+two-layer stack-up, title block and two notes per applicable page. The native gate is overridden only
+inside the kit test. `expected.md` lists exact model drill counts, stack rows and parts; `SHA256SUMS`
+binds the handover. This remains a candidate: generic native board Table/dimensions, exact table filters,
+table sizes and source refresh await F0/FP4. Board rows are currently Texts. Work on a copy.
+
+1. **F1** Open the project and its listed `blink_routed.PCBDwf`. Expected: no message.
+2. **F2** Inspect the three sheets, paper, title-block parameters and estimated layout. Expected: correct
+   titles/values and no overlapping objects. Settles `H-A-DWF-PARAMS` only after an actual report.
+3. **F3** Import Changes from `blink_routed.PcbDoc`. Expected: every shell view fills from the board.
+4. **F4** Inspect assembly views. Expected: designators and the bottom side viewed from below.
+5. **F5** Compare the drill symbols and table with `expected.md`. Expected: exact counts per diameter.
+6. **F6** Compare the legend and BOM with `expected.md`. Expected: the layer rows and parts agree.
+7. **F7** Inspect the notes. Expected: the two authored notes on each applicable page, numbered in order.
+8. **F8** Export all sheets to PDF, run the `PCBDrawing` output and save `saved.PCBDwf`. Expected: three
+   PDF pages and the written scope retained by `FENOLITE_ALTIUM_F8=<file> uv run pytest
+   tests/unit/backends/altium/test_part_f.py -k f8`. Settles `H-A-DWF-OUTJOB` only after the native output.
+
+Send the date, exact version, original/saved hashes and one expected/observed outcome per step.
+`H-A-DWF-KIT` stays unconfirmed until those actual outcomes exist. A missing save is a skipped proof.
+
+### Observation intake
+
+`uv run python tools/altium_observations.py F0 <folder>` runs the kit privacy scan before reading
+members and reports hashes, element/item counts and changed member paths against each F0 control.
+It writes nothing, prints no document values and never sets a native verdict. A scan refusal needs
+local review; matched personal strings are not printed. Native files remain outside version control.
+
+`FENOLITE_KIT_REVIEWED_PREFIX=<folder>` names exactly one absolute folder below a root that a person
+reviewed, such as the work folder a native run writes into its files. A finding that is that folder or
+lies under it counts as reviewed; every other finding still refuses, a relative path, a bare root or a
+list refuses as the prefix, and the report holds `privacy_scan: reviewed` with the count
+`privacy_reviewed`, never the prefix. Unset, nothing changes.
+
 ## Reports
 
-No report of Part F has been received. Nothing on this page or in `docs/formats/altium/draftsman.md` is
-`ALTIUM-VERIFIED`.
+No report of Part F has been received from the maintainer. The agent rounds below are not author
+reports. Nothing on this page or in `docs/formats/altium/draftsman.md` is `ALTIUM-VERIFIED`.
+
+2026-11-01 availability update: the maintainer reports that Altium Designer is unavailable now.
+F0 saves, FP outcomes, F1-F8 and the native gates remain open. Public corpus read-back and authored
+candidate kits are mechanical preparation only; they are not author reports or application saves.
+
+### 2026-11-04, actual `AD 24.5.2.23`, rounds F0 and FP (sources S-1574 and S-1575)
+
+A Claude agent ran these rounds at the maintainer's request of 2026-11-04. It operated the Altium
+Designer installed in the maintainer's Parallels Windows VM. This is not the maintainer's own review.
+`X2.exe` has FileVersion 24.5.2.23 (Trial licence, not signed in). Menu commands, clicks and keys were
+sent through Windows UI Automation. The canvas was read from window captures, which were deleted after
+viewing. Under the approved 24.5 scope these rounds complete no case, open no gate and raise no level.
+
+**F0 inputs.** The F0 kit was built at `9de1ae80` with `FENOLITE_ALTIUM_PART_F0=<folder> uv run pytest
+tests/unit/backends/altium/test_part_f.py -k f0_kit`. It has these digests:
+
+| file | SHA-256 |
+|---|---|
+| `blink_routed.PrjPcb` | `99bcc6d9…` |
+| `blink_routed.SchDoc` | `c1c35243…` |
+| `blink_routed.PcbDoc` | `6691042b…` |
+| `blink_routed.PcbLib` | `640bbcdb…` |
+| `blink_routed.SchLib` | `2308a12f…` |
+| `blink_routed.OutJob` | `595be494…` |
+| `fenolite-base.json` | `34d8eccd…` |
+
+The agent worked on a VM copy, `C:\FenoliteClaude\c0172\F0\blink_routed`. Every step used File » Save As
+into that folder.
+
+| step | saved file (SHA-256) | observed |
+|---|---|---|
+| F0.1 | `F0-01.PCBDwf` `bba5247f…` | New Document offered template `[Default]`, project `blink_routed.PrjPcb` and document `blink_routed.PcbDoc`. One sheet with no object. Saved without a message. |
+| F0.2 | `F0-02.PCBDwf` `bba5247f…` | Saved without a message; the bytes equal F0-01. The Projects panel then lists `F0-02.PCBDwf` under the project, which shows as modified. The `.PrjPcb` on disk is unchanged. |
+| F0.3 | `F0-03.PCBDwf` `bbd8713f…` | The Text's field holds `FENOLITE-1`. The sheet shows `FENOLITE`, clipped because Clip Text To Bounds keeps the box of the default `New Text`. Saved without a message. |
+| F0.4 | `F0-04.PCBDwf` `6f3b54b0…` | The field holds `FENOLITE-22`. Saved without a message. |
+| F0.5 | `F0-05.PCBDwf` `972c4046…` | A view titled `View from Top side (Scale 1:1)` shows the outline with small part graphics. The designators were not legible at the captured zoom. Saved without a message. |
+| F0.6 | `F0-06.PCBDwf` `eb306061…` | The second view, with View Side Bottom, is titled `View from Bottom side` and shows `D1`. As expected. |
+| F0.7 | `F0-07.PCBDwf` `b204b78c…` | The view shows the holes with symbols. The Drill Table lists 7 × 0.30 mm plated, 2 × 0.90 mm plated and 9 in total. As expected. |
+| F0.8 | `F0-08.PCBDwf` `99fd0821…` | The legend lists overlays, solder masks, Top Layer and Bottom Layer (copper, 0.04 mm each), FR-4 0.32 mm and a total of 0.41 mm. Two layers are copper. As expected. |
+| F0.9 | `F0-09.PCBDwf` `fa690fd3…` | **Not as expected.** The Bill of Materials table shows only its header row; there is no row for `D1`, `R1` or `U1`. When reopened for this step, `F0-05` already showed as modified (see the incident below). |
+| F0.10 | `F0-10.PCBDwf` `32180e3a…` | The Note holds the two entries, numbered 1 and 2, after the default third entry was deleted. The Linear Dimension between the outline's left and right edges reads `50.00mm`. It attached only after the status bar's `Snapping: Disabled` was switched to Enabled with Shift+E. Saved without a message. |
+| F0.11 | `F0-11.PCBDwf` `da95dc9e…` | Tools » Add New Sheet in `F0-01`. Saved without a message; the agent did not count the sheets. |
+| F0.12 | `F0-12.PCBDwf` `e52414c9…` | `R1` was moved by a read-write DelphiScript (`MoveByXY` of +5 mm, from (32, 21) to (37, 21) mm from the board origin), not by a drag. File » Save of the PCB showed no message (`blink_routed.PcbDoc` now `3d43fa2e…`). Tools » Import Changes From blink_routed.PcbDoc showed no message, and the `R1` graphic in the top view moved right by about 5 mm, judged from captures before and after. Saved without a message. |
+| F0.13 | `F0-13.DwfDot` `c4db5299…` | **A message.** Type `Altium Draftsman Document Templates (*.DwfDot)` showed a Confirmation: the dimensions, callouts, section views and detail views will be deleted, the action is irreversible, proceed? The agent chose OK, and the file was saved. |
+| F0.14 | `F0-14.pdf` `3c8a4bc0…` | File » Export to PDF showed no message and no option dialog. The PDF has one A4 landscape page with the drill view, the 50.00 mm dimension, the Drill Table and the two notes. As expected. |
+
+**Incident.** Before F0.8, keystrokes sent through SendKeys left Shift and Alt held down. Later clicks
+then opened "Customizing PcbDrawing Editor", a "Draftsman" dialog and the find-text and edit-menu
+windows. The agent closed them, released the keys and repeated F0.8. No saved file was overwritten.
+`F0-05` showed as modified when reopened for F0.9, probably from stray keys, and F0-09 was built on it.
+The cause of the disabled snapping in F0.10 is unknown. `F0-10` showed as modified as soon as it was
+reopened for F0.14.
+
+**Path scan and intake.** The saved folder was copied to the agent's kit folder outside the repository.
+`uv run python tools/altium_observations.py F0 <folder>` **refused** it (exit 3) because the kit privacy
+scan has findings:
+
+- 14 raw `absolute-path` findings. Each Draftsman file holds the VM folder
+  `C:\FenoliteClaude\c0172\F0\blink_routed` once, and the saved PcbDoc holds `…\blink_routed.$$$`.
+- 39 decoded-chunk findings, all the VM path of `blink_routed.PcbDoc`.
+- 20 findings in `F0-14.pdf`. They are PDF name objects (`/Type`, `/Filter`, …) read as POSIX roots.
+
+No finding is a home folder or a login name. The agent checked this locally, path segment by segment.
+
+So Altium writes the absolute path of the source PCB into every Draftsman document. A folder saved
+under a user profile would therefore carry that profile's path. Because the intake refused the folder,
+no member was interpreted, `test_f0_files_decode` was not run, and the F0 halves of `H-A-DWF-CONTAINER`
+and `H-A-DWF-FIELD` are still unmeasured.
+
+**FP.** The probes were built at `9de1ae80` with `FENOLITE_ALTIUM_PART_FP=<folder> uv run pytest
+tests/unit/backends/altium/test_part_f.py -k fp_candidates`:
+
+- `FP3.PCBDwf` `d29f5b1d…`; `FP4.PCBDwf` and `FP5.DwfDot` both `992b5098…`; `status.json` `a3f7e522…`.
+- `status.json` lists FP1 and FP2 as missing and keeps the native verdict `unjudged`.
+- With `FENOLITE_DWF_F0` set to the saved F0 folder, the build fails, because the same kit privacy scan
+  refuses the F0.3 control.
+
+The digests match the VM copy before and after the run.
+
+| probe | observed |
+|---|---|
+| FP1, FP2 | not built: the F0.3 control does not pass the kit privacy scan |
+| FP3 | **does not open.** File » Open shows an `Error` window, `Value cannot be null. Parameter name: source`, with a crash-report form. The agent closed it with Close, so no report was sent, and no document opened. |
+| FP4 | **does not open**, with the same error; Import Changes was not reached |
+| FP5 | not run as written. Offering the `.DwfDot` in File » New » Draftsman Document needs it registered under Preferences » Data Management » Templates, a lasting change to the maintainer's installation that the agent did not make. Opened directly with File » Open, it shows the same error. |
+
+`H-A-DWF-MINIMAL`, `H-A-DWF-IMPORT` and `H-A-DWF-TEMPLATE` keep their levels. These are 24.5 agent
+observations, and the rows name Altium Designer 26.5. The G2 and G3 decisions of c0172 Decision 9 are
+left to the maintainer. No native file, capture or saved document enters the repository.
+
+**Evening FP retry (source S-1581).** At the maintainer's second request of 2026-11-04 the agent rebuilt
+the probes at `0207378b` with the same command. The bytes are identical to the run above: `FP3.PCBDwf`
+`d29f5b1d…`, `FP4.PCBDwf` and `FP5.DwfDot` `992b5098…`, `status.json` `a3f7e522…`. So FP3 and FP4 were
+not opened again. The causes asked about are these:
+
+- FP1 and FP2 are not built because the F0.3 control fails the kit privacy scan. Altium itself writes the
+  absolute path of the source PCB into every saved Draftsman document (see F0 above). The generator
+  cannot choose a relative path there, because the path comes from the native control.
+- The error from FP3 and FP4 is not caused by a VM path. FP3 (975 bytes) holds no path, and FP4 names
+  the PCB only by its bare file name, `blink_routed.PcbDoc`, in `SourceDocumentName`. A string scan of
+  both files finds no drive or home folder. The cause lies in the minimal document itself and is not
+  known.
+- FP5: File » New » Draftsman Document lists four built-in templates (`[Default]`, two `Assy Drawing -
+  Main views` variants and `Default Fabrication Drawing`). Its "Templates ..." button opens Preferences,
+  which would register the `.DwfDot` there, a lasting change to the maintainer's installation. The agent
+  cancelled both dialogs. FP5 stays not run as written.
+
+`H-A-DWF-MINIMAL`, `H-A-DWF-IMPORT` and `H-A-DWF-TEMPLATE` keep their levels.
+
+**Night FP run with the complete probes (source S-1589).** Run by a Claude agent at the maintainer's request
+of 2026-11-04/05, relayed by the coordinator, in Altium Designer 24.5.2.23 (Trial) in the maintainer's
+Parallels Windows VM. It is not the maintainer's own review. The probes were built complete, with controls
+that pass the kit privacy scan, at `3c6e8b35`. `status.json` lists no missing probe and keeps the native
+verdict `unjudged`. The run used a VM copy. Every file has the same digest after the run.
+
+- `FP1.PCBDwf` `2d49015e…`; `FP2.PCBDwf` `b62ab34e…`.
+- `FP3.PCBDwf` `d29f5b1d…`, and `FP4.PCBDwf` and `FP5.DwfDot` `992b5098…`. These are the bytes of S-1575
+  and S-1581.
+- `blink_routed.PcbDoc` `6691042b…`; `status.json` `6bfbd4a7…`.
+
+| probe | observed |
+|---|---|
+| FP1 | opens through File » Open with no message, and the document is not marked modified. One sheet (columns A–E, rows 1–4) holds one Text. Properties: Text `FENOLITE-1`, frame 18.289 × 6.906 mm, Clip Text on, font size 12. The frame clips the drawn text to `FENOLITE` |
+| FP2 | opens with no message. The document is marked modified (`*`) right after opening. Properties: Text `FENOLITE-22`, the same frame and options. The drawn text is clipped to `FENOLITE` |
+| FP3, FP4 | not opened again: the bytes are those of S-1575, where both fail with `Value cannot be null. Parameter name: source` |
+| FP5 | with the agent's temporary template folder (below), File » New » Draftsman Document lists `[Default]` and `FP5`. With project `blink_routed.PrjPcb` and document `blink_routed.PcbDoc`, OK creates `blink_routed.PCBDwf` at once with no message. After a fit (Ctrl+PgDn) it shows an empty sheet, columns A–E and rows 1–4, and no board view. Nothing was written to disk. About one to two minutes later, with no further action by the agent, an `Error` window appeared with `Object reference not set to an instance of an object` and a crash-report form. Two more `Error` windows appeared while the documents were closed; their text was not read. Each was closed with Close, so no report was sent |
+
+For comparison, the native controls `F0-03.PCBDwf` (`bbd8713f…`) and `F0-04.PCBDwf` (`6f3b54b0…`) were opened in
+the same way. Both open with no message and are marked modified at once. F0-04 shows Text `FENOLITE-22` with
+the same frame, Clip Text and size, and the same clipped `FENOLITE`. So the clipping comes from the control,
+not from the probes.
+
+The template folder was a temporary change, authorized by the coordinator on the maintainer's authority.
+Preferences » Data Management » Templates, Local Templates folder, was the default `Altium\AD22\Templates`
+folder under the Windows public documents folder. It was set to the VM probe folder for FP5 and then set back
+to that value with OK. Afterwards the New Draftsman Document dialog listed only the built-in templates again.
+On the first attempt, a value was typed into the hidden text box of the Templates visibility combo box.
+That dialog was cancelled. The box was cleared before the final OK, and the combo box showed `Server & Local`
+throughout.
+
+`H-A-DWF-MINIMAL`, `H-A-DWF-IMPORT` and `H-A-DWF-TEMPLATE` keep their levels, because this was an agent run.
+The coordinator has already treated gate G2 as failed and moved the native document to c0388. These FP1,
+FP2 and FP5 observations are recorded for that change. No native file, capture or saved document enters the
+repository.
+
+### 2026-11-05, actual `AD 24.5.2.23`, round FPC (source S-1606)
+
+A Claude agent ran round FPC (c0388 task 1.1) at the maintainer's request of 2026-11-05, relayed by the
+coordinator. It used Altium Designer 24.5.2.23 (Trial) in the maintainer's Parallels Windows VM. This is
+not the maintainer's own review. The kit `c0388-FPC-2026-11-05b` (`SHA256SUMS` `22b1f53c…`, 52 sums OK)
+was copied to a VM work folder. Every probe was opened with File » Open, as a free document. Menu
+commands, clicks and keys went through Windows UI Automation. The canvas was read from captures, which
+were deleted after viewing. Each `Error` window was closed with Close, or with Esc where a crash-report
+form showed only "Send and Close". No report was sent. After the run, every kit file in the VM still
+matches `SHA256SUMS`.
+
+Input digests:
+
+| file | SHA-256 |
+|---|---|
+| `FPC1.PCBDwf` | `e2288fa8…` |
+| `FPC2.PCBDwf`, `FPC3.DwfDot` | `af63d652…` |
+| `FPC4.PCBDwf` | `0bfbf9d5…` |
+| `FPC5.PCBDwf` | `dbe8fb49…` |
+| `FPC6.PCBDwf` | `5867a1d2…` |
+| `FPC7.PCBDwf` | `75127eae…` |
+| `FPC8.PCBDwf` | `a6dcea46…` |
+| `FPC9.PCBDwf` | `b164e433…` |
+| `FPC10.PCBDwf` | `9bb3d929…` |
+| `FPC11.PCBDwf` | `b0370626…` |
+| `blink_routed.PcbDoc` | `6691042b…` |
+| `status.json` | `a9386503…` |
+
+| probe | observed |
+|---|---|
+| FPC1 | **Opens with no message**, not marked modified. It shows `FENOLITE-1` on the sheet. Its Save As copy is `f85d5bdf…` |
+| FPC2 | **Opens with no message.** It shows one small empty view frame and `FENOLITE-1`. Tools » Import Changes From Board shows no message, and the frame stays empty: no outline and no parts. **Not as expected** |
+| FPC3 | The kit folder was set as the Local Templates folder, then restored (see below). File » New » Draftsman Document lists `[Default]` and `FPC3`. The agent chose `FPC3` with project `blink_routed.PrjPcb` and document `blink_routed.PcbDoc`, then OK. A "Draftsman" progress window ("Retrieving board data", "Retrieving layer Bottom Layer") is followed by an `Error` window: `Object reference not set to an instance of an object at 00007FF7F92133CD., Base Address: 00007FF7F9100000.` The new document shows a sheet with `FENOLITE-1` only and no board view. No further message appeared within 150 s. It was closed without saving. **Not as expected** |
+| FPC4 | **Does not open**: `Error`, `Object reference not set to an instance of an object at 00007FF7F9176CD2., Base Address: 00007FF7F9100000.` |
+| FPC5 | **Opens with no message**; `FENOLITE-1`, drawn larger |
+| FPC6 | **Opens with no message**; `FENOLITE-1` |
+| FPC7, FPC8, FPC9, FPC11 | **Do not open**: each shows the same `Error`, `Object reference not set to an instance of an object at 00007FF7F9177D48., Base Address: 00007FF7F9100000.` No document opens, so Import Changes and Save As were not reached |
+| FPC10 | **Opens with no message.** It shows an empty view frame, the title `Bill Of Materials` with no row, and the title block `Assembly drawing, bottom side`. After Import Changes From Board there is no message and the drawing is unchanged. The table does not list `D1`. Its Save As copy is `cc326f17…` |
+| D01 to D32 | 28 open with no message and show an empty sheet; D08 (no `DocumentId`) is marked modified at once. **Refused:** D01 (`ArrowStyles`), D14 (`FillStyles`) and D23 (`LineStyles`) with `Value cannot be null. Parameter name: source` (the S-1575 error of FP3), and D09 (`DocumentOptions`) with FPC4's error at `…76CD2` |
+
+The saved copies were decoded with Fenolite's Draftsman reader, outside the repository. The answers to
+the questions of `expected.md` are:
+
+1. `BoardSourceName` (FPC7, FPC8): no answer, because neither probe opens. In FPC10's saved copy, both
+   items (the assembly view and the BOM) hold `blink_routed.PcbDoc` after Import Changes. The member keeps
+   the namespace `...Serialization.V1.Document.Page.Item.Board`. In the probe the BOM had it empty and the
+   view had no member.
+2. Note entry ids (FPC7, FPC9): no answer, because neither probe opens.
+3. Style tables: FPC1, FPC4 and FPC7 as built all write `<LineStyles/>` and `<ArrowStyles/>` empty.
+   FPC1's saved copy keeps both empty. FPC4 does not open, so it has no saved copy. FPC10's saved copy has
+   one `LineStyleData` (`Id` 1, `Thickness` 0.7559, `ThicknessPresetId` 1, `DashPatternPresetId` 0), an
+   empty `ArrowStyles` and `FontStyles` 1 to 3.
+4. `ViewSideV2` (FPC10): the table lists no row. In the saved copy the BOM holds `ViewSide` `All` and
+   `ViewSideV2` 0, so Altium rewrote the written `Bottom`. The bottom assembly view holds `ViewSide`
+   `Bottom` with a new `ViewSideV2` 1.
+5. Dimension snaps (FPC7, FPC11): no answer, because neither probe opens.
+
+Agent reading, `INFERRED`: all four refused writer probes hold `LinearDimension` items with
+`ArrowStyleId` 1 while `ArrowStyles` is empty. FPC10 has no dimension and opens, even though it refers
+to `LineStyleId` 2 with an empty `LineStyles`. FPC4 lacks `DocumentOptions`, as D09 does, and both fail
+at the same address. The run does not test either reading.
+
+By the rule of this round, G2 passes when FPC1 or FPC4 opens and FPC2 fills its view. FPC1 opens, but
+FPC2 does not fill its view. FPC3 does not give a document with the current board. The decision on G2
+is left to the coordinator. `H-A-DWF-MINIMAL`, `H-A-DWF-IMPORT` and `H-A-DWF-TEMPLATE` keep their levels,
+because this was an agent run.
+
+G2 decision, 2026-11-05 (c0388 task 1.1). The coordinator ruled that FPC2 does not pass: under the round's
+rule, an empty view after Import Changes fails G2. So G2 fails after its one correction round. The drop
+series names the root members a document needs in order to open: `ArrowStyles`, `DocumentOptions`,
+`FillStyles` and `LineStyles`. They cure the refusal of FP3: FPC1 holds them and opens. They do not fill a
+view: FPC2 holds every root member of the control and still shows an empty frame. FPC10's view stays
+empty too, even after Import Changes has filled its `BoardSourceName`. The template route fails as well:
+FPC3 gives no board view. By c0172's Decision 9, **route P** ships. The project file holds the title-block
+parameters, and the document is made by hand from an Altium template (`docs/altium.md`, "Draftsman
+document"). `draftsman.NATIVE_WRITE` stays `False`. The three rows keep their levels, and their results
+name the round.
+
+The template folder was changed only for the session, as for FP5 (S-1589). Preferences » Data
+Management » Templates, Local Templates folder, was the default `Altium\AD22\Templates` folder under the
+Windows public documents folder. It was set to the VM probe folder for FPC3 and then set back to the
+default with OK. Afterwards the New Draftsman Document dialog listed only the built-in templates again.
+No native file, capture or saved document enters the repository.
+
+## Approved pending-native scope — 2026-11-03
+
+The maintainer explicitly authorized the pending Altium validations on the
+available Altium Designer 24.5.2.23: "tenho so o24.5, mas eu autorizo as
+validacoes serem no24, nao precisa ser na26". This replaces the version
+prerequisite of pending runs only. Record the actual tool/build, input hashes
+and each observed outcome. It does not complete a case, open a write gate,
+raise evidence, prove26.5 equivalence or replace any historical26.5 report.
+Do not combine different versions/input digests into one fictional kit run.
+All existing acceptance criteria, facts-before-code rules and final CI remain.
+The kit form keeps its existing AD major.minor dialect: use AD 24.5; keep full
+build 24.5.2.23 in the separate native observation report, not a new form key.

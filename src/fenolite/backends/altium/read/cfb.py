@@ -981,3 +981,16 @@ def read_compound(path: str | Path, *, limits: Limits = DEFAULT_LIMITS, strict: 
             offset=None,
         )
     return open_compound(source.read_bytes(), file=str(path), limits=limits, strict=strict)
+
+
+def holds_embedded_boards(data: bytes) -> bool:
+    """Whether the PCB document ``data`` holds an Embedded Board Array: its ``EmbeddedBoards6`` storage has
+    a record count above 0 or data (``pcb-document.md``: its empty form is ``Header`` 0, no ``Data``). The
+    records themselves are not decoded (change c0374)."""
+    if not is_compound(data):
+        return False
+    document = open_compound(data)
+    header = document.read("EmbeddedBoards6/Header") if "EmbeddedBoards6/Header" in document else b""
+    count = int.from_bytes(header[:4], "little") if len(header) >= 4 else 0
+    body = document.read("EmbeddedBoards6/Data") if "EmbeddedBoards6/Data" in document else b""
+    return count > 0 or len(body) > 0

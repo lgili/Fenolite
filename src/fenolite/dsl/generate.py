@@ -326,7 +326,7 @@ def record_ring(
     name: object,
 ) -> None:
     target = _part(part, "keepout_ring()")
-    label = _name(design, "keepout_ring", name, target.ref)
+    label = _name(design, "keepout_ring", name, target.label)
     what = f"keepout_ring {label}"
     count = _whole(sides, f"{what}: sides", MIN_SIDES)
     if FULL_TURN % count:
@@ -370,7 +370,7 @@ def record_body(
     name: object,
 ) -> None:
     target = _part(part, "body_keepout()")
-    label = _name(design, "body_keepout", name, target.ref)
+    label = _name(design, "body_keepout", name, target.label)
     what = f"body_keepout {label}"
     back = _length(setback, f"{what}: setback", positive=False)
     intent = BodyKeepoutIntent(label, target.path, back, layers, _forbid(forbid, what))

@@ -28,8 +28,13 @@ def _capabilities(capsys: pytest.CaptureFixture[str], *extra: str) -> dict[str, 
 def test_lists_itself_and_hidden_commands(capsys: pytest.CaptureFixture[str]) -> None:
     result = _capabilities(capsys, "--no-tools")
     commands = {c["name"]: c for c in result["commands"]}  # type: ignore[union-attr]
-    assert commands["capabilities"] == {"name": "capabilities", "mutates": False,
-                                        "schema": "fenolite.capabilities.v0", "hidden": False}  # fmt: skip
+    assert commands["capabilities"] == {
+        "name": "capabilities",
+        "mutates": False,
+        "schema": "fenolite.capabilities.v0",
+        "hidden": False,
+        "claims": False,
+    }
     assert commands["_echo"]["hidden"] is True and commands["_echo"]["mutates"] is True
     assert result["sends_data_offsite"] is False
     assert {router["name"] for router in result["routers"]} == {
@@ -42,7 +47,7 @@ def test_lists_itself_and_hidden_commands(capsys: pytest.CaptureFixture[str]) ->
     freerouting = next(router for router in result["routers"] if router["name"] == "freerouting")
     assert freerouting["sends_data_offsite"] is False and freerouting["builtin"] is True
     assert next(router for router in result["routers"] if router["name"] == "direct")["builtin"] is True
-    assert set(result["extras"]) == {"dev", "geo", "kicad-ipc", "oracles"}  # type: ignore[arg-type]
+    assert set(result["extras"]) == {"dev", "geo", "kicad-ipc", "oracles", "suppliers"}  # type: ignore[arg-type]
 
 
 def test_levels_and_sides_of_equivalent(capsys: pytest.CaptureFixture[str]) -> None:
@@ -50,13 +55,17 @@ def test_levels_and_sides_of_equivalent(capsys: pytest.CaptureFixture[str]) -> N
     listed" (change c0158)."""
     commands = {c["name"]: c for c in _capabilities(capsys, "--no-tools")["commands"]}  # type: ignore[union-attr]
     entry = commands["equivalent"]
-    assert entry["levels"] == [1, 2, 3, 4, 5]
+    assert entry["levels"] == [1, 2, 3, 4, 5, 6, 7, 8, "S"]
     assert entry["sides"] == [
         "altium_pcbdoc", "altium_prjpcb", "altium_schdoc", "fenolite_model", "kicad_pcb", "kicad_pro",
         "kicad_sch",
     ]  # fmt: skip
     assert entry["sides"] == sorted(entry["sides"])
-    assert [name for name, c in commands.items() if "levels" in c or "sides" in c] == ["equivalent"]
+    assert [name for name, c in commands.items() if "levels" in c or "sides" in c] == [
+        "equivalent",
+        "verify-source",
+    ]
+    assert commands["verify-source"]["levels"] == [1, 2, 3, 4, 5, 6, 7, "S", 8]
 
 
 def test_directions_listed(capsys: pytest.CaptureFixture[str]) -> None:
@@ -94,14 +103,25 @@ def test_missing_tools_are_null_not_fatal(
 
 def test_features(capsys: pytest.CaptureFixture[str]) -> None:
     """Scenario "Features listed" (change c0110): ``kicadroutingtools`` lists the features its gate allowed
-    (``pairs``; the escape gate failed), ``octilinear`` ``pairs`` and ``short`` (change c0228), the other
-    routers none, and the matrix is not changed."""
+    (``pairs``; the escape gate failed), ``octilinear`` ``pairs``, ``short`` (change c0228), ``roles``
+    (c0244) and ``propose`` (c0280), the other routers none, and the matrix is not changed."""
     result = _capabilities(capsys, "--no-tools")
     features = {router["name"]: router["features"] for router in result["routers"]}  # type: ignore[union-attr]
     assert features == {
         "direct": [],
         "freerouting": [],
         "kicadroutingtools": ["pairs"],
-        "octilinear": ["pairs", "short"],
+        "octilinear": ["pairs", "propose", "roles", "short"],
     }
     assert all("features" not in row for row in result["matrix"])  # type: ignore[union-attr]
+
+
+def test_get_and_library_verbs_listed(capsys: pytest.CaptureFixture[str]) -> None:
+    """Capability cli-contract, "Library tooling verbs", scenario "Verbs listed" (change c0279)."""
+    commands = {c["name"]: c for c in _capabilities(capsys, "--no-tools")["commands"]}  # type: ignore[union-attr]
+    assert commands["get"]["mutates"] is True and commands["get"]["paged"] == "rows"
+    for verb, writes in (("audit", False), ("replay", False), ("release", True), ("gallery", True)):
+        entry = commands[f"library {verb}"]
+        assert entry["mutates"] is writes and entry["usage"].startswith(f"fenolite library {verb} ")
+    assert "--base REF" in commands["library audit"]["usage"]
+    assert "--version V --out DIR" in commands["library release"]["usage"]

@@ -154,8 +154,8 @@ def test_every_other_kind_is_reported_reasons() -> None:
     mapping = map_rules(records, origin="x.RUL")
     assert mapping.ruleset.rules == () and mapping.sources == ()
     assert [(u.index, u.kind, u.reason) for u in mapping.unmapped] == [
-        (0, "ShortCircuit", "no-counterpart"),
-        (1, "PlaneConnect", "no-counterpart"),
+        (0, "ShortCircuit", "checked"),  # change c0462: fenolite check performs it
+        (1, "PlaneConnect", "read-elsewhere"),
         (2, "BoardOutlineClearance", "net-scope"),  # mapped since c0084; DifferentNets is needed
         (3, "Width", "disabled"),
         (4, "Clearance", "keys"),
@@ -163,7 +163,7 @@ def test_every_other_kind_is_reported_reasons() -> None:
     assert [(i.code, i.severity, i.where) for i in mapping.issues] == [
         ("altium.rule.unmapped", "info", f"x.RUL#{index}") for index in range(5)
     ]
-    assert "ShortCircuit" in mapping.issues[0].message and "no-counterpart" in mapping.issues[0].message
+    assert "ShortCircuit" in mapping.issues[0].message and "(checked)" in mapping.issues[0].message
 
 
 def test_kinds_of_c0084() -> None:
@@ -197,7 +197,8 @@ def test_kinds_of_c0084() -> None:
     assert reasons(
         [
             matrix,
-            record("HoleToHoleClearance", ("GAP", "10mil"), ("ALLOWSTACKEDMICROVIAS", "TRUE")),
+            # TRUE maps since change c0424; a value outside the table does not
+            record("HoleToHoleClearance", ("GAP", "10mil"), ("ALLOWSTACKEDMICROVIAS", "1")),
             record("HoleToHoleClearance", ("GAP", "10mil")),
             record("MinimumAnnularRing"),
             record("BoardOutlineClearance", NETSCOPE="DifferentNets"),
@@ -205,7 +206,7 @@ def test_kinds_of_c0084() -> None:
                 "BoardOutlineClearance", ("GAP", "5mil"), NETSCOPE="DifferentNets", SCOPE2EXPRESSION="IsPad"
             ),
         ]
-    ) == ["keys", "keys", "keys", "value", "value", "scope"]
+    ) == ["matrix-kind", "keys", "keys", "value", "value", "scope"]  # the outline and a cutout differ (c0462)
 
 
 def test_reasons_in_their_order() -> None:
@@ -219,11 +220,9 @@ def test_reasons_in_their_order() -> None:
     assert reasons([record("Height", width, ENABLED="FALSE")]) == ["no-counterpart"]
     assert reasons([record("BoardOutlineClearance", ENABLED="FALSE")]) == ["disabled"]
     assert reasons([record("Width", width, ENABLED="FALSE", NETSCOPE="DifferentNets")]) == ["disabled"]
-    assert reasons([record("Width", width, NETSCOPE="DifferentNets", LAYERKIND="AdjacentLayers")]) == [
-        "net-scope"
-    ]
+    assert reasons([record("Width", width, NETSCOPE="SameNet", LAYERKIND="AdjacentLayers")]) == ["net-scope"]
     assert reasons([record("Width", ("BOGUS", "1"), LAYERKIND="AdjacentLayers")]) == ["layer-kind"]
-    assert reasons([record("Width", ("TOPLAYER_MINWIDTH", "1mil"), ("MINLIMIT", "x"))]) == ["keys"]
+    assert reasons([record("Width", ("BOGUSLAYER_MINWIDTH", "1mil"), ("MINLIMIT", "x"))]) == ["keys"]
     assert reasons([record("Width", ("MINLIMIT", "10"), SCOPE1EXPRESSION="OnLayer('Top')")]) == ["value"]
     assert reasons([record("Width")]) == ["value"]
     assert reasons([record("Clearance", ("GENERICCLEARANCE", "1mil"))]) == ["keys"]
@@ -237,11 +236,15 @@ def test_reasons_in_their_order() -> None:
     ]
 
 
-def test_reasons_mixed_operators_give_scope() -> None:
-    """Scenario "Mixed operators without parentheses": the rule is ``Unmapped`` with the reason scope."""
+def test_mixed_operators_map_by_precedence() -> None:
+    """Scenario "Mixed operators by Altium's precedence" (change c0462): And binds tighter than Or, so the
+    rule maps."""
     fields = record("Width", ("MINLIMIT", "10mil"), SCOPE1EXPRESSION="InNet('A') Or InNet('B') And IsTrack")
     mapping = map_rules([fields], origin="x.RUL")
-    assert [(u.reason, "mixes" in u.detail) for u in mapping.unmapped] == [("scope", True)]
+    track = Selector("and", items=(Selector("net", "B"), Selector("item_kind", "track")))
+    assert mapping.unmapped == ()
+    expected = Selector("or", items=(Selector("net", "A"), track))
+    assert [rule.selector_a for rule in mapping.ruleset.rules] == [expected]
 
 
 def test_reasons_keys_before_rulekind_are_allowed() -> None:
@@ -317,7 +320,7 @@ def test_fixture_export_records() -> None:
     rules = read_rule_file((DATA / "rules_export.RUL").read_bytes())
     mapping = map_rules([r.fields for r in rules.records], origin="rules_export.RUL")
     assert [r.kind for r in mapping.ruleset.rules] == ["clearance", "track_width"]
-    assert [(u.index, u.reason) for u in mapping.unmapped] == [(2, "no-counterpart")]
+    assert [(u.index, u.reason) for u in mapping.unmapped] == [(2, "checked")]  # a ShortCircuit (c0462)
     assert mapping.ruleset.rules[0].min == 254_000
     assert mapping.ruleset.rules[1].selector_a == Selector("netclass", "Power")
 
@@ -432,11 +435,11 @@ def test_blank_matrix_and_matrix_source() -> None:
     assert (rule.kind, rule.min, rule.priority, rule.layers) == ("clearance", 254_000, 3, ())
     assert rule.selector_a == Selector("all") and rule.selector_b is None
     assert reasons([clearance("10mil", ("OBJECTCLEARANCES", ""), ("ISMATRIX", "FALSE"))]) == ["keys"]
-    # the keys of Board Outline Clearance are as they were
+    # a blank matrix of Board Outline Clearance holds no entry either (change c0462)
     edge = record(
         "BoardOutlineClearance", ("GAP", "10mil"), ("OBJECTCLEARANCES", " "), NETSCOPE="DifferentNets"
     )
-    assert reasons([edge]) == ["keys"]
+    assert reasons([edge]) == []
 
 
 def test_uniform_matrix_is_one_clearance() -> None:
@@ -461,7 +464,7 @@ def test_matrix_that_is_no_matrix_stays_unmapped() -> None:
         ], text
     edge = "ClearanceObj_Poly-ClearanceObj_OutlineEdge:196850"
     ((reason, detail),) = details([clearance("6mil", ("OBJECTCLEARANCES", edge))])
-    assert reason == "keys" and "the object kind OutlineEdge" in detail
+    assert reason == "matrix-kind" and "the object kind OutlineEdge" in detail
     twice = "ClearanceObj_Via-ClearanceObj_Track:60000;ClearanceObj_Track-ClearanceObj_Via:70000"
     ((reason, detail),) = details([clearance("6mil", ("OBJECTCLEARANCES", twice))])
     assert reason == "keys" and "two entries for Track and Via" in detail
@@ -478,8 +481,10 @@ POURS = (
     "ClearanceObj_Arc-ClearanceObj_Poly:150000;ClearanceObj_Track-ClearanceObj_Poly:150000;"
     "ClearanceObj_SMDPad-ClearanceObj_Poly:150000;ClearanceObj_THPad-ClearanceObj_Poly:150000;"
     "ClearanceObj_Via-ClearanceObj_Via:35000;ClearanceObj_Via-ClearanceObj_Poly:150000;"
-    "ClearanceObj_Fill-ClearanceObj_Poly:150000;ClearanceObj_Poly-ClearanceObj_Poly:150000"
+    "ClearanceObj_Fill-ClearanceObj_Poly:150000;ClearanceObj_Poly-ClearanceObj_Poly:150000;"
+    "ClearanceObj_Poly-ClearanceObj_Region:150000"
 )
+GRAPHIC = Selector("item_kind", "graphic")
 
 
 def test_one_cell_gives_one_rule_beside_the_generic_one() -> None:
@@ -502,8 +507,8 @@ def test_one_cell_gives_one_rule_beside_the_generic_one() -> None:
 
 
 def test_cells_by_item_kind() -> None:
-    """Scenario "Cells of the poured polygons": the object kinds of one item kind agree, so each pair of
-    item kinds is one rule; the entry for a fill is named and held by no rule."""
+    """Scenario "Cells of the poured polygons": the object kinds of one neutral kind agree, so each pair of
+    neutral kinds is one rule; a fill and a region are a copper graphic (change c0462)."""
     mapping = map_rules([clearance("4mil", ("OBJECTCLEARANCES", POURS))], origin="b")
     generic, *cells = mapping.ruleset.rules
     assert [(r.name.split("/")[1], r.min) for r in cells] == [
@@ -512,14 +517,18 @@ def test_cells_by_item_kind() -> None:
         ("via-via", 88_900),
         ("via-zone", 381_000),
         ("zone-zone", 381_000),
+        ("zone-graphic", 381_000),
     ]
     assert cells[0].selector_a == Selector("item_kind", "track") and cells[0].selector_b == ZONE
-    assert dict(generic.ext["altium"].payload)["cells_not_lifted"] == (
-        "ClearanceObj_Fill-ClearanceObj_Poly:150000"
-    )
-    assert mapping.matrix_cells == ((0, 7, 1),)
+    assert cells[-1].selector_b == GRAPHIC
+    assert "cells_not_lifted" not in dict(generic.ext["altium"].payload)
+    assert mapping.matrix_cells == ((0, 9, 0),)
     read = read_matrix(POURS, "4mil")
-    assert isinstance(read, Matrix) and (read.judged, len(read.unjudged), len(read.cells)) == (7, 1, 5)
+    assert isinstance(read, Matrix) and (read.judged, len(read.unjudged), len(read.cells)) == (9, 0, 6)
+    # without the region's entry the fill and the region differ: no neutral kind tells them apart
+    fill = POURS.rsplit(";", 1)[0]
+    ((reason, detail),) = details([clearance("4mil", ("OBJECTCLEARANCES", fill))])
+    assert reason == "matrix-kind" and "Fill-Poly 0.381 mm and Region-Poly 0.1016 mm" in detail
 
 
 def test_a_cell_that_equals_the_generic_value_and_a_cell_of_zero() -> None:
@@ -537,22 +546,22 @@ def test_a_cell_that_equals_the_generic_value_and_a_cell_of_zero() -> None:
     ]
 
 
-def test_object_kinds_of_one_item_kind_that_disagree() -> None:
-    """Scenario "A cell without a counterpart": the reason names the pairs of item kinds."""
+def test_object_kinds_of_one_neutral_kind_that_disagree() -> None:
+    """Scenario "A cell without a counterpart": an arc and a track, or a fill and a region, that differ are
+    refused (``matrix-kind``), and the reason names the first pair that differs (change c0462)."""
     for text, named in (
-        ("ClearanceObj_Track-ClearanceObj_THPad:157480", "track to pad"),
-        ("ClearanceObj_Arc-ClearanceObj_Poly:0;ClearanceObj_Track-ClearanceObj_Poly:98425", "track to zone"),
-        ("ClearanceObj_Track-ClearanceObj_Track:70000", "track to track"),
+        ("ClearanceObj_Track-ClearanceObj_THPad:157480", "Arc-THPad 0.1524 mm and Track-THPad 0.399999 mm"),
         (
-            "ClearanceObj_THPad-ClearanceObj_THPad:216535;ClearanceObj_Via-ClearanceObj_Via:100000",
-            "pad to pad",
+            "ClearanceObj_Arc-ClearanceObj_Poly:0;ClearanceObj_Track-ClearanceObj_Poly:98425",
+            "Arc-Poly 0 mm and Track-Poly 0.25 mm",
         ),
+        ("ClearanceObj_Track-ClearanceObj_Track:70000", "Arc-Track 0.1524 mm and Track-Track 0.1778 mm"),
+        ("ClearanceObj_Fill-ClearanceObj_Via:0", "Fill-Via 0 mm and Region-Via 0.1524 mm"),
     ):
         fields = clearance("6mil", ("OBJECTCLEARANCES", text))
         mapping = map_rules([fields], origin="b")
         ((reason, detail),) = [(u.reason, u.detail) for u in mapping.unmapped]
-        assert reason == "keys" and f"cells for {named} hold more than one value" in detail, text
-        assert "via to via" not in detail
+        assert reason == "matrix-kind" and named in detail, (text, detail)
         assert mapping.matrix_cells == ((0, 0, len(text.split(";"))),)
     whole = (
         "ClearanceObj_Arc-ClearanceObj_Arc:70000;ClearanceObj_Arc-ClearanceObj_Track:70000;"
@@ -589,14 +598,14 @@ def test_cells_of_a_scoped_record() -> None:
 def test_cells_of_records_that_stay_unmapped_are_counted() -> None:
     one = "ClearanceObj_Via-ClearanceObj_Via:35000"
     records = [
-        clearance("4mil", ("OBJECTCLEARANCES", POURS), SCOPE1EXPRESSION="InPolygon"),
+        clearance("4mil", ("OBJECTCLEARANCES", POURS), SCOPE1EXPRESSION="InNamedPolygon('GND')"),
         clearance("4mil", ("OBJECTCLEARANCES", one), ENABLED="FALSE"),
         clearance("4mil", ("OBJECTCLEARANCES", " ")),
         clearance("4mil", ("OBJECTCLEARANCES", one)),
     ]
     mapping = map_rules(records, origin="b")
     assert [(u.index, u.reason) for u in mapping.unmapped] == [(0, "scope"), (1, "disabled")]
-    assert mapping.matrix_cells == ((0, 0, 8), (3, 1, 0))
+    assert mapping.matrix_cells == ((0, 0, 9), (3, 1, 0))
 
 
 def test_outer_layers_of_a_two_layer_board() -> None:
@@ -664,6 +673,11 @@ def test_inner_layers() -> None:
     assert details([inner], TWO) == [
         ("no-layer", "OnMid on a board without an internal signal layer: the rule applies to no object")
     ]
+    # change c0462: its info says so, in place of altium.rule.unmapped; the record stays Unmapped (kept)
+    ((info,),) = [map_rules([inner], origin="b", layers=TWO).issues]
+    assert (info.code, info.severity, info.where) == ("altium.rule.applies-to-nothing", "info", "b#0")
+    four = map_rules([inner], origin="b", layers=FOUR).issues
+    assert [i.code for i in four] == ["altium.rule.unmapped"]
     assert reasons([inner], layers=PLANES) == ["no-layer"]  # an internal plane is no signal layer
     ((reason, detail),) = details([inner], FOUR)
     assert reason == "scope" and "internal signal layers" in detail
@@ -708,3 +722,18 @@ def test_the_three_records_of_a_matrix_on_two_layers() -> None:
     without = map_rules(records, origin="b")
     assert [r.name for r in without.ruleset.rules] == ["Clearance"]
     assert [(u.index, u.reason) for u in without.unmapped] == [(0, "scope"), (1, "scope")]
+
+
+def test_a_rule_on_one_object_maps_with_either_net_scope() -> None:
+    """change c0377: Width, Routing Via Style, Hole Size and Minimum Annular Ring limit one object, so their
+    ``NETSCOPE`` (AnyNet or DifferentNets) selects nothing more; a Clearance keeps its own net scope."""
+    for kind, keys in (
+        ("Width", (("MINLIMIT", "10mil"),)),
+        ("HoleSize", (("MINLIMIT", "10mil"), ("MAXLIMIT", "100mil"), ("ABSOLUTEVALUES", "TRUE"))),
+        ("MinimumAnnularRing", (("MINIMUMRING", "5mil"),)),
+    ):
+        for scope in ("AnyNet", "DifferentNets"):
+            mapping = map_rules([record(kind, *keys, NETSCOPE=scope)], origin="b")
+            assert not mapping.unmapped and mapping.ruleset.rules, (kind, scope)
+    assert reasons([record("Width", ("MINLIMIT", "10mil"), NETSCOPE="SameNet")]) == ["net-scope"]
+    assert reasons([record("Clearance", ("GAP", "10mil"), NETSCOPE="AnyNet")]) == ["net-scope"]

@@ -1,0 +1,155 @@
+{
+  "artifact_sha256": {
+    "analyze-edge-profile-v1.py": "88b83ebfa6bfd3e12a90c45a93e3f29a47f1c8f65823a2e4c44ea21bee2a67db",
+    "capture-input-edge-refusal.py": "2bcbf5adab67f5498f5c35463b5d2772286c4ed4573071a43ce72b21501b57e7",
+    "capture-repair-refusal.py": "8aa611d5a1d2f9e867ce40d1817d9b2b49bc8878f5d9328769f204373add5289",
+    "input-edge-05-v1/edge-profile.json": "e4f3fe16eba57be729305481873f2614fbbc41ef0eb05f152385df764ab1a67d",
+    "input-edge-05-v1/summary.json": "92179256086af511b03dbe254a11d9129c0a5ef8fa78774dd4527f13a48f9ab9",
+    "inspect-repair-certificate.py": "ad82f2fc8377bc71db48ba8a61c7d3b285bae1aac1ddd49adbf9ee4bb3341ff9",
+    "repair-04-certificate-v1/summary.json": "2d5f7c47a45f45563f338cab3ced090a6af09b4b4524249ba005dbef484a384a",
+    "repair-04-v1/summary.json": "2f4ec8865814c64c63061e0891cba7f9efa083d8f7da92a898212905afe5cb7e"
+  },
+  "ci_run": "41627546110",
+  "current_source_reproductions": [
+    {
+      "elapsed_seconds": 0.77,
+      "failed": 1,
+      "failure": "exact final neck cut input-edge budget exceeded",
+      "test": "tests/corpus/test_altium_pour_census.py::test_pour_time[altium-third-party-pcbdoc-05]"
+    },
+    {
+      "elapsed_seconds": 6.09,
+      "failed": 1,
+      "failure": "exact geometry implicated enumeration-node budget exceeded",
+      "test": "tests/kicad/convert/test_triangle.py::test_demo_boards[04]"
+    }
+  ],
+  "failed_certificate": {
+    "driver_sha256": "ad82f2fc8377bc71db48ba8a61c7d3b285bae1aac1ddd49adbf9ee4bb3341ff9",
+    "elapsed_seconds": 4.237228374986444,
+    "events": [
+      {
+        "error": "geometry.degenerate: exact geometry: nonsimple projected/retained ring",
+        "omitted_count": 0,
+        "operation": "project_boundaries",
+        "status": "failed"
+      },
+      {
+        "omitted_count": 52,
+        "operation": "project_boundaries",
+        "status": "returned"
+      },
+      {
+        "error": "geometry.degenerate: exact geometry: uncovered continuous interval endpoint",
+        "omitted_count": 52,
+        "operation": "certify",
+        "status": "failed"
+      }
+    ],
+    "failure": "geometry.degenerate: exact geometry implicated enumeration-node budget exceeded",
+    "operand_sha256": "2ef60e9c911e2188d5355abf565fe51eda909cd6adc987dedf328100da56c057",
+    "original_functions_restored": true,
+    "status": "failed"
+  },
+  "input_edge_profile": {
+    "closed_bbox_excludable_cut_polygons": 0,
+    "decomposition_authorized_or_proved": false,
+    "driver_sha256": "88b83ebfa6bfd3e12a90c45a93e3f29a47f1c8f65823a2e4c44ea21bee2a67db",
+    "operand_sha256": "2f29135f08e1414d0e59b4968185cdadd8b7c1dd4d73438af2d0078af2e81932",
+    "profiles": {
+      "cut": {
+        "edges": 5826,
+        "forward_collinear_vertices": 0,
+        "polygons": 1101,
+        "reversal_collinear_vertices": 0,
+        "rings": 1103,
+        "zero_length_edges": 0
+      },
+      "subject": {
+        "edges": 4329,
+        "forward_collinear_vertices": 0,
+        "polygons": 16,
+        "reversal_collinear_vertices": 0,
+        "rings": 43,
+        "zero_length_edges": 0
+      }
+    },
+    "scope": "Read-only profile; no geometry simplification or budget change",
+    "single_subject_closed_bbox_edge_totals": [
+      9646,
+      75,
+      268,
+      78,
+      75,
+      78,
+      78,
+      215,
+      174,
+      215,
+      194,
+      215,
+      194,
+      74,
+      19,
+      80
+    ],
+    "total_edges": 10155
+  },
+  "public_source_sha256": {
+    "altium-third-party-pcbdoc-05": "1ff7234670ec5e20092d23ecf0cd5e7380e842ef7efff2b5cb992f53f84c9c69",
+    "kicad-demo-10-0-6-pcb-04": "9be2caf4c257a93fc2b3904add1061a4d2e23cde502a7846513ae7db6b214c30"
+  },
+  "remaining": [
+    "Actual deadline caller not yet recaptured",
+    "All other CI callers remain unvalidated",
+    "No approved scalability/repair solution yet",
+    "Root-owned combined fast and exact-head CI remain required"
+  ],
+  "repair_profile": {
+    "calls": [
+      {
+        "budget": {
+          "repair_candidates": 4096,
+          "repair_nodes": 16,
+          "repair_proposal_nodes": 256,
+          "repair_trials": 2
+        },
+        "elapsed_seconds": 3.733923291991232,
+        "exact_loops": 423,
+        "exception": "geometry.degenerate: exact geometry implicated enumeration-node budget exceeded",
+        "implicated_nodes": 52,
+        "input_edges": 8061,
+        "nearest_conflicts": 51,
+        "operand_sha256": "2ef60e9c911e2188d5355abf565fe51eda909cd6adc987dedf328100da56c057",
+        "variables_per_loop": {
+          "119": 8,
+          "126": 1,
+          "179": 3,
+          "227": 3,
+          "242": 4,
+          "276": 3,
+          "335": 2,
+          "367": 4,
+          "381": 4,
+          "397": 4,
+          "419": 1,
+          "74": 14,
+          "75": 1
+        }
+      }
+    ],
+    "driver_sha256": "8aa611d5a1d2f9e867ce40d1817d9b2b49bc8878f5d9328769f204373add5289",
+    "elapsed_seconds": 6.094195666984888,
+    "original_function_restored": true,
+    "source_commit": "5b0853b7",
+    "test_exit": 1
+  },
+  "runtime_source_sha256": {
+    "src/fenolite/backends/altium/pour.py": "4b03a1b5572bc0c5cfbce162308b38fee77c3707013c40110a4311c885d3e903",
+    "src/fenolite/geometry/boolean/_exact_noding.py": "524b3918b2238468bb9490aea410b11f9634023d40dbd953dcec861f01a19016",
+    "src/fenolite/geometry/boolean/_exact_realization.py": "cd2f2d483da524c286f99c9dcb91080caf7ddb00fb70d40fe14ed1f98b17dcb7",
+    "src/fenolite/geometry/boolean/_exact_repair.py": "409e28adbe000f2cac7cbf8e35840eb5500dcfe918b23cd9979f267cb404a629"
+  },
+  "scope": "PARTIAL current-source causal CI geometry audit; no fix, budgets/assertions/thresholds/certificates unchanged",
+  "source_commit": "5b0853b718e54f2ce487a2545a3ed44df7bd0f9a"
+}

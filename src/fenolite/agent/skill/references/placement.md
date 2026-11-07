@@ -1,7 +1,7 @@
 ---
 topic: placement
 title: Placing parts
-summary: place() in the script, staged parts and the grid strategy, moving a part on the board, copying a block by its pads, where the pads are, and text fields.
+summary: place() by coordinates or by reference, staged parts and the grid strategy, moving parts on the board, copying a block by its pads, pads and text fields.
 ---
 
 # Placing parts
@@ -55,6 +55,10 @@ design.tooling_hole("TH1", mm(27.5), mm(2.5), drill=mm(2))
   the outline's top-left corner, Y down, and they position the footprint's own origin. `rot` is the
   footprint's angle in degrees, as KiCad stores it. `side` is `top` or `bottom`.
 - **`locked=True`** is the placement lock: `fenolite place` refuses to move the part (`place.locked`).
+- **By reference:** `c2.place(right_of=u1, gap=mm(1))`, `c1.place(left_of=u1.pad(1), by=c1.pad(2))`,
+  `j1.place(left=board.left + mm(2), center_y=board.center_y)`, with `above`, `below` and `align=`; the
+  build resolves them (`result.placement.relative`). Who wins: locked `place()`, the board, `edits.toml`,
+  `place()`, the block's `layout()`, staging (page `board-floorplan`).
 - **A part without `place()`** is staged: the build puts it in a row 5 mm to the right of the outline
   and reports `layout.unplaced` (warning). `result.staged` of `build` lists these parts.
 - **`design.near(key, parts, anchor, within=…)`** is a placement rule: each part of `parts` keeps a
@@ -75,6 +79,8 @@ design.tooling_hole("TH1", mm(27.5), mm(2.5), drill=mm(2))
   are locked, and a fiducial keeps tracks, vias and pours out of `clear_<ref>`.
 - Place first what the mechanics fix (connectors, holes, anything that meets the enclosure), then the
   parts with the most connections, then their passives next to the pins they serve.
+
+Versioned layouts and `inst.place(..., side="bottom")`: page `block-layouts`.
 
 ## On the board
 
@@ -164,16 +170,16 @@ fenolite region blink/build --box 110mm,102mm,120mm,110mm --kinds footprint,pad 
 
 ## Text fields
 
-A footprint carries two texts, `Reference` on the silkscreen and `Value` on the fabrication layer.
-`part.field(name, ...)` places one, once per name:
+A footprint has `Reference` and `Value` fields. `part.field(name, ...)` places one, once per name:
 
 - `outside="top"` (or `bottom`, `left`, `right`) puts it beside the courtyard, `gap=` away;
 - `dx=` and `dy=` give its offset from the part's position in the board frame, with `rot=` for the
   angle of the text; they are given together and do not turn with the part;
 - `visible=False` hides it; `layer="silk"` or `"fab"`, `size=` and `justify=` set the rest.
 
-Only `Reference` and `Value` can be placed. On a rebuild a field moved in KiCad wins over the script
-unless the request says `locked=True`.
+Declared `Part(properties=...)` keys also work:
+`r1.field("MPN", visible=True, layer="fab", rot=0)` requires `MPN`.
+On rebuild KiCad's field wins unless `locked=True`. Unknown or reserved names fail.
 
 ## What the build refuses
 

@@ -708,8 +708,10 @@ def graphic_text(graphic: Graphic) -> str | None:
 
 
 def edges_equal(outline: Outline | None, graphics: Sequence[Graphic]) -> bool:
-    """Whether ``graphics`` are exactly the edges of ``outline``, lines and arcs compared as edge texts."""
+    """Whether ``graphics`` are the outline's geometry and, when explicit, its generated stroke width."""
     if outline is None:
+        return False
+    if outline.stroke_width is not None and any(g.width != outline.stroke_width for g in graphics):
         return False
     texts = [graphic_text(graphic) for graphic in graphics]
     if any(text is None for text in texts):

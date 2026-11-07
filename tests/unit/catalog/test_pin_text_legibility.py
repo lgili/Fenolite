@@ -62,10 +62,10 @@ _NARROW = (
     "Altium, which also settles the width the Altium size assumes"
 )
 KNOWN: dict[str, str] = {
-    "Mini.kicad_sym:Mini_DualGate": _NO_BODY,
-    "Mini_v9.kicad_sym:Mini_DualGate": _NO_BODY,
-    "Mini.kicad_sym:Mini_QFP32_IC": _NARROW,
-    "Mini_v9.kicad_sym:Mini_QFP32_IC": _NARROW,
+    "tests/data/libs/Mini.kicad_sym:Mini_DualGate": _NO_BODY,
+    "tests/data/libs/Mini_v9.kicad_sym:Mini_DualGate": _NO_BODY,
+    "tests/data/libs/Mini.kicad_sym:Mini_QFP32_IC": _NARROW,
+    "tests/data/libs/Mini_v9.kicad_sym:Mini_QFP32_IC": _NARROW,
 }
 """Symbols that do not pass, with the reason each is left as it is (design of change c0134)."""
 
@@ -76,7 +76,10 @@ def _cases() -> list[tuple[str, SymbolDef]]:
         for entry in list_entries(kind="symbol")
     ]
     for path in LIBRARIES:
-        cases += [(f"{path.name}:{s.name}", s) for s in resolve_extends(read_symbol_library(path))]
+        cases += [
+            (f"{path.relative_to(ROOT).as_posix()}:{s.name}", s)
+            for s in resolve_extends(read_symbol_library(path))
+        ]
     return cases
 
 
@@ -94,6 +97,11 @@ def test_every_authored_library_is_measured() -> None:
         "tests/data/libs/Mini_v9.kicad_sym",
     } <= measured
     assert set(KNOWN) <= set(names)
+    assert {
+        f"{folder}/Mini.kicad_sym:{symbol}"
+        for folder in ("examples/import_python/lib", "tests/data/libs")
+        for symbol in ("Mini_LED", "Mini_R")
+    } <= set(names)
 
 
 @pytest.mark.parametrize(("name", "symbol"), CASES, ids=[name for name, _ in CASES])

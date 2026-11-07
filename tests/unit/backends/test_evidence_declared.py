@@ -24,7 +24,12 @@ from fenolite.backends.matrix import ModuleClaim, module_claims, packages, probl
 from fenolite.core.evidence import Evidence, Level
 
 ROOT = Path(__file__).resolve().parents[3]
-LIVE = ("fenolite.backends.altium", "fenolite.backends.kicad", "fenolite.backends.specctra")
+LIVE = (
+    "fenolite.backends.altium",
+    "fenolite.backends.kicad",
+    "fenolite.backends.librepcb",
+    "fenolite.backends.specctra",
+)
 HEAD = "from fenolite.core.evidence import Evidence, Level\n"
 GOOD = HEAD + 'EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-PCB-READ",))\n'
 EMPTY_CLAIMS = "from fenolite.backends.base import MatrixRow\nMATRIX: tuple[MatrixRow, ...] = ()\n"
@@ -256,7 +261,8 @@ def test_literal_level_in_claims_is_refused(make_package: Maker) -> None:
     )
     package = make_package({"claims.py": literal}, "fenolite_c0067_literal.kicad")
     found = problems([package])
-    assert len(found) == 2 and all(message.startswith("kicad.claims:") for message in found), found
+    assert len(found) == 3 and all(message.startswith("kicad.claims:") for message in found), found
+    assert any("has no version" in message for message in found)
     assert any("names Level" in m for m in found) and any("calls Evidence(...)" in m for m in found)
     default = (
         "from fenolite.backends.base import MatrixRow\n"
@@ -268,9 +274,11 @@ def test_literal_level_in_claims_is_refused(make_package: Maker) -> None:
 
 
 def test_live_claims_state_no_level() -> None:
+    from fenolite.backends.matrix import _literal_problems
+
     for package in LIVE:
-        source = (ROOT / "src" / Path(*package.split(".")) / "claims.py").read_text(encoding="utf-8")
-        assert "Level" not in source and "Evidence(" not in source, package
+        # Inspect actual names/calls: VersionEvidence(...) is scope metadata, not Evidence(...).
+        assert _literal_problems(package) == [], package
 
 
 def _row(backend: str, kind: str):  # type: ignore[no-untyped-def]

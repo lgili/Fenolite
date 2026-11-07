@@ -19,6 +19,7 @@ from decimal import Decimal
 from typing import Literal, cast
 
 from fenolite.core.errors import FormatError
+from fenolite.core.schema_ids import accepts_schema
 from fenolite.core.units import Nm, parse_length
 from fenolite.model.presentation import PAPER_SIZES
 
@@ -249,7 +250,7 @@ def read_spec(text: str, *, file: str = "") -> DrawingSpec:
     except tomllib.TOMLDecodeError as error:
         raise FormatError(f"not TOML: {error}", file=file) from error
     problems: list[tuple[str, str]] = []
-    if data.get("schema") != SCHEMA:
+    if not accepts_schema(data.get("schema"), SCHEMA):
         problems.append(("schema", f"is {data.get('schema')!r}, not {SCHEMA!r}"))
     found: dict[str, dict[str, object]] = {name: {} for name in TABLES}
     for name, table in data.items():

@@ -36,26 +36,34 @@ BASELINE = {
     # change c0168: the regions with ISBOARDCUTOUT=TRUE on the Keep-Out layer (one in -03, four in -06) are
     # board cut-outs of the import, Edge.Cuts rings, no longer graphics of that layer
     "altium-third-party-pcbdoc-03": {"Mech.1": 12, "Mech.13": 216, "Mech.15": 225},
+    # change c0411: the region of -04's component on the Keep-Out layer with KEEPOUTRESTRICTIONS is a rule
+    # area of its footprint on every copper layer, no longer a graphic of that layer
+    # change c0450 (task 4.4): the 56 tracks with the byte of Mechanical 16 and the long id of Mechanical 31
+    # lie on Mech.31, the layer Altium shows them on
     "altium-third-party-pcbdoc-04": {
-        "Altium.KeepOut": 1,
         "Mech.1": 12,
         "Mech.15": 92,
-        "Mech.16": 56,
+        "Mech.31": 56,
         "Mech.2": 73,
         "Mech.7": 1,
     },
     "altium-third-party-pcbdoc-05": {"Mech.1": 4, "Mech.2": 92, "Mech.4": 92},
-    "altium-third-party-pcbdoc-06": {
-        "Altium.74": 3,
-        "Altium.KeepOut": 2,
+    # change c0407: the three regions of KIND=1 (polygon cut-outs) on the Multi-Layer layer of -06 are rule
+    # areas against pours on every copper layer, no longer graphics of layer 74
+    # change c0450 (task 4.5): of the 49 on the byte of Mechanical 16, 25 texts name Mechanical 19 by their
+    # long ids
+    "altium-third-party-pcbdoc-06": {  # its 2 component cut-outs are Edge.Cuts since c0443
         "Mech.1": 18,
         "Mech.11": 105,
         "Mech.13": 217,
         "Mech.15": 482,
-        "Mech.16": 49,
+        "Mech.16": 24,
+        "Mech.19": 25,
         "Mech.2": 1,
         "Mech.6": 1,
     },
+    # change c0450 (task 4.4): of the 116 on the byte of Mechanical 16, 16 tracks name Mechanical 31 and 44
+    # Mechanical 32 by their long ids
     "altium-third-party-pcbdoc-07": {
         "In1.Cu": 5,
         "In2.Cu": 3,
@@ -63,7 +71,9 @@ BASELINE = {
         "Mech.13": 8,
         "Mech.14": 1,
         "Mech.15": 36,
-        "Mech.16": 116,
+        "Mech.16": 56,
+        "Mech.31": 16,
+        "Mech.32": 44,
         "Mech.2": 21,
         "Mech.3": 41,
     },
@@ -112,14 +122,14 @@ def test_baseline_layers(item) -> None:
 
 
 CONVERTED_LOSSES = {
-    "altium-third-party-pcbdoc-01": {"body": 247, "rule": 1, "graphic": 20, "model": 166},
-    "altium-third-party-pcbdoc-02": {"body": 42, "rule": 1, "text": 1, "model": 18},
-    "altium-third-party-pcbdoc-03": {"body": 50, "rule": 2, "schematic": 1, "model": 27},
-    "altium-third-party-pcbdoc-04": {"body": 33, "rule": 1, "model": 2},
-    "altium-third-party-pcbdoc-05": {"body": 23, "rule": 1},
-    "altium-third-party-pcbdoc-06": {"body": 27, "rule": 1, "graphic": 3, "model": 19},
-    "altium-third-party-pcbdoc-07": {"body": 24, "model": 3},
-    "altium-third-party-pcbdoc-08": {"body": 1298, "text": 298, "graphic": 1000, "schematic": 1, "model": 52},
+    "altium-third-party-pcbdoc-01": {"altium-storage": 2, "plane": 8},
+    "altium-third-party-pcbdoc-02": {"altium-storage": 2, "plane": 5},
+    "altium-third-party-pcbdoc-03": {"altium-storage": 4, "schematic": 1},
+    "altium-third-party-pcbdoc-04": {"altium-storage": 2, "rule": 1},
+    "altium-third-party-pcbdoc-05": {"altium-storage": 2},
+    "altium-third-party-pcbdoc-06": {"altium-storage": 3},
+    "altium-third-party-pcbdoc-07": {"altium-storage": 4, "rule": 1},
+    "altium-third-party-pcbdoc-08": {"altium-storage": 7},
 }
 """The losses per kind, measured on 2026-10-15; on 2026-10-16 (change c0170) the slots of the pads of
 ``-07`` (8) and ``-08`` (4) are kept: the import holds a slot's axis in the pad's own frame, and none is
@@ -130,14 +140,88 @@ derived library (a ``model`` change); every other embedded model is a ``model`` 
 (118, 14, 3, 0, 0, 2, 3 and 41 in rows ``-01`` to ``-08``) or turned about X or Y (48, 4, 24, 2, 0, 17, 0
 and 11). The bodies stay ``body`` losses, since the board's footprints carry no model. No row has a
 ``pad-margin`` loss: the only scoped expansion rules of the documents are of scope ``IsVia`` (rows ``-01``,
-``-04``, ``-05``), which govern no pad."""
+``-04``, ``-05``), which govern no pad.
+
+Change c0372 (found on 2026-11-04) writes the generated schematic of ``-08`` on several pages: the
+generator refused it as one page, and it is now a ``schematic`` change, not a loss.
+
+Change c0450 (2026-11-06) counts each storage a conversion through KiCad does not carry (``PrimitiveGuids``,
+``WaivedViolations`` and the ``T*Violation`` storages) as an ``altium-storage`` loss: 1, 0, 2, 0, 1, 1, 2 and
+5 in rows ``-01`` to ``-08``.
+
+Change c0461 (2026-11-06) counts each Split Plane polygon of an internal plane in the chain as a ``plane``
+loss: the conversion gives a plane no zone. Rows ``-01`` (8) and ``-02`` (5) hold planes in their chains.
+
+Change c0459 (2026-11-06) no longer carries ``BoardRegions``, which every row holds with one record (S-2181):
+one more ``altium-storage`` loss per row. ``CustomMaskShapes`` is not carried either, but no row holds data in
+it.
+
+Change c0460 (2026-11-06) counts ``SmartUnions`` lost as frame-bound: one more ``altium-storage`` loss in rows
+``-02``, ``-03``, ``-04``, ``-06``, ``-07`` and ``-08``, which hold data in it (S-2190).
+
+Change c0465 (2026-11-06, tasks 5.1 and 5.2) maps the Net Antennae record of ``-04`` and ``-07``, whose
+tolerance is 1 mil (S-2243), onto an ``antenna`` rule, which the writer rebuilds and the import no longer
+keeps: KiCad 10.0 checks no antenna rule, so it is one ``rule`` loss in each row. The Short-Circuit records
+allow no short in any row and stay kept.
+
+Change c0407 (2026-11-05): the 12 lines and 8 arcs of the Keep-Out layer of ``-01`` are each the rule area of
+the band their width covers (they were ``graphic`` losses, open outlines that enclosed no area), and the three
+polygon cut-outs on the Multi-Layer layer of ``-06`` are rule areas of the import (they were ``graphic``
+losses of layer 74).
+
+Change c0423 (2026-11-05) places every embedded model, on either side and for any turn, and writes every
+other body as a generated STEP model: no row has a ``body`` or ``model`` loss. Of the bodies of rows ``-01``
+to ``-08``, 245, 42, 45, 3, 23, 27, 6 and 81 are carried by their embedded models and 2, 0, 5, 30, 0, 0, 18
+and 1217 are generated; none falls back to the prism over its outline.
+
+Change c0424 (2026-11-05) gives every rule record a fate: each is mapped, kept as written for an Altium
+write-back, or a declared format limit of KiCad, so no row has a ``rule`` loss.
+
+Change c0422 (2026-11-05): a footprint's own texts are written as ``fp_text user`` children (c0409 reported
+them lost); ``FOOTPRINT_TEXTS`` holds the counts, each written and none lost.
+
+Change c0428 (2026-11-05; rows ``-01`` to ``-07``, measured on ``origin/cac/lote-24`` 948b6a376 with c0428):
+no ``rule`` is lost (each rule record has its own fate since c0424); the text of ``-02`` on the drill drawing
+layer is written on a user row; ``-03`` still loses its schematic, now because several parts on its board
+share a designator."""
+FOOTPRINT_TEXTS = {
+    "altium-third-party-pcbdoc-02": 4,
+    "altium-third-party-pcbdoc-03": 46,
+    "altium-third-party-pcbdoc-04": 3,
+    "altium-third-party-pcbdoc-06": 25,
+    "altium-third-party-pcbdoc-07": 12,
+    "altium-third-party-pcbdoc-08": 554,
+}
+"""The texts of the components of a row that are neither its designator nor its comment, measured on
+2026-11-05 (change c0422): the report's ``footprint-text`` row counts them and writes every one."""
 ZONE_ARC_OUTLINES = {
     "altium-third-party-pcbdoc-02": 2,
     "altium-third-party-pcbdoc-07": 4,
     "altium-third-party-pcbdoc-08": 6,
 }
-"""Zones whose Altium outline holds an arc vertex: the import leaves them without an outline, and the
-conversion writes the flattened outline of the source record (measured on 2026-10-15)."""
+"""Zones whose Altium outline holds an arc vertex (measured on 2026-10-15): the import gives each the ring of
+its arcs chorded within its ``ARCRESOLUTION``, and the conversion counts it ``changed`` and carries the arcs
+for the way back (change c0463, task 1.3)."""
+
+
+POLYGON_CUTOUTS = {"altium-third-party-pcbdoc-01": 2, "altium-third-party-pcbdoc-06": 13}
+"""The free regions of ``KIND=1`` (polygon cut-outs) of a row, measured on 2026-11-05 (change c0407): two on
+Top and Bottom in ``-01``; eight on Top, two on Bottom and three on the Multi-Layer layer in ``-06``. Each
+was copper of its layer (or a graphic of layer 74) before c0407."""
+
+
+@pytest.mark.parametrize("item", [i for i in ROWS if i.id in POLYGON_CUTOUTS], ids=lambda i: i.id)
+def test_polygon_cutouts_keep_pours_off(item) -> None:
+    """A polygon cut-out is a rule area that forbids pours alone, never copper (change c0407)."""
+    design = AltiumBackend().read(require(item)).design
+    assert design.board is not None
+    pour_only = [
+        k
+        for k in design.board.keepouts
+        if k.no_copper_pour and not (k.no_tracks or k.no_vias or k.no_pads or k.no_footprints)
+    ]
+    assert len(pour_only) == POLYGON_CUTOUTS[item.id]
+    assert not [g for g in design.board.graphics if g.layer == "Altium.74"]
 
 
 @pytest.mark.parametrize("item", ROWS, ids=lambda i: i.id)
@@ -158,6 +242,11 @@ def test_converted_reports(item) -> None:
             if row.lost
         }
         assert {kind: count for kind, count in losses.items() if count} == CONVERTED_LOSSES[item.id]
+    rows = {row.kind: row for row in result.conversion.report.rows}
+    texts = rows.get("footprint-text")
+    counted = (texts.source, texts.written, texts.lost) if texts is not None else (0, 0, 0)
+    expected = FOOTPRINT_TEXTS.get(item.id, 0)
+    assert counted == (expected, expected, 0)
     flattened = sum(
         reason.count
         for row in result.conversion.report.rows

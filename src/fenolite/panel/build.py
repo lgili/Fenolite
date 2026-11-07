@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
+from fenolite.core.trig import FULL_TURN
 from fenolite.model import canonical
 from fenolite.model.design import Design
 from fenolite.model.panel import Panel
@@ -32,8 +33,9 @@ EVIDENCE_FLAT = Evidence(Level.ORACLE_VERIFIED, oracle="kicad-cli", hypotheses=(
 EVIDENCE_EMBEDDED = Evidence(
     Level.UNKNOWN, hypotheses=("H-A-PANEL-KIT", "H-A-PANEL-LAYERKIND", "H-A-PANEL-RECORD")
 )
-"""The Embedded Board Array, as measured: no record is known before Part Q, so nothing is claimed and nothing
-is written while ``pcbdoc.EMBEDDED_ARRAYS`` is false."""
+"""The Embedded Board Array: its record (``H-A-PANEL-RECORD``), the mechanical layer types it leaves unset
+(``H-A-PANEL-LAYERKIND``) and Part Q cases Q7 to Q12 (``H-A-PANEL-KIT``), at the levels of their register
+rows. Q7 to Q9 passed in an agent run (S-1585, S-1593), which raises no level, so nothing is claimed."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,21 +109,68 @@ def kicad_panel(panel: Panel, source: Path, *, target: int) -> PanelOutput:
     return PanelOutput(dict(sorted(files.items())), laid, issues, "kicad", score_layer, board)
 
 
-def altium_panel(panel: Panel, source: Path, *, pour: PourMode | None = None) -> PanelOutput:
-    """The flattened Altium panel of ``panel`` over the board file ``source`` (a ``.kicad_pcb`` or a
-    ``.PcbDoc``), with one ``altium.panel-flattened`` info that says why it is not the array. ``pour`` is
-    the pour mode of the document (``flat_files``, change c0215)."""
+class EmbeddedRefused(ValueError):
+    """``--altium-panel embedded`` asked for a panel that cannot be an Embedded Board Array; the message
+    says why (``embedded_reason``)."""
+
+
+def array_document(source: Path, out: Path) -> str | None:
+    """The path of the board document ``source`` relative to the panel's output folder ``out``, with ``/``,
+    as an Embedded Board Array names it (``DOCUMENTPATH``, ``H-A-PANEL-RECORD``); ``None`` when no relative
+    path exists (another drive)."""
+    import os
+
+    try:
+        return Path(os.path.relpath(source.resolve(), out.resolve())).as_posix()
+    except ValueError:
+        return None
+
+
+def embedded_reason(panel: Panel, source: Path, out: Path | None) -> str | None:
+    """Why ``panel`` over ``source`` cannot be written as an Embedded Board Array into ``out``, or ``None``
+    when it can (change c0173, Decision 8; Part Q, ``docs/evidence/altium-pcb.md``)."""
     from fenolite.backends.altium.pcbdoc import EMBEDDED_ARRAYS
-    from fenolite.panel.altium import FLATTENED, flat_files
+
+    if not EMBEDDED_ARRAYS:
+        return "the Embedded Board Array waits on the maintainer's kit (pcbdoc.EMBEDDED_ARRAYS is off)"
+    if source.suffix.lower() != ".pcbdoc":
+        return "an Embedded Board Array references a .PcbDoc, and the board is a .kicad_pcb"
+    if panel.array.mirrored or panel.array.rotation % FULL_TURN:
+        return "a turned or mirrored grid is not written as an Embedded Board Array (Part Q measured neither)"
+    if out is None or array_document(source, out) is None:
+        return "the board has no path relative to the output folder"
+    return None
+
+
+def altium_panel(
+    panel: Panel, source: Path, *, pour: PourMode | None = None, out: Path | None = None, form: str = "auto"
+) -> PanelOutput:
+    """The Altium panel of ``panel`` over the board file ``source`` (a ``.kicad_pcb`` or a ``.PcbDoc``)
+    written into the folder ``out``. With ``form`` ``auto`` or ``embedded`` and nothing in
+    ``embedded_reason``, it is Altium's Embedded Board Array of ``source`` by its path relative to ``out``
+    (``panel.altium.embedded_files``); otherwise the flattened panel, with one ``altium.panel-flattened``
+    info that says why it is not the array. ``pour`` is the pour mode of a flattened document
+    (``flat_files``, change c0215); an array's panel writes its pours as outlines."""
+    from fenolite.panel.altium import FLATTENED, embedded_files, flat_files
 
     board, data = read_source(source)
     laid = layout(panel, board)
     issues = list(check_panel(panel, laid, board))
-    reason = (
-        "the Embedded Board Array waits on the maintainer's kit (pcbdoc.EMBEDDED_ARRAYS is off)"
-        if not EMBEDDED_ARRAYS
-        else "an Embedded Board Array references a .PcbDoc, and the board is a .kicad_pcb"
-    )
+    reason = "--altium-panel flat" if form == "flat" else embedded_reason(panel, source, out)
+    if reason is None and any(copy.rotation % FULL_TURN for copy in laid.copies):
+        reason = "a turned copy is not written as an Embedded Board Array (Part Q measured none)"
+    if form == "embedded" and reason is not None:
+        raise EmbeddedRefused(reason)
+    if reason is None and out is not None:
+        document = array_document(source, out)
+        assert document is not None
+        if any(i.severity == "error" for i in issues):
+            return PanelOutput({}, laid, tuple(issues), "embedded", board=board)
+        files, found = embedded_files(panel, laid, board, document)
+        issues += found
+        if files:
+            files[f"{panel.name}.panel.json"] = panel_json(panel, data)
+        return PanelOutput(dict(sorted(files.items())), laid, tuple(issues), "embedded", board=board)
     note = Issue(FLATTENED, "info", f"the panel is written flattened: {reason}", where=panel.name)
     if any(i.severity == "error" for i in issues):
         return PanelOutput({}, laid, tuple(issues), "flat", board=board, notes=(note,))
@@ -150,8 +199,11 @@ __all__ = [
     "EVIDENCE",
     "EVIDENCE_EMBEDDED",
     "EVIDENCE_FLAT",
+    "EmbeddedRefused",
     "PanelOutput",
     "altium_panel",
+    "array_document",
+    "embedded_reason",
     "kicad_panel",
     "panel_json",
     "read_source",

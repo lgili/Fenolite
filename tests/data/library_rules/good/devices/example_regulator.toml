@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as synthetic test data (change c0262); no real product.
+schema = "fenolite.device.v1"
+id = "Rules:ExampleRegulator"
+version = "1.0.0"
+summary = "Illustrative six-pin regulator; not a real product"
+licence = "CC0-1.0"
+evidence = "INFERRED"
+manufacturer = "Example"
+mpn = "EXREG6"
+symbol = "Rules:ExampleRegulatorPins"
+footprint = "Rules:ExampleRegulatorLand"
+ref_prefix = "U"
+value = "EXREG6"
+ground = "GND"
+
+[pins]
+EN = "4"
+GND = "3"
+IN = "1"
+NC = "6"
+OUT = "2"
+SENSE = "5"

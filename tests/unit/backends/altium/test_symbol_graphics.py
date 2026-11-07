@@ -215,9 +215,40 @@ def test_symbol_without_graphics_and_symbol_of_two_units() -> None:
     bare, found = _simplified(dataclasses.replace(symbol, graphics=()))
     assert not bare.drawn and "holds no graphics" in found.message
     two = dataclasses.replace(symbol, units=(SymbolUnit(1, 1), SymbolUnit(2, 1)))
-    dual, found = _simplified(two)
+    # change c0261: graphics common to all units (unit 0) are drawn on Part Zero
+    issues: list[Issue] = []
+    common = mapped(two, issues)
+    assert common.drawn and common.parts == 2 and len(common.rectangles) == 2
+    assert {g.part for g in common.graphics} == {0} and not issues
+    first_only = dataclasses.replace(
+        two, graphics=tuple(dataclasses.replace(g, unit=1) for g in two.graphics)
+    )
+    dual, found = _simplified(first_only)
     assert not dual.drawn and dual.parts == 2 and len(dual.rectangles) == 2
-    assert "which unit or body style" in found.message
+    assert "a part draws no graphic" in found.message
+
+
+def test_graphics_per_unit_and_derived_symbols() -> None:
+    """Change c0261: each graphic on the part of its unit, other body styles dropped, a derived symbol
+    flattened onto its base."""
+    symbol = get_symbol("Fenolite:Capacitor")
+    per_unit = tuple(dataclasses.replace(g, unit=u, body_style=1) for u in (1, 2) for g in symbol.graphics)
+    styled = (*per_unit, dataclasses.replace(symbol.graphics[0], unit=1, body_style=2))
+    two = dataclasses.replace(symbol, units=(SymbolUnit(1, 1), SymbolUnit(2, 1)), graphics=styled)
+    written, found = _simplified(two)
+    assert written.drawn and {g.part for g in written.graphics} == {1, 2}
+    assert len(written.graphics) == len(per_unit) and "other body styles" in found.message
+    derived = SymbolDef(
+        id="sym_x",
+        name="Cap_Variant",
+        library=symbol.library,
+        extends=symbol.name,
+        properties={"Value": "10n"},
+    )
+    with pytest.raises(ValueError, match="cannot resolve"):
+        mapped(derived)
+    flat = from_symbol_def(derived, lib_ref="Cap_Variant", footprint=None, parents=(symbol,))
+    assert flat.pins == mapped(symbol).pins and flat.comment == "10n" and flat.prefix == symbol.reference
 
 
 def test_body_on_the_sheet_is_the_symbol_moved() -> None:

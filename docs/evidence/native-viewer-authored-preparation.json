@@ -1,0 +1,75 @@
+{
+  "source_core": "bfda2ac4fafc1f58827c98921f60a6eba75bbbc0",
+  "prepared_inputs": 45,
+  "viewer_exports": 10,
+  "viewer_dry_confirm_exits": [
+    0,
+    0
+  ],
+  "native_ui_operated": false,
+  "cad_configuration_changed": false,
+  "actual_native_versions": {},
+  "human_approval": {},
+  "c0177": {
+    "power_ports_sample": 13,
+    "ports_tree_io": 4,
+    "sheet_entries_tree_io": 2,
+    "title_block": true,
+    "authored_font_points": [
+      10,
+      14
+    ],
+    "pending": [
+      "native24.5.2.23 captures",
+      "live --serve review",
+      "maintainer approval/refusal"
+    ]
+  },
+  "c0178": {
+    "default_board_and_schematic_exports": true,
+    "actual_KiCad_written_theme": null,
+    "themed_viewer_export": null,
+    "pending": [
+      "native KiCad save of authored theme",
+      "with/without native captures",
+      "themed viewer export",
+      "maintainer approval/refusal"
+    ]
+  },
+  "c0180": {
+    "reader_candidate_notes": [
+      "Not drawn: 1 \u00d7 TransmissionLineTableData."
+    ],
+    "native_F0_5": null,
+    "pending": [
+      "actual native F0.1/F0.2/F0.5 author drawing from routed board",
+      "native scan/hash and fresh viewer export",
+      "maintainer approval/refusal"
+    ],
+    "candidate_inputs_not_native_accepted": true
+  },
+  "c0181": {
+    "native_layer_name": "Signal Top",
+    "mask_nm": 101600,
+    "mask_source": "rule MaskAll",
+    "pending": [
+      "native layer/mask screenshots",
+      "maintainer approval/refusal"
+    ]
+  },
+  "c0186": {
+    "variant": "Lite",
+    "not_fitted": "R1 by UID",
+    "parameter_override": "D1 Value=22n",
+    "expected_fitted": 2,
+    "expected_not_fitted": 1,
+    "pending": [
+      "native variant capture",
+      "maintainer approval/refusal"
+    ]
+  },
+  "focused_tests": {
+    "passed": 39,
+    "native_tests_run": false
+  }
+}

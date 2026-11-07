@@ -12,14 +12,19 @@ from pathlib import Path
 from _buildhelp import blink, build, codes
 
 from fenolite.backends.kicad import embed
+from fenolite.backends.kicad.mod import read_footprint
 from fenolite.core.evidence import Level
 from fenolite.core.ids import derived_id
+from fenolite.dsl import Part
+from fenolite.dsl.lock import LOCK_CODES
 from fenolite.lens.altium_schematic import ISSUE_CODES as ALTIUM_ISSUE_CODES
 from fenolite.lens.build import BUILD_EVIDENCE, BUILD_ISSUE_CODES, plane_issues
+from fenolite.lens.edits import EDIT_ISSUE_CODES
 from fenolite.lens.preserve import PRESERVE_ISSUE_CODES
 from fenolite.model.board import Zone
 from fenolite.model.circuit import Net
 from fenolite.model.design import Design
+from fenolite.model.drawn_connect import ISSUE_CODES as DRAWN_ISSUE_CODES
 
 ROOT = Path(__file__).resolve().parents[3]
 TESTS = ROOT / "tests" / "unit" / "lens"
@@ -27,8 +32,10 @@ TESTS = ROOT / "tests" / "unit" / "lens"
 
 def test_closed_set() -> None:
     table = {
+        "build.bom-only": "error",
         "build.unknown-pin": "error", "build.pin-on-two-nets": "error", "build.pin-without-pad": "error",
         "build.pin-pad-map-invalid": "error",
+        "build.unattached": "warning",
         "build.no-footprint": "error", "build.no-board": "error", "build.name-case-collision": "error",
         "build.layout-exists": "error", "build.pin-ambiguous": "warning",
         "build.unused-pin-without-pad": "warning",
@@ -41,6 +48,10 @@ def test_closed_set() -> None:
         "build.library-changed": "warning",
         "build.no-connect-on-net": "error",  # c0036
         "build.plane-zone-missing": "warning",  # c0107 (build.plane-not-lowered of c0038 left the table)
+        "build.teardrops-overlap": "info",  # c0277
+        "build.image-missing": "error",
+        "build.pad-unknown": "error",
+        "build.image-format": "error",
         "build.diff-pair-name": "warning", "build.i2c-pullup-missing": "warning",  # c0073
         "build.diff-pair-gap-shadowed": "warning",  # c0104
         "build.impedance-layer": "error", "build.impedance-shadowed": "warning",  # c0105
@@ -54,29 +65,73 @@ def test_closed_set() -> None:
         "build.schematic-netlist-differs": "error",  # c0063: the netlist guard
         "build.sheet-file-collision": "error",  # c0070: module sheets
         "build.sheet-stale": "warning",
+        "build.block-port-merged": "info",
+        "build.schematic-wired-fallback": "info",  # c0406
         "build.pad-map-default": "warning",  # c0147: the catalog's default pin-to-pad map
+        "build.port-unused": "warning", "build.block-net-escape": "warning",  # c0251: blocks
         "build.area-unknown": "error",  # c0103: a rule names no rule area
+        "build.not-two-terminal": "error", "build.must-connect-unconnected": "error",  # c0247
+        # c0249: the design lock
+        "lock.ref-released": "warning", "lock.ref-taken": "warning", "lock.ref-moved": "info",
+        "lock.ref-explicit": "info", "lock.ref-prefix-changed": "info", "lock.design-renamed": "info",
+        "lock.changed": "error",
+        # c0268: the [blocks] section of the design lock
+        "lock.block-version": "error", "lock.block-replaced": "info", "lock.block-released": "info",
+        "block.deprecated": "warning",
+        # c0248: devices
+        "build.device-mismatch": "error", "device.edited": "info", "device.overrides-builtin": "info",
+        # c0252: the circuit rules, which cmd_build runs on the model it builds
+        "circuit.rail-voltage": "error", "circuit.rail-current": "error", "circuit.rail-sources": "error",
+        "circuit.rail-unset": "warning", "circuit.logic-level": "error", "circuit.logic-unknown": "warning",
+        "circuit.bus-pullup": "warning", "circuit.requires-missing": "warning",
+        "circuit.port-split": "warning",
+        # c0257: the pin solve
+        "pins.unsatisfiable": "error", "pins.option-unknown": "error", "pins.pinned-conflict": "error",
+        "pins.search-limit": "error", "pins.lock-stale": "warning", "pins.unused-take": "warning",
+        "pins.lock-dropped": "info",
         **PRESERVE_ISSUE_CODES,  # c0019
+        **EDIT_ISSUE_CODES,  # c0250: the edit merge passes through
+        **DRAWN_ISSUE_CODES,  # c0276: the drawn schematic
+        # c0277: verbatim items
+        "build.verbatim-item": "info", "build.verbatim-invalid": "error", "build.verbatim-head": "error",
+        "build.verbatim-layer": "error", "build.verbatim-net": "error",
     }  # fmt: skip
     assert dict(BUILD_ISSUE_CODES) == table
+    assert {code: BUILD_ISSUE_CODES[code] for code in LOCK_CODES} == dict(LOCK_CODES)
     literals: set[str] = set()
     kicad = ROOT / "src" / "fenolite" / "backends" / "kicad"
     generator = [
         kicad / "schgen.py",
         kicad / "schlayout.py",
         ROOT / "src" / "fenolite" / "cli" / "cmd_build.py",
+        ROOT / "src" / "fenolite" / "catalog" / "devices.py",  # c0248: device.edited
+        kicad / "verbatim.py",  # c0277: verbatim items
     ]
     for path in [*(ROOT / "src" / "fenolite" / "lens").glob("*.py"), *generator]:
         literals |= set(
-            re.findall(r'"((?:build|layout|zone)\.[a-z0-9-]+)"', path.read_text(encoding="utf-8"))
+            re.findall(r'"((?:build|layout|zone|device)\.[a-z0-9-]+)"', path.read_text(encoding="utf-8"))
         )
-    assert literals == set(table) | {code for code in ALTIUM_ISSUE_CODES if code.startswith("build.")}
+    # raised elsewhere: the lock codes by fenolite.dsl.lock (c0249), the edit codes by fenolite.lens.edits
+    # (c0250), the drawn ones by model.drawn_connect (c0276), the circuit codes by fenolite.checks.circuit
+    # (c0252), which cmd_build runs
+    own = {
+        code
+        for code in set(table) - set(LOCK_CODES) - set(EDIT_ISSUE_CODES) - set(DRAWN_ISSUE_CODES)
+        if not code.startswith(("circuit.", "pins."))  # c0257: lens.pins holds the pin codes
+    }
+    from fenolite.lens.altium import ALTIUM_ISSUE_CODES as ALTIUM_BUILD_CODES
+
+    altium = {code for code in (*ALTIUM_ISSUE_CODES, *ALTIUM_BUILD_CODES) if code.startswith("build.")}
+    assert literals == own | altium  # c0269: build.block-sheet-name-clash is an Altium build code
     tested: set[str] = set()
     cli_tests = TESTS.parent / "cli" / "test_build_schematic_cmd.py"
     layout_tests = TESTS.parent / "backends" / "kicad" / "test_schlayout.py"
     for path in [*TESTS.glob("test_build_*.py"), *TESTS.glob("test_preserve_*.py"), cli_tests, layout_tests]:
-        tested |= set(re.findall(r'"((?:build|layout|zone)\.[a-z0-9-]+)"', path.read_text(encoding="utf-8")))
-    assert set(table) - set(PRESERVE_ISSUE_CODES) <= tested, set(table) - tested
+        tested |= set(
+            re.findall(r'"((?:build|layout|zone|device)\.[a-z0-9-]+)"', path.read_text(encoding="utf-8"))
+        )
+    owned = own - set(PRESERVE_ISSUE_CODES)
+    assert owned <= tested, owned - tested
 
 
 def test_warnings_do_not_fail() -> None:
@@ -104,6 +159,27 @@ def test_bottom_parts_add_the_flip_rows() -> None:
     assert not set(embed.EVIDENCE.hypotheses) & set(out.evidence.hypotheses)
 
 
+def test_bottom_chamfer_adds_inferred_evidence() -> None:
+    """The new feature joins actual build evidence only when its bottom mirror is used."""
+    path = ROOT / "tests/data/libs/Mini_v9.pretty/Mini_LED_THT_3mm.kicad_mod"
+    text = path.read_text(encoding="utf-8").replace("thru_hole rect", "thru_hole roundrect", 1)
+    text = text.replace(
+        '(pad "1" thru_hole roundrect',
+        '(pad "1" thru_hole roundrect (roundrect_rratio 0) (chamfer_ratio 0.2) (chamfer top_left)',
+        1,
+    )
+    definition = read_footprint(text, library="Mini")
+    design = blink()
+    bottom = build(design, authored_footprints={definition.lib_id: definition})
+    assert bottom.files and bottom.evidence.level is Level.INFERRED
+    assert set(embed.CHAMFER_EVIDENCE.hypotheses) <= set(bottom.evidence.hypotheses)
+    design.parts["D1"].request = None
+    design.parts["D1"].place("38mm", "20mm")
+    top = build(design, authored_footprints={definition.lib_id: definition})
+    assert top.files
+    assert not set(embed.CHAMFER_EVIDENCE.hypotheses) & set(top.evidence.hypotheses)
+
+
 def test_plane_issues() -> None:
     """``design-dsl`` "Planes in a build" (change c0107): one warning per plane whose net has no zone on its
     layer, naming the layer and the net; a plane with its zone gives none."""
@@ -126,3 +202,14 @@ def test_plane_issues() -> None:
     assert "KiCad" not in first.hint and 'layers=("In2.Cu",)' in second.hint
     assert second.where == "In2.Cu" and "VIN" in second.message
     assert "build.plane-not-lowered" not in BUILD_ISSUE_CODES
+
+
+def test_bom_only_pinned_symbol_is_a_located_error_without_files() -> None:
+    design = blink()
+    design.add(Part("M1", "Mini:Mini_R", bom_only=True))
+    output = build(design)
+    found = [item for item in output.issues if item.code == "build.bom-only"]
+    assert len(found) == 1
+    assert found[0].severity == "error" and found[0].where == "M1"
+    assert "pinless and non-power" in found[0].message
+    assert not output.files

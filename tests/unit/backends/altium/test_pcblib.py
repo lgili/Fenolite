@@ -97,6 +97,18 @@ def test_copper_graphic_refused() -> None:
     assert check.refusal == "a line lies on the copper layer F.Cu"
 
 
+def test_copper_graphic_of_a_net_tie_is_written() -> None:
+    """A net tie's copper joins its pads on purpose (change c0448): it is not refused, and a line on F.Cu
+    is a graphic of the library footprint; one on an inner layer is named dropped."""
+    defn = mini(NAMES[2])
+    top = dataclasses.replace(defn.graphics[0], layer="F.Cu")
+    inner = dataclasses.replace(defn.graphics[0], id=f"{defn.graphics[0].id}-in", layer="In1.Cu")
+    tie = dataclasses.replace(defn, graphics=(top, inner), net_ties=(("1", "2"),))
+    check = check_footprint(tie, ratios(defn))
+    assert check.refusal is None
+    assert top in check.graphics and "line on In1.Cu" in check.dropped
+
+
 def test_dropped_polygon_and_unmapped_layer() -> None:
     """Scenario "Dropped polygon": a polygon on F.SilkS and a line on Dwgs.User are both dropped."""
     defn = mini(NAMES[2])

@@ -1,0 +1,193 @@
+{
+  "schema": "fenolite.scoped-CI-proof.v1",
+  "spec": "c0264-library-import",
+  "source_commit": "985f59a1d01a612b2eac0219243199896c24075a",
+  "archive_executor_base": "9ba56e18562695c9cdf5ba3520cdb3e8d481db82",
+  "runtime_tests_fixtures_equal_source985": true,
+  "run_id": 41708879698,
+  "run_conclusion": "failure",
+  "run_deleted_after_retention": true,
+  "geometry_scope": "27 deferred geometry cases are outside this maintainer-authorized closure batch and are not passed; bridge depends on failed native10 badge. No whole-run success claimed.",
+  "selected_nodes": [
+    "tests/kicad/build/test_imported_device.py::test_imported_device_has_no_new_erc_or_drc_findings[9]",
+    "tests/kicad/build/test_imported_device.py::test_imported_device_has_no_new_erc_or_drc_findings[10]"
+  ],
+  "logs": [
+    {
+      "job_id": 126171394269,
+      "job_name": "unit (windows-latest, py3.12)",
+      "job_conclusion": "success",
+      "bytes": 85771,
+      "sha256": "66577fb85d4e4bbba9cc0406a091c0913d58e15b788cc8cc48cc1efa0738776b",
+      "method": "complete-green-unit-job-source-bound",
+      "explicit_selected_records": []
+    },
+    {
+      "job_id": 126171394428,
+      "job_name": "unit (ubuntu-latest, py3.12)",
+      "job_conclusion": "success",
+      "bytes": 70146,
+      "sha256": "b50f6945d687cfa3616baa6fe310bb2974cbc4c01c8d861dce98e89e34c0dfce",
+      "method": "complete-green-unit-job-source-bound",
+      "explicit_selected_records": []
+    },
+    {
+      "job_id": 126171394460,
+      "job_name": "unit (macos-latest, py3.12)",
+      "job_conclusion": "success",
+      "bytes": 72044,
+      "sha256": "fbfc36d8e3b8bb3828397351111f9d60b6e04cb30e409565ac16f4b15bcd3343",
+      "method": "complete-green-unit-job-source-bound",
+      "explicit_selected_records": []
+    },
+    {
+      "job_id": 126171394556,
+      "job_name": "unit (ubuntu-latest, py3.11)",
+      "job_conclusion": "success",
+      "bytes": 67233,
+      "sha256": "2d6914cb144ab302881fb4c6f5b985f78168c151cce4c6cc398f1a9c7d899a0b",
+      "method": "complete-green-unit-job-source-bound",
+      "explicit_selected_records": []
+    },
+    {
+      "job_id": 126171394674,
+      "job_name": "kicad-10 (kicad-cli oracle and corpus)",
+      "job_conclusion": "failure",
+      "bytes": 368635,
+      "sha256": "014e4eb36c889f4848842d7abf57462ab6da185e2b8fcf5b28ddbb9334d1a68b",
+      "method": "complete-required-CLI-quiet-run-no-selected-nonpass",
+      "explicit_selected_records": []
+    },
+    {
+      "job_id": 126171394700,
+      "job_name": "unit (ubuntu-latest, py3.13)",
+      "job_conclusion": "success",
+      "bytes": 67241,
+      "sha256": "2eb025a6dadcb6612d56eb0c52d6758c0c84ff03f441c2d7d52cbb00f91016fa",
+      "method": "complete-green-unit-job-source-bound",
+      "explicit_selected_records": []
+    },
+    {
+      "job_id": 126171394740,
+      "job_name": "kicad-9 (kicad-cli 9.0 oracle)",
+      "job_conclusion": "success",
+      "bytes": 1951631,
+      "sha256": "3ac138d8cafad5c225d11d9bd22774c872f9369925c7d892d271be0401ab8d94",
+      "method": "explicit-PASSED-lines",
+      "explicit_selected_records": [
+        {
+          "line": 4207,
+          "text": "2026-11-03T21:22:42.1537643Z PASSED tests/kicad/build/test_imported_device.py::test_imported_device_has_no_new_erc_or_drc_findings[9]"
+        }
+      ]
+    }
+  ],
+  "specific_verdict": {
+    "specific_gate": "IMPORTED_DEVICE_NATIVE_COMPARISON_PROVEN_AT_985",
+    "proven": "Three authored example unit controls are unmarked and execute in green units; native9 target9 explicitPASSED; target10 skipped on9 by minimum-major marker; native10 target9+10 inferred passed from complete requiredCLI run with no selected nonpass.",
+    "limits": "Compares per-code ERC/DRC counters imported minus plain; does not require zero absolute findings, geometry identity, shippability or evidence promotion. Device remains UNVERIFIED."
+  },
+  "evidence_scope": "KiCad10 quiet run inference is distinct from an explicit PASSED line. The proof refers to source985 only.",
+  "external_audit_packet": "fenolite-cac-five-gates-readonly-audit-20261103-v1",
+  "external_audit_sha256": "6536e9219ca53ee570d2230000929b7e9946675b70327076ad2875dfdec22358",
+  "new_native_or_CI_or_tests_run": false,
+  "tasks_checked": true,
+  "archive_performed": true,
+  "phase": "archived with scoped source985 proof",
+  "documentary_preflight": {
+    "OpenSpec_version": "1.3.0",
+    "change_strict_passed": 4,
+    "projected_living_strict_passed": 101,
+    "projected_living_strict_failed": 0,
+    "matrix_check_exit": 0,
+    "focused_documentary_modules": [
+      "tests/unit/test_hypotheses_register.py",
+      "tests/unit/test_evidence_matrix_page.py"
+    ],
+    "focused_documentary_passed": 59,
+    "focused_documentary_seconds": 125.57,
+    "focused_documentary_log_sha256": "22abc4e5cd7e734e015d5a88776790ef3965d677c2ae335c9e040fc9d13b11e4",
+    "no_native_GUI_full_fast_CI_push": true,
+    "archive_performed": false
+  },
+  "source_bound_local_fast": {
+    "schema": "fenolite.fast13-source-identity.v1",
+    "receipt_spec": "c0319-integration-repairs",
+    "receipt_file": "fast13-receipt.json",
+    "receipt_sha256": "6b7c348011a8bafe24cc532e5ce74d505addecfd1dc3d56dba9f35bb80628a8e",
+    "receipt": {
+      "clean_after": true,
+      "command": "make check-fast PYTEST_MAX_WORKERS=2",
+      "driver_sha256": "a01ab40c31eedbdc44e44fb4f0d5421e5dd2040ed75af23776bf063b912a7c4b",
+      "exit": 0,
+      "head_unchanged": true,
+      "log_sha256": "3e74d627e77139979c42ba6ca13e53344a23b8416aff252e747e34d56286abfe",
+      "schema": "fenolite.local-fast-gate.v0",
+      "seconds": 1720.2919891250203,
+      "source_commit": "2c0540572c936303eb5c46a25002872648dfabad"
+    },
+    "passed": 22366,
+    "skipped": 52,
+    "pytest_seconds": 1624.58,
+    "retained_log_and_driver_rehashed": {
+      "check-fast-final.log": {
+        "bytes": 26859,
+        "sha256": "3e74d627e77139979c42ba6ca13e53344a23b8416aff252e747e34d56286abfe"
+      },
+      "run_fast.py": {
+        "bytes": 1622,
+        "sha256": "a01ab40c31eedbdc44e44fb4f0d5421e5dd2040ed75af23776bf063b912a7c4b"
+      }
+    },
+    "equal_git_trees": {
+      "src": {
+        "fast13": "d61b70b27353f1e7524c11705cdf6800d0aed571",
+        "CI985": "d61b70b27353f1e7524c11705cdf6800d0aed571",
+        "executor_base": "d61b70b27353f1e7524c11705cdf6800d0aed571"
+      },
+      "tests": {
+        "fast13": "66d15bcff8ce6e0b310e283abf6bdff1995a0e8d",
+        "CI985": "66d15bcff8ce6e0b310e283abf6bdff1995a0e8d",
+        "executor_base": "66d15bcff8ce6e0b310e283abf6bdff1995a0e8d"
+      },
+      "examples": {
+        "fast13": "ea016160f89cd6b2c0a4d4460cf41b646ee28e43",
+        "CI985": "ea016160f89cd6b2c0a4d4460cf41b646ee28e43",
+        "executor_base": "ea016160f89cd6b2c0a4d4460cf41b646ee28e43"
+      },
+      "tools": {
+        "fast13": "36796d75cd7e1501bd06d2bcc07be307071647b0",
+        "CI985": "36796d75cd7e1501bd06d2bcc07be307071647b0",
+        "executor_base": "36796d75cd7e1501bd06d2bcc07be307071647b0"
+      }
+    },
+    "equal_config_sha256": {
+      "Makefile": {
+        "fast13": "7822a207f62a500b5eb07dbd7efa39e5fbdd1db56201c3eb4b916f2ebdf7ee5d",
+        "CI985": "7822a207f62a500b5eb07dbd7efa39e5fbdd1db56201c3eb4b916f2ebdf7ee5d",
+        "executor_base": "7822a207f62a500b5eb07dbd7efa39e5fbdd1db56201c3eb4b916f2ebdf7ee5d"
+      },
+      "pyproject.toml": {
+        "fast13": "862171de532c6aca37a9f5546f892aec0b030cc2eeca95710619f858386a3d4b",
+        "CI985": "862171de532c6aca37a9f5546f892aec0b030cc2eeca95710619f858386a3d4b",
+        "executor_base": "862171de532c6aca37a9f5546f892aec0b030cc2eeca95710619f858386a3d4b"
+      },
+      "uv.lock": {
+        "fast13": "5b7aee11ae153b748512a9c5fef7f9027a3a2825bf9f9baa95c9dd54e57da542",
+        "CI985": "5b7aee11ae153b748512a9c5fef7f9027a3a2825bf9f9baa95c9dd54e57da542",
+        "executor_base": "5b7aee11ae153b748512a9c5fef7f9027a3a2825bf9f9baa95c9dd54e57da542"
+      },
+      ".github/workflows/ci.yml": {
+        "fast13": "fd42a446eed335b74eb02fbead70b12b3b9105d93ecac3dcffb8d70a6330bce8",
+        "CI985": "fd42a446eed335b74eb02fbead70b12b3b9105d93ecac3dcffb8d70a6330bce8",
+        "executor_base": "fd42a446eed335b74eb02fbead70b12b3b9105d93ecac3dcffb8d70a6330bce8"
+      }
+    },
+    "fast13_applies_to_CI985_by_identity": true,
+    "new_fast_executed": false,
+    "later_fast16_source863_used": false
+  },
+  "fast_scope_note": "Actual local fast was executed on2c054057, not on985; identical runtime/tests/examples/tools/config make it applicable.59 documentary tests/strict/matrix complement it. No fast16 execution is transplanted.",
+  "closing_authorization": "Root approved the exact reconciliations, scoped STEP promotion and source-bound fast13/CI proof; no whole-run green, human-review or imported-device promotion.",
+  "archive_directory": "2026-11-03-c0264-library-import"
+}

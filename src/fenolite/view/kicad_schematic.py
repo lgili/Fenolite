@@ -19,11 +19,16 @@ import hashlib
 import math
 import re
 from collections.abc import Sequence
+from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
+from fenolite.backends.kicad import _drawn_font
 from fenolite.backends.kicad.schlayout import turned
-from fenolite.backends.kicad.sexpr import Atom, Node, parse
+from fenolite.backends.kicad.sexpr import Atom, AtomKind, Node, parse
 from fenolite.core.errors import FormatError
+from fenolite.model.drawn import DrawnFont
+from fenolite.view.kicad_intersheet import Context as IntersheetContext
 from fenolite.view.themes import colour_note
 
 SCHEMA = "fenolite.view_schematic.v0"
@@ -131,12 +136,16 @@ IDENT = _Place(0, 0, 0, "")
 
 
 class _Builder:
-    def __init__(self, palette: dict[str, Any]) -> None:
+    def __init__(self, palette: dict[str, Any], *, file: str = "") -> None:
+        self.file = file
         self.roles: dict[str, str] = palette["schematic"]
         self.prims: list[dict[str, Any]] = []
         self.objects: list[dict[str, Any]] = []
         self.comps: list[dict[str, Any]] = []
         self.current = -1
+        self.fonts = [
+            {"name": "stroke", "size": 0, "em": TEXT, "bold": False, "italic": False, "underline": False}
+        ]
         self.box = [0, 0, 0, 0]
         self.notes: list[str] = []
 
@@ -199,30 +208,52 @@ class _Builder:
         v: str = "center",
         role: str = "",
         ol: list[int] | None = None,
+        effects: _Effects | None = None,
     ) -> None:
         if not s:
             return
+        if effects is not None:
+            effects.require_rendering()
+        font = effects.font if effects is not None else None
+        bold = bool(font is not None and font.bold)
+        italic = bool(font is not None and font.italic)
+        thickness = max(size // (5 if bold else 8), 1)
+        variant = {**self.fonts[0], "bold": bold, "italic": italic}
+        if variant not in self.fonts:
+            self.fonts.append(variant)
+        font_index = self.fonts.index(variant)
+        if effects is not None and effects.font is not None and effects.font.thickness:
+            thickness = _font_um(effects.font.thickness)
+        axis_width = effects.width if effects is not None else size
         lines = s.split("\n")
-        width = int(size * 0.95 * max(len(line) for line in lines))
+        width = int(axis_width * 0.95 * max(len(line) for line in lines))
         height = int(size * 1.4 * len(lines))
         x0 = {"left": 0, "center": -width // 2, "right": -width}[h]
         y0 = {"bottom": -height, "center": -height // 2, "top": 0}[v]
         c, sn = [(1, 0), (0, 1), (-1, 0), (0, -1)][rot % 4]
-        corners = [(x0, y0), (x0 + width, y0), (x0, y0 + height), (x0 + width, y0 + height)]
+        pad = max((thickness - max(size // 8, 1)) // 2, -(max(min(width, height) - 1, 0) // 2))
+        corners = [
+            (x0 - pad, y0 - pad),
+            (x0 + width + pad, y0 - pad),
+            (x0 - pad, y0 + height + pad),
+            (x0 + width + pad, y0 + height + pad),
+        ]
+        if italic:
+            corners = [((dx * 5 - dy) // 5, dy) for dx, dy in corners]
         pts = [(at[0] + dx * c + dy * sn, at[1] - dx * sn + dy * c) for dx, dy in corners]
         prim: dict[str, Any] = {
             "k": "t",
             "x": at[0],
             "y": at[1],
             "s": s,
-            "font": 0,
+            "font": font_index,
             "c": color,
             "rot": rot % 4,
             "h": h,
             "v": v,
             "sz": size,
-            "gw": round(size * GLYPH),
-            "th": max(size // 8, 1),
+            "gw": round(axis_width * GLYPH),
+            "th": thickness,
         }
         if role:
             prim["role"] = role
@@ -245,25 +276,115 @@ class _Builder:
 # --- effects and strokes ---------------------------------------------------------------------------------
 
 
-def _effects(node: Node) -> tuple[int, str, str, bool]:
-    """The text size (µm), horizontal and vertical justification and the hidden flag of ``node``'s
-    ``effects`` (a ``hide`` beside the effects counts as well)."""
-    effects = node.find("effects")
-    size = TEXT
-    h, v = "center", "center"
-    hidden = _flag(node, "hide")
-    if effects is not None:
-        font = effects.find("font")
-        sizes = _nums(font.find("size") if font is not None else None)
-        if sizes:
-            size = sizes[0] or TEXT
-        justify = effects.find("justify")
-        if justify is not None:
-            words = {a.value for a in justify.atoms()}
-            h = "left" if "left" in words else "right" if "right" in words else "center"
-            v = "top" if "top" in words else "bottom" if "bottom" in words else "center"
-        hidden = hidden or _flag(effects, "hide")
-    return size, h, v, hidden
+@dataclass(frozen=True, slots=True)
+class _Effects:
+    height: int
+    width: int
+    h: str
+    v: str
+    hidden: bool
+    font: DrawnFont | None
+    justify: str
+    where: str
+    file: str
+
+    def require_rendering(self) -> None:
+        """Refuse visible effects outside the authored stroke renderer's supported subset."""
+        unsupported: list[str] = []
+        if self.font is not None and self.font.face is not None:
+            unsupported.append("face")
+        if self.font is not None and self.font.thickness and self.font.thickness < 1_000:
+            raise FormatError(
+                "sub-micrometre explicit thickness is not representable on the scene grid",
+                file=self.file,
+                locator=self.where,
+            )
+        if "mirror" in self.justify.split():
+            unsupported.append("mirror")
+        if unsupported:
+            raise FormatError(
+                f"unsupported schematic rendering of explicit {', '.join(unsupported)}; "
+                "the source style is preserved but no default-font mask is a faithful proof",
+                file=self.file,
+                locator=self.where,
+            )
+
+
+def _font_um(nm: int) -> int:
+    whole, remainder = divmod(nm, 1_000)
+    return whole + int(remainder > 500 or (remainder == 500 and whole % 2 == 1))
+
+
+def _effects(node: Node, *, file: str = "") -> _Effects:
+    """Effective native fonts use separate scene axes; unsupported visible ink refuses explicitly."""
+    where = f"{node.name}[{_text(node)}].effects"
+    font = _drawn_font.read_font(node, default_nm=TEXT * 1_000, where=where + ".font", file=file)
+    size = font.size if font is not None else None
+    height, width = (_font_um(size.h), _font_um(size.w)) if size is not None else (TEXT, TEXT)
+    justify = _drawn_font.read_justify(node, where=where + ".justify", file=file)
+    words = set(justify.split())
+    h = "left" if "left" in words else "right" if "right" in words else "center"
+    v = "top" if "top" in words else "bottom" if "bottom" in words else "center"
+    hidden = _flag(node, "hide") or _flag(node.find("effects"), "hide")
+    return _Effects(height, width, h, v, hidden, font, justify, where, file)
+
+
+def _free_text_effects(item: Node, *, file: str = "") -> tuple[_Effects, str | None]:
+    """View-only colour adapter for opaque free text; never modify its original native node.
+
+    S-1205: native CLI10 free-text SVG uses RGB and ignores alpha, except the all-zero sentinel.
+    Typed drawn font readers remain closed; level8 masks remain BW geometric ink, not RGB equality.
+    """
+    effects = item.nodes("effects")
+    if len(effects) != 1:
+        return _effects(item, file=file), None
+    hrefs = effects[0].nodes("href")
+    if hrefs:
+        href = hrefs[0]
+        atoms = href.atoms()
+        if len(hrefs) != 1 or len(href.children) != 1 or len(atoms) != 1 or atoms[0].kind != AtomKind.STRING:
+            raise FormatError(
+                "opaque text href requires exactly one string",
+                file=file,
+                locator=f"text[{_text(item)}].effects.href",
+            )
+        effect = effects[0].with_children(tuple(child for child in effects[0].children if child is not href))
+        adapted = item.with_children(
+            tuple(effect if child is effects[0] else child for child in item.children)
+        )
+        return _free_text_effects(adapted, file=file)
+    fonts = effects[0].nodes("font")
+    if len(fonts) != 1:
+        return _effects(item, file=file), None
+    original_font = fonts[0]
+    colors = original_font.nodes("color")
+    if not colors:
+        return _effects(item, file=file), None
+    where = f"text[{_text(item)}].effects.font.color"
+    try:
+        if len(colors) != 1 or len(colors[0].children) != 4:
+            raise ValueError("font colour requires exactly one four-channel color")
+        atoms = colors[0].atoms()
+        if len(atoms) != 4 or any(atom.kind != AtomKind.NUMBER for atom in atoms):
+            raise ValueError("font colour channels must be numbers")
+        values = tuple(Decimal(atom.text) for atom in atoms)
+        if any(not value.is_finite() for value in values):
+            raise ValueError("font colour channels must be finite")
+        if any(value < 0 or value > 255 or value != value.to_integral_value() for value in values[:3]):
+            raise ValueError("font colour RGB channels must be integers in 0..255")
+        if not 0 <= values[3] <= 1:
+            raise ValueError("font colour alpha must be in 0..1")
+    except (ValueError, InvalidOperation) as error:
+        raise FormatError(str(error), file=file, locator=where) from error
+    font = original_font.with_children(
+        tuple(child for child in original_font.children if child is not colors[0])
+    )
+    effect = effects[0].with_children(
+        tuple(font if child is original_font else child for child in effects[0].children)
+    )
+    adapted = item.with_children(tuple(effect if child is effects[0] else child for child in item.children))
+    color = None if not any(values) else "#" + "".join(f"{int(value):02x}" for value in values[:3])
+    return _effects(adapted, file=file), color
 
 
 def _stroke(node: Node, role_color: str, default: int = LINE) -> tuple[str, int, int]:
@@ -385,8 +506,10 @@ def _graphic(b: _Builder, node: Node, place: _Place, role: str, lib: bool) -> bo
     elif name == "text":
         at = node.find("at")
         values = _nums(at)
-        size, h, v, hidden = _effects(node)
-        if hidden:
+        effects, text_color = (
+            (_effects(node, file=b.file), None) if lib else _free_text_effects(node, file=b.file)
+        )
+        if effects.hidden:
             return True
         point = p((values[0], values[1])) if len(values) >= 2 else (0, 0)
         degrees = _float(at, 2)
@@ -395,12 +518,13 @@ def _graphic(b: _Builder, node: Node, place: _Place, role: str, lib: bool) -> bo
         b.text(
             point,
             _text(node).replace("\\n", "\n"),
-            size,
-            base if lib else b.color("note"),
+            effects.height,
+            text_color or (base if lib else b.color("note")),
             rot=rot,
-            h=h,
-            v=v,
+            h=effects.h,
+            v=effects.v,
             role="note",
+            effects=effects,
         )
     else:
         return False
@@ -499,8 +623,10 @@ def _pin(
     rot = 0 if dx else 1
     along = dx if dx else -dy
     show_names, offset = names
-    name_size = _effects(name_node)[0] if name_node is not None else TEXT
-    number_size = _effects(number_node)[0] if number_node is not None else TEXT
+    name_effects = _effects(name_node, file=b.file) if name_node is not None else None
+    number_effects = _effects(number_node, file=b.file) if number_node is not None else None
+    name_size = name_effects.height if name_effects is not None else TEXT
+    number_size = number_effects.height if number_effects is not None else TEXT
     shown_name = "" if name == "~" else name
     text_name, marks = _overbar(shown_name)
     mid = ((conn[0] + body[0]) // 2, (conn[1] + body[1]) // 2)
@@ -518,6 +644,7 @@ def _pin(
                 v="center",
                 role="pin-name",
                 ol=marks,
+                effects=name_effects,
             )
         else:
             b.text(
@@ -529,6 +656,7 @@ def _pin(
                 v="bottom",
                 role="pin-name",
                 ol=marks,
+                effects=name_effects,
             )
     if numbers and number:
         if offset > 0 or not (show_names and text_name):
@@ -540,6 +668,7 @@ def _pin(
                 rot=rot,
                 v="bottom",
                 role="pin-number",
+                effects=number_effects,
             )
         else:
             b.text(
@@ -550,6 +679,7 @@ def _pin(
                 rot=rot,
                 v="top",
                 role="pin-number",
+                effects=number_effects,
             )
     return conn, number, name, etype
 
@@ -577,16 +707,28 @@ def _properties(node: Node) -> dict[str, Node]:
     return {_text(p): p for p in node.nodes("property")}
 
 
-def _field(b: _Builder, prop: Node, text: str, role: str, symbol_angle: int) -> None:
-    size, h, v, hidden = _effects(prop)
-    if hidden or not text or text == "~":
+def _field(
+    b: _Builder, prop: Node, text: str, role: str, symbol_angle: int, *, literal_tilde: bool = False
+) -> None:
+    effects = _effects(prop, file=b.file)
+    if effects.hidden or not text or (text == "~" and not literal_tilde):
         return
     at = prop.find("at")
     values = _nums(at)
     if len(values) < 2:
         return
     rot = (round(_float(at, 2) / 90) + symbol_angle // 90) % 2
-    b.text((values[0], values[1]), text, size, b.color(role), rot=rot, h=h, v=v, role=role)
+    b.text(
+        (values[0], values[1]),
+        text,
+        effects.height,
+        b.color(role),
+        rot=rot,
+        h=effects.h,
+        v=effects.v,
+        role=role,
+        effects=effects,
+    )
 
 
 # --- labels ---------------------------------------------------------------------------------------------
@@ -596,7 +738,15 @@ DIRS: dict[int, Pt] = {0: (1, 0), 90: (0, -1), 180: (-1, 0), 270: (0, 1)}
 
 
 def _flag_shape(
-    b: _Builder, at: Pt, angle: int, text: str, size: int, shape: str, color: str, hier: bool
+    b: _Builder,
+    at: Pt,
+    angle: int,
+    text: str,
+    size: int,
+    shape: str,
+    color: str,
+    hier: bool,
+    effects: _Effects | None = None,
 ) -> None:
     """A global label's flag (or a hierarchical label's arrow) at its connection point, with its text."""
     ux, uy = DIRS.get(angle % 360, (1, 0))  # the body lies in the reading direction from the point
@@ -624,7 +774,8 @@ def _flag_shape(
         b.line([*pts, pts[0]], color, LINE)
         text_at = q(length + size // 2, 0)
     else:
-        length = int(size * 0.95 * len(text)) + 2 * half + size // 2
+        axis_width = effects.width if effects is not None else size
+        length = int(axis_width * 0.95 * len(text)) + 2 * half + size // 2
         near = shape in ("input", "bidirectional", "tri_state")
         far = shape in ("output", "bidirectional", "tri_state")
         pts = [q(half if near else 0, -half), q(length - half if far else length, -half)]
@@ -637,7 +788,9 @@ def _flag_shape(
         text_at = q(half + size // 3, 0)
     rot = 1 if uy else 0
     along = ux if ux else -uy
-    b.text(text_at, text, size, color, rot=rot, h="left" if along > 0 else "right", v="center", role="label")
+    h = effects.h if effects is not None else "left" if along > 0 else "right"
+    v = effects.v if effects is not None else "center"
+    b.text(text_at, text, size, color, rot=rot, h=h, v=v, role="label", effects=effects)
 
 
 # --- paper, frame and title block -----------------------------------------------------------------------
@@ -741,13 +894,27 @@ def _on(p: Pt, a: Pt, z: Pt) -> bool:
 
 
 def build_kicad_schematic_scene(
-    text: str, *, name: str, data: bytes = b"", palette: dict[str, Any], evidence: str = "INFERRED"
+    text: str,
+    *,
+    name: str,
+    data: bytes = b"",
+    palette: dict[str, Any],
+    evidence: str = "INFERRED",
+    intersheet_context: IntersheetContext | None = None,
 ) -> dict[str, Any]:
     """The scene of one KiCad schematic sheet (see the module text)."""
+    # None is the explicit raw-bytes standalone/no-project contract, not a failed owner lookup.
+    if (
+        intersheet_context is not None
+        and hashlib.sha256(text.encode("utf-8")).hexdigest() != intersheet_context.source_sha256
+    ):
+        raise FormatError(
+            "inter-sheet context does not match the scene input", file=name, locator="Intersheetrefs"
+        )
     root = parse(text, file=name)
     if root.name != "kicad_sch":
         raise FormatError(f"{name} is not a KiCad schematic (root {root.name!r})", file=name)
-    b = _Builder(palette)
+    b = _Builder(palette, file=name)
     w, h, paper = _paper(root)
     b.box = [0, 0, w, h]
     _frame(b, w, h, root, name, paper)
@@ -811,7 +978,11 @@ def build_kicad_schematic_scene(
             at_node = item.find("at")
             at = _xy(at_node)
             angle = round(_float(at_node, 2)) % 360
-            size, hj, vj, _hidden = _effects(item)
+            effects = _effects(item, file=b.file)
+            if effects.hidden:
+                raise FormatError(
+                    "unsupported schematic rendering of hidden labels", file=b.file, locator=effects.where
+                )
             role = {
                 "label": "label_local",
                 "global_label": "label_global",
@@ -835,12 +1006,13 @@ def build_kicad_schematic_scene(
                 b.text(
                     at,
                     label,
-                    size,
+                    effects.height,
                     b.color(role),
                     rot=rot,
-                    h=hj if hj != "center" else "left",
-                    v=vj if vj != "center" else "bottom",
+                    h=effects.h,
+                    v=effects.v if effects.v != "center" else "bottom",
                     role="label",
+                    effects=effects,
                 )
             else:
                 shape = item.find("shape")
@@ -849,11 +1021,40 @@ def build_kicad_schematic_scene(
                     at,
                     angle,
                     label,
-                    size,
+                    effects.height,
                     _text(shape) if shape is not None else "passive",
                     b.color(role),
                     kind == "hierarchical_label",
+                    effects,
                 )
+            if kind == "global_label" and intersheet_context is not None and intersheet_context.enabled:
+                from fenolite.backends.kicad import drawn as _kdrawn  # noqa: PLC0415 - active fields only
+
+                pose = _kdrawn._intersheet_pose(  # pyright: ignore[reportPrivateUsage] - shared typed envelope
+                    item, "global", file=name, where=f"global_label:{label}.Intersheetrefs"
+                )
+                reference = intersheet_context.reference(label)
+                b.objects[index]["info"].append(["Inter-sheet references", reference])
+                if reference:
+                    if pose is None:
+                        raise FormatError(
+                            "visible reference requires an explicit native field pose",
+                            file=name,
+                            locator=label,
+                        )
+                    prop = item.nodes("property")[0]
+                    field_effects = _effects(prop, file=name)
+                    b.text(
+                        _xy(prop.find("at")),
+                        reference,
+                        field_effects.height,
+                        b.color(role),
+                        rot=pose.rotation // 90_000_000,
+                        h=field_effects.h,
+                        v=field_effects.v,
+                        role="intersheet_refs",
+                        effects=field_effects,
+                    )
             b.done()
             key = ("label", kind if kind != "hierarchical_label" else "hier", label)
             union.find(key)
@@ -861,7 +1062,8 @@ def build_kicad_schematic_scene(
             points.append((at, key))
             ident_obj.append((index, key))
         elif kind == "sheet":
-            _sheet(b, item, union, points, named, ident_obj)
+            version = root.find("version")
+            _sheet(b, item, union, points, named, ident_obj, version=_text(version) if version else "")
         elif kind in ("polyline", "rectangle", "circle", "arc", "bezier", "text"):
             b.obj("graphic")
             _graphic(b, item, IDENT, "note", lib=False)
@@ -932,7 +1134,7 @@ def build_kicad_schematic_scene(
         "prims": len(b.prims),
     }
     roles = b.roles
-    return {
+    scene: dict[str, Any] = {
         "schema": SCHEMA,
         "kind": "schematic",
         "meta": {
@@ -960,15 +1162,20 @@ def build_kicad_schematic_scene(
             "text": "stroke",
             "workspace": roles.get("background"),
         },
-        "fonts": [
-            {"name": "stroke", "size": 0, "em": TEXT, "bold": False, "italic": False, "underline": False}
-        ],
+        "fonts": b.fonts,
         "prims": b.prims,
         "objects": b.objects,
         "comps": b.comps,
         "nets": nets,
         "overlays": [],
     }
+
+    if intersheet_context is not None and intersheet_context.enabled:
+        scene["meta"]["instance"] = {
+            "path": list(intersheet_context.instance),
+            "page": intersheet_context.page,
+        }
+    return scene
 
 
 def _symbol(
@@ -1101,6 +1308,8 @@ def _sheet(
     points: list[tuple[Pt, Any]],
     named: dict[Any, tuple[int, str]],
     ident_obj: list[tuple[int, Any]],
+    *,
+    version: str = "",
 ) -> None:
     at, size = _xy(item.find("at")), _xy(item.find("size"))
     props = _properties(item)
@@ -1115,6 +1324,18 @@ def _sheet(
     for key, role, prefix in (("Sheetname", "sheet_name", ""), ("Sheetfile", "sheet_filename", "File: ")):
         if key in props:
             _field(b, props[key], prefix + _text(props[key], 1), role, 0)
+    seen: set[str] = set()
+    for prop in item.nodes("property"):
+        key = _text(prop)
+        if key in {"Sheetname", "Sheetfile"}:
+            continue
+        if key in seen:
+            raise FormatError("repeated custom sheet property", file=b.file, locator=key)
+        seen.add(key)
+        text = _drawn_font.sheet_property_text(
+            prop, version=int(version) if version.isdigit() else None, where=key, file=b.file
+        )
+        _field(b, prop, text, "sheet_name", 0, literal_tilde=True)
     sheet_obj = len(b.objects) - 1
     b.done()
     x0, y0, x1, y1 = at[0], at[1], at[0] + size[0], at[1] + size[1]
@@ -1122,10 +1343,14 @@ def _sheet(
         label = _text(pin)
         shape = _text(pin, 1) if len(pin.atoms()) > 1 else "passive"
         point = _xy(pin.find("at"))
-        text_size = _effects(pin)[0]
+        effects = _effects(pin, file=b.file)
+        if effects.hidden:
+            raise FormatError(
+                "unsupported schematic rendering of hidden sheet pins", file=b.file, locator=effects.where
+            )
         index = b.obj("entry", info=[["Sheet Pin", label], ["Shape", shape]], parent=sheet_obj)
         inward = 0 if point[0] <= x0 else 180 if point[0] >= x1 else 270 if point[1] <= y0 else 90
-        _flag_shape(b, point, inward, label, text_size, shape, b.color("sheet_label"), True)
+        _flag_shape(b, point, inward, label, effects.height, shape, b.color("sheet_label"), True, effects)
         b.done()
         key = ("sheetpin", sheet_obj, label)
         points.append((point, key))
@@ -1162,7 +1387,7 @@ def symbol_scene(
     """The scene of one unit of a library symbol (change c0179), at the origin, on a sheet the size of the
     symbol grown by 2.54 mm; ``sheet.origin`` is the symbol's origin. Catalog previews may hide
     property text while retaining it in component metadata; ordinary libraries draw it as stored."""
-    b = _Builder(palette)
+    b = _Builder(palette, file=name)
     big = 10**12
     b.box = [big, big, -big, -big]
     base = _base(node, library)
@@ -1201,15 +1426,25 @@ def symbol_scene(
     for key, prop in props.items():
         if not show_properties:
             continue
-        size, h, v, hidden = _effects(prop)
+        effects = _effects(prop, file=b.file)
         text = _text(prop, 1)
         values = _nums(prop.find("at"))
-        if hidden or not text or text == "~" or len(values) < 2:
+        if effects.hidden or not text or text == "~" or len(values) < 2:
             continue
         role = {"Reference": "reference", "Value": "value"}.get(key, "fields")
         b.current = oid
         rot = round(_float(prop.find("at"), 2) / 90) % 2
-        b.text((values[0], -values[1]), text, size, b.color(role), rot=rot, h=h, v=v, role=role)
+        b.text(
+            (values[0], -values[1]),
+            text,
+            effects.height,
+            b.color(role),
+            rot=rot,
+            h=effects.h,
+            v=effects.v,
+            role=role,
+            effects=effects,
+        )
     entry = b.comps[0]
     entry["b"] = b.objects[oid]["b"]
     for pin in pins:
@@ -1258,9 +1493,7 @@ def symbol_scene(
             "text": "stroke",
             "workspace": roles.get("background"),
         },
-        "fonts": [
-            {"name": "stroke", "size": 0, "em": TEXT, "bold": False, "italic": False, "underline": False}
-        ],
+        "fonts": b.fonts,
         "prims": b.prims,
         "objects": b.objects,
         "comps": b.comps,

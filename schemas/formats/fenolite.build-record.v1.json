@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.build-record.v1",
+  "title": "BuildRecordFile",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "fenolite.build-record.v1"
+    },
+    "design": {
+      "type": "string"
+    },
+    "files": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "target": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "layout": {
+      "$ref": "#/$defs/BuildLayout"
+    },
+    "schematic": {
+      "$ref": "#/$defs/BuildSchematic"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "design",
+    "files"
+  ],
+  "$defs": {
+    "BuildLayout": {
+      "type": "object",
+      "properties": {
+        "poses": {
+          "type": "object",
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "array",
+                "prefixItems": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ],
+                "items": false,
+                "minItems": 3,
+                "maxItems": 3
+              },
+              {
+                "type": "array",
+                "prefixItems": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "items": false,
+                "minItems": 4,
+                "maxItems": 4
+              }
+            ]
+          }
+        },
+        "digest": {
+          "type": "string"
+        },
+        "sources": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/BuildLayoutSource"
+          }
+        },
+        "files": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "poses",
+        "digest"
+      ]
+    },
+    "BuildLayoutSource": {
+      "type": "object",
+      "properties": {
+        "folder": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "folder",
+        "name"
+      ]
+    },
+    "BuildSchematic": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "file": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "file"
+      ]
+    }
+  }
+}

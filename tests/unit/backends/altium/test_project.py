@@ -99,6 +99,17 @@ def test_imports_only_core_and_model() -> None:
                         )
                     ), f"{path.name} imports {name}"
                 else:
+                    if path.name == "draftsman.py" and name in {
+                        "xml.etree.ElementTree",
+                        "xml.sax.saxutils",
+                    }:
+                        continue  # c0172: pure candidate XML construction; no export runner or file access
+                    if path.name == "pcbdoc.py" and name == "zlib":
+                        continue  # c0449: the Models streams are deflated in memory; no file access
+                    if path.name == "fills.py" and name == "uuid":
+                        continue  # c0450: the fill marker is a version-8 uuid built in memory
+                    if path.name == "unions.py" and name == "uuid":
+                        continue  # c0460: the union member marker is a version-8 uuid built in memory
                     allowed = STDLIB_ALLOWED | (
                         {"json", "pathlib"} if path.name == "graduation.py" else set()
                     )
@@ -108,6 +119,7 @@ def test_imports_only_core_and_model() -> None:
 def test_evidence_and_kinds() -> None:
     assert EVIDENCE.level is Level.INFERRED
     assert set(EVIDENCE.hypotheses) <= {
+        "H-A-DWF-PARAMS",  # c0172: project/title parameters await native verification
         "H-A-SCH-OPEN",
         "H-A-SCH-LINEEND",
         "H-A-SCH-UID",

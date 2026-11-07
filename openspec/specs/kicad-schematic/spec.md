@@ -388,15 +388,15 @@ Ids of items read from a schematic SHALL follow `design-model`, "Identifiers of 
 - **THEN** the root holds one `wire` with two points, one `sheet` with the properties `Sheetname` and `Sheetfile`, and no `sheet_instances`, and `read_schematic` of the text gives the sheet reference with its name, file, position, size and use
 
 ### Requirement: Generated sheet content
-`fenolite.backends.kicad.schgen.generate_schematic(design, parts, *, name, target, placements=None, vendor="all", allow_lossy=False, layout="readable") -> GeneratedSchematic` SHALL build the sheets of a design from its circuit, and SHALL return `sheet` (the root `SchematicSheet`), `children` (each child sheet keyed by its path from the root file's folder, in page order; empty for a design without module sheets, "Hierarchical sheets of a design"), `libraries` (per nickname, the symbols of its project library), `rows` (the rows of `sym-lib-table`), `pad_nets` (component id and pad number mapped to the net name of an unconnected pin), `paths` (component id mapped to the path of its symbol), `issues`, `unvendored` (the lib ids that `vendor="project"` leaves without a project library, which the build reports) `power_flags` (their number) and `satellites` (the number of snapped satellites, "Readable sheet layout"). `layout` MUST be `"readable"` or `"grid"`; any other value raises `ValueError`. `parts` are the resolved parts of the build: each gives its component, its component path, its flattened symbol, the symbols that symbol extends as their library holds them, its footprint, and the origin of the row that resolved the symbol.
+`fenolite.backends.kicad.schgen.generate_schematic(design, parts, *, name, target, placements=None, vendor="all", allow_lossy=False, layout="readable") -> GeneratedSchematic` SHALL build the sheets of a design from its circuit, and SHALL return `sheet` (the root `SchematicSheet`), `children` (each child sheet keyed by its path from the root file's folder, in page order; empty for a design without module sheets, "Hierarchical sheets of a design"), `libraries` (per nickname, the symbols of its project library), `rows` (the rows of `sym-lib-table`), `pad_nets` (component id and pad number mapped to the net name of an unconnected pin), `paths` (component id mapped to the path of its symbol), `issues`, `unvendored` (the lib ids that `vendor="project"` leaves without a project library, which the build reports) `power_flags` (their number) and `satellites` (the number of snapped satellites, "Readable sheet layout"). `layout` MUST be `"readable"`, `"grid"` or `"wired"` ("Wired sheet layout", change c0406); any other value raises `ValueError`. `GeneratedSchematic` MUST also return `power_symbols` (the number of power symbol instances) and `fallbacks` (the nets a wired sheet draws per cluster because a terminal could not be joined); both are 0 for `"readable"` and `"grid"`. `build` and `fenolite build` MUST default to `"wired"`; the function itself keeps `"readable"` as its default. `parts` are the resolved parts of the build: each gives its component, its component path, its flattened symbol, the symbols that symbol extends as their library holds them, its footprint, and the origin of the row that resolved the symbol.
 - **Symbols.** Each component with a resolved symbol MUST give one `SymbolInstance` per unit of that symbol, on the sheet of its module ("Hierarchical sheets of a design"), with body style 1, `lib_ref` naming the embedded definition, `ref`, `value`, `footprint` = `Component.lib_footprint_ref`, and `properties` = the component's `properties` plus `Footprint`. `dnp` MUST be `Component.dnp`; `in_bom` MUST be false when the component's footprint has the attribute `exclude_from_bom`; `on_board` MUST be true. Each instance MUST have one `SymbolUse(<name>, <use path of its sheet>, ref, unit)`: `/<root uuid>` on the root, `/<root uuid>/<kicad uuids of the sheet references from the top down>` on a child sheet. A component without a resolved symbol MUST give no instance.
-- **Labels.** Each pin that a net lists and that no snap wire joins MUST give one `NetLabel("global", netnames.stored_name(<net name>), <the pin's connection point>, shape="passive")`, turned away from the symbol body. Each pair of pins that a snap wire joins MUST give one such label, at the satellite's near pin, as "Readable sheet layout" places it. The sheets MUST hold no junction, no label of another kind and no wire other than snap wires.
+- **Labels.** Each pin that a net lists and that no snap wire joins MUST give one `NetLabel("global", netnames.stored_name(<net name>), <the pin's connection point>, shape="passive")`, turned away from the symbol body, except on the sheet of a block instance for a net that "Block sheet pins" makes hierarchical, where the label is that requirement's hierarchical label. Each pair of pins that a snap wire joins MUST give one such label, at the satellite's near pin, as "Readable sheet layout" places it. With `"readable"` and `"grid"` the sheets MUST hold no junction, no label of another kind than those of these rules and of "Block sheet pins", and no wire other than snap wires. With `"wired"` the labels, wires, junctions and power symbols are those of "Wired sheet layout", "Power symbols on a generated sheet" and "Net names on a wired sheet".
 - **No-connect flags.** Each pin listed by `Circuit.no_connects` MUST give one `NoConnectFlag` at its connection point. A pin on no net without a mark MUST give neither a label nor a flag.
 - **Pins and pads.** Net members and marks are keyed by symbol pin number; with a `pin_pad_map`, the label or flag MUST be placed at the pin whose embedded number is the mapped pad number ("Embedded symbols of a generated sheet").
 - **Power flags.** Each net that is a member of an `Interface` with `kind == "power"`, and that no pin of type `power_out` of a component with `dnp == False` is on, MUST give one instance of the power flag on the root sheet, with the reference `#FLG<nn>` (numbered from 01 in the order of net names), `in_bom` and `on_board` false, and one global label of the net at its pin.
 - **Library of the power flag.** The flag MUST be the symbol `PWR_FLAG` of the flag library, `symembed.flag_library(libraries)`: the first, in sorted order, of the symbol libraries of the design whose name differs from `fenolite` in letter case only, else `fenolite`. The symbol libraries of the design are the libraries of its parts' symbols and the libraries it authors (`generate_schematic(..., other_libraries=...)`), the built-in catalog's `Fenolite` among them. So a design with a part of the catalog has `Fenolite:PWR_FLAG`, and a design without such a library has `fenolite:PWR_FLAG`, as before change c0143: the files of its build MUST NOT differ from the files of a build that does not look for such a library.
 - **Page.** Every sheet's `title_block` MUST be the board's title block and its `paper` the paper that its own layout chose. The root's `pages` MUST be `(SheetPage("/", "1"),)`; a child's `pages` MUST be empty. Every sheet MUST embed, in `lib_symbols`, the definitions its own instances name, sorted by lib id, the power flag last on the root.
-- **Ids.** Ids MUST be derived from the design (`design-model`, "Identifiers of schematic entities"): the sheet from `<name>`, an instance from `<name>:<component path>#<unit>`, a pin label from `<name>:label:<component path>:<pin>`, a flag from `<name>:nc:<component path>:<pin>`, a power flag from `<name>:flag:<net name>` and its label from `<name>:label:flag:<net name>`, a child sheet from `<name>:<module path>`, a sheet reference from `<name>:sheet:<module path>`, a snap wire from `<name>:wire:<component path of its satellite>` and the label of its pair from `<name>:label:<component path of its satellite>:<near pin>`. KiCad uuids MUST come from `pcb.kicad_uuid`.
+- **Ids.** Ids MUST be derived from the design (`design-model`, "Identifiers of schematic entities"): the sheet from `<name>`, an instance from `<name>:<component path>#<unit>`, a pin label from `<name>:label:<component path>:<pin>`, a flag from `<name>:nc:<component path>:<pin>`, a power flag from `<name>:flag:<net name>` and its label from `<name>:label:flag:<net name>`, a child sheet from `<name>:<module path>`, a sheet reference from `<name>:sheet:<module path>`, a sheet pin from `<name>:sheetpin:<module path>:<pin name>`, a hierarchical label at a pin from `<name>:hlabel:<component path>:<pin>` and one at a sheet pin of a nested block from `<name>:hlabel:sheet:<module path>:<pin name>`, a snap wire from `<name>:wire:<component path of its satellite>` and the label of its pair from `<name>:label:<component path of its satellite>:<near pin>`. KiCad uuids MUST come from `pcb.kicad_uuid`.
 - The function MUST NOT read or write a file, and two calls with equal arguments MUST return equal results.
 
 #### Scenario: Blink
@@ -469,11 +469,11 @@ Ids of items read from a schematic SHALL follow `design-model`, "Identifiers of 
 - **THEN** the level is `CORPUS-VERIFIED` and the hypotheses include `H-K-SCH-PINFRAME-ORDER`; for the generated blink, without such an instance, the evidence is `sch_netlist.EVIDENCE`
 
 ### Requirement: Deterministic sheet layout
-`schlayout.layout_units(units, *, placements=None, flags=(), clusters=(), refs=(), sheet="") -> SheetLayout` SHALL give every unit, cluster, sheet reference and power flag of one sheet a position on its page, without overlap, in a fixed order, and SHALL choose the paper of that sheet.
-- **Order.** Units MUST be sorted by top-level module (units outside a module first), then by the natural order of the component path, then by unit number. A cluster ("Readable sheet layout") MUST take the place of its anchor, and its snapped satellites MUST leave the order. Sheet references come after the units, in the natural order of their module paths, and power flags last, in the order of their nets.
-- **Units.** A unit is given as `UnitBox(key, pins, body, symbol, text=0)`: `key` is the component path, with `#<unit>` for a unit above 1; `pins` are `UnitPin(number, at, angle, label)` in the library frame, `label` being the length of the label text at that pin (0 without one); `body` is the box of what the unit draws; `symbol` names the library symbol in messages; `text` is the length of the longer of its Reference and Value. A sheet reference is given as `RefBox(path, name, file)`: the module path, the sheet name and the `Sheetfile` text; its layout key is `schlayout.ref_key(path)`, and its origin is the top-left corner of its box. `SheetLayout` holds `paper`, `origins` (key to `SymbolPlacement`), `cells` and `issues`. Rows are packed by `geometry.shelf.shelf_pack`, which the Altium sheet layout uses too.
-- **Cells.** A unit's cell MUST hold its body and pin connection points, grown on each side by `CHAR_ROOM` (1 524 000 nm) per character of the longest label on that side plus `LABEL_ROOM` (5 080 000 nm), by `CELL_MARGIN` (5 080 000 nm), and by `TEXT_ROOM` (7 620 000 nm) above for Reference and Value. Cell sizes MUST be rounded up to `ORIGIN_STEP` (2 540 000 nm). A cluster's cell MUST hold the cell of its anchor and, each grown by `CELL_MARGIN`, the boxes of its satellites, its wires and the rooms of its labels. A sheet reference's cell MUST hold its box and the rooms of its two properties (`REF_TEXT`, 2 540 000 nm, above and below, and `CHAR_ROOM` per character of the file text), grown by `CELL_MARGIN`.
-- **Flow.** Cells MUST fill rows from the left inside `PAGE_MARGIN` (12 700 000 nm), above a band of `TITLE_BAND` (40 640 000 nm) at the bottom. The first unit of a module MUST start a new row. Sheet references MUST take rows of their own after the units, and power flags a last row.
+`schlayout.layout_units(units, *, placements=None, flags=(), clusters=(), refs=(), sheet="", groups=(), widths=None) -> SheetLayout` SHALL give every unit, cluster, sheet reference and power flag of one sheet a position on its page, without overlap, in a fixed order, and SHALL choose the paper of that sheet.
+- **Order.** Units MUST be sorted by top-level module (units outside a module first), then by the natural order of the component path, then by unit number. On the sheet of a block instance with schematic groups (`groups`), units MUST instead be ordered by group, in the order of "Block schematic groups on a KiCad sheet", then by the member order of the group, then by unit number, and units in no group come last in the natural order. A cluster ("Readable sheet layout") MUST take the place of its anchor, and its snapped satellites MUST leave the order. Sheet references come after the units, in the natural order of their module paths, and power flags last, in the order of their nets.
+- **Units.** A unit is given as `UnitBox(key, pins, body, symbol, text=0)`: `key` is the component path, with `#<unit>` for a unit above 1; `pins` are `UnitPin(number, at, angle, label)` in the library frame, `label` being the length of the label text at that pin (0 without one); `body` is the box of what the unit draws; `symbol` names the library symbol in messages; `text` is the length of the longer of its Reference and Value. A sheet reference is given as `RefBox(path, name, file, pins=())`: the module path, the sheet name, the `Sheetfile` text and its sheet pins with their sides and label lengths; its layout key is `schlayout.ref_key(path)`, and its origin is the top-left corner of its box. `SheetLayout` holds `paper`, `origins` (key to `SymbolPlacement`), `cells` and `issues`. Rows are packed by `geometry.shelf.shelf_pack`, which the Altium sheet layout uses too.
+- **Cells.** A unit's cell MUST hold its body and pin connection points, grown on each side by `CHAR_ROOM` (1 524 000 nm) per character of the longest label on that side plus `LABEL_ROOM` (5 080 000 nm), by `CELL_MARGIN` (5 080 000 nm), and by `TEXT_ROOM` (7 620 000 nm) above for Reference and Value. Cell sizes MUST be rounded up to `ORIGIN_STEP` (2 540 000 nm). A cluster's cell MUST hold the cell of its anchor and, each grown by `CELL_MARGIN`, the boxes of its satellites, its wires and the rooms of its labels. A sheet reference's cell MUST hold its box, the rooms of its two properties (`REF_TEXT`, 2 540 000 nm, above and below, and `CHAR_ROOM` per character of the file text) and, on each side with sheet pins, `CHAR_ROOM` per character of the longest label at those pins plus `LABEL_ROOM`, grown by `CELL_MARGIN`. A label length of a unit pin MUST be taken from `widths` when it names the pin's key, so that instances of one block share one arrangement ("Shared arrangement of block sheets").
+- **Flow.** Cells MUST fill rows from the left inside `PAGE_MARGIN` (12 700 000 nm), above a band of `TITLE_BAND` (40 640 000 nm) at the bottom. The first unit of a module, and the first unit of each schematic group, MUST start a new row; in a group whose flow is `top-to-bottom`, each cell MUST start a row of its own, at the left edge of the group's first cell. Sheet references MUST take rows of their own after the units, and power flags a last row.
 - **Grid.** Every symbol origin that the flow gives, and every sheet reference position, MUST be a multiple of `ORIGIN_STEP` in both axes; a snapped satellite's origin MUST be a multiple of `GRID`. A pin whose library position is not a multiple of `GRID` (1 270 000 nm) MUST give `kicad.sch.pin-off-grid` (info) naming the symbol.
 - **Paper.** `SheetLayout.paper` MUST be the first of A4, A3, A2, A1 and A0, landscape, in which the flow fits. When none fits, `layout_units` MUST return the issue `build.schematic-too-large` (error) naming the sheet (`sheet`, when given) and the number of its units.
 - **Placements.** A unit named by `placements` MUST take the given origin, rotation and mirror and MUST leave the flow; the others flow as if it were absent. Two cells that overlap MUST give `build.symbol-overlap` (warning); two connection points of different units that coincide MUST give `build.symbol-short` (error). A snapped satellite lies inside the cell of its cluster and MUST NOT be reported as overlapping it; a placed anchor keeps its cluster around its given origin.
@@ -507,6 +507,11 @@ Ids of items read from a schematic SHALL follow `design-model`, "Identifiers of 
 - **GIVEN** a root with `U1` and the sheet references `io` and `power`
 - **WHEN** it is laid out
 - **THEN** both references lie in one row below `U1`'s cell, `io` left of `power`, and their positions are multiples of 2.54 mm
+
+#### Scenario: Groups start rows
+- **GIVEN** the units `d/top`, `d/bot` and `d/C1` of a block instance `d` whose groups are `chain` (`top`, `bot`, flow `top-to-bottom`) and then `filter` (`C1`)
+- **WHEN** they are laid out
+- **THEN** `d/top` and `d/bot` are in two rows with equal x, `d/C1` starts the next row, and every origin is a multiple of 2.54 mm
 
 #### Scenario: Cluster takes the anchor's place
 - **GIVEN** the units `R1`, `U1` and `U2`, and a cluster of `U1` with `R1` snapped to its left
@@ -556,7 +561,7 @@ Ids of items read from a schematic SHALL follow `design-model`, "Identifiers of 
 - **THEN** the two texts are equal, and the lib ids are `Fenolite:PWR_FLAG` and `fenolite:PWR_FLAG`
 
 ### Requirement: Names of unconnected-pin nets
-`fenolite.backends.kicad.netnames.unconnected_name(ref, *, unit, unit_count, pin_name, pad_number) -> str` SHALL return the net name KiCad derives for a pin on no net: `unconnected-(<ref><letter>-<pin text>-Pad<pad number>)` for a pin with a name, and `unconnected-(<ref>-Pad<pad number>)` for a pin whose name is empty.
+`fenolite.backends.kicad.netnames.unconnected_name(ref, *, unit, unit_count, pin_name, pad_number) -> str` SHALL return the net name KiCad derives for a pin on no net: `unconnected-(<ref><letter>-<pin text>-Pad<pad number>)` for a pin with a name, and `unconnected-(<ref>-Pad<pad number>)` for a pin whose name is empty or equals `pad_number` (S-1490; probe `sch-unconnected-samename`; change c0408).
 - `<letter>` MUST be `netnames.unit_letter(unit, unit_count)`: empty for a symbol of one unit, and `A` to `Z` for units 1 to 26 otherwise. A unit above 26 MUST raise `ValueError`.
 - `<pin text>` MUST be `netnames.pin_text(pin_name)`: the name with each blank replaced by `_` and each `/` by `{slash}`.
 - `netnames.PROVED_PIN_CHARS` MUST hold the characters whose probe gave `equal` on both majors. The generator MUST leave out of `pad_nets` every pin whose name holds another character, with one `kicad.sch.unconnected-name-unproven` warning naming the pin.
@@ -568,6 +573,10 @@ Ids of items read from a schematic SHALL follow `design-model`, "Identifiers of 
 #### Scenario: Unit letter only with a name
 - **WHEN** it is called for `U2`, unit 3 of 3, pin name `GND`, pad `7`, and for unit 1 of 3, pin name `""`, pad `1`
 - **THEN** it returns `unconnected-(U2C-GND-Pad7)` and `unconnected-(U2-Pad1)`
+
+#### Scenario: A pin named like its number
+- **WHEN** it is called for `J1`, unit 2 of 2, pin name `1`, pad `1`, and for one unit, pin name `P2`, pad `2`
+- **THEN** it returns `unconnected-(J1-Pad1)` and `unconnected-(J1-P2-Pad2)`, which are KiCad's names for the pins of probe `sch-unconnected-samename` on 9.0.9 and 10.0.6
 
 #### Scenario: Slash and blank in a pin name
 - **WHEN** it is called with pin names `A/B` and `X 1`
@@ -642,7 +651,8 @@ Ids of items read from a schematic SHALL follow `design-model`, "Identifiers of 
 `fenolite.backends.kicad.sch_netlist.own_netlist(sheet, *, project, children={}) -> KicadNetlist` SHALL return the netlist of a root sheet and of the child sheets it names (`children`: each child keyed by its path from the root file's folder), inside the grammar of "Netlist grammar check", read from the sheets alone, as KiCad reads them.
 - **Nodes.** Each pin of each symbol instance of every sheet whose reference does not start with `#` MUST be one node, at `schlayout.pin_point` of the instance, with the pin number of its embedded definition and the pin's electrical type as `pintype`, followed by `+no_connect` when a no-connect flag lies on its point.
 - **Wires.** The wires of a sheet are its `wires` and, for a sheet read from a file, the opaque root `wire` slots that `sch.opaque_wires(sheet)` gives as point lists; both are read alike, so a built project is read back from its files.
-- **Named nets.** Within one sheet, a pin's point, a wire end and a label's point MUST be joined when they coincide, and the two ends of a wire MUST be joined to each other (`H-K-SCH-WIRE-END`). The nodes of every group that carries a global label of one text, in any sheet, MUST form one net named by `netnames.stored_name` of that text, which is the text itself for a label that `build` wrote (`H-K-SCH-HIER-FILE`).
+- **Sheet pins.** The pins of a sheet reference are its `pins` and, for a sheet read from a file, the opaque `pin` slots of the reference that `sch.opaque_sheet_pins(ref)` gives as (name, shape, point); both are read alike.
+- **Named nets.** Within one sheet, a pin's point, a wire end, a junction and a label's point MUST be joined when they coincide, the two ends of a wire MUST be joined to each other (`H-K-SCH-WIRE-END`), a label whose point lies on the inside of a wire MUST be joined to that wire, and two wires that cross inside both MUST NOT be joined (change c0406). The pin of an instance of Fenolite's `GND` or `RAIL` power symbol ("Power symbols on a generated sheet") MUST join its point like a global label whose text is the instance's Value, and two pins of different instances at one point MUST be joined when one of them is such a power symbol's. Within one sheet, groups that carry hierarchical labels of one text MUST be joined, and joined to the group of the sheet pin of that name on the reference to that sheet in its parent; a sheet pin's point joins like a label's. The nodes of every group that carries a global label of one text, in any sheet, MUST form one net named by `netnames.stored_name` of that text, which is the text itself for a label that `build` wrote (`H-K-SCH-HIER-FILE`); a net joined through hierarchical labels and sheet pins takes the name of its global label (`H-K-SCH-BLOCK-PINS`).
 - **Unconnected nets.** A node whose group carries no label and no wire MUST form a net of its own, named by `netnames.unconnected_name` with the instance's reference, unit and unit count, the pin's name and its number, flagged or not. Pins of one instance that have one name and connect at one such point (stacked pins) MUST form one net instead, named by `netnames.open_name`: with the number that is the lowest in code-point order among them, and starting with `Net-(` in place of `unconnected-(` when no flag lies on the point (`H-K-SCH-STACKED-OPEN`).
 - **Components.** `components` MUST be `sch.components((sheet, *children.values()), project=project)`, each with the properties of its symbol other than `Reference` and `Value` (the fields KiCad's export lists), and `netclass` MUST be `""`. Only the pins of instances with a use of `project` are nodes.
 - Pins of references that start with `#` MUST NOT be nodes, and a net without a node MUST NOT be listed.
@@ -675,6 +685,11 @@ Ids of items read from a schematic SHALL follow `design-model`, "Identifiers of 
 - **WHEN** `own_netlist(root, project=<name>, children=<children>)` is called
 - **THEN** it lists `U1`, `R1`, `C1` and `R2`, and every net of the circuit with its pins, across the four sheets
 
+#### Scenario: Block sheets
+- **GIVEN** the sheets that `generate_schematic` builds for `examples/blocks/design.py` of c0251
+- **WHEN** `own_netlist(root, project=<name>, children=<children>)` is called on the created sheets and on the sheets read back from the written files
+- **THEN** both give every net of the circuit with its pins under its circuit name, and the net `VIN` holds the pin 1 of `ch0/R_EN` and of `ch1/R_EN`
+
 #### Scenario: Snap wire
 - **GIVEN** the sheet of "Resistor on an IC pin"
 - **WHEN** it is read
@@ -695,31 +710,40 @@ Ids of items read from a schematic SHALL follow `design-model`, "Identifiers of 
 
 | reason | when |
 |---|---|
-| `wire` | a sheet root holds a `junction`, `bus`, `bus_entry` or `bus_alias`, counted through `sch.opaque_heads(sheet)` |
+| `wire` | a sheet root holds a `bus`, `bus_entry` or `bus_alias`, counted through `sch.opaque_heads(sheet)` (the `junctions` of a created sheet and the `junction` slots of a read sheet are read, change c0406) |
 | `wire-shape` | a wire that has not two points, is neither horizontal nor vertical, or has no length |
-| `wire-end` | a wire end on no pin point |
-| `wire-touch` | a wire that meets a pin point, a label or another wire anywhere but at its two ends, or a wire end shared by two wires |
-| `label-kind` | a label whose kind is not `global` |
-| `sheet` | a sheet reference with pins, one whose file (resolved from the folder of the sheet that names it) is not a key of `children`, a child named by two references or by none, a symbol with more than one use, or a symbol whose use is not at the instance path of its sheet |
+| `wire-end` | a wire end on no pin point, no end of another wire and no junction |
+| `wire-touch` | a wire whose inside holds a pin point, a junction, or an end of another wire; two wires that share a stretch; or two wires that meet inside one and at an end of the other (a label on the inside of a wire and a crossing inside both are read, change c0406) |
+| `label-kind` | a label whose kind is neither `global` nor `hierarchical`, or a hierarchical label on a root sheet |
+| `sheet` | a sheet pin with no hierarchical label of its name on the child, a hierarchical label with no sheet pin of its name on the reference to its sheet, two sheet pins of one name on one reference, a sheet pin off the edge of its box, a sheet reference whose file (resolved from the folder of the sheet that names it) is not a key of `children`, a child named by two references or by none, a symbol with more than one use, or a symbol whose use is not at the instance path of its sheet |
 | `undefined-symbol` | an instance whose definition the sheet does not embed, or embeds as a derived symbol without pins |
-| `label-off-pin` | a label at a point where no pin connects |
+| `label-off-pin` | a label at a point where no pin, no wire and no sheet pin connects |
 | `two-names` | labels of different texts on one connected group |
 | `wire-unlabelled` | a wired group without a label |
-| `shared-point` | pins of two instances at one point, or several pins of one instance at a point that carries no label, unless those pins have one name (the stacked pins of "Own netlist of a generated sheet") |
+| `shared-point` | pins of two instances at one point, unless one of them is a pin of Fenolite's `GND` or `RAIL` power symbol, or several pins of one instance at a point that carries no label, unless those pins have one name (the stacked pins of "Own netlist of a generated sheet") |
 | `frame` | an instance whose rotation and mirror are not in `schlayout.PROVED_FRAMES` |
-| `hidden-power` | a hidden pin of type `power_in`, or a definition flagged `power` other than Fenolite's power flag (`symembed.is_power_flag`: `PWR_FLAG` of a library named `fenolite` in any letter case) |
+| `hidden-power` | a hidden pin of type `power_in`, or a definition flagged `power` other than Fenolite's power flag (`symembed.is_power_flag`: `PWR_FLAG` of a library named `fenolite` in any letter case); instances of Fenolite's own `GND` and `RAIL` power symbols are read (change c0406) |
 
 - The code and its severity MUST be `sch_netlist.ISSUE_CODES`; the closed set `sch.ISSUE_CODES` of "Schematic read issue codes" is not widened, because reading a sheet never gives this issue. `sch.opaque_heads(sheet) -> Counter[str]` MUST count the heads of the opaque slots of the sheet root, and MUST be empty for a sheet that was not read from a file.
-- `sch.opaque_wires(sheet) -> tuple[tuple[Point, ...], ...]` MUST give the points of each opaque root `wire` slot of a read sheet, in file order, and `()` for a created sheet.
+- `sch.opaque_wires(sheet) -> tuple[tuple[Point, ...], ...]` MUST give the points of each opaque root `wire` slot of a read sheet, in file order, and `()` for a created sheet; the junctions of a read sheet are those of `sch.opaque_drawing(sheet)`.
 - The sheets that `generate_schematic` built, with their `children`, MUST give no issue.
 
 #### Scenario: Generated sheets are inside the grammar
 - **WHEN** `grammar_issues` runs on the sheets generated for the blink, for the units design and for the design of "Two modules, one nested", each with its `children`
 - **THEN** it returns `()` for each
 
+#### Scenario: Block sheets are inside the grammar
+- **WHEN** `grammar_issues` runs on the sheets generated for `examples/blocks/design.py` of c0251 with their `children`
+- **THEN** it returns `()`
+
+#### Scenario: Sheet pin without a label
+- **GIVEN** those sheets changed in the test so that the hierarchical labels `EN` of the child `sheets/ch0.kicad_sch` are removed
+- **WHEN** `grammar_issues` runs
+- **THEN** the issues hold the reason `sheet` naming `ch0` and `EN`
+
 #### Scenario: Authored sheet with a wire
 - **WHEN** it runs on `read_schematic` of `tests/data/kicad/schematic/flat.kicad_sch`
-- **THEN** the issues hold the reasons `wire` and `label-kind`, and `own_netlist` raises `NetlistUnsupportedError`
+- **THEN** the issues hold the reasons `wire-end` and `label-kind` (its junction is read since change c0406), and `own_netlist` raises `NetlistUnsupportedError`
 
 #### Scenario: Hierarchy refused
 - **WHEN** it runs on `tests/data/kicad/schematic/hier/top.kicad_sch`
@@ -734,10 +758,23 @@ Ids of items read from a schematic SHALL follow `design-model`, "Identifiers of 
 - **WHEN** `grammar_issues` runs
 - **THEN** the issues hold the reason `sheet` naming `sheets/io.kicad_sch`
 
+#### Scenario: Wired sheets are inside the grammar
+- **WHEN** `grammar_issues` runs on the sheets generated with `layout="wired"` for the designs of `tests/_wireddesigns.py`, each with its `children`
+- **THEN** it returns `()` for each
+
+#### Scenario: Wire end inside a wire
+- **GIVEN** a wired sheet changed in the test so that the two collinear wires that end on the junction of a T are joined into one, which then holds the junction and the stem's end on its inside
+- **WHEN** `grammar_issues` runs
+- **THEN** the issues hold the reason `wire-touch`
+
+#### Scenario: Wired sheet read back
+- **WHEN** the written root of the authored design `opamp_stage` is read back with `read_schematic`, its wires and junctions kept as opaque slots
+- **THEN** `grammar_issues` returns `()` and `own_netlist` equals the own netlist of the created sheet
+
 #### Scenario: Wire through a pin
 - **GIVEN** a generated sheet changed in the test so that its snap wire runs on through the near pin to a point beyond it
 - **WHEN** `grammar_issues` runs
-- **THEN** the issues hold the reasons `wire-end` and `wire-touch`
+- **THEN** the issues hold the reason `wire-touch`, and also `wire-end` when the end beyond the pin meets nothing
 
 #### Scenario: Stacked pins are inside the grammar
 - **WHEN** `uv run pytest tests/unit/backends/kicad/test_sch_netlist.py -k stacked_grammar` runs `grammar_issues` on the sheet of the stacked design, and on a copy in which one of the stacked pins of an open pin is renamed
@@ -791,10 +828,11 @@ With `layout="readable"`, `schlayout.snap_satellites(units, nets, *, placements=
 With `layout="readable"` (the default), `generate_schematic` SHALL give each module that holds a part, directly or below it, a child sheet, and SHALL return the root sheet as `sheet` and the child sheets as `children`; a design without such a module gets one sheet. With `layout="grid"`, it SHALL return the one sheet that c0061's generator builds, without satellites, and empty `children`.
 - **Content.** The root MUST hold the units of the components outside every module, one sheet reference per top-level module with a part, and the power flags. A child sheet MUST hold the units of its module's own components and one sheet reference per sub-module with a part. The module of a component is its path without the last segment.
 - **Files.** A child sheet's path MUST be `schgen.sheet_file(<module path>)`: `sheets/<module path with "/" replaced by ".">.kicad_sch`. The root's sheet references MUST name `sheets/<file>`, and a child's sheet references MUST name `<file>`, from the child's own folder (`H-K-SCH-HIER-FILE`). Two modules whose files are equal, or differ only in letter case, MUST give `build.sheet-file-collision` (error) naming both, and no child sheet.
-- **Sheet references.** Each MUST be a `SheetRef` named by the module's last path segment, with no pin, a height of `REF_HEIGHT` (12 700 000 nm) and the width `schlayout.sheet_ref_size(name)`: the larger of 25 400 000 nm and `CHAR_ROOM` × (length of the name + 2), rounded up to `ORIGIN_STEP`. Its one `SheetUse` MUST give the path of the sheet that holds it and the child's page.
+- **Sheet references.** Each MUST be a `SheetRef` named by the module's last path segment (or `<name> (<block name>)` for a block instance, c0251), with no pin for a plain module and the pins of "Block sheet pins" for a block instance, a height of `REF_HEIGHT` (12 700 000 nm), or for a reference with pins the larger of `REF_HEIGHT` and `ORIGIN_STEP` × (the number of pins on its fuller side + 1), and the width `schlayout.sheet_ref_size(name)`: the larger of 25 400 000 nm and `CHAR_ROOM` × (length of the name + 2), rounded up to `ORIGIN_STEP`. Its one `SheetUse` MUST give the path of the sheet that holds it and the child's page.
 - **Pages.** The root's page MUST be `1`; the children MUST be numbered from `2` in depth-first order of their module paths, in natural order, and `children` MUST be in that order.
 - **Paths.** A symbol of a child sheet MUST have the use path `/<root uuid>/<kicad uuids of the sheet references from the top down>`, and its entry in `paths` the footprint path `/<those sheet uuids>/<kicad uuid of the instance with the lowest unit>` (`H-K-SCH-HIER-PATH`).
-- **Nets.** No hierarchical label and no sheet pin MUST be written; every net crosses sheets through its global labels, so net names stay those of the circuit.
+- **Nets.** On the root and on the sheet of a plain module, no hierarchical label and no sheet pin MUST be written. On the sheet of a block instance, "Block sheet pins" gives hierarchical labels for its port nets and sheet pins on its reference. Every other net crosses sheets through its global labels, and every net that crosses keeps a global label of its circuit name on some sheet, so net names stay those of the circuit (`H-K-SCH-BLOCK-PINS`).
+- **Groups.** On the sheet of a block instance, the units are arranged by the block's schematic groups ("Block schematic groups on a KiCad sheet").
 - **Placements.** A unit named by `placements` is placed on the sheet of its module.
 
 #### Scenario: Two modules, one nested
@@ -809,6 +847,15 @@ With `layout="readable"` (the default), `generate_schematic` SHALL give each mod
 #### Scenario: Design without modules
 - **WHEN** the blink is generated with the default layout
 - **THEN** `children` is empty, and the one sheet holds `D1`, `R1` and `U1` with the satellites that "Readable sheet layout" gives
+
+#### Scenario: Block instance with ports
+- **GIVEN** `examples/blocks/design.py` of c0251, whose block `channel` has the ports `VIN`, `GND` and `EN`, used as `ch0` and `ch1`
+- **WHEN** `generate_schematic` runs with the default layout
+- **THEN** the sheet references `ch0 (channel)` and `ch1 (channel)` each hold the pins `EN`, `GND` and `VIN`, each child sheet holds hierarchical labels named `EN`, `GND` and `VIN` and no global label of a port net, and the root holds a global label of the circuit net at each sheet pin
+
+#### Scenario: Plain modules unchanged
+- **WHEN** the design of "Two modules, one nested" is generated before and after change c0269
+- **THEN** the written sheets are byte-identical
 
 #### Scenario: File collision
 - **GIVEN** a top-level module `a.b` and a module `b` inside a module `a`, both with parts
@@ -849,3 +896,239 @@ For a component whose `pin_pad_map` gives a pin several pads, the generated shee
 #### Scenario: Builds of one pad per pin are pinned
 - **WHEN** `uv run pytest tests/unit/lens/test_build_bytes_pinned.py` builds the units design, the 25 designs of `tests/_gendesigns.py`, `examples/blink_2layer` and `examples/board_40parts` for targets 9 and 10
 - **THEN** the digest of each build equals the digest pinned on the base commit of change c0123, before any product code of it
+
+### Requirement: Block sheet pins
+On the sheet of a block instance, each connection point (a unit pin, or a sheet pin of a nested block) of a net that exactly one port member of that block binds SHALL carry a hierarchical label named by the member's sheet name ("Sheet names of block ports" of `design-dsl`), with the shape `input`, `output` or `bidirectional` for the port direction `in`, `out` or `inout`. The block's reference SHALL hold one sheet pin of that name and shape.
+
+#### Scenario: Port net labelled by the port
+- **GIVEN** `examples/blocks/design.py` of c0251, with the outside net `VIN` joined to `ch0.VIN`
+- **WHEN** `generate_schematic` runs
+- **THEN** pin 1 of `ch0/R_EN` on `sheets/ch0.kicad_sch` carries a hierarchical label `VIN` of shape `input`, the reference `ch0 (channel)` holds a sheet pin `VIN` of shape `input`, and the root holds a global label `VIN` at that sheet pin
+
+#### Scenario: Interface port members
+- **GIVEN** a block with `b.port("I2C", I2C)` whose members reach two sensor pins, used as `sen`
+- **WHEN** its sheets are generated
+- **THEN** the reference of `sen` holds the sheet pins `I2C_scl` and `I2C_sda`, and the sensor pins carry hierarchical labels of those names
+
+### Requirement: Sheet pin geometry
+A sheet pin of an `in` port SHALL lie on the left edge of its reference's box, and one of an `out` or `inout` port on the right edge. Pins on each side MUST be ordered by name in code-point order, at `ORIGIN_STEP` pitch from one step below the top, on the 1.27 mm grid. A member that binds no net, or whose net has no connection point on the block's sheet, MUST get no sheet pin.
+
+#### Scenario: Sides and order
+- **GIVEN** a block with the ports `VIN` and `GND` (direction `in`) and `EN` (direction `inout`)
+- **WHEN** its reference is generated
+- **THEN** `GND` and `VIN` lie on the left edge in this order, 2.54 mm apart, and `EN` lies on the right edge
+
+### Requirement: Block ports sharing a net
+When two or more port members of one block bind one net, that net SHALL keep the global labels of "Generated sheet content" on the block's sheet, those members SHALL get no sheet pin, and the generator SHALL give `build.block-port-merged` (info) naming the block path and the members. The code joins the closed set of "Generated schematic issue codes" as a later code.
+
+#### Scenario: Two ports joined outside
+- **GIVEN** a block with the ports `A` and `B`, used as `x`, and `connect(x.A, x.B)` in the design
+- **WHEN** its sheets are generated
+- **THEN** the pins of that net on `x`'s sheet carry global labels, the reference holds no pin `A` or `B`, and the issues hold one `build.block-port-merged` naming `x`, `A` and `B`
+
+### Requirement: Block schematic groups on a KiCad sheet
+With `layout="readable"`, the sheet of a block instance SHALL order its units by the block's schematic groups ("Block schematic groups in the DSL" of `design-dsl`): groups in their resolved order, members in their order with the anchor first. Parts that no group holds SHALL form the default group last, in the flow of a module's sheet. A satellite MUST snap only to an anchor of its own group.
+
+#### Scenario: Declared chain
+- **GIVEN** the block `rc_filter` with `b.schematic(schematic_group("chain", r1, c1, anchor=r1))`, used as `f1`
+- **WHEN** its sheet is generated
+- **THEN** `f1/R` comes before `f1/C` in the layout order, and both lie in the first row of the sheet
+
+#### Scenario: Default group
+- **GIVEN** the same block without `b.schematic`
+- **WHEN** its sheet is generated
+- **THEN** the sheet's unit origins equal those of a plain module holding the same parts with the same labels
+
+### Requirement: Shared arrangement of block sheets
+Instances of one block whose sheets hold the same unit keys relative to the instance path, the same groups and the same sheet pins SHALL be laid out with one label-width map, the longest label per relative pin key over those instances, so that their unit origins are equal. A unit named by `schematic-placements.toml` MUST take its placement, and its instance then leaves the shared arrangement.
+
+#### Scenario: Two instances, one arrangement
+- **GIVEN** `examples/blocks/design.py` of c0251, where `ch0` and `ch1` connect their ports to outside nets of different name lengths
+- **WHEN** the sheets are generated
+- **THEN** every unit of `sheets/ch0.kicad_sch` has the origin of the unit of the same local path on `sheets/ch1.kicad_sch`
+
+### Requirement: Sheet pins and hierarchical labels written
+`sch.write_schematic` SHALL write each `SheetPin` of a created sheet reference as a `pin` child of its `sheet`, after its properties and before `instances`, with its name, shape, `at`, `effects` and `uuid`, and each hierarchical label as `hierarchical_label` with `shape`, `at`, `effects` and `uuid`, on both targets. A sheet without them MUST keep its bytes.
+
+#### Scenario: Pins read back
+- **WHEN** the root of `examples/blocks/design.py` is written for targets 9 and 10 and read with `read_schematic`
+- **THEN** each reference holds opaque `pin` slots whose names, shapes and points `sch.opaque_sheet_pins` gives equal to the created pins
+
+#### Scenario: KiCad reads the block netlist
+- **GIVEN** the confirmed build of `examples/blocks/design.py` for the running major
+- **WHEN** the KiCad CI job exports its netlist with `kicad-cli sch export netlist` and runs ERC
+- **THEN** every net of the circuit is listed under its circuit name with its pins, and the ERC report holds no violation about sheet pins or hierarchical labels (`H-K-SCH-BLOCK-PINS`, `H-K-SCH-BLOCK-ERC`)
+
+### Requirement: Drawn sheets written
+`sch.write_schematic` SHALL write the junctions, buses, bus entries, bus aliases, local labels, power symbols and opaque items of a created sheet in the form of S-0367 for both targets, in the root order bus aliases, no-connect flags, junctions, bus entries, wires, buses, labels, symbols, sheet references, opaque items, `sheet_instances`. Opaque items MUST pass `versions.check_emittable` like every other node.
+
+#### Scenario: Every kind written
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_sch_write_drawn.py` writes the lowered full fixture for targets 9 and 10 and reads each text back
+- **THEN** the root holds one `junction`, `bus`, `bus_entry` and `bus_alias` per drawn item, and extraction of the read sheets gives the drawn value
+
+#### Scenario: Too-new opaque item
+- **GIVEN** an opaque item whose head the inventory dates after the 9.0 constant
+- **WHEN** the sheet is written for target 9
+- **THEN** `LossyWriteError` (`FEN-7001`) is raised naming the head, and with `allow_lossy=True` the item is dropped with one `kicad.sch.dropped-too-new` warning
+
+### Requirement: Drawn wires cut at junctions
+`lower_drawn` MUST cut each wire at the junctions on its inside and each bus at its junctions and bus entry ends, the form KiCad's editor keeps (9.0.9 does not join the uncut form; measured on 2026-10-29).
+
+#### Scenario: KiCad loads the drawn sheets
+- **WHEN** `uv run pytest tests/kicad/schematic/test_drawn_oracle.py -k kicad_loads_the_drawn_sheets -rA` runs with `kicad-cli` 9.0.9 or 10.0.6
+- **THEN** the netlist export of each written drawn fixture equals the resolver's nets, ERC reports no violation that the source lacks, and the probe `drawn-write` records `equal`
+
+### Requirement: Repeated sheets written
+A drawn sheet that several references name SHALL be written once, and each of its symbols MUST hold one `instances` path per reference with the reference and unit of that instance's component. Each reference MUST name the same file, and the board's footprint paths MUST use the sheet uuids of their instance (`H-K-SCH-HIER-PATH`).
+
+#### Scenario: Two channels
+- **WHEN** the repeated fixture is built for target 10
+- **THEN** one file `sheets/channel.kicad_sch` is written, its `R1` holds two instance paths with the references of `ch0/R1` and `ch1/R1`, and the two footprints' paths differ in their sheet uuid only
+
+### Requirement: Drawn content of a read sheet
+`sch.opaque_drawing(sheet) -> OpaqueDrawing` SHALL give, from the opaque root slots of a read sheet, the points of each `wire` and `bus`, the position and size of each `bus_entry`, the position and diameter of each `junction` and the name and members of each `bus_alias`, in file order, and the remaining slots verbatim. A slot whose numbers are not whole nanometres MUST stay among the remaining slots. The reader's slot rules are unchanged.
+
+#### Scenario: Junctions of a read sheet
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_sch_opaque_drawing.py` reads `tests/data/kicad/schematic/flat.kicad_sch`
+- **THEN** the junctions and wires equal the `junction` and `wire` children of the file, and `opaque_wires` gives the same wire points
+
+### Requirement: Drawn native font preservation
+KiCad extraction and writing SHALL preserve target-probed effective fonts and justification on typed drawn text. Native `(size HEIGHT WIDTH)` MUST map to `Size(w=WIDTH,h=HEIGHT)`. Canonical false/zero presence MUST NOT imply invented native tokens. Unknown effects MUST refuse; existing native text slots MUST remain preserved.
+
+#### Scenario: Small field survives
+- **GIVEN** an authored visible field with unchanged text and size 0.25 mm
+- **WHEN** it is extracted, lowered, written and read back
+- **THEN** its font remains 0.25 mm and the strict authored full proof is equal at all nine levels
+
+#### Scenario: Unsupported source effect
+- **WHEN** extraction encounters an unsupported effect on a typed drawn item
+- **THEN** it reports its source locator and strict conversion stages no output
+
+#### Scenario: Native effective style
+- **GIVEN** authored omitted, false/true style and zero/omitted thickness controls
+- **WHEN** the actual target loads and exports the schematic
+- **THEN** writing and level-S readback follow the measured effective style or refuse unsupported forms
+
+#### Scenario: Missing native justification
+- **WHEN** missing, empty and explicit native label/pin justification controls are extracted
+- **THEN** their measured native anchor is preserved rather than automatically selecting the legacy role anchor
+
+### Requirement: Legacy drawn pose bag compatibility
+The private drawn adapter SHALL retain every six-part legacy field payload byte-for-byte and append separately versioned font data only for explicit fonts. It MUST read old bags and reject malformed, duplicate, unknown or orphan style records. Default generated names and bytes MUST remain unchanged.
+
+#### Scenario: No explicit font
+- **WHEN** legacy field poses with absent fonts are lowered
+- **THEN** the complete private bag equals its old byte representation
+
+#### Scenario: Orphan font record
+- **WHEN** a versioned font record names no field pose
+- **THEN** decoding refuses rather than silently dropping it
+
+### Requirement: Native blank title intent
+KiCad extraction SHALL preserve empty native sheet title metadata as explicit blank drawn metadata rather than authored board inheritance. Nonempty values and existing authored inheritance SHALL remain unchanged.
+
+#### Scenario: Dated board with blank child
+- **GIVEN** an authored board and parent with a date and a native child with no title block
+- **WHEN** strict import, build and full fidelity proof run
+- **THEN** the child remains visibly blank, all nine levels are equal and the source remains byte-identical
+
+#### Scenario: Authored inheritance retained
+- **WHEN** an authored DrawnSheet omits title metadata
+- **THEN** its existing board-title inheritance and default writer bytes remain unchanged
+
+### Requirement: Embedding preserves empty native pin identities
+A checked native symbol's empty pin number SHALL remain empty on a newer target. Literal tilde
+numbers SHALL remain literal on a target that represents them; an unrepresentable old-target number
+SHALL refuse locally before emission unless explicit pad mapping supplies a representable number.
+Neither ambiguous raw-to-canonical association nor count mismatch SHALL select the first pin.
+
+#### Scenario: Native9 empty-marker pin embedded for10
+- **GIVEN** an authored native9 symbol with an empty-number pin and unrelated numbered pins
+- **WHEN** it is embedded into target10 and native tools export both sheets
+- **THEN** every pin, named partition and unrelated field agrees, including the empty-number identity
+
+#### Scenario: Literal tilde is distinct
+- **GIVEN** an authored native10 literal tilde pin number
+- **WHEN** target10 embeds it or target9 cannot represent it
+- **THEN** target10 preserves the literal identity and target9 refuses without dropping or renaming it
+
+### Requirement: Wired sheet layout
+With `layout="wired"`, `generate_schematic` SHALL draw each sheet as `fenolite.backends.kicad.schwired` lays it out (design D4 to D8 of change c0406): anchors (units with three pins or more, units of multi-unit parts, and parts whose two pins do not face each other) unturned; anchors ranked with one-sided anchors (connectors) last, then by falling pin count; each two-pin part attached to the best-ranked free node over both of its pins (an anchor pin, or the far pin of a part already attached) in the columns or rows beside that side of its anchor; a part between two signal pins of one anchor drawn level above that anchor as a bridge; parts between two supplies in the decoupling row of the first anchor with a pin on their non-ground supply; parts that attach nowhere drawn as chains; clusters in columns from left to right by the direction of their pins, a column taller than `schwired.COLUMN_HEIGHT` wrapped, and each follower (a one-sided anchor, or a unit of at most four pins none of which is an input or output) beside the cluster it shares most signal nets with, mirrored to face it; every signal net routed orthogonally on `GRID`; every supply pin on a power symbol ("Power symbols on a generated sheet"); and one label per drawn group of a signal net ("Net names on a wired sheet").
+- **Wires.** Every wire MUST be horizontal or vertical with both ends on `GRID`, MUST leave and enter a pin along the pin's outward direction, and MUST NOT pass over a body, a pin line, a pin point, a text room, a label room or a power symbol, nor share a stretch with a wire of another net. Two wires of different nets MAY cross only where both run straight; no wire MAY end on the inside of another wire except at a junction.
+- **Joints.** Where three wire directions meet, or a pin point holds two wires, there MUST be one `Junction`; each wire MUST be cut at the junctions on it; no point MAY hold four wire directions.
+- **Per-cluster drawing.** A net MUST be drawn per cluster, each cluster's pins wired among themselves and each such group named by its own label, when it is named by an interface of kind `i2c`, `spi`, `uart` or `usb2` and has pins in two clusters, when two of its clusters lie more than `schwired.ROUTE_REACH` (101 600 000 nm, Manhattan) apart, or when one of its terminals cannot be joined within the search budget; `GeneratedSchematic.fallbacks` MUST count the nets drawn per cluster for the last reason.
+- **Signal flow.** A cluster that holds a pin of type `output`, `power_out` or `open_collector` on a non-ground net MUST lie in a column to the left of every cluster that holds an `input` or `power_in` pin of that net, unless a cycle of such nets joins them.
+- **Texts.** Every Reference and Value of a placed unit MUST be written at a pose the layout gives, and no text room MUST overlap a body, a pin line, a wire, a label room, a power symbol with its Value, or another text room.
+- **Paper.** Each sheet MUST take the smallest paper of `schlayout.PAPERS` that holds its drawing inside `PAGE_MARGIN` and above `TITLE_BAND`.
+- The function MUST be pure, MUST use integer nm, and two calls with equal arguments MUST return equal results.
+
+#### Scenario: Divider and filter on an op-amp
+- **GIVEN** the authored design `opamp_stage` of `tests/_wireddesigns.py`: an op-amp, an input RC filter, a feedback divider and decoupling capacitors on its supply pins
+- **WHEN** it is built with the default layout
+- **THEN** the divider's mid-point, the filter node and the output are drawn with wires and no label but their net name, the decoupling capacitors stand under the op-amp with a rail symbol above and a ground symbol below, and the build's netlist guard reports nothing
+
+#### Scenario: Wired designs measured
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_schwired.py -k measures` builds every design of `tests/_wireddesigns.py` and measures each sheet with `schreadability.measure_sheet`
+- **THEN** every design has no overlap, no wire over a pin or body, no four-way joint, no T without a junction, at most three crossings and no net drawn per cluster for want of a join, and its wired sheets hold fewer than half the labels of its readable sheets
+
+#### Scenario: Fewer labels than the readable layout
+- **WHEN** the same designs are generated with `"readable"` and with `"wired"`
+- **THEN** each wired sheet holds fewer labels than the readable sheet of the same module, and every wired sheet holds wires
+
+#### Scenario: Generated designs stay inside the guard
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_schwired.py -k gendesigns` builds the 25 designs of `tests/_gendesigns.py` of each seed with the default layout
+- **THEN** no build reports `build.schematic-netlist-differs`, and every written sheet passes `grammar_issues`
+
+#### Scenario: KiCad loads the wired sheets
+- **WHEN** `tests/kicad/schematic/test_wired_oracle.py` runs `kicad-cli sch erc` and `sch export netlist` on each built design of `tests/_wireddesigns.py`
+- **THEN** ERC reports no error, and the exported nets equal the circuit's nets by name and members
+
+#### Scenario: Deterministic
+- **WHEN** a design of `tests/_wireddesigns.py` is generated twice
+- **THEN** the written sheets are byte-identical
+
+### Requirement: Power symbols on a generated sheet
+On a wired sheet each pin on a supply net (design D2 of change c0406: a net of an interface of kind `power` or `ground`, a net on a `power_in` or `power_out` pin of a fitted part, or a net whose stored name matches `schwired.SUPPLY_NAMES`) SHALL be joined by a wire to an instance of a Fenolite power symbol of its net, and SHALL carry no label.
+- **Symbols.** `symembed.power_symbol(kind, target, library=FLAG_LIBRARY) -> EmbeddedSymbol` MUST give `GND` (kind `"ground"`) or `RAIL` (kind `"rail"`), authored for Fenolite: flagged `power` (`power global` for target 10), with one hidden `power_in` pin of length 0 at the origin and a visible Value. They MUST be embedded in the flag library (`symembed.flag_library`) beside `PWR_FLAG`, and each instance MUST have `in_bom` and `on_board` false, the Reference `#PWR<nnn>` numbered from 001 over the whole design, and the Value `netnames.stored_name` of its net.
+- **Direction.** The glyph MUST continue its stub away from the pin. Ground and negative supplies MUST point down and rails up where the pin points that way or a vertical two-pin part ends there; a pin on a side edge MAY take a glyph pointing outwards.
+- **Adjacent pins.** Adjacent pins of one anchor side on one supply net, with no other connected pin between them, MUST share one power symbol through a wire that joins their stubs.
+- **Flags.** Each supply net drawn with power symbols on which no `power_out` pin of a fitted part lies MUST give one power flag on the root sheet when a `Power` interface declares it or when no `power_in` pin of a part lies on it; a net with an undriven part power input and no declaration MUST give no flag, so KiCad's ERC reports it as for the readable layout. The flag MUST be joined by one wire to a power symbol of its net, or, when no pin of the root sheet is on the net, carry a global label of its net on its pin.
+
+#### Scenario: Value names the net
+- **GIVEN** an authored sheet with two instances of `RAIL` whose Values are `+5V` and `VBAT`, each on a pin end of a resistor, and a global label `VBAT` on the other pin of the second resistor
+- **WHEN** `kicad-cli sch export netlist` of 9.0.9 and of 10.0.6 reads it
+- **THEN** the nets are `+5V` and `VBAT`, each holding both pins of its resistor
+
+#### Scenario: Decoupling capacitor
+- **GIVEN** a design whose capacitor `C1` lies between `+3V3` and `GND` and whose IC `U1` has a pin on `+3V3`
+- **WHEN** it is built with the default layout
+- **THEN** `C1` stands vertical in the decoupling row of `U1`, a `RAIL` symbol of Value `+3V3` above it and a `GND` symbol below it, and `+3V3` and `GND` have no label on the sheet
+
+### Requirement: Net names on a wired sheet
+On a wired sheet each connected group of a signal net SHALL carry exactly one label: the global label of the net (`netnames.stored_name`), or on the sheet of a block instance the hierarchical label of "Block sheet pins" for its port nets. The label of a group of one pin MUST lie at that pin, turned away from the body; the label of a wired group MUST lie on the inside of one of its wire segments, at a point that is no corner, junction or crossing, turned across the segment, where its room is free, vertical segments first; a group whose wires leave no such point MUST take the inner point and direction whose room holds the fewest busy cells. The ids of labels MUST be derived from `<name>:label:net:<module>:<net name>:<group index>` (`hlabel` for a hierarchical label).
+
+#### Scenario: Two-pin net
+- **GIVEN** a series resistor whose far pin is wired to an LED's anode
+- **WHEN** the sheet is generated
+- **THEN** the net between them holds one wire run and one global label on it, and neither pin carries a label of its own
+
+#### Scenario: Net to another sheet
+- **GIVEN** a net with two pins on a module's sheet and one pin on the root
+- **WHEN** the design is built with the default layout
+- **THEN** the module's sheet holds one global label of the net and the root one, and KiCad joins the three pins
+
+### Requirement: Wired layout fallbacks
+A sheet with a unit named by `schematic-placements.toml`, a symbol pin whose library position is off the 1.27 mm grid, or whose wired drawing fits no paper of `schlayout.PAPERS`, SHALL be drawn with the `"readable"` layout, and the build SHALL report one `build.schematic-wired-fallback` issue of severity `info` per such sheet, naming the sheet and the reason.
+
+#### Scenario: Placed unit
+- **GIVEN** the authored design `transistor_switch` with a symbol placement for `R1`
+- **WHEN** it is built with the default layout
+- **THEN** its sheet is drawn with `"readable"` (no junction, no power symbol) and the issues hold one `build.schematic-wired-fallback` naming the sheet and the placements file
+
+### Requirement: Readability measures of a generated sheet
+`fenolite.backends.kicad.schreadability.measure_sheet(sheet) -> SheetMeasures` SHALL measure one `SchematicSheet` from its own content and embedded definitions: `labels` (per kind), `wires` (segments), `junctions`, `power_symbols`, `crossings` (points inside two wires that join nothing), `wire_over_pin` (pin points inside a wire), `wire_over_body` (wire segments that enter a body box), `four_way` (points with four wire directions), `bare_tees` (wire ends on the inside of another wire without a junction) and `overlaps` (pairs of overlapping rooms among texts, labels, power symbols and bodies, text extents estimated as one character height per character and 2 mm per line). The function MUST be pure and MUST NOT read a file.
+
+#### Scenario: Readable sheet measured
+- **WHEN** the sheet that the `"readable"` layout builds for the blink is measured
+- **THEN** `labels["global"]` equals the number of its labels, `junctions` is 0 and `crossings` is 0
+

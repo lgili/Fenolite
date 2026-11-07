@@ -34,8 +34,10 @@ from fenolite.backends.kicad.lowering import (
     lower_netclass,
     millimetres,
 )
-from fenolite.backends.kicad.pcb import source_info
+from fenolite.backends.kicad.pcb import source_info, stored_net_name
 from fenolite.backends.kicad.proerrors import ISSUE_CODES, project_issue
+from fenolite.backends.kicad.rulemap import SHORTING_CODE, board_short
+from fenolite.backends.kicad.sexpr import parse
 from fenolite.backends.kicad.tuning import TuningProfile, lift_profiles, read_profiles
 from fenolite.backends.kicad.versions import (
     DEFAULT_TARGET,
@@ -72,6 +74,8 @@ PATTERN_ENTRY_PATHS: frozenset[str] = frozenset(
 )
 """The key paths a pattern entry adds; the only paths synthesis may add to the template's."""
 DEFAULT_CLASS = "Default"
+DEFAULT_MAX_CURVE_ERROR = 5_000
+"""Effective missing max_error in authored native9.0.9/10.0.6 controls (c0340, S-1207)."""
 MINIMUM_POINTER = "/board/design_settings/rules"
 """Where the board-setup minimums live (``project.md``, "Board-setup minimums")."""
 REWRITE_HINT = "re-save the project in KiCad 9 or 10, or let Fenolite synthesise a new one"
@@ -160,6 +164,33 @@ def _object(data: JsonObject, key: str, file: str, where: str) -> JsonObject | N
     if not isinstance(value, dict):
         raise FormatError(f"{key!r} is not an object", file=file, locator=f"{where}/{key}")
     return cast(JsonObject, value)
+
+
+def project_curve_error(data: JsonObject, *, file: str = "") -> Nm:
+    """The effective target-project curve setting; S-1207 proves the supported native default."""
+    current = data
+    pointer = ""
+    for part in ("board", "design_settings", "rules"):
+        child = _object(current, part, file, pointer)
+        pointer += "/" + part
+        if child is None:
+            return DEFAULT_MAX_CURVE_ERROR
+        current = child
+    if "max_error" not in current:
+        return DEFAULT_MAX_CURVE_ERROR
+    where = pointer + "/max_error"
+    value = current["max_error"]
+    if not isinstance(value, JsonNumber):
+        raise FormatError(
+            "max_error must be a positive exact length in millimetres", file=file, locator=where
+        )
+    try:
+        result = parse_length(value.text, default_unit="mm")
+        if result <= 0:
+            raise ValueError("max_error must be positive")
+    except ValueError as error:
+        raise FormatError(str(error), file=file, locator=where) from error
+    return result
 
 
 def _version(meta: JsonObject | None, file: str, where: str) -> int | None:
@@ -283,6 +314,23 @@ def project_floors(data: JsonObject, *, issues: list[Issue] | None = None) -> di
     return floors
 
 
+HOLE_CLEARANCE_KEY = "min_hole_clearance"
+"""The board-setup copper-to-hole clearance in ``board.design_settings.rules`` (``project.md``, "Board-setup
+minimums"; ``INFERRED``, change c0403). Read for the copper check only: it is not one of ``MINIMUM_KEYS``,
+so nothing writes it from a rule."""
+
+
+def project_hole_clearance(data: JsonObject, *, issues: list[Issue] | None = None) -> Nm | None:
+    """The nm value of ``HOLE_CLEARANCE_KEY`` in ``board.design_settings.rules`` when it is a JSON number,
+    else ``None``; an inexact value reads as absent with ``kicad.project.inexact-value``."""
+    found = issues if issues is not None else []
+    rules = _json.get(data, MINIMUM_POINTER)
+    if not isinstance(rules, dict):
+        return None
+    table = cast(JsonObject, rules)
+    return _nm(table.get(HOLE_CLEARANCE_KEY), f"{MINIMUM_POINTER}/{HOLE_CLEARANCE_KEY}", found)
+
+
 def project_minimums(data: JsonObject, *, issues: list[Issue] | None = None) -> dict[str, Nm]:
     """Key → the nm value of each ``MINIMUM_KEYS`` member of ``board.design_settings.rules`` that is a
     JSON number; an inexact value reads as absent with ``kicad.project.inexact-value``."""
@@ -354,6 +402,7 @@ def read_project(
     found = issues if issues is not None else []
     text, file = _source(source, file)
     data = _json.loads(text, file=file)
+    project_curve_error(data, file=file)
     meta_version, settings_version = _versions(data, file)
     status = classify_project(meta_version, settings_version)
     if status == VersionStatus.FUTURE:
@@ -499,9 +548,10 @@ def apply_project(design: Design, info: ProjectInfo, *, issues: list[Issue] | No
         usable.append((pattern, assigned, cls))
     nets: list[Net] = []
     for net in design.circuit.nets:
+        native_name = stored_net_name(net)
         candidates: list[str] = []
         for pattern, assigned, cls in usable:
-            hit = assigned == net.name if pattern is None else pattern_matches(pattern, net.name)
+            hit = assigned == native_name if pattern is None else pattern_matches(pattern, native_name)
             if hit and cls not in candidates:
                 candidates.append(cls)
         chosen = min(candidates, key=lambda c: rank[c]) if candidates else None
@@ -537,7 +587,16 @@ def _apply_sheet(design: Design, info: ProjectInfo) -> Design:
         block = dataclasses.replace(block, params=params)
     elif params:
         block = TitleBlock(params=params)
-    return dataclasses.replace(design, board=dataclasses.replace(board, sheet=sheet, title_block=block))
+    curve_error = project_curve_error(info.data, file=info.file)
+    return dataclasses.replace(
+        design,
+        board=dataclasses.replace(
+            board,
+            sheet=sheet,
+            title_block=block,
+            max_curve_error=None if curve_error == DEFAULT_MAX_CURVE_ERROR else curve_error,
+        ),
+    )
 
 
 # --- writing --------------------------------------------------------------------------------------
@@ -631,8 +690,13 @@ def _net_class_names(design: Design) -> dict[str, str]:
     classes = _model_classes(design)
     out: dict[str, str] = {}
     for net in design.circuit.nets:
+        native_name = stored_net_name(net)
+        if native_name in out:
+            raise ConsistencyError(
+                f"model.duplicate-netname: native stored name {native_name!r} is ambiguous"
+            )
         if net.netclass_id is None:
-            out[net.name] = DEFAULT_CLASS
+            out[native_name] = DEFAULT_CLASS
             continue
         cls = classes.get(net.netclass_id)
         if cls is None:
@@ -641,7 +705,7 @@ def _net_class_names(design: Design) -> dict[str, str]:
                 "which the circuit "
                 "does not hold; run Design.validate() first"
             )
-        out[net.name] = cls.name
+        out[native_name] = cls.name
     return out
 
 
@@ -727,6 +791,17 @@ def _write_minimums(
             )
 
 
+def _write_curve_error(data: JsonObject, design: Design) -> None:
+    board = design.board
+    if board is None or board.max_curve_error is None:
+        return
+    rules = _rules_object(data)
+    value = millimetres(board.max_curve_error)
+    old = rules.get("max_error")
+    if not isinstance(old, JsonNumber) or not _same_nm(old, value):
+        rules["max_error"] = value
+
+
 def _text(value: Any) -> str:
     return value.text if isinstance(value, JsonNumber) else repr(value)
 
@@ -734,13 +809,17 @@ def _text(value: Any) -> str:
 def _write_severities(
     data: JsonObject, design: Design, *, target: int, allow_lossy: bool, issues: list[Issue]
 ) -> None:
-    """The check severities of ``RuleSet.severities`` (change c0114; project.md, "Check severities").
+    """The check severities of ``RuleSet.severities`` (change c0114; project.md, "Check severities"), with
+    ``shorting_items`` of the rule ``rulemap.board_short`` gives (change c0465).
 
     Each ``kicad.drc.<suffix>`` code sets its key of ``rule_severities`` when the key is one of
     ``SEVERITY_KEYS[target]``; every other member keeps its value and its position. A code whose key is
     not one of them is refused (``kicad.project.unknown-check``), or dropped with ``allow_lossy``: KiCad
     ignores an unknown key without a message, so a misspelt code would do nothing."""
-    severities = design.rules.severities if design.rules is not None else {}
+    severities = dict(design.rules.severities) if design.rules is not None else {}
+    allowance = board_short(design.rules)
+    if allowance is not None:  # change c0465: a board-wide short rule is KiCad's own check severity
+        severities[SHORTING_CODE] = allowance.severity
     if not severities:
         return
     known: dict[str, str] = {}
@@ -805,6 +884,50 @@ def _check_classes(data: JsonObject, design: Design, *, target: int, issues: lis
     )
 
 
+def bind_schematic_identity(project_text: str, *, root_file: str, schematics: Mapping[str, str]) -> str:
+    """Bind managed identity caches to emitted sheets, never the empty-project template UUID.
+
+    Only a caller actually writing those schematics may call this (c0344).
+    Other project keys remain unchanged, and no source file is edited here.
+    """
+    if root_file not in schematics or Path(root_file).name != root_file:
+        raise ValueError("schematic identity needs the emitted root filename")
+    root = parse(schematics[root_file], file=root_file)
+    root_id = root.find("uuid")
+    if root.name != "kicad_sch" or root_id is None or len(root_id.atoms()) != 1:
+        raise ValueError("emitted root schematic needs one UUID")
+    root_uuid = root_id.atoms()[0].value
+    name = Path(root_file).stem
+    identities = {root_uuid: name}
+    for filename, text in sorted(schematics.items()):
+        sheet = parse(text, file=filename)
+        for child in sheet.nodes("sheet"):
+            child_id = child.find("uuid")
+            names = [p for p in child.nodes("property") if p.atoms() and p.atoms()[0].value == "Sheetname"]
+            if (
+                child_id is None
+                or len(child_id.atoms()) != 1
+                or len(names) != 1
+                or len(names[0].atoms()) != 2
+            ):
+                raise ValueError("emitted sheet reference needs UUID and Sheetname")
+            key, value = child_id.atoms()[0].value, names[0].atoms()[1].value
+            if key in identities and identities[key] != value:
+                raise ValueError("conflicting emitted sheet identities")
+            identities[key] = value
+    data = _json.loads(project_text)
+    settings = _object(data, "schematic", "", "/schematic")
+    if settings is None:
+        settings = {}
+        data["schematic"] = settings
+    settings["top_level_sheets"] = [{"filename": root_file, "name": name, "uuid": root_uuid}]
+    data["sheets"] = [
+        [root_uuid, name],
+        *[[key, identities[key]] for key in sorted(identities) if key != root_uuid],
+    ]
+    return _json.dumps(data)
+
+
 def synthesize_project(
     design: Design,
     *,
@@ -818,6 +941,7 @@ def synthesize_project(
     data = template(target)
     cast(JsonObject, data.setdefault("meta", {}))["filename"] = f"{board_name}.kicad_pro"
     _write_minimums(data, design, target=target, update=False, issues=found)
+    _write_curve_error(data, design)
     _write_severities(data, design, target=target, allow_lossy=allow_lossy, issues=found)
     classes = _classes(data)
     base = cast(JsonObject, classes[0])
@@ -972,6 +1096,48 @@ def _resolve_nine(
         edits.extend(found)
 
 
+@dataclass(frozen=True, slots=True)
+class NativeNetContext:
+    """Private writer policy, issued only for a completely unchanged imported context."""
+
+    project_sha256: str
+    target: int
+    model_sha256: str
+
+
+def _context_fingerprint(design: Design) -> str:
+    from fenolite.model import canonical
+
+    model = dataclasses.replace(design, header=dataclasses.replace(design.header, fenolite_version=""))
+    return hashlib.sha256(canonical.dumps(model).encode()).hexdigest()
+
+
+def native_net_context(text: str, design: Design, target: int) -> NativeNetContext:
+    """Qualify exact native class values/membership; this is not a public DSL input."""
+    found: list[Issue] = []
+    info = read_project(text, issues=found)
+    names = [cls.name for cls in info.classes]
+    if info.major != target or len(set(names)) != len(names) or names.count(DEFAULT_CLASS) != 1:
+        raise FormatError("native project context requires unique supported same-target classes")
+    applied = apply_project(design, info, issues=found)
+    if found:
+        raise FormatError(
+            "native project class semantics are not completely represented: " + found[0].message
+        )
+
+    def values(model: Design) -> dict[str, tuple[int | None, ...]]:
+        result = {
+            cls.name: tuple(getattr(cls, key) for key in NETCLASS_KEYS) for cls in model.circuit.netclasses
+        }
+        if len(result) != len(model.circuit.netclasses):
+            raise FormatError("native project model class names collide")
+        return result
+
+    if values(applied) != values(design) or _net_class_names(applied) != _net_class_names(design):
+        raise FormatError("native project class values or complete membership differ")
+    return NativeNetContext(hashlib.sha256(text.encode()).hexdigest(), target, _context_fingerprint(design))
+
+
 def update_project(
     existing_text: str,
     design: Design,
@@ -982,6 +1148,8 @@ def update_project(
     renamed_nets: Collection[str] = (),
     downgrade: bool = False,
     edits: list[resolver.Edit] | None = None,
+    preserve_minimums: bool = False,
+    _native_context: NativeNetContext | None = None,
 ) -> str:
     """``existing_text`` with only its managed keys changed (project.md, "Updates").
 
@@ -1009,8 +1177,15 @@ def update_project(
         _gate_nine(
             data, design, pair, allow_lossy=allow_lossy, issues=found, downgrade=downgrade, edits=edits
         )
-    _write_minimums(data, design, target=target, update=True, issues=found)
+    if not preserve_minimums:
+        _write_minimums(data, design, target=target, update=True, issues=found)
+    _write_curve_error(data, design)
     _write_severities(data, design, target=target, allow_lossy=allow_lossy, issues=found)
+    if _native_context is not None:
+        if _native_context != native_net_context(existing_text, design, target):
+            raise FormatError("native project context no longer binds this exact model/project/target")
+        _check_classes(data, design, target=target, issues=found)
+        return _json.dumps(data)
     classes = _classes(data)
     by_name = {cast(JsonObject, c).get("name"): i for i, c in enumerate(classes) if isinstance(c, dict)}
     default_index = by_name.get(DEFAULT_CLASS, 0)
@@ -1033,12 +1208,13 @@ def update_project(
     _check_classes(data, design, target=target, issues=found)
     settings = cast(JsonObject, data["net_settings"])
     names = _net_class_names(design)
+    owned_exact = {*names, *(net.name for net in design.circuit.nets)}
     existing = settings.get("netclass_patterns")
     kept: list[Any] = []
     for entry in cast(list[Any], existing) if isinstance(existing, list) else []:
         pattern = cast(JsonObject, entry).get("pattern") if isinstance(entry, dict) else None
         exact = isinstance(pattern, str) and not (UNSAFE_PATTERN_CHARS & set(pattern))
-        if exact and (pattern in names or pattern in renamed_nets):
+        if exact and (pattern in owned_exact or pattern in renamed_nets):
             continue
         kept.append(entry)
     _conflicts(kept, settings.get("netclass_assignments"), names, found)
@@ -1084,6 +1260,7 @@ def _conflicts(kept: Sequence[Any], assignments: Any, names: Mapping[str, str], 
 __all__ = [
     "DEFAULT_CLASS",
     "EVIDENCE",
+    "HOLE_CLEARANCE_KEY",
     "ISSUE_CODES",
     "MINIMUM_POINTER",
     "NET_SETTINGS_READ_MAX",
@@ -1102,10 +1279,13 @@ __all__ = [
     "holds_default",
     "pattern_matches",
     "project_floors",
+    "project_hole_clearance",
     "project_minimums",
     "project_major",
     "read_project",
     "read_project_text",
+    "bind_schematic_identity",
+    "project_curve_error",
     "synthesize_project",
     "template",
     "update_project",

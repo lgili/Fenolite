@@ -275,8 +275,9 @@ def placed_extents(design: Design, *, issues: list[Issue] | None = None) -> tupl
 
 EDGE_LAYER = "Edge.Cuts"
 EDGE_JOIN_NM = 1_000
-"""Edge graphics whose endpoints lie closer than this are chained as one point: the import rounds the end
-of an arc of the board outline from its centre, radius and angles, and the next line from the vertex."""
+"""Edge graphics whose endpoints lie closer than this are chained as one point: the import ends an arc of
+the board outline on its vertices only when its centre, radius and angles give ends within
+``adapter.copper.OUTLINE_VERTEX_NM`` of them (change c0378), else on the rounded computed ends."""
 
 
 def _edge_pieces(design: Design) -> list[Segment | GeoArc]:
@@ -297,6 +298,16 @@ def _edge_pieces(design: Design) -> list[Segment | GeoArc]:
         ring = graphic.kind == "polygon" and len(points) >= 3
         ends = (*points, points[0]) if ring else tuple(points)
         pieces += [Segment(a, b) for a, b in zip(ends, ends[1:], strict=False)]
+    for footprint in board.footprints:
+        # a board cut-out of a component is a closed outline of its footprint's Edge.Cuts (change c0443),
+        # placed as a pad's position is
+        place = Transform.placement(footprint.position, footprint.rotation)
+        for graphic in footprint.graphics:
+            if graphic.layer not in layers or graphic.kind != "polygon" or len(graphic.points) < 3:
+                continue
+            placed = tuple(place.apply(point) for point in graphic.points)
+            ends = (*placed, placed[0])
+            pieces += [Segment(a, b) for a, b in zip(ends, ends[1:], strict=False)]
     return [piece for piece in pieces if piece.start != piece.end]
 
 

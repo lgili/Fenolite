@@ -108,6 +108,8 @@ class Board:
     vias: tuple[Via, ...] = ()
     keepouts: tuple[Keepout, ...] = ()
     rules: tuple[Rule, ...] = field(default=())
+    full_drill: bool = False
+    """Write a via whose drill equals its diameter, as a rewrite of a read document does."""
 
     def spec(self) -> PcbDocSpec:
         nets = sorted(
@@ -128,6 +130,7 @@ class Board:
             vias=self.vias,
             keepouts=self.keepouts,
             design_rules=tuple(lowered),
+            allow_full_drill=self.full_drill,
         )
 
     def write(self, *, pour: PourMode = "computed") -> pcbdoc.PcbDocResult:

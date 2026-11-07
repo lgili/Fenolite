@@ -1,0 +1,112 @@
+{
+  "coordinator_review": {
+    "authority": "root coordinator explicit task0.2 review; not a fabricated maintainer/CODEOWNER approval",
+    "date": "2026-11-03",
+    "production_normalizer_implemented": false,
+    "scope": [
+      "complete editable fields and exact net/context/ref closure",
+      "canonical private electrical IDs/order only; original normal fills preserved",
+      "duplicate signatures/source IDs REFUSE until authored native exchangeability proven",
+      "unique known pad-field order matching only after authored oracle; never reorder input pad children",
+      "one actual native regeneration per side, preserve every vertex/multiplicity",
+      "no default writer/canonical/model/DSL change, no raw cache equality or DRC safety claim",
+      "public result owner/schema review before any production comparison change"
+    ]
+  },
+  "field_order_authored_native_controls": [
+    {
+      "exact_copper_svg_sha256": "fe313881122da6912840d2a268bb76d41cca0f91b992b27b6fac8d5fb2fd98e2",
+      "identity_or_geometry_mutation": false,
+      "input_sha256": "9f15c31ae2d9d5fe14b391550ec8d3c09be0f30b770ae8434fcaa06a3c55d58e",
+      "native_version": "9.0.9",
+      "only_svg_title_clock_normalized": true,
+      "pad_fields_permuted": 2,
+      "permuted_sha256": "43378782bd121192fd05736fb64b6bdc50bf5e55be551ed650affbe40a5508de",
+      "raw_svg_sha256": [
+        "2846c70e442e158492215a7fe64c4dc0567a6b343db10c824b9ac4100f281249",
+        "2846c70e442e158492215a7fe64c4dc0567a6b343db10c824b9ac4100f281249"
+      ],
+      "receipt_sha256": "e0cd64ab0fd4b038d1ab66136c4b719d356d0b36794e271a9db29990f33adf55",
+      "refill_claimed": false,
+      "roundrect": false
+    },
+    {
+      "exact_copper_svg_sha256": "70e92fc416d379e788b8526c0c96cae86b9efd6613b4830814e73fd71ccfb8c8",
+      "identity_or_geometry_mutation": false,
+      "input_sha256": "cacd9fc7127cd4f5e7c08a3346a880ac628e9a5ec884b435009e2e9edd1725a0",
+      "native_version": "9.0.9",
+      "only_svg_title_clock_normalized": true,
+      "pad_fields_permuted": 2,
+      "permuted_sha256": "86d3892fbfc3c058878bd227ab78b7f81f40a9ce8f02e07e50bac0b140e18d7b",
+      "raw_svg_sha256": [
+        "5a67c36a9da5027bc1329cb648b04dd5a49e0e3b88c602917a2a0fbb9643b7eb",
+        "13372481c40ec05a02bc8410ddb0f97cc8ab00b5e92e18b7f67d6b670296539b"
+      ],
+      "receipt_sha256": "1ef80ad64e956bfa906edce305d452d3e829a3a656d0591bd775b17cf3d8a47c",
+      "refill_claimed": false,
+      "roundrect": true
+    },
+    {
+      "exact_copper_svg_sha256": "6266007573d0de4783930000e5f03c2260ae63359f60453150eafa0169088f88",
+      "exact_derived_regions": 2,
+      "exact_derived_sha256": "0bc42a2c68a8b5a08495919748aed3a8950e6f30ec0b1add82675cd16bf589db",
+      "identity_or_geometry_mutation": false,
+      "input_sha256": "74ecc11a6065854cc817ee3e29f425869b025119f5197eebecf47725df55d75c",
+      "native_version": "10.0.6",
+      "only_svg_title_clock_normalized": true,
+      "pad_fields_permuted": 2,
+      "permuted_sha256": "7d75fb99c1e56aa21a8debb8d067bee85a3665fe6706f96e71613b4b54e47930",
+      "raw_svg_sha256": [
+        "51bc5d779537e46a6f7458661af4430075b73eace5d41b45a2c6bba6c1facacb",
+        "798e19fd3b169630e62ea797374b2dbbb48e13b2301f98ab678f0d20eb18f2c8"
+      ],
+      "receipt_sha256": "ddfd8f21beb9d02ed533f1718ea422c23640318145e0330f8bf1e1bef14d74c9",
+      "refill_claimed": true,
+      "roundrect": false
+    },
+    {
+      "exact_copper_svg_sha256": "82fdfd0a05dc03d6e38e10c8d7df069f5f928fcc13d37ec0fd0305c51ab4869d",
+      "exact_derived_regions": 2,
+      "exact_derived_sha256": "0d5dc05bcaf4cded18c47344c049950758ad9791ed931a3857c6511ee3c96241",
+      "identity_or_geometry_mutation": false,
+      "input_sha256": "f9fd2b9056a1993511724607ce3064dfe5a08393696a3e50b81160969d9d0f14",
+      "native_version": "10.0.6",
+      "only_svg_title_clock_normalized": true,
+      "pad_fields_permuted": 2,
+      "permuted_sha256": "52066e2603dade3af7dbcc57e9f38d84b1a4c59618f55f8642896270436cd279",
+      "raw_svg_sha256": [
+        "3dfc17057758b46bc3676a35ad5b9d384a55d0ca3c60e29ea1dd735bbefc5583",
+        "70d03bf51dc94de73e4442c3b4c206cf050e07dafefa4c68117657697774d408"
+      ],
+      "receipt_sha256": "2f52233da66c992875ef18c211770d0eee4e87f5b6eff5141fe85df916402187",
+      "refill_claimed": true,
+      "roundrect": true
+    }
+  ],
+  "raw_royal_findings_unchanged": [
+    "regenerated_geometry a562fa7965020cc8dfd270a007b7dcf1da04d716c994b7ffeb8a8fb81278ad12 vs cc159325005cdc04ee113ac05261aa3917a6d9e812493faf34fddc6092e8edb2",
+    "raw teardrop cache count263 vs0"
+  ],
+  "royal_actual_annotation_values": {
+    "claim": "Stored per-pad annotation presence/text preservation only; no derived-geometry or DRC-safety claim.",
+    "core_commit": "40d27f47dcd0094f99e5378387b28ba09f97d04a",
+    "exact_annotation_multisets_equal": true,
+    "extra": "Counter()",
+    "generated_annotation_nodes": {
+      "pinfunction": 319,
+      "pintype": 389
+    },
+    "generated_board_sha256": "43d3b31c9485f96852eaa03e8d7b09e6fb1de453c325e7f41a395b9954dec8f9",
+    "identity_scope": "ref + complete pad header + exact rational local xy/effective rotation + size + layers, preserving full physical multiplicity; zero and360 rotations normalize only exact equivalence. No geometry/ID mutation. Full independent L3/L4 equality is separately recorded.",
+    "missing": "Counter()",
+    "physical_footprints": 71,
+    "physical_pads": 428,
+    "source_annotation_nodes": {
+      "pinfunction": 319,
+      "pintype": 389
+    },
+    "source_board_sha256": "535dbe212f43a8bab12b23277e176a94ac9694177258af2981c0e7b08e4b7252",
+    "unique_pad_annotation_signatures": 427
+  },
+  "royal_copy_stage": "REFUSED/PENDING: duplicate exchangeability, full reference closure negatives and complete strict correspondence are not yet proved; no private common-ID acceptance reported"
+}

@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from fenolite.core.errors import FormatError
+from fenolite.core.schema_ids import accepts_schema
 from fenolite.model import canonical
 from fenolite.model.rules import PartClass, RoleSet, RuleSet
 
@@ -57,7 +58,7 @@ def loads_document(text: str, *, file: str = "") -> RoleSet:
     if not isinstance(data, dict):
         raise FormatError("a role document is a JSON object", file=file, locator="/")
     document = cast(dict[str, Any], data)
-    if document.get("schema") != SCHEMA:
+    if not accepts_schema(document.get("schema"), SCHEMA):
         raise FormatError(f"the schema must be {SCHEMA!r}", file=file, locator="/schema")
     unknown = sorted(set(document) - {"schema", "roles"})
     if unknown:
@@ -147,6 +148,17 @@ def merged(declared: RoleSet | None, confirmed: RoleSet | None, classes: Sequenc
     )
 
 
+def read_rules_roles(path: Path) -> RoleSet | None:
+    """The roles of a project's ``.fenolite/rules.json``, or ``None`` when it is missing, unreadable or holds
+    none (change c0243: the role copper of a rebuild sees the roles the user confirmed)."""
+    try:
+        found = canonical.loads(path.read_text(encoding="utf-8"), RuleSet, file=path.name)
+    except (OSError, UnicodeDecodeError, FormatError, ValueError):
+        return None
+    assert isinstance(found, RuleSet)
+    return found.roles
+
+
 def kept_confirmed(new_rules: bytes, old_rules: Path) -> bytes:
     """The bytes of a new build's ``.fenolite/rules.json`` with the roles that the user confirmed in the
     previous one (``old_rules``) kept: the build writes the script's declarations, and ``fenolite roles``
@@ -192,6 +204,7 @@ __all__ = [
     "document_path",
     "dumps_document",
     "kept_confirmed",
+    "read_rules_roles",
     "loads_document",
     "merged",
     "read_document",

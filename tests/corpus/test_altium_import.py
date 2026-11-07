@@ -364,8 +364,10 @@ def test_footprint_items_conserve_the_census(item: CorpusItem, capsys: pytest.Ca
     """Scenario "The census is conserved on the corpus" (``H-A-IMP-FPGFX``; change c0126): on every public
     PCB document with the use ``rta``, the mapped and the unmapped counts of each kind add up to the
     reader's record count, every primitive that carries the index of a component with a readable position
-    is an item of its footprint or one of the two counted cases (a primitive on an internal plane, an arc
-    or a region without a shape), and the category ``footprint-graphics`` holds the plane primitives alone.
+    is an item of its footprint, a rule area of its footprint (a keep-out on a signal layer or a polygon
+    cut-out, change c0407; a keep-out region on the Keep-Out layer, change c0411) or one of the two
+    counted cases (a primitive on an internal plane, an arc or a region without a shape), and the category
+    ``footprint-graphics`` holds the plane primitives alone.
     Prints the number of graphics, fields and texts per document for the evidence page (``-s``). Counts
     only: no name and no value of a document is printed."""
     from collections import Counter
@@ -373,7 +375,13 @@ def test_footprint_items_conserve_the_census(item: CorpusItem, capsys: pytest.Ca
     from _boards import census
 
     from fenolite.backends.altium.adapter.board import read_board
-    from fenolite.backends.altium.adapter.copper import owned_primitives
+    from fenolite.backends.altium.adapter.copper import (
+        ALL_COPPER_LAYERS,
+        KEEPOUT_LAYER_ID,
+        is_keepout,
+        is_polygon_cutout,
+        owned_primitives,
+    )
     from fenolite.backends.altium.adapter.evidence import EVIDENCE
     from fenolite.backends.altium.adapter.ids import Ids
 
@@ -385,6 +393,21 @@ def test_footprint_items_conserve_the_census(item: CorpusItem, capsys: pytest.Ca
         assert parts.census.total(kind) == len(getattr(document, kind)), kind
     owned = owned_primitives(document)
     carried = sum(len(getattr(held, kind)) for held in owned.values() for kind in ITEM_KINDS)
+    # c0407: a keep-out on a signal layer (1 Top … 32 Bottom) and a polygon cut-out are rule areas; c0411: so
+    # is a keep-out region on the Keep-Out layer, and all of them are areas of the component's footprint
+    areas = sum(
+        1
+        for held in owned.values()
+        for kind in ("tracks", "arcs", "fills", "regions")
+        for _, record in getattr(held, kind)
+        if (is_keepout(record) and record.prefix.layer <= 32)
+        or (kind == "regions" and is_keepout(record) and record.prefix.layer == KEEPOUT_LAYER_ID)
+        or (
+            kind == "regions"
+            and is_polygon_cutout(record)
+            and (record.prefix.layer <= 32 or record.prefix.layer in ALL_COPPER_LAYERS)
+        )
+    )
     footprints = [fp for fp in parts.board.footprints if "board_only" not in fp.attributes]
     graphics = sum(len(fp.graphics) for fp in footprints)
     fields = sum(len(fp.fields) for fp in footprints)
@@ -401,6 +424,7 @@ def test_footprint_items_conserve_the_census(item: CorpusItem, capsys: pytest.Ca
     left = parts.census.categories().get("footprint-graphics", 0)
     entry = {
         "carried": carried,
+        "rule_areas": areas,
         "graphics": graphics,
         "fields": fields,
         "texts": texts,
@@ -411,8 +435,10 @@ def test_footprint_items_conserve_the_census(item: CorpusItem, capsys: pytest.Ca
     with capsys.disabled():
         print(f"\n{item.id}: {entry}")
     # every carried primitive is an item of its footprint: measured on 2026-10-08 on the eight documents
-    # (16 647 primitives; none on an internal plane, none without a shape, no component without a position)
-    assert graphics + fields + texts == carried
+    # (16 647 primitives; none on an internal plane, none without a shape, no component without a position);
+    # since c0407 the two keep-out arcs on Top of a component of `-04` are rule areas instead (of its
+    # footprint since c0411), and since c0411 so is the keep-out region on the Keep-Out layer of another one
+    assert graphics + fields + texts + areas == carried
     assert left == 0
     assert (
         len({g.id for fp in footprints for g in (*fp.graphics, *fp.texts, *fp.fields)})

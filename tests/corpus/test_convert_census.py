@@ -21,6 +21,7 @@ fitted under ``dnp``.
 
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import re
@@ -49,6 +50,8 @@ CONVERT_TOO_LARGE = {"06": 119, "18": 181}
 """The same boards converted: ``convert`` writes the extruded bodies by default, and ``vme-wren`` then
 needs one sector more."""
 NOT_WRITTEN: dict[str, dict[str, int]] = {
+    # change c0420: a net tie is written as a component of the kind Net Tie, so no ``net-tie`` row is lost
+    # (boards 11, 13 and 16 held 2, 1 and 9)
     "01": {
         "dnp": 2,
         "footprint-graphic": 3,
@@ -59,21 +62,18 @@ NOT_WRITTEN: dict[str, dict[str, int]] = {
         "text": 149,
         "zone-fill": 13,
     },
-    "02": {"stackup": 1, "text": 2, "zone-fill": 1},
+    "02": {"stackup": 1, "zone-fill": 1},
     "03": {"stackup": 1, "zone-fill": 1},
     "04": {"stackup": 1, "zone-fill": 1},
     "05": {"dimension": 2, "stackup": 1, "zone-fill": 1},
-    "07": {"stackup": 1, "text": 1, "zone-fill": 3},
+    "07": {"stackup": 1, "zone-fill": 3},
     "08": {"footprint-copper": 4},
     "09": {"keep-out": 4, "text": 2, "zone-fill": 1},
     "10": {"keep-out": 4, "text": 2, "zone-fill": 2},
     "11": {
-        "copper-shape": 2,
         "dnp": 11,
-        "footprint-copper": 3,
+        "footprint-copper": 1,
         "footprint-graphic": 1,
-        "net-tie": 2,
-        "outline": 20,
         "pad": 12,
         "stackup": 1,
         "text": 25,
@@ -82,56 +82,70 @@ NOT_WRITTEN: dict[str, dict[str, int]] = {
     "12": {"pad": 2, "stackup": 1, "zone-fill": 1},
     "13": {
         "dnp": 22,
-        "footprint-copper": 1,
-        "net-tie": 1,
-        "outline": 4,
         "pad": 48,
         "stackup": 1,
         "text": 1,
         "zone": 2,
         "zone-fill": 2,
     },
-    "14": {"copper-shape": 4, "footprint-graphic": 5, "outline": 1},
+    "14": {"footprint-graphic": 5, "outline": 1},
     "15": {"dimension": 1, "stackup": 1, "zone-fill": 1},
     "16": {
         "dimension": 6,
         "dnp": 11,
-        "footprint-copper": 25,
         "footprint-graphic": 15,
         "graphic": 2,
-        "net-tie": 9,
         "outline": 1,
         "pad": 20,
         "stackup": 1,
-        "text": 224,
+        "text": 222,
         "zone-fill": 2,
     },
     "17": {"dimension": 2, "stackup": 1, "zone-fill": 2},
 }
-"""Per-board refused items, measured after c0160 on 2026-10-12 (16 light boards)."""
+"""Per-board refused items, measured after c0160 on 2026-10-12 (16 light boards). Change c0412 (B12) writes
+the shapes on copper of ``11`` (2) and ``14`` (4) as regions, so their ``copper-shape`` losses are gone."""
 DIFFERENCES: dict[str, tuple[int, dict[str, int]]] = {
-    "01": (5, {"dnp": 2, "pad-kind": 2, "pad-missing": 8}),
+    "01": (5, {"dnp": 2, "pad-kind": 2, "pad-missing": 1}),
     "02": (5, {}),
     "03": (5, {}),
-    "04": (5, {"pad-missing": 1}),
+    "04": (5, {}),
     "05": (5, {"pad-kind": 62}),
-    "07": (5, {"pad-missing": 2}),
-    "08": (4, {"ref-ambiguous": 1}),
+    "07": (5, {}),
+    "08": (4, {}),
     "09": (5, {}),
     "10": (5, {}),
-    "11": (5, {"dnp": 11, "pad-missing": 15, "pin-missing": 12}),
-    "12": (5, {"pad-missing": 10, "pin-missing": 2}),
-    "13": (5, {"dnp": 22, "pad-kind": 6, "pad-missing": 28, "pin-missing": 18, "route-connectivity": 2}),
+    "11": (
+        5,
+        {"dnp": 11, "net-tie-copper": 2, "pad-missing": 12, "pin-missing": 12, "route-connectivity": 10},
+    ),
+    "12": (5, {"pad-missing": 2, "pin-missing": 2, "route-connectivity": 2}),
+    "13": (
+        5,
+        {
+            "dnp": 22,
+            "net-tie-copper": 1,
+            "pad-kind": 6,
+            "pad-missing": 22,
+            "pin-missing": 18,
+            "route-connectivity": 14,
+        },
+    ),
     "14": (5, {}),
     "15": (5, {}),
-    "16": (5, {"dnp": 11, "pad-missing": 20, "ref-ambiguous": 4, "route-connectivity": 1}),
-    "17": (5, {"pad-kind": 120, "pad-missing": 8}),
+    "16": (5, {"dnp": 11, "pad-missing": 17, "route-connectivity": 1}),
+    "17": (5, {"pad-kind": 120}),
 }
-"""Per-board comparison after c0160, within 10 nm and 20 ppm (2026-10-12)."""
+"""Per-board comparison after c0160, within 10 nm and 20 ppm (2026-10-12); repinned after c0433 keeps pads
+without a number in their component (2026-11-06): their pad-missing and ref-ambiguous are gone."""
 LARGEST_NM = 2
 """The largest per-coordinate difference without tolerance over every written board (2026-10-09): the
 written unit is 2.54 nm and the reader rounds it to the nanometre."""
 LEDGER = Path(__file__).resolve().parents[2] / "docs" / "evidence" / "conversion.md"
+CURRENT_COMPARISONS = json.loads(
+    LEDGER.with_name("conversion-comparison-c0319.json").read_text(encoding="utf-8")
+)["rows"]
+"""Source-bound current pairing measurements; the dated tables above remain historical."""
 ITEMS = {item.id.removeprefix(PREFIX): item for item in manifest_items("rt0") if item.id.startswith(PREFIX)}
 _NUMBER = re.compile(r"-?\d+")
 
@@ -203,8 +217,20 @@ def test_differences_per_kind(key: str) -> None:
     found = dict(sorted(Counter(d.kind for d in report.differences).items()))
     exact = compare_designs(a, b, level=min(level, 4), frame="relative", ignore_refs=("",))
     print(f"{ITEMS[key].path.stem}: level {level}, {found}, largest {_largest(exact)} nm")
-    assert (level, found) == DIFFERENCES[key]
+    current = _current_comparison(key)
+    expected = (current["level"], current["differences"]) if current else DIFFERENCES[key]
+    assert (level, found) == expected
     assert _largest(exact) <= LARGEST_NM
+    if current:
+        counts_a = Counter(c.ref for c in a.circuit.components)
+        counts_b = Counter(c.ref for c in b.circuit.components)
+        repeated = sorted(
+            [counts_a[ref], counts_b[ref]]
+            for ref in counts_a.keys() | counts_b.keys()
+            if ref and max(counts_a[ref], counts_b[ref]) > 1
+        )
+        assert repeated == current["nonempty_repeated_reference_counts"]
+        assert _largest(exact) == current["largest_nm"]
 
 
 def _table(marker: str) -> list[tuple[str, ...]]:
@@ -217,6 +243,15 @@ def _table(marker: str) -> list[tuple[str, ...]]:
         cells = re.split(r"(?<!\\)\|", line.strip().strip("|"))
         rows.append(tuple(cell.strip().replace("\\|", "|") for cell in cells))
     return rows
+
+
+def _current_comparison(key: str):
+    """A recorded current comparison applies only to its exact declared source bytes."""
+    row = CURRENT_COMPARISONS.get(key)
+    if row is not None:
+        assert row["input_id"] == ITEMS[key].id
+        assert row["input_sha256"] == hashlib.sha256(require(ITEMS[key]).read_bytes()).hexdigest()
+    return row
 
 
 @pytest.mark.parametrize("key", sorted(DIFFERENCES))
@@ -236,7 +271,16 @@ def test_conversion_is_explained(key: str) -> None:
     assert rows == [row for row in _table("ledger") if row[0] == board]
     explained = Counter((e.difference.kind, e.kind) for e in result.explained)
     found = [(board, kind, by, str(n)) for (kind, by), n in sorted(explained.items())]
-    assert found == [row for row in _table("explained") if row[0] == board]
+    current = _current_comparison(key)
+    expected = (
+        [(board, *row) for row in current["explained"]]
+        if current
+        else [row for row in _table("explained") if row[0] == board]
+    )
+    assert found == expected
+    if current:
+        encoded = json.dumps(rows, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+        assert hashlib.sha256(encoded).hexdigest() == current["writer_ledger_sha256"]
 
 
 @pytest.mark.parametrize("key", sorted(CONVERT_TOO_LARGE))
@@ -249,7 +293,8 @@ def test_difat_boards_are_converted(key: str) -> None:
 def test_exit_7_without_consent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Scenario "Exit 7 without consent": ``RoyalBlue54L-Feather`` loses pads and fitted flags; without
     ``--allow-lossy`` the command exits 7 naming both kinds, with it the plan comes with one
-    ``convert.lossy`` warning per kind."""
+    ``convert.lossy`` warning per kind with losses: the refused kinds and, since change c0429, every
+    ``report`` kind with lost items (here the stackup)."""
     board = require(ITEMS["13"])
     monkeypatch.chdir(tmp_path)
     argv = [
@@ -276,7 +321,8 @@ def test_exit_7_without_consent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     assert main(["--allow-lossy", *argv]) == 0
     envelope = json.loads(out.getvalue())
     lossy = {i["where"] for i in envelope["issues"] if i["code"] == "convert.lossy"}
-    assert lossy == refused and envelope["result"]["plan"]
+    lost = {row["kind"] for row in envelope["result"]["report"]["rows"] if row["lost"]}
+    assert refused <= lossy == lost and envelope["result"]["plan"]
 
 
 @pytest.mark.needs_kicad  # the netlist of this schematic is outside Fenolite's own grammar

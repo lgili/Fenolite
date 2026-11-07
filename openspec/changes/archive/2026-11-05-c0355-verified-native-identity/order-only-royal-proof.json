@@ -1,0 +1,67 @@
+{
+  "EXPLORATORY_NOT_PRODUCTION_OR_PAIR_EQUALITY": true,
+  "all_outside_slot_bytes_exact": true,
+  "companions_sha256": {
+    "RoyalBlue54L-Feather.kicad_pro": "a25ffa7ff829d5eaff27b29724b57821ce2ee7fd39ae367b9ea078d290e37690"
+  },
+  "core_snapshot": "40d27f47dcd0094f99e5378387b28ba09f97d04a",
+  "driver_sha256": "0180a0e405988b7b8447e49f44915a2bc72f9915560cf5d063f02d8270f4805d",
+  "exact_derived_geometry_equal": true,
+  "external_summary_sha256": "197d88f15bd37d1a605ff76dbde2efe34d95e8b3f5a18a2274264fba2613134a",
+  "interpretation": "Changing only the declaration order is noncausal in this measured source. Renumbering/commoncode remain unqualified; no source/generated equality or production admission is claimed.",
+  "literal_binding_names": 95,
+  "literal_binding_sha256": "d134a51105093d6bd23cd17d71b19da20d441308f93726cfb97daf67d698c64f",
+  "literal_binding_terminals": 313,
+  "native_argv_per_side": [
+    "pcb",
+    "drc",
+    "--format",
+    "json",
+    "--severity-all",
+    "--refill-zones",
+    "--save-board",
+    "-o",
+    "drc.json",
+    "RoyalBlue54L-Feather.kicad_pcb"
+  ],
+  "native_board_basename": "RoyalBlue54L-Feather.kicad_pcb",
+  "native_project_basename": "RoyalBlue54L-Feather.kicad_pro",
+  "native_version": "10.0.6",
+  "no_net_same_slot_and_bytes": true,
+  "nonzero_declarations": 95,
+  "only_nonzero_root_net_slot_order_changed": true,
+  "ordinary_cache_preserved_ast_sha256": "fa1e16a1bad6d5f609feaf85cd7027d640ee014b6420c69d468533bfe8461015",
+  "ordinary_input_fills": 35,
+  "ordinary_output_cache_equal": true,
+  "original_source_sha256": "535dbe212f43a8bab12b23277e176a94ac9694177258af2981c0e7b08e4b7252",
+  "qualified_td_input_zones": 263,
+  "renumbering_or_commoncode_or_cache_modification": false,
+  "scratch_isolation": "KicadCli.run creates a separate private directory per call; identical input board/project basenames and companion bytes on both calls",
+  "sides": {
+    "baseline": {
+      "derived_regions": 289,
+      "drc_report_sha256": "315ce9b4f58039e94080f0189bac6997d5bc253762e6ae839ea84289d87b6577",
+      "exact_derived_geometry_sha256": "a562fa7965020cc8dfd270a007b7dcf1da04d716c994b7ffeb8a8fb81278ad12",
+      "input_sha256": "535dbe212f43a8bab12b23277e176a94ac9694177258af2981c0e7b08e4b7252",
+      "literal_name_to_physical_partitions_unchanged": true,
+      "native_saved_sha256": "d87c746745726e1d5c4e6569111a0151cb5dae9a7cf718b2aafabcd866ad086f",
+      "one_native_run": true,
+      "ordinary_output_cache_sha256": "3444d7365b7716e05205e909cba12691bdc5c5cd1f351eded59d4976e76af89b",
+      "ordinary_output_fills": 35
+    },
+    "order-only": {
+      "derived_regions": 289,
+      "drc_report_sha256": "ce397d318ea0ff84f4e696d5b89d13e4091205de3c727d6ca634d29ea45d105b",
+      "exact_derived_geometry_sha256": "a562fa7965020cc8dfd270a007b7dcf1da04d716c994b7ffeb8a8fb81278ad12",
+      "input_sha256": "0aebb6f1dfa5926c15cb97c802dc0b51d3f3c62c3d6e16203311ca4c79f02416",
+      "literal_name_to_physical_partitions_unchanged": true,
+      "native_saved_sha256": "06a5c3cfcdebb85350a9bdfcf48515b0bbdde4ea7a3e0c7200ca0e74d1a6c4f4",
+      "one_native_run": true,
+      "ordinary_output_cache_sha256": "3444d7365b7716e05205e909cba12691bdc5c5cd1f351eded59d4976e76af89b",
+      "ordinary_output_fills": 35
+    }
+  },
+  "source_and_companions_unchanged": true,
+  "source_project_after_sha256": "a25ffa7ff829d5eaff27b29724b57821ce2ee7fd39ae367b9ea078d290e37690",
+  "td_cache_preserved_ast_sha256": "ac5f990bd69ce5037f3ba331f2d38fdbc7362c767984c28bf27ae9262c26b814"
+}

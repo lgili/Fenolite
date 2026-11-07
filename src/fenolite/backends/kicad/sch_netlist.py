@@ -1,18 +1,20 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """Fenolite's own netlist of the schematic sheets it generated (capability ``kicad-schematic``, "Own
-netlist of a generated sheet" and "Netlist grammar check"; changes c0063 and c0070).
+netlist of a generated sheet" and "Netlist grammar check"; changes c0063, c0070 and c0406).
 
-On a generated sheet a pin is on the net whose global label lies on its connection point, or on the far
-end of the one straight wire that starts there; a pin without either is on a net of its own, named as
-KiCad names it (``netnames.unconnected_name``). Labels of one text are one net on every sheet of the
-tree. So the netlist is read from the sheets alone, by coincidence of points, with the facts of
-``docs/formats/kicad/schematic.md`` ("Generated sheets"). ``grammar_issues`` names everything that would
-make this reading wrong: a junction or a bus, a wire that is not one segment from pin end to pin end, a
-local label, a sheet used twice or not given, a symbol at another path than its sheet's, two pins on one
-point, a hidden power pin. Sheets with any of them are refused, and their netlist is KiCad's to tell
-(plan D9: Fenolite does not re-implement KiCad's connection graph). Nothing here reads the circuit model,
-a file or a tool.
+On a generated sheet a pin is on the net of the group of points it rests on: straight wires join their two
+ends, a junction joins every wire that ends on it, a global label joins the wire it lies on, and a pin of
+one of Fenolite's own power symbols names its group like a global label of the instance's Value (change
+c0406). A group with no name is a net of its own, named as KiCad names it (``netnames.unconnected_name``).
+Labels of one text are one net on every sheet of the tree. So the netlist is read from the sheets alone, by
+coincidence of points, with the facts of ``docs/formats/kicad/schematic.md`` ("Generated sheets").
+``grammar_issues`` names everything that would make this reading wrong: a bus, a wire that is not one
+segment, a wire end on nothing, a pin, junction or wire end inside a wire, a local label, a sheet used
+twice or not given, a symbol at another path than its sheet's, two pins on one point, a hidden power pin
+of another symbol. Sheets with any of them are refused, and their netlist is KiCad's to tell (plan D9:
+Fenolite does not re-implement KiCad's connection graph). Nothing here reads the circuit model, a file or
+a tool.
 """
 
 from __future__ import annotations
@@ -76,9 +78,9 @@ REASONS: tuple[str, ...] = (
     "hidden-power",
 )
 """Every reason of ``grammar_issues``, in the order they are reported."""
-WIRE_HEADS: tuple[str, ...] = ("junction", "bus", "bus_entry", "bus_alias")
-"""The root children that join points in a way Fenolite does not read. A ``wire`` is read, when it is one
-straight segment from pin end to pin end."""
+WIRE_HEADS: tuple[str, ...] = ("bus", "bus_entry", "bus_alias")
+"""The root children that join points in a way Fenolite does not read. A ``wire`` is read when it is one
+straight segment, and a ``junction`` joins the wires that end on it (change c0406)."""
 NO_CHILDREN: Mapping[str, SchematicSheet] = MappingProxyType({})
 FLAG_LIB_ID = f"{symembed.FLAG_LIBRARY}:{symembed.FLAG_NAME}"
 HINT = "kicad-cli reads wires, sheets and power symbols: run `fenolite netlist --source kicad`"
@@ -183,23 +185,28 @@ def _on(point: Point, wire: Segment) -> bool:
     return min(a.x, b.x) <= point.x <= max(a.x, b.x) and min(a.y, b.y) <= point.y <= max(a.y, b.y)
 
 
-def _meet(first: Segment, second: Segment) -> bool:
-    """Whether two straight wires have a point in common."""
-    (a, b), (c, d) = first, second
-    return max(min(a.x, b.x), min(c.x, d.x)) <= min(max(a.x, b.x), max(c.x, d.x)) and max(
-        min(a.y, b.y), min(c.y, d.y)
-    ) <= min(max(a.y, b.y), max(c.y, d.y))
-
-
 class _Groups:
-    """The points of one sheet joined by its wires: a point without a wire is a group of its own."""
+    """The points of one sheet joined by its wires: a point without a wire is a group of its own. A
+    junction joins every wire it lies on, and each of ``attached`` (the label points) joins the wires on
+    whose inside it lies (change c0406); two wires that only cross are not joined."""
 
-    def __init__(self, wires: Sequence[Segment]) -> None:
+    def __init__(
+        self, wires: Sequence[Segment], junctions: Iterable[Point] = (), attached: Iterable[Point] = ()
+    ) -> None:
         self._parent: dict[Point, Point] = {}
         self.wired: set[Point] = set()
         for start, end in wires:
-            self._parent[self.of(end)] = self.of(start)
+            self._union(start, end)
+        lines = _Lines(wires)
+        for point in (*junctions, *attached):
+            for wire in lines.through(point):
+                self._union(wire[0], point)
         self.wired = {self.of(point) for wire in wires for point in wire}
+
+    def _union(self, first: Point, second: Point) -> None:
+        a, b = self.of(first), self.of(second)
+        if a != b:
+            self._parent[b] = a
 
     def of(self, point: Point) -> Point:
         """The group of ``point``, named by one of its points."""
@@ -210,12 +217,80 @@ class _Groups:
         return parent
 
 
-def _ref_pins(ref: SheetRef) -> int:
-    """The number of pins of a sheet reference: a read reference keeps them as opaque ``pin`` slots, and a
-    created one has none."""
+class _Lines:
+    """The straight wires of one sheet bucketed by their line, to find the wires through a point."""
+
+    def __init__(self, wires: Sequence[Segment]) -> None:
+        self.rows: dict[int, list[Segment]] = defaultdict(list)
+        self.columns: dict[int, list[Segment]] = defaultdict(list)
+        for wire in wires:
+            a, b = wire
+            if a.y == b.y:
+                self.rows[a.y].append(wire)
+            if a.x == b.x:
+                self.columns[a.x].append(wire)
+
+    def through(self, point: Point) -> list[Segment]:
+        """The wires that ``point`` lies on, their ends included."""
+        found = [w for w in self.rows.get(point.y, ()) if _on(point, w)]
+        return found + [w for w in self.columns.get(point.x, ()) if _on(point, w) and w not in found]
+
+    def inside(self, point: Point) -> list[Segment]:
+        """The wires on whose inside ``point`` lies (not at one of their ends)."""
+        return [w for w in self.through(point) if point not in w]
+
+
+def _junctions(sheet: SchematicSheet) -> set[Point]:
+    """The junction points of ``sheet``: those of a created sheet, and for a read sheet the ``junction``
+    children its reader kept as slots."""
+    return {j.position for j in sheet.junctions} | {at for at, _ in sch.opaque_drawing(sheet).junctions}
+
+
+def _groups(sheet: SchematicSheet) -> _Groups:
+    """The groups of ``sheet``: its wires, its junctions and its labels on the inside of wires."""
+    return _Groups(_wires(sheet)[0], _junctions(sheet), (label.position for label in sheet.labels))
+
+
+def _power_names(sheet: SchematicSheet) -> list[tuple[Point, str]]:
+    """(pin point, net name) of each instance of Fenolite's own power symbols on ``sheet``: such a pin joins
+    its point like a global label whose text is the instance's Value (change c0406)."""
+    known = _definitions(sheet)
+    found: list[tuple[Point, str]] = []
+    for instance in sheet.symbols:
+        if not symembed.is_power_symbol(instance.lib_ref):
+            continue
+        definition = _definition(instance, known)
+        if definition is None:
+            continue
+        rotation, mirror = _frame(instance)
+        for pin in definition.pins_of(instance.unit, instance.body_style):
+            point = schlayout.pin_point(instance.position, pin.position, rotation, mirror)
+            found.append((point, netnames.stored_name(instance.value)))
+    return found
+
+
+def _ref_pins(ref: SheetRef) -> list[tuple[str, Point]]:
+    """(name, point) of each pin of a sheet reference: a created reference holds them in ``pins``, and a
+    read one keeps them as opaque ``pin`` slots (``sch.opaque_sheet_pins``, change c0269)."""
+    found = [(pin.name, pin.position) for pin in ref.pins]
+    found += [(name, point) for name, _, point, _ in sch.opaque_sheet_pins(ref)]
+    return found
+
+
+def _odd_pins(ref: SheetRef) -> int:
+    """The opaque ``pin`` slots of a read reference that ``sch.opaque_sheet_pins`` cannot read."""
     bag = ref.ext.get("kicad")
     slots = slotlib.from_ext(bag, ".") if bag is not None else ()
-    return sum(1 for slot in slots if isinstance(slot, Opaque) and slot.fragment.startswith("(pin"))
+    count = sum(1 for slot in slots if isinstance(slot, Opaque) and slot.fragment.startswith("(pin"))
+    return count - len(sch.opaque_sheet_pins(ref))
+
+
+def _on_edge(point: Point, ref: SheetRef) -> bool:
+    """Whether ``point`` lies on an edge of the box of ``ref``."""
+    x0, y0 = ref.position.x, ref.position.y
+    x1, y1 = x0 + ref.size.w, y0 + ref.size.h
+    inside = x0 <= point.x <= x1 and y0 <= point.y <= y1
+    return inside and (point.x in (x0, x1) or point.y in (y0, y1))
 
 
 def _child_key(holder: str, file: str) -> str:
@@ -232,10 +307,13 @@ class _Tree:
 
     sheets: tuple[tuple[str, SchematicSheet, str], ...]
     problems: tuple[str, ...]
+    links: tuple[tuple[int, SheetRef] | None, ...] = ()
+    """Per sheet, the index of the sheet that names it and the reference there; ``None`` for the root."""
 
 
 def _tree(root: SchematicSheet, children: Mapping[str, SchematicSheet]) -> _Tree:
     found: list[tuple[str, SchematicSheet, str]] = [("", root, f"/{kicad_uuid(root)}")]
+    links: list[tuple[int, SheetRef] | None] = [None]
     problems: list[str] = []
     reached: dict[str, int] = {}
     index = 0
@@ -244,8 +322,16 @@ def _tree(root: SchematicSheet, children: Mapping[str, SchematicSheet]) -> _Tree
         index += 1
         for ref in sheet.sheets:
             key = _child_key(holder, ref.file)
-            if _ref_pins(ref):
-                problems.append(f"sheet reference {ref.name!r} has pins")
+            pins = _ref_pins(ref)
+            names = [name for name, _ in pins]
+            twice = sorted({name for name in names if names.count(name) > 1})
+            if twice:
+                problems.append(f"sheet reference {ref.name!r} has two sheet pins named {', '.join(twice)}")
+            off = sorted(name for name, point in pins if not _on_edge(point, ref))
+            if off:
+                problems.append(f"sheet pin(s) {', '.join(off)} of {ref.name!r} lie off the edge of its box")
+            if _odd_pins(ref):
+                problems.append(f"sheet reference {ref.name!r} has a pin Fenolite cannot read")
             if key not in children:
                 problems.append(f"sheet reference {ref.name!r} names {key}, which is no sheet given")
                 continue
@@ -254,13 +340,26 @@ def _tree(root: SchematicSheet, children: Mapping[str, SchematicSheet]) -> _Tree
                 problems.append(f"{key} is named by {reached[key]} sheet references")
                 continue
             found.append((key, children[key], f"{path}/{kicad_uuid(ref)}"))
+            links.append((index - 1, ref))
+            child = children[key]
+            labels = {label.name for label in child.labels if label.kind == "hierarchical"}
+            for name in sorted(set(names) - labels):
+                problems.append(
+                    f"the sheet pin {name} of {ref.name!r} has no hierarchical label of that name on {key}"
+                )
+            for name in sorted(labels - set(names)):
+                problems.append(
+                    f"the hierarchical label {name} of {key} has no sheet pin of that name on {ref.name!r}"
+                )
     problems += [f"no sheet reference names {key}" for key in children if key not in reached]
-    return _Tree(tuple(found), tuple(problems))
+    return _Tree(tuple(found), tuple(problems), tuple(links))
 
 
-def _sheet_issues(sheet: SchematicSheet, path: str, found: dict[str, tuple[str, str]]) -> None:
+def _sheet_issues(
+    sheet: SchematicSheet, path: str, found: dict[str, tuple[str, str]], *, root: bool = False
+) -> None:
     """The reasons of one sheet, added to ``found`` (reason → message and sheet name) unless an earlier
-    sheet gave them."""
+    sheet gave them; ``root`` tells the root sheet, which holds no hierarchical label."""
 
     def add(reason: str, message: str) -> None:
         found.setdefault(reason, (message, sheet.name))
@@ -273,9 +372,12 @@ def _sheet_issues(sheet: SchematicSheet, path: str, found: dict[str, tuple[str, 
     wires, odd = _wires(sheet)
     if odd:
         add("wire-shape", f"{odd} wire(s) are not one horizontal or vertical segment between two points")
-    kinds = [label.name for label in sheet.labels if label.kind != "global"]
+    kinds = [label.name for label in sheet.labels if label.kind not in ("global", "hierarchical")]
     if kinds:
-        add("label-kind", f"{len(kinds)} label(s) are not global labels: {_shown(kinds)}")
+        add("label-kind", f"{len(kinds)} label(s) are neither global nor hierarchical: {_shown(kinds)}")
+    upper = [label.name for label in sheet.labels if label.kind == "hierarchical" and root]
+    if upper:
+        add("label-kind", f"{len(upper)} hierarchical label(s) on the root sheet: {_shown(upper)}")
     several = [instance.ref for instance in sheet.symbols if len(instance.uses) > 1]
     if several:
         add("sheet", f"symbol(s) with more than one use: {_shown(several)}; no sheet may be used twice")
@@ -296,29 +398,53 @@ def _sheet_issues(sheet: SchematicSheet, path: str, found: dict[str, tuple[str, 
     names: dict[Point, set[str]] = defaultdict(set)
     for label in sheet.labels:
         names[label.position].add(label.name)
-    off = [label.name for label in sheet.labels if label.position not in at]
+    powers = _power_names(sheet)
+    lines = _Lines(wires)
+    junctions = _junctions(sheet)
+    sheet_pins = {point for ref in sheet.sheets for _, point in _ref_pins(ref)}
+    off = [
+        label.name
+        for label in sheet.labels
+        if label.position not in at and label.position not in sheet_pins and not lines.through(label.position)
+    ]
     if off and not undefined:  # the pins of an undefined symbol are not known, so neither is this
-        add("label-off-pin", f"{len(off)} label(s) lie on no pin: {_shown(off)}")
+        add("label-off-pin", f"{len(off)} label(s) lie on no pin and no wire: {_shown(off)}")
+    ends: dict[Point, int] = defaultdict(int)
+    for wire in wires:
+        for end in wire:
+            ends[end] += 1
     if not undefined:
-        loose = sorted((end for wire in wires for end in wire if end not in at), key=_key)
+        loose = sorted(
+            (end for end, count in ends.items() if end not in at and end not in junctions and count < 2),
+            key=_key,
+        )
         if loose:
-            add("wire-end", f"{len(loose)} wire end(s) lie on no pin, the first at {_at(loose[0])}")
+            add(
+                "wire-end",
+                f"{len(loose)} wire end(s) lie on no pin, no other wire end and no junction, the first at "
+                f"{_at(loose[0])}",
+            )
     touched: list[Point] = []
-    for index, wire in enumerate(wires):
-        inner = [p for p in (*at, *names) if _on(p, wire) and p not in wire]
-        crossing = [other for other in wires[index + 1 :] if _meet(wire, other)]
-        if inner or crossing:
-            touched.append(min((*inner, *(end for other in crossing for end in other)), key=_key))
+    for point in sorted({*at, *junctions, *ends}, key=_key):
+        if lines.inside(point):
+            touched.append(point)
+    for line in (*lines.rows.values(), *lines.columns.values()):
+        spans = sorted(((min(a.x, b.x), min(a.y, b.y)), (max(a.x, b.x), max(a.y, b.y))) for a, b in line)
+        for (_, high), (low, _) in zip(spans, spans[1:], strict=False):
+            if low < high:  # two wires of one line that share a stretch
+                touched.append(Point(*low))
     if touched:
         add(
             "wire-touch",
-            f"{len(touched)} wire(s) meet a pin, a label or another wire elsewhere than at their own two "
-            f"ends, the first near {_at(min(touched, key=_key))}",
+            f"{len(touched)} wire(s) hold a pin, a junction or another wire's end on their inside, or share "
+            f"a stretch, the first near {_at(min(touched, key=_key))}",
         )
-    groups = _Groups(wires)
+    groups = _Groups(wires, junctions, names)
     texts: dict[Point, set[str]] = defaultdict(set)
     for point, found_names in names.items():
         texts[groups.of(point)] |= found_names
+    for point, power_name in powers:
+        texts[groups.of(point)].add(power_name)
     double = sorted((point for point, found_names in texts.items() if len(found_names) > 1), key=_key)
     if double:
         listed = " and ".join(sorted(texts[double[0]]))
@@ -328,6 +454,8 @@ def _sheet_issues(sheet: SchematicSheet, path: str, found: dict[str, tuple[str, 
         add("wire-unlabelled", f"{len(bare)} wired group(s) carry no label, the first at {_at(bare[0])}")
     shared: list[str] = []
     for point, group in sorted(at.items(), key=lambda item: _key(item[0])):
+        if any(symembed.is_power_symbol(pin.definition.lib_id) for pin in group):
+            continue  # a power symbol's pin on a pin joins it like a label (change c0406)
         instances = {id(pin.instance) for pin in group}
         stacked = len({pin.pin.name for pin in group}) == 1  # pins of one name: one net (c0123)
         if len(instances) > 1 or (len(group) > 1 and not names.get(point) and not stacked):
@@ -338,10 +466,11 @@ def _sheet_issues(sheet: SchematicSheet, path: str, found: dict[str, tuple[str, 
     if frames:
         add("frame", f"the rotation and mirror of {_shown(frames)} were not measured")
     used = {id(pin.definition): pin.definition for pin in pins}.values()
-    power = [d.lib_id for d in used if d.power and not symembed.is_power_flag(d.lib_id)]
+    own = [d for d in used if not symembed.is_power_symbol(d.lib_id)]  # read like labels (change c0406)
+    power = [d.lib_id for d in own if d.power and not symembed.is_power_flag(d.lib_id)]
     hidden = [
         f"{d.lib_id} pin {pin.number}"
-        for d in used
+        for d in own
         for pin in d.pins
         if pin.hidden and pin.etype == "power_in"
     ]
@@ -362,8 +491,8 @@ def grammar_issues(
     if tree.problems:
         listed = "; ".join(tree.problems)
         found["sheet"] = (f"{listed}; Fenolite reads a tree whose every sheet is given once", sheet.name)
-    for _, member, path in tree.sheets:
-        _sheet_issues(member, path, found)
+    for index, (_, member, path) in enumerate(tree.sheets):
+        _sheet_issues(member, path, found, root=index == 0)
     return tuple(
         Issue(CODE, ISSUE_CODES[CODE], f"{reason}: {found[reason][0]}", where=found[reason][1], hint=HINT)
         for reason in REASONS
@@ -396,8 +525,9 @@ def stack_evidence(sheets: Iterable[SchematicSheet]) -> tuple[Evidence, ...]:
     pins have one pad each is ``EVIDENCE`` itself, as before stacked pins were read."""
     stacked = opened = False
     for sheet in sheets:
-        groups = _Groups(_wires(sheet)[0])
+        groups = _groups(sheet)
         labelled = {groups.of(label.position) for label in sheet.labels}
+        labelled |= {groups.of(point) for point, _ in _power_names(sheet)}
         seen: dict[tuple[int, Point, str], str] = {}
         for pin in _pins(sheet, None):
             key = (id(pin.instance), pin.point, pin.pin.name)
@@ -429,6 +559,76 @@ def evidence_of(sheet: SchematicSheet, children: Mapping[str, SchematicSheet] = 
     return Evidence.combine(EVIDENCE, *extra) if extra else EVIDENCE
 
 
+class _Joined:
+    """The groups of every sheet of a tree joined through hierarchical labels and sheet pins (change
+    c0269): within a sheet, groups with hierarchical labels of one text are one, and joined to the group of
+    the sheet pin of that name on the reference to that sheet. A joined set is named by its global label."""
+
+    def __init__(self) -> None:
+        self._parent: dict[tuple[int, Point], tuple[int, Point]] = {}
+        self.globals: dict[tuple[int, Point], set[str]] = defaultdict(set)
+        self.texts: dict[tuple[int, Point], str] = {}
+        self._names: dict[tuple[int, Point], str] | None = None
+
+    def of(self, node: tuple[int, Point]) -> tuple[int, Point]:
+        parent = self._parent.setdefault(node, node)
+        while parent != self._parent[parent]:
+            parent = self._parent[parent]
+        self._parent[node] = parent
+        return parent
+
+    def join(self, first: tuple[int, Point], second: tuple[int, Point]) -> None:
+        a, b = self.of(first), self.of(second)
+        if a != b:
+            self._parent[b] = a
+
+    def name(self, index: int, group: Point) -> str:
+        """The net name of the group ``group`` of the sheet ``index``: the text of a global label of its
+        joined set (the least in code-point order when several), else ``/<sheet key>/<label text>``."""
+        if self._names is None:
+            self._names = {}
+            for node, texts in self.globals.items():
+                root = self.of(node)
+                least = min(texts)
+                known = self._names.get(root)
+                self._names[root] = least if known is None else min(known, least)
+        found = self._names.get(self.of((index, group)))
+        return found if found is not None else self.texts.get((index, group), "")
+
+
+def _joined(tree: _Tree) -> _Joined:
+    joined = _Joined()
+    hier: dict[tuple[int, str], list[tuple[int, Point]]] = defaultdict(list)
+    groups: list[_Groups] = []
+    for index, (key, member, _) in enumerate(tree.sheets):
+        found = _groups(member)
+        groups.append(found)
+        for point, power_name in _power_names(member):
+            node = (index, found.of(point))
+            joined.globals[node].add(power_name)
+            joined.texts.setdefault(node, power_name)
+        for label in member.labels:
+            node = (index, found.of(label.position))
+            joined.of(node)
+            if label.kind == "hierarchical":
+                hier[(index, label.name)].append(node)
+                joined.texts.setdefault(node, f"/{key}/{label.name}")
+            else:
+                joined.globals[node].add(netnames.stored_name(label.name))
+                joined.texts.setdefault(node, netnames.stored_name(label.name))
+    for nodes in hier.values():
+        for node in nodes[1:]:
+            joined.join(nodes[0], node)
+    for index, link in enumerate(tree.links):
+        if link is None:
+            continue
+        parent, ref = link
+        for name, point in _ref_pins(ref):
+            for node in hier.get((index, name), ()):
+                joined.join((parent, groups[parent].of(point)), node)
+    return joined
+
+
 def own_netlist(
     sheet: SchematicSheet, *, project: str, children: Mapping[str, SchematicSheet] = NO_CHILDREN
 ) -> KicadNetlist:
@@ -447,11 +647,18 @@ def own_netlist(
     if issues:
         raise NetlistUnsupportedError(issues)
     sheets = (sheet, *children.values())
+    tree = _tree(sheet, children)
+    joined = _joined(tree)
     nets: dict[str, dict[tuple[str, str], NetNode]] = defaultdict(dict)
     placed: set[tuple[str, str]] = set()
-    for member in sheets:
-        groups = _Groups(_wires(member)[0])
-        labels = {groups.of(label.position): netnames.stored_name(label.name) for label in member.labels}
+    for index, (_, member, _) in enumerate(tree.sheets):
+        groups = _groups(member)
+        labels = {
+            groups.of(label.position): joined.name(index, groups.of(label.position))
+            for label in member.labels
+        }
+        for point, _ in _power_names(member):
+            labels[groups.of(point)] = joined.name(index, groups.of(point))
         flagged = {flag.position for flag in member.no_connects}
         pins = _pins(member, project)
         stacks: dict[tuple[int, Point, str], list[str]] = defaultdict(list)

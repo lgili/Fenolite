@@ -18,7 +18,7 @@ from collections.abc import Sequence
 
 SLASH = "{slash}"
 UNCONNECTED_PREFIX = "unconnected-("
-PROVED_PIN_CHARS: frozenset[str] = frozenset(string.ascii_letters + string.digits + " /+-_.~{}")
+PROVED_PIN_CHARS: frozenset[str] = frozenset(string.ascii_letters + string.digits + " /+-_.~{}#")
 """The characters of a pin name for which ``unconnected_name`` equals KiCad's name on 9.0.9 and 10.0.6
 (probes ``sch-unconnected-*``). A pin whose name holds another character keeps its pad on no net."""
 
@@ -56,9 +56,11 @@ def unconnected_name(ref: str, *, unit: int, unit_count: int, pin_name: str, pad
     """The net name KiCad derives for a pin on no net.
 
     ``unconnected-(<ref><unit letter>-<pin name>-Pad<number>)`` for a pin with a name, the unit letter
-    only for a symbol of several units; ``unconnected-(<ref>-Pad<number>)`` for a pin without a name.
+    only for a symbol of several units; ``unconnected-(<ref>-Pad<number>)`` for a pin without a name. A pin
+    whose name equals its number counts as a pin without a name (S-1490, probe
+    ``sch-unconnected-samename``; change c0408).
     """
-    if not pin_name:
+    if not pin_name or pin_name == pad_number:
         return f"{UNCONNECTED_PREFIX}{ref}-Pad{pad_number})"
     return f"{UNCONNECTED_PREFIX}{ref}{unit_letter(unit, unit_count)}-{pin_text(pin_name)}-Pad{pad_number})"
 

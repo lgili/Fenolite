@@ -1,0 +1,1232 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.result.capabilities.v1",
+  "title": "CapabilitiesResult",
+  "type": "object",
+  "properties": {
+    "plan": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolPlan"
+      }
+    },
+    "plan_id": {
+      "type": "string"
+    },
+    "issues_summary": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolIssueSummary"
+      }
+    },
+    "recovery": {
+      "$ref": "#/$defs/ProtocolRecovery"
+    },
+    "page": {
+      "$ref": "#/$defs/ProtocolPage"
+    },
+    "suppliers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SupplierMetadata"
+      }
+    },
+    "backends": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/CapabilitiesBackendsItem"
+      }
+    },
+    "command": {
+      "$ref": "#/$defs/CapabilitiesCommand"
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/CapabilitiesCommandsItem"
+      }
+    },
+    "contract": {
+      "type": "string"
+    },
+    "conversions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/CapabilitiesConversionsItem"
+      }
+    },
+    "deprecated": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/CapabilitiesDeprecatedItem"
+      }
+    },
+    "experimental": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/CapabilitiesExperimentalItem"
+      }
+    },
+    "extras": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/CapabilitiesExtrasValue"
+      },
+      "x-fenolite-map": true,
+      "description": "Keys are supplied by named items, rather than fixed record fields."
+    },
+    "fenolite_version": {
+      "type": "string"
+    },
+    "global_arguments": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/CapabilitiesGlobalArgumentsItem"
+      }
+    },
+    "global_flags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "guide": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/CapabilitiesGuideItem"
+      }
+    },
+    "matrix": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/CapabilitiesMatrixItem"
+      }
+    },
+    "mutation_flags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "routers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/CapabilitiesRoutersItem"
+      }
+    },
+    "sends_data_offsite": {
+      "type": "boolean"
+    },
+    "starters": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/CapabilitiesStartersItem"
+      }
+    },
+    "targets": {
+      "$ref": "#/$defs/CapabilitiesTargets"
+    },
+    "tools": {
+      "type": "object",
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "null"
+          },
+          {
+            "$ref": "#/$defs/CapabilitiesToolsValue"
+          }
+        ]
+      },
+      "x-fenolite-map": true,
+      "description": "Keys are supplied by named items, rather than fixed record fields."
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "CapabilitiesBackendsItem": {
+      "type": "object",
+      "properties": {
+        "default_target": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "downgrade": {
+          "type": "string"
+        },
+        "evidence": {
+          "$ref": "#/$defs/Evidence"
+        },
+        "name": {
+          "type": "string"
+        },
+        "operations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "read_kinds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "targets": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "write_kinds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "default_target",
+        "downgrade",
+        "evidence",
+        "name",
+        "operations",
+        "read_kinds",
+        "targets",
+        "write_kinds"
+      ]
+    },
+    "CapabilitiesCommand": {
+      "type": "object",
+      "properties": {
+        "actions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "arguments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CapabilitiesCommandArgumentsItem"
+          }
+        },
+        "claims": {
+          "type": "boolean"
+        },
+        "default_limit": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "example_tools": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "hidden": {
+          "type": "boolean"
+        },
+        "levels": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "mutates": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        },
+        "paged": {
+          "type": "string"
+        },
+        "protocol_versions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "schema": {
+          "type": "string"
+        },
+        "sides": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "summary": {
+          "type": "string"
+        },
+        "usage": {
+          "type": "string"
+        },
+        "verbs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "arguments",
+        "hidden",
+        "mutates",
+        "name",
+        "schema",
+        "summary",
+        "usage"
+      ]
+    },
+    "CapabilitiesCommandArgumentsItem": {
+      "type": "object",
+      "properties": {
+        "choices": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "default": {
+          "description": "Parser-declared JSON default; its shape follows the described argument."
+        },
+        "flags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "help": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "repeatable": {
+          "type": "boolean"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "choices",
+        "default",
+        "flags",
+        "help",
+        "kind",
+        "name",
+        "repeatable",
+        "required",
+        "type"
+      ]
+    },
+    "CapabilitiesCommandsItem": {
+      "type": "object",
+      "properties": {
+        "actions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "claims": {
+          "type": "boolean"
+        },
+        "default_limit": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "example_tools": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "hidden": {
+          "type": "boolean"
+        },
+        "levels": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "mutates": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        },
+        "paged": {
+          "type": "string"
+        },
+        "protocol_versions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "schema": {
+          "type": "string"
+        },
+        "sides": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "summary": {
+          "type": "string"
+        },
+        "usage": {
+          "type": "string"
+        },
+        "verbs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "mutates",
+        "name"
+      ]
+    },
+    "CapabilitiesConversionsItem": {
+      "type": "object",
+      "properties": {
+        "downgrade": {
+          "type": "boolean"
+        },
+        "evidence": {
+          "$ref": "#/$defs/Evidence"
+        },
+        "experimental": {
+          "type": "boolean"
+        },
+        "from": {
+          "type": "string"
+        },
+        "targets": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "to": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "downgrade",
+        "evidence",
+        "experimental",
+        "from",
+        "targets",
+        "to"
+      ]
+    },
+    "CapabilitiesDeprecatedItem": {
+      "type": "object",
+      "properties": {
+        "command": {
+          "type": "string"
+        },
+        "option": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "since": {
+          "type": "string"
+        },
+        "use": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "command",
+        "option",
+        "since",
+        "use"
+      ]
+    },
+    "CapabilitiesExperimentalItem": {
+      "type": "object",
+      "properties": {
+        "command": {
+          "type": "string"
+        },
+        "evidence": {
+          "$ref": "#/$defs/Evidence"
+        },
+        "missing": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "name": {
+          "type": "string"
+        },
+        "option": {
+          "type": "string"
+        },
+        "write_kinds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "command",
+        "evidence",
+        "missing",
+        "name",
+        "option",
+        "write_kinds"
+      ]
+    },
+    "CapabilitiesExternalCandidates": {
+      "description": "c0368: whether a router can propose local external candidates, and their scope.",
+      "type": "object",
+      "properties": {
+        "supported": {
+          "type": "boolean"
+        },
+        "available": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "projection": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string"
+        },
+        "arcs": {
+          "type": "boolean"
+        },
+        "pairs": {
+          "type": "boolean"
+        },
+        "groups": {
+          "type": "boolean"
+        },
+        "local_only": {
+          "type": "boolean"
+        },
+        "automatic_acceptance": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "supported",
+        "available",
+        "projection",
+        "scope",
+        "arcs",
+        "pairs",
+        "groups",
+        "local_only",
+        "automatic_acceptance"
+      ]
+    },
+    "CapabilitiesExtrasValue": {
+      "type": "object",
+      "properties": {
+        "installed": {
+          "type": "boolean"
+        },
+        "missing": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "installed",
+        "missing"
+      ]
+    },
+    "CapabilitiesGlobalArgumentsItem": {
+      "type": "object",
+      "properties": {
+        "choices": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "default": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "flags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "help": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "repeatable": {
+          "type": "boolean"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "choices",
+        "default",
+        "flags",
+        "help",
+        "kind",
+        "name",
+        "repeatable",
+        "required",
+        "type"
+      ]
+    },
+    "CapabilitiesGuideItem": {
+      "type": "object",
+      "properties": {
+        "summary": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "topic": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "summary",
+        "title",
+        "topic"
+      ]
+    },
+    "CapabilitiesMatrixItem": {
+      "type": "object",
+      "properties": {
+        "versions": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/VersionScope"
+            }
+          },
+          "x-fenolite-map": true,
+          "description": "Verified tool scopes indexed by backend operation."
+        },
+        "backend": {
+          "type": "string"
+        },
+        "detect": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "experimental": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "kind": {
+          "type": "string"
+        },
+        "read": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "roundtrip_exact": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "roundtrip_modified": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "verified_by": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "write": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "backend",
+        "detect",
+        "experimental",
+        "kind",
+        "read",
+        "roundtrip_exact",
+        "roundtrip_modified",
+        "verified_by",
+        "write"
+      ]
+    },
+    "CapabilitiesRoutersItem": {
+      "type": "object",
+      "properties": {
+        "available": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "builtin": {
+          "type": "boolean"
+        },
+        "description": {
+          "type": "string"
+        },
+        "features": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "sends_data_offsite": {
+          "type": "boolean"
+        },
+        "external_candidates": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CapabilitiesExternalCandidates"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "name"
+      ]
+    },
+    "CapabilitiesStartersItem": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "name",
+        "summary"
+      ]
+    },
+    "CapabilitiesTargets": {
+      "type": "object",
+      "properties": {
+        "build": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "default": {
+          "type": "integer"
+        },
+        "kicad": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "build"
+      ]
+    },
+    "CapabilitiesToolsValue": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "version"
+      ]
+    },
+    "Evidence": {
+      "description": "A level plus the oracle that produced it and the hypotheses it depends on.",
+      "type": "object",
+      "properties": {
+        "level": {
+          "enum": [
+            "ALTIUM-VERIFIED(kit)",
+            "KICAD-VERIFIED",
+            "ORACLE-VERIFIED",
+            "CORPUS-VERIFIED",
+            "ALTIUM-VERIFIED(author-report)",
+            "INFERRED",
+            "UNKNOWN",
+            "UNVERIFIED"
+          ]
+        },
+        "oracle": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hypotheses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "level",
+        "oracle",
+        "hypotheses"
+      ]
+    },
+    "ProtocolIssueSummary": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "by_severity": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "counts indexed by severity"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "count",
+        "by_severity"
+      ]
+    },
+    "ProtocolPage": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "next": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "limit",
+        "offset",
+        "total",
+        "next"
+      ]
+    },
+    "ProtocolPlan": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "overwrite": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "kind",
+        "bytes",
+        "sha256",
+        "overwrite"
+      ]
+    },
+    "ProtocolRecovery": {
+      "type": "object",
+      "properties": {
+        "failed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "preserved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "failed",
+        "preserved"
+      ]
+    },
+    "SupplierMetadata": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "available": {
+          "type": "boolean"
+        },
+        "ready": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "credential_env_present": {
+          "type": "boolean"
+        },
+        "sends_data_offsite": {
+          "type": "boolean"
+        },
+        "sends": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cache": {
+          "type": "string"
+        },
+        "extra_installed": {
+          "type": "boolean"
+        },
+        "title": {
+          "type": "string"
+        },
+        "terms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "attribution": {
+          "type": "string"
+        },
+        "max_age_s": {
+          "type": "integer"
+        },
+        "terms_max_age_s": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rate": {
+          "$ref": "#/$defs/SupplierRate"
+        },
+        "persist": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "name",
+        "available",
+        "ready",
+        "reason",
+        "credential_env_present",
+        "sends_data_offsite",
+        "sends",
+        "cache",
+        "extra_installed"
+      ]
+    },
+    "SupplierRate": {
+      "type": "object",
+      "properties": {
+        "per_minute": {
+          "type": "integer"
+        },
+        "per_day": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "per_minute",
+        "per_day"
+      ]
+    },
+    "VersionScope": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "string"
+        },
+        "tool": {
+          "type": "string"
+        },
+        "level": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "version",
+        "tool",
+        "level",
+        "source"
+      ]
+    }
+  }
+}

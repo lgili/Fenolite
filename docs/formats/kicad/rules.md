@@ -16,6 +16,7 @@ Fenolite's own words; sources are listed in `docs/evidence/sources.md`.
 | A line whose first non-blank character is `#` is a comment, between rules and inside a rule | S-0010, S-0038, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-DIALECT |
 | Values may carry the units `mm`, `mil` (or `th`), `in` (or `"`); angles take `deg` or `rad`; `mm`, `mil` and `in` are exercised | S-0010, S-0038, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-DIALECT |
 | A condition is an expression over the two items `A` and `B` of a check: properties such as `NetName`, `NetClass` and `Type`, functions such as `memberOfFootprint`, the operators `==`, `!=`, `&&`, `\|\|` and `!`, and `'…'` string literals inside the double-quoted condition; every form of the closed selector table selects the model's items | S-0010, S-0038, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-COND |
+| `A.NetName == ''` selects the items without a net: a 5 mm clearance rule with it flags a netless track 4 mm from a track of a net and not two tracks of nets as far apart (change c0409, B7; `select.no_net()`, the model's `not(net *)`) | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-NONET |
 | String comparisons in conditions accept the wildcard `*` (`'PWR_*'` matches `PWR_A` and not `SIG_A`) | S-0010, S-0038, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-GLOB |
 | String comparisons in conditions also accept `?` (not exercised; Fenolite refuses it) | S-0010, S-0038 | INFERRED | H-K-DRU-GLOB |
 | Name comparisons ignore letter case: `A.NetName == 'lc1'` matches net `LC1` | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-COND |
@@ -33,6 +34,7 @@ Fenolite's own words; sources are listed in `docs/evidence/sources.md`.
 | `hole_to_hole`, `hole_clearance` and `annular_width` rules with a `min` and a net condition are enforced, under violation types of the same names; 9.0.9 prints a 1 mm hole-to-hole limit as `0.9995 mm` | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-KIND-2 |
 | A `courtyard_clearance` rule is reported as `courtyards_overlap` ("Courtyards overlap (rule … clearance 1.0000 mm; actual 0.5100 mm)"); it selects a footprint with `A.Reference == '<ref>'`, and `A.memberOfFootprint('<ref>')` selects nothing for it | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-COURTYARD |
 | A `silk_clearance` rule is reported as `silk_overlap`, between the silkscreen of two footprints and between a footprint's silkscreen and another footprint's courtyard rectangle; `silk_over_copper` is its type against pads | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-KIND-2 |
+| A `silk_clearance` rule takes a negative `min`: under a board-wide minimum of -0.1 mm two footprints' silkscreen lines that overlap by 0.05 mm report no `silk_overlap`, and under a minimum of 0 they report one; the canary fires in both runs, so the rule is read and not an error that disables the file (change c0427) | S-0010, S-0038, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-NEG-SILK |
 | A `creepage` rule on two nets (`A.NetName == … && B.NetName == …`) is reported as `creepage` on 10.0.6, 50 µm above the surface distance and not 50 µm below it; 9.0.9 loads the same rule and reports nothing for it | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-KIND-2 |
 | KiCad reports one violation per item pair in the copper clearance test: a pair whose copper clearance fails gets a `clearance` entry and no `hole_clearance` entry, so a clearance rule that matches every pair hides the hole clearance of the pairs it flags | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-KIND-2 |
 | A board-wide `hole_clearance`, `hole_to_hole` or `annular_width` rule governs below the template's board-setup minimum of its kind (0.25 mm, 0.25 mm and 0.1 mm): an item between the two is reported without the rule and not with it | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PRO-MIN-RULE-3 |
@@ -51,6 +53,8 @@ Fenolite's own words; sources are listed in `docs/evidence/sources.md`.
 | The `opt` limit of `diff_pair_gap`, `skew` and `length` is accepted and never checked by the DRC, alone or beside `min` and `max`; KiCad's interactive tools take it as their target | S-0010, S-0038, S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-PAIR |
 | The later of two `diff_pair_gap` rules, and of two `length` rules, that match one row governs, as for clearance | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-PAIR |
 | A routed length counts a via by the board stack-up: a net of 10 mm on `F.Cu`, one 0.6 mm via and 10 mm on `B.Cu` measured 21.58 mm on 10.0.6 and 21.545 mm on 9.0.9 (scratch benches of the design of c0104, not a committed probe) | S-0020, S-0029 | INFERRED | H-K-DRU-PAIR |
+| The custom rule constraints of 9.0 and 10.0 hold none that allows a short between two nets or sets a length for a dangling track; `via_dangling` (10.0 only) takes no limit; on 10.0 a `clearance` rule with a negative `min` lets its two sides' copper overlap | S-2242 | INFERRED | H-K-SHORT-ALLOW |
+| A `clearance` rule of `min -1mm` with the condition `A.NetName == 'X' && B.NetName == 'Y'` silences `shorting_items` between overlapping pads of `X` and `Y` and keeps it for overlapping pads of two other nets (probe `dru-short-allow` `present`); it also silences the `clearance` violation of pads of `X` and `Y` 0.1 mm apart, which a `{}` project reports without it (probe `dru-short-allow-clearance` `absent`). Measured on 2026-11-06 on 10.0.6 and on 9.0.9 (pinned image, local run) | S-2244 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SHORT-ALLOW |
 
 ## Board-wide rules and board-setup minimums
 
@@ -148,6 +152,9 @@ Side `S` is `A` for `selector_a` and `B` for `selector_b`.
 | `item_kind v`, v in `track`, `via`, `pad`, `zone` | `S.Type == 'Track'`, `'Via'`, `'Pad'`, `'Zone'` | `item_kind` |
 | `area v` (c0103) | `S.intersectsArea('v')` | `area` |
 | `diff_pair v`, v a pair base or `*` | `S.inDiffPair('v')` | `diff_pair` |
+| `zone v` (c0462) | `S.Name == 'v'` | `zone` |
+| `pad_type v`, v in `smd`, `th`, `npth` (c0462) | `S.Pad_Type == 'SMD'`, `'Through-hole'`, `'NPTH, mechanical'` | `pad_type` |
+| `hole lo..hi` (c0462) | `((S.Type == 'Via' && S.Hole >= lo && S.Hole <= hi) \|\| (S.Type == 'Pad' && S.Hole_Size_X >= lo && S.Hole_Size_X <= hi))`; an open bound leaves its term out, an open lower bound is `> 0mm` | `hole` |
 | `and(x, y, …)` | `(x && y && …)` | `and` |
 | `or(x, y, …)` | `(x \|\| y \|\| …)` | `or` |
 | `not(x)` | `!(x)` | `not` |
@@ -177,6 +184,19 @@ Side `S` is `A` for `selector_a` and `B` for `selector_b`.
   the copper check. On both sides of a `clearance` rule it sets the clearance inside a pair. Its
   `SELECTOR_SUPPORT` entry holds the majors of the probe `dru-cond-diff_pair`: 9 and 10, since the probe
   was recorded `present` on 9.0.9 on 2026-10-08 (`H-K-DRU-PAIRSEL`).
+
+- The leaves `zone`, `pad_type` and `hole` (change c0462; S-2213, `H-K-DRU-LEAF-C0462`) are written as KiCad's
+  custom-rule page gives the properties: a zone's `Name`, a pad's `Pad_Type`, a via's `Hole` (the finished
+  diameter) and a pad's `Hole_Size_X`. A pad without a hole has the size 0, which the neutral `hole` leaf never
+  selects, hence `> 0mm` for an open lower bound. `Edge connector` pads have no `pad_type` value. The probes
+  `dru-cond-zone`, `dru-cond-pad_type` and `dru-cond-hole` (a probe zone named `probe` against one named
+  `control`; SMD pads against through-hole pads; a 0.4 mm via and through-hole pads against a 0.3 mm via and
+  SMD pads, with `hole 350000..`) were recorded `present` on 10.0.6 on 2026-11-06 (local `kicad-cli`) and on
+  9.0.9 the same day (the pinned image, local run; task 3.2). A key joins `SELECTOR_SUPPORT` only for the majors
+  whose probe is recorded `present`, so the three keys hold 9 and 10; on another major a rule with the leaf is
+  a reported loss on write. With no major recorded, `read_rules` would keep
+  a KiCad rule that uses `Name`, `Pad_Type`, `Hole` or `Hole_Size_X` opaque. Only the written hole form reads back as `hole`; any other comparison keeps the rule
+  opaque.
 
 ### Selectors per kind
 
@@ -223,6 +243,26 @@ inside an outline whatever their net.
   clause) stays opaque with `rules.kept-opaque`.
 - KiCad reports a violation of the rule as `items_not_allowed`.
 - `fenolite route` reads these rules to choose the layers a net may use (`docs/routing.md`).
+
+### Short and antenna allowances (c0465)
+
+KiCad's custom rules have no constraint for a short between two nets and none for the length of a dangling
+track (S-2242), so `short` and `antenna` hold no major in `KIND_SUPPORT`. What KiCad can say exactly is
+written; the rest is a loss.
+
+- A `short` rule of severity `error` and an `antenna` rule of `max` 0 write nothing and give no issue:
+  they are KiCad's default.
+- The rule set's only `short` rule, of severity `ignore` or `warning`, with both sides `all` and no layer,
+  writes nothing in the rules file and sets `rule_severities.shorting_items` in the project file to its
+  severity (`rulemap.board_short`). An explicit severity of `kicad.drc.shorting-items` that differs makes
+  it a loss.
+- Every other `short` or `antenna` rule gives `rules.kind-unchecked` (error, droppable), or with
+  `allow_lossy` `rules.dropped-for-target`. A negative `clearance` minimum between two nets silences
+  `shorting_items` for them on 9.0 and 10.0 (probe `dru-short-allow`), and silences their clearance check
+  too (probe `dru-short-allow-clearance` `absent`, `H-K-SHORT-ALLOW`), so it would allow every gap between
+  the nets as well: `KIND_SUPPORT["short"]` holds no major and a net-pair allowance is not written.
+- A board read back holds no rule of either kind; `rule_severities.shorting_items` reads as a check
+  severity (c0114).
 
 ### Layers and names
 
@@ -334,3 +374,25 @@ minimums `min_<kind>_<class>` and govern on their layers.
 |---|---|---|---|
 | A per-layer custom `track_width` rule with `(min 0.35mm) (opt 0.35mm) (max 0.35mm)` reports a track of its class 1 µm wider ("max width") and one narrower ("min width") on its layer, and nothing on a layer without a rule, on 9.0.9 and 10.0.6 (probe `dru-impedance-width`, CI run 37772583226) | S-0010, S-0038, S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-IMPEDANCE |
 | A custom `track_width` rule on a class replaces the width check of the class's tuning profile: one finding per item, named by the rule | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-PRO-TUNING-DRC |
+
+## Topology budgets lowered to existing kinds
+
+| fact | sources | evidence | hypothesis |
+|---|---|---|---|
+| A user delay converts to an existing `length` rule only after proving whole-net two-terminal track-chain coverage, one propagation, integer-fs segment products, no pad shortcut and no via/zone/arc/die offset; minimum nm rounds up and maximum nm down | S-0010, S-0038; Fenolite authored integer benches | INFERRED conversion; KICAD-VERIFIED length kind on 9.0.x and 10.0.x | H-G-TOPO-DELAY; H-K-NETLEN-RULES |
+| An eligible differential protocol skew converts to existing `skew` with `within_diff_pairs`; endpoint skew inside one net stays in Fenolite because KiCad compares whole nets | S-0010, S-0038 | INFERRED conversion; KICAD-VERIFIED skew kind on 9.0.x and 10.0.x | H-G-TOPO-DELAY; H-K-NETLEN-RULES |
+| Native profile time-domain lowering is absent pending a units/DRC probe; unsupported topology constraints produce `rules.topology-not-lowered` info | S-0010, S-0038; Fenolite implementation decision | UNKNOWN | H-K-PRO-TIME-DOMAIN |
+
+The dedicated topology conversion oracle on both KiCad majors remains owed; the conversion itself
+makes no KICAD-VERIFIED claim. See [Signal topologies](../../topologies.md).
+
+## Immutable imported native-rule context (c0359)
+
+S-1296 documents item properties Type/Layer/Net, pad fabrication marks and isPlated examples.
+Fenolite's bounded preservation profile recognizes these generic comparisons and Boolean
+combinations, plus physical constraints with numeric limits. It evaluates no rule expression.
+Unknown predicates/clauses refuse; original versus emitted native item attributes and exact
+geometry must agree independently before the complete generated-model baseline is bound.
+The original DRU bytes, comments and native priority remain intact. This preservation policy
+is INFERRED software behavior; it does not widen L6's judged custom-rule coverage. Native
+loading/canary observations are recorded separately, with actual tool versions.

@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as an example: an illustrative grammar family, not a real product line.
+schema = "fenolite.family.v1"
+id = "Example:EX_MF_R"
+kind = "resistor"
+summary = "Metal-film chip resistors, EXM series, value in RKM code (illustrative)"
+manufacturer = "Example Passive"
+version = "1.0.0"
+licence = "CC0-1.0"
+evidence = "INFERRED"
+sources = ["EXM series datasheet rev A, ordering code table (illustrative)"]
+datasheet = "https://example.invalid/exm-film.pdf"
+symbol = "Fenolite:Resistor"
+footprint = "Fenolite:Chip_1206"
+pattern = "EXM-{value}{tolerance}"
+
+[fields.value]
+scheme = "rkm"
+unit = "Ω"
+series = "E6"
+
+[fields.tolerance]
+codes.J = { tolerance = "5%", case = "1206", power = "0.25W" }
+
+[[valid]]
+value = { min = "1.5k", max = "680k" }

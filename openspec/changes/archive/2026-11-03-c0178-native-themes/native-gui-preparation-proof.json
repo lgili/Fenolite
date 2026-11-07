@@ -1,0 +1,66 @@
+{
+  "spec": "c0178-native-themes",
+  "preparation_task": "3.4a",
+  "export_source_core": "11bfefd0436e5cf6dc19be9096763a389fddb022",
+  "native_fixture_origin": "bfda2ac4 authored FULL preparation; all10startup input hashes retained",
+  "native_about_version": "10.0.6 release build,macOS26.6",
+  "native_theme_written_by": "actual isolated KiCad GUI only; no JSON authoring/editing",
+  "native_theme_sha256": "7a126a92dff7f74f5cdc31ce316705ac272fa9fe2ca724f3b054cc255d9f2e27",
+  "authored_choices": {
+    "board.background": "#101820",
+    "board.F.Cu": "#e06c00",
+    "board.B.Cu": "#2878b8",
+    "schematic.wire": "#287840",
+    "schematic.component_body": "#fff8e0"
+  },
+  "native_persistence": "Preferences closed/reopened; both schematic pickers show exact authoredRGBA; JSONdelta fromboard-only contains onlywire/component_body",
+  "inherited_vendor_palette": "Retained externally only; no native JSON/palette/screenshots/CAD added to core",
+  "native_matched_pair_zooms": {
+    "board": "3.09",
+    "schematic": "0.91"
+  },
+  "actual_exports": {
+    "standalone_pages": 4,
+    "dry_run_exit0": 4,
+    "exact_confirm_exit0": 4,
+    "scene_embedded_authored_palette_slots_verified": 5
+  },
+  "all10CAD_inputs_theme_exporterHEAD_unchanged": true,
+  "packet_manifest": {
+    "file": "theme-native-review-v1/packet-manifest.json",
+    "sha256": "e05008a9eb73f8450db7cee68d4b8cd10f15db9c7b0fa3eda4694da26d6b8406",
+    "verified_files": 30
+  },
+  "receipts_sha256": {
+    "gui-proof.json": "e533e45aa1d1bc570321b9c98ff7f5ef87f88fb7d26ac303eff9948535efaff0",
+    "viewer-receipts.json": "2568ba34acd10d32cd6b8cbeb472401ece939fc033f43996ecbf9776b430ba7e",
+    "html-link-validation": "be5bd1bc7000463c3e34bb5e0d2d7705f7771b99e656c11a1f269886bf95e0f4"
+  },
+  "viewer_output_sha256": {
+    "board-default.html": "541cf15680d3ca47ae300654d8f8e9cecd586672762d6ab4e9e23bd187a23458",
+    "board-authored.html": "b65eda292895c3cdf012938988bf7f128cefff0df50902674f29c36f7c78f341",
+    "sheet-default.html": "e76a570c112fc374ec1c74d029c6aa0c02e3765b0538dededa28521ea68f6e01",
+    "sheet-authored.html": "c920a14b38417e5f9b5d5b220bf0f21996729cfb4996bf3f658503cada846762"
+  },
+  "native_capture_sha256": {
+    "board-default.jpg": "658ecd2b02dbff04b97f7a19196c0303e8eac2f249ca901c0da4e719ac742300",
+    "board-authored.jpg": "31513ae84812164b16e17f8929ddfeeb2c68a0a67f9f50046e617de71a7d6689",
+    "sheet-default.jpg": "45a625c8831a7df792d56454845746160bcdd2476d1ac19deead4f2671bdd8b6",
+    "sheet-authored.jpg": "ee37dc11f88c0038695845ff064f8dc1b89135e0f1c43dc74c30a2e4a6f2d23b"
+  },
+  "scope": "Visual colours only; FULL fixture40unroutedpads/components outside outline. Not PCB quality/electrical/native acceptance.",
+  "limits": [
+    "No native-vs-viewer viewport/pixel equality claim.",
+    "Original outer-alias launch error and canonical-path recovery remain documented externally, not erased or attributed to CAD.",
+    "Post-quit AX observation auto-relaunched an empty process; closed immediately without CAD/preferences edit. No global configuration byte-identity claim.",
+    "Browser preview unavailable: explicit file-URL security-policy rejection; no workaround. StaticHTMLlinks/hash checks and embeddedscene checks pass.",
+    "Human task3.4 remains PENDING; full exact-commit CI remains PENDING."
+  ],
+  "human_review": false,
+  "required_CI": "PENDING",
+  "focused_proof": {
+    "command": "pytest tests/unit/view/test_themes.py tests/unit/test_format_facts.py tests/unit/test_hypotheses_register.py -q",
+    "result": "70 passed in 62.44s (0:01:02)",
+    "log_sha256": "57c156b4184e8e90993c994a9b1a411e8733e8759266bbfcb25a19a8feb7001b"
+  }
+}

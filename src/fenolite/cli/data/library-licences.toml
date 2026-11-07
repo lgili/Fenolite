@@ -1,0 +1,89 @@
+# The licence lists of fenolite-library (change c0279, docs/library-repo.md, "Licences").
+# The library commits the same file as licences.toml; tests/unit/library/test_licences.py keeps the two equal.
+# The allow-list is closed: an id of no family is refused. Identifiers: SPDX License List 3.29.0 (S-1002).
+schema = "fenolite.library-licences.v0"
+platform_hosts = ["easyeda.com", "oshwlab.com", "oshwhub.com", "lceda.cn"]
+normalisation = "LICENSE in lower case, whitespace runs collapsed to one space, no final newline; SHA-256 of its UTF-8 bytes"
+
+[families.cc0]
+ids = ["CC0-1.0"]
+reciprocal = false
+obligations = ["nothing required; attribution kept as courtesy"]
+
+[families.cc-by]
+ids = ["CC-BY-3.0", "CC-BY-4.0"]
+reciprocal = false
+obligations = ["attribution", "changes indicated"]
+
+[families.cc-by-sa]
+ids = ["CC-BY-SA-2.5", "CC-BY-SA-3.0", "CC-BY-SA-4.0"]
+reciprocal = true
+obligations = ["attribution", "changes indicated", "same licence"]
+
+[families.cern-ohl-p]
+ids = ["CERN-OHL-P-2.0"]
+reciprocal = false
+obligations = ["notices", "dated modification notice"]
+
+[families.cern-ohl-w]
+ids = ["CERN-OHL-W-2.0"]
+reciprocal = true
+obligations = ["notices", "modification notice", "same licence", "Source Location"]
+
+[families.cern-ohl-s]
+ids = ["CERN-OHL-S-2.0"]
+reciprocal = true
+obligations = ["notices", "modification notice", "same licence", "Source Location"]
+
+[families."cern-ohl-1.2"]
+ids = ["CERN-OHL-1.2"]
+reciprocal = true
+obligations = ["notices", "modification notice", "same licence"]
+
+[families.mit]
+ids = ["MIT"]
+reciprocal = false
+obligations = ["copyright and licence text"]
+
+[families.bsd]
+ids = ["BSD-2-Clause", "BSD-3-Clause"]
+reciprocal = false
+obligations = ["copyright and licence text"]
+
+[families.apache]
+ids = ["Apache-2.0"]
+reciprocal = false
+obligations = ["licence", "NOTICE", "stated changes"]
+
+[families.solderpad]
+ids = ["SHL-0.5", "SHL-0.51", "SHL-2.0", "SHL-2.1"]
+reciprocal = false
+obligations = ["licence", "NOTICE", "stated changes"]
+
+[families.gpl]
+ids = ["GPL-2.0-or-later", "GPL-3.0-only", "GPL-3.0-or-later"]
+reciprocal = true
+obligations = ["source (the Python is the source)", "notices", "changes marked"]
+
+[families.tapr]
+ids = ["TAPR-OHL-1.0"]
+reciprocal = true
+obligations = ["notices", "changes marked", "same licence"]
+
+# SHL-2.0 and SHL-2.1 are SPDX licence exceptions, written Apache-2.0 WITH SHL-2.x (S-1002).
+[aliases]
+"Apache-2.0 WITH SHL-2.0" = "SHL-2.0"
+"Apache-2.0 WITH SHL-2.1" = "SHL-2.1"
+
+# Normalised digests of accepted licence texts, per id. A LICENSE of another text needs licence_review in
+# PROVENANCE.json. CC-BY-SA-4.0: the file LICENSE.CC-BY-SA-4.0 of the KiCad repository, as the library's
+# first four boards carry it (measured 2026-10-30).
+[texts]
+# Three preserved KiCad texts approved by CODEOWNER @lgili on 2026-11-02.
+# Exact upstream bytes, hashes and separate approval quotes: docs/licence-text-codeowner-review-20261102.json.
+"CC-BY-SA-4.0" = ["17a696cf6cf01b8d795151556dfd51cc121c1b678a33d509d6548658c1008391", "ccdefbf85316f7d282d272f7be48c2624f6892f46fce7c8b5287fc9256861f7d"]
+"Apache-2.0" = ["95cef6332b35354c12f9d666ab9ff47002e6f7ef937924896882b2e0cdb7a0d6"]
+"CERN-OHL-P-2.0" = ["63f8502ea2967423467f3762efffaaba56c81997f3fe9696e17cc4e5fb3fa31e"]
+
+# Existing authored CC0 text already accepted in the core registry (S-1097).
+"CC0-1.0" = ["0dd25be0803b1e2764b0323560013cdd5ad9ca92ba4780bd7db0cbe6ce821dd8"]

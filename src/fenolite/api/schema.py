@@ -16,7 +16,7 @@ import dataclasses
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from fenolite.checks.equivalence.model import KINDS, LEVEL_NAMES
+from fenolite.checks.equivalence.model import ALL_LEVEL_NAMES, KINDS
 
 KIND_NAMES: tuple[str, ...] = tuple(dict.fromkeys(kind for _, kind, _ in KINDS))
 NETLIST_SOURCES = ("board", "circuit", "schematic")
@@ -41,6 +41,14 @@ class ReplySide:
         metadata={"optional": True, "minimum": 0, "description": "a schematic side's power symbols"},
     )
 
+    files: dict[str, str] = dataclasses.field(
+        default_factory=lambda: {},
+        metadata={
+            "optional": True,
+            "description": "exact board/project context inputs by unambiguous basename and SHA-256",
+        },
+    )
+
 
 @dataclass(frozen=True)
 class ReplySides:
@@ -63,8 +71,8 @@ class ReplyTolerances:
 class ReplyLevel:
     """One level that ran, with its counts and summary."""
 
-    level: int = dataclasses.field(metadata={"minimum": 1})
-    name: str = dataclasses.field(metadata={"enum": list(LEVEL_NAMES.values())})
+    level: int | Literal["S"] = dataclasses.field(metadata={"minimum": 1})
+    name: str = dataclasses.field(metadata={"enum": list(ALL_LEVEL_NAMES.values())})
     compared: int = dataclasses.field(metadata=_COUNT)
     differences: int = dataclasses.field(metadata=_COUNT)
     excluded: int = dataclasses.field(metadata=_COUNT)
@@ -76,7 +84,7 @@ class ReplyLevel:
 class ReplyDifference:
     """A difference or a notice, located at ``REF``, ``REF-PIN`` or a net."""
 
-    level: int = dataclasses.field(metadata={"minimum": 1})
+    level: int | Literal["S"] = dataclasses.field(metadata={"minimum": 1})
     kind: str = dataclasses.field(metadata={"enum": list(KIND_NAMES)})
     where: str
     field: str
@@ -88,7 +96,7 @@ class ReplyDifference:
 class ReplyExcluded:
     """A difference that a rule of the profile excluded."""
 
-    level: int = dataclasses.field(metadata={"minimum": 1})
+    level: int | Literal["S"] = dataclasses.field(metadata={"minimum": 1})
     kind: str = dataclasses.field(metadata={"enum": list(KIND_NAMES)})
     where: str
     field: str
@@ -110,7 +118,7 @@ class ReplyProfile:
 class EquivalentReply:
     """The result of fenolite equivalent."""
 
-    level: int = dataclasses.field(
+    level: int | Literal["S"] = dataclasses.field(
         metadata={"minimum": 0, "description": "the highest level run; 0 when none ran"}
     )
     equivalent: bool
@@ -178,10 +186,10 @@ class ConvertFile:
 
 @dataclass(frozen=True)
 class ReportReason:
-    """The items of one kind changed or lost for one reason."""
+    """The items of one kind changed, lost or kept for one reason."""
 
     reason: str
-    outcome: Literal["changed", "lost"]
+    outcome: Literal["changed", "lost", "kept"]
     count: int = dataclasses.field(metadata={"minimum": 1})
     ids: list[str] = dataclasses.field(
         default_factory=lambda: [], metadata={"optional": True, "description": "with --report-ids"}
@@ -199,6 +207,14 @@ class ReportRowReply:
     written: int = dataclasses.field(metadata=_COUNT)
     changed: int = dataclasses.field(metadata=_COUNT)
     lost: int = dataclasses.field(metadata=_COUNT)
+    kept: int = dataclasses.field(
+        default=0,
+        metadata={
+            **_COUNT,
+            "optional": True,
+            "description": "items kept in the model for the source's format; shown when above 0 (c0424)",
+        },
+    )
     reasons: list[ReportReason] = dataclasses.field(default_factory=lambda: [])
 
 
@@ -229,4 +245,133 @@ class ConvertReply:
     )
 
 
-__all__ = ["KIND_NAMES", "NETLIST_SOURCES", "ConvertReply", "EquivalentReply"]
+# --- fenolite verify-source (change c0278) ----------------------------------------------------------
+
+VerifyLevelId = int | Literal["S"]
+"""A level of the proof: 1 to 8, or ``S`` for the drawn schematics."""
+_LEVEL = {"minimum": 1}
+
+
+@dataclass(frozen=True)
+class VerifyScript:
+    """The design script: its name and SHA-256."""
+
+    name: str
+    sha256: str = dataclasses.field(metadata={"pattern": "^[0-9a-f]{64}$"})
+
+
+@dataclass(frozen=True)
+class VerifyAgainst:
+    """The original: its name, backend and the SHA-256 of each file read, by path relative to it."""
+
+    name: str
+    backend: Literal["kicad", "altium"]
+    files: dict[str, str]
+
+
+@dataclass(frozen=True)
+class VerifyBuild:
+    """The build of the script in the temporary folder: its target, the count of files written, the mode of
+    its copper guard and whether the provenance file marks the design as a copy (change c0281)."""
+
+    target: str
+    files: int = dataclasses.field(metadata=_COUNT)
+    copper_check: Literal["refuse", "warn"]
+    copy: bool
+    read_files: dict[str, str] = dataclasses.field(
+        default_factory=lambda: {},
+        metadata={
+            "optional": True,
+            "description": "generated temporary build outputs read by the proof; never original inputs",
+        },
+    )
+
+
+@dataclass(frozen=True)
+class VerifyTolerances:
+    """The tolerances of the proof."""
+
+    length_nm: int = dataclasses.field(metadata=_COUNT)
+    angle_udeg: int = dataclasses.field(metadata=_COUNT)
+    length_ppm: int = dataclasses.field(metadata=_COUNT)
+    pixel_ppm: int = dataclasses.field(metadata=_COUNT)
+    render_pitch_um: int = dataclasses.field(metadata={"minimum": 1})
+    frame: Literal["absolute", "relative"]
+
+
+@dataclass(frozen=True)
+class VerifyLevel:
+    """One level of the proof: its status, counts, the reason it was skipped and its summary."""
+
+    level: VerifyLevelId = dataclasses.field(metadata=_LEVEL)
+    name: str = dataclasses.field(metadata={"enum": list(ALL_LEVEL_NAMES.values())})
+    status: Literal["equal", "accepted", "differs", "skipped"]
+    compared: int = dataclasses.field(metadata=_COUNT)
+    differences: int = dataclasses.field(metadata=_COUNT)
+    excluded: int = dataclasses.field(metadata=_COUNT)
+    notices: int = dataclasses.field(metadata=_COUNT)
+    reason: str
+    summary: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class VerifyDifference:
+    """A difference or a notice of a level."""
+
+    level: VerifyLevelId = dataclasses.field(metadata=_LEVEL)
+    kind: str = dataclasses.field(metadata={"enum": list(KIND_NAMES)})
+    where: str
+    field: str
+    a: str
+    b: str
+
+
+@dataclass(frozen=True)
+class VerifyAccepted:
+    """A difference that an accepted entry of the provenance file matched."""
+
+    level: VerifyLevelId = dataclasses.field(metadata=_LEVEL)
+    kind: str = dataclasses.field(metadata={"enum": list(KIND_NAMES)})
+    where: str
+    field: str
+    a: str
+    b: str
+    rule: str = dataclasses.field(metadata={"description": "the id of the accepted entry"})
+
+
+@dataclass(frozen=True)
+class VerifyProvenance:
+    """The provenance file: its path (null when there is none), its count of accepted entries, and
+    whether the run records the proof."""
+
+    path: str | None
+    accepted: int = dataclasses.field(metadata=_COUNT)
+    record: bool
+
+
+@dataclass(frozen=True)
+class VerifySourceReply:
+    """The result of fenolite verify-source."""
+
+    script: VerifyScript
+    against: VerifyAgainst
+    build: VerifyBuild
+    tolerances: VerifyTolerances
+    provenance: VerifyProvenance
+    levels: list[VerifyLevel]
+    equivalent: bool
+    differences: list[VerifyDifference]
+    accepted: list[VerifyAccepted]
+    notices: list[VerifyDifference]
+    new_accepted: list[dict[str, Any]] = dataclasses.field(
+        default_factory=lambda: [], metadata={"optional": True, "description": "the entries --accept adds"}
+    )
+    plan: list[dict[str, Any]] = dataclasses.field(
+        default_factory=lambda: [], metadata={"optional": True, "description": "the planned writes"}
+    )
+    plan_id: str = dataclasses.field(
+        default="", metadata={"optional": True, "description": "the id of the staged plan"}
+    )
+
+
+__all__ = ["KIND_NAMES", "NETLIST_SOURCES", "ConvertReply", "EquivalentReply", "VerifySourceReply"]

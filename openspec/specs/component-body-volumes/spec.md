@@ -2,9 +2,7 @@
 
 ## Purpose
 TBD - created by archiving change c0099-component-body-volumes. Update Purpose after archive.
-
 ## Requirements
-
 ### Requirement: Signed body volume contract
 The model SHALL add optional signed z_min/z_max integer-nm fields to ComponentBody as an authoritative interval in its mounted-face frame, positive outwards from the board surface. Both bounds MUST be present together and ordered. Existing height/standoff remain compatible when the interval is absent; old nonnegative validation MUST still apply then unless projection_unknown explicitly states that preserved source heights are not geometry. A signed interval MUST not be synthesized by silently clamping native heights to zero.
 
@@ -38,3 +36,15 @@ Volume analysis SHALL transform bodies through footprint position, rotation and 
 - **GIVEN** an enclosure/body check requires board thickness that was not supplied
 - **WHEN** analysis runs
 - **THEN** the check is marked incomplete, not passed
+
+### Requirement: Generated bodies are known volumes
+A body produced by a footprint generator SHALL carry signed `z_min`/`z_max` bounds and `projection_unknown == False`, computed from the package record's height, standoff and lead lengths, so that volume and height analyses treat it as known geometry. A record without a body height MUST give no body at all rather than invented ones.
+
+#### Scenario: Height read from a generated body
+- **GIVEN** a placed footprint generated from `soic8.toml` (height max 1.75 mm)
+- **WHEN** `outward_height` is computed for it
+- **THEN** it returns `1750000`
+
+#### Scenario: No height, no body
+- **WHEN** a record without `body.height` is generated
+- **THEN** the footprint has no body and its outward height is `None`

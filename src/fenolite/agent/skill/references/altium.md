@@ -69,10 +69,23 @@ Read `altium.not-lowered` locators. A `track_width` rule needs both limits (page
 
 ## The status of each file kind
 
+`--altium-draftsman on` requests a Draftsman document; `--drawing-spec FILE` uses the same drawing TOML as
+KiCad exports and requires that option plus `--target altium`. The native gate is closed (route P):
+`altium.draftsman-not-written` explains why no file is planned and `result.draftsman` is null. A project
+file that the build writes then holds the title-block fields as parameters, for a document made by hand
+from an Altium template (`docs/altium.md`, "Draftsman document").
+`altium.draftsman-not-listed` names a kept project that needs the drawing added. Candidate shells and
+their own readback stay `INFERRED`; they do not prove that Altium fills or prints the drawing.
+
+```fenolite-cmd
+fenolite build blink/design.py --out blink/altium --target altium --altium-draftsman on --dry-run --json
+```
+
 It matches `capabilities` (`result.backends`, `result.matrix`).
 
 | kind | file | status | evidence |
 |---|---|---|---|
+| `altium_draftsman` | `.PCBDwf`, gate closed | `experimental` | `INFERRED` |
 | `altium_harness` | `.Harness` | `experimental` | `INFERRED` |
 | `altium_outjob` | `.OutJob` | `experimental` | `INFERRED` |
 | `altium_pcbdoc` | `.PcbDoc` | `experimental` | `INFERRED` |
@@ -89,11 +102,23 @@ It matches `capabilities` (`result.backends`, `result.matrix`).
 fenolite check blink/altium --json
 fenolite parity blink/altium --json
 fenolite inspect blink/altium/lamp.PcbDoc --json
+fenolite check blink/altium/lamp.PcbDoc --stages altium.integrity --json
 fenolite equivalent blink/build blink/altium/lamp.PrjPcb --level 2 --json
 ```
 
 `check` measures model/ERC/copper/parity/readback with `INFERRED` evidence; run native checks too.
-`equivalent --level 2` compares circuits (page `files`).
+`equivalent --level 2` compares circuits (page `files`). The opt-in stage `altium.integrity` warns about
+index-table faults (`altium.integrity.*`) in a PCB document. Python edit sessions are gated off
+(`altium.edit.gate`).
+
+```fenolite-cmd
+fenolite explain altium.import.pcb-net-conflict --json
+fenolite explain import.arc-as-track --json
+```
+
+Reading a project, `altium.import.pcb-net-conflict` warns of pins that the PCB puts on another net than
+the sheets: the circuit keeps the sheet net, each pad its board net. Update one side in Altium. An arc
+whose three points lie on one line becomes a straight track (`import.arc-as-track`).
 
 ## Keep native schematic presentation
 
@@ -132,5 +157,57 @@ fenolite kit status --json
 ```fenolite-cmd
 fenolite convert blink/altium/lamp.PrjPcb --to kicad --out converted --dry-run --json
 ```
+
+The report gives each Altium rule record one outcome. `convert.kept` (info) counts records KiCad cannot
+hold, such as routing topology or a disabled rule: the model keeps them, and a build for Altium writes
+them back. They are a declared format limit, not a loss.
+
+
+## A drawing beside the script
+
+`design.load_schematic("schematic.toml")` also selects the Altium drawn writer. Its ASCII/binary native
+records carry wires, junctions, buses, labels, ports and sheet references; the build verifies actual
+native units, pin tables, physical maps and connectivity before staging and again after templates.
+Compatible per-unit aliases resolve through the project libraries; changed alias files invalidate a
+reviewed plan. `result.schematic.source` is `drawn`, with counts in `result.schematic.drawn`.
+
+`drawn.coordinate-rounded` names each point accepted with `--allow-lossy`; without that flag an
+unrepresentable coordinate gives `FEN-7001`. Opaque content without native text gives
+`drawn.opaque-dropped`. `drawn.altium-repeat-flattened` reports repeated instances written separately.
+Automatic/Global scope may qualify shared local labels; each text change is reported. Native mirror
+metadata, field justification, power field poses, bus aliases and per-sheet title metadata have explicit
+limitations. Read the findings. Edit the drawing in `schematic.toml`; Altium-to-drawn sync is unavailable.
+
+These files stay `INFERRED`: the drawn-sheet writer needs the native kit in
+`docs/evidence/altium-schematic.md`. Altium is currently unavailable; own-reader checks do not establish
+application acceptance or drawing identity.
+
+
+
+## Version scopes
+
+```fenolite-cmd
+fenolite capabilities --no-tools --fields matrix --json
+```
+
+Read `versions` per operation: `version`, `tool`, `level`, `source`. Empty lists mean no recorded
+version-specific scope. Sources name existing tests or actual native-kit runs; their existence is
+traceability, not a new execution or broader native guarantee. Keep current CI and native acceptance
+pending until their exact-commit proofs pass. The repository publishes `docs/evidence/conformance.json`
+and `conformance.md`; releases attach the JSON and checksum.
+
+A native kit reply lists only hypotheses whose actual verdict passed. Failed and synthetic runs
+retain their lower kit-stability evidence; a displayed scene also retains the lowest source level.
+
+## Reply metadata
+
+```fenolite-cmd
+fenolite explain cli.evidence-unsound --json
+```
+
+Supported evidence lists its hypotheses. Lower evidence requires an eligible no-claim command,
+a named experimental feature, or an actual incomplete report with its matching issue. A marker
+alone cannot excuse a complete claim. Unknown detection stays distinct. Unsound ordinary replies
+retain their result with one metadata warning; strict tests reject it before plans or writes.
 
 Read next: `files`, `rules`, `checks`.

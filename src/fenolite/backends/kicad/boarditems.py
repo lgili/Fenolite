@@ -22,7 +22,7 @@ from types import MappingProxyType
 from fenolite.core.errors import Issue, Severity
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model.base import Entity
-from fenolite.model.board import Dimension, Graphic, Keepout, Text
+from fenolite.model.board import Dimension, Graphic, Image, Keepout, Text
 from fenolite.model.design import Design
 from fenolite.model.rules import Selector
 
@@ -45,10 +45,10 @@ MERGE_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
 )
 """Every code ``merge_items`` reports (layout-lens, "Board items declared in the script")."""
 
-BoardItem = Keepout | Text | Graphic | Dimension
-_COLLECTIONS = ("keepouts", "texts", "graphics", "dimensions")
+BoardItem = Keepout | Text | Graphic | Dimension | Image
+_COLLECTIONS = ("keepouts", "texts", "graphics", "dimensions", "images")
 _KIND_NAMES: Mapping[type, str] = MappingProxyType(
-    {Keepout: "rule area", Text: "text", Graphic: "graphic", Dimension: "dimension"}
+    {Keepout: "rule area", Text: "text", Graphic: "graphic", Dimension: "dimension", Image: "image"}
 )
 _SETTINGS = ("no_tracks", "no_vias", "no_pads", "no_copper_pour", "no_footprints")
 
@@ -80,6 +80,8 @@ def _fields(item: BoardItem) -> dict[str, object]:
             "width": item.width,
             "fill": item.filled,
         }
+    if isinstance(item, Image):
+        return {"position": item.position, "layer": item.layer, "scale": item.scale, "data": item.data}
     return {
         "kind": item.kind,
         "layer": item.layer,
@@ -143,6 +145,7 @@ class ItemMerge:
     texts: tuple[Text, ...] = ()
     graphics: tuple[Graphic, ...] = ()
     dimensions: tuple[Dimension, ...] = ()
+    images: tuple[Image, ...] = ()
     regenerated: int = 0
     stale: int = 0
     issues: tuple[Issue, ...] = ()
@@ -228,6 +231,7 @@ def merge_items(existing: Design, built: Design) -> ItemMerge:
         texts=tuple(kept["texts"]),  # type: ignore[arg-type]
         graphics=tuple(kept["graphics"]),  # type: ignore[arg-type]
         dimensions=tuple(kept["dimensions"]),  # type: ignore[arg-type]
+        images=tuple(kept["images"]),  # type: ignore[arg-type]
         regenerated=regenerated,
         stale=stale,
         issues=tuple(issues),

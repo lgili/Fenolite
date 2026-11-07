@@ -1,0 +1,651 @@
+{
+  "authored_byte_delta": {
+    "drawn@10": {
+      "changed": [
+        ".fenolite/board.json",
+        ".fenolite/circuit.json",
+        "drawn.kicad_pcb",
+        "drawn.kicad_sch",
+        "sheets/child.kicad_sch"
+      ],
+      "files": 16,
+      "original_matches_frozen_table": true,
+      "unchanged": [
+        ".fenolite/findings.json",
+        ".fenolite/manufacturing.json",
+        ".fenolite/rules.json",
+        "drawn.kicad_dru",
+        "drawn.kicad_pro",
+        "fenolite-base.json",
+        "fp-lib-table",
+        "lib/Mini.kicad_sym",
+        "lib/Mini.pretty/Mini_QFP-32_7x7mm_P0.8mm.kicad_mod",
+        "lib/Mini.pretty/Mini_R_0603.kicad_mod",
+        "sym-lib-table"
+      ]
+    },
+    "drawn@9": {
+      "changed": [
+        ".fenolite/board.json",
+        ".fenolite/circuit.json",
+        "drawn.kicad_pcb",
+        "drawn.kicad_sch",
+        "sheets/child.kicad_sch"
+      ],
+      "files": 16,
+      "original_matches_frozen_table": true,
+      "unchanged": [
+        ".fenolite/findings.json",
+        ".fenolite/manufacturing.json",
+        ".fenolite/rules.json",
+        "drawn.kicad_dru",
+        "drawn.kicad_pro",
+        "fenolite-base.json",
+        "fp-lib-table",
+        "lib/Mini.kicad_sym",
+        "lib/Mini.pretty/Mini_QFP-32_7x7mm_P0.8mm.kicad_mod",
+        "lib/Mini.pretty/Mini_R_0603.kicad_mod",
+        "sym-lib-table"
+      ]
+    },
+    "drawn@altium": {
+      "changed": [
+        ".fenolite/board.json",
+        ".fenolite/circuit.json",
+        "drawn.PcbDoc",
+        "drawn.SchDoc",
+        "drawn_drawn_QMSFTVMJ.SchDoc"
+      ],
+      "files": 13,
+      "original_matches_frozen_table": true,
+      "unchanged": [
+        ".fenolite/findings.json",
+        ".fenolite/manufacturing.json",
+        ".fenolite/rules.json",
+        "drawn.OutJob",
+        "drawn.PcbLib",
+        "drawn.PrjPcb",
+        "drawn.SchLib",
+        "fenolite-base.json"
+      ]
+    }
+  },
+  "authored_source_commit": "a0e8e5edb08dc989bbfd72c2f79067cbc3b96967",
+  "build_receipt_sha256": "04ca8a4f17637f590880099484e198e5f170d8c5c2b20f0bb670330c6e0cb2b3",
+  "cases": [
+    {
+      "all_pins": 38,
+      "all_six_cases_done": false,
+      "case": "example-original-binary",
+      "comparison_receipt_sha256": "307be91a7344f445ff809227b970b00f04c1b5ff0423c24face2b27bae5a328c",
+      "compiler_log": [
+        "[Error]|Net GND has only one pin (Pin U1-10)|Compiler",
+        "[Error]|Net NetU1_11 contains floating input pins (Pin U1-11)|Compiler",
+        "[Error]|Net NetU1_12 contains floating input pins (Pin U1-12)|Compiler",
+        "[Warning]|Net NetU1_11 has no driving source (Pin U1-11)|Compiler",
+        "[Warning]|Net NetU1_12 has no driving source (Pin U1-12)|Compiler"
+      ],
+      "compiler_messages": {
+        "[Error]": 3,
+        "[Warning]": 2
+      },
+      "components": 4,
+      "connectivity_equal": true,
+      "evidence_promoted": false,
+      "groups": 33,
+      "name_differences": [
+        {
+          "code": "IN",
+          "native": [
+            [
+              "NetR2_1",
+              "NetR2_1"
+            ]
+          ],
+          "pins": [
+            [
+              "R2",
+              "1"
+            ],
+            [
+              "U1",
+              "3"
+            ]
+          ]
+        }
+      ],
+      "native_memberships": 37,
+      "native_net_objects": 32,
+      "native_version": "24.5.2.23",
+      "only_code_groups": [],
+      "only_native_groups": [],
+      "raw_sha256": {
+        "NativeCase.PrjScr": "da95a2cd25b5765c342d2ae84521bd2d51de9110fe19b223e6995778ea1a9021",
+        "NativeCase.pas": "27338be221ceac0e7a741e811ad7dcd68fb6f6a1bf872e1ef32391a18f64df16",
+        "messages.txt": "d1dba05064d7837c37ed2811380917cb234a0b3a66200245d04d2bdf68c2f2b4",
+        "nets.tsv": "629ea1e4ef20eb68d6d3b5da09b45b60824be1ddcfcd96776caa95ed8e1f9c8f",
+        "pins.tsv": "50e45f2f650f95c0f3afe64b536114e3b7d869f831d43ee83c53308586f4208e",
+        "stage.txt": "578b4fe30021824dba7269d7ed2cbea261a3f8b7720aea3113d9bbb3827b9377"
+      },
+      "save_reopen_done": false,
+      "source_sha256": "82c238e2538bad6486cfa598a59432ee9561fc286244c9a09237740490b757a0",
+      "status": "measured-with-findings",
+      "unlisted_native_net_pins": [
+        [
+          "U1",
+          "32"
+        ]
+      ],
+      "writer_source_commit": "963f9cc0bca9dd200e40f08c158fc271ce01a998"
+    },
+    {
+      "all_pin_partition_sha256": "d168ff6a00bc2e409ab527f4eecbff6c90ea3fa775b1051b538913f4f84d1f7a",
+      "all_pins": 38,
+      "all_six_cases_done": false,
+      "authored_source_commit": "a0e8e5edb08dc989bbfd72c2f79067cbc3b96967",
+      "blocking_messages": {},
+      "case": "example-corrected-binary",
+      "comparison_receipt_sha256": "b66642b2ba09aa7dd2b52afc9e500e50eca6a1187809e8847c1536cf0a7e429e",
+      "compiler_log": [
+        "[Info]|Compile successful, no errors found.|Compiler"
+      ],
+      "compiler_messages": {
+        "[Info]": 1
+      },
+      "components": 4,
+      "connectivity_equal": true,
+      "evidence_promoted": false,
+      "groups": 33,
+      "name_differences": [],
+      "native_memberships": 37,
+      "native_net_objects": 32,
+      "native_pid": 8436,
+      "native_version": "24.5.2.23",
+      "only_code_groups": [],
+      "only_native_groups": [],
+      "raw_sha256": {
+        "NativeCase.PrjScr": "da95a2cd25b5765c342d2ae84521bd2d51de9110fe19b223e6995778ea1a9021",
+        "NativeCase.pas": "f4dfdf993be702e0c3fb0e3721866d1b1d862651b5c48291d97ebb135886af83",
+        "messages.txt": "ca55a1941df78a29d89b3f4e1a2eeb009136cbe75294492e706b4aca85d16258",
+        "nets.tsv": "f2a5cc68271c5ef7118e79493e443c91ded92be625b754cdbf3f9024e8a42f27",
+        "pins.tsv": "741784793fbc04df6b477301a731ec4e684f6f50cc5220051c71a71b2b62d322",
+        "stage.txt": "578b4fe30021824dba7269d7ed2cbea261a3f8b7720aea3113d9bbb3827b9377"
+      },
+      "save_reopen_done": false,
+      "source_sha256": "55732e7e8e81f7015337a98491c8f63cfe4a83746fe7ff789569f931b23f63a0",
+      "status": "compiled-clean",
+      "unlisted_native_net_pins": [
+        [
+          "U1",
+          "32"
+        ]
+      ],
+      "utc": "2026-11-03T09:35:08.8917672Z",
+      "writer_source_commit": "963f9cc0bca9dd200e40f08c158fc271ce01a998"
+    },
+    {
+      "all_pin_partition_sha256": "d168ff6a00bc2e409ab527f4eecbff6c90ea3fa775b1051b538913f4f84d1f7a",
+      "all_pins": 38,
+      "all_six_cases_done": false,
+      "authored_source_commit": "a0e8e5edb08dc989bbfd72c2f79067cbc3b96967",
+      "blocking_messages": {},
+      "case": "example-corrected-ascii",
+      "comparison_receipt_sha256": "7a5defd1b282317548c3375a605d3c2540344139e812d7b6791162cc6a73f9cd",
+      "compiler_log": [
+        "[Info]|Compile successful, no errors found.|Compiler"
+      ],
+      "compiler_messages": {
+        "[Info]": 1
+      },
+      "components": 4,
+      "connectivity_equal": true,
+      "evidence_promoted": false,
+      "groups": 33,
+      "name_differences": [],
+      "native_memberships": 37,
+      "native_net_objects": 32,
+      "native_pid": 8436,
+      "native_version": "24.5.2.23",
+      "only_code_groups": [],
+      "only_native_groups": [],
+      "raw_sha256": {
+        "NativeCase.PrjScr": "da95a2cd25b5765c342d2ae84521bd2d51de9110fe19b223e6995778ea1a9021",
+        "NativeCase.pas": "c1b6f15a5960de025ae8fea7771242447b5bd28a9378c5790d9f1cba72e2aed9",
+        "messages.txt": "ca55a1941df78a29d89b3f4e1a2eeb009136cbe75294492e706b4aca85d16258",
+        "nets.tsv": "f2a5cc68271c5ef7118e79493e443c91ded92be625b754cdbf3f9024e8a42f27",
+        "pins.tsv": "741784793fbc04df6b477301a731ec4e684f6f50cc5220051c71a71b2b62d322",
+        "stage.txt": "578b4fe30021824dba7269d7ed2cbea261a3f8b7720aea3113d9bbb3827b9377"
+      },
+      "save_reopen_done": false,
+      "source_sha256": "55732e7e8e81f7015337a98491c8f63cfe4a83746fe7ff789569f931b23f63a0",
+      "status": "compiled-clean",
+      "unlisted_native_net_pins": [
+        [
+          "U1",
+          "32"
+        ]
+      ],
+      "utc": "2026-11-03T09:52:36.1286870Z",
+      "writer_source_commit": "963f9cc0bca9dd200e40f08c158fc271ce01a998"
+    },
+    {
+      "all_pin_partition_sha256": "d168ff6a00bc2e409ab527f4eecbff6c90ea3fa775b1051b538913f4f84d1f7a",
+      "all_pins": 38,
+      "all_six_cases_done": false,
+      "authored_source_commit": "a0e8e5edb08dc989bbfd72c2f79067cbc3b96967",
+      "blocking_messages": {},
+      "case": "example-corrected-binary",
+      "comparison_receipt_sha256": "ffee3406b8cbfe3960727c501478c82b602957ed7538c08a8203df7708e32db3",
+      "compiler_log": [
+        "[Info]|Compile successful, no errors found.|Compiler"
+      ],
+      "compiler_messages": {
+        "[Info]": 1
+      },
+      "components": 4,
+      "connectivity_equal": true,
+      "evidence_promoted": false,
+      "groups": 33,
+      "name_differences": [],
+      "native_memberships": 37,
+      "native_net_objects": 32,
+      "native_pid": 8436,
+      "native_version": "24.5.2.23",
+      "only_code_groups": [],
+      "only_native_groups": [],
+      "probe_tag": "example-corrected-binary-saved",
+      "raw_sha256": {
+        "NativeCase.PrjScr": "da95a2cd25b5765c342d2ae84521bd2d51de9110fe19b223e6995778ea1a9021",
+        "NativeCase.pas": "fcc6eea9477f15ceb4a49c5325e6f9ff2afc20b4410567a392c575bb959aae0e",
+        "messages.txt": "ca55a1941df78a29d89b3f4e1a2eeb009136cbe75294492e706b4aca85d16258",
+        "nets.tsv": "f2a5cc68271c5ef7118e79493e443c91ded92be625b754cdbf3f9024e8a42f27",
+        "open.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "open.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "pins.tsv": "741784793fbc04df6b477301a731ec4e684f6f50cc5220051c71a71b2b62d322",
+        "stage.txt": "578b4fe30021824dba7269d7ed2cbea261a3f8b7720aea3113d9bbb3827b9377"
+      },
+      "save_reopen_done": true,
+      "source_sha256": "55732e7e8e81f7015337a98491c8f63cfe4a83746fe7ff789569f931b23f63a0",
+      "status": "compiled-clean",
+      "unlisted_native_net_pins": [
+        [
+          "U1",
+          "32"
+        ]
+      ],
+      "utc": "2026-11-03T10:08:01.9284524Z",
+      "writer_source_commit": "963f9cc0bca9dd200e40f08c158fc271ce01a998"
+    },
+    {
+      "all_pin_partition_sha256": "d168ff6a00bc2e409ab527f4eecbff6c90ea3fa775b1051b538913f4f84d1f7a",
+      "all_pins": 38,
+      "all_six_cases_done": false,
+      "authored_source_commit": "a0e8e5edb08dc989bbfd72c2f79067cbc3b96967",
+      "blocking_messages": {},
+      "case": "example-corrected-ascii",
+      "comparison_receipt_sha256": "c45496133e3b64d4ac36d464565c5ed3bd7bd4e7eb006c73183e8a6780b659ff",
+      "compiler_log": [
+        "[Info]|Compile successful, no errors found.|Compiler"
+      ],
+      "compiler_messages": {
+        "[Info]": 1
+      },
+      "components": 4,
+      "connectivity_equal": true,
+      "evidence_promoted": false,
+      "groups": 33,
+      "name_differences": [],
+      "native_memberships": 37,
+      "native_net_objects": 32,
+      "native_pid": 8436,
+      "native_version": "24.5.2.23",
+      "only_code_groups": [],
+      "only_native_groups": [],
+      "probe_tag": "example-corrected-ascii-saved-v2",
+      "raw_sha256": {
+        "NativeCase.PrjScr": "da95a2cd25b5765c342d2ae84521bd2d51de9110fe19b223e6995778ea1a9021",
+        "NativeCase.pas": "8bc5372271f7037a76a119decf79d25162f54e33763cff91aecfb8b103a1d80e",
+        "messages.txt": "ca55a1941df78a29d89b3f4e1a2eeb009136cbe75294492e706b4aca85d16258",
+        "nets.tsv": "f2a5cc68271c5ef7118e79493e443c91ded92be625b754cdbf3f9024e8a42f27",
+        "pins.tsv": "741784793fbc04df6b477301a731ec4e684f6f50cc5220051c71a71b2b62d322",
+        "stage.txt": "6762f2725aa2578e9cec9dcde2790bdc5b92573cbe1ef8e457f8b00f15642bb3"
+      },
+      "save_reopen_done": true,
+      "source_sha256": "55732e7e8e81f7015337a98491c8f63cfe4a83746fe7ff789569f931b23f63a0",
+      "status": "compiled-clean",
+      "unlisted_native_net_pins": [
+        [
+          "U1",
+          "32"
+        ]
+      ],
+      "utc": "2026-11-03T10:28:59.9891014Z",
+      "writer_source_commit": "963f9cc0bca9dd200e40f08c158fc271ce01a998"
+    }
+  ],
+  "change": "c0276",
+  "evidence_promoted": false,
+  "final_input_observation": {
+    "cad_action_performed": false,
+    "native_pid": 8436,
+    "native_started_utc": "2026-11-03T08:13:32.4699926Z",
+    "native_version": "24.5.2.23",
+    "unchanged_original_files": 45,
+    "unchanged_save_source_files": 30,
+    "utc": "2026-11-03T10:03:55.7134153Z"
+  },
+  "final_inputs_after_immutable_retry": {
+    "cad_action_performed": false,
+    "native_pid": 8436,
+    "native_version": "24.5.2.23",
+    "receipt_sha256": "5b17fd1db5681947c7a74b823cf22b3be794c4933e625d0e2567009d0c0c301f",
+    "unchanged_original_files": 45,
+    "unchanged_save_source_files": 30,
+    "utc": "2026-11-03T10:31:15.8924016Z"
+  },
+  "full_gate_passed": false,
+  "historical_incomplete_ascii_saved": {
+    "cad_failure_claimed": false,
+    "expected_pins": 38,
+    "failure_kind": "operator-file-sharing",
+    "gui_observation": "Owned NativeCase.pas error dialog: I/O error 32 at FenoliteStage Append(stage.txt).",
+    "observed_pins": null,
+    "observed_stages": [
+      "entry",
+      "authored-project-guard-passed",
+      "compile-returned"
+    ],
+    "requires_conscious_stop_and_io_control_before_retry": true,
+    "retry_performed": true,
+    "status": "incomplete-export",
+    "superseded_by": "example-corrected-ascii-saved-v2"
+  },
+  "intentional_source_change": {
+    "R3-2_after": "GND",
+    "R3-2_before": "VCC",
+    "components": 4,
+    "groups": 33,
+    "input_chain": "pull-down",
+    "only_intentional_markers": [
+      [
+        "U1",
+        "11"
+      ],
+      [
+        "U1",
+        "12"
+      ]
+    ],
+    "physical_pins": 38,
+    "root_IN_label": "existing wire"
+  },
+  "marker_comparisons": [
+    {
+      "after": [
+        {
+          "active": true,
+          "at": [
+            35000000,
+            38500000
+          ],
+          "suppress_all_at_point": true,
+          "symbol": "Thin Cross"
+        },
+        {
+          "active": true,
+          "at": [
+            35000000,
+            37500000
+          ],
+          "suppress_all_at_point": true,
+          "symbol": "Thin Cross"
+        }
+      ],
+      "before": [
+        {
+          "active": true,
+          "at": [
+            35000000,
+            38500000
+          ],
+          "suppress_all_at_point": true,
+          "symbol": "Thin Cross"
+        },
+        {
+          "active": true,
+          "at": [
+            35000000,
+            37500000
+          ],
+          "suppress_all_at_point": true,
+          "symbol": "Thin Cross"
+        }
+      ],
+      "case": "example-corrected-binary",
+      "file": "drawn.SchDoc",
+      "native_binary_sha256": "83c5d6ad89246d52c27612d8308e4f8e16ecb35926428aa7eed7334347b8f70d",
+      "positions_flags_exact": true
+    },
+    {
+      "after": [],
+      "before": [],
+      "case": "example-corrected-binary",
+      "file": "drawn_drawn_QMSFTVMJ.SchDoc",
+      "native_binary_sha256": "2696ab4bd1391f04ff96e3f505695862ded7db727f7ec9242e71793a18ee4c8b",
+      "positions_flags_exact": true
+    },
+    {
+      "after": [
+        {
+          "active": true,
+          "at": [
+            35000000,
+            38500000
+          ],
+          "suppress_all_at_point": true,
+          "symbol": "Thin Cross"
+        },
+        {
+          "active": true,
+          "at": [
+            35000000,
+            37500000
+          ],
+          "suppress_all_at_point": true,
+          "symbol": "Thin Cross"
+        }
+      ],
+      "before": [
+        {
+          "active": true,
+          "at": [
+            35000000,
+            38500000
+          ],
+          "suppress_all_at_point": true,
+          "symbol": "Thin Cross"
+        },
+        {
+          "active": true,
+          "at": [
+            35000000,
+            37500000
+          ],
+          "suppress_all_at_point": true,
+          "symbol": "Thin Cross"
+        }
+      ],
+      "case": "example-corrected-ascii",
+      "file": "drawn.SchDoc",
+      "native_binary_sha256": "0f86a2b5ad7c84a5ba96f0f16faf3744191ae065feebcb429b1aa67a67234864",
+      "positions_flags_exact": true
+    },
+    {
+      "after": [],
+      "before": [],
+      "case": "example-corrected-ascii",
+      "file": "drawn_drawn_QMSFTVMJ.SchDoc",
+      "native_binary_sha256": "e8442da1cf95116169cc5a3e77c90d94b5ad930dabadfd763e0b62a7407f2c62",
+      "positions_flags_exact": true
+    }
+  ],
+  "measured_on": "2026-11-03",
+  "native_local_initial_state_sha256": "e1f492132d245001af93af71c05030136b70e782c75663bc742ab2e18609acfa",
+  "native_process_id": 8436,
+  "native_version": "24.5.2.23",
+  "operator_attempts_preserved": [
+    "prlctl transport timeouts despite eventual completed source-case SDK exports",
+    "saved binary SDK completed but transport collector hit a locked redirected sdk.stdout; recovered closed core exports without another SDK run",
+    "PowerShell JSON-array selection failed before CAD action; corrected in a separate immutable request",
+    "saved ASCII export stopped on operator I/O error32; no completed-export or CAD-failure claim"
+  ],
+  "operator_changed_global_erc_settings": false,
+  "operator_io_repair": {
+    "active_stage_content_reads": 0,
+    "already_completed_native_cases_repeated": 0,
+    "attempts_preserved": true,
+    "final_marker_content_read": false,
+    "final_marker_exists": true,
+    "io_control": {
+      "active_stage_content_reads": 0,
+      "all_passed": true,
+      "closed_export_sha256": "b9251c251d422ac8be33566707b5f8dc231e4ff66c350e116efb150f2337337c",
+      "marker_existence_checks": 1000,
+      "native_app_touched": false,
+      "observed_win32_error": 32,
+      "old_read_lock_blocks_writer": true,
+      "protocol": "immutable-events-v1",
+      "utc": "2026-11-03T10:28:25.9539813Z"
+    },
+    "main_enabled": true,
+    "manual_stop_confirmed_by_user": true,
+    "modal_count": 0,
+    "protocol": "immutable-events-v1",
+    "source_sha256": "8bc5372271f7037a76a119decf79d25162f54e33763cff91aecfb8b103a1d80e",
+    "utc": "2026-11-03T10:28:59.9891014Z"
+  },
+  "operator_sha256": {
+    "Native-Local-Bridge-v2.ps1": "036a8103adbfd7e7e3eae3a9c3229640778eaca7e4a4bf188f0e5cf26fe7e09e",
+    "Native-Local-Bridge.ps1": "bfd4f8275356e1d330e2d7202fb5549ee7757d15a0eb5551e4c01b80a34b0b11",
+    "fenolite_legacy_drawn_build.py": "8ee69204562b6c57f929dcaa90c6ccab26befeacec8617c7f13c2968ec3d5e08",
+    "fenolite_legacy_drawn_compare.py": "542cda1bc21889c887f780ba63cbe0940dbf3e485ef849fa3b232353d20f9b19",
+    "recompile-owned.ps1": "74b8cb25314cbee1a0cb0a45c9d16dd1a455d6ac03bace63e6836e7af1abada6",
+    "recover-ascii-v2.ps1": "11f133c53c231d0e3fb82f53bd6977a1906b42fa1b10305dab8c3959eddfb8ce",
+    "scripts-v2/ascii-saved-immutable-collect.ps1": "cb0efce96858474f1bfb458c8727aeca97cf3b203c827c9cc6fa9eac12ef7e6e",
+    "scripts-v2/ascii-saved-immutable-launch.ps1": "0e6ab208a532f6d29c72ea1eb6588dde9fa0a37fbe1e9025f8c91e2740577a36",
+    "scripts-v2/io-control-v2.ps1": "f4e4b000ac147610d45e32c4d1abac98cda8ce41ffc8580f3e8eb843d83c5f38"
+  },
+  "original_input_maps": [
+    {
+      "case": "example-original-binary",
+      "files": {
+        ".fenolite/board.json": "e50bce16a80dedf45a4a5f3a61d9fc0759be42092edb5efefb50ad814b82de3b",
+        ".fenolite/build.json": "d0c7644dda479e29d597ef0fe61d02a5cb2bbbfa7d2354d475cbaf1445812ba5",
+        ".fenolite/circuit.json": "82c238e2538bad6486cfa598a59432ee9561fc286244c9a09237740490b757a0",
+        ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+        ".fenolite/meta.json": "ddf6367652797f22f5b4018eb05d436cc323dd5e9a5afddf58c585e33c959610",
+        ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+        "drawn.OutJob": "4d4448c15751df8aab9fe5d33ceb82d128ea1f3fe88df4c5818534d068ba6589",
+        "drawn.PcbDoc": "8eea2e36d9a93084c540ecd16a27e4b5b49210c59ba99433ef0bbc42535204c8",
+        "drawn.PcbLib": "10221f23770ced2646b10fae9cabb1f1f5e92ce93dbe968b785dc03939ccbad6",
+        "drawn.PrjPcb": "e3746b4d99e82e2241686b80cd6165f102be7759f784cd9abe7ca4ef2f122a24",
+        "drawn.SchDoc": "4f41bfd5f6fdee84ddc1b7b383ef9f9129aee8e508e5cec6ad5b98b19aa8a37a",
+        "drawn.SchLib": "d3c3cc2bd4581ca5e0f1f195408514a0944a1bbef0fda4e6257384081aabd7be",
+        "drawn_drawn_QMSFTVMJ.SchDoc": "6637bb91568a3b00a43be1014ed3845e0515de54ec1f96bc67ff099ba463f974",
+        "fenolite-base.json": "ac76ee740f6b9eb942bbc3c2adbdfad7845758346522a03f1c855575b0633a29"
+      },
+      "plan_id": "66f3c75875be04b8",
+      "source_commit": "963f9cc0bca9dd200e40f08c158fc271ce01a998"
+    },
+    {
+      "case": "example-corrected-binary",
+      "files": {
+        ".fenolite/board.json": "4f56150c51c7b6c81cb62511ccb67f2d439025ba771a4f8da88dc6f6a33d6d37",
+        ".fenolite/build.json": "bf81be359e41d078951d0598e8a12354971727cf66f99e5abd66e1d704f88d8d",
+        ".fenolite/circuit.json": "55732e7e8e81f7015337a98491c8f63cfe4a83746fe7ff789569f931b23f63a0",
+        ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+        ".fenolite/meta.json": "ddf6367652797f22f5b4018eb05d436cc323dd5e9a5afddf58c585e33c959610",
+        ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+        "drawn.OutJob": "4d4448c15751df8aab9fe5d33ceb82d128ea1f3fe88df4c5818534d068ba6589",
+        "drawn.PcbDoc": "293032551378538cd10069a472d6d67e6b8468ffd2661959ac71e31e53c7a6b9",
+        "drawn.PcbLib": "10221f23770ced2646b10fae9cabb1f1f5e92ce93dbe968b785dc03939ccbad6",
+        "drawn.PrjPcb": "e3746b4d99e82e2241686b80cd6165f102be7759f784cd9abe7ca4ef2f122a24",
+        "drawn.SchDoc": "a5bf4c2cb9dcee5111cc1d6626a11e086f16f923ddca566879f88be119cc9f57",
+        "drawn.SchLib": "d3c3cc2bd4581ca5e0f1f195408514a0944a1bbef0fda4e6257384081aabd7be",
+        "drawn_drawn_QMSFTVMJ.SchDoc": "f87604c335f427cfa1bffb909469a84edadf62600b1ca025c09d7e311ba18a6d",
+        "fenolite-base.json": "ac76ee740f6b9eb942bbc3c2adbdfad7845758346522a03f1c855575b0633a29"
+      },
+      "plan_id": "b2fbaf2012b4a405",
+      "source_commit": "a0e8e5edb08dc989bbfd72c2f79067cbc3b96967"
+    },
+    {
+      "case": "example-corrected-ascii",
+      "files": {
+        ".fenolite/board.json": "4f56150c51c7b6c81cb62511ccb67f2d439025ba771a4f8da88dc6f6a33d6d37",
+        ".fenolite/build.json": "c7b39a32f2cc3549524d03331b5efee007ec8fea53b18f0c0b3a18a824bc3f17",
+        ".fenolite/circuit.json": "55732e7e8e81f7015337a98491c8f63cfe4a83746fe7ff789569f931b23f63a0",
+        ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+        ".fenolite/meta.json": "ddf6367652797f22f5b4018eb05d436cc323dd5e9a5afddf58c585e33c959610",
+        ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+        "drawn.OutJob": "4d4448c15751df8aab9fe5d33ceb82d128ea1f3fe88df4c5818534d068ba6589",
+        "drawn.PcbDoc": "293032551378538cd10069a472d6d67e6b8468ffd2661959ac71e31e53c7a6b9",
+        "drawn.PcbLib": "10221f23770ced2646b10fae9cabb1f1f5e92ce93dbe968b785dc03939ccbad6",
+        "drawn.PrjPcb": "e3746b4d99e82e2241686b80cd6165f102be7759f784cd9abe7ca4ef2f122a24",
+        "drawn.SchDoc": "8da33267bd18981dc3aed5ab845510a51cc3cbc3f0a2d0a95d33e1fc0d7f256f",
+        "drawn.SchLib": "d3c3cc2bd4581ca5e0f1f195408514a0944a1bbef0fda4e6257384081aabd7be",
+        "drawn_drawn_QMSFTVMJ.SchDoc": "ccdb6e61a88aa9ef576b93592f6ed898d10aca629e3eab4c7e905482810fbb88",
+        "fenolite-base.json": "ac76ee740f6b9eb942bbc3c2adbdfad7845758346522a03f1c855575b0633a29"
+      },
+      "plan_id": "fc2f2bbe3eb7b3a5",
+      "source_commit": "a0e8e5edb08dc989bbfd72c2f79067cbc3b96967"
+    }
+  ],
+  "original_windows_inputs_unchanged_at_collection": 45,
+  "save_source_inputs_unchanged_at_collection": 30,
+  "saved_documents": [
+    {
+      "bytes": 24064,
+      "case": "example-corrected-binary",
+      "file": "drawn.SchDoc",
+      "saved_sha256": "83c5d6ad89246d52c27612d8308e4f8e16ecb35926428aa7eed7334347b8f70d",
+      "source_sha256": "a5bf4c2cb9dcee5111cc1d6626a11e086f16f923ddca566879f88be119cc9f57"
+    },
+    {
+      "bytes": 11264,
+      "case": "example-corrected-binary",
+      "file": "drawn_drawn_QMSFTVMJ.SchDoc",
+      "saved_sha256": "2696ab4bd1391f04ff96e3f505695862ded7db727f7ec9242e71793a18ee4c8b",
+      "source_sha256": "f87604c335f427cfa1bffb909469a84edadf62600b1ca025c09d7e311ba18a6d"
+    },
+    {
+      "bytes": 24064,
+      "case": "example-corrected-ascii",
+      "file": "drawn.SchDoc",
+      "saved_sha256": "0f86a2b5ad7c84a5ba96f0f16faf3744191ae065feebcb429b1aa67a67234864",
+      "source_sha256": "8da33267bd18981dc3aed5ab845510a51cc3cbc3f0a2d0a95d33e1fc0d7f256f"
+    },
+    {
+      "bytes": 11264,
+      "case": "example-corrected-ascii",
+      "file": "drawn_drawn_QMSFTVMJ.SchDoc",
+      "saved_sha256": "e8442da1cf95116169cc5a3e77c90d94b5ad930dabadfd763e0b62a7407f2c62",
+      "source_sha256": "ccdb6e61a88aa9ef576b93592f6ed898d10aca629e3eab4c7e905482810fbb88"
+    }
+  ],
+  "saved_receipt_sha256": "23fe20242e2da8facf9e590aaaa4b5e950e068deb828ced1d8810f695fe45085",
+  "scope": "Original authored example correction only. Both produced forms and both saved/reopened projects compile/export complete38pins/33groups with all declared names exact and Info1 only. Original source findings, historical operator failures, other fixture findings, exact-head CI and H-A-DRAWN-WRITE remain separate; no global ERC changes, pin filtering, overall gate or evidence promotion.",
+  "sources": [
+    "S-1295",
+    "S-0501",
+    "S-0503",
+    "S-0504",
+    "S-0505"
+  ],
+  "status": "original-example-native-acceptance-complete",
+  "task": "6.4",
+  "task_6_4_passed": true,
+  "writer_source_commit": "963f9cc0bca9dd200e40f08c158fc271ce01a998"
+}

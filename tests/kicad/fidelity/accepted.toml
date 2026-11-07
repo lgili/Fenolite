@@ -1,0 +1,100 @@
+# Count-only fidelity baselines (c0278). No board names, refs, values or geometry belong here.
+# Pending has no reviewed baseline: it is never a zero-count baseline or an acceptance.
+# Add a [[row]] only after an actual all-level comparison; retain its scoped reason/attribution.
+# A row with counts = {} was equal at every level it reached: any new difference fails the ratchet.
+schema = "fenolite.fidelity-ratchet.v0"
+
+[run]
+fenolite = "0.7.0.dev0"
+date = "2026-11-05"
+
+[[row]]
+id = "kicad-demo-10-0-6-pcb-02"
+counts = {}
+reason = "Strict all-level round trip on 2026-11-04 (KiCad 10.0.6): no differences."
+attribution = "fenolite"
+
+[[row]]
+id = "kicad-demo-10-0-6-pcb-03"
+counts = {}
+reason = "Strict all-level round trip on 2026-11-04 (KiCad 10.0.6): no differences."
+attribution = "fenolite"
+
+[[row]]
+id = "kicad-demo-10-0-6-pcb-04"
+counts = {}
+reason = "Strict all-level round trip on 2026-11-04 (KiCad 10.0.6): no differences."
+attribution = "fenolite"
+
+[[row]]
+id = "kicad-demo-10-0-6-pcb-08"
+counts = {}
+reason = "Strict all-level round trip on 2026-11-04 (KiCad 10.0.6): no differences; levels 5 and S skipped with a reason."
+attribution = "fenolite"
+
+[[row]]
+id = "kicad-demo-10-0-6-pcb-10"
+counts = {}
+reason = "Strict all-level round trip on 2026-11-04 (KiCad 10.0.6): no differences."
+attribution = "fenolite"
+
+[[row]]
+id = "kicad-demo-10-0-6-pcb-12"
+counts = {}
+reason = "Strict all-level round trip on 2026-11-04 (KiCad 10.0.6): no differences."
+attribution = "fenolite"
+
+[[row]]
+id = "kicad-demo-10-0-6-pcb-15"
+counts = {}
+reason = "Strict all-level round trip on 2026-11-04 (KiCad 10.0.6): no differences."
+attribution = "fenolite"
+
+[[row]]
+id = "kicad-demo-10-0-6-pcb-16"
+counts = {}
+reason = "Strict all-level round trip on 2026-11-04 (KiCad 10.0.6): no differences."
+attribution = "fenolite"
+
+[[row]]
+id = "kicad-demo-10-0-6-pcb-14"
+counts = {}
+reason = "Strict all-level round trip on 2026-11-05 (KiCad 10.0.6): no differences after c0401 matched coincident tracks as a multiset."
+attribution = "fenolite"
+
+[[row]]
+id = "kicad-demo-9-0-9-1-pcb-01"
+counts = {}
+reason = "Strict all-level round trip on 2026-11-05 (KiCad 10.0.6): no differences after c0413 proved the teardrop caches and c0414 kept the empty schematic footprint field."
+attribution = "fenolite"
+
+[[row]]
+id = "kicad-demo-9-0-9-1-pcb-03"
+counts = {}
+reason = "Strict all-level round trip on 2026-11-04 (KiCad 10.0.6): no differences."
+attribution = "fenolite"
+
+[[row]]
+id = "kicad-demo-9-0-9-1-pcb-05"
+counts = {}
+reason = "Strict all-level round trip on 2026-11-05 (KiCad 10.0.6): no differences after c0401 kept the rectangle outline."
+attribution = "fenolite"
+
+[[row]]
+id = "kicad-demo-9-0-9-1-pcb-06"
+counts = {}
+reason = "Strict all-level round trip on 2026-11-04 (KiCad 10.0.6): no differences."
+attribution = "fenolite"
+
+[pending]
+"kicad-demo-10-0-6-pcb-01" = "Refused, input (c0401 2.1): the import self-check refuses with FEN-5001 because the schematic puts a pin on a net that the board footprint has no pad for."
+"kicad-demo-10-0-6-pcb-05" = "Refused, corpus (c0401 2.1): the project declares a worksheet that the manifest does not fetch, so the import refuses with FEN-3004."
+"kicad-demo-10-0-6-pcb-06" = "Heavy row, refused (c0401 2.2): measured 2026-11-05 with FENOLITE_HEAVY=1; the import refuses with FEN-7001 (dimension styles, Dwgs.User drawings and placement rule areas the DSL cannot express)."
+"kicad-demo-10-0-6-pcb-07" = "Refused, input (c0401 2.1): KiCad 9 board and schematics with a project resaved by KiCad 10; the self-check targets 9 and refuses 10-only project keys (FEN-5001)."
+"kicad-demo-10-0-6-pcb-09" = "Refused, input (c0401 2.1): the board has no project of its own, so verify-source refuses with FEN-3004 (native project context missing on one side)."
+"kicad-demo-10-0-6-pcb-11" = "Refused, input (c0401 2.1): the board was not updated from the schematic (one pin on a net in the schematic, unconnected on the board); the self-check refuses with FEN-5001."
+"kicad-demo-10-0-6-pcb-13" = "Differs (7:opaque-count=1, 7:zone-field=1); owned by c0384 (derived teardrop caches)."
+"kicad-demo-10-0-6-pcb-17" = "Refused, input (c0401 2.1): KiCad 9 board and schematics with a project resaved by KiCad 10; the self-check targets 9 and refuses 10-only project keys (FEN-5001)."
+"kicad-demo-10-0-6-pcb-18" = "Heavy row, refused (c0401 2.2): measured 2026-11-05 with FENOLITE_HEAVY=1; the project declares a worksheet that the manifest does not fetch (FEN-3004)."
+"kicad-demo-9-0-9-1-pcb-02" = "Differs (7:opaque-count=1, 7:zone-field=1), Fenolite (c0401 1.1): regenerated teardrop caches differ, the mechanism c0384 owns."
+"kicad-demo-9-0-9-1-pcb-04" = "No reviewed baseline; the manifest-declared malformed input was refused before comparison."

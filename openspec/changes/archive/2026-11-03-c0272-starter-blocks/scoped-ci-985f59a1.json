@@ -1,0 +1,669 @@
+{
+  "schema": "fenolite.blocks-four-scoped-closure.v1",
+  "spec": "c0272-starter-blocks",
+  "tested_implementation": "985f59a1d01a612b2eac0219243199896c24075a",
+  "scope_decision": "Maintainer clarified before closure that problematic c0332 geometry was already excluded from this batch;27known failures remain DEFERRED_NOT_PASSED.",
+  "CI_run": 41708879698,
+  "whole_workflow_result": "failure",
+  "KiCad10_job_result": "failure",
+  "global_success_claimed": false,
+  "later_CAC_runtime_validated": false,
+  "c0355_and_later_integration_CI_closed": false,
+  "native_module_proofs": {
+    "tests/kicad/blocks/test_usage_boards.py": {
+      "declared_per_major": 10,
+      "passed9": 5,
+      "inferred_pass10": 5,
+      "skips9": 5,
+      "skips10": 5,
+      "specs": [
+        "c0270",
+        "c0272"
+      ],
+      "source_sha256": "a5cb94c60c442d7438bdae0e42e5102510a46a344070865788773c8ae5aca00c",
+      "explicit9_PASSED": [
+        {
+          "line": 3683,
+          "text": "2026-11-03T21:22:42.1399213Z PASSED tests/kicad/blocks/test_usage_boards.py::test_usage_board_readback[Fenolite:i2c_pullups-9]"
+        },
+        {
+          "line": 3686,
+          "text": "2026-11-03T21:22:42.1400040Z PASSED tests/kicad/blocks/test_usage_boards.py::test_usage_board_readback[Fenolite:led_indicator-9]"
+        },
+        {
+          "line": 3689,
+          "text": "2026-11-03T21:22:42.1400869Z PASSED tests/kicad/blocks/test_usage_boards.py::test_usage_board_readback[Fenolite:protected_input-9]"
+        },
+        {
+          "line": 3694,
+          "text": "2026-11-03T21:22:42.1402172Z PASSED tests/kicad/blocks/test_usage_boards.py::test_usage_board_readback[Fenolite:rc_lowpass-9]"
+        },
+        {
+          "line": 3698,
+          "text": "2026-11-03T21:22:42.1403093Z PASSED tests/kicad/blocks/test_usage_boards.py::test_usage_board_readback[Fenolite:voltage_divider-9]"
+        }
+      ],
+      "explicit9_skips": [
+        {
+          "line": 4434,
+          "text": "2026-11-03T21:22:42.1612963Z SKIPPED [5] tests/kicad/blocks/test_usage_boards.py:23: target 10 is judged by its own KiCad job"
+        }
+      ],
+      "explicit10_nonpass": [
+        {
+          "line": 3927,
+          "text": "2026-11-03T21:42:16.3970414Z SKIPPED [5] tests/kicad/blocks/test_usage_boards.py:23: target 9 is judged by its own KiCad job"
+        }
+      ],
+      "functions": [
+        {
+          "name": "test_usage_board_readback",
+          "definition_line": 21,
+          "decorators": [
+            "pytest.mark.parametrize(\"target\", (9, 10))",
+            "pytest.mark.parametrize(\"entry\", SHIPPED, ids=lambda entry: entry.id)"
+          ],
+          "asserts": [
+            {
+              "line": 25,
+              "expression": "usage is not None and usage.is_file()"
+            },
+            {
+              "line": 47,
+              "expression": "expected <= {frozenset(nodes) for nodes in nets.values()}"
+            },
+            {
+              "line": 48,
+              "expression": "_erc.parity(_erc.run_parity(runner(), board, files)) == []"
+            }
+          ],
+          "conditional_skips": [
+            {
+              "line": 23,
+              "expression": "pytest.skip(f\"target {target} is judged by its own KiCad job\")"
+            }
+          ]
+        }
+      ],
+      "native10_method": "Completed whole unfiltered collection + exhaustive -ra states; selected opposite-target skips stay skips; no printed per-node PASSED or green native10 job claimed."
+    },
+    "tests/kicad/blocks/test_starters.py": {
+      "declared_per_major": 10,
+      "passed9": 5,
+      "inferred_pass10": 5,
+      "skips9": 5,
+      "skips10": 5,
+      "specs": [
+        "c0272"
+      ],
+      "source_sha256": "5f74f15133b3fb74e702e0c059db8f12e6da3f1f84574bb47d02b1b96dddda82",
+      "explicit9_PASSED": [
+        {
+          "line": 3671,
+          "text": "2026-11-03T21:22:42.1396001Z PASSED tests/kicad/blocks/test_starters.py::test_starter_usage_drc[voltage_divider-9]"
+        },
+        {
+          "line": 3673,
+          "text": "2026-11-03T21:22:42.1396527Z PASSED tests/kicad/blocks/test_starters.py::test_starter_usage_drc[rc_lowpass-9]"
+        },
+        {
+          "line": 3674,
+          "text": "2026-11-03T21:22:42.1396768Z PASSED tests/kicad/blocks/test_starters.py::test_starter_usage_drc[led_indicator-9]"
+        },
+        {
+          "line": 3676,
+          "text": "2026-11-03T21:22:42.1397317Z PASSED tests/kicad/blocks/test_starters.py::test_starter_usage_drc[i2c_pullups-9]"
+        },
+        {
+          "line": 3678,
+          "text": "2026-11-03T21:22:42.1397693Z PASSED tests/kicad/blocks/test_starters.py::test_starter_usage_drc[protected_input-9]"
+        }
+      ],
+      "explicit9_skips": [
+        {
+          "line": 4433,
+          "text": "2026-11-03T21:22:42.1612702Z SKIPPED [5] tests/kicad/blocks/test_starters.py:23: target 10 is judged by its own KiCad job"
+        }
+      ],
+      "explicit10_nonpass": [
+        {
+          "line": 3926,
+          "text": "2026-11-03T21:42:16.3970185Z SKIPPED [5] tests/kicad/blocks/test_starters.py:23: target 9 is judged by its own KiCad job"
+        }
+      ],
+      "functions": [
+        {
+          "name": "test_starter_usage_drc",
+          "definition_line": 21,
+          "decorators": [
+            "pytest.mark.parametrize(\"target\", (9, 10))",
+            "pytest.mark.parametrize(\"name\", NAMES)"
+          ],
+          "asserts": [
+            {
+              "line": 47,
+              "expression": "result.ok"
+            },
+            {
+              "line": 49,
+              "expression": "not report[\"violations\"]"
+            },
+            {
+              "line": 50,
+              "expression": "not report[\"unconnected_items\"]"
+            },
+            {
+              "line": 51,
+              "expression": "not report.get(\"schematic_parity\")"
+            }
+          ],
+          "conditional_skips": [
+            {
+              "line": 23,
+              "expression": "pytest.skip(f\"target {target} is judged by its own KiCad job\")"
+            }
+          ]
+        }
+      ],
+      "native10_method": "Completed whole unfiltered collection + exhaustive -ra states; selected opposite-target skips stay skips; no printed per-node PASSED or green native10 job claimed."
+    }
+  },
+  "native10_proof_method": "Completed unfiltered collection with exhaustive -ra classification; selected opposite-target skips remain skips. No nominal PASSED line or green job10 claimed.",
+  "log_hashes": {
+    "metadata": "cd7a28fbc69631a6f3613865fba28f4879ab79efcf2d6c6a2e2cc82879da73fe",
+    "native9": "3ac138d8cafad5c225d11d9bd22774c872f9369925c7d892d271be0401ab8d94",
+    "native10": "014e4eb36c889f4848842d7abf57462ab6da185e2b8fcf5b28ddbb9334d1a68b"
+  },
+  "five_successful_unit_block_steps": [
+    {
+      "job_id": 126171394269,
+      "name": "unit (windows-latest, py3.12)",
+      "whole_job": "success",
+      "log_sha256": "66577fb85d4e4bbba9cc0406a091c0913d58e15b788cc8cc48cc1efa0738776b",
+      "command": [
+        {
+          "line": 275,
+          "text": "2026-11-03T20:04:42.2345641Z ##[group]Run uv run fenolite blocks test --json"
+        }
+      ],
+      "JSON_result_line": 284,
+      "usage_passed": 5,
+      "golden_equal": 5,
+      "plain_tests_passed": 16,
+      "issues": 0,
+      "evidence": "INFERRED",
+      "parsed_JSON_sha256": "240b8aad7e114f1ab227e10c15897a6fce5e8edf19e96c6652f7eeb7303ec61c"
+    },
+    {
+      "job_id": 126171394428,
+      "name": "unit (ubuntu-latest, py3.12)",
+      "whole_job": "success",
+      "log_sha256": "b50f6945d687cfa3616baa6fe310bb2974cbc4c01c8d861dce98e89e34c0dfce",
+      "command": [
+        {
+          "line": 235,
+          "text": "2026-11-03T20:04:51.3573158Z ##[group]Run uv run fenolite blocks test --json"
+        }
+      ],
+      "JSON_result_line": 242,
+      "usage_passed": 5,
+      "golden_equal": 5,
+      "plain_tests_passed": 16,
+      "issues": 0,
+      "evidence": "INFERRED",
+      "parsed_JSON_sha256": "9b824ce2858ab89b04bfa7f5b7a97ce974f7bbf2190f6b7b71f64beb267b9dd5"
+    },
+    {
+      "job_id": 126171394460,
+      "name": "unit (macos-latest, py3.12)",
+      "whole_job": "success",
+      "log_sha256": "fbfc36d8e3b8bb3828397351111f9d60b6e04cb30e409565ac16f4b15bcd3343",
+      "command": [
+        {
+          "line": 283,
+          "text": "2026-11-03T20:05:23.7211030Z ##[group]Run uv run fenolite blocks test --json"
+        }
+      ],
+      "JSON_result_line": 290,
+      "usage_passed": 5,
+      "golden_equal": 5,
+      "plain_tests_passed": 16,
+      "issues": 0,
+      "evidence": "INFERRED",
+      "parsed_JSON_sha256": "6bf238f5012d039805b8cce170413f93ea6405f1f2da6bd62de9d31255a7ab35"
+    },
+    {
+      "job_id": 126171394556,
+      "name": "unit (ubuntu-latest, py3.11)",
+      "whole_job": "success",
+      "log_sha256": "2d6914cb144ab302881fb4c6f5b985f78168c151cce4c6cc398f1a9c7d899a0b",
+      "command": [
+        {
+          "line": 231,
+          "text": "2026-11-03T20:04:44.6625602Z ##[group]Run uv run fenolite blocks test --json"
+        }
+      ],
+      "JSON_result_line": 238,
+      "usage_passed": 5,
+      "golden_equal": 5,
+      "plain_tests_passed": 16,
+      "issues": 0,
+      "evidence": "INFERRED",
+      "parsed_JSON_sha256": "0708a5839c4c1b879daf75b863aba2c31efc82a16f453b4828a7b9578475a4b8"
+    },
+    {
+      "job_id": 126171394700,
+      "name": "unit (ubuntu-latest, py3.13)",
+      "whole_job": "success",
+      "log_sha256": "2eb025a6dadcb6612d56eb0c52d6758c0c84ff03f441c2d7d52cbb00f91016fa",
+      "command": [
+        {
+          "line": 231,
+          "text": "2026-11-03T20:04:38.9977382Z ##[group]Run uv run fenolite blocks test --json"
+        }
+      ],
+      "JSON_result_line": 238,
+      "usage_passed": 5,
+      "golden_equal": 5,
+      "plain_tests_passed": 16,
+      "issues": 0,
+      "evidence": "INFERRED",
+      "parsed_JSON_sha256": "2802227a3b9200d243e1b1d5c1d8e7e5bd1ad8cf6df95bd5701f569d442d9027"
+    }
+  ],
+  "fixture_inventory": {
+    ".github/workflows/ci.yml": {
+      "sha256": "fd42a446eed335b74eb02fbead70b12b3b9105d93ecac3dcffb8d70a6330bce8",
+      "bytes": 15496,
+      "current_equals985": true
+    },
+    "docs/evidence/starter-manual-layouts.json": {
+      "sha256": "d765284b043a6a87d5047844c2ea4c3389fe559132f5aad47e663654c40baf6c",
+      "bytes": 10526,
+      "current_equals985": true
+    },
+    "examples/blocks/README.md": {
+      "sha256": "72a9f19e48caf68a7815d57eb2653a1be16b2d2ed6d3f0149a3cce19f1170e9f",
+      "bytes": 950,
+      "current_equals985": true
+    },
+    "examples/blocks/design.lock": {
+      "sha256": "b7278b5fefc5203664086494f834667f2cf279edae7efb613baa8243eb3fdce2",
+      "bytes": 308,
+      "current_equals985": true
+    },
+    "examples/blocks/design.py": {
+      "sha256": "37fa7d9cca51db0271d6a199c15adcd828bec4982d6ad74a8a9d8ead907c5384",
+      "bytes": 3093,
+      "current_equals985": true
+    },
+    "examples/blocks/divider.py": {
+      "sha256": "b0bf544583ea4661cb07b9a607fb83965e26daf700567e5b3e97436f1578e23e",
+      "bytes": 1213,
+      "current_equals985": true
+    },
+    "examples/blocks/golden/divider.json": {
+      "sha256": "96bf4ea660cbadf188a6ccd363fdbde7c4c38165c9cd183587c9be56d914a3ac",
+      "bytes": 6609,
+      "current_equals985": true
+    },
+    "examples/blocks/layouts.py": {
+      "sha256": "4e0dd6dd9de9dfbb7fff37a767b16282b29a572c3f2ea916ef132d8f77e0bb93",
+      "bytes": 1487,
+      "current_equals985": true
+    },
+    "examples/blocks/layouts/divider.toml": {
+      "sha256": "8de984dfae7bbb8b096d4f61457a66f2e0de5460d54299c175ed5998f6d8050c",
+      "bytes": 745,
+      "current_equals985": true
+    },
+    "examples/blocks/tests/test_divider.py": {
+      "sha256": "07bbbeabbce75e01f2602a4a33c5979e90f268ba4694c8159e3c8726ed4eea93",
+      "bytes": 770,
+      "current_equals985": true
+    },
+    "examples/blocks/usage/divider.py": {
+      "sha256": "e9a0e39f81b0d15e327828cfb2367ff055f2e99ea1e2fd3beaca8653baf257fe",
+      "bytes": 771,
+      "current_equals985": true
+    },
+    "pyproject.toml": {
+      "sha256": "862171de532c6aca37a9f5546f892aec0b030cc2eeca95710619f858386a3d4b",
+      "bytes": 5118,
+      "current_equals985": true
+    },
+    "src/fenolite/blocks/MANIFEST.toml": {
+      "sha256": "65eaa4f575aa324efca902f6387909eb241edb2cde899d053299939b5d76aa79",
+      "bytes": 2817,
+      "current_equals985": true
+    },
+    "src/fenolite/blocks/VERSIONS.toml": {
+      "sha256": "ebdf80217d8150854a4d0e981a2403c5c8a7d94d1952793d8677000dcbed71a7",
+      "bytes": 1687,
+      "current_equals985": true
+    },
+    "src/fenolite/blocks/__init__.py": {
+      "sha256": "cfd609ff2c473b763aaa52c163bcaec7e026e80d0b22d3ba703e94365b7f7e5e",
+      "bytes": 503,
+      "current_equals985": true
+    },
+    "src/fenolite/blocks/devices/illustrative_tvs.toml": {
+      "sha256": "0b0e6c4a59ff3f11ba22ea2b224e1aad1f4c2e1fbe430c4e1b11095e9e4b232a",
+      "bytes": 686,
+      "current_equals985": true
+    },
+    "src/fenolite/blocks/divider.py": {
+      "sha256": "b843c8812bdda2c044b3fa9b05c439558a2c9cbee7824167a578faebefb1c2b3",
+      "bytes": 2126,
+      "current_equals985": true
+    },
+    "src/fenolite/blocks/golden/i2c_pullups.json": {
+      "sha256": "1477025b3cbc3ce8a38fa735d37340c1435e1bd63f233f74e7deae2d466e9e34",
+      "bytes": 13747,
+      "current_equals985": true
+    },
+    "src/fenolite/blocks/golden/led_indicator.json": {
+      "sha256": "15095a56e6dcb6553f7a16018d652df182da46ec516bad8cb0b9b969fe22da45",
+      "bytes": 10959,
+      "current_equals985": true
+    },
+    "src/fenolite/blocks/golden/protected_input.json": {
+      "sha256": "79671c2de6a89be6f18dd4b41ec6ac9a0a9cb7159965f5eceb2dba7ca650bf60",
+      "bytes": 10415,
+      "current_equals985": true
+    },
+    "src/fenolite/blocks/golden/rc_lowpass.json": {
+      "sha256": "a7269549ec702447c77e1064bcf935e8770031efa2250ea7dd3db8ce04203202",
+      "bytes": 9660,
+      "current_equals985": true
+    },
+    "src/fenolite/blocks/golden/voltage_divider.json": {
+      "sha256": "9f7213f19015127f1da036a81048b8ec436208fe934baf5ae03d9845858d4b51",
+      "bytes": 10697,
+      "current_equals985": true
+    },
+    "src/fenolite/blocks/i2c.py": {
+      "sha256": "ea871b1b0ac36d7bd8f3111ae5fa21ba8721c2b3d798a51a73c4c8969192b87f",
+      "bytes": 2174,
+      "current_equals985": true
+    },
+    "src/fenolite/blocks/layouts/i2c_pullups.toml": {
+      "sha256": "89e980af6003954fc26b2a3bd5bf0464606b6d4356d170fe13d9c1fa68197147",
+      "bytes": 763,
+      "current_equals985": true
+    },
+    "src/fenolite/blocks/layouts/led_indicator.toml": {
+      "sha256": "4333f166576f52feecdb67cda49dfc66fe4e8f681834b313c3e4b98f3c71e06d",
+      "bytes": 774,
+      "current_equals985": true
+    },
+    "src/fenolite/blocks/layouts/protected_input.toml": {
+      "sha256": "f73398dc3a52cffe261aaa167b5e3ab957aeb0c0b06cb071810fea3187d55156",
+      "bytes": 1596,
+      "current_equals985": true
+    },
+    "src/fenolite/blocks/layouts/rc_lowpass.toml": {
+      "sha256": "64c2633c0e0b928376e55b96dcecd484aeed295396e9dd04db7bc8af4b49cd78",
+      "bytes": 768,
+      "current_equals985": true
+    },
+    "src/fenolite/blocks/layouts/voltage_divider.toml": {
+      "sha256": "beda568eb123b01b95df1dad474b85bdc65013668342dec00ad58bc8fefca7fc",
+      "bytes": 789,
+      "current_equals985": true
+    },
+    "src/fenolite/blocks/led.py": {
+      "sha256": "5b8fc6dac303b24f19dd2ade17134d65a7afda459960e1fcbeae513386ec381e",
+      "bytes": 4219,
+      "current_equals985": true
+    },
+    "src/fenolite/blocks/protect.py": {
+      "sha256": "3d7a221e96233c7a1f5f564403ce89835244a208fbc0968bcbb699728cdf83ed",
+      "bytes": 3103,
+      "current_equals985": true
+    },
+    "src/fenolite/blocks/rc.py": {
+      "sha256": "cd5168decb507ad0ac44e64e795e419f432fc5cce6eae1e05144ac92c22b138c",
+      "bytes": 2055,
+      "current_equals985": true
+    },
+    "src/fenolite/blocks/tests/_support.py": {
+      "sha256": "45a0f8e085a9b553bd01146f0763cb4d19bc3d92f84aeb44181c43cf2fe5b934",
+      "bytes": 2443,
+      "current_equals985": true
+    },
+    "src/fenolite/blocks/tests/test_i2c_pullups.py": {
+      "sha256": "e1000f60b46638899b73b8c20d49fcd78a4ff68a41805b5f51615f4c116e3034",
+      "bytes": 1665,
+      "current_equals985": true
+    },
+    "src/fenolite/blocks/tests/test_led_indicator.py": {
+      "sha256": "ab3a7911d25ce4503cf23eda4dc5f3c3d46515ce960c84ca2606bf54cc6b7598",
+      "bytes": 2301,
+      "current_equals985": true
+    },
+    "src/fenolite/blocks/tests/test_protected_input.py": {
+      "sha256": "8578aed1b7838856d714b6cc2fcbbb326c9ef5b45af5124a10c495b296176533",
+      "bytes": 1969,
+      "current_equals985": true
+    },
+    "src/fenolite/blocks/tests/test_rc_lowpass.py": {
+      "sha256": "164a3e17bd73e13b57454c6529b4aa4dfdfdc8937fd88f1c1d6e2fda5517ba1a",
+      "bytes": 1119,
+      "current_equals985": true
+    },
+    "src/fenolite/blocks/tests/test_voltage_divider.py": {
+      "sha256": "3f3d393ea56bf0a5feea52a2dad96d85829e4a4648d657a6023010240d513798",
+      "bytes": 1726,
+      "current_equals985": true
+    },
+    "src/fenolite/blocks/usage/devices/illustrative_tvs.toml": {
+      "sha256": "0b0e6c4a59ff3f11ba22ea2b224e1aad1f4c2e1fbe430c4e1b11095e9e4b232a",
+      "bytes": 686,
+      "current_equals985": true
+    },
+    "src/fenolite/blocks/usage/i2c_pullups.py": {
+      "sha256": "da19ddc154fe5cbacd459ffee043e9deed72ef1a03a6e7279a5435b8cd7eb03c",
+      "bytes": 2440,
+      "current_equals985": true
+    },
+    "src/fenolite/blocks/usage/led_indicator.py": {
+      "sha256": "f25ace86c96ccf4a109cc3ffeb87f715716387e4222032b4d698ccc69857dc12",
+      "bytes": 1734,
+      "current_equals985": true
+    },
+    "src/fenolite/blocks/usage/protected_input.py": {
+      "sha256": "75f3e90e8ae109ba7cc6657aec2af2434eeb352d1f8d6d766cb8a18bc534fce2",
+      "bytes": 2014,
+      "current_equals985": true
+    },
+    "src/fenolite/blocks/usage/rc_lowpass.py": {
+      "sha256": "86542d5ad4dd6d923f90f7433a9f78740e8403bdd68d708c4ad94655d4a8da35",
+      "bytes": 1909,
+      "current_equals985": true
+    },
+    "src/fenolite/blocks/usage/voltage_divider.py": {
+      "sha256": "cc0012e89f7c6358bb84ecd2e658a612b1c3e965f5680403b9470897bd3cb413",
+      "bytes": 2023,
+      "current_equals985": true
+    },
+    "src/fenolite/cli/blocksrc.py": {
+      "sha256": "161479e2d071ed36fe76a4f00adbdd1000dad6fffd8c94e6cb8af7263f6bbda0",
+      "bytes": 8055,
+      "current_equals985": true
+    },
+    "src/fenolite/testing/blocks.py": {
+      "sha256": "6563f68b7452a6d6f4922171781aaaef4608d7410f942f70a01253f2501c690b",
+      "bytes": 18350,
+      "current_equals985": true
+    },
+    "tests/_erc.py": {
+      "sha256": "cddbfe9a6e5ba2c8167376269d3ebc56a42c521a62d3a5d97fa9b79067798156",
+      "bytes": 4936,
+      "current_equals985": true
+    },
+    "tests/conftest.py": {
+      "sha256": "93d87eb105c3031eab751185e7d682d045763cdba5e4c41817f521f9adb5b4d2",
+      "bytes": 7439,
+      "current_equals985": true
+    },
+    "tests/data/altium/blocks/design.py": {
+      "sha256": "6531e823852c6e7b9dcf8c3df812a0b3edd7f53d7ba8394863c1751cf2d39815",
+      "bytes": 2010,
+      "current_equals985": true
+    },
+    "tests/data/blocks/bench/divider.kicad_pcb": {
+      "sha256": "bb86fa680b1259cb70b16d2b8b5ff26c49ab8adb1cad417e5d106be6cdf048e2",
+      "bytes": 4140,
+      "current_equals985": true
+    },
+    "tests/data/blocks/bench/divider.py": {
+      "sha256": "2ef9b85ab96d5226d1a9c49dd8ed3eb2effcea0ac64687faaf698cf877fd87e6",
+      "bytes": 1476,
+      "current_equals985": true
+    },
+    "tests/data/blocks/divider.py": {
+      "sha256": "5b0eecfd8288d64fe13138cd378396a5134144f40ff050ef767c7f3f45a30e71",
+      "bytes": 1447,
+      "current_equals985": true
+    },
+    "tests/data/blocks/lib/divider.py": {
+      "sha256": "7c3d89df11ba56898c7e4d07e7666d445928168167c893a9bfb23c95b0da6306",
+      "bytes": 1210,
+      "current_equals985": true
+    },
+    "tests/data/blocks/lib/golden/divider.json": {
+      "sha256": "3221685950a0e0bf0bedfe83116f49293244d9d50e230dd330cab2b0570bf06f",
+      "bytes": 6603,
+      "current_equals985": true
+    },
+    "tests/data/blocks/lib/layouts/divider.toml": {
+      "sha256": "8de984dfae7bbb8b096d4f61457a66f2e0de5460d54299c175ed5998f6d8050c",
+      "bytes": 745,
+      "current_equals985": true
+    },
+    "tests/data/blocks/lib/tests/test_divider.py": {
+      "sha256": "e9ad5b7f55f6582eb45af7eb246a716781ee82e2703120d3b26889d6b394b858",
+      "bytes": 769,
+      "current_equals985": true
+    },
+    "tests/data/blocks/lib/usage/divider.py": {
+      "sha256": "cd2f74119232e552aac38e498dae342ab52a8d7172ee6a68601a29a69edf171f",
+      "bytes": 770,
+      "current_equals985": true
+    },
+    "tests/data/blocks/replace.py": {
+      "sha256": "80d795d5dcaa1358ddff308a76066fcbb2ad3f383aa87cc2c4da96586db11bfb",
+      "bytes": 765,
+      "current_equals985": true
+    },
+    "tests/data/blocks/versions/base.py": {
+      "sha256": "c8f20e94af6da725c50305b05898a156c48dca773ea99f5df1ac5ebffa5f793a",
+      "bytes": 554,
+      "current_equals985": true
+    },
+    "tests/data/blocks/versions/default.py": {
+      "sha256": "098effc3304f5d695cf3ed55b270c3287782d39b4e0316022aad67150e3f2703",
+      "bytes": 559,
+      "current_equals985": true
+    },
+    "tests/data/blocks/versions/docs.py": {
+      "sha256": "334a18a40dea49fbada2f703716e8806d3b9a8e16abc54a7b9e3fc5aef06cc2f",
+      "bytes": 563,
+      "current_equals985": true
+    },
+    "tests/data/blocks/versions/renamed.py": {
+      "sha256": "7e98fba1d5db2f9b5e0f33fd10a47183e879a81e7a478c6510bfbfedf9333aec",
+      "bytes": 574,
+      "current_equals985": true
+    },
+    "tests/kicad/_probes.py": {
+      "sha256": "167a20c399328d0bbf2c0ae802c055ec6cf44682c952b846f543dcf2d4fef1e8",
+      "bytes": 21213,
+      "current_equals985": true
+    },
+    "tests/kicad/blocks/test_block_layouts.py": {
+      "sha256": "06453f2214a089a09fdcf44439c601e4f0a33b56938ed7ab75ad48650cc49407",
+      "bytes": 3548,
+      "current_equals985": true
+    },
+    "tests/kicad/blocks/test_starters.py": {
+      "sha256": "5f74f15133b3fb74e702e0c059db8f12e6da3f1f84574bb47d02b1b96dddda82",
+      "bytes": 1803,
+      "current_equals985": true
+    },
+    "tests/kicad/blocks/test_usage_boards.py": {
+      "sha256": "a5cb94c60c442d7438bdae0e42e5102510a46a344070865788773c8ae5aca00c",
+      "bytes": 1977,
+      "current_equals985": true
+    },
+    "tests/kicad/build/test_block_sheets.py": {
+      "sha256": "2dac4b48e685ceffbc878102806b7b40bac1b49534a21295730993da27795672",
+      "bytes": 3334,
+      "current_equals985": true
+    },
+    "tests/kicad/conftest.py": {
+      "sha256": "7cfad2c2869501cfd17c7cec2ba1400f122e4d97ba4b0354dfb03443f1d34816",
+      "bytes": 1508,
+      "current_equals985": true
+    },
+    "tests/unit/backends/kicad/test_schgen_blocks.py": {
+      "sha256": "2caa11278e7cb7061ba6fe52bbfb1eebbd5de542074c6337234bb87311adbd95",
+      "bytes": 12630,
+      "current_equals985": true
+    },
+    "tests/unit/blocks/test_runner.py": {
+      "sha256": "ba7750bd45da9e579d9d898ea3f7d8b055108cb4255c00a5a09637cfd1bac67d",
+      "bytes": 15030,
+      "current_equals985": true
+    },
+    "tests/unit/blocks/test_starter_enclosure.py": {
+      "sha256": "5744a48e7797410e8aa05c4f7d4b4bc022d989e11f5435a1f12ff02e8e49689d",
+      "bytes": 4324,
+      "current_equals985": true
+    },
+    "tests/unit/cli/test_build_block_layout.py": {
+      "sha256": "dd6a0f7f225a65102df7bb2edcc58032ced85562abb6dceff79358655c268a16",
+      "bytes": 8280,
+      "current_equals985": true
+    },
+    "tests/unit/placement/test_relative.py": {
+      "sha256": "9fae0627dfe3089cfbe12cb8ef0e0eacc499e04f8d0b7ae23c425a1ae6259add",
+      "bytes": 14127,
+      "current_equals985": true
+    }
+  },
+  "hypotheses_promoted_within_fixture_scope": [],
+  "hypotheses_retained_INFERRED": [
+    "H-A-BLOCK-ENTRIES",
+    "H-G-BLOCK-SHEET-REUSE",
+    "H-G-BLOCK-GOLDEN",
+    "H-G-BLOCK-LAYOUT",
+    "H-G-STARTER-ENCLOSURE"
+  ],
+  "post_edit_documentation_proofs": [],
+  "fast_proof": {
+    "source": "2c0540572c936303eb5c46a25002872648dfabad",
+    "receipt": "c0319-integration-repairs/fast13-receipt.json",
+    "receipt_sha256": "6b7c348011a8bafe24cc532e5ce74d505addecfd1dc3d56dba9f35bb80628a8e",
+    "command": "make check-fast PYTEST_MAX_WORKERS=2",
+    "exit": 0,
+    "log_sha256": "3e74d627e77139979c42ba6ca13e53344a23b8416aff252e747e34d56286abfe",
+    "runtime_tests_tools_config_equal985": true,
+    "rerun": false
+  },
+  "closed_remaining_tasks": [
+    "2.2",
+    "4.1"
+  ],
+  "manual_GUI_record_sha256": "d765284b043a6a87d5047844c2ea4c3389fe559132f5aad47e663654c40baf6c",
+  "manual_assets_match_record": true,
+  "manual_GUI_not_new_human_engineering_review": true,
+  "limitations": [
+    "ERC block proof checks only types containing hier/sheet/label; no global electrical safety claim.",
+    "Usage native proof checks expected nets subset and PCB schematic parity, not a global DRC claim.",
+    "Native layout result is only the authored both-side/kept-flip divider, not every rotation.",
+    "Illustrative device records, enclosure/property evidence, all H-A and H-G hypotheses stay at their existing low levels.",
+    "Original failed runs and pending later CAC integration/release requirements are preserved."
+  ]
+}

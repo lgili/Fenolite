@@ -6,7 +6,8 @@
 
 Each footprint of the board is brought back to its own origin, rotation 0 and the top side by
 ``embed.local_footprint``, the transform that the conversion's derived libraries use. Two instances of one
-name whose written footprints differ (their uuids aside) give a second footprint ``<name>_2``. The drift
+name whose written footprints differ (their uuids aside) give a second footprint ``<name>_2``, or the next
+free suffix when the board has a footprint of that name (change c0425). The drift
 compares the model of each derived footprint with the library's footprint of the same name.
 """
 
@@ -14,7 +15,7 @@ from __future__ import annotations
 
 import dataclasses
 import re
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -22,13 +23,14 @@ from fenolite.backends.kicad._fpmap import node
 from fenolite.backends.kicad.embed import local_footprint
 from fenolite.backends.kicad.mod import read_footprint, write_footprint
 from fenolite.backends.kicad.pcb import read_board
-from fenolite.backends.kicad.sexpr import Atom, dumps, parse
+from fenolite.backends.kicad.sexpr import Atom, Node, dumps, parse
 from fenolite.backends.kicad.versions import FORMAT_VERSIONS, FileKind
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.geometry.transform import FULL_TURN
 from fenolite.library.codes import issue
 from fenolite.model.board import Graphic
+from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef
 
 EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-LIB-FROM-BOARD",))
@@ -65,11 +67,37 @@ class Derived:
         return {f"{fp.name}{SUFFIX}": fp.text for fp in self.footprints}
 
 
-def derive_library(text: str, *, library: str, target: int, file: str = "") -> Derived:
+def nickname_of(lib_ref: str, default: str) -> str:
+    """The library nickname of a footprint lib id, ``default`` for an id without one."""
+    head, colon, _ = lib_ref.partition(":")
+    return head if colon and head else default
+
+
+def derive_library(
+    text: str, *, library: str, target: int, file: str = "", nickname: str | None = None, default: str = ""
+) -> Derived:
     """The footprints of the KiCad board ``text`` brought back to their own frame, as a library named
-    ``library`` written for KiCad ``target``."""
+    ``library`` written for KiCad ``target``. With ``nickname`` (change c0275), only the footprints whose
+    lib id names that library (``default`` for an id without a nickname)."""
+    return derive_from_model(read_board(text, file=file), text, library=library, target=target,
+                             nickname=nickname, default=default)  # fmt: skip
+
+
+def derive_from_model(
+    design: Design,
+    text: str,
+    *,
+    library: str,
+    target: int,
+    nickname: str | None = None,
+    default: str = "",
+    prepare: Callable[[Node], Node] | None = None,
+) -> Derived:
+    """``derive_library`` of a board already read into ``design`` from ``text`` (change c0275, design
+    decision 8): the import reads the board once and derives one library per nickname from it; ``prepare``
+    turns each instance's footprint node, brought back to its own frame, into the library's (the import
+    drops the properties that belong to the instance) before instances are compared."""
     issues: list[Issue] = []
-    design = read_board(text, file=file)
     board = design.board
     if board is None:
         return Derived()
@@ -79,9 +107,16 @@ def derive_library(text: str, *, library: str, target: int, file: str = "") -> D
         zip(board.footprints, nodes, strict=True), key=lambda p: (refs.get(p[0].component_id, ""), p[0].id)
     )
     variants: dict[str, list[tuple[str, str, FootprintDef, str, list[str]]]] = {}
-    for fp, root in pairs:
+    chosen = [
+        (fp, root, fp.lib_ref.rsplit(":", 1)[-1] or refs.get(fp.component_id, "") or fp.id)
+        for fp, root in pairs
+        if nickname is None or nickname_of(fp.lib_ref, default) == nickname
+    ]
+    # a variant is never named as another footprint of the board, nor as another variant (change c0426):
+    # a library whose own footprints are named ``<name>_2`` would otherwise give two footprints one file
+    taken = {source for _, _, source in chosen}
+    for fp, root, source in chosen:
         ref = refs.get(fp.component_id, "")
-        source = fp.lib_ref.rsplit(":", 1)[-1] or ref or fp.id
         found: list[Issue] = []
         local = local_footprint(root, fp.rotation, fp.side, found)
         if found:
@@ -95,14 +130,18 @@ def derive_library(text: str, *, library: str, target: int, file: str = "") -> D
             continue
         version = node("version", Atom.integer(FORMAT_VERSIONS[FileKind.FOOTPRINT][target]))
         local = local.with_children((local.children[0], version, *local.children[1:]))
+        if prepare is not None:
+            local = prepare(local)
         definition = read_footprint(dumps(local))
         rows = variants.setdefault(source, [])
+        comparison = _signature(definition, source, library, target)
         for _, signature, _, _, members in rows:
-            if signature == _signature(definition, source, library, target):
+            if signature == comparison:
                 members.append(ref)
                 break
         else:
-            name = source if not rows else f"{source}_{len(rows) + 1}"
+            name = source if not rows else _variant_name(source, len(rows) + 1, taken)
+            taken.add(name)
             definition = _named(definition, name, library)
             written = write_footprint(definition, target=target, allow_lossy=True)
             if rows:
@@ -114,13 +153,20 @@ def derive_library(text: str, *, library: str, target: int, file: str = "") -> D
                         hint="make the instances equal on the board, or keep both footprints",
                     )
                 )
-            rows.append((name, _signature(definition, source, library, target), definition, written, [ref]))
+            rows.append((name, comparison, definition, written, [ref]))
     footprints = [
         Footprint(name, source, tuple(members), definition, written)
         for source, rows in variants.items()
         for name, _, definition, written, members in rows
     ]
     return Derived(tuple(sorted(footprints, key=lambda fp: fp.name)), tuple(issues))
+
+
+def _variant_name(source: str, number: int, taken: set[str]) -> str:
+    """``<source>_<number>``, or the first higher number whose name no footprint of ``taken`` holds."""
+    while f"{source}_{number}" in taken:
+        number += 1
+    return f"{source}_{number}"
 
 
 def _named(definition: FootprintDef, name: str, library: str) -> FootprintDef:
@@ -132,6 +178,11 @@ def _signature(definition: FootprintDef, source: str, library: str, target: int)
     """The written text of ``definition`` under the name ``source``, its uuids left out."""
     written = write_footprint(_named(definition, source, library), target=target, allow_lossy=True)
     return _UUID.sub("", written)
+
+
+def footprint_signature(definition: FootprintDef, source: str, library: str, target: int) -> str:
+    """Reuse the established exact derive signature without changing its work/identity contract."""
+    return _signature(definition, source, library, target)
 
 
 def _graphics(definition: FootprintDef, layers: tuple[str, ...]) -> list[tuple[object, ...]]:
@@ -219,6 +270,7 @@ __all__ = [
     "Derived",
     "Footprint",
     "derive_library",
+    "footprint_signature",
     "differences",
     "drift",
     "drift_issues",

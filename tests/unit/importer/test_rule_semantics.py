@@ -1,0 +1,72 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Fenolite contributors
+"""Preserve authored project rule representations through import (c0352)."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+from _importcode import build, copy_project, imported
+
+from fenolite.backends.kicad import _json
+from fenolite.backends.kicad.pro import read_project
+from fenolite.cli._script import run_design_script
+from fenolite.dsl import to_model
+
+
+def test_import_emits_actual_default_class_and_rebuilds_its_fields(tmp_path: Path) -> None:
+    source = copy_project(tmp_path)
+    data = _json.loads(source.read_text())
+    default = next(cls for cls in data["net_settings"]["classes"] if cls["name"] == "Default")
+    default["clearance"] = _json.JsonNumber("0.15")
+    default["track_width"] = _json.JsonNumber("0.31")
+    source.write_text(_json.dumps(data))
+    result = imported(tmp_path, source, "--confirm")
+    assert result.exit_code == 0, result.error
+    script = tmp_path / "out" / "design.py"
+    model = to_model(run_design_script(script).design)
+    classes = {cls.name: cls for cls in model.circuit.netclasses}
+    assert "Default" in classes, "native Default must not disappear from emitted canonical code"
+    assert (classes["Default"].clearance, classes["Default"].track_width) == (150_000, 310_000)
+    assert "Power" in classes
+    assert build(script.parent).exit_code == 0
+    info = read_project(script.parent / "built" / "two_sheet.kicad_pro")
+    rebuilt = {cls.name: cls for cls in info.classes}
+    assert (rebuilt["Default"].clearance, rebuilt["Default"].track_width) == (150_000, 310_000)
+    assert (rebuilt["Power"].clearance, rebuilt["Power"].track_width) == (200_000, 500_000)
+
+
+@pytest.mark.parametrize("actual_override", (False, True))
+def test_project_floor_is_not_an_invented_override_and_actual_dru_is_preserved(
+    tmp_path: Path, actual_override: bool
+) -> None:
+    source = copy_project(tmp_path)
+    data = _json.loads(source.read_text())
+    data["board"]["design_settings"]["rules"]["min_clearance"] = _json.JsonNumber("0.0762")
+    source.write_text(_json.dumps(data))
+    source.with_suffix(".kicad_dru").write_text(
+        '(version 1)\n(rule "actual-source-override" (constraint clearance (min 0.05mm)))\n'
+        if actual_override
+        else "(version 1)\n"
+    )
+    result = imported(tmp_path, source, "--confirm")
+    assert result.exit_code == 0, result.error
+    script = tmp_path / "out" / "design.py"
+    model = to_model(run_design_script(script).design)
+    assert model.rules is not None
+    assert len(model.rules.rules) == int(actual_override), "project floors are not custom override rules"
+    if actual_override:
+        (rule,) = model.rules.rules
+        assert (rule.kind, rule.min, rule.selector_a.op) == ("clearance", 50_000, "all")
+    assert build(script.parent).exit_code == 0
+    rebuilt = script.parent / "built" / "two_sheet.kicad_pro"
+    native = _json.loads(rebuilt.read_text())
+    assert native["board"]["design_settings"]["rules"]["min_clearance"] == _json.JsonNumber("0.0762")
+    from fenolite.backends.kicad.dru import read_rules
+
+    held = read_rules(rebuilt.with_suffix(".kicad_dru").read_text())
+    assert len(held.rules) == int(actual_override)
+    if actual_override:
+        (rule,) = held.rules
+        assert (rule.kind, rule.min) == ("clearance", 50_000)

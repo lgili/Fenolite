@@ -26,6 +26,7 @@ from fenolite.cli.errors import CliError
 from fenolite.core.errors import FormatError, Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.io import sha256_bytes, sha256_of
+from fenolite.core.schema_ids import accepts_schema
 from fenolite.safety.codes import ISSUE_CODES as SAFETY_CODES
 from fenolite.safety.files import SKIPPED_SUFFIXES
 
@@ -76,7 +77,7 @@ def _expected(receipt: Path, target: Path, base: Path) -> dict[str, str]:
         data: object = json.loads(text)
     except json.JSONDecodeError as error:
         raise CliError("FEN-3004", f"{receipt.name}: invalid JSON: {error.msg}", where=receipt.name) from None
-    if isinstance(data, dict) and cast(dict[str, Any], data).get("schema") == SCHEMA:
+    if isinstance(data, dict) and accepts_schema(cast(dict[str, Any], data).get("schema"), SCHEMA):
         files = cast(dict[str, Any], data).get("files")
         if not isinstance(files, list):
             raise CliError(

@@ -12,15 +12,19 @@ import shutil
 import subprocess
 from collections.abc import Mapping, Sequence
 from functools import cache
+from types import MappingProxyType
 from typing import Any, cast
 
 from fenolite import __version__
 from fenolite.agent import guide
 from fenolite.backends import registry
-from fenolite.cli import describe
-from fenolite.cli.api import Command, Context, Result, discover
+from fenolite.cli import api as cli_api
+from fenolite.cli import deprecation, describe
+from fenolite.cli.api import Command, Context, Result, contract_schema, discover
 from fenolite.cli.errors import CliError
 from fenolite.core.evidence import Evidence, Level
+from fenolite.pick.propose import suppliers
+from fenolite.pick.supplier_policy import capabilities as supplier_capabilities
 from fenolite.routing.protocol import router_features
 from fenolite.routing.registry import routers as routing_routers
 from fenolite.view.meshes import find_gmsh
@@ -134,11 +138,30 @@ def _experimental(features: Sequence[tuple[Mapping[str, object], Evidence]]) -> 
 def _entry(command: Command) -> dict[str, Any]:
     """The entry of ``command`` in ``result.commands`` of the default view."""
     return (
-        {"name": command.name, "mutates": command.mutates, "schema": command.schema, "hidden": command.hidden}
+        {
+            "name": command.name,
+            "mutates": command.mutates,
+            "schema": command.schema,
+            "hidden": command.hidden,
+            "claims": command.name not in cli_api.NO_CLAIM,
+        }
         | ({"example_tools": list(command.example_tools)} if command.example_tools else {})
         | ({"paged": command.paged, "default_limit": command.default_limit} if command.paged else {})
         | {key: list(values) for key, values in command.discovery}
     )
+
+
+_BRIEF_SUMMARIES: Mapping[str, str] = MappingProxyType(
+    {
+        "catalog": "Inspect catalog/devices, export a browser, or import device templates.",
+        "check": "Check KiCad/Altium projects; optionally write a KiCad DRC exclusion.",
+        "diff": "Compare designs/libraries, gate changes or merge KiCad boards.",
+        "library": "Inspect, compare, generate and propose symbols, footprints and package models.",
+        "parity": "Compare project board, schematic, symbol pins and footprint pads.",
+        "ready": "Assess KiCad fabrication readiness: connections, rules, power and parts.",
+    }
+)
+"""Reviewed brief-only discovery text; full help and command views remain unchanged."""
 
 
 def _brief(commands: Mapping[str, Command], *, no_tools: bool) -> dict[str, Any]:
@@ -146,6 +169,8 @@ def _brief(commands: Mapping[str, Command], *, no_tools: bool) -> dict[str, Any]
     size grows with the number of commands only (``docs/cli-contract.md``, "Discovery")."""
     target = next(a for a in describe.describe(commands["build"]).arguments if "--target" in a.flags)
     kicad = registry.get("kicad").capabilities().to_json()
+    from fenolite.cli._external_candidates import capability as candidate_capability
+
     routers: list[dict[str, Any]] = []
     for router in routing_routers().values():
         status = None if no_tools else router.available()
@@ -154,12 +179,18 @@ def _brief(commands: Mapping[str, Command], *, no_tools: bool) -> dict[str, Any]
                 "name": router.name,
                 "available": None if status is None else status.available,
                 "reason": None if status is None else (status.reason or None),
+                "external_candidates": candidate_capability(router, status),
             }
         )
     return {
         "fenolite_version": __version__,
         "commands": [
-            {"name": c.name, "summary": c.help or "", "mutates": c.mutates}
+            {
+                "name": c.name,
+                "summary": _BRIEF_SUMMARIES.get(c.name, c.help or ""),
+                "mutates": c.mutates,
+                "claims": c.name not in cli_api.NO_CLAIM,
+            }
             for c in sorted(commands.values(), key=lambda c: c.name)
             if not c.hidden
         ],
@@ -172,6 +203,7 @@ def _brief(commands: Mapping[str, Command], *, no_tools: bool) -> dict[str, Any]
         "routers": sorted(routers, key=lambda r: str(r["name"])),
         "guide": [{"topic": p.topic, "title": p.title, "summary": p.summary} for p in guide.pages()],
         "starters": [{"name": s.name, "summary": s.summary} for s in guide.starters()],
+        "suppliers": supplier_capabilities(suppliers(), brief=True),
         "sends_data_offsite": False,
     }
 
@@ -198,13 +230,16 @@ def _command_view(commands: Mapping[str, Command], name: str) -> dict[str, Any]:
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
     if args.brief and args.described is not None:
         raise CliError("FEN-2001", "--brief and --command are mutually exclusive", hint="use one of them")
+    found = discover()
+    contract = {"contract": cli_api.CONTRACT_VERSION, "deprecated": deprecation.entries(found)}
     if args.brief:
-        return Result(result=_brief(discover(), no_tools=bool(args.no_tools)))
+        return Result(result=_brief(found, no_tools=bool(args.no_tools)) | contract)
     if args.described is not None:
-        return Result(result=_command_view(discover(), str(args.described)))
+        return Result(result=_command_view(found, str(args.described)) | contract)
 
     from fenolite.backends import matrix  # its rows import the claims of every backend package
     from fenolite.backends.altium import claims
+    from fenolite.cli._external_candidates import capability as candidate_capability
     from fenolite.convert import DIRECTIONS
     from fenolite.lens.altium import ALTIUM_BUILD_EVIDENCE, EXPERIMENTAL, PCB_BUILD_EVIDENCE, PCB_EXPERIMENTAL
 
@@ -220,7 +255,26 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         "write_kinds": [row.kind for row in support],
     }
 
-    commands = [_entry(c) for c in sorted(discover().values(), key=lambda c: c.name)]
+    from fenolite.cli._library_check import capability_entries as check_entries
+    from fenolite.cli._library_repo import capability_entries
+
+    # the verbs of the library repository are listed as ``library <verb>`` with their usage (change c0279)
+    entries = [_entry(c) for c in discover().values()] + capability_entries() + check_entries()
+    entries.append(
+        {
+            "name": "library seed",
+            "mutates": True,
+            "schema": contract_schema("library"),
+            "hidden": False,
+            "usage": (
+                "fenolite library seed --from-librepcb DIR --commit SHA "
+                "--library NAME --into DIR [--namespace NS]"
+            ),
+        }
+    )
+    for entry in entries:
+        entry.setdefault("claims", True)  # supplemental library verbs make record/format claims
+    commands = sorted(entries, key=lambda e: str(e["name"]))
     from fenolite.cli.main import MUTATION_FLAGS, global_flags
 
     result: dict[str, Any] = {
@@ -253,12 +307,14 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 "builtin": router.__class__.__module__.startswith("fenolite."),
                 # what the router takes beyond single nets, read without running it (change c0110)
                 "features": sorted(router_features(router)),
+                "external_candidates": candidate_capability(router),
             }
             for router in routing_routers().values()
         ],
+        "suppliers": supplier_capabilities(suppliers()),
         "sends_data_offsite": False,
     }
-    return Result(result=result)
+    return Result(result=result | contract)
 
 
 COMMAND = Command(

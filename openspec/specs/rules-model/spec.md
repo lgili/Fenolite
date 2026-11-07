@@ -2,9 +2,7 @@
 
 ## Purpose
 Specify the neutral design-rule model (rule sets, selectors and constraints) and how it is lowered to a backend's rules files, with a closed selector grammar, target gating and a self-check.
-
 ## Requirements
-
 ### Requirement: Fenolite lowers only the design's rules
 `fenolite.backends.kicad.lowering.lower_rules(ruleset, *, target=DEFAULT_TARGET, allow_lossy=False)` SHALL write the rules of `ruleset` and nothing else, and SHALL return `LoweredRules(text, issues)`, where `lowering.LoweredRules` is c0017's `backends.base.WriteResult`.
 - Fenolite MUST NOT ship requirement values, rule tables or default rules, in code or in package data, for the files it writes for the user: the output of `lower_rules` and `write_rules`, and build outputs. A rule reaches such a file only when the user's `RuleSet` holds it.
@@ -489,3 +487,50 @@ A rule of the kind `no_tracks` ("Rule kinds and limits") SHALL mean: tracks and 
 #### Scenario: Support follows the probes
 - **WHEN** `uv run pytest tests/unit/backends/kicad/test_rulemap.py -k kind_support` compares `KIND_SUPPORT["no_tracks"]` with the probe files of both majors
 - **THEN** it equals the set of majors where `dru-kind-no_tracks` is `present`
+
+### Requirement: Rule specificity
+`fenolite.checks.specificity.rank(selector) -> int` SHALL give each selector a documented rank: `ALL` 0, `area` and `item` 1, `netclass` 2, `net` with `*` 3, `pair` and `ref` 4, `net` exact 5; `&` the sum of its items, `|` the least of its items, `~` 0, and a two-sided rule the sum of both sides. `docs/dsl.md`, "Design rules", MUST hold this table.
+
+#### Scenario: Ranks
+- **WHEN** `uv run pytest tests/unit/checks/test_specificity.py -k ranks` ranks `ALL`, `netclass("HS")`, `net("CLK")`, `net("CLK*") & item("track")` and `net("A") | netclass("HS")`
+- **THEN** the ranks are 0, 2, 5, 4 and 2
+
+### Requirement: Precedence unchanged by specificity
+The governing rule of an item SHALL stay the last matching rule in `rule_precedence` order (priority, then name, then id), as KiCad applies it; specificity MUST NOT change the lowered text of a design that does not call `design.rules.precedence("specificity")`.
+
+#### Scenario: Same bytes
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_lowering.py -k specificity_neutral` lowers every rule bench before and after this change
+- **THEN** the lowered texts are byte-equal
+
+### Requirement: Shadowed rules are reported
+When two rules of one kind match an item and the governing rule has a strictly lower rank than a rule it overrides, the build and `fenolite check` SHALL report `rules.shadowed` (info) once per pair of rules, naming both rules and their ranks, with a hint naming `priority=` and `design.rules.precedence("specificity")`.
+
+#### Scenario: A class rule over a net rule
+- **GIVEN** a `track_width` rule on `net("CLK")` at priority 3 and one on `netclass("HS")` at priority 1, `CLK` being in `HS`
+- **WHEN** `uv run pytest tests/unit/checks/test_specificity.py -k shadowed` builds it with `--dry-run`
+- **THEN** one `rules.shadowed` info names both rules with ranks 5 and 2
+
+### Requirement: Specificity precedence on request
+`design.rules.precedence("specificity")` SHALL give every rule without an explicit `priority=` a priority from its rank, so that among matching rules the most specific governs, ties keeping name order; rules with an explicit priority MUST keep it.
+
+#### Scenario: The net rule governs
+- **GIVEN** the rules of "A class rule over a net rule" without explicit priorities and with `precedence("specificity")`
+- **WHEN** they are lowered and `rule_precedence` is applied to `CLK`
+- **THEN** the `net("CLK")` rule governs, and no `rules.shadowed` is reported
+
+### Requirement: Topology constraints lowered as lengths
+A topology delay SHALL lower to `length` only for a proven complete two-terminal, unbranched track chain with one propagation, exact integer-fs segment products, no pad shortcut and no via/zone/arc/die offset. Minimum nm MUST round up and maximum nm down. Protocol pair skew SHALL lower only when both member paths qualify. Other constraints, including endpoint skew within one net, MUST stay in the model with `rules.topology-not-lowered` info.
+
+#### Scenario: One-net delay lowered
+- **GIVEN** a topology on one net routed on `F.Cu` at 5 900 fs/mm with `delay(max=ps(295))`
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_lowering.py -k topology` lowers it for target 10
+- **THEN** one `length` rule `topology:<name>:delay` is written with `(max 50mm)`, and a bridged topology gives one `rules.topology-not-lowered`
+
+### Requirement: Rule passes accept pads without copper
+The shadowed-rule pass of `fenolite check` (`checks.specificity.shadowed_rules`) SHALL build its subjects from every pad of the board, and a pad that no copper record can hold (a circular pad of size 0, of any kind) MUST stay a pad without copper entries instead of ending the command with `FEN-1001` (change c0403, F5).
+
+#### Scenario: A zero-size pad beside two overlapping clearance rules
+- **GIVEN** an authored board with an SMD and a plated circular pad of size 0, and two clearance rules where the broader one governs
+- **WHEN** `uv run pytest tests/unit/checks/test_specificity.py -k zero_size` runs the pass
+- **THEN** it returns one `rules.shadowed` and raises nothing
+

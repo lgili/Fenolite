@@ -1,6 +1,6 @@
 # examples/kit
 
-The seven sample scripts of the Altium verification kit (`docs/altium-kit.md`). `fenolite kit build --out DIR
+The eight sample scripts of the Altium verification kit (`docs/altium-kit.md`). `fenolite kit build --out DIR
 --confirm` builds each into an Altium project of the kit; nothing that it builds is committed here.
 
 | sample | what it holds |
@@ -12,6 +12,7 @@ The seven sample scripts of the Altium verification kit (`docs/altium-kit.md`). 
 | `libs/` | seven catalog parts, for the schematic library and the PCB library that the build writes |
 | `pour/` | eleven probes of the polygon pour on two layers, each its own polygon and net, with declared points (change c0215) |
 | `pour4/` | the probes of the inner layers of four, with blind and buried vias (change c0215) |
+| `pour-hatched/` | the four hatch styles, the grid's origin, a slanted edge, a ring that touches itself and one that crosses itself, for Altium's own repour (change c0463) |
 
 Every script is authored for Fenolite (CC0-1.0) and takes its symbols and footprints from Fenolite's own
 catalog, so a build reads no library and gives the same bytes on every machine.

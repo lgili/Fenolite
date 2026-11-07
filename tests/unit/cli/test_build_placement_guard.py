@@ -135,15 +135,21 @@ def test_clean_blink_stays_clean(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     )
     assert code == 0, (env["issues"], err)
     assert place_issues(env) == [] and env["result"]["placement"] == {"ran": True, "counts": {}, **NO_RULES}
-    # the guard changes no byte: the files are those of ``build_design``
-    expected = build(blink(), target).files
+    # the guard changes no byte: the files are those of ``build_design`` with its base record (c0250)
+    expected = build(blink(), target, write_base=True, schematic_layout="wired").files
     written = {rel: (out / rel).read_bytes() for rel in expected}
     assert written == dict(expected)
     assert {rel for rel in tree_snapshot(out) if (out / rel).is_file()} == set(expected)
 
 
 def test_refused_build_does_not_run_the_guard(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    script = variant(tmp_path, ("connect(led_a, r1[2], d1[2])", "connect(led_a, r1[2], d1[2], r1[9])"))
+    script = variant(
+        tmp_path,
+        (
+            "series(led_drv, r1, led_a, (d1.b, d1.a), gnd)",
+            "series(led_drv, r1, led_a, (d1.b, d1.a), gnd)\nconnect(led_a, r1[9])",
+        ),
+    )
     code, env, _, _ = run(monkeypatch, tmp_path, "build", str(script), "--out", "out", "--dry-run")
     assert code == 5
     assert env["result"]["placement"] == {"ran": False, "counts": {}, **NO_RULES} and place_issues(env) == []

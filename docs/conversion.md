@@ -72,14 +72,22 @@ way to write a design of 10 for 9: `build`, `place`, `route` and `fill` keep ref
 `result.report` holds one row per kind that the source holds or the write touches, in the order of the
 table below: `source` (what the source holds), `written` (what the target holds as it was; the writer's
 own count where it keeps one), `changed` (written in another form that compares equal), `lost` (not
-written) and `reasons`, each reason with its `outcome` (`changed` or `lost`) and its `count`, sorted by
+written), `kept` (not written because the target cannot hold it, kept in the model for a write in the
+source's format: a declared format limit; present only when above 0) and `reasons`, each reason with its
+`outcome` (`changed`, `lost` or `kept`) and its `count`, sorted by
 count and then by reason. Every item is counted under its own reason. `--report-ids` adds the ids of the
 items. `lossy` is true when any row has a loss, and `refused` names the `refuse` kinds with losses.
 
 A loss of a `refuse` kind changes the board that is made or its bill of materials: without
 `--allow-lossy` the conversion exits 7 (`FEN-7001`) with one `convert.lossy` issue per such kind; with it
-the same issues are warnings. A loss of a `report` kind is in the report only. Each kind with changes
-gives one `convert.changed` info.
+the same issues are warnings. A loss of a `report` kind needs no consent and gives the same
+`convert.lossy` warning: every row with lost items has one (change c0429), so the issues and the report
+always name the same kinds. Each kind with changes
+gives one `convert.changed` info, and each kind with kept items one `convert.kept` info. An Altium
+rule record has one fate (`docs/formats/altium/rule-file.md`, "Fates in a conversion"). A conversion of
+an Altium document to KiCad writes every rule record into the board property `Fenolite.Altium.Rules6`,
+and the conversion back writes the records KiCad left as written as they were read (change c0434,
+"Records through KiCad" of the same page).
 
 The vocabulary is closed (`fenolite.convert.report.KINDS`), one table for every direction:
 
@@ -103,6 +111,7 @@ The vocabulary is closed (`fenolite.convert.report.KINDS`), one table for every 
 | `net-tie` | footprint | report |
 | `pad-margin` | footprint | report |
 | `model` | footprint | report |
+| `shared-footprint` | footprint | report |
 | `track` | copper | refuse |
 | `arc` | copper | refuse |
 | `via` | copper | refuse |
@@ -112,6 +121,7 @@ The vocabulary is closed (`fenolite.convert.report.KINDS`), one table for every 
 | `zone-fill` | copper | report |
 | `via-pad-shape` | copper | report |
 | `via-protection` | copper | report |
+| `embedded-board` | board | report |
 | `outline` | board | report |
 | `cutout` | board | report |
 | `stackup` | board | report |
@@ -125,6 +135,7 @@ The vocabulary is closed (`fenolite.convert.report.KINDS`), one table for every 
 | `graphic` | presentation | report |
 | `dimension` | presentation | report |
 | `schematic-text` | presentation | report |
+| `project-curve-error` | project | refuse |
 | `schematic` | project | report |
 <!-- kinds:end -->
 
@@ -141,8 +152,44 @@ The vocabulary is closed (`fenolite.convert.report.KINDS`), one table for every 
   `geo` extra, or a union that is not one ring) is a `refuse` loss (`report.REFUSE_REASONS`): KiCad would
   call the outline malformed, so the rings are not written and the conversion exits 7 without
   `--allow-lossy`. The kind `outline` keeps only the losses of the board ring.
+- **Embedded boards and shared footprints (Altium to KiCad).** `embedded-board`: a PCB document whose
+  `EmbeddedBoards6` storage holds records places other PCB documents. Each array is one item named
+  `<document>#<n>:<referenced document> <columns>x<rows>` (the document's name alone when the records do
+  not read). The referenced document is looked for at its `DOCUMENTPATH` relative to the board's document,
+  either separator, then relative to the project's folder, then by its file name in either folder, then at
+  the absolute path stored, without letter case (change c0428); the reason says how a document not at its
+  relative path was found, and an absolute path is named by its file name only. An unmirrored array turned
+  by 0, 90, 180 or 270 degrees whose document reads and whose copper layers the board holds is `changed`:
+  each copy's components, copper, texts, zones, models, holes and board cut-outs join the board at the
+  places Altium gives them (`convert.arrays`), each copy's designators suffixed `_B<k>`, its nets prefixed
+  `B<k>/` and its parts in the generated sheet `B<k>`, with `k` counting the copies of all arrays from 1;
+  the copies' board shapes are left out and the board keeps its own rules (change c0386). S-1592 measured
+  0 and 90 degrees with the board's origin at its shape's lower-left corner; 180 and 270 degrees (the
+  quarter turn applied two or three times) and an origin away from the corner (the origin when the array
+  links its location to it, else the corner) are inferred, and the reason says so (change c0428). A copy's
+  zones with arc vertices take their outline from the referenced document's records, its models are placed
+  in the frame of the original footprint, and each copied cut-out is a `cutout` change. Every other array
+  is `lost` with a reason of `report.REFUSE_REASONS` that names why: a document that is found nowhere or
+  does not read, a mirrored array, an angle that is not a multiple of 90 degrees, a board without a shape
+  or an origin to place by, or copper layers; the conversion (and `import --to
+  python` of the project) then exits 7 without `--allow-lossy` (changes c0374, c0386). `shared-footprint`:
+  each footprint of a
+  source component that several footprints link, `changed`; it explains the `ref-ambiguous` of that
+  reference (change c0371). With a written schematic, the board comparison covers placed components and
+  the schematic comparison the others (change c0371).
+- **Refused generated schematic (Altium to KiCad).** When the schematic generator refuses the circuit
+  (`build.schematic-too-large`: more units than one A0 page holds), the board and libraries are still
+  written and `schematic` is `lost` with a reason of `report.REFUSE_REASONS`, so the conversion exits 7
+  without `--allow-lossy` instead of planning no write (change c0372). The lost schematic explains the
+  `component-missing` of every component that no footprint places. Before refusing, the generator keeps
+  the parts of each source schematic document of a flat project on a KiCad sheet of its own
+  (`sheets/<document stem>.kicad_sch`), and spreads a sheet that no paper holds over sibling pages
+  (`<sheet>-1`, `<sheet>-2`, …; `page-1`, … for a flat circuit such as a PcbDoc given alone), doubling the
+  pages up to 64 in the natural order of the references; the sheet is refused only when one part alone
+  does not fit (change c0372).
 - **Changes of KiCad to Altium.** `zone-fill`: with `--altium-pour computed` (the default since change
-  c0215) the polygon is poured by Fenolite from the written document (experimental), and a polygon the engine
+  c0215; without the `geo` extra it exits 6, `FEN-6001`, change c0436) the polygon is poured by Fenolite from
+  the written document (experimental), and a polygon the engine
   refuses, or every polygon with `--altium-pour outline`, is written unpoured, and Altium fills it on a
   repour. `schematic`: the schematic is generated from the circuit on one sheet
   with generic symbols. A schematic that the writer refuses is a loss, and the writer's message stays an
@@ -192,6 +239,8 @@ these places. "Level 5" is `route-missing`, `route-connectivity`, `route-vias`, 
 | `dnp` | its reference | `dnp` |
 | `footprint-copper`, `net-tie` | a net of the pads of its footprint | level 5 |
 | `source` | a reference held as often on both sides | `ref-ambiguous` |
+| `shared-footprint` | the reference of a component that several source footprints link (change c0371) | `ref-ambiguous` |
+| `schematic` | a component that no footprint places, or a reference the source circuit holds more than once, when the schematic is lost (changes c0372, c0425) | `component-missing`, `ref-ambiguous` |
 <!-- explains:end -->
 
 `source` is no kind of the report: several components of the source share a reference (an empty one, or a
@@ -200,14 +249,15 @@ it was.
 
 ### Profiles
 
-`src/fenolite/convert/data/profiles.toml` holds one profile per direction, and `kicad-downgrade` for the
-downgrade, in the exclusion format of `docs/equivalence.md`; none holds a rule today.
+`src/fenolite/convert/data/profiles.toml` holds one profile per direction, `kicad-downgrade` for the
+downgrade and `import` for the self-check of `fenolite import` (`docs/import.md`), in the exclusion format of `docs/equivalence.md`; none holds a rule today.
 
 | profile | frame | tolerances | why |
 |---|---|---|---|
 | `kicad-to-altium` | relative | 3 nm, 20 ppm | the writer moves the board's corner to the document's origin; a length is written in 1/10 000 mil (2.54 nm), and the 16 demo boards read back within 2 nm per coordinate; a routed length as in the triangle |
 | `kicad-to-kicad` | absolute | none | the board is written with its own coordinates |
 | `kicad-downgrade` | absolute | none | the same model in another header: a construct the resolver drops is no item that levels 1 to 5 compare |
+| `import` | absolute | none | `fenolite import` builds the emitted code and compares it with the source board; the build writes the source coordinates exactly (change c0275) |
 
 ## Evidence
 
@@ -231,12 +281,52 @@ the verification kit and the author reports (`docs/altium-kit.md`).
 The conversion writes a derived `<name>.PcbLib`: one footprint per name after the last `:` of its
 reference, chosen from the first instance in reference order in its local frame. Every board component
 links this library. Edited pads or graphics remain on the PCB and are counted `changed` under
-`footprint`. Long names that share a compound storage key use distinct storage keys in `SectionKeys`;
+`footprint`. A component whose KiCad footprint holds the hidden properties `Altium Footprint` and `Altium
+Symbol` (an Altium conversion wrote them, change c0451) takes those links back while its footprint is still
+the one derived from the source pattern: its footprint goes to a `.PcbLib` and its symbol to a `.SchLib`
+named as the source names them, which the project lists, and the two properties reach no parameter. A
+board text `${NAME}` is written `.NAME`, and `${NAME}` inside other text `'.NAME'`; `${CURRENT_DATE}`,
+`${FILENAME}`, `${FILEPATH}` and `${LAYER}` are `.Print_Date`, `.Pcb_File_Name_No_Path`, `.Pcb_File_Name` and
+`.Layer_Name`; each is a `text` change, and the project's text variables are the project file's
+`[Parameter<n>]` entries. Long names that share a compound storage key use distinct storage keys in `SectionKeys`;
 the full footprint names are preserved. Bodies follow `--altium-bodies extruded|off`.
 
 Plain per-layer pads use Top-Middle-Bottom or Full Stack records. Connector pads use a surface record
 with no paste or solder-mask expansion; final appearance needs Part T in Altium. Unnumbered footprint
 pads become free pads at their board position and are reported `changed`. Custom pad shapes stay losses.
+A generated hole footprint (`Fenolite_Holes:…`, one unplated pad, no reference), the form a free hole of an
+Altium document takes in its KiCad conversion, is written back as that free hole, not as a component, and
+is reported `changed` under `footprint` (change c0435). An arc whose three points lie on one line, the
+middle between the ends, is written as the track it draws and reported `changed` under `arc`: an Altium
+arc record holds a centre and a radius, which such an arc has not (change c0435).
+
+**Models to Altium** (change c0449). Each `model` child of a board footprint is embedded in the document
+when its path names a STEP file, its scale is 1 on each axis and `stepbox.model_box` bounds its edges. The
+path is read as KiCad reads it (change c0458): `${KIPRJMOD}` (or `$(KIPRJMOD)`) is the project folder, a
+relative path is read from that folder, an absolute path where it is, and a path that climbs out of the
+folder is followed.
+The document's `Models` storage holds each distinct file once, and the footprint's component gets a body that
+names it, at the pose that is the inverse of the KiCad placement written by the opposite direction, with the
+placed model's box as its outline and heights (`docs/formats/altium/pcb-bodies.md`, "Written form of a model
+body"). Each child is counted under `model`: written; changed when KiCad hides it (Altium shows every model);
+lost with its reason for a file that is not found (in the project folder, or at a path outside it), a path
+under another variable, a KiCad embedded file (`kicad-embed://`), a file that is no STEP text, a scale other
+than 1, or a STEP without an edge to measure. A path under a variable other than `KIPRJMOD` (an official
+library's model) is not resolved; an absolute path depends on the machine, as it does in KiCad. After
+a round trip a model keeps its bytes and pose; its name is the file name of the KiCad side. A model that
+comes back with the bytes, offset, turns and side the conversion to KiCad gave it keeps the heights its
+source body stores (`STANDOFFHEIGHT` and `OVERALLHEIGHT`), which that conversion carries in the board property
+`Fenolite.Altium.ModelHeights` (`convert.models.StoredHeights`; change c0449, task 4.3). A model that is new
+or changed in KiCad takes the heights of its box. The footprint's place and its turn about Z are not
+compared: heights above the face do not depend on them, and a conversion moves the board's frame. Such a
+model also goes back on the mechanical layer 1 to 16 its source body lay on, which the same property names
+(`layer`; change c0464), and so does the generated model of a footprint whose extruded, cylinder and sphere
+bodies share one such layer (an entry with that layer and no heights); any other model goes on Mechanical
+13 or 14 by its footprint's side. A model
+whose bytes are the source's keeps its record's `ID` and `CHECKSUM`, and a body placed as before its
+`MODEL.CHECKSUM`, carried in `Fenolite.Altium.ModelIds` (`convert.models.StoredIds`). Altium seems to serve
+a model it has opened by its `ID`, so a new model gets the `ID` of its bytes and its name, which no other
+model's entry holds, and the stand-in checksum 0: no source gives the checksum's rule.
 
 The drawing-layer map is fixed: `User.1` through `User.8` → Mechanical 1 through 8; `Dwgs.User`,
 `Cmts.User`, `Eco1.User`, `Eco2.User` → Mechanical 9 through 12; `F.Fab`, `B.Fab`, `F.CrtYd`,
@@ -269,17 +359,30 @@ Verification profile: `altium-to-kicad`, absolute frame, 1 nm tolerance.
 `fenolite convert input.PrjPcb --to kicad --kicad-version 10 --out out --dry-run --json`
 prepares a reviewed project; commit it with `--confirm --plan <plan_id>`. Targets 9 and 10 are supported.
 The result includes PCB/project/rules, a derived `.pretty` library and table, and (when the imported
-circuit has unique designators) generated schematic sheets and a symbol library/table.
+circuit has unique designators) generated schematic sheets and a symbol library/table: one KiCad sheet
+per source schematic document of a flat project, a module sheet per sheet symbol of a hierarchical one,
+and more pages for a sheet too large for A0 (change c0372).
 
 Mechanical layers map in numerical order to User.1..45, preserving their name as the layer alias.
+The drill guide and drill drawing layers (`Altium.DrillGuide`, `Altium.DrillDrawing`) take the next
+user rows, named so (change c0428).
 Unknown/out-of-stack layers and excess mechanical layers are reported as losses. Closed Keep-Out
 outlines become all-copper rule areas forbidding tracks, vias and pours; open/branching lines are lost.
 Curved boundaries are polygonized with at most 5000 nm chord error, reported as changed.
 An odd copper count gains an empty inner layer; its original stack-up is reported changed.
-A copper pour whose Altium outline holds an arc vertex has no outline in the imported model
-(`altium.import.zone-arc`); the conversion takes its outline from the source document's polygon record,
-flattened at 5000 nm chord error, and reports the zone changed. A zone without a usable record is
-reported lost. KiCad 9.0.9 cannot write a DRC report for a zone without an outline.
+A copper pour whose Altium outline holds an arc vertex has, in the imported model, the record's ring with
+each arc chorded within the polygon's `ARCRESOLUTION` (`altium.import.zone-arc`, change c0463), and the
+conversion reports the zone changed. It carries the record's vertices and `ARCRESOLUTION` in the board
+property `Fenolite.Altium.PolygonArcs` (`convert.zonearcs`), keyed by the uuid of the KiCad zone (derived
+from the polygon's `UNIQUEID` when it has one). The conversion back writes those vertices while the zone's
+outline is still their chorded ring, moved at most (an end angle of 360 degrees is written 0, the same arc),
+and the outline's chords as a `changed` zone otherwise (`lower.ZONE_ARCS_EDITED`). A rewrite of the read
+document writes the chords. A polygon whose arc cannot be placed or that has no `ARCRESOLUTION` keeps an
+empty outline in the import; the conversion takes it from the record flattened at 5000 nm chord error, as
+before change c0463, as it does for a copy of an Embedded Board Array. A zone whose record is missing is
+reported lost; one whose record encloses no area (its vertices coincide) pours no copper and is left out
+as a `changed` zone with that reason (change c0428). KiCad 9.0.9 cannot write a DRC report for a zone
+without an outline.
 `kicad.board.layer-undeclared` refuses any caller's modelled item on an undeclared layer, even with consent.
 
 Arbitrary slots rotate circular pads without changing copper; incompatible non-circular pads are
@@ -297,7 +400,8 @@ becomes the footprint that `design.hole` generates (`fenolite.model.holes.hole_f
 written as `lib/Fenolite_Holes.pretty` with its row in `fp-lib-table`, as a build writes it. A length the
 document cannot tell from a whole micrometre (one unit is 2.54 nm) is taken to it, so a 2 mm slot is
 `NPTH_Slot_2x12mm`, the script's name. A plated hole, whose copper is the hole, is the pad `1` of
-`PTH_…_Pad_<d>mm` and is counted `changed` under `hole`. The shared slot fixture converted to Altium and
+`PTH_…_Pad_<d>mm` and is counted `changed` under `hole`. An unplated hole is counted `changed` too, with the reason
+that it is written as a board-only footprint: KiCad holds no hole outside a footprint (change c0420). The shared slot fixture converted to Altium and
 back loads with no `invalid_outline` and drills what the source drills (`H-K-CONV-SLOTS`). Derived footprints use the first instance in reference order in its top-side local frame;
 instances that differ are reported without replacing board geometry. Filename collisions are disambiguated.
 Symbols are taken from available SchLib definitions or generated from the circuit pins. Positions and
@@ -306,22 +410,73 @@ wires are regenerated. Duplicate designators refuse the schematic alone, with an
 kind: a surface pad on `F.Cu` gets `F.Paste` and `F.Mask` (on `B.Cu` the bottom ones), a plated or unplated
 through-hole pad `F.Mask` and `B.Mask` and no paste; a surface pad on an inner layer gets none. Its mask and
 paste expansions become `Pad.mask_margin` and `Pad.paste_margin`, written as `solder_mask_margin` and
-`solder_paste_margin`: a manual expansion as it is, an expansion "from the rules" as the first enabled
-`SolderMaskExpansion` or `PasteMaskExpansion` rule of scope `All`, none without one. A pad that a rule of
-another scope may govern takes the `All` rule and is a `pad-margin` loss: the scope is not evaluated, but
-a rule whose scope selects no pad (`IsVia`, `IsTrack`, in the closed scope grammar) is left out. The
+`solder_paste_margin`: a manual expansion as it is (0 included: since change c0440 a manual 0 is written
+as a margin of 0, not left to the board's setting), an expansion "from the rules" as the record that
+governs the pad, none without one (change c0462, design D6): the first enabled `SolderMaskExpansion` or
+`PasteMaskExpansion` record, by priority, whose scope, read with the full grammar and the document, selects
+the pad by its net, the net classes that hold it (an Altium net may be in several), its component, its one
+copper layer (a surface pad only), its hole and its pad type. A record the conversion cannot judge for the
+pad (a scope outside the grammar, a room, or a layer of a pad with a hole that the rest of the scope does not
+decide) may govern it: the pad takes the next record that selects it and is a `pad-margin` loss. The
+untented vias take their mask the same way (`convert.altium_to_kicad.via_margins`). The
 paste `Enabled` switch and the solder `Tented` option are not read (`docs/formats/altium/pcb-library.md`,
-U1 and U2), so a tented pad of the source is open in KiCad (`H-A-CONV-PADMASK`).
+U1 and U2), so a tented pad of the source is open in KiCad (`H-A-CONV-PADMASK`). The modes are read from each pad's
+bag before the conversion empties the source's bags (change c0440: until then every pad took the rule's
+expansion, so a pad with a manual expansion came out with another opening). The way back writes a pad's
+margin as a manual expansion (`docs/formats/altium/pcb-library.md`), so each pad keeps its value; a pad that
+followed a rule comes back manual with the rule's value, because a KiCad board holds no rule-or-manual mode.
 
-**3D models** (change c0223). The model that the PCB document embeds for a body of a top-side part
-(`models3d.body_models`) is written beside the derived library as `<name>.3dshapes/<footprint>_<sha12>.step`
-(`sha12`, the first 12 hex digits of the SHA-256 of the model's bytes) and named in the library footprint
-with its placement: the offset of the model from the footprint origin, its height `MODEL.3D.DZ` and its turn
-about Z less the part's (`H-K-MODEL-PLACE`, `H-A-BODY-MODEL-PLACE`); a placed model is a `model` change. A
-model of a bottom-side part or turned about X or Y is a `model` loss. The board's own footprints carry no
-model: KiCad's "update footprints from library" brings them. The bodies stay `body` losses.
+**Footprint drawings and texts** (changes c0409, c0422). A component's own lines, arcs, circles, fills and
+regions are its footprint's `fp_line`, `fp_arc`, `fp_circle`, `fp_rect` and `fp_poly` children, and its
+texts other than the first designator and comment are `fp_text user` children, written after the
+drawings and before the pads, as KiCad 10.0.6 saves a footprint (`board.md`, `H-K-PCB-FPGFX`). Each lies
+on the layer the board's items take: an overlay on its silkscreen, a mechanical layer on the user layer
+named after it. A text keeps its string, size, stroke, angle relative to the footprint and justification
+(the import's centred anchor, as for a free text); on a back layer it is mirrored, as a free text is. The
+board footprints and the derived library both hold them, and so do the footprints that
+`import --to python` vendors. A drawing or text on a layer without a KiCad row stays a `footprint-graphic`
+or `footprint-text` loss, and a drawing on the Keep-Out layer becomes a rule area of its footprint (change
+c0411). The KiCad board reader keeps them in their slots; `fpitems.with_footprint_items` projects them for a
+comparison.
 
-Unsupported imported rules and nonportable component bodies are reported. Libraries and projects use
+**Special strings and designators** (changes c0409, c0428). A board text `.NAME`, or `'.NAME'` inside other
+text, is written `${NAME}` when `NAME` is a project parameter. A board document converted alone takes the
+parameters of the one `.PrjPcb` that lists it, up to three folders up; the board's own variables win. The
+predefined strings `.Layer_Name`, `.Pcb_File_Name`, `.Pcb_File_Name_No_Path` and `.Print_Date` (S-1871), in
+any letter case, are written `${LAYER}`, `${FILEPATH}`, `${FILENAME}` and `${CURRENT_DATE}` (S-1870); a
+project parameter of the same name wins. Each is a `text` change; every other special string whose name is
+a variable name is written `${NAME}`, a variable the project does not define (change c0451), and one whose
+name is not (a space, say) as typed, each a `text` change. Each component's footprint and symbol links of
+the source are the hidden footprint properties `Altium Footprint` and `Altium Symbol` (change c0451). When the circuit holds one designator on several parts and at most one is on
+the board, that part (or the first) keeps it and each other becomes `<ref>_<n>` on the generated schematic, a
+`schematic` change; the schematic is written. When several parts on the board share one, the board keeps
+them and the schematic is a `schematic` loss.
+
+**3D models** (changes c0223 and c0423). The model that the PCB document embeds for a body
+(`models3d.body_models`) is written beside the derived library as `<name>.3dshapes/<model>_<sha12>.step`
+(`model`, the model's own record name without its `.step` or `.stp` extension, or the footprint's name when the record
+names none, change c0449; `sha12`, the first 12 hex digits of the SHA-256 of the model's bytes) and named in the library footprint and
+in the board's footprint with the offset and turns that give KiCad the source's pose, on either side and for
+any turn about X, Y and Z (`H-K-MODEL-POSE`, `H-A-BODY-MODEL-PLACE`). KiCad applies the turn about X first,
+then Y, then Z, and flips a bottom-side part by a half turn about X, as Altium does. A placed model is a
+`model` change; a body whose model the document does not embed is a `model` loss.
+
+**Bodies** (change c0423). KiCad holds no body, so each body that no embedded model carries becomes a STEP
+file of Fenolite's own writer (`backends.step`), one per footprint, in the same folder:
+
+- an extruded body is the prism over its outline, from standoff to overall height;
+- a cylinder (`MODEL.MODELTYPE` 2) with a square outline and no turn about X or Y is a cylinder in that
+  square;
+- a sphere (3) whose outline side equals its height span is a sphere in that square;
+- any other is the prism over its outline, which holds the shape.
+
+Cylinders and spheres are faceted, every facet within 10 µm of the surface. Each body is a `body` change:
+"carried by its embedded model", "written as a generated STEP model" or "written as the prism over its
+outline" with the reason. A body whose geometry is not proved (`projection_unknown`) is a `body` loss. A
+`body` or `model` loss gives a `convert.lossy` warning, like every loss, and `import --to python` keeps the
+issues and gives the conversion's report as `result.report`, so the import never loses one silently. The import also writes every model file the conversion writes.
+
+Unsupported imported rules are reported. Libraries and projects use
 relative paths. Loading with DRC (9.0.9 and 10.0.6), agreement with KiCad 10.0.6's own importer and
 the generated schematics' netlist and ERC are KICAD-VERIFIED on the public corpus (2026-10-15); the
 direction stays INFERRED because the Keep-Out mapping rests on Altium's documentation only.

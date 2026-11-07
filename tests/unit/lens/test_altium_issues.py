@@ -177,17 +177,17 @@ KICAD_CASES: dict[str, tuple[tuple[str, str], tuple[str, str], set[str]]] = {
     "kicad-clean": (
         ("", ""),
         ("", ""),
-        {"altium.symbol-simplified", "altium.footprint-unresolved", "altium.pcbdoc-not-written"},
+        {"altium.footprint-unresolved", "altium.pcbdoc-not-written"},
     ),
     "unknown-pin": (
         ("u1[8]", 'u1["XYZ"]'),
         ("", ""),
-        {"altium.unknown-pin", "altium.symbol-simplified"},
+        {"altium.unknown-pin"},
     ),
     "off-grid": (
         ("", ""),
         ("(at 0 5.08 270)", "(at 0.001 5.08 270)"),
-        {"altium.symbol-off-grid", "altium.symbol-simplified"},
+        {"altium.symbol-off-grid"},
     ),
     "lossy": (
         ("", ""),
@@ -197,7 +197,6 @@ KICAD_CASES: dict[str, tuple[tuple[str, str], tuple[str, str], set[str]]] = {
         ),
         {
             "altium.pin-lossy",
-            "altium.symbol-simplified",
             "altium.footprint-unresolved",
             "altium.pcbdoc-not-written",
         },
@@ -205,15 +204,17 @@ KICAD_CASES: dict[str, tuple[tuple[str, str], tuple[str, str], set[str]]] = {
     "pin-text-too-long": (
         ("", ""),
         ('"CLK"', '"' + "C" * 256 + '"'),
-        {"altium.pin-text-too-long", "altium.symbol-simplified"},
+        {"altium.pin-text-too-long"},
     ),
     "description": (
         ("", ""),
         ("Resistor drawn upright", "Résistance"),
-        {"altium.text-unwritable", "altium.symbol-simplified"},
+        {"altium.text-unwritable"},
     ),
 }
-"""KiCad-example variants (change c0034): (script change, library change, codes)."""
+"""KiCad-example variants (change c0034): (script change, library change, codes). Since change c0261 the
+two-unit ``DUAL_OPAMP`` is drawn from its graphics per part, so no variant reports
+``altium.symbol-simplified``."""
 
 
 def run_kicad_case(name: str) -> tuple[Issue, ...]:
@@ -287,6 +288,21 @@ NOT_PLANNED = {"altium.not-lowered", "altium.pcbdoc-not-written"}
 """Without the PCB document the net class of the blink sample is reported as kept in the model only."""
 PCB_CASES: dict[str, tuple[dict[str, object], set[str]]] = {
     "blink": ({}, BLINK_CODES),
+    "blink-verbatim": (
+        # change c0277: a verbatim item is KiCad text the PCB document has no record for
+        {
+            "script": (
+                "u1.place(mm(14), mm(15), locked=True)",
+                'u1.place(mm(14), mm(15), locked=True)\ndesign.verbatim("art/qr", "(barcode (at 1 1))")',
+            )
+        },
+        BLINK_CODES | {"altium.verbatim-skipped", "altium.experimental", "altium.draftsman-not-written"},
+    ),
+    "blink-image": (
+        # change c0277: the document writer has no picture record
+        {"image": True},
+        BLINK_CODES | {"altium.image-skipped", "altium.experimental", "altium.draftsman-not-written"},
+    ),
     "blink-kept": (
         {"project_exists": True},
         BLINK_CODES | {"altium.project-kept", "altium.schlib-not-in-project", "altium.pcb-not-in-project"},
@@ -329,8 +345,17 @@ def run_pcb_case(name: str) -> tuple[Issue, ...]:
         script = edits.get("script", ("", ""))
         design = blink(*script)  # type: ignore[misc]
         kwargs = {k: v for k, v in edits.items() if k == "project_exists"}
+        model = to_model(design)
+        if edits.get("image") and model.board is not None:
+            from fenolite.core.coords import Point
+            from fenolite.model.board import Image
+
+            at = Point(110_000_000, 110_000_000)
+            image = Image(id="img_00000000-0000-4000-8000-0000000000e1", position=at, layer="F.SilkS",
+                          data="iVBORw0KGgo=")  # fmt: skip
+            model = dataclasses.replace(model, board=dataclasses.replace(model.board, images=(image,)))
         return build_altium(
-            to_model(design),
+            model,
             name=design.name,
             placed=tuple(placements(design)),
             placements=placements(design),
@@ -419,6 +444,13 @@ def _plane_unknown(model: ModelDesign) -> tuple[ModelDesign, dict[str, object]]:
     return model, {"planes": {"In1.Cu": "NOPE", "F.Cu": "GND"}}
 
 
+def _signal_limit(model: ModelDesign) -> tuple[ModelDesign, dict[str, object]]:
+    """Twenty copper layers of the script and no plane: 20 signal layers (change c0277)."""
+    assert model.board is not None
+    bare = tuple(layer for layer in model.board.layers if layer.kind != "copper")
+    return _copper_board(model, layers=bare), {"copper": 20}
+
+
 COPPER_PARTS = ("tracks", "arc", "vias", "inner", "zones", "class")
 COPPER_CASES: dict[
     str, tuple[Callable[[ModelDesign], tuple[ModelDesign, dict[str, object]]], dict[str, int]]
@@ -427,6 +459,7 @@ COPPER_CASES: dict[
     "zone": (_zone_opaque, {"altium.zone-unsupported": 2}),
     "plane": (_plane_copper, {"altium.plane-copper": 3}),
     "plane-net": (_plane_unknown, {"altium.copper-stack": 2}),
+    "signal": (_signal_limit, {"altium.stack-signal-limit": 1}),
     "stack": (_copper_stack, {"altium.copper-layer": 3}),  # c0085: an odd count gives the default stack
     "via": (_via_blind, {"altium.via-unsupported": 1, "altium.copper-invalid": 1}),  # c0085: a micro via
     "invalid": (_copper_invalid, {"altium.copper-invalid": 4}),
@@ -520,7 +553,7 @@ def test_zone_on_a_missing_layer() -> None:
 @pytest.mark.parametrize("name", sorted(COPPER_CASES))
 def test_copper_case(name: str) -> None:
     """One issue per entity, an error each, with the entity id in ``where``; no file is written."""
-    codes = ("altium.copper", "altium.via", "altium.zone-unsupported", "altium.plane-copper")
+    codes = ("altium.copper", "altium.via", "altium.zone-unsupported", "altium.plane-copper", "altium.stack-")
     issues = [i for i in run_copper_case(name) if i.code.startswith(codes)]
     counts: dict[str, int] = {}
     for found in issues:
@@ -579,6 +612,18 @@ def run_c0087_cases() -> list[Issue]:
     return [*kept_project_issues(), *grown_paper_issues()]
 
 
+def run_draftsman_cases() -> tuple[Issue, ...]:
+    from unittest.mock import patch
+
+    from _altium_job import blink_output
+
+    from fenolite.backends.altium import draftsman
+
+    found = blink_output(draftsman=True).issues
+    with patch.object(draftsman, "NATIVE_WRITE", True):
+        return (*found, *blink_output(draftsman=True, project_exists=True).issues)
+
+
 def test_closed_set() -> None:
     produced: dict[str, set[str]] = {}
     for name in CASES:
@@ -604,11 +649,16 @@ def test_closed_set() -> None:
         *run_too_large_case("ascii"),
         *run_pcb_too_large(),
         *run_bus_case(),
+        *run_block_clash_case(),
     ):
         produced.setdefault(found.code, set()).add(found.severity)
-    for found in run_c0087_cases():
+    for found in (*run_c0087_cases(), *run_draftsman_cases()):
         produced.setdefault(found.code, set()).add(found.severity)
     for found in run_pour_cases():
+        produced.setdefault(found.code, set()).add(found.severity)
+    for found in run_request_case():
+        produced.setdefault(found.code, set()).add(found.severity)
+    for found in run_definition_case():
         produced.setdefault(found.code, set()).add(found.severity)
     for code, severities in produced.items():
         if code.startswith(PASS_THROUGH):
@@ -617,6 +667,16 @@ def test_closed_set() -> None:
         assert severities == {ALTIUM_ISSUE_CODES[code]}, (code, severities)
     expected = set(ALTIUM_ISSUE_CODES) - (set() if GEO else POUR_CODES_WITH_GEO)
     assert expected <= set(produced), expected - set(produced)
+
+
+def run_definition_case() -> list[Issue]:
+    """Change c0412: a part whose ``footprint_definition`` names another footprint than its native one
+    (``altium.footprint-definition``)."""
+    design = Design("definition")
+    design.board(mm(20), mm(20))
+    part = Part("R1", "Fenolite:Resistor", footprint="Original:R", footprint_definition="Fenolite:Chip_0603")
+    design.add(part)
+    return lens_altium.with_footprint_definitions(to_model(design))[1]
 
 
 GEO = importlib.util.find_spec("pyclipper") is not None
@@ -655,10 +715,58 @@ def run_pour_cases() -> tuple[Issue, ...]:
     return tuple(found)
 
 
+def run_request_case() -> tuple[Issue, ...]:
+    """Change c0247: the KiCad-sourced example with ``U2``'s supply pin 6 left open under an unused-pin
+    request (``build.must-connect-unconnected``) and the eight-pin ``U1`` used through its ends
+    (``build.not-two-terminal``)."""
+    with tempfile.TemporaryDirectory() as folder:
+        root = Path(folder)
+        copy = root / "example"
+        shutil.copytree(EXAMPLE_DIR, copy)
+        design = example("u2[1], u2[6], r1[1]", "u2[1], r1[1]")
+        resolver = example_resolver(root, project_dir=copy)
+        return build_altium(
+            to_model(design), name=design.name, resolver=resolver, unused={"U2": ()}, two_terminal=("U1",)
+        ).issues
+
+
+def test_request_case_codes() -> None:
+    found = {i.code: i for i in run_request_case()}
+    assert "U2" in found["build.must-connect-unconnected"].message
+    assert "6" in found["build.must-connect-unconnected"].message
+    assert "U1" in found["build.not-two-terminal"].message and "8" in found["build.not-two-terminal"].message
+
+
 def run_bus_case() -> tuple[Issue, ...]:
     """Change c0086: a bus whose nets are not one stem with consecutive integers is drawn as its nets."""
     model = with_bus(to_model(sample()), "CTRL", ("EN", "LED_DRV"))
     return build_altium(model, name="altium_sample").issues
+
+
+def run_block_clash_case() -> tuple[Issue, ...]:
+    """Change c0269: a port of a block and an escaping net of one name on the block's sheet."""
+    from fenolite.dsl import Net, block, connect
+
+    escaping = Net("IN")
+
+    @block
+    def stage(b: object) -> None:
+        port = b.port("IN", direction="in")  # type: ignore[attr-defined]
+        r = b.part("R", "Fenolite:Resistor", footprint="Lib:R0603")  # type: ignore[attr-defined]
+        connect(port, r[1])
+        connect(escaping, r[2])
+
+    from fenolite.dsl import Design as DslDesign
+
+    design = DslDesign("clash")
+    made = design.use(stage, "s")
+    j = design.part("J1", "Fenolite:Connector_4", footprint="Lib:HDR")
+    connect(Net("SRC"), j[1], made.IN)
+    connect(escaping, j[2])
+    from _altium_tree import catalog_symbols
+
+    model = to_model(design)
+    return build_altium(model, name="clash", sheets="modules", authored_symbols=catalog_symbols(model)).issues
 
 
 def test_bus_flattened_names_the_bus() -> None:
@@ -685,6 +793,9 @@ def test_the_table() -> None:
         "altium.harness-name": "error",
         "altium.harness-net-shared": "error",
         "altium.harness-power-net": "error",
+        "build.not-two-terminal": "error",  # c0247
+        "build.must-connect-unconnected": "error",
+        "build.block-sheet-name-clash": "error",
         "altium.no-footprint": "warning",
         "altium.sheet-custom": "warning",
         "altium.pin-lossy": "warning",
@@ -700,15 +811,21 @@ def test_the_table() -> None:
         "altium.schlib-generic": "info",
         "altium.schlib-not-in-project": "info",
         "altium.not-lowered": "info",
+        "altium.verbatim-skipped": "warning",
+        "altium.image-skipped": "warning",
         "altium.project-kept": "info",
         "altium.footprint-extras-dropped": "info",
+        "altium.footprint-definition": "info",
         "altium.pcbdoc-not-written": "info",
         "altium.pcb-staged": "info",
         "altium.pcb-not-in-project": "info",
         "altium.sheets-not-in-project": "info",
         "altium.outjob-not-listed": "info",
+        "altium.draftsman-not-written": "info",
+        "altium.draftsman-not-listed": "info",
         "altium.experimental": "info",
         "altium.copper-stack": "error",
+        "altium.stack-signal-limit": "error",
         "altium.copper-layer": "error",
         "altium.via-unsupported": "warning",
         "altium.copper-invalid": "error",
@@ -871,13 +988,13 @@ HIER_CASES: dict[str, tuple[dict[str, str], dict[str, object], set[str]]] = {
 # Successful fixtures now also report the per-kind graduation notice. Keep exact
 # issue-set checks, including absence of that notice in refused builds.
 for _name in ("kicad-clean", "lossy"):
-    KICAD_CASES[_name][2].add("altium.experimental")
+    KICAD_CASES[_name][2].update(("altium.experimental", "altium.draftsman-not-written"))
 for _name in ("blink", "blink-collision", "blink-kept", "blink-unplaced", "blink-unsupported"):
-    PCB_CASES[_name][1].add("altium.experimental")
+    PCB_CASES[_name][1].update(("altium.experimental", "altium.draftsman-not-written"))
 for _name in ("clean", "custom-sheet", "no-footprint", "not-lowered", "project-kept", "section-key"):
-    CASES[_name][2].add("altium.experimental")
+    CASES[_name][2].update(("altium.experimental", "altium.draftsman-not-written"))
 for _name in ("hier-ascii", "hier-flat", "hier-kept", "hier-modules"):
-    HIER_CASES[_name][2].add("altium.experimental")
+    HIER_CASES[_name][2].update(("altium.experimental", "altium.draftsman-not-written"))
 
 
 def run_hier_case(name: str) -> tuple[Issue, ...]:
@@ -1024,8 +1141,8 @@ def test_eight_layers_read_back() -> None:
     names = tuple(layer.name for layer in back.board.layers if layer.kind == "copper")
     assert names == ("F.Cu", "In1.Cu", "In2.Cu", "In3.Cu", "In4.Cu", "In5.Cu", "In6.Cu", "B.Cu")
     assert names == design.copper_layers
-    for count in COPPER_COUNTS:  # no count of the DSL is refused as such
-        layers, issues = altium_copper.board_layers(to_model(design), count)
+    for count in COPPER_COUNTS:  # no count of the DSL is refused as such, with planes past 16 signal layers
+        layers, issues = altium_copper.board_layers(to_model(design), count, max(0, count - 16))
         assert issues == [] and len(layers) == count
 
 

@@ -1,0 +1,793 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.result.tidy.v0",
+  "title": "TidyResult",
+  "type": "object",
+  "properties": {
+    "plan": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolPlan"
+      }
+    },
+    "plan_id": {
+      "type": "string"
+    },
+    "issues_summary": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolIssueSummary"
+      }
+    },
+    "recovery": {
+      "$ref": "#/$defs/ProtocolRecovery"
+    },
+    "page": {
+      "$ref": "#/$defs/ProtocolPage"
+    },
+    "added": {
+      "type": "integer"
+    },
+    "board": {
+      "type": "string"
+    },
+    "changed": {
+      "type": "boolean"
+    },
+    "compare": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/TidyCompare"
+        }
+      ]
+    },
+    "copper_check": {
+      "$ref": "#/$defs/TidyCopperCheck"
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "x-fenolite-map": true,
+      "description": "Keys are supplied by named items, rather than fixed record fields."
+    },
+    "drc": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/TidyDrc"
+        }
+      ]
+    },
+    "edits": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TidyEditsItem"
+      }
+    },
+    "fills_stale": {
+      "type": "boolean"
+    },
+    "gate": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/GateSummary"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "nets": {
+      "type": "integer"
+    },
+    "removed": {
+      "type": "integer"
+    },
+    "report": {
+      "$ref": "#/$defs/TidyReport"
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "style": {
+      "$ref": "#/$defs/TidyStyle"
+    },
+    "target": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "GateDropped": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GateFinding"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "id",
+        "findings"
+      ]
+    },
+    "GateFinding": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "uuids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "type",
+        "severity",
+        "description",
+        "uuids",
+        "items"
+      ]
+    },
+    "GateSummary": {
+      "type": "object",
+      "properties": {
+        "tool_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "runs": {
+          "type": "integer"
+        },
+        "refilled": {
+          "type": "boolean"
+        },
+        "items": {
+          "type": "integer"
+        },
+        "kept": {
+          "type": "integer"
+        },
+        "dropped": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GateDropped"
+          }
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GateFinding"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "tool_version",
+        "runs",
+        "refilled",
+        "items",
+        "kept",
+        "dropped",
+        "findings"
+      ]
+    },
+    "ProtocolIssueSummary": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "by_severity": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "counts indexed by severity"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "count",
+        "by_severity"
+      ]
+    },
+    "ProtocolPage": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "next": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "limit",
+        "offset",
+        "total",
+        "next"
+      ]
+    },
+    "ProtocolPlan": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "overwrite": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "kind",
+        "bytes",
+        "sha256",
+        "overwrite"
+      ]
+    },
+    "ProtocolRecovery": {
+      "type": "object",
+      "properties": {
+        "failed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "preserved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "failed",
+        "preserved"
+      ]
+    },
+    "TidyCompare": {
+      "type": "object",
+      "properties": {
+        "board": {
+          "type": "string"
+        },
+        "counts": {
+          "$ref": "#/$defs/TidyCompareCounts"
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TidyCompareRowsItem"
+          }
+        },
+        "vias": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ViaCount"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "board",
+        "counts",
+        "rows",
+        "vias"
+      ]
+    },
+    "TidyCompareCounts": {
+      "type": "object",
+      "properties": {
+        "acute": {
+          "type": "integer"
+        },
+        "jogs": {
+          "type": "integer"
+        },
+        "joints_45": {
+          "type": "integer"
+        },
+        "joints_90": {
+          "type": "integer"
+        },
+        "other": {
+          "type": "integer"
+        },
+        "vias": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "acute",
+        "jogs",
+        "joints_45",
+        "joints_90",
+        "other",
+        "vias"
+      ]
+    },
+    "TidyCompareRowsItem": {
+      "type": "object",
+      "properties": {
+        "acute": {
+          "type": "integer"
+        },
+        "jogs": {
+          "type": "integer"
+        },
+        "joints_45": {
+          "type": "integer"
+        },
+        "joints_90": {
+          "type": "integer"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "netclass": {
+          "type": "string"
+        },
+        "other": {
+          "type": "integer"
+        },
+        "widths": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TidyCompareRowsItemWidthsItem"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "acute",
+        "jogs",
+        "joints_45",
+        "joints_90",
+        "layer",
+        "netclass",
+        "other",
+        "widths"
+      ]
+    },
+    "TidyCompareRowsItemWidthsItem": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "type": "integer"
+        },
+        "width": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "TidyCopperCheck": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": "integer"
+        },
+        "before": {
+          "type": "integer"
+        },
+        "new": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "after",
+        "before",
+        "new"
+      ]
+    },
+    "TidyDrc": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": "integer"
+        },
+        "before": {
+          "type": "integer"
+        },
+        "new": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "tool_version": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "after",
+        "before",
+        "new",
+        "tool_version"
+      ]
+    },
+    "TidyEditsItem": {
+      "type": "object",
+      "properties": {
+        "added": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "at": {
+          "$ref": "#/$defs/TidyEditsItemAt"
+        },
+        "layer": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "net": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "removed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "replaced": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "step": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "added",
+        "at",
+        "layer",
+        "net",
+        "reason",
+        "removed",
+        "replaced",
+        "step"
+      ]
+    },
+    "TidyEditsItemAt": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "integer"
+        },
+        "y": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "x",
+        "y"
+      ]
+    },
+    "TidyReport": {
+      "type": "object",
+      "properties": {
+        "counts": {
+          "$ref": "#/$defs/TidyReportCounts"
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TidyReportRowsItem"
+          }
+        },
+        "vias": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TidyReportViasItem"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "counts",
+        "rows",
+        "vias"
+      ]
+    },
+    "TidyReportCounts": {
+      "type": "object",
+      "properties": {
+        "acute": {
+          "type": "integer"
+        },
+        "jogs": {
+          "type": "integer"
+        },
+        "joints_45": {
+          "type": "integer"
+        },
+        "joints_90": {
+          "type": "integer"
+        },
+        "other": {
+          "type": "integer"
+        },
+        "vias": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "acute",
+        "jogs",
+        "joints_45",
+        "joints_90",
+        "other",
+        "vias"
+      ]
+    },
+    "TidyReportRowsItem": {
+      "type": "object",
+      "properties": {
+        "acute": {
+          "type": "integer"
+        },
+        "jogs": {
+          "type": "integer"
+        },
+        "joints_45": {
+          "type": "integer"
+        },
+        "joints_90": {
+          "type": "integer"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "netclass": {
+          "type": "string"
+        },
+        "other": {
+          "type": "integer"
+        },
+        "widths": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TidyReportRowsItemWidthsItem"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "acute",
+        "jogs",
+        "joints_45",
+        "joints_90",
+        "layer",
+        "netclass",
+        "other",
+        "widths"
+      ]
+    },
+    "TidyReportRowsItemWidthsItem": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "type": "integer"
+        },
+        "width": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "length",
+        "width"
+      ]
+    },
+    "TidyReportViasItem": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "integer"
+        },
+        "netclass": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "count",
+        "netclass"
+      ]
+    },
+    "TidyStyle": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "$ref": "#/$defs/TidyStyleAfter"
+        },
+        "before": {
+          "$ref": "#/$defs/TidyStyleBefore"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "after",
+        "before"
+      ]
+    },
+    "TidyStyleAfter": {
+      "type": "object",
+      "properties": {
+        "acute": {
+          "type": "integer"
+        },
+        "jogs": {
+          "type": "integer"
+        },
+        "joints_45": {
+          "type": "integer"
+        },
+        "joints_90": {
+          "type": "integer"
+        },
+        "other": {
+          "type": "integer"
+        },
+        "vias": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "acute",
+        "jogs",
+        "joints_45",
+        "joints_90",
+        "other",
+        "vias"
+      ]
+    },
+    "TidyStyleBefore": {
+      "type": "object",
+      "properties": {
+        "acute": {
+          "type": "integer"
+        },
+        "jogs": {
+          "type": "integer"
+        },
+        "joints_45": {
+          "type": "integer"
+        },
+        "joints_90": {
+          "type": "integer"
+        },
+        "other": {
+          "type": "integer"
+        },
+        "vias": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "acute",
+        "jogs",
+        "joints_45",
+        "joints_90",
+        "other",
+        "vias"
+      ]
+    },
+    "ViaCount": {
+      "type": "object",
+      "properties": {
+        "netclass": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "netclass",
+        "count"
+      ]
+    }
+  }
+}

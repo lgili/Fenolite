@@ -172,9 +172,8 @@ def test_every_kind_against_every_ring() -> None:
     }
     assert found[("via", "board")].gap == mm(0.7)
     assert found[("track", "cut-out 1")].gap == mm(0.9)
-    # the circle is polygonised and widened by its band: the gap is a lower bound within it
-    assert mm(0.5) - 1_001 <= found[("pad", "cut-out 2")].gap <= mm(0.5)
-    assert found[("arc", "board")].gap <= mm(0.9)
+    assert found[("pad", "cut-out 2")].gap == mm(0.5)
+    assert found[("arc", "board")].gap == mm(0.9)
     assert found[("fill", "board")].gap == mm(0.6)
     # the via spans both layers and is reported once, on the first
     assert found[("via", "board")].layer == "F.Cu"
@@ -194,8 +193,7 @@ CURVED = EdgeRing(
 @pytest.mark.parametrize(("offset_um", "fill_found"), [(0.5, False), (-2, True)])
 def test_fill_along_a_curved_edge(offset_um: float, fill_found: bool) -> None:
     """A fill 0.5 µm outside a 0.3 mm edge clearance from the top of the arc, as KiCad's filler cuts it, is
-    no finding (the arc narrowed by its band, c0171), and 2 µm inside it is one; a track as close stays a
-    finding (the arc widened by its band)."""
+    no finding, and 2 µm inside it is one; a track as close has the same exact verdict."""
     top = mm(-5) + mm(0.3) + round(offset_um * 1000)
     fill = (Point(mm(24.9), top), Point(mm(25.1), top), Point(mm(25), mm(5)))
     made = Copper()
@@ -204,7 +202,7 @@ def test_fill_along_a_curved_edge(offset_um: float, fill_found: bool) -> None:
     made.track("T", Point(mm(24.9), centre), Point(mm(25.1), centre), width=mm(0.2), layer="B.Cu")
     report = check_copper(made.build(), pads=made.pads, edges=(CURVED,), min_edge_clearance=mm(0.3))
     nets = sorted(f.items[0].net for f in edge_findings(report))
-    assert nets == (["F", "T"] if fill_found else ["T"])
+    assert nets == (["F", "T"] if fill_found else [])
 
 
 def test_copper_outside_or_inside_a_cutout_far_from_its_edge() -> None:

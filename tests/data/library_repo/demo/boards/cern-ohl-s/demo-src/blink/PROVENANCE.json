@@ -1,0 +1,90 @@
+{
+  "authors": [
+    "Demo Board Authors"
+  ],
+  "conversion": {
+    "outputs_tree": "fenolite-tree-1:d13ad9b5f27958a83f89c6e072c74ea259b6bd118164ff9df375e5a2136cd459",
+    "steps": [
+      {
+        "argv": [
+          "import",
+          "upstream/blink/blink.kicad_pro",
+          "--to",
+          "python",
+          "--out",
+          "out",
+          "--timestamp",
+          "2026-10-30T00:00:00Z",
+          "--confirm"
+        ],
+        "tool": "fenolite"
+      }
+    ],
+    "tools": [
+      {
+        "name": "fenolite",
+        "version": "0.7.0.dev0"
+      }
+    ]
+  },
+  "copyright": [
+    "Copyright 2026 Demo Board Authors"
+  ],
+  "evidence": "UNVERIFIED",
+  "featured": null,
+  "fidelity": {
+    "accepted": [
+      {
+        "attribution": "fenolite",
+        "decided": "2026-10-30",
+        "field": "graphic",
+        "id": "A001",
+        "kind": "graphic-missing",
+        "level": 7,
+        "reason": "fixture: the outline stroke width",
+        "where": "board:Edge.Cuts:*"
+      }
+    ],
+    "proof": {
+      "date": "2026-10-30T00:00:00Z",
+      "fenolite": "0.7.0.dev0",
+      "levels": {
+        "1": "equal",
+        "2": "equal",
+        "7": "accepted",
+        "S": "skipped"
+      },
+      "skipped": {
+        "S": "drawn-unavailable"
+      }
+    }
+  },
+  "id": "demo-src/blink",
+  "import": {
+    "inputs": [],
+    "licence": "CERN-OHL-S-2.0",
+    "schema": "fenolite.import-provenance.v0"
+  },
+  "kind": "board",
+  "licence_text_sha256": "f0e5d45f324ac8d98e4024429824b7041643ff633159c2d1e93280196ad2e142",
+  "modification_notice": "2026-10-30: converted to the Fenolite DSL by Fenolite 0.7.0.dev0 (fenolite import --to python); format change only",
+  "origin": "converted",
+  "schema": "fenolite.provenance.v0",
+  "sources": null,
+  "spdx": "CERN-OHL-S-2.0",
+  "trademarks": {
+    "marks": [],
+    "note": "",
+    "restricted": false
+  },
+  "upstream": {
+    "archive_sha256": null,
+    "commit": "1111111111111111111111111111111111111111",
+    "path": "blink",
+    "retrieved": "2026-10-30",
+    "source_location": "https://example.org/demo-src/tree/1111111111111111111111111111111111111111/blink",
+    "spdx_expression": "CERN-OHL-S-2.0",
+    "url": "https://example.org/demo-src"
+  },
+  "version": "1.0.0"
+}

@@ -26,12 +26,12 @@ import importlib
 import importlib.util
 import io
 import tokenize
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from typing import Literal, cast
 
-from fenolite.backends.base import MatrixRow
+from fenolite.backends.base import MatrixRow, VersionEvidence
 from fenolite.core.evidence import Evidence, Level
 
 ROOT_PACKAGE = "fenolite.backends"
@@ -76,6 +76,50 @@ class ModuleClaim:
     constants: tuple[tuple[str, Evidence], ...] = ()
     see: tuple[str, ...] = ()
     none: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class ConformanceRow:
+    """One supported operation/version scope; null version/tool/source means no recorded scope."""
+
+    backend: str
+    kind: str
+    operation: str
+    version: str | None
+    tool: str | None
+    level: str
+    source: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class Conformance:
+    schema: Literal["fenolite.conformance.v1"]
+    rows: tuple[ConformanceRow, ...]
+
+
+def conformance(rows: Sequence[MatrixRow]) -> Conformance:
+    """A stable wire snapshot of existing scopes, without I/O, new tests or level promotion."""
+    entries: list[ConformanceRow] = []
+    for row in sorted(rows, key=lambda value: (value.backend, value.kind)):
+        for operation, cell in row.cells():
+            scopes = row.versions.get(operation, ())
+            entries.extend(
+                ConformanceRow(
+                    row.backend,
+                    row.kind,
+                    operation,
+                    scope.version,
+                    scope.tool,
+                    scope.level.value,
+                    scope.source,
+                )
+                for scope in scopes
+            )
+            if not scopes:
+                entries.append(
+                    ConformanceRow(row.backend, row.kind, operation, None, None, cell.label(), None)
+                )
+    return Conformance("fenolite.conformance.v1", tuple(entries))
 
 
 @dataclass(frozen=True, slots=True)
@@ -314,6 +358,7 @@ def _row_problems(package: str) -> list[str]:
         if row.kind in kinds:
             problems.append(f"{where}: the kind is listed twice")
         kinds.add(row.kind)
+        problems.extend(f"{where}: {problem}" for problem in row.version_problems())
         for operation, cell in row.cells():
             if cell.level is Level.INFERRED and not cell.hypotheses:
                 problems.append(f"{where}: {operation} is INFERRED and names no hypothesis")
@@ -374,13 +419,17 @@ def failure_text(found: Iterable[str]) -> str:
 
 
 __all__ = [
+    "Conformance",
+    "ConformanceRow",
     "HELP",
     "PAGE",
     "REGENERATE",
     "ModuleClaim",
     "failure_text",
+    "conformance",
     "module_claims",
     "packages",
     "problems",
+    "VersionEvidence",
     "rows",
 ]

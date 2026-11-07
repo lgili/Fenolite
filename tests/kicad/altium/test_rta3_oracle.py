@@ -50,4 +50,4 @@ def test_corpus_rewrite_is_read_by_kicad(row: str, capsys: pytest.CaptureFixture
     assert found.levels[-1].level == 5 and all(level.compared > 0 for level in found.levels)
     assert found.differences == (), [(d.level, d.kind, d.where) for d in found.differences][:10]
     known = {rule.id for rule in profile_for(rewrite_sides(source, row).version).rules}
-    assert {excluded.rule for excluded in found.excluded} <= known
+    assert {excluded.rule_id for excluded in found.excluded} <= known

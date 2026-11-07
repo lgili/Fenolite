@@ -67,6 +67,8 @@ def write_prjpcb(
     harnesses: Sequence[str] = (),
     net_classes: bool = False,
     outjob: str | None = None,
+    draftsman: str | None = None,
+    parameters: Sequence[tuple[str, str]] = (),
 ) -> bytes:
     """``[Design]``, ``Version=1.0``, an empty line, ``[Document1]`` and ``DocumentPath=<schematic>``; then,
     each after an empty line as ``[Document<i>]`` and ``DocumentPath=<file>``, numbered from 2: each module
@@ -102,6 +104,8 @@ def write_prjpcb(
     documents = [_file_name(pcb, "PCB document")] if pcb is not None else []
     if outjob is not None:
         documents.append(_file_name(outjob, "output job"))
+    if draftsman is not None:
+        documents.append(_file_name(draftsman, "Draftsman document"))
     documents += [_file_name(library, "library") for library in sorted(libraries, key=name_key)]
     documents += [_file_name(harness, "harness") for harness in sorted(harnesses, key=name_key)]
     for index, document in enumerate([*schematics, *documents], start=2):
@@ -110,6 +114,13 @@ def write_prjpcb(
             lines += sheet_keys
     if net_classes:
         lines += ["", f"[{CLASS_SECTION}]", *(f"{key}={value}" for key, value in CLASS_GENERATION)]
+    for index, (name, value) in enumerate(parameters, start=1):
+        for text in (name, value):
+            if text_problem(text) is not None or "\r" in text or "\n" in text:
+                raise ValueError("project parameters must be one-line 7-bit text")
+        if not name or "=" in name:
+            raise ValueError("project parameter names must be non-empty and contain no equals sign")
+        lines += ["", f"[Parameter{index}]", f"Name={name}", f"Value={value}"]
     return b"".join(line.encode("ascii") + LINE_END for line in lines)
 
 

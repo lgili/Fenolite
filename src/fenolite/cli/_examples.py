@@ -30,6 +30,9 @@ EXAMPLE_TIDY = str(Path(fenolite.__file__).resolve().parents[2] / "tests/data/ki
 """The copper-tidy bench of ``tests/_tidybench.py`` written for KiCad 10: a routed net with a stub, a dead
 lead with its via and a right angle (``fenolite tidy``). A test keeps it equal to a fresh write."""
 
+EXAMPLE_LIBRARY = str(Path(fenolite.__file__).resolve().parents[2] / "tests/data/library_repo/demo")
+"""The authored demo library of change c0279 (``fenolite get --list --from``, ``fenolite library audit``)."""
+
 EXAMPLE_SCHEMATIC = str(
     Path(fenolite.__file__).resolve().parents[2] / "tests/data/kicad/schematic/flat.kicad_sch"
 )
@@ -45,8 +48,17 @@ EXAMPLE_READY = str(Path(fenolite.__file__).resolve().parents[2] / "tests/data/k
 EXAMPLE_SCRIPT = str(Path(fenolite.__file__).resolve().parents[2] / "tests/data/slots/design.py")
 """A committed design script: ``fenolite edit`` with its own text as the content plans nothing."""
 
+EXAMPLE_PICKS = str(Path(fenolite.__file__).resolve().parents[2] / "examples/picks")
+"""The parametric-pick example (change c0254) with its committed design lock: ``fenolite pick`` lists it."""
+
+EXAMPLE_FAMILIES = str(Path(fenolite.__file__).resolve().parents[2] / "examples/families")
+"""The grammar-family example (change c0263): illustrative ``fenolite.family.v1`` files in ``devices/`` beside
+a design script that picks exact MPNs from them (``fenolite family``)."""
+
 __all__ = [
     "EXAMPLE_BOARD",
+    "EXAMPLE_FAMILIES",
+    "EXAMPLE_PICKS",
     "EXAMPLE_SCRIPT",
     "EXAMPLE_PARITY",
     "EXAMPLE_READY",

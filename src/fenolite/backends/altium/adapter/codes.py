@@ -44,6 +44,7 @@ IMPORT_ISSUE_CODES: dict[str, Severity] = {
     "altium.import.inexact": "info",
     "altium.import.multi-class": "info",
     "altium.import.zone-arc": "info",
+    "altium.import.cutout-notch": "info",
     "altium.import.copper-shape": "info",
     "altium.import.scope": "info",
     "altium.import.option-ignored": "info",
@@ -53,6 +54,7 @@ IMPORT_ISSUE_CODES: dict[str, Severity] = {
     "altium.import.extra-board": "info",
     "altium.import.linked-by-designator": "info",
     "altium.import.pcb-only-net": "info",
+    "altium.import.pcb-net-conflict": "warning",
     "altium.import.rule-unmapped": "info",
     "altium.import.unmapped": "info",
 }
@@ -62,6 +64,11 @@ IMPORT_ISSUE_CODES: dict[str, Severity] = {
 def issue(code: str, message: str, where: str = "", hint: str = "") -> Issue:
     """An issue of the adapter; ``KeyError`` for a code outside the table."""
     return Issue(code, IMPORT_ISSUE_CODES[code], message, where, hint)
+
+
+CATEGORY_HINTS: dict[str, str] = {}
+"""The hint of ``altium.import.unmapped`` for a category that needs one (change c0410); none since the
+footprint keep-outs of c0410 became rule areas of the footprint (change c0411)."""
 
 
 class Census:
@@ -114,7 +121,10 @@ class Census:
         categories = self.categories()
         if categories:
             listed = ", ".join(f"{name} {count}" for name, count in categories.items())
-            out.append(issue("altium.import.unmapped", f"records without a model entity: {listed}", where))
+            hint = " ".join(text for name, text in CATEGORY_HINTS.items() if name in categories)
+            out.append(
+                issue("altium.import.unmapped", f"records without a model entity: {listed}", where, hint)
+            )
         return out
 
 

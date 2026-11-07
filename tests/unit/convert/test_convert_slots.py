@@ -12,6 +12,7 @@ edges are four rings of ``Edge.Cuts`` graphics: the board and three inner rings,
 from __future__ import annotations
 
 import dataclasses
+import math
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -69,6 +70,7 @@ BOX = [(0, 0), (60, 0), (60, 40), (0, 40)]
 def test_altium_fixture_with_the_gate_off(monkeypatch: pytest.MonkeyPatch) -> None:
     """Scenario "Fixture to Altium", the gate off: three rings lost with the gate's reason, none under
     ``outline``, and no region in the document."""
+    monkeypatch.setattr(pcbdoc, "CUTOUT_REGIONS", False)
     read_as(monkeypatch, _fixture())
     conversion = convert_project("slots.kicad_pcb", to="altium")
     report = conversion.report
@@ -150,9 +152,11 @@ def test_altium_overlap_without_a_union_is_lost(monkeypatch: pytest.MonkeyPatch)
     assert [(r.reason, r.ids) for r in row.reasons] == [(cutouts.NO_UNION, ("cutout/1+cutout/2",))]
 
 
-def test_altium_board_ring_arcs_as_today(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The board ring of the edges is written as before: an arc as two straight edges, counted under
-    ``outline`` by the id of its graphic; no edge is "outside the first ring" any more."""
+def test_altium_board_ring_keeps_its_arc(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The board ring of the edges keeps its arc (change c0441): the document's outline holds the arc as
+    one arc vertex through the same three points, and nothing is counted under ``outline``. Before, the
+    arc was written as two straight edges through its mid."""
+    monkeypatch.setattr(pcbdoc, "CUTOUT_REGIONS", False)
     arc = Graphic(
         id=derived_id("gfx", "test", "arc"),
         kind="arc",
@@ -164,11 +168,15 @@ def test_altium_board_ring_arcs_as_today(monkeypatch: pytest.MonkeyPatch) -> Non
     read_as(monkeypatch, design)
     conversion = convert_project("slots.kicad_pcb", to="altium")
     row = conversion.report.row("outline")
-    assert row is not None and [(r.reason, r.ids) for r in row.reasons] == [(lower.OUTLINE_ARC, (arc.id,))]
+    assert row is None or row.lost == 0
     cutout = conversion.report.row("cutout")
     assert cutout is not None and (cutout.source, cutout.lost) == (1, 1)
     outline = read_pcbdoc(conversion.files[conversion.read_back]).board.outline
-    assert len({(round(v.x), round(v.y)) for v in outline}) == 5  # four corners and the arc's mid
+    corners = {(round(v.x), round(v.y)) for v in outline}
+    assert len(corners) == 4  # four corners; the arc's mid is no vertex
+    arcs = [v for v in outline if v.kind != 0]
+    assert len(arcs) == 1 and round(arcs[0].radius * 254 / 100 / MM) == 50  # 2.54 nm units
+    assert arcs[0].end_angle - arcs[0].start_angle == pytest.approx(2 * math.degrees(math.atan2(30, 40)))
 
 
 # --- Altium to KiCad -----------------------------------------------------------------------------------
@@ -219,7 +227,8 @@ def test_kicad_overlapping_cutouts_are_merged(tmp_path: Path) -> None:
     assert "lib/Fenolite_Holes.pretty/NPTH_Slot_1x3mm.kicad_mod" in conversion.files
     assert b'(name "Fenolite_Holes")' in conversion.files["fp-lib-table"]
     holes = conversion.report.row("hole")
-    assert holes is not None and (holes.source, holes.written, holes.changed, holes.lost) == (1, 1, 0, 0)
+    # change c0420: the hole is written as a footprint, changed, not as itself (to_kicad.HOLE_REASON)
+    assert holes is not None and (holes.source, holes.written, holes.changed, holes.lost) == (1, 0, 1, 0)
 
 
 def test_kicad_overlap_without_a_union_is_refused(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -353,6 +362,34 @@ def test_holes_a_plated_hole_is_changed(monkeypatch: pytest.MonkeyPatch) -> None
     assert (pad.number, pad.kind, pad.net_id) == ("1", "thru_hole", None)
 
 
+def test_holes_an_unplated_hole_is_changed() -> None:
+    """Change c0420: an unplated board hole, written as the unnumbered pad of a board-only footprint
+    ``NPTH_…`` because KiCad holds no free hole, is counted changed with ``HOLE_REASON``, never silently."""
+    from fenolite.backends.altium.adapter import import_board
+    from fenolite.backends.altium.read.pcb import read_pcbdoc as read_document
+    from fenolite.convert import to_kicad
+    from fenolite.convert.direction import Options
+    from fenolite.convert.sources import SourceProject
+
+    imported = import_board(read_document(SLOTS_ALTIUM.read_bytes()), file=SLOTS_ALTIUM.name, sha256="0" * 64)
+    assert imported.board is not None
+    holes = imported.board.holes
+    assert holes and not any(h.plated for h in holes)
+    source = SourceProject(
+        given=SLOTS_ALTIUM,
+        path=SLOTS_ALTIUM,
+        root=SLOTS_ALTIUM.parent,
+        backend="altium",
+        kind="pcbdoc",
+        design=imported,
+    )
+    row = to_kicad.write_altium(source, Options(kicad_version=10)).report.row("hole")
+    assert row is not None and (row.source, row.changed) == (len(holes), len(holes))
+    assert [(r.reason, sorted(r.ids)) for r in row.reasons] == [
+        (to_kicad.HOLE_REASON, sorted(h.id for h in holes))
+    ]
+
+
 def test_holes_metric_takes_a_length_to_the_micrometre_the_document_holds() -> None:
     from fenolite.backends.altium.pcbrecords import to_units
     from fenolite.convert.to_kicad import metric
@@ -403,8 +440,8 @@ def test_verify_a_dropped_ring_is_a_difference(monkeypatch: pytest.MonkeyPatch, 
     monkeypatch.setattr(pcbdoc, "CUTOUT_REGIONS", True)
     original = lower._cutouts  # pyright: ignore[reportPrivateUsage]
 
-    def dropping(outline: object, account: object) -> tuple[tuple[Point, ...], ...]:
-        return original(outline, account)[1:]  # type: ignore[arg-type]
+    def dropping(outline: object, account: object, *owned: object) -> tuple[tuple[Point, ...], ...]:
+        return original(outline, account, *owned)[1:]  # type: ignore[arg-type]
 
     monkeypatch.setattr(lower, "_cutouts", dropping)
     read_as(monkeypatch, _fixture())
@@ -427,6 +464,7 @@ def test_verify_rings_that_the_report_explains(monkeypatch: pytest.MonkeyPatch) 
     and nothing is unexplained. With the gate on every ring comes back within 1 µm plus the chord."""
     from fenolite.api import convert
 
+    monkeypatch.setattr(pcbdoc, "CUTOUT_REGIONS", False)
     read_as(monkeypatch, _fixture())
     result = convert("slots.kicad_pcb", to="altium")
     rings = [(e.difference.where, e.kind) for e in result.explained if e.difference.kind == "edge-ring"]

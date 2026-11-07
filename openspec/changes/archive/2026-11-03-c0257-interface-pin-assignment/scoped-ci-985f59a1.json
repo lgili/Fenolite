@@ -1,0 +1,189 @@
+{
+  "schema": "fenolite.scoped-cac-closure.v1",
+  "spec": "c0257-interface-pin-assignment",
+  "tested_implementation": "985f59a1d01a612b2eac0219243199896c24075a",
+  "scope_decision": "The maintainer clarified that problematic c0332 geometry was already excluded from this closure CI batch before the run. Its27known failures remain DEFERRED_NOT_PASSED; explicitly contracted skips remain skips.",
+  "CI_run": 41708879698,
+  "whole_workflow_result": "failure",
+  "KiCad10_job_result": "failure",
+  "global_success_claimed": false,
+  "later_CAC_runtime_validated": false,
+  "c0355_and_later_integration_CI_closed": false,
+  "successful_required_jobs": [
+    {
+      "id": 126171394269,
+      "name": "unit (windows-latest, py3.12)",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394428,
+      "name": "unit (ubuntu-latest, py3.12)",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394460,
+      "name": "unit (macos-latest, py3.12)",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394556,
+      "name": "unit (ubuntu-latest, py3.11)",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394700,
+      "name": "unit (ubuntu-latest, py3.13)",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394740,
+      "name": "kicad-9 (kicad-cli 9.0 oracle)",
+      "conclusion": "success"
+    }
+  ],
+  "native_proofs": [],
+  "KiCad10_proof_method": "No additional native result needed for the own hermetic requirement checks; five complete successful unit jobs cover source985. No per-unit nominal PASSED lines fabricated.",
+  "log_bindings": {
+    "20261103T214312Z-metadata.json": {
+      "bytes": 36593,
+      "sha256": "cd7a28fbc69631a6f3613865fba28f4879ab79efcf2d6c6a2e2cc82879da73fe"
+    },
+    "kicad9-126171394740-completed.log": {
+      "bytes": 1951631,
+      "sha256": "3ac138d8cafad5c225d11d9bd22774c872f9369925c7d892d271be0401ab8d94"
+    },
+    "126171394674/logs.raw": {
+      "bytes": 368635,
+      "sha256": "014e4eb36c889f4848842d7abf57462ab6da185e2b8fcf5b28ddbb9334d1a68b"
+    }
+  },
+  "fast_proof": {
+    "source": "2c0540572c936303eb5c46a25002872648dfabad",
+    "receipt": "c0319-integration-repairs/fast13-receipt.json",
+    "receipt_sha256": "6b7c348011a8bafe24cc532e5ce74d505addecfd1dc3d56dba9f35bb80628a8e",
+    "command": "make check-fast PYTEST_MAX_WORKERS=2",
+    "exit": 0,
+    "log_sha256": "3e74d627e77139979c42ba6ca13e53344a23b8416aff252e747e34d56286abfe",
+    "tested_runtime_tests_tools_config_equal_to_985": true,
+    "rerun": false
+  },
+  "closed_remaining_tasks": [
+    "6.1"
+  ],
+  "authorized_normative_rebase": null,
+  "existing_supporting_records": [],
+  "limitations": [
+    "Original RED, incomplete, native skip and geometry-failure observations remain historical evidence.",
+    "No library item/catalog audit, review, publication, Altium evidence graduation, CAD quality or release gate is closed here.",
+    "Runtime/tests/tools/configuration in the isolated archive equal985; later root runtime remains separately pending."
+  ],
+  "native_skip_contracts": {},
+  "five_successful_unit_job_proofs": [
+    {
+      "id": 126171394269,
+      "name": "unit (windows-latest, py3.12)",
+      "conclusion": "success",
+      "log_sha256": "66577fb85d4e4bbba9cc0406a091c0913d58e15b788cc8cc48cc1efa0738776b",
+      "summary": [
+        {
+          "line": 819,
+          "text": "2026-11-03T20:49:03.4179020Z 22457 passed, 4369 skipped, 1 warning in 2641.31s (0:44:01)"
+        }
+      ],
+      "command": [
+        {
+          "line": 285,
+          "text": "2026-11-03T20:05:00.7988310Z ##[group]Run uv run pytest -q -n auto --dist loadfile"
+        }
+      ],
+      "proof_method": "whole-successful-job-with-source-bound-pure-test-collection; no per-node PASSED lines fabricated"
+    },
+    {
+      "id": 126171394428,
+      "name": "unit (ubuntu-latest, py3.12)",
+      "conclusion": "success",
+      "log_sha256": "b50f6945d687cfa3616baa6fe310bb2974cbc4c01c8d861dce98e89e34c0dfce",
+      "summary": [
+        {
+          "line": 691,
+          "text": "2026-11-03T20:59:38.4082416Z 22582 passed, 4244 skipped in 3263.76s (0:54:23)"
+        }
+      ],
+      "command": [
+        {
+          "line": 282,
+          "text": "2026-11-03T20:05:13.7475609Z ##[group]Run uv run pytest -q -n auto --dist loadfile"
+        }
+      ],
+      "proof_method": "whole-successful-job-with-source-bound-pure-test-collection; no per-node PASSED lines fabricated"
+    },
+    {
+      "id": 126171394460,
+      "name": "unit (macos-latest, py3.12)",
+      "conclusion": "success",
+      "log_sha256": "fbfc36d8e3b8bb3828397351111f9d60b6e04cb30e409565ac16f4b15bcd3343",
+      "summary": [
+        {
+          "line": 300,
+          "text": "2026-11-03T20:05:57.5239070Z 1 passed in 16.56s"
+        },
+        {
+          "line": 711,
+          "text": "2026-11-03T20:51:38.0311310Z 22581 passed, 4245 skipped in 2739.27s (0:45:39)"
+        }
+      ],
+      "command": [
+        {
+          "line": 301,
+          "text": "2026-11-03T20:05:57.8481320Z ##[group]Run uv run pytest -q -n auto --dist loadfile"
+        }
+      ],
+      "proof_method": "whole-successful-job-with-source-bound-pure-test-collection; no per-node PASSED lines fabricated"
+    },
+    {
+      "id": 126171394556,
+      "name": "unit (ubuntu-latest, py3.11)",
+      "conclusion": "success",
+      "log_sha256": "2d6914cb144ab302881fb4c6f5b985f78168c151cce4c6cc398f1a9c7d899a0b",
+      "summary": [
+        {
+          "line": 648,
+          "text": "2026-11-03T21:05:28.6766268Z 22582 passed, 4244 skipped in 3630.70s (1:00:30)"
+        }
+      ],
+      "command": [
+        {
+          "line": 239,
+          "text": "2026-11-03T20:04:57.1663810Z ##[group]Run uv run pytest -q -n auto --dist loadfile"
+        }
+      ],
+      "proof_method": "whole-successful-job-with-source-bound-pure-test-collection; no per-node PASSED lines fabricated"
+    },
+    {
+      "id": 126171394700,
+      "name": "unit (ubuntu-latest, py3.13)",
+      "conclusion": "success",
+      "log_sha256": "2eb025a6dadcb6612d56eb0c52d6758c0c84ff03f441c2d7d52cbb00f91016fa",
+      "summary": [
+        {
+          "line": 648,
+          "text": "2026-11-03T20:42:06.8479027Z 22582 passed, 4244 skipped in 2235.41s (0:37:15)"
+        }
+      ],
+      "command": [
+        {
+          "line": 239,
+          "text": "2026-11-03T20:04:50.5879164Z ##[group]Run uv run pytest -q -n auto --dist loadfile"
+        }
+      ],
+      "proof_method": "whole-successful-job-with-source-bound-pure-test-collection; no per-node PASSED lines fabricated"
+    }
+  ],
+  "entry_refresh_archived_prerequisites": [
+    "c0248-device-catalog",
+    "c0249-design-lock",
+    "c0251-circuit-blocks",
+    "c0252-parametric-interfaces"
+  ],
+  "native10_selected_pass_inference_excludes_contracted_skips": true
+}

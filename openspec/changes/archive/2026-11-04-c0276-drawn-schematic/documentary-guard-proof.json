@@ -1,0 +1,57 @@
+{
+  "7.1_and_9.2_open": true,
+  "archive_lookup": {
+    "RED_log_sha256": "7abf88889edb0760946b0b66c1e3c343aac2d87ff41f71bcccf57a07c9bc0a58",
+    "active_plus_archive_refused": true,
+    "active_valid": true,
+    "missing_active_and_archive_refused": true,
+    "multiple_archives_refused": true,
+    "positive_locations_validated_with_complete_unchanged_receipt": true,
+    "real_spec_moved": false,
+    "single_archive_valid": true
+  },
+  "base": "9bd7493f6a8b425907b6ff3a9da609c0f85f101e",
+  "command": [
+    "uv",
+    "run",
+    "--frozen",
+    "pytest",
+    "tests/unit/test_drawn_census.py",
+    "tests/unit/test_drawn_context_evidence.py",
+    "-q"
+  ],
+  "exit": 0,
+  "fast_run_claimed": false,
+  "focused_log_sha256": "c0f5fe6b53229534fcf07592d985dbe582388ef878ee8e08e9088698a778f6d9",
+  "future_task_scope": {
+    "all_seven_scope_promotions_refused": true,
+    "closed_future_7.1_9.2_in_temporary_archived_copy_allowed": true,
+    "real_task_checkboxes_unchanged": true,
+    "unchanged_source985_receipt_does_not_approve_them": true
+  },
+  "historical_92_contexts_41_refusals_21_naming_warnings_unchanged": true,
+  "historical_asserts": [
+    {
+      "all_original_assert_ASTs_preserved": 17,
+      "function": "test_observations_preserve_history_and_bind_every_declared_input"
+    },
+    {
+      "all_original_assert_ASTs_preserved": 11,
+      "function": "test_context_maps_retain_all_instances_refusals_and_names_without_cad_payload"
+    }
+  ],
+  "historical_failed_observations_and_absent_receipt_rejected": true,
+  "native_or_corpus_or_CI_runs": 0,
+  "negative_cases": 24,
+  "new_RED_log_sha256": "8910aadd97ffdd7ce98ebbdf87f99ed59015d899c3f66cce24393db26bd967e0",
+  "pre_amend_checkpoint": {
+    "commit": "f4e897746f2c9bc24eb66228327aaf669395bdbe",
+    "preserved_patch_sha256": "8b3f910cec9af798e1429101bb654d91877d184e7163e463f8c810ffce1f3cc4"
+  },
+  "record_and_receipt_bytes_unchanged": true,
+  "result": "54 passed",
+  "schema": 1,
+  "scope": "Documentary guard/tests only; no runtime, measurement, aggregate, CI or baseline change",
+  "semantic_catalog_controls_rehash_tampered_catalog_entries": true,
+  "task": "c0276.7.2a"
+}

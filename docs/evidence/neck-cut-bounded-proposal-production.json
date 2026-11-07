@@ -1,0 +1,76 @@
+{
+  "base_commit": "a78651a63a00af1ece1715c983eaad269b000c24",
+  "candidate_files_sha256": {
+    "src/fenolite/geometry/boolean/_exact_noding.py": "524b3918b2238468bb9490aea410b11f9634023d40dbd953dcec861f01a19016",
+    "src/fenolite/geometry/boolean/_exact_repair.py": "409e28adbe000f2cac7cbf8e35840eb5500dcfe918b23cd9979f267cb404a629",
+    "tests/unit/geometry/test_exact_repair.py": "ba5e5a8011b11dbf1b4e1a57cd42bba72353455aae7e7ffb96b0edaba692086d"
+  },
+  "command": [
+    "-m",
+    "pytest",
+    "tests/unit/backends/altium/test_lower.py::test_own_document_is_written_from_its_model[board6/board6.PcbDoc]",
+    "tests/unit/backends/altium/test_lower_items.py::test_own_document_keeps_its_silkscreen[board6/board6.PcbDoc]",
+    "tests/unit/cli/test_build_altium_script_copper.py::test_role_copper_built_for_altium",
+    "tests/unit/roles/test_copper_backends.py::test_same_copper_from_both_builds[buck_shunt-good]",
+    "tests/unit/roles/test_copper_backends.py::test_same_copper_from_both_builds[buck_shunt-bad]",
+    "tests/unit/roles/test_copper_backends.py::test_same_copper_from_both_builds[half_bridge-good]",
+    "tests/unit/roles/test_copper_backends.py::test_same_copper_from_both_builds[half_bridge-bad]",
+    "tests/unit/roles/test_copper_backends.py::test_same_copper_from_both_builds[bms-good]",
+    "tests/unit/roles/test_copper_backends.py::test_same_copper_from_both_builds[bms-bad]",
+    "tests/unit/roles/test_proposal_reference.py::test_altium_readback[bms-bad]",
+    "tests/unit/roles/test_proposal_reference.py::test_altium_readback[bms-good]",
+    "tests/unit/roles/test_proposal_reference.py::test_altium_readback[buck_shunt-bad]",
+    "tests/unit/roles/test_proposal_reference.py::test_altium_readback[buck_shunt-good]",
+    "tests/unit/roles/test_proposal_reference.py::test_altium_readback[half_bridge-bad]",
+    "tests/unit/roles/test_proposal_reference.py::test_altium_readback[half_bridge-good]",
+    "tests/unit/backends/altium/test_part_s.py::test_part_s_kit",
+    "tests/unit/backends/altium/test_part_g.py::test_part_g_files",
+    "tests/unit/backends/altium/test_pour_compare.py",
+    "tests/unit/backends/altium/test_pour_engine.py",
+    "tests/unit/backends/altium/test_pour_inputs.py",
+    "tests/unit/backends/altium/test_pour_modes.py",
+    "tests/unit/backends/altium/test_pour_refusal.py",
+    "tests/unit/backends/altium/test_pour_regions.py",
+    "tests/unit/backends/altium/test_pour_rewrite.py",
+    "tests/unit/backends/altium/test_pour_rules.py",
+    "tests/unit/backends/altium/test_certified_neck_cut.py",
+    "tests/unit/backends/altium/test_pcbdoc_copper.py",
+    "tests/unit/test_build_bytes.py",
+    "tests/unit/test_build_geometry_trace.py",
+    "tests/unit/test_build_byte_diagnostics.py",
+    "-q",
+    "-n",
+    "2",
+    "--dist",
+    "loadfile"
+  ],
+  "complete_plans": {
+    "driver_sha256": "73532482052b9c7a9cbbdc272f4c8a0b8945dd75cb0641ec7adb7620fc3893df",
+    "files": 1172,
+    "map_sha256": "07e2b85c3001ba98e0f0d694eb73d93f6330534785ecb314465ef3f9f231c4c6",
+    "matches_prior_integrated_map": true,
+    "rows": 75,
+    "unchanged_refusals": 10
+  },
+  "driver_sha256": "3a6316d6b34b15c18394eb3c6ce079e386d05720ebab527b4eb6c5c9b3ef5c52",
+  "full_fast_pending": true,
+  "geometry_tests": {
+    "passed": 75,
+    "seconds": 0.73
+  },
+  "log_sha256": "0ad2da2eb4a10fcdcecd2b43284e64ec7aa56de169d597b7000368c7c65cb3d4",
+  "observed_tests": {
+    "failed": 2,
+    "passed": 181,
+    "seconds": 525.81
+  },
+  "pytest_exit": 1,
+  "remaining_failed_tests": [
+    "tests/unit/roles/test_copper_backends.py::test_same_copper_from_both_builds[buck_shunt-bad]",
+    "tests/unit/roles/test_proposal_reference.py::test_altium_readback[buck_shunt-bad]"
+  ],
+  "remaining_reason": "cleanup loses projected boundary points",
+  "schema": "fenolite.bounded-proposal-production-tests.v0",
+  "seconds": 526.6570172919892,
+  "source_binding": "base plus exact candidate file hashes"
+}

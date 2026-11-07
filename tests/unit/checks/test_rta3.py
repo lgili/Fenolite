@@ -60,8 +60,9 @@ def test_scope_and_evidence() -> None:
     assert Evidence.combine(EVIDENCE_RT_A3, import_evidence.EVIDENCE).level is Level.INFERRED
     assert AltiumBackend().stage_evidence()["roundtrip.rta3"] is EVIDENCE_RT_A3
     assert isinstance(AltiumBackend(), ModelWriter)
-    assert OPT_IN_DOCUMENT_STAGES == ("roundtrip.rta3",) and "roundtrip.rta3" not in DOCUMENT_STAGES
-    assert ALL_DOCUMENT_STAGES == (*DOCUMENT_STAGES, "roundtrip.rta3")
+    assert OPT_IN_DOCUMENT_STAGES == ("roundtrip.rta3", "altium.integrity")
+    assert "roundtrip.rta3" not in DOCUMENT_STAGES
+    assert ALL_DOCUMENT_STAGES == (*DOCUMENT_STAGES, *OPT_IN_DOCUMENT_STAGES)
 
 
 @pytest.mark.parametrize("sample", ["blink", "routed", "board6"])
@@ -160,16 +161,12 @@ def test_rta3_module_touches_no_file() -> None:
             name = node.func.id if isinstance(node.func, ast.Name) else getattr(node.func, "attr", "")
             assert name not in {"open", "read_bytes", "write_bytes", "write_text", "exec", "eval"}, name
     assert not imported & {"pathlib", "os", "subprocess", "io", "tempfile", "shutil"}
+    # change c0433 dropped the view of detached pads, and the imports it needed
     assert {name for name in imported if name.startswith("fenolite.")} == {
         "fenolite.backends.altium.import_evidence",
         "fenolite.backends.altium.lower",
-        "fenolite.backends.altium.pcbrecords",
         "fenolite.backends.altium.roundtrip",
         "fenolite.backends.base",
         "fenolite.core.evidence",
-        "fenolite.core.coords",
-        "fenolite.geometry.transform",
-        "fenolite.model.board",
-        "fenolite.model.circuit",
         "fenolite.model.design",
     }

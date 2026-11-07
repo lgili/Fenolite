@@ -1,0 +1,33 @@
+# Design lock written by fenolite build. Review changes in git; hand edits are honoured.
+schema = "fenolite.lock.v0"
+design = "families_demo"
+
+[refs]
+"C_in" = "C1"
+"J1" = "J1"
+"R_led" = "R1"
+"R_top" = "R2"
+
+[picks."C_in"]
+"query" = "capacitor(100nF, rating>=25V, case=0603, dielectric=X7R)"
+"device" = "Example:EX_MLCC@EX03R104KAT"
+"row" = "Example:EX_MLCC"
+"catalog" = "project:devices/example_mlcc.toml"
+"sha256" = "16fefdb6867c503129f62d214bd664c3c4de161557369d679ce77b99677daaae"
+"by" = "query"
+
+[picks."R_led"]
+"query" = "resistor(4.7kΩ, tolerance<=5%, case=1206)"
+"device" = "Example:EX_MF_R@EXM-4K7J"
+"row" = "Example:EX_MF_R"
+"catalog" = "project:devices/example_film_r.toml"
+"sha256" = "90f04fd8bad181918fcd372d1081b6cd16ef6003eaa9db3ee9a3c581b981466e"
+"by" = "query"
+
+[picks."R_top"]
+"query" = "resistor(10kΩ, tolerance<=1%, case=0603)"
+"device" = "Example:EX_CHIP_R@EXR06F1002T"
+"row" = "Example:EX_CHIP_R"
+"catalog" = "project:devices/example_chip_r.toml"
+"sha256" = "5518473611265eabe675697497ed80f803197ba3e1c8f46d0913b932faa0f8c0"
+"by" = "query"

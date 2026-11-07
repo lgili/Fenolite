@@ -333,3 +333,28 @@ def test_anchor_error_refuses_the_altium_build(monkeypatch: pytest.MonkeyPatch, 
     result = envelope["result"]
     assert result["copper"] is None and result["pcb_document"] is None and result["files"] == []
     assert not result.get("plan") and not routed.out.exists()
+
+
+def test_role_copper_built_for_altium(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Role copper built for Altium" (change c0243): the role copper of the buck reference
+    script reaches the Altium build through the in-memory KiCad build, with the zones that the KiCad build
+    of the same script plans, and no ``kicad.generate.altium``."""
+    script = ROOT / "examples" / "roles" / "buck_shunt" / "good_roles.py"
+
+    def run(out: Path, *flags: str) -> tuple[int, dict[str, Any]]:
+        stdout = io.StringIO()
+        monkeypatch.setattr("sys.stdout", stdout)
+        monkeypatch.setattr("sys.stderr", io.StringIO())
+        code = cli_main.main(["build", str(script), "--out", str(out), *flags, "--dry-run", "--json"])
+        return code, json.loads(stdout.getvalue() or "{}")
+
+    code, kicad = run(tmp_path / "kicad")
+    assert code == 0, codes(kicad)
+    role_zones = [zone for net in kicad["result"]["role_copper"]["nets"] for zone in net["zones"]]
+    assert role_zones  # the ground planes and the power and switch-node zones
+    code, envelope = run(tmp_path / "altium", "--target", "altium")
+    assert code == 0, codes(envelope)
+    assert "kicad.generate.altium" not in codes(envelope)
+    copper = envelope["result"]["copper"]
+    assert copper["source"] == "script"
+    assert copper["zones"] == len(role_zones)

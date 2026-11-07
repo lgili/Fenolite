@@ -1,0 +1,189 @@
+{
+  "schema": "fenolite.scoped-native-gate-evidence.v1",
+  "source_commit": "985f59a1d01a612b2eac0219243199896c24075a",
+  "ci_run_id": 41708879698,
+  "recorded_date": "2026-11-03",
+  "original_run_status": "completed",
+  "original_run_conclusion": "failure",
+  "authorized_batch_scope": "Geometry was excluded by the maintainer from this batch; the 27 terminal geometry failures are retained as DEFERRED_NOT_PASSED under c0332. The original workflow incorrectly included them. This record does not relabel the run or any job green.",
+  "native9": {
+    "job_id": 126171394740,
+    "version": "9.0.9",
+    "image_digest": "sha256:e638b79b0321f29395a5b783e94bb9f3c73303e8da15da27b8f5cb4b67a37729",
+    "job_conclusion": "success",
+    "raw_log_sha256": "3ac138d8cafad5c225d11d9bd22774c872f9369925c7d892d271be0401ab8d94",
+    "explicit_PASSED_log_lines": [
+      {
+        "line": 4226,
+        "text": "2026-11-03T21:22:42.1542003Z PASSED tests/kicad/lens/test_edit_merge_oracle.py::test_merged_files_accepted_by_kicad[t9]"
+      }
+    ],
+    "unsupported_target10_is_not_claimed": true
+  },
+  "native10": {
+    "job_id": 126171394674,
+    "version": "10.0.6",
+    "image_digest": "sha256:18693567392b80da435f9fa952ce3a3e534c66eb5a6033f5b9c80aa3b19dd3ec",
+    "job_conclusion": "failure",
+    "raw_log_sha256": "014e4eb36c889f4848842d7abf57462ab6da185e2b8fcf5b28ddbb9334d1a68b",
+    "summary": "2026-11-03T21:42:16.4407320Z 27 failed, 3992 passed, 168 skipped, 3 xfailed in 5797.51s (1:36:37)",
+    "proof_method": "completed-exhaustive-terminal-classification-with-source-bound-collection",
+    "per_node_PASSED_lines_available": false,
+    "no_selected_module_in_FAIL_SKIP_XFAIL_or_ERROR": true,
+    "no_fail_fast_filter_ignore_or_deselect": true,
+    "pytest_default_addopts": "-ra --strict-markers --import-mode=importlib",
+    "command": "uv run pytest tests/kicad tests/corpus -q --basetemp /tmp/fenolite-kicad-corpus -n auto --dist loadfile",
+    "FENOLITE_REQUIRE": "kicad,corpus",
+    "FENOLITE_HEAVY": "1",
+    "all_27_failures_geometry_and_deferred": true,
+    "retained_actual_version_binding": {
+      "artifact_id": 13273449573,
+      "artifact_name": "drawn-floor-kicad-10",
+      "zip_sha256": "0fe3d150b447fc8ba757c9332b2af5b42cff654f5e32f2d6a1b1d47ee5101beb",
+      "member": "fenolite-kicad-corpus/popen-gw3/test_declared_floor_copy_evide0/drawn-floor.json",
+      "member_sha256": "e6cdc78988588780e9c7ee321289c9c8bb4133880cd85b311093ff930d30d857",
+      "JSON_pointer": "/0/native_version",
+      "value": "10.0.6",
+      "scope": "Confirms native version only; not a PASSED line for either selected test."
+    },
+    "collection_basis": {
+      "module_mark": "needs_kicad",
+      "collection_command_includes_module": true,
+      "all_targets_supported_by_major10": true,
+      "no_static_skip_or_xfail_in_module": true,
+      "terminal_records_complete_via_ra": true,
+      "selected_module_terminal_nonpass_records": []
+    },
+    "selected_cases_proven_by_complete_run_inference": [
+      "tests/kicad/lens/test_edit_merge_oracle.py::test_merged_files_accepted_by_kicad[t9]",
+      "tests/kicad/lens/test_edit_merge_oracle.py::test_merged_files_accepted_by_kicad[t10]"
+    ]
+  },
+  "log_retention": {
+    "all_jobs": 14,
+    "all_artifacts": 6,
+    "member_CRCs_verified": true,
+    "portable_delete_receipt_sha256": "0731079408fa4321aaba941f21d02838acf81dd0d79d58b3bec81e8ccb03308f",
+    "delete_HTTP_status": 204,
+    "verify_GET_HTTP_status": 404,
+    "deletion_is_not_CI_success": true
+  },
+  "scope_limit": "This binds source985 only. No claim that the later integration runtime or workflow passed CI. No new native/test/GUI measurement was executed to prepare this record.",
+  "post_application_proof_status": "passed: all five nominal focused documentation commands in the isolated985 runtime",
+  "source_bindings": [
+    {
+      "path": ".github/workflows/ci.yml",
+      "sha256": "fd42a446eed335b74eb02fbead70b12b3b9105d93ecac3dcffb8d70a6330bce8",
+      "bytes": 15496,
+      "executor_equal_frozen_at_preparation": true
+    },
+    {
+      "path": "pyproject.toml",
+      "sha256": "862171de532c6aca37a9f5546f892aec0b030cc2eeca95710619f858386a3d4b",
+      "bytes": 5118,
+      "executor_equal_frozen_at_preparation": true
+    },
+    {
+      "path": "tests/conftest.py",
+      "sha256": "93d87eb105c3031eab751185e7d682d045763cdba5e4c41817f521f9adb5b4d2",
+      "bytes": 7439,
+      "executor_equal_frozen_at_preparation": true
+    },
+    {
+      "path": "tests/kicad/lens/test_edit_merge_oracle.py",
+      "sha256": "396848e1c9a50856f6bfad0a9c844ff6e888c149c5e20b5cad324421b84c7987",
+      "bytes": 3083,
+      "executor_equal_frozen_at_preparation": true
+    },
+    {
+      "path": "tests/kicad/copper/test_drc_tolerance.py",
+      "sha256": "82a6d075c0604cf4400ab556e393d28083d977d766faa3441611fde95e4ba82e",
+      "bytes": 6756,
+      "executor_equal_frozen_at_preparation": true
+    },
+    {
+      "path": "tests/kicad/copper/_copperparity.py",
+      "sha256": "4f15e24bc5dafd42396fe44acbc220ea849443ee06c506aea002eb1cfff1198e",
+      "bytes": 26903,
+      "executor_equal_frozen_at_preparation": true
+    },
+    {
+      "path": "tests/_edit_help.py",
+      "sha256": "d79cdfc8c95466be55ff34d71c78f9ea94aaa0199b51e698fc8b626ed6501138",
+      "bytes": 3262,
+      "executor_equal_frozen_at_preparation": true
+    },
+    {
+      "path": "tests/_project.py",
+      "sha256": "a2fafee7a7d71c666e22fac1a4a53a6c45309caa19df59ca3b54e814cec231df",
+      "bytes": 4527,
+      "executor_equal_frozen_at_preparation": true
+    },
+    {
+      "path": "src/fenolite/verify/hypotheses.py",
+      "sha256": "0f8a21964c4e6648b707bf35ad0f350879649800fde1151683fd5dc00001b199",
+      "bytes": 8384,
+      "executor_equal_frozen_at_preparation": true
+    },
+    {
+      "path": "src/fenolite/core/evidence.py",
+      "sha256": "496a3432766bf5244ecab928adbb2428c82aa917a94ac3718cc6fd1e784f9bb9",
+      "bytes": 4106,
+      "executor_equal_frozen_at_preparation": true
+    }
+  ],
+  "change": "c0250-manual-edit-merge",
+  "selected_module": "tests/kicad/lens/test_edit_merge_oracle.py",
+  "selected_nodeids": [
+    "tests/kicad/lens/test_edit_merge_oracle.py::test_merged_files_accepted_by_kicad[t9]",
+    "tests/kicad/lens/test_edit_merge_oracle.py::test_merged_files_accepted_by_kicad[t10]"
+  ],
+  "oracle_limits": {
+    "edits": "token edits authored for Fenolite",
+    "compared": "DRC/ERC of merged and post-sync rebuilt output against unedited build",
+    "existing_refusal_or_exception_preserved": "lib_footprint_mismatch on R2 is excluded by the unchanged oracle because a token footprint-ID swap does not replace pads",
+    "no_new_acceptance_or_exclusion": true,
+    "human_KiCad_schematic_editor_session_proven": false,
+    "H-K-EDIT-SCH-VALUE_level": "INFERRED"
+  },
+  "post_application_checks": [
+    {
+      "command": "uv run pytest tests/unit/test_provenance.py tests/unit/test_hypotheses_register.py -q",
+      "exit": 0,
+      "output_sha256": "d4edfb1ece35b8b585cb4496b2dfbaae030dbf51cc81eb2a69b233dcc405c745",
+      "output_artifact": "c0250-nominal-1.log",
+      "result_summary": "46 passed in64.45s"
+    },
+    {
+      "command": "uv run python tools/gen_evidence_matrix.py --check",
+      "exit": 0,
+      "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "output_artifact": "c0250-nominal-2.log",
+      "result_summary": "matrix current; no regeneration"
+    },
+    {
+      "command": "uv run pytest tests/unit/test_evidence_matrix_page.py tests/unit/lens/test_edit_merge.py -k 'evidence or docs or committed_page_is_current' -q",
+      "exit": 0,
+      "output_sha256": "1c837759ee9c9b740714c950f566306de5db27ea37624af3880fc145e7661e1c",
+      "output_artifact": "c0250-nominal-3.log",
+      "result_summary": "23 passed,116 deselected in47.14s"
+    },
+    {
+      "command": "npx -y @fission-ai/openspec validate c0250-manual-edit-merge --strict",
+      "exit": 0,
+      "output_sha256": "caa8fddbf5599d827286827f87f8409a4ba549b84e7953a7b84e21fb6f50c238",
+      "output_artifact": "c0250-nominal-4.log",
+      "result_summary": "strict valid"
+    },
+    {
+      "command": "git diff --check",
+      "exit": 0,
+      "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "output_artifact": "c0250-nominal-5.log",
+      "result_summary": "no diff errors"
+    }
+  ],
+  "isolated_src_import_verified": true,
+  "runtime_tests_tools_configuration_equal_source985": true,
+  "matrix_regenerated": false
+}

@@ -43,6 +43,7 @@ from fenolite.backends.altium.pour import (
     area,
     disc,
     polygons_of,
+    poured_tracks,
 )
 from fenolite.core.coords import Point
 from fenolite.core.units import Nm
@@ -141,9 +142,12 @@ class PourComparison:
         return next((p for p in self.polygons if p.name == name), None)
 
 
-def pour_pieces(reading: PourReading, index: int) -> tuple[Polygon, ...]:
+def pour_pieces(
+    reading: PourReading, index: int, backend: ClipperBackend | None = None
+) -> tuple[Polygon, ...]:
     """The pieces of the polygon at ``index`` of ``Polygons6``: the regions that carry its index, in the
-    frame of the import, each its outline and its holes."""
+    frame of the import, each its outline and its holes. The tracks and arcs that carry it (a hatched pour,
+    change c0463) add their copper, stroked with round ends, and the pieces are then their union."""
     found: list[Polygon] = []
     for region in reading.document.regions_of(index):
         outer = region_points(region.outline)
@@ -152,7 +156,14 @@ def pour_pieces(reading: PourReading, index: int) -> tuple[Polygon, ...]:
             found.append(Polygon(outer, holes))
         except (GeometryError, ValueError):
             continue
-    return tuple(found)
+    strokes = poured_tracks(reading.document, index)
+    if not strokes:
+        return tuple(found)
+    backend = backend or ClipperBackend()
+    for core, width in strokes:
+        if width >= 2:
+            found.extend(backend.stroke([core], width // 2, tol=10))
+    return tuple(backend.union(found))
 
 
 def _length(pieces: Iterable[Polygon]) -> float:
@@ -456,7 +467,10 @@ def compare_pours(
         unmatched.append(("reference", *key))
     shared = sorted(set(mine) & set(theirs), key=lambda key: theirs[key].index)
     pieces = {
-        key: (pour_pieces(candidate, mine[key].index), pour_pieces(reference, theirs[key].index))
+        key: (
+            pour_pieces(candidate, mine[key].index, backend),
+            pour_pieces(reference, theirs[key].index, backend),
+        )
         for key in shared
     }
     entries = [_Entry(theirs[key], *pieces[key]) for key in shared]
@@ -478,7 +492,7 @@ def compare_computed(
     backend = backend or ClipperBackend()
     polygons = {p.index: p for p in polygons_of(reading)}
     entries = [
-        _Entry(polygons[pour.index], pour.pieces, pour_pieces(reading, pour.index))
+        _Entry(polygons[pour.index], pour.pieces, pour_pieces(reading, pour.index, backend))
         for pour in result.polygons
         if pour.poured and pour.index in polygons
     ]

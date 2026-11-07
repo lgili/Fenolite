@@ -31,6 +31,18 @@ def test_unit_letter_only_with_a_name() -> None:
     assert (named, unnamed) == ("unconnected-(U2C-GND-Pad7)", "unconnected-(U2-Pad1)")
 
 
+def test_a_pin_named_like_its_number_counts_as_unnamed() -> None:
+    # S-1490, probe sch-unconnected-samename (change c0408): no pin name and no unit letter
+    same = unconnected_name("J1", unit=2, unit_count=2, pin_name="1", pad_number="1")
+    other = unconnected_name("J1", unit=1, unit_count=1, pin_name="P2", pad_number="2")
+    assert (same, other) == ("unconnected-(J1-Pad1)", "unconnected-(J1-P2-Pad2)")
+    stacked = netnames.open_name("U1", unit=1, unit_count=1, pin_name="5", pads=("9", "5"), marked=True)
+    assert stacked == "unconnected-(U1-Pad5)"
+    assert netnames.open_name("U1", unit=1, unit_count=1, pin_name="9", pads=("9", "5"), marked=True) == (
+        "unconnected-(U1-9-Pad5)"
+    )
+
+
 def test_slash_and_blank_in_a_pin_name() -> None:
     assert pin_text("A/B") == "A{slash}B" and pin_text("X 1") == "X_1"
     assert "A{slash}B" in unconnected_name("U1", unit=1, unit_count=1, pin_name="A/B", pad_number="1")
@@ -59,3 +71,8 @@ def test_proved_characters() -> None:
     assert netnames.proved("PA1") and netnames.proved("") and netnames.proved("A/B 1")
     assert not netnames.proved("µC") and not netnames.proved("A(B)")
     assert {"A", "z", "0", " ", "/"} <= netnames.PROVED_PIN_CHARS
+
+
+def test_hash_names_are_measured_without_admitting_other_characters() -> None:
+    assert all(netnames.proved(name) for name in ("#", "RESET#", "A/# B"))
+    assert not netnames.proved("RESET#(A)") and not netnames.proved("µ#")

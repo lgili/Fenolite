@@ -1,0 +1,478 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.result.kit.v1",
+  "title": "KitResult",
+  "type": "object",
+  "properties": {
+    "plan": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolPlan"
+      }
+    },
+    "plan_id": {
+      "type": "string"
+    },
+    "issues_summary": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolIssueSummary"
+      }
+    },
+    "recovery": {
+      "$ref": "#/$defs/ProtocolRecovery"
+    },
+    "page": {
+      "$ref": "#/$defs/ProtocolPage"
+    },
+    "altium_version": {
+      "type": "string"
+    },
+    "archive": {
+      "$ref": "#/$defs/KitArchive"
+    },
+    "counts": {
+      "$ref": "#/$defs/KitCounts"
+    },
+    "files": {
+      "type": "integer"
+    },
+    "form_problems": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "hypotheses": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/KitHypothesesItem"
+      }
+    },
+    "kit_problems": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "kit_resaved": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "kit_sha256": {
+      "type": "string"
+    },
+    "kit_version": {
+      "type": "integer"
+    },
+    "out": {
+      "type": "string"
+    },
+    "passed": {
+      "type": "boolean"
+    },
+    "privacy": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/KitPrivacyItem"
+      }
+    },
+    "problems": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "record": {
+      "type": "string"
+    },
+    "result_files": {
+      "type": "integer"
+    },
+    "rows": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/KitRowsItem"
+      }
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "runs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/KitRunsItem"
+      }
+    },
+    "samples": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/KitSamplesItem"
+      }
+    },
+    "scripted": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "seed": {
+      "type": "integer"
+    },
+    "stale": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "steps": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/KitStepsItem"
+          }
+        },
+        {
+          "type": "integer"
+        }
+      ]
+    },
+    "synthetic": {
+      "type": "boolean"
+    },
+    "timestamp": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "KitArchive": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "size": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "name",
+        "sha256",
+        "size"
+      ]
+    },
+    "KitCounts": {
+      "type": "object",
+      "properties": {
+        "fail": {
+          "type": "integer"
+        },
+        "pass": {
+          "type": "integer"
+        },
+        "skipped": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "fail",
+        "pass",
+        "skipped"
+      ]
+    },
+    "KitHypothesesItem": {
+      "type": "object",
+      "properties": {
+        "form": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string"
+        },
+        "outcome": {
+          "type": "string"
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "form",
+        "id",
+        "outcome",
+        "steps"
+      ]
+    },
+    "KitPrivacyItem": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "file",
+        "kind",
+        "offset",
+        "text"
+      ]
+    },
+    "KitRowsItem": {
+      "type": "object",
+      "properties": {
+        "form": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "result": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "form",
+        "id",
+        "label",
+        "result"
+      ]
+    },
+    "KitRunsItem": {
+      "type": "object",
+      "properties": {
+        "altium_version": {
+          "type": "string"
+        },
+        "archive_sha256": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "failed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "kit_sha256": {
+          "type": "string"
+        },
+        "passed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "run_id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "altium_version",
+        "archive_sha256",
+        "date",
+        "failed",
+        "kit_sha256",
+        "passed",
+        "run_id"
+      ]
+    },
+    "KitSamplesItem": {
+      "type": "object",
+      "properties": {
+        "digest": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "digest",
+        "name"
+      ]
+    },
+    "KitStepsItem": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "outcome": {
+          "type": "string"
+        },
+        "pending": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sample": {
+          "type": "string"
+        },
+        "scripted": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "id",
+        "kind",
+        "outcome",
+        "pending",
+        "reasons",
+        "sample",
+        "scripted"
+      ]
+    },
+    "ProtocolIssueSummary": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "by_severity": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "counts indexed by severity"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "count",
+        "by_severity"
+      ]
+    },
+    "ProtocolPage": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "next": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "limit",
+        "offset",
+        "total",
+        "next"
+      ]
+    },
+    "ProtocolPlan": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "overwrite": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "kind",
+        "bytes",
+        "sha256",
+        "overwrite"
+      ]
+    },
+    "ProtocolRecovery": {
+      "type": "object",
+      "properties": {
+        "failed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "preserved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "failed",
+        "preserved"
+      ]
+    }
+  }
+}

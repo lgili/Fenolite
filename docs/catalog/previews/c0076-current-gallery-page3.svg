@@ -20,14 +20,14 @@
 <text x="24" y="276" font-family="Arial" font-size="16.00" fill="#0f172a">LED0603_Kingbright_APT1608SURCK</text>
 <rect x="181.00" y="363.00" width="88.00" height="44.00" fill="none" stroke="#2563eb" stroke-width="1.5"/>
 <rect x="130.12" y="335.50" width="189.75" height="99.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
-<line x1="192.00" y1="398.75" x2="192.00" y2="371.25" stroke="#2563eb" stroke-width="2"/>
+<line x1="192.00" y1="371.25" x2="192.00" y2="398.75" stroke="#2563eb" stroke-width="2"/>
 <rect x="157.62" y="363.00" width="44.00" height="44.00" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="179.62" y="389.00" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">1</text>
 <rect x="248.38" y="363.00" width="44.00" height="44.00" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="270.38" y="389.00" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">2</text>
 <rect x="460" y="250" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
 <text x="474" y="276" font-family="Arial" font-size="16.00" fill="#0f172a">LED0805_Kingbright_APT2012SURCK</text>
 <rect x="620.00" y="350.62" width="110.00" height="68.75" fill="none" stroke="#2563eb" stroke-width="1.5"/>
 <rect x="548.50" y="323.12" width="253.00" height="123.75" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
-<line x1="631.00" y1="411.12" x2="631.00" y2="358.88" stroke="#2563eb" stroke-width="2"/>
+<line x1="631.00" y1="358.88" x2="631.00" y2="411.12" stroke="#2563eb" stroke-width="2"/>
 <rect x="576.00" y="354.75" width="68.75" height="60.50" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="610.38" y="389.00" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">1</text>
 <rect x="705.25" y="354.75" width="68.75" height="60.50" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="739.62" y="389.00" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">2</text>
 <rect x="10" y="490" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>

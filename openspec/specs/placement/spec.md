@@ -2,9 +2,7 @@
 
 ## Purpose
 Put the parts of a board in place without a layout editor and say whether the result is legal before a board is written: a deterministic grid strategy for staged parts and manual moves of named parts, and a legality check on plain data (courtyard overlap, parts outside the outline, edge clearance) with a closed set of `place.*` issue codes. A placement is never a verdict: KiCad's DRC judges the board, and the evidence follows the hypothesis register.
-
 ## Requirements
-
 ### Requirement: Placement package
 `fenolite.placement` SHALL hold the placement strategies and the legality check, working on plain data of `fenolite.backends.base` (`PlacedExtent`), `fenolite.geometry` and `fenolite.model`. It MUST import no backend module (`package-layering`), MUST use no random generator and no clock, and MUST give equal results for equal inputs.
 
@@ -227,3 +225,29 @@ Put the parts of a board in place without a layout editor and say whether the re
 #### Scenario: Region codes in the table
 - **WHEN** `uv run pytest tests/unit/placement/test_place_codes.py tests/unit/cli/test_explain_cmd.py` runs
 - **THEN** each code has the severity `warning`, appears in `docs/cli-contract.md`, and has an entry in `explain.toml`
+
+### Requirement: Findings the move did not make
+`fenolite place` SHALL judge the layout of the board before the moves with the same legality check. A
+finding of the layout after the moves that the board before has with the same code, `where` and message,
+and whose `where` names no moved part, MUST be reported as `place.existing` (warning) and MUST NOT refuse
+the write; every other finding is reported with its own code and severity.
+
+#### Scenario: An overlap left where it was
+- **GIVEN** a board whose parts D1 and R1 overlap, and a legal move of another part
+- **WHEN** `fenolite place --move` moves that part
+- **THEN** the overlap of D1 and R1 is `place.existing`, the command exits 0, and the board is planned
+
+#### Scenario: A finding the move makes
+- **GIVEN** the same board
+- **WHEN** the part is moved onto a third part
+- **THEN** that overlap is `place.courtyard-overlap` (error) and nothing is planned without `--force`
+
+### Requirement: Locked parts of a converted board
+`place.locked` SHALL hint that a board converted or imported keeps each part's lock and that `--force`
+moves the part.
+
+#### Scenario: A locked part
+- **GIVEN** a locked part
+- **WHEN** it is moved without `--force`
+- **THEN** `place.locked` names it, and its hint names `--force` and the kept lock
+

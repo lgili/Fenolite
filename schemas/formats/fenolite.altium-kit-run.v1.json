@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.altium-kit-run.v1",
+  "title": "KitRunFile",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "fenolite.altium-kit-run.v1"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "date": {
+      "type": "string"
+    },
+    "synthetic": {
+      "type": "boolean"
+    },
+    "kit_sha256": {
+      "type": "string"
+    },
+    "kit_version": {
+      "type": "integer"
+    },
+    "kit_fenolite_version": {
+      "type": "string"
+    },
+    "fenolite_version": {
+      "type": "string"
+    },
+    "altium_version": {
+      "type": "string"
+    },
+    "os_family": {
+      "type": "string"
+    },
+    "samples": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "script_sha256": {
+      "type": "string"
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RunStep"
+      }
+    },
+    "hypotheses": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RunHypothesis"
+      }
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/FileDigest"
+      }
+    },
+    "privacy_findings": {
+      "type": "integer"
+    },
+    "kit_resaved": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "archive": {
+      "$ref": "#/$defs/ArchiveDigest"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "run_id",
+    "date",
+    "synthetic",
+    "kit_sha256",
+    "kit_version",
+    "kit_fenolite_version",
+    "fenolite_version",
+    "altium_version",
+    "os_family",
+    "samples",
+    "script_sha256",
+    "steps",
+    "hypotheses",
+    "results",
+    "privacy_findings",
+    "kit_resaved",
+    "archive"
+  ],
+  "$defs": {
+    "ArchiveDigest": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "size": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "sha256",
+        "size"
+      ]
+    },
+    "FileDigest": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "size": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "size"
+      ]
+    },
+    "RunHypothesis": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "outcome": {
+          "type": "string"
+        },
+        "form": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "outcome",
+        "form"
+      ]
+    },
+    "RunStep": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "outcome": {
+          "type": "string"
+        },
+        "scripted": {
+          "type": "boolean"
+        },
+        "pending": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "outcome",
+        "scripted",
+        "pending",
+        "source"
+      ]
+    }
+  }
+}

@@ -30,33 +30,49 @@ for a module sheet, and after the sheet for the top sheet or the single sheet of
 from __future__ import annotations
 
 import dataclasses
+import re
 import struct
-from collections.abc import Mapping, Sequence
+import zlib
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
-from types import MappingProxyType
+from decimal import ROUND_HALF_EVEN, Decimal, localcontext
+from decimal import Context as DecimalContext
+from fractions import Fraction
 from typing import Final, Literal
 
 import fenolite.backends.altium.pcbrecords as rec
 import fenolite.backends.altium.rulemap as rulemap
+import fenolite.backends.altium.unions as unions
+from fenolite.backends.altium.adapter.arcring import ArcPolygon
+from fenolite.backends.altium.adapter.ids import STROKE_FONT_KEY, TEXT_TAIL_KEY
 from fenolite.backends.altium.ascii import Field, text_problem
 from fenolite.backends.altium.cfb import Entry, Storage, write_compound
 from fenolite.backends.altium.docboard import (
+    HATCH_STYLES,
+    LEGACY_ISLANDS_NM2,
+    LEGACY_NECK_NM,
+    OutlineArc,
     StackSpec,
     angle_text,
     board_text,
     common_fields,
     name_codes,
     polygon_fields,
+    split_plane_fields,
 )
-from fenolite.backends.altium.libboard import guid
+from fenolite.backends.altium.libboard import MULTIPLE_NETS, enabled_mechanical, guid, long_id
 from fenolite.backends.altium.pcblib import (
     BODY_IS_MODEL,
     BODY_NO_OUTLINE,
+    KEEPOUT_BITS,
     LibFootprint,
     PadExtras,
     body_problem,
     check_footprint,
     graphic_records,
+    is_pour_cutout,
+    keepout_records,
+    keepout_restrictions,
     pad_bytes,
 )
 from fenolite.backends.altium.pour import EVIDENCE as POUR_EVIDENCE
@@ -65,10 +81,12 @@ from fenolite.backends.altium.read.pcb import PcbDocument
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
+from fenolite.core.trig import angle_of
 from fenolite.geometry.transform import FULL_TURN, Transform
 from fenolite.model.board import (
     Arc,
     ComponentBody,
+    FootprintField,
     Graphic,
     Hole,
     Keepout,
@@ -79,7 +97,12 @@ from fenolite.model.board import (
     Via,
     ViaProtection,
     Zone,
+    ZoneSettings,
 )
+
+NET_TIE_KIND = "4"
+"""The ``COMPONENTKIND`` value written for a net tie (change c0420, N1): the kind Net Tie, the one the public
+documents hold on their net-tie parts (``pcb-records.md``, "Component kind"; S-1791, S-0188)."""
 
 FILE_HEADER_TEXT = "PCB 5.0 Binary File"
 """``FileHeader``: the 32-bit value 19, then the first ten characters of this text in UTF-16LE."""
@@ -88,19 +111,23 @@ FILE_HEADER_SIX_VERSION = 5.01
 BOARD_OFFSET_MIL = 1000
 """The board's lower-left corner and ``ORIGINX``/``ORIGINY`` lie at (1000 mil, 1000 mil)."""
 _OFFSET_NM = BOARD_OFFSET_MIL * 25_400
+UNIT_GRID_NM = 254
+"""The smallest length that is a whole number both of nanometres and of the document's units (1/10 000 mil,
+2.54 nm): 100 units (change c0441)."""
 DEFAULT_FILENAME = "Fenolite.PcbDoc"
-CUTOUT_REGIONS: Final = False
+CUTOUT_REGIONS: Final = True
 """Whether a build or a write of a model writes the cut-outs and milled slots of the board outline as board
 cut-out regions (change c0168, Decision 5). False until the maintainer's kit cases S3 to S5 of Part S
 (``docs/evidence/altium-pcb.md``) are reported as passed: until then each cut-out is reported with
 ``altium.not-lowered`` and counted under ``cutout``. A constant, not an option: no user writes an
 unconfirmed form (open question 4)."""
-EMBEDDED_ARRAYS: Final = False
+EMBEDDED_ARRAYS: Final = True
 """Whether ``fenolite panel --target altium`` writes Altium's Embedded Board Array (change c0173, Decision 8).
-False until the maintainer's kit cases Q7, Q8 and Q9 of Part Q (``docs/evidence/altium-pcb.md``) are
-reported as passed: until then every Altium panel is the flattened one, and ``--altium-panel embedded`` is
-refused (exit 7). A constant, not an option: no user writes an unconfirmed form. Release 0.5.0 waits on it
-(the maintainer's decision of 2026-10-16)."""
+True since Part Q cases Q7, Q8 and Q9 (``docs/evidence/altium-pcb.md``) passed in Altium Designer 24.5.2.23
+on 2026-11-05 (S-1585, S-1593; change c0389, task 3.3): a panel of a ``.PcbDoc`` board with an unturned,
+unmirrored grid is the array that references the board (``panel.build.embedded_reason``); any other Altium
+panel is the flattened one. Altium rereads a changed board only after it is restarted (Q8). A constant,
+not an option: no user writes an unconfirmed form."""
 COPPER_STORAGES: tuple[str, ...] = ("Vias6", "Polygons6", "Classes6", "Rules6")
 """Storages of the copper (change c0038): ``Header`` is the record count, and ``Data`` is empty when the
 spec holds no such object."""
@@ -258,10 +285,12 @@ EVIDENCE = Evidence(
         "H-A-PCBX-KEEPOUT",
         "H-A-PCBX-KICAD",
         "H-A-PCBX-MECH",
+        "H-A-PCBX-NETTIE",
         "H-A-PCBX-READBACK",
         "H-A-PCBX-REPOUR",
         "H-A-PCBX-STACK",
         "H-A-PCBX-TEXT",
+        "H-A-PCBX-TEXT-TT",
         "H-A-PCBX-VIA-FULL",
         "H-A-PCBX-VIASPAN",
         "H-A-SLOT-PAD",
@@ -283,8 +312,26 @@ for KiCad's importer and for the author. ``H-A-SLOT-PAD`` and ``H-A-CUTOUT-REGIO
 the board cut-out region of change c0168, measured with KiCad's importer; ``H-A-SLOT-KIT`` is the
 maintainer's Part S, which decides ``CUTOUT_REGIONS``. ``H-A-PANEL-FLAT`` is the flattened panel document of
 change c0173, measured with KiCad's importer; ``H-A-PANEL-KIT`` is the maintainer's Part Q, which decides
-``EMBEDDED_ARRAYS``. ``H-A-PANEL-RECORD`` and ``H-A-PANEL-LAYERKIND`` are ``UNKNOWN`` until Part Q measures
-the array's records, and nothing of them is written, so they are not named here."""
+``EMBEDDED_ARRAYS``. ``H-A-PANEL-RECORD`` and ``H-A-PANEL-LAYERKIND`` are named by the panel's own evidence
+(``panel.build.EVIDENCE_EMBEDDED``): the array's record is written by ``pcbrecords.embedded_board_array``
+only for a panel, never for a board, so they are not named here."""
+
+
+@dataclass(frozen=True, slots=True)
+class TextFont:
+    """The font of a TrueType text (change c0460): its ``face``, at most ``FONT_NAME_CHARS`` characters,
+    and whether it is ``bold`` and ``italic``. With ``truetype`` false it is the font a stroke text record
+    names (S-2253): the text stays a stroke text, its record holds the name and the two flags."""
+
+    face: str
+    bold: bool = False
+    italic: bool = False
+    truetype: bool = True
+
+
+FONT_NAME_CHARS = 31
+"""The longest font name a text record holds: 64 bytes of UTF-16LE with a terminator (``pcb-records.md``,
+"Text")."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -292,8 +339,9 @@ class TextPlace:
     """Where a text of a component is drawn (change c0126): ``position`` in the pad frame of the
     component's placement (footprint-local, no mirror), ``layer`` the Altium id of the layer it lies on,
     ``height`` and ``stroke`` in nanometres, ``rotation`` relative to the component (microdegrees),
-    ``shown`` whether the text is visible (``NAMEON`` or ``COMMENTON`` for a designator or a comment) and
-    ``mirrored`` the mirror flag of the record."""
+    ``shown`` whether the text is visible (``NAMEON`` or ``COMMENTON`` for a designator or a comment),
+    ``mirrored`` the mirror flag of the record and ``font`` its TrueType font (``None`` a stroke text,
+    change c0460)."""
 
     position: Point
     layer: int
@@ -302,6 +350,9 @@ class TextPlace:
     rotation: int = 0
     shown: bool = True
     mirrored: bool = False
+    font: TextFont | None = None
+    tail: bytes = b""
+    """The source's bytes from 137 on of the text's first subrecord (``text_tail_of``, change c0450)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -315,6 +366,18 @@ class ComponentGraphic:
     graphic: Graphic
     layer: int
     arc: rec.ArcGeometry | None = None
+    cutout: bool = False
+    """Whether the graphic, a closed outline of ``Edge.Cuts``, is a board cut-out of the component (change
+    c0443): one region of ``pcbrecords.cutout_region`` with the component's index."""
+    net: str | None = None
+    """The name of the net of a copper graphic (change c0454): its records hold that net's index, as a pad's
+    do; ``None`` writes them without a net (``0xFFFF``)."""
+    fill: bool = False
+    """Whether the graphic, a filled rectangle, is written as a fill record of the component (change c0450;
+    ``fill_geometry``) instead of a region."""
+    keepout: int | None = None
+    """The restriction byte of a keep-out stroke (change c0450; ``keepout_lines``): a line, an arc or a circle
+    written as a keep-out track or arc of the component, in the long form with that byte."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -369,6 +432,12 @@ class PlacedComponent:
     source_unit_unique_id: str | None = None
     """The emitted schematic unit used for SOURCEUNIQUEID (c0166). None uses unique_id;
     an override changes neither the physical component identity nor the document GUID."""
+    net_tie: bool = False
+    """Whether the component is a net tie (change c0420, N1): its record holds ``COMPONENTKIND=4`` after
+    ``UNIONINDEX``, where the public documents hold it (``pcb-records.md``, "Component kind"); otherwise
+    the key is left out, as for most saved components."""
+    union: int = 0
+    """The union the component is a member of, its ``UNIONINDEX`` (change c0460); 0 for none."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -415,6 +484,50 @@ def body_mode(value: str) -> BodyMode:
 
 
 @dataclass(frozen=True, slots=True)
+class EmbeddedModel:
+    """The model a body names (change c0449): ``data`` the STEP text the ``Models`` storage embeds, ``name``
+    its file name, ``position`` the model origin in the frame of the placements, ``dz`` its rise from the
+    face in nm and ``rotation`` the turns about x, y and z in µdeg (``H-A-BODY-MODEL-PLACE``). ``ident`` and
+    ``checksum`` are the ``ID`` and ``CHECKSUM`` of its record: a conversion gives the source's for bytes that
+    are the source's; empty, ``pcbrecords.model_id`` of the data and the stand-in (``record_id``)."""
+
+    data: bytes = field(repr=False)
+    name: str
+    position: Point
+    dz: int = 0
+    rotation: tuple[int, int, int] = (0, 0, 0)
+    ident: str = ""
+    checksum: str = ""
+
+
+def record_id(model: EmbeddedModel) -> str:
+    """The ``ID`` of ``model``'s ``Models`` record and the ``MODELID`` of the bodies that name it."""
+    return model.ident or rec.model_id(model.data)
+
+
+@dataclass(frozen=True, slots=True)
+class FootprintModel:
+    """A 3D model of a footprint instance that the caller gives the write (change c0449): ``ident`` for the
+    accounts (kind ``model``); with ``model`` the body's outline in the frame of the placements, its
+    ``standoff`` and ``height``, and ``changed`` the reason when it is written in another form; without,
+    ``reason`` says why it has no record."""
+
+    ident: str
+    model: EmbeddedModel | None = None
+    outline: tuple[Point, ...] = ()
+    standoff: int = 0
+    height: int = 0
+    reason: str = ""
+    changed: str = ""
+    checksum: str = ""
+    """The body's ``MODEL.CHECKSUM``: the source body's for a model that comes back with the same bytes and
+    placement; empty, the stand-in."""
+    layer: int = 0
+    """The mechanical layer (57 to 72) the source body lay on, for a model that comes back with the same
+    bytes and placement (change c0464); 0, Mechanical 13 or 14 by the footprint's side."""
+
+
+@dataclass(frozen=True, slots=True)
 class PlacedBody:
     """One component body to write (change c0121): ``component`` is the index of its component in
     ``PcbDocSpec.components``, ``layer`` the Altium id of a mechanical layer 1 to 16, ``outline`` its
@@ -432,6 +545,11 @@ class PlacedBody:
     identifier: str = ""
     model_id: str = ""
     body_id: str = ""
+    model: EmbeddedModel | None = None
+    """The embedded model the body names (change c0449): its record names it with ``model_id``, the
+    ``ID`` of its ``Models`` entry; ``None`` for an extruded body."""
+    checksum: str = ""
+    """The ``MODEL.CHECKSUM`` of a body that names a model; empty, the stand-in."""
 
 
 def body_vertices(outline: Sequence[Point], frame: Frame) -> list[tuple[int, int]]:
@@ -498,11 +616,69 @@ def body_records(spec: PcbDocSpec, frame: Frame) -> tuple[list[bytes], list[byte
             "form": spec.body_form,
         }
         try:
+            if body.model is not None:
+                plain.append(_model_body(body, vertices, frame, shape_based=False))
+                shape.append(_model_body(body, vertices, frame, shape_based=True))
+                continue
             plain.append(rec.body_record(body.layer, vertices, **fields))  # type: ignore[arg-type]
             shape.append(rec.body_record(body.layer, vertices, shape_based=True, **fields))  # type: ignore[arg-type]
         except (ValueError, UnicodeEncodeError) as error:
             raise ValueError(f"{where}: {error}") from error
     return plain, shape
+
+
+def _model_body(
+    body: PlacedBody, vertices: list[tuple[int, int]], frame: Frame, *, shape_based: bool
+) -> bytes:
+    model = body.model
+    assert model is not None
+    if not model.data:
+        raise ValueError("the model has no data")
+    return rec.model_body_record(
+        body.layer,
+        vertices,
+        component=body.component,
+        standoff=rec.to_units(body.standoff),
+        overall=rec.to_units(body.height),
+        bottom=body.bottom,
+        model=record_id(model),
+        name=model.name,
+        position=_units(frame(model.position)),
+        dz=rec.to_units(model.dz),
+        rotation=model.rotation,
+        identifier=body.identifier,
+        shape_based=shape_based,
+        checksum=body.checksum or model.checksum or rec.BODY_CHECKSUM,
+    )
+
+
+MODELS_STORAGE = "Models"
+
+
+def model_storage(spec: PcbDocSpec) -> Storage:
+    """The ``Models`` storage (change c0449): ``Header`` the record count, ``Data`` one record per distinct
+    model of ``spec.bodies`` in the order of first use, with the turns and rise of the first body that names
+    it, and the stream ``<n>`` of record ``n``: its data deflated by ``zlib`` at level 6, as saved streams
+    are (``pcb-bodies.md``, "Written form of a model body")."""
+    records: list[bytes] = []
+    streams: list[tuple[str, bytes]] = []
+    seen: set[str] = set()
+    for body in spec.bodies:
+        model = body.model
+        if model is None:
+            continue
+        ident = record_id(model)
+        if ident in seen:
+            continue
+        seen.add(ident)
+        checksum = model.checksum or rec.BODY_CHECKSUM
+        records.append(
+            rec.model_record(
+                ident, model.name, dz=rec.to_units(model.dz), rotation=model.rotation, checksum=checksum
+            )
+        )
+        streams.append((str(len(streams)), zlib.compress(model.data, 6)))
+    return Storage(MODELS_STORAGE, (("Header", _u32(len(records))), ("Data", b"".join(records)), *streams))
 
 
 @dataclass(frozen=True, slots=True)
@@ -518,6 +694,10 @@ class PcbDocSpec:
     outline: tuple[Point, ...]
     components: tuple[PlacedComponent, ...] = ()
     nets: tuple[str, ...] = ()
+    outline_arcs: frozenset[int] = frozenset()
+    """The indices of ``outline`` that start an arc through the next point, its middle (change c0441):
+    ``board_record`` writes them as arc vertices. The middle stays in ``outline``, so every user of the
+    outline as a polygon sees the arc as two straight edges, as before."""
     copper_layers: tuple[str, ...] = ("F.Cu", "B.Cu")
     stack: StackSpec | None = None
     tracks: tuple[Track, ...] = ()
@@ -527,6 +707,9 @@ class PcbDocSpec:
     net_classes: tuple[NetClassSpec, ...] = ()
     rules: bool = True
     """``False`` leaves ``Rules6`` empty (the bisection variants without rules)."""
+    class_kinds: frozenset[str] = frozenset({"Clearance", "Width", "RoutingVias"})
+    """The kinds whose net class rules and ``All`` default of change c0038 ``rule_records`` writes: every
+    kind for a build, fewer for the write of a model, whose rules are its own (change c0434)."""
     texts: tuple[Text, ...] = ()
     graphics: tuple[Graphic, ...] = ()
     keepouts: tuple[Keepout, ...] = ()
@@ -559,9 +742,46 @@ class PcbDocSpec:
     written with instead of the ones derived from its three points (change c0127): the record that an
     imported arc was read from, when the caller found that it still says the entity's points. Empty: every
     arc is derived from its points, as a build writes it."""
+    polygon_arcs: Mapping[str, ArcPolygon] = field(default_factory=lambda: {})
+    """Zone id → the arc vertices of the source polygon record that a conversion carried through KiCad
+    (change c0463, task 1.3), for a zone whose outline is still that record's ring (``ArcPolygon.matches``):
+    the polygon is written with those vertices, moved as the outline was."""
+    plane_splits: Mapping[int, tuple[tuple[str, tuple[Point, ...]], ...]] = field(default_factory=lambda: {})
+    """Internal plane id → its ``Split Plane`` polygons that a conversion carried through KiCad (change
+    c0466, ``convert.altium_planes``): each a net name and its ring in the frame of the design. A plane with
+    splits is written with them instead of the board outline, and may be ``(Multiple Nets)``."""
+    copper_names: Mapping[int, str] = field(default_factory=lambda: {})
+    """Copper layer id → the name the layer is written with instead of Altium's (``pcbrecords.LAYER_NAMES``):
+    an internal plane's (39 … 54) and a signal layer's (1 … 32) name a conversion carried through KiCad
+    (change c0466, S-2254)."""
+    kept_storages: Mapping[str, tuple[bytes, bytes]] = field(default_factory=lambda: {})
+    """Storages a conversion carried from an Altium document through KiCad (change c0450,
+    ``convert.altium_storages``), by name: their ``Header`` and ``Data`` streams, written as they were. The
+    name ``Classes6.Kept`` (``Classes6.Component`` before change c0461) holds class records that join
+    ``Classes6``, but for a class whose kind and name a written class holds; with them the writer's own
+    component classes are not written, nor a net class without a member that no rule names (change c0461).
+    ``SignalClasses.Kept`` holds xSignal classes that follow the ``All xSignals`` super class,
+    ``Board6.PinPairs`` the ``PINPAIR`` keys of ``Board6`` as ``|KEY=value`` text, and
+    ``DifferentialPairs6`` the records of that storage (change c0461). ``Board6.Settings`` holds the source's
+    settings of ``Board6`` and its mechanical layer names (change c0464)."""
+    named_layers: frozenset[int] = frozenset()
+    """The mechanical ids (57 … 72) that a KiCad user name ``Mech.<n>`` or ``Mechanical <n>`` placed
+    (change c0464, ``lower.named_mechanical``): layers that came from the Altium source's same layer, which
+    take the source's name when a conversion carried it."""
+    fill_ids: frozenset[str] = frozenset()
+    """The ids of the filled graphics of ``graphics`` that are written as fill records, not regions (change
+    c0450): fills read from an Altium document, which a conversion marks (``lower.fill_ids``)."""
+    keepout_strokes: Mapping[str, int] = field(default_factory=lambda: {})
+    """The restriction byte of each graphic of ``graphics`` that is a keep-out stroke of copper, by id
+    (change c0450; ``keepout_lines.flags``): written as a keep-out track or arc of the long form, or a
+    keep-out fill of copper as a keep-out fill record (change c0455)."""
     via_protection: ViaProtection | None = None
     """The board's default via protection (change c0112): a tenting side that a via of ``vias`` leaves at
     ``None`` takes its flag from here, and from nothing (a clear flag) when this states none either."""
+    via_mask: int | None = None
+    """The solder-mask expansion of every via in nanometres (change c0445), written as the via's own value
+    (manual mode) in place of 4 mil from the rules: ``Board.mask_margin`` of a written model, the opening
+    KiCad gives an untented via. ``None``, the value of every build, writes 4 mil from the rules."""
     allow_full_drill: bool = False
     """``True`` writes a via whose drill equals its diameter (change c0128): a document that Altium saved
     can hold one (``pcb-copper.md``, "Via"), and the rewrite of a document that was read gives it back.
@@ -575,10 +795,23 @@ class PcbDocSpec:
     """The form of the body records: ``saved``, the 35 keys of a saved body with the two stand-ins, or
     ``short``, the first 21 keys. ``short`` exists for the second file set of step X8 of the author report
     (``H-A-PCBX-BODY-SHORT``); no command and no option of a build selects it."""
+    embedded_arrays: tuple[bytes, ...] = ()
+    """The Embedded Board Array records of ``EmbeddedBoards6`` (``pcbrecords.embedded_board_array``, change
+    c0173, task 7.2), each in the document's own units. Empty for every build and for a flattened panel:
+    the storage then has ``Header`` 0 and an empty ``Data``; ``panel.altium.embedded_files`` fills it when
+    ``EMBEDDED_ARRAYS`` is true."""
     connect_styles: tuple[tuple[Field, ...], ...] = ()
     """The Polygon Connect Style records of a document that was read (the board's ``polygon_connect``
     pairs, change c0215), each its keys from ``RULEKIND`` on. A computed pour writes them back when every
     one maps (``connect_records``); empty for every build."""
+    kept_rules: tuple[tuple[int, tuple[Field, ...]], ...] = ()
+    """The kept rule records of a document that was read (the board's ``kept_rule`` pairs, change c0424):
+    each its kind number and its keys from ``RULEKIND`` on. ``rule_records`` writes them back; empty for
+    every build."""
+    source_rules: tuple[tuple[int, tuple[Field, ...]], ...] = ()
+    """The rule records of the Altium document a conversion started from (change c0434): each its kind
+    number and its keys from ``RULEKIND`` on, carried through KiCad by the conversion. ``rule_records``
+    writes them first, as they are, with their own names and priorities; empty for every build."""
 
 
 def _u32(value: int) -> bytes:
@@ -609,6 +842,14 @@ class Frame:
         if len(outline) < 3:
             raise ValueError("a board outline needs at least three points")
         return cls(min(p.x for p in outline), max(p.y for p in outline))
+
+    @classmethod
+    def on_units(cls, outline: Sequence[Point]) -> Frame:
+        """``of(outline)`` with its corner moved out to a multiple of 254 nm, a whole number of the
+        document's units (change c0441): every point then moves by whole units, so a coordinate that was
+        a unit before, as one read from a PCB document is, is one after, and the shape is not rounded."""
+        frame = cls.of(outline)
+        return cls(frame.min_x - frame.min_x % UNIT_GRID_NM, frame.max_y + (-frame.max_y) % UNIT_GRID_NM)
 
     @classmethod
     def document(cls) -> Frame:
@@ -649,10 +890,20 @@ def board_record(
     frame: Frame | None = None,
     origin: Point | None = None,
     layer_names: Mapping[int, str] | None = None,
+    arcs: Collection[int] = (),
+    pin_pairs: Sequence[Field] = (),
+    settings: Sequence[Field] = (),
+    mechanical: Sequence[int] | None = None,
+    copper_names: Mapping[int, str] | None = None,
 ) -> bytes:
     """The one ``Board6`` record (``docboard``): the outline in the Altium frame, the origin at the board's
     lower-left corner, the layers that primitives lie on. ``frame`` and ``origin`` (change c0090) replace
-    the frame of a build and its origin."""
+    the frame of a build and its origin. ``arcs`` (change c0441) are the indices of ``outline`` that start
+    an arc through the next point, its middle, to the point after it: the middle is not written as a
+    vertex, and the start is written as an arc vertex. ``pin_pairs`` are the xSignal keys a conversion
+    carried (change c0461, ``docboard.board_records``); ``settings`` the source's settings a conversion
+    carried (change c0464, ``docboard.with_settings``), and ``mechanical`` the enabled mechanical layers
+    those settings give (``_mechanical_enabled``)."""
     from fenolite.backends.altium.project import unique_id  # project imports this module
 
     frame = frame if frame is not None else Frame.of(outline)
@@ -660,8 +911,17 @@ def board_record(
     if origin is not None:
         at = (rec.to_units(origin.x), rec.to_units(origin.y))
     vertices: list[tuple[int, int]] = []
-    for point in outline:
+    written: dict[int, OutlineArc] = {}
+    count = len(outline)
+    mids = {(k + 1) % count for k in arcs}
+    for k, point in enumerate(outline):
+        if k in mids:
+            continue
         placed = frame(point)
+        if k in arcs:
+            arc = outline_arc(frame(point), frame(outline[(k + 1) % count]), frame(outline[(k + 2) % count]))
+            if arc is not None:
+                written[len(vertices)] = arc
         vertices.append((rec.to_units(placed.x), rec.to_units(placed.y)))
     text = board_text(
         filename,
@@ -671,8 +931,55 @@ def board_record(
         used_layers=used_layers,
         stack=stack,
         layer_names=layer_names,
+        arcs=written,
+        pin_pairs=pin_pairs,
+        settings=settings,
+        mechanical=mechanical,
+        copper_names=copper_names,
     )
     return rec.text_block(text)
+
+
+def _rounded_sqrt(value: int) -> int:
+    """The integer nearest to the square root of ``value`` (``value >= 0``), in integers only."""
+    if value <= 0:
+        return 0
+    root = 1 << ((value.bit_length() + 1) // 2)
+    while True:
+        smaller = (root + value // root) // 2
+        if smaller >= root:
+            break
+        root = smaller
+    return root + 1 if value - root * root > root else root
+
+
+def _up_angle(center: Point, point: Point) -> int:
+    """The angle in microdegrees, counter-clockwise from +X in the Altium frame (Y up), of ``point`` seen
+    from ``center``: ``core.trig.angle_of`` takes Y down, so the Y difference is negated."""
+    return angle_of(point.x - center.x, -(point.y - center.y))
+
+
+def outline_arc(start: Point, mid: Point, end: Point) -> OutlineArc | None:
+    """The arc vertex (``docboard.OutlineArc``) of the arc from ``start`` through ``mid`` to ``end``, points
+    in nanometres in the Altium frame (Y up): the circle through them in binary units, and the
+    counter-clockwise sweep that holds ``mid`` as start and end angles in microdegrees (change c0441;
+    ``pcb-document.md``, "Board outline arcs"). ``None`` for three points on a line. Integer arithmetic only:
+    the centre is the nearest nanometre, the angles ``core.trig.angle_of`` (lote-27)."""
+    ax, ay, bx, by, cx, cy = start.x, start.y, mid.x, mid.y, end.x, end.y
+    d = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by))
+    if d == 0:
+        return None
+    a2, b2, c2 = ax * ax + ay * ay, bx * bx + by * by, cx * cx + cy * cy
+    ux = round(Fraction(a2 * (by - cy) + b2 * (cy - ay) + c2 * (ay - by), d))
+    uy = round(Fraction(a2 * (cx - bx) + b2 * (ax - cx) + c2 * (bx - ax), d))
+    center = Point(ux, uy)
+    radius = _rounded_sqrt((ax - ux) ** 2 + (ay - uy) ** 2)
+    first, middle, last = _up_angle(center, start), _up_angle(center, mid), _up_angle(center, end)
+    if (middle - first) % FULL_TURN <= (last - first) % FULL_TURN:
+        low, high = first, last  # counter-clockwise from start to end
+    else:
+        low, high = last, first
+    return (rec.to_units(ux), rec.to_units(uy), rec.to_units(radius), low, high)
 
 
 def _net_record(name: str, filename: str) -> bytes:
@@ -731,7 +1038,8 @@ def _component_record(component: PlacedComponent, offset: int, frame: Frame, fil
         ("GROUPNUM", "0"),
         ("COUNT", "0"),
         ("ROTATION", angle_text(component.rotation)),
-        ("UNIONINDEX", "0"),
+        ("UNIONINDEX", str(component.union)),
+        *((("COMPONENTKIND", NET_TIE_KIND),) if component.net_tie else ()),
         ("CHANNELOFFSET", str(offset)),
         ("SOURCEDESIGNATOR", component.ref),
         ("SOURCEUNIQUEID", link),
@@ -761,12 +1069,20 @@ def text_record(
     height: int = DESIGNATOR_HEIGHT,
     stroke: int = DESIGNATOR_STROKE,
     rotation: int = 0,
+    font: TextFont | None = None,
+    union: int = 0,
+    tail: bytes = b"",
 ) -> bytes:
     """A stroke text (type 5) in the 137-byte long form, ``at`` in nanometres in the Altium frame. A
     component's text is its designator or its comment; a ``free`` text (change c0085, ``component`` is
     ``pcbrecords.NO_INDEX``) is neither, has its own ``height`` and ``stroke`` (nanometres) and ``rotation``
     (microdegrees), and its 8-bit string is ``short_text(text)``: the text itself is the wide string at
-    ``wide_index``."""
+    ``wide_index``. A ``font`` makes it a TrueType text (change c0460): font type 1, bold, italic and the
+    font name at 43 to 109 (``pcb-records.md``, "Text"). ``union`` (change c0460) is the union the text is a
+    member of, written at 119 (S-2190); 0 for none. A text on Mechanical 17 to 32 (a long id) with the
+    source's ``tail`` (``text_tail_of``, change c0450, task 4.5) is written in the source's 232- or 252-byte
+    form: the 137 bytes, then ``tail`` with the layer's long id at 226 (``pcb-records.md``, "Text"); every
+    other text in the 137-byte form, which holds the byte of Mechanical 16 alone."""
     body = rec.prefix(layer, component=component)
     body += struct.pack(
         "<3iHdBi",
@@ -779,12 +1095,79 @@ def text_record(
         rec.to_units(stroke),
     )
     flags = (0, 0) if free else (0 if designator else 1, 1 if designator else 0)
-    body += bytes((*flags, 0, 0, 0, 0))
-    body += bytes(64) + b"\0" + struct.pack("<iI", 0, wide_index) + bytes(TEXT_SIZE - 119)
+    if font is None:
+        body += bytes((*flags, 0, 0, 0, 0)) + bytes(64)
+    else:
+        if len(font.face) > FONT_NAME_CHARS:
+            raise ValueError(f"the font name {font.face!r} is longer than {FONT_NAME_CHARS} characters")
+        name = font.face.encode("utf-16-le")
+        kind = TRUETYPE_FONT if font.truetype else 0
+        body += bytes((*flags, 0, kind, int(font.bold), int(font.italic))) + name + bytes(64 - len(name))
+    body += b"\0" + struct.pack("<iII", 0, wide_index, union) + bytes(TEXT_SIZE - 123)
     assert len(body) == TEXT_SIZE
+    if rec.is_long_mechanical(layer) and TEXT_SIZE + len(tail) in TEXT_LONG_SIZES:
+        long_form = bytearray(body + tail)
+        struct.pack_into("<I", long_form, TEXT_LONG_AT, layer)
+        body = bytes(long_form)
     # a component text outside 7-bit ASCII (change c0090, a model that was read) is written like a free one
+    text = crlf(text)  # change c0460: a line break as the record holds it
     string = short_text(text) if free or text_problem(text) is not None else rec.short_string(text)
     return bytes((rec.TEXT,)) + rec.subrecord(body) + rec.subrecord(string)
+
+
+TEXT_LONG_AT = 226
+"""The offset of the long layer id in a text's first subrecord of 232 or 252 bytes (change c0450, task 4.5;
+``pcb-records.md``, "Text")."""
+TEXT_LONG_SIZES = (232, 252)
+"""The lengths of a text's first subrecord that hold a long layer id at ``TEXT_LONG_AT`` (CORPUS-VERIFIED)."""
+
+
+def text_tail_of(item: Text | FootprintField) -> bytes:
+    """The source's bytes from 137 on of a text's first subrecord, from its Altium bag (``text_tail``,
+    change c0450, task 4.5); empty for a text without them or with a value that is not hex of a length
+    that ``TEXT_LONG_SIZES`` gives."""
+    bag = item.ext.get("altium")
+    value = dict(bag.payload).get(TEXT_TAIL_KEY, "") if bag is not None else ""
+    try:
+        tail = bytes.fromhex(value)
+    except ValueError:
+        return b""
+    return tail if TEXT_SIZE + len(tail) in TEXT_LONG_SIZES else b""
+
+
+TRUETYPE_FONT = 1
+"""The font type byte of a TrueType text (``pcb-records.md``, "Text"; 0 is a stroke text)."""
+
+
+KICAD_STROKE_FACE = "KiCad Font"
+"""The face name of KiCad's own stroke font (``docs/formats/kicad/board.md``): a text that names it is a
+stroke text, not a TrueType text of that name (change c0460)."""
+
+
+def truetype_face(item: Text | FootprintField) -> str:
+    """The TrueType face of a text or field: its face, but ``""`` for none and for ``KICAD_STROKE_FACE``."""
+    return item.face if item.face and item.face != KICAD_STROKE_FACE else ""
+
+
+def text_font(item: Text | FootprintField) -> TextFont | None:
+    """The TrueType font of a text or field (change c0460): its face with its bold and italic. For a stroke
+    text (no face, or KiCad's stroke font by name) the font its Altium bag names (``stroke_font``, S-2253),
+    else ``None``."""
+    face = truetype_face(item)
+    if face:
+        return TextFont(face, bool(item.bold), bool(item.italic))
+    bag = item.ext.get("altium")
+    value = dict(bag.payload).get(STROKE_FONT_KEY, "") if bag is not None else ""
+    flags, _, name = value.partition(" ")
+    if len(flags) != 2 or not set(flags) <= {"0", "1"} or not name or len(name) > FONT_NAME_CHARS:
+        return None
+    return TextFont(name, flags[0] == "1", flags[1] == "1", truetype=False)
+
+
+def crlf(text: str) -> str:
+    """``text`` with each line feed of the model as the CR LF a PCB document's text holds (``pcb-records.md``,
+    "Text", ``H-A-TEXT-CRLF``; change c0460); the import reads it back as a line feed (change c0427)."""
+    return text.replace("\r\n", "\n").replace("\n", "\r\n")
 
 
 def short_text(text: str) -> bytes:
@@ -796,12 +1179,23 @@ def short_text(text: str) -> bytes:
 
 
 def text_problem_of(text: Text) -> str | None:
-    """Why a free text cannot be written, or ``None``: an empty string, a control character or a line
-    break, or a height or stroke width that is not positive."""
-    if not text.text:
-        return "the text is empty"
-    if any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in text.text):
-        return "the text holds a control character or a line break"
+    """Why a free text cannot be written, or ``None``: a control character other than a line break (written
+    as CR LF, ``crlf``), a height or stroke width that is not positive, or a style of change c0277
+    (knockout, bold, italic, a font face) that the text record of the writer does not hold. An empty text
+    is written, as a saved document holds it: a footprint text (change c0451) and a board text (change
+    c0460; row ``-08`` holds 51 on Drill Drawing)."""
+    # change c0460: a face makes a TrueType text, which holds bold and italic; a stroke text holds neither
+    styles = [name for name in ("knockout", "bold", "italic") if getattr(text, name)]
+    if truetype_face(text):
+        styles = [name for name in styles if name == "knockout"]
+        if len(text.face) > FONT_NAME_CHARS:
+            return (
+                f"the font name {text.face!r} is longer than the {FONT_NAME_CHARS} characters of the record"
+            )
+    if styles:
+        return f"the text record of the writer holds no {', '.join(styles)}"
+    if any((ord(ch) < 0x20 and ch != "\n") or ord(ch) == 0x7F for ch in text.text):
+        return "the text holds a control character"
     if text.size.h <= 0:
         return f"a height of {text.size.h} nm is not positive"
     if text.thickness <= 0:
@@ -810,7 +1204,12 @@ def text_problem_of(text: Text) -> str | None:
 
 
 def _wide_entry(index: int, text: str) -> bytes:
-    data = text.encode("utf-16-le") + b"\0\0"
+    """One ``WideStrings6`` entry, or no bytes for an empty text: kicad-cli 10.0.6 refuses a table that
+    holds an entry of the NUL alone ("WideStrings6 stream is not fully parsed"), and a reader takes the
+    record's own short text, empty too, when the index names no entry (change c0451)."""
+    if not text:
+        return b""
+    data = crlf(text).encode("utf-16-le") + b"\0\0"
     return struct.pack("<2I", index, len(data)) + data
 
 
@@ -822,6 +1221,48 @@ class _Placed:
     box: tuple[int, int, int, int]
     regions: list[bytes] = field(default_factory=lambda: [])
     shapes: list[bytes] = field(default_factory=lambda: [])
+    fills: list[bytes] = field(default_factory=lambda: [])
+
+
+FILL_MATCH = 4
+"""How far, in binary units (4 × 2.54 nm, about 10 nm), the sides and diagonals of a four-corner ring may
+differ and the ring still be a rectangle that a fill record holds (change c0450)."""
+
+
+def fill_geometry(
+    ring: Sequence[tuple[int, int]],
+) -> tuple[tuple[int, int], tuple[int, int], float] | None:
+    """The corners and the rotation of the fill record of a four-corner ring in binary units (change c0450),
+    or ``None`` when the ring is no rectangle within ``FILL_MATCH``. The corners lie about the ring's centre,
+    the first edge's length across and the second's down, and the rotation is the first edge's angle in
+    degrees, counter-clockwise in Altium's frame (``pcb-read.md``, "A fill (type 6)"). A rectangle is
+    symmetric about its centre, so the ring's winding does not change the shape."""
+    if len(ring) != 4:
+        return None
+    corners = list(ring)
+
+    def length(a: tuple[int, int], b: tuple[int, int]) -> Decimal:
+        with localcontext(DecimalContext(prec=40, rounding=ROUND_HALF_EVEN)):
+            return Decimal((b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2).sqrt()
+
+    c0, c1, c2, c3 = corners
+    width, height = length(c0, c1), length(c1, c2)
+    if min(width, height) <= 0:
+        return None
+    pairs = ((width, length(c2, c3)), (height, length(c3, c0)), (length(c0, c2), length(c1, c3)))
+    if any(abs(one - other) > FILL_MATCH for one, other in pairs):
+        return None
+    cx = Fraction(sum(x for x, _ in corners), 4)
+    cy = Fraction(sum(y for _, y in corners), 4)
+    # exact, as every angle the writer computes (no ``math`` in the Altium backend)
+    rotation = rec.angle_degrees(c1[0] - c0[0], c1[1] - c0[1])
+    nearest = round(rotation)
+    if abs(rotation - nearest) < 1e-9:
+        rotation = float(nearest % 360)
+    half_w, half_h = Fraction(width) / 2, Fraction(height) / 2
+    a = (round(cx - half_w), round(cy - half_h))
+    b = (round(cx + half_w), round(cy + half_h))
+    return a, b, rotation
 
 
 def _extend(box: list[int], x: int, y: int, reach: int = 0) -> None:
@@ -835,10 +1276,13 @@ def place_component(
     frame: Frame,
     nets: Mapping[str, int],
     copper_layers: Sequence[str] = (),
+    layer_ids: Mapping[str, int] | None = None,
 ) -> _Placed:
     """The pads, tracks and arcs of one component at absolute Altium coordinates, and the box of its pads
     and graphics (nanometres, Altium frame). ``copper_layers`` (change c0160) is the board's copper layers
-    in stack order, which a pad's per-layer stack needs."""
+    in stack order, which a pad's per-layer stack needs; ``layer_ids`` the Altium id of each (the
+    document's stack). The rule areas of the definition are keep-out regions of the component (change
+    c0411), placed and flipped as its graphics."""
     footprint = component.footprint
     check = check_footprint(
         footprint.defn, footprint.extras, texts=footprint.texts, copper_layers=copper_layers
@@ -895,9 +1339,25 @@ def place_component(
         at = frame(component.at)
         box = [at.x, at.y, at.x, at.y]
     placed = _Placed(pads, tracks, arcs, (box[0], box[1], box[2], box[3]))
+    for area in footprint.defn.keepouts:
+        for shape_based, into in ((False, placed.regions), (True, placed.shapes)):
+            into.extend(
+                keepout_records(
+                    area,
+                    to_frame,
+                    flip=bottom,
+                    component=index,
+                    shape_based=shape_based,
+                    copper_layers=copper_layers,
+                    layer_ids=layer_ids,
+                )
+            )
     plain = Transform.placement(component.at, component.rotation)
     for item in component.items:  # as the instance holds them: no mirror, no layer flip (change c0126)
         graphic = item.graphic
+        net = nets.get(item.net, rec.NO_INDEX) if item.net is not None else rec.NO_INDEX
+        # a keep-out stroke of copper (change c0450): the long form with the flag and the restriction byte
+        flagged = (long_id(item.layer), item.keepout) if item.keepout is not None else None
         where = [frame(plain.apply(p)) for p in graphic.points]
         if graphic.kind in ("rect", "polygon"):
             if graphic.kind == "rect":
@@ -906,25 +1366,69 @@ def place_component(
             else:
                 ring = _ring(where)
             corners = [_units(point) for point in ring]
-            if graphic.filled:
-                placed.regions.append(rec.region_record(item.layer, corners, component=index))
+            if item.cutout:
+                for shape_based, into in ((False, placed.regions), (True, placed.shapes)):
+                    into.append(
+                        rec.region_record(
+                            rec.BOARD_CUTOUT_LAYER,
+                            corners,
+                            shape_based=shape_based,
+                            component=index,
+                            board_cutout=True,
+                        )  # fmt: skip
+                    )
+            elif (
+                graphic.filled
+                # a region names no layer above Mechanical 16, a fill holds its long id (c0450, task 4.4)
+                and (item.fill or item.keepout is not None or rec.is_long_mechanical(item.layer))
+                and (shape := fill_geometry(corners)) is not None
+            ):
+                a, b, turn = shape
+                placed.fills.append(
+                    rec.fill_record(
+                        item.layer,
+                        long_id(item.layer),
+                        a,
+                        b,
+                        turn,
+                        net=net,
+                        component=index,
+                        keepout=item.keepout,
+                    )  # a keep-out fill with its restriction byte (change c0455)
+                )
+            elif graphic.filled:
+                # a keep-out fill that is no rectangle stays a keep-out region with its byte (change c0455)
+                placed.regions.append(
+                    rec.region_record(item.layer, corners, component=index, net=net, keepout=item.keepout)
+                )
                 placed.shapes.append(
-                    rec.region_record(item.layer, corners, shape_based=True, component=index)
+                    rec.region_record(
+                        item.layer, corners, shape_based=True, component=index, net=net, keepout=item.keepout
+                    )
                 )
             else:
                 width = rec.to_units(graphic.width)
                 for number, corner in enumerate(corners):
                     following = corners[(number + 1) % len(corners)]
-                    tracks.append(rec.track_record(item.layer, corner, following, width, component=index))
+                    tracks.append(
+                        rec.track_record(item.layer, corner, following, width, net=net, component=index)
+                    )
         elif graphic.kind == "line":
             a, b = (_units(point) for point in where)
-            tracks.append(rec.track_record(item.layer, a, b, rec.to_units(graphic.width), component=index))
-        elif graphic.kind == "circle":
-            geometry = rec.circle_geometry(where[0], where[1])
-            arcs.append(rec.arc_record(item.layer, geometry, rec.to_units(graphic.width), component=index))
+            tracks.append(
+                rec.track_record(
+                    item.layer, a, b, rec.to_units(graphic.width), net=net, component=index, keepout=flagged
+                )
+            )
         else:
-            geometry = item.arc or rec.arc_from_points(*where)
-            arcs.append(rec.arc_record(item.layer, geometry, rec.to_units(graphic.width), component=index))
+            if graphic.kind == "circle":
+                geometry = rec.circle_geometry(where[0], where[1])
+            else:
+                geometry = item.arc or rec.arc_from_points(*where)
+            width = rec.to_units(graphic.width)
+            arcs.append(
+                rec.arc_record(item.layer, geometry, width, net=net, component=index, keepout=flagged)
+            )
     return placed
 
 
@@ -966,6 +1470,13 @@ class _Copper:
         return self.layers[layer]
 
 
+def _union(layer: int, item: Track | Arc | Graphic) -> tuple[int, int] | None:
+    """The ``union`` of a track or arc record (change c0460): the layer's long id and the union index of
+    ``item``, ``None`` for an item of no union."""
+    index = unions.union_of(item)
+    return (long_id(layer), index) if index else None
+
+
 def routed_tracks(tracks: Sequence[Track], copper: _Copper) -> list[bytes]:
     """The free 36-byte tracks of the board (``pcb-copper.md``, "Tracks and arcs"), sorted by stack
     position of the layer, net name, start, end, width and entity id. ``ValueError`` names the id of a
@@ -983,7 +1494,9 @@ def routed_tracks(tracks: Sequence[Track], copper: _Copper) -> list[bytes]:
             raise ValueError(f"{track.id}: the track has zero length")
         net = copper.net(track.id, track.net_id)
         a, b = _units(copper.frame(track.start)), _units(copper.frame(track.end))
-        out.append(rec.track_record(layer, a, b, rec.to_units(track.width), net=net, locked=track.locked))
+        member = _union(layer, track)  # change c0460
+        width = rec.to_units(track.width)
+        out.append(rec.track_record(layer, a, b, width, net=net, locked=track.locked, union=member))
     return out
 
 
@@ -1010,7 +1523,10 @@ def routed_arcs(
                 geometry = rec.arc_from_points(*(copper.frame(p) for p in (arc.start, arc.mid, arc.end)))
             except ValueError as error:
                 raise ValueError(f"{arc.id}: {error}") from error
-        out.append(rec.arc_record(layer, geometry, rec.to_units(arc.width), net=net, locked=arc.locked))
+        member = _union(layer, arc)  # change c0460
+        out.append(
+            rec.arc_record(layer, geometry, rec.to_units(arc.width), net=net, locked=arc.locked, union=member)
+        )
     return out
 
 
@@ -1042,6 +1558,7 @@ def via_records(
     *,
     allow_full_drill: bool = False,
     default: ViaProtection | None = None,
+    mask: int | None = None,
 ) -> list[bytes]:
     """The vias of the board (``pcb-copper.md``, "Via"), sorted by net name, position, diameter and entity
     id: a through via with the start layer 1 and the end layer 32, a blind or buried via (change c0085)
@@ -1049,8 +1566,10 @@ def via_records(
     refuses, whose drill is not below its diameter, or on an unknown net. ``allow_full_drill``
     (``PcbDocSpec.allow_full_drill``, change c0128) accepts a drill equal to the diameter. Each tenting
     flag is that of ``via_tenting(via, default)`` (change c0112; ``default`` is
-    ``PcbDocSpec.via_protection``); every other value of the protection writes nothing."""
+    ``PcbDocSpec.via_protection``); every other value of the protection writes nothing. ``mask``
+    (``PcbDocSpec.via_mask``, change c0445) is the solder-mask expansion of every via, in nanometres."""
     names = list(copper.layers)
+    expansion = None if mask is None else rec.to_units(mask)
     out: list[bytes] = []
     ordered = sorted(vias, key=lambda v: (v.net_id or "", _xy(v.position), v.diameter, v.id))
     for via in ordered:
@@ -1075,6 +1594,8 @@ def via_records(
                 locked=via.locked,
                 tented_top=top,
                 tented_bottom=bottom,
+                mask=expansion,
+                union=unions.union_of(via),  # change c0460
             )
         )
     return out
@@ -1130,18 +1651,6 @@ def unwritten_features(via: Via, default: ViaProtection | None) -> tuple[str, ..
 
 # --- free items of the board (change c0085) ---------------------------------------------------------------
 
-KEEPOUT_BITS: Mapping[str, int] = MappingProxyType(
-    {"no_vias": 0x01, "no_tracks": 0x02, "no_copper_pour": 0x04, "no_pads": 0x18}
-)
-"""Restriction of a model keep-out → its bits of the keep-out restrictions value (``pcb-records.md``,
-"Regions and keep-outs"): vias, tracks, copper, and pads as surface-mount and through-hole pads. The
-restriction ``no_footprints`` has no bit."""
-
-
-def keepout_restrictions(keepout: Keepout) -> int:
-    """The restrictions value of ``keepout``: the bits of ``KEEPOUT_BITS`` of the restrictions it sets."""
-    return sum(bits for name, bits in KEEPOUT_BITS.items() if getattr(keepout, name))
-
 
 def _ring(points: Sequence[Point]) -> list[Point]:
     ring = list(points)
@@ -1158,13 +1667,19 @@ def board_layer(name: str, extra: Mapping[str, int] | None = None) -> int | None
 
 
 def graphic_problem(
-    graphic: Graphic, *, arc_known: bool = False, layers: Mapping[str, int] | None = None
+    graphic: Graphic,
+    *,
+    arc_known: bool = False,
+    layers: Mapping[str, int] | None = None,
+    copper: Collection[str] = (),
 ) -> str | None:
-    """Why a board graphic cannot be written, or ``None``: a layer outside ``BOARD_LAYER_MAP``, a point
-    count that does not fit its kind, collinear arc points, or a drawn outline without a positive width.
-    ``arc_known`` says that the arc is written from a record of its own (``PcbDocSpec.arc_records``, change
-    c0127), so its three points need not give a circle."""
-    if board_layer(graphic.layer, layers) is None:
+    """Why a board graphic cannot be written, or ``None``: a layer outside ``BOARD_LAYER_MAP`` and
+    ``copper``, a point count that does not fit its kind, collinear arc points, or a drawn outline without
+    a positive width; a line or an arc of width 0 on a mechanical layer that ``layers`` names is written
+    (``_on_mechanical``, change c0450 task 4.6). ``arc_known`` says that the arc is written from a record of
+    its own (``PcbDocSpec.arc_records``, change c0127), so its three points need not give a circle. ``copper``
+    (change c0412) are the signal layers of the written stack: a graphic there is copper of its net."""
+    if graphic.layer not in copper and board_layer(graphic.layer, layers) is None:
         return f"the layer {graphic.layer} has no layer in the document for a graphic"
     wanted = {"line": 2, "rect": 2, "circle": 2, "arc": 3}.get(graphic.kind)
     count = len(_ring(graphic.points)) if graphic.kind == "polygon" else len(graphic.points)
@@ -1182,11 +1697,29 @@ def graphic_problem(
         except ValueError:
             return "the three points of the arc lie on one line"
     drawn = graphic.kind in ("line", "arc") or not graphic.filled
-    if drawn and graphic.width <= 0:
+    # a line or an arc of width 0 on a mechanical layer, as a source document holds it (change c0450 4.6)
+    hairline = graphic.width == 0 and graphic.kind in ("line", "arc") and _on_mechanical(graphic, layers)
+    if drawn and graphic.width <= 0 and not hairline:
         return f"a drawn {graphic.kind} needs a positive width, not {graphic.width} nm"
     if graphic.filled and graphic.kind == "circle":
         return "a filled circle has no record: a region holds straight edges only"
     return None
+
+
+def _on_mechanical(graphic: Graphic, layers: Mapping[str, int] | None) -> bool:
+    """Whether ``graphic`` is on a layer that ``layers`` names as Mechanical 1 to 32
+    (``pcbrecords.mechanical_number``): ``Mech.<n>`` of a board that was read, or a KiCad user layer named
+    after a mechanical layer (``lower.named_mechanical``). A layer of ``pcbrecords.BOARD_LAYER_MAP``
+    (``F.Fab``, ``F.CrtYd`` …) is not one: a KiCad drawing there keeps the refusal."""
+    if graphic.layer in rec.BOARD_LAYER_MAP or layers is None:
+        return False
+    layer = layers.get(graphic.layer)
+    return layer is not None and rec.mechanical_number(layer) is not None
+
+
+def _in_order(keepout: Keepout, names: Sequence[str]) -> list[str]:
+    """The layers of ``keepout``, once each, in the order of the board's copper layers ``names``."""
+    return sorted(set(keepout.layers), key=names.index)
 
 
 def keepout_problem(keepout: Keepout, layers: Sequence[str]) -> str | None:
@@ -1213,16 +1746,37 @@ class _Free:
     regions: list[bytes] = field(default_factory=lambda: [])
     shapes: list[bytes] = field(default_factory=lambda: [])
     pads: list[bytes] = field(default_factory=lambda: [])
+    fills: list[bytes] = field(default_factory=lambda: [])
 
     def cutout(self, ring: Sequence[Point], frame: Frame) -> None:
         vertices = [_units(frame(point)) for point in ring]
         self.regions.append(rec.cutout_region(vertices))
         self.shapes.append(rec.cutout_region(vertices, shape_based=True))
 
-    def region(self, layer: int, ring: Sequence[Point], frame: Frame, keepout: int | None = None) -> None:
+    def region(
+        self,
+        layer: int,
+        ring: Sequence[Point],
+        frame: Frame,
+        keepout: int | None = None,
+        net: int = rec.NO_INDEX,
+        *,
+        polygon_cutout: bool = False,
+        union: int = 0,
+    ) -> None:
         vertices = [_units(frame(point)) for point in ring]
-        self.regions.append(rec.region_record(layer, vertices, keepout=keepout))
-        self.shapes.append(rec.region_record(layer, vertices, keepout=keepout, shape_based=True))
+        for shape_based, into in ((False, self.regions), (True, self.shapes)):
+            into.append(
+                rec.region_record(
+                    layer,
+                    vertices,
+                    keepout=keepout,
+                    shape_based=shape_based,
+                    net=net,
+                    polygon_cutout=polygon_cutout,
+                    union=union,
+                )  # fmt: skip
+            )
 
 
 def free_records(spec: PcbDocSpec, copper: _Copper) -> _Free:
@@ -1231,29 +1785,56 @@ def free_records(spec: PcbDocSpec, copper: _Copper) -> _Free:
     graphic is tracks and arcs without a net; a filled rectangle or polygon is one region, written in
     ``Regions6`` and in ``ShapeBasedRegions6``. A keep-out that names every copper layer of the board is one
     keep-out region on the Keep-Out layer; otherwise it is one keep-out region per layer it names. A hole
-    is a free pad. ``ValueError`` names the id of an item that ``graphic_problem`` or ``keepout_problem``
-    refuses, or of a hole without a positive drill."""
+    is a free pad. A graphic on a copper layer of ``copper`` (change c0412) is copper of its net (its
+    ``net_id`` holds the net's name, as a track's does): the same records on that layer with the net's
+    index; a plane holds none. ``ValueError`` names the id of an item that ``graphic_problem`` or
+    ``keepout_problem`` refuses, of a graphic on a plane or on an unknown net, or of a hole without a
+    positive drill."""
     out = _Free()
     frame = copper.frame
-    for graphic in sorted(
-        spec.graphics,
-        key=lambda g: (board_layer(g.layer, spec.layer_ids) or 0, [_xy(p) for p in g.points], g.id),
-    ):
+
+    def layer_of(graphic: Graphic) -> int | None:
+        if graphic.layer in copper.layers:
+            return copper.signal_layer(graphic.id, graphic.layer)
+        return board_layer(graphic.layer, spec.layer_ids)
+
+    for graphic in sorted(spec.graphics, key=lambda g: (layer_of(g) or 0, [_xy(p) for p in g.points], g.id)):
         kept = spec.arc_records.get(graphic.id) if graphic.kind == "arc" else None
-        problem = graphic_problem(graphic, arc_known=kept is not None, layers=spec.layer_ids)
+        problem = graphic_problem(
+            graphic, arc_known=kept is not None, layers=spec.layer_ids, copper=tuple(copper.layers)
+        )
         if problem is not None:
             raise ValueError(f"{graphic.id}: {problem}")
-        layer = board_layer(graphic.layer, spec.layer_ids)
+        layer = layer_of(graphic)
         assert layer is not None
+        net = copper.net(graphic.id, graphic.net_id) if graphic.layer in copper.layers else rec.NO_INDEX
         if graphic.filled and graphic.kind in ("rect", "polygon"):
             if graphic.kind == "rect":
                 s, e = graphic.points
                 ring = [s, Point(e.x, s.y), e, Point(s.x, e.y)]
             else:
                 ring = _ring(graphic.points)
-            out.region(layer, ring, frame)
+            byte = spec.keepout_strokes.get(graphic.id)  # a keep-out fill (change c0455)
+            shape = (
+                fill_geometry([_units(frame(point)) for point in ring])
+                if graphic.id in spec.fill_ids or byte is not None
+                else None
+            )
+            if shape is not None:  # a fill read from Altium stays a fill (change c0450)
+                a, b, turn = shape
+                out.fills.append(rec.fill_record(layer, long_id(layer), a, b, turn, net=net, keepout=byte))
+                continue
+            member = unions.union_of(graphic)  # change c0460
+            if byte is None and member:
+                out.region(layer, ring, frame, net=net, union=member)
+            elif byte is None:
+                out.region(layer, ring, frame, net=net)
+            else:  # a keep-out fill that is no rectangle stays a keep-out region with its byte (change c0455)
+                out.region(layer, ring, frame, net=net, keepout=byte)
             continue
         width = rec.to_units(graphic.width)
+        byte = spec.keepout_strokes.get(graphic.id)
+        flagged = (long_id(layer), byte) if byte is not None else None  # a keep-out stroke (change c0450)
         if graphic.kind in ("polygon", "rect"):
             if graphic.kind == "rect":
                 s, e = graphic.points
@@ -1262,16 +1843,21 @@ def free_records(spec: PcbDocSpec, copper: _Copper) -> _Free:
                 ring = _ring(graphic.points)
             for index, point in enumerate(ring):
                 a, b = _units(frame(point)), _units(frame(ring[(index + 1) % len(ring)]))
-                out.tracks.append(rec.track_record(layer, a, b, width))
+                out.tracks.append(rec.track_record(layer, a, b, width, net=net))
         elif graphic.kind == "line":
             a, b = (_units(frame(point)) for point in graphic.points)
-            out.tracks.append(rec.track_record(layer, a, b, width))
+            member = _union(layer, graphic)  # change c0460
+            out.tracks.append(rec.track_record(layer, a, b, width, net=net, keepout=flagged, union=member))
         elif graphic.kind == "circle":
             centre, edge = (frame(point) for point in graphic.points)
-            out.arcs.append(rec.arc_record(layer, rec.circle_geometry(centre, edge), width))
+            geometry = rec.circle_geometry(centre, edge)
+            member = _union(layer, graphic)
+            out.arcs.append(rec.arc_record(layer, geometry, width, net=net, keepout=flagged, union=member))
         else:
             start, mid, end = (frame(point) for point in graphic.points)
-            out.arcs.append(rec.arc_record(layer, kept or rec.arc_from_points(start, mid, end), width))
+            geometry = kept or rec.arc_from_points(start, mid, end)
+            member = _union(layer, graphic)
+            out.arcs.append(rec.arc_record(layer, geometry, width, net=net, keepout=flagged, union=member))
     names = list(copper.layers)
     for keepout in sorted(spec.keepouts, key=lambda k: ([_xy(p) for p in k.outline], k.layers, k.id)):
         problem = keepout_problem(keepout, names)
@@ -1279,10 +1865,19 @@ def free_records(spec: PcbDocSpec, copper: _Copper) -> _Free:
             raise ValueError(f"{keepout.id}: {problem}")
         value = keepout_restrictions(keepout)
         ring = _ring(keepout.outline)
-        if set(keepout.layers) == set(names):
+        everywhere = set(keepout.layers) == set(names)
+        signal = all(copper.layers[name] < rec.FIRST_PLANE for name in keepout.layers)
+        if is_pour_cutout(keepout) and (everywhere or signal):
+            # a rule area of poured copper alone is the polygon cut-out it was read from (change c0439):
+            # on Multi-Layer for every copper layer, else on each signal layer (a plane holds no polygon to
+            # cut), never a keep-out and never copper
+            ids = [rec.MULTI_LAYER] if everywhere else [copper.layers[n] for n in _in_order(keepout, names)]
+            for layer in ids:
+                out.region(layer, ring, frame, polygon_cutout=True)
+        elif everywhere:
             out.region(rec.KEEPOUT_LAYER, ring, frame, value)
         else:
-            for name in sorted(set(keepout.layers), key=names.index):
+            for name in _in_order(keepout, names):
                 out.region(copper.layers[name], ring, frame, value)
     for ring in spec.cutouts:
         if len(ring) < 3:
@@ -1346,6 +1941,9 @@ def free_texts(spec: PcbDocSpec, frame: Frame, first: int) -> tuple[list[bytes],
                 height=text.size.h,
                 stroke=text.thickness,
                 rotation=text.rotation,
+                font=text_font(text),
+                union=unions.union_of(text),  # change c0460
+                tail=text_tail_of(text),  # change c0450, task 4.5
             )
         )
         wide.append(_wide_entry(number, text.text))
@@ -1402,30 +2000,124 @@ def _pour_over(zone: Zone) -> str:
     return found if found in ("0", "1", "2") else "1"
 
 
+def _hatch(zone: Zone) -> tuple[str, int, int] | None:
+    """The zone's hatch (change c0463, task 3.1): its ``hatch_style`` pair with ``grid_size`` and
+    ``track_width`` in nanometres, as a script sets them; ``None`` (a solid pour) when one is missing or
+    unreadable, or the style is ``Solid``."""
+    bag = zone.ext.get("altium")
+    pairs = dict(bag.payload) if bag is not None else {}
+    style, grid, width = pairs.get("hatch_style"), pairs.get("grid_size"), pairs.get("track_width")
+    if style not in HATCH_STYLES or style == "Solid" or grid is None or width is None:
+        return None
+    if not (grid.isdigit() and width.isdigit()) or int(grid) <= 0 or int(width) <= 0:
+        return None
+    return style, int(grid), int(width)
+
+
+def _arc_vertices(
+    carried: ArcPolygon, first: tuple[int, int]
+) -> tuple[list[tuple[int, int]], dict[int, tuple[int, int, int, int, int]]]:
+    """The vertices (without the closing one) and the arcs of ``carried``, in binary units, moved so its first
+    vertex lies at ``first`` (change c0463, task 1.3)."""
+    from fenolite.backends.altium.adapter.units import angle
+
+    found = list(carried.vertices)
+    if len(found) > 1 and (found[-1].x, found[-1].y) == (found[0].x, found[0].y):
+        found.pop()
+    dx, dy = first[0] - round(found[0].x), first[1] - round(found[0].y)
+    corners = [(round(v.x) + dx, round(v.y) + dy) for v in found]
+    arcs = {
+        k: (
+            round(v.cx) + dx,
+            round(v.cy) + dy,
+            round(v.radius),
+            angle(v.start_angle)[0],
+            angle(v.end_angle)[0],
+        )
+        for k, v in enumerate(found)
+        if v.kind != 0
+    }
+    return corners, arcs
+
+
 def polygon_records(
-    zones: Sequence[Zone], copper: _Copper, *, optimal_void_rotation: bool = True
+    zones: Sequence[Zone],
+    copper: _Copper,
+    *,
+    optimal_void_rotation: bool = True,
+    arcs: Mapping[str, ArcPolygon] | None = None,
 ) -> list[bytes]:
     """One polygon pour per zone layer (``pcb-copper.md``, "Polygon pour"), in the order of
     ``polygon_order``; the pour index is the record's position. A zone without a name gets
     ``<NET>_L<layer position>_P<pour index>``. ``optimal_void_rotation`` off writes
     ``OPTIMALVOIDROTATION=FALSE``, the form of a computed pour (change c0215); a zone's ``pour_over`` pair
-    sets its ``POUROVERSTYLE``."""
+    sets its ``POUROVERSTYLE``. A zone of ``arcs`` is written with its source's arc vertices and
+    ``ARCRESOLUTION`` (change c0463, task 1.3)."""
     out: list[bytes] = []
+    arcs = arcs or {}
     for index, (zone, layer, outline) in enumerate(polygon_order(zones, copper)):
+        vertices = [_units(copper.frame(point)) for point in outline]
+        bends: dict[int, tuple[int, int, int, int, int]] | None = None
+        carried = arcs.get(zone.id)
+        if carried is not None:
+            vertices, bends = _arc_vertices(carried, vertices[0])
         generated = f"{zone.net_id or NO_NET_NAME}_L{copper.position(layer) + 1:02d}_P{index:03d}".upper()
         net = copper.net(zone.id, zone.net_id)
+        islands, neck = _thresholds(zone.settings)
         fields = polygon_fields(
             rec.layer_text(copper.layers[layer]),
-            [_units(copper.frame(point)) for point in outline],
+            vertices,
             name=zone.name or generated,
             pour_index=index,
             net=None if net == rec.NO_INDEX else net,
             auto_name=not zone.name,
             remove_dead=zone.settings.island_removal != "never",
+            islands=islands,
+            neck=neck,
             optimal_void_rotation=optimal_void_rotation,
             pour_over=_pour_over(zone),
+            arcs=bends,
+            arc_resolution=carried.arc_resolution if carried is not None else None,
+            hatch=_hatch(zone),
         )
         out.append(rec.property_block(fields))
+    return out
+
+
+def _thresholds(settings: ZoneSettings) -> tuple[int | None, int]:
+    """The island area and neck width of a zone's pour (change c0446). A zone with the default island mode
+    and minimum width keeps the values c0035 wrote and the kit verified (2500 mil², 5 mil). Any other zone
+    gets its own: Altium removes a piece below the area whatever it connects, so only a zone that removes
+    islands below an area gets one, and the neck width is its minimum width."""
+    default = ZoneSettings()
+    if (settings.island_removal, settings.min_thickness) == (default.island_removal, default.min_thickness):
+        return LEGACY_ISLANDS_NM2, LEGACY_NECK_NM
+    area = settings.min_island_area if settings.island_removal == "below_area" else None
+    return area, settings.min_thickness
+
+
+def split_plane_records(spec: PcbDocSpec, copper: _Copper) -> list[bytes]:
+    """One ``Split Plane`` polygon per internal plane of the stack, top to bottom (change c0389, task 2.7;
+    ``pcb-copper.md``, "Layer stack"): on the plane's layer, with the plane's net and the board outline as
+    its vertices. A saved plane holds this record and Altium's Plane Connect check reads the plane's copper
+    from it (S-1653); the saved form pulls the outline back by the plane's pull-back distance, which the
+    written form leaves to Altium, as it does the pull-back tracks (``H-A-PCB-CU-PLANE``)."""
+    stack = document_stack(spec)
+    vertices = [_units(copper.frame(point)) for point in spec.outline]
+    out: list[bytes] = []
+    for layer, net in zip(stack.planes, stack.plane_nets, strict=True):
+        splits = spec.plane_splits.get(layer, ())
+        if not splits:
+            out.append(
+                rec.property_block(
+                    split_plane_fields(rec.layer_text(layer), vertices, copper.net(f"plane {layer}", net))
+                )
+            )
+        # change c0466: the carried splits of the plane, each on its net, as the source held them
+        for name, ring in splits:
+            points = [_units(copper.frame(point)) for point in ring]
+            fields = split_plane_fields(rec.layer_text(layer), points, copper.net(f"split of {layer}", name))
+            out.append(rec.property_block(fields))
     return out
 
 
@@ -1508,7 +2200,25 @@ DEFAULT_VIA_DRILL = 300_000
 """The values of the ``All`` rules in nanometres: Fenolite's choices (``pcb-copper.md``)."""
 RULE_CLEARANCE, RULE_WIDTH, RULE_VIAS = 0, 2, 11
 """The rule-kind numbers that open a ``Rules6`` record."""
+RULE_PLANE_CONNECT, RULE_PLANE_CLEARANCE = 6, 12
+"""The rule-kind numbers of the Power Plane Connect Style and the Power Plane Clearance rules."""
 ALL_SCOPE = "All"
+PLANE_CONNECT_KEYS: tuple[Field, ...] = (
+    ("PAD.PLANECONNECTSTYLE", "Relief"),
+    ("PAD.RELIEFEXPANSION", "20mil"),
+    ("PAD.RELIEFENTRIES", "4"),
+    ("PAD.RELIEFCONDUCTORWIDTH", "10mil"),
+    ("PAD.RELIEFAIRGAP", "10mil"),
+    ("VIA.PLANECONNECTSTYLE", "Direct"),
+    ("VIA.RELIEFEXPANSION", "20mil"),
+    ("VIA.RELIEFENTRIES", "4"),
+    ("VIA.RELIEFCONDUCTORWIDTH", "10mil"),
+    ("VIA.RELIEFAIRGAP", "10mil"),
+)
+"""The keys of the ``All`` Plane Connect rule that a document with a plane holds (change c0389, task 2.7):
+the values of the untouched rule of a saved document (S-1653), pads by thermal relief, vias directly."""
+PLANE_CLEARANCE_KEYS: tuple[Field, ...] = (("CLEARANCE", "20mil"),)
+"""The keys of the ``All`` Plane Clearance rule that a document with a plane holds (S-1653)."""
 
 
 def _mil(nm: int) -> str:
@@ -1612,15 +2322,20 @@ def _class_rules(spec: PcbDocSpec) -> list[_Planned]:
 def rule_records(spec: PcbDocSpec, filename: str) -> list[bytes]:
     """The ``Rules6`` records (``pcb-copper.md``, "Rules" and "Rule kinds lowered"), by kind in the order of
     ``rulemap.KIND_ORDER``. Per kind, first the lowered rules of the design (``spec.design_rules``) in
-    their order, then the rules of change c0038: one rule ``<Kind>_<class>`` scoped
-    ``InNetClass('<class>')`` for each net class that holds the kind's value, in class-name order, and one
-    rule named after the kind with the scope ``All`` and Fenolite's default. A rule of c0038 whose two
-    scopes are those of a rule of the design is left out: the design's rule replaces it. Priorities count
-    from 1 within a kind. The limits of a width or via rule of c0038 span its preferred value and the
-    written copper of its scope. The rules of c0038 are written only for a spec with copper or net
-    classes; no rule is written with ``rules`` off."""
+    their order, then the rules of change c0038 (of the kinds ``spec.class_kinds``, change c0434): one rule
+    ``<Kind>_<class>`` scoped ``InNetClass('<class>')`` for each net class that holds the kind's value, in
+    class-name order, and one rule named after the kind with the scope ``All`` and Fenolite's default. A
+    rule of c0038 whose two scopes are those of a rule of the design is left out: the design's rule
+    replaces it. Priorities count from 1 within a kind. The limits of a width or via rule of c0038 span
+    its preferred value and the written copper of its scope. The rules of c0038 are written only for a
+    spec with copper or net classes; no rule is written with ``rules`` off. A document whose stack holds
+    an internal plane ends with one Plane Connect and one Plane Clearance rule scoped ``All``
+    (``PLANE_CONNECT_KEYS``, ``PLANE_CLEARANCE_KEYS``; change c0389, task 2.7), so Altium does not fall
+    back on its own default."""
     if not spec.rules:
         return []
+    if spec.source_rules:
+        return _source_records(spec, filename)
     has_copper = bool(spec.tracks or spec.arcs or spec.vias or spec.zones or spec.net_classes)
     planned: list[_Planned] = []
     planned.extend(
@@ -1629,6 +2344,8 @@ def rule_records(spec: PcbDocSpec, filename: str) -> list[bytes]:
     taken = {(kind, first, second) for _n, kind, _name, first, second, _net, _keys in planned}
     names = {name for _n, _kind, name, _first, _second, _net, _keys in planned}
     for rule in _class_rules(spec) if has_copper else []:
+        if rule[1] not in spec.class_kinds:
+            continue
         if (rule[1], rule[3], rule[4]) in taken:
             continue
         name = f"{rule[2]}_class" if rule[2] in names else rule[2]  # a net named like a class rule
@@ -1641,6 +2358,98 @@ def rule_records(spec: PcbDocSpec, filename: str) -> list[bytes]:
             out.append(
                 _rule(number, kind, name, first, priority, keys, filename, second=second, net_scope=net_scope)
             )
+    counts = {kind: sum(1 for rule in planned if rule[1] == kind) for kind in {rule[1] for rule in planned}}
+    names |= {rule[2] for rule in planned}
+    kept_kinds = {dict(fields).get("RULEKIND", "") for _number, fields in spec.kept_rules}
+    if document_stack(spec).planes:
+        for number, kind, keys in (
+            (RULE_PLANE_CONNECT, "PlaneConnect", PLANE_CONNECT_KEYS),
+            (RULE_PLANE_CLEARANCE, "PlaneClearance", PLANE_CLEARANCE_KEYS),
+        ):
+            if kind in kept_kinds:
+                continue  # the document's own plane rule is written back (change c0424)
+            name = f"{kind}_plane" if kind in names else kind
+            names.add(name)
+            counts[kind] = 1
+            out.append(_rule(number, kind, name, ALL_SCOPE, 1, keys, filename, net_scope="AnyNet"))
+    out += _kept_records(spec.kept_rules, counts, names)
+    return out
+
+
+def _source_records(spec: PcbDocSpec, filename: str) -> list[bytes]:
+    """The ``Rules6`` records of a conversion that carried its source's rules (change c0434, capability
+    altium-pcb-writer, "Source rule records written back"): each record of ``spec.source_rules`` as it is,
+    in its order, then each lowered rule of ``spec.design_rules`` (a rule that no source record gave) with
+    the next priority of its kind and a name not yet written (``_2``, ``_3``…), then the kept records. No
+    rule of a net class and no default is added; the plane rules of c0389 only for a kind no record has."""
+    out: list[bytes] = []
+    names: set[str] = set()
+    top: dict[str, int] = {}
+    for number, fields in spec.source_rules:
+        held = dict(fields)
+        kind = held.get("RULEKIND", "")
+        names.add(held.get("NAME") or "")
+        top[kind] = max(top.get(kind, 0), _priority(fields))
+        out.append(
+            struct.pack("<H", number) + rec.property_block([*common_fields("TOP"), *fields], spaced_keys=True)
+        )
+    for lowered in spec.design_rules:
+        top[lowered.kind] = top.get(lowered.kind, 0) + 1
+        name, count = lowered.name, 1
+        while name in names:
+            count += 1
+            name = f"{lowered.name}_{count}"
+        names.add(name)
+        priority, scope, net = top[lowered.kind], lowered.scope1, lowered.net_scope
+        out.append(
+            _rule(lowered.number, lowered.kind, name, scope, priority, lowered.keys, filename,
+                  second=lowered.scope2, net_scope=net)
+        )  # fmt: skip
+    if document_stack(spec).planes:
+        for number, kind, keys in (
+            (RULE_PLANE_CONNECT, "PlaneConnect", PLANE_CONNECT_KEYS),
+            (RULE_PLANE_CLEARANCE, "PlaneClearance", PLANE_CLEARANCE_KEYS),
+        ):
+            if kind not in top:
+                top[kind] = 1
+                names.add(kind)
+                out.append(_rule(number, kind, kind, ALL_SCOPE, 1, keys, filename, net_scope="AnyNet"))
+    counts = dict(top)
+    return out + _kept_records(spec.kept_rules, counts, names)
+
+
+def _priority(fields: Sequence[Field]) -> int:
+    text = dict(fields).get("PRIORITY") or ""
+    return int(text) if text.isascii() and text.isdigit() else 0
+
+
+def _kept_records(
+    kept: Sequence[tuple[int, Sequence[Field]]], counts: dict[str, int], names: set[str]
+) -> list[bytes]:
+    """The kept rule records of a document that was read, written back (change c0424, capability
+    altium-pcb-writer, "Kept rule records written back"): a record of a kind the document already writes
+    takes the next priorities of that kind, in its original priority order; another keeps its own
+    priority. A name already written gets ``_kept``."""
+    out: list[bytes] = []
+    order = sorted(
+        range(len(kept)), key=lambda i: (dict(kept[i][1]).get("RULEKIND", ""), _priority(kept[i][1]), i)
+    )
+    written: dict[int, bytes] = {}
+    for index in order:
+        number, fields = kept[index]
+        kind = dict(fields).get("RULEKIND", "")
+        changed: dict[str, str] = {}
+        if kind in counts:
+            counts[kind] += 1
+            changed["PRIORITY"] = str(counts[kind])
+        name = dict(fields).get("NAME") or ""
+        if name in names:
+            changed["NAME"] = f"{name}_kept"
+        names.add(changed.get("NAME", name))
+        pairs = [(key, changed.get(key, value)) for key, value in fields]
+        block = rec.property_block([*common_fields("TOP"), *pairs], spaced_keys=True)
+        written[index] = struct.pack("<H", number) + block
+    out += [written[index] for index in range(len(kept))]
     return out
 
 
@@ -1649,21 +2458,28 @@ def document_stack(spec: PcbDocSpec) -> StackSpec:
     planes. ``ValueError`` when the stack does not hold one id per copper layer (a signal layer's id of
     ``pcbrecords.LAYER_MAP``, or a plane on an inner layer), or when a plane's net is not a net of the
     document."""
-    signal = rec.copper_stack(spec.copper_layers)
     if spec.stack is None:
-        return StackSpec.default(signal)
+        return StackSpec.default(rec.copper_stack(spec.copper_layers))
     stack = spec.stack
     planes = [
         name
         for name, layer in zip(spec.copper_layers, stack.copper, strict=False)
         if layer >= rec.FIRST_PLANE and name not in (spec.copper_layers[0], spec.copper_layers[-1])
     ]
-    if len(stack.copper) != len(signal) or rec.copper_stack(spec.copper_layers, planes) != stack.copper:
+    # a stack of more than 16 copper layers holds planes; the ids are checked with them (change c0277), and
+    # the inner signal layers may keep a source's ids, rising from the top (change c0466)
+    signals = {
+        name: layer for name, layer in zip(spec.copper_layers, stack.copper, strict=False) if layer <= 31
+    }
+    if (
+        len(stack.copper) != len(spec.copper_layers)
+        or rec.copper_stack(spec.copper_layers, planes, signals) != stack.copper
+    ):
         raise ValueError(
             f"the stack {stack.copper!r} does not hold one id per copper layer of {spec.copper_layers!r}"
         )
     for layer, net in zip(stack.planes, stack.plane_nets, strict=True):
-        if net not in spec.nets:
+        if net not in spec.nets and not (net == MULTIPLE_NETS and spec.plane_splits.get(layer)):
             raise ValueError(f"the net {net!r} of {rec.LAYER_NAMES[layer]} is not a net of the document")
     return stack
 
@@ -1681,8 +2497,11 @@ def _wide_string(text: str) -> bytes:
 
 def record_layer(record: bytes) -> int:
     """The layer byte of a primitive record (the first byte of its common prefix); for a pad the prefix
-    opens the fifth subrecord. A via lies on Multi-Layer."""
+    opens the fifth subrecord. A via lies on Multi-Layer. A track, an arc or a fill on Mechanical 17 to 32
+    gives the long id that names its layer (``pcbrecords.long_mechanical_of``; change c0450, task 4.4)."""
     body = record[1:]
+    if (long := rec.long_mechanical_of(record[0], body[4:])) is not None:
+        return long
     if record[0] == rec.PAD:
         for _ in range(4):
             (length,) = struct.unpack_from("<I", body)
@@ -1739,8 +2558,9 @@ def write_pcbdoc(
     computed pour did). ``ValueError`` for an outline of fewer than three points, a refused footprint,
     copper layers that are not a stack of ``pcbrecords.COPPER_STACKS`` or copper that cannot be written
     exactly (the entity's id is named); ``cfb.CompoundTooLarge`` past the size limit. The bodies of
-    ``spec.bodies`` (change c0121) go into the two body storages; no entry of ``Models``, ``ModelsNoEmbed``,
-    ``Textures`` or ``UniqueIDPrimitiveInformation`` is written for a body."""
+    ``spec.bodies`` (change c0121) go into the two body storages; the models that bodies name go into
+    ``Models`` (change c0449, ``model_storage``); no entry of ``ModelsNoEmbed``, ``Textures`` or
+    ``UniqueIDPrimitiveInformation`` is written for a body."""
     return write_pcbdoc_result(spec, filename=filename, pour=pour, pour_regions=pour_regions).data
 
 
@@ -1750,9 +2570,11 @@ def _write(
     *,
     computed: bool = False,
     pour_records: Sequence[tuple[bytes, bytes]] = (),
+    pour_tracks: Sequence[bytes] = (),
 ) -> bytes:
-    """The bytes of ``spec``: with ``computed`` the polygon records and rules of a computed pour and the
-    regions ``pour_records`` (plain and shape-based twins) after every other region."""
+    """The bytes of ``spec``: with ``computed`` the polygon records and rules of a computed pour, the regions
+    ``pour_records`` (plain and shape-based twins) after every other region and the tracks of hatched
+    pours ``pour_tracks`` after every other track."""
     from fenolite.backends.altium.project import unique_id  # project imports this module
 
     frame = spec.frame if spec.frame is not None else Frame.of(spec.outline)
@@ -1768,15 +2590,17 @@ def _write(
     wide: list[bytes] = []
     regions: list[bytes] = []
     shapes: list[bytes] = []
+    fills: list[bytes] = []
     offsets = channel_offsets(spec.components)
     for index, component in enumerate(spec.components):
         components.append(_component_record(component, offsets[index], frame, filename))
-        placed = place_component(component, index, frame, nets, spec.copper_layers)
+        placed = place_component(component, index, frame, nets, spec.copper_layers, copper.layers)
         pads += placed.pads
         tracks += placed.tracks
         arcs += placed.arcs
         regions += placed.regions
         shapes += placed.shapes
+        fills += placed.fills
         local = Transform.placement(component.at, component.rotation)
         x0, y0, x1, y1 = placed.box
         middle = (x0 + x1) // 2
@@ -1786,10 +2610,12 @@ def _write(
             (component.ref, True, Point(middle, y1 + DESIGNATOR_RISE)),
             (component.comment, False, Point(middle, y0 - COMMENT_DROP)),
         ):
-            if not text:  # a component of a model that was read may have no designator or comment
+            place = component.designator_place if designator else component.comment_place
+            # a component of a model that was read may have no designator or comment; an empty comment
+            # whose field the model places is written, as a saved document holds it (change c0451)
+            if not text and (designator or place is None):
                 continue
             number = len(texts)
-            place = component.designator_place if designator else component.comment_place
             if place is None:
                 texts.append(
                     text_record(
@@ -1800,6 +2626,7 @@ def _write(
                         designator=designator,
                         wide_index=number,
                         mirrored=bottom,
+                        union=component.union,  # change c0460: a member's designator and comment
                     )
                 )
             else:  # where the model's field says (change c0126)
@@ -1815,6 +2642,9 @@ def _write(
                         height=place.height,
                         stroke=place.stroke,
                         rotation=(place.rotation + component.rotation) % FULL_TURN,
+                        font=place.font,
+                        union=component.union,
+                        tail=place.tail,
                     )
                 )
             wide.append(_wide_entry(number, text))
@@ -1833,6 +2663,8 @@ def _write(
                     height=item.place.height,
                     stroke=item.place.stroke,
                     rotation=(item.place.rotation + component.rotation) % FULL_TURN,
+                    font=item.place.font,
+                    tail=item.place.tail,
                 )
             )
             wide.append(_wide_entry(number, item.text))
@@ -1840,38 +2672,65 @@ def _write(
     arcs += routed_arcs(spec.arcs, copper, spec.arc_records)
     filled: dict[str, list[bytes]] = {name: [] for name in COPPER_STORAGES}
     filled["Vias6"] = via_records(
-        spec.vias, copper, allow_full_drill=spec.allow_full_drill, default=spec.via_protection
+        spec.vias,
+        copper,
+        allow_full_drill=spec.allow_full_drill,
+        default=spec.via_protection,
+        mask=spec.via_mask,
     )
     pairs = drill_pairs(spec.vias, copper)
     if pairs:
         stack = dataclasses.replace(stack, drill_pairs=pairs)
     free = free_records(spec, copper)
     tracks += free.tracks
+    tracks += pour_tracks
     arcs += free.arcs
     pads += free.pads
     filled["Regions6"] = [*regions, *free.regions, *(plain for plain, _ in pour_records)]
     filled["ShapeBasedRegions6"] = [*shapes, *free.shapes, *(shape for _, shape in pour_records)]
+    filled["Fills6"] = [*fills, *free.fills]
     more_texts, more_wide = free_texts(spec, frame, len(texts))
     texts += more_texts
     wide += more_wide
-    filled["Polygons6"] = polygon_records(spec.zones, copper, optimal_void_rotation=not computed)
+    filled["Polygons6"] = [
+        *polygon_records(spec.zones, copper, optimal_void_rotation=not computed, arcs=spec.polygon_arcs),
+        *split_plane_records(spec, copper),
+    ]
+    kept = dict(spec.kept_storages)
+    kept_classes = kept.pop(KEPT_CLASSES, None) or kept.pop(LEGACY_CLASSES, None)
+    kept.pop(LEGACY_CLASSES, None)
+    signal_classes = kept.pop(KEPT_SIGNAL_CLASSES, None)
+    pin_pairs = kept.pop(PIN_PAIRS, None)
+    settings = _settings_fields(kept.pop(SETTINGS)[1]) if SETTINGS in kept else []  # change c0464
+    pairs = kept.pop("DifferentialPairs6", None)
     filled["Classes6"] = [
         *class_records(spec.net_classes, nets, filename),
-        *component_class_records(spec.components, filename),
+        # the source's own component classes stand in for the writer's (change c0461)
+        *(component_class_records(spec.components, filename) if kept_classes is None else ()),
     ]
+    if pairs is not None:
+        filled["DifferentialPairs6"] = _split_records(pairs[1])
     filled["Rules6"] = rule_records(spec, filename)
-    if computed and spec.zones and spec.rules:
+    carried = any(dict(fields).get("RULEKIND") == "PolygonConnect" for _n, fields in spec.source_rules)
+    if computed and spec.zones and spec.rules and not carried:  # the source's own records stand (c0434)
         filled["Rules6"] += connect_records(spec, filename)[0]
     filled[BODY_STORAGES[0]], filled[BODY_STORAGES[1]] = body_records(spec, frame)
+    filled["EmbeddedBoards6"] = list(spec.embedded_arrays)
     poured = {copper.layers[layer] for zone in spec.zones for layer in zone.layers}
-    used = sorted(
-        {
-            record_layer(record)
-            for record in (*pads, *tracks, *arcs, *texts, *filled["Vias6"], *regions, *free.regions)
-        }
-        | poured
-        | {body.layer for body in spec.bodies}
-    )
+    drawn = {
+        record_layer(record)
+        for record in (
+            *pads,
+            *tracks,
+            *arcs,
+            *texts,
+            *filled["Vias6"],
+            *regions,
+            *free.regions,
+            *filled["Fills6"],
+        )
+    } | poured
+    used = sorted(drawn | {body.layer for body in spec.bodies})
     unique = [
         rec.property_block(
             (
@@ -1890,14 +2749,17 @@ def _write(
             [
                 board_record(
                     spec.outline,
+                    arcs=spec.outline_arcs,
                     filename=filename,
                     used_layers=used,
                     stack=stack,
                     frame=spec.frame,
                     origin=spec.origin,
-                    layer_names={
-                        ident: name for name, ident in spec.layer_ids.items() if not name.startswith("Mech.")
-                    },
+                    layer_names=_layer_names(spec, drawn, settings),
+                    copper_names=spec.copper_names,
+                    pin_pairs=_pin_pair_fields(pin_pairs[1]) if pin_pairs is not None else (),
+                    settings=settings,
+                    mechanical=_mechanical_enabled(used, settings),
                 )
             ],
         ),
@@ -1907,12 +2769,168 @@ def _write(
         _storage("Tracks6", tracks),
         _storage("Arcs6", arcs),
         _storage("Texts6", texts),
-        _storage("WideStrings6", wide),
+        _storage("WideStrings6", [entry for entry in wide if entry]),  # no entry for an empty text
         _storage(UNIQUE_STORAGE, unique),
     ]
-    entries += _option_storages(filename)
-    entries += [_storage(name, filled.get(name, [])) for name in _TAIL_ORDER]
+    for option in _option_storages(filename):
+        if option.name == "SignalClasses" and signal_classes is not None:  # after the super class (c0461)
+            option = _with_records(option, _split_records(signal_classes[1]))
+        entries.append(option)
+    if kept_classes is not None:
+        named = _named_classes(filled["Classes6"], filled["Rules6"])
+        filled["Classes6"] = [*named, *_kept_classes(named, kept_classes[1])]
+    written = {name.casefold() for name in _TAIL_ORDER}
+    for name, (header, data) in sorted(kept.items()):
+        if name.casefold() not in written and text_problem(name) is None:
+            entries.append(Storage(name, (("Header", header), ("Data", data))))
+    entries += [
+        model_storage(spec) if name == MODELS_STORAGE else _storage(name, filled.get(name, []))
+        for name in _TAIL_ORDER
+    ]
     return write_compound(entries)
+
+
+KEPT_CLASSES = "Classes6.Kept"
+"""The kept storage that holds the source's class records that are no net class (change c0461)."""
+LEGACY_CLASSES = "Classes6.Component"
+"""The kept storage of change c0450, its component classes alone."""
+KEPT_SIGNAL_CLASSES = "SignalClasses.Kept"
+PIN_PAIRS = "Board6.PinPairs"
+SETTINGS = "Board6.Settings"
+"""The kept storage of the source's ``Board6`` settings (change c0464, ``docboard.with_settings``)."""
+_MECHANICAL_KEY = re.compile(r"LAYER(5[7-9]|6[0-9]|7[0-2])(NAME|MECHENABLED)")
+_LATER_KEY = re.compile(r"LAYERV7_(\d+)(LAYERID|NAME|MECHENABLED)")
+"""The keys of Mechanical 17 to 32 in ``Board6`` (``pcb-library.md``, "The board record"): ``LAYERV7_<i>``
+with the layer's long id under ``LAYERID`` (change c0450, task 4.4)."""
+
+
+def _mechanical_settings(settings: Sequence[Field]) -> tuple[dict[int, str], dict[int, bool]]:
+    """The names and the enabled flags of the mechanical layers among carried ``settings``, by the id the
+    writer gives the layer (``pcbrecords.mechanical_id``): ``LAYER57`` … ``LAYER72`` for Mechanical 1 to 16
+    (change c0464), and ``LAYERV7_<i>`` for the layer its ``LAYERID`` names among Mechanical 17 to 32
+    (change c0450, task 4.4)."""
+    names: dict[int, str] = {}
+    flags: dict[int, bool] = {}
+    later: dict[str, dict[str, str]] = {}
+    for key, value in settings:
+        if (match := _MECHANICAL_KEY.fullmatch(key)) is not None and match.group(2) == "NAME":
+            names[int(match.group(1))] = value
+        elif match is not None:
+            flags[int(match.group(1))] = value.upper() == "TRUE"
+        elif (match := _LATER_KEY.fullmatch(key)) is not None:
+            later.setdefault(match.group(1), {})[match.group(2)] = value
+    for fields in later.values():
+        long = fields.get("LAYERID", "")
+        if not (long.isascii() and long.isdigit() and rec.is_long_mechanical(int(long))):
+            continue
+        if "NAME" in fields:
+            names[int(long)] = fields["NAME"]
+        if "MECHENABLED" in fields:
+            flags[int(long)] = fields["MECHENABLED"].upper() == "TRUE"
+    return names, flags
+
+
+def _split_records(data: bytes) -> list[bytes]:
+    """The length-prefixed records of a property storage's ``Data`` stream."""
+    found: list[bytes] = []
+    at = 0
+    while at + 4 <= len(data):
+        (length,) = struct.unpack_from("<I", data, at)
+        found.append(data[at : at + 4 + length])
+        at += 4 + length
+    return found
+
+
+def _with_records(storage: Storage, more: Sequence[bytes]) -> Storage:
+    """``storage`` (a ``Header`` count and a ``Data`` stream) with ``more`` records after its own."""
+    streams = {entry[0]: entry[1] for entry in storage.entries if isinstance(entry, tuple)}
+    header, data = streams["Header"], streams["Data"]
+    (count,) = struct.unpack_from("<I", header)
+    return _storage(storage.name, [data, *more], count=count + len(more))
+
+
+def _settings_fields(data: bytes) -> list[Field]:
+    """The ``|KEY=value`` fields of carried ``Board6.Settings`` text, in order (change c0464)."""
+    return _pin_pair_fields(data)
+
+
+def _layer_names(spec: PcbDocSpec, used: Collection[int], settings: Sequence[Field]) -> dict[int, str]:
+    """The names of the mechanical layers of ``Board6``: each id after the layer of ``spec.layer_ids`` that
+    reaches it (but ``Mech.<n>``, which keeps Altium's name), and after the source's name among the carried
+    ``settings`` (change c0464) when the id is in ``spec.named_layers`` (the layer is the source's) or no
+    layer of ``used`` is it (no primitive of the written document lies on it: a body on a layer the writer
+    chose does not make it the KiCad layer's)."""
+    names = {ident: name for name, ident in spec.layer_ids.items() if not name.startswith("Mech.")}
+    for ident, value in _mechanical_settings(settings)[0].items():
+        if ident in spec.named_layers or ident not in used:
+            names[ident] = value
+    return names
+
+
+def _mechanical_enabled(used: Collection[int], settings: Sequence[Field]) -> tuple[int, ...] | None:
+    """The numbers of the enabled mechanical layers when the carried ``settings`` hold the source's flags
+    (change c0464): a layer that something of the written document lies on is enabled, as a build enables
+    it (``enabled_mechanical``), and every other one takes the source's flag. ``None`` without flags."""
+    flags = _mechanical_settings(settings)[1]
+    if not flags:
+        return None
+    enabled = set(enabled_mechanical(used))
+    for ident, flag in flags.items():
+        number = rec.mechanical_number(ident)
+        if number is not None and ident not in used:
+            (enabled.add if flag else enabled.discard)(number)
+    return tuple(sorted(enabled))
+
+
+def _pin_pair_fields(data: bytes) -> list[Field]:
+    """The ``|KEY=value`` fields of carried ``Board6.PinPairs`` text, in order."""
+    found: list[Field] = []
+    for part in data.decode("latin-1").split("|"):
+        key, sep, value = part.partition("=")
+        if sep:
+            found.append((key, value))
+    return found
+
+
+def _named_classes(written: Sequence[bytes], rules: Sequence[bytes]) -> list[bytes]:
+    """The class records of ``written`` but a net class without a member whose name no rule of ``rules``
+    scopes (change c0461): with the source's classes carried, the empty ``Default`` net class that KiCad
+    holds is no class of the source."""
+    scopes = b"".join(rules).decode("latin-1").casefold()
+    kept: list[bytes] = []
+    for record in written:
+        text = record[4:].decode("latin-1")
+        empty = "|KIND=0|" in text and "|M0=" not in text
+        if empty and f"innetclass('{_class_name(record).casefold()}')" not in scopes:
+            continue
+        kept.append(record)
+    return kept
+
+
+def _class_key(record: bytes, key: str) -> str:
+    text = record[4:].rstrip(b"\x00").decode("latin-1")
+    for part in text.split("|"):
+        name, sep, value = part.partition("=")
+        if sep and name.strip().upper() == key:
+            return value
+    return ""
+
+
+def _class_name(record: bytes) -> str:
+    return _class_key(record, "NAME")
+
+
+def _kept_classes(written: Sequence[bytes], data: bytes) -> list[bytes]:
+    """The length-prefixed records of ``data`` whose kind and class name no record of ``written`` holds
+    (change c0461: a net class ``CELL`` and a class of component classes ``Cell`` stand side by side)."""
+    names = {(_class_key(record, "KIND"), _class_name(record).casefold()) for record in written}
+    found: list[bytes] = []
+    for record in _split_records(data):
+        key = (_class_key(record, "KIND"), _class_name(record).casefold())
+        if key[1] and key not in names:
+            names.add(key)
+            found.append(record)
+    return found
 
 
 # --- computed pours (change c0215) --------------------------------------------------------------------------
@@ -2078,7 +3096,7 @@ def _pour_regions(document: PcbDocument, pours: PourResult) -> list[tuple[bytes,
 
     out: list[tuple[bytes, bytes]] = []
     for pour in pours.polygons:
-        if not pour.poured:
+        if not pour.poured or pour.tracks:  # a hatch is written as tracks (``_pour_tracks``)
             continue
         record = document.polygons[pour.index]
         layer = layer_of_text(record.layer)
@@ -2098,6 +3116,38 @@ def _pour_regions(document: PcbDocument, pours: PourResult) -> list[tuple[bytes,
             )
             out.append((plain, shape))
     return out
+
+
+def _pour_tracks(document: PcbDocument, pours: PourResult) -> list[bytes]:
+    """The track records of every hatched polygon of ``pours`` (change c0463; ``pcb-pour.md``, "Hatched
+    pour"), polygon by polygon in record order: no net, the polygon's position, ends and width in binary
+    units of the file's frame. A track whose ends round to one point is left out."""
+    from fenolite.backends.altium.adapter.copper import layer_of_text
+
+    out: list[bytes] = []
+    for pour in pours.polygons:
+        if not pour.poured or not pour.tracks:
+            continue
+        layer = layer_of_text(document.polygons[pour.index].layer)
+        if layer is None:  # pragma: no cover - the import maps only polygons on known layers
+            continue
+        for a, b, width in pour.tracks:
+            start = (rec.to_units(a.x), rec.to_units(-a.y))
+            end = (rec.to_units(b.x), rec.to_units(-b.y))
+            if start != end:
+                out.append(rec.track_record(layer, start, end, rec.to_units(width), polygon=pour.index))
+    return out
+
+
+def _write_poured(spec: PcbDocSpec, filename: str, document: PcbDocument, pours: PourResult) -> bytes:
+    """``_write`` of a computed pour with the copper of ``pours``: regions, and tracks of hatched pours."""
+    return _write(
+        spec,
+        filename,
+        computed=True,
+        pour_records=_pour_regions(document, pours),
+        pour_tracks=_pour_tracks(document, pours),
+    )
 
 
 def write_pcbdoc_result(
@@ -2131,16 +3181,14 @@ def write_pcbdoc_result(
     while True:
         rounds += 1
         result = pour_reading(reading, backend=backend, refuse=refused)
-        data = _write(spec, filename, computed=True, pour_records=_pour_regions(reading.document, result))
+        data = _write_poured(spec, filename, reading.document, result)
         failed = check_pour(read_pour(data, file=filename), result)
         if not failed or rounds >= POUR_ROUNDS:
             for index in failed:
                 refused[index] = "copper-check"
             if failed:
                 result = pour_reading(reading, backend=backend, refuse=refused)
-                data = _write(
-                    spec, filename, computed=True, pour_records=_pour_regions(reading.document, result)
-                )
+                data = _write_poured(spec, filename, reading.document, result)
             break
         refused.update((index, "copper-check") for index in failed)
     summary = PourSummary(
@@ -2173,7 +3221,11 @@ __all__ = [
     "BOARD_OFFSET_MIL",
     "CUTOUT_REGIONS",
     "BodyMode",
+    "EmbeddedModel",
+    "FootprintModel",
+    "MODELS_STORAGE",
     "PlacedBody",
+    "model_storage",
     "body_mode",
     "body_problem",
     "body_records",
@@ -2189,6 +3241,7 @@ __all__ = [
     "EVIDENCE",
     "FILE_HEADER_SIX_TEXT",
     "FILE_HEADER_TEXT",
+    "NET_TIE_KIND",
     "Frame",
     "FreePad",
     "NetClassSpec",
@@ -2224,6 +3277,7 @@ __all__ = [
     "place_component",
     "polygon_name",
     "polygon_records",
+    "record_id",
     "record_layer",
     "routed_arcs",
     "routed_tracks",
@@ -2239,4 +3293,8 @@ __all__ = [
     "ZONE_UNPOURED",
     "connect_records",
     "polygon_order",
+    "FONT_NAME_CHARS",
+    "TRUETYPE_FONT",
+    "TextFont",
+    "text_font",
 ]

@@ -1,0 +1,46 @@
+{
+  "change": "c0339",
+  "before_source": "ed972353",
+  "after_source": "15661b65",
+  "targets": {
+    "9": {
+      "only_changed_files": [
+        ".fenolite/build.json",
+        "sheets/ch1.kicad_sch",
+        "sheets/ch2.kicad_sch",
+        "two_sheet.kicad_sch"
+      ],
+      "only_schematic_delta": "omit empty native title_block",
+      "only_manifest_delta": "the three paired schematic hashes",
+      "before_aggregate": "29817d226e47a4f9f06a37a85d84f83f3cbb0418e1f7ea5deaee289d24723dbd",
+      "after_aggregate": "021ad831c254ca8cc7908258abf68881a987f78e1e7607b4ced093f3c128a526"
+    },
+    "10": {
+      "only_changed_files": [
+        ".fenolite/build.json",
+        "sheets/ch1.kicad_sch",
+        "sheets/ch2.kicad_sch",
+        "two_sheet.kicad_sch"
+      ],
+      "only_schematic_delta": "omit empty native title_block",
+      "only_manifest_delta": "the three paired schematic hashes",
+      "before_aggregate": "cfea7242149b092102244be518c5c98be58d57d34c3a09cca09d6b97342a168a",
+      "after_aggregate": "f89bb04ccb4d8bece6b5fdfd76a5c774e2dda952ef141815a4d2503efc0bca8d"
+    }
+  },
+  "derived_toml": {
+    "before": "462b39f435234ca222c16152ed65979799cd4787d067cccd061d45b882b2314e",
+    "after": "647a1e2d63072160cf62083f436576b669878571f8cf314da7b3c8935eaac272",
+    "only_added_blank_intent_sheets": [
+      "root",
+      "ch1",
+      "ch2"
+    ],
+    "all_other_values_equal": true
+  },
+  "complete_default_plans": {
+    "rows": 75,
+    "files": 1172,
+    "changed_against_bffa03fd": 0
+  }
+}

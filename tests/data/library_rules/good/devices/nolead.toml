@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as synthetic test data (change c0262); no real product.
+schema = "fenolite.device.v1"
+id = "Rules:RuleNoleadDevice"
+version = "1.0.0"
+summary = "Synthetic device"
+licence = "CC0-1.0"
+evidence = "INFERRED"
+manufacturer = "Example"
+mpn = "EXAMPLE_NOLEAD"
+symbol = "Rules:RuleNoleadPins"
+footprint = "Rules:RuleNolead"
+ref_prefix = "U"
+value = "EXAMPLE_NOLEAD"
+
+[pins]
+P1 = "1"
+P2 = "2"
+P3 = "3"
+P4 = "4"
+P5 = "5"
+P6 = "6"
+P7 = "7"
+P8 = "8"

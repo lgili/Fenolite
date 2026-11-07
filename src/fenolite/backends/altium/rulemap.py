@@ -22,7 +22,7 @@ from fenolite.backends.altium.ascii import Field, text_problem
 from fenolite.backends.altium.read.rul import RULE_FILE_COMMON, WRITTEN_END
 from fenolite.backends.altium.read.rules import RULE_KIND_MAP, CopperLayers, map_rules
 from fenolite.backends.altium.read.rules import Field as ReadField
-from fenolite.backends.altium.read.scope import GLOB_CHARACTERS, parse_scope
+from fenolite.backends.altium.read.scope import ANY_NET, GLOB_CHARACTERS, parse_scope
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model.rules import Rule, RuleKind, Selector
 
@@ -44,13 +44,28 @@ NOT_LOWERED_REASONS: tuple[Reason, ...] = get_args(Reason)
 """Why a rule is not written. ``unit-loss`` is kept for a field whose unit would move a value by more than
 2 nm; no field of the table has such a unit today."""
 EXACT = "exact"
-ScopeForm = Literal["all", "net", "netclass", "and", "pair"]
+ScopeForm = Literal["all", "net", "netclass", "ref", "item", "and", "or", "not", "pair"]
 ALL_SCOPE = "All"
 TOLERANCE_NM = 2
 """The largest difference between a neutral value and the value read back: the PCB unit is 2.54 nm."""
 
-_UNARY: tuple[ScopeForm, ...] = ("all", "net", "netclass", "and")
-"""The scope forms of a rule with one scope."""
+_UNARY: tuple[ScopeForm, ...] = ("all", "net", "netclass", "ref", "item", "and", "or", "not")
+"""The scope forms of a rule with one scope: the leaves ``net``, ``netclass``, ``ref`` and ``item_kind``
+and their combinations (``ref``, ``item``, ``or`` and ``not`` since change c0412)."""
+ITEM_QUERIES: dict[str, str] = {"track": "IsTrack", "via": "IsVia", "pad": "IsPad", "zone": "InPolygon"}
+"""The written query of each item kind (change c0412): the object type checks of the closed scope grammar,
+and ``InPolygon`` for the copper of a pour, which a Clearance rule names so (``pcb-pour.md`` I3, S-1702)."""
+_ITEM_NAMES: dict[str, str] = {"track": "track", "via": "via", "pad": "pad", "zone": "polygon"}
+_FORMS: dict[str, ScopeForm] = {
+    "net": "net",
+    "netclass": "netclass",
+    "ref": "ref",
+    "item_kind": "item",
+    "and": "and",
+    "or": "or",
+    "not": "not",
+}
+"""Selector op → the scope form it needs."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -151,6 +166,25 @@ TABLE: tuple[RuleRow, ...] = (
         "counterpart; its record (kind number, constraint keys) is in no public file read under the "
         "sources register",
     ),
+    RuleRow(
+        "short",
+        EXACT,
+        "ShortCircuit",
+        15,
+        (),
+        ("ALLOWED",),
+        scopes=(*_UNARY, "pair"),
+        note="ALLOWED=TRUE for severity ignore, FALSE for error; a warning has no record (c0465, S-2243)",
+    ),
+    RuleRow(
+        "antenna",
+        EXACT,
+        "NetAntennae",
+        56,
+        ("max",),
+        ("NETANTENNAETOLERANCE",),
+        note="NETANTENNAETOLERANCE is the max of the first scope (change c0465, S-2243)",
+    ),
     *(
         RuleRow(
             kind,
@@ -171,6 +205,8 @@ KIND_ORDER: tuple[str, ...] = (
     "BoardOutlineClearance",
     "HoleToHoleClearance",
     "MinimumAnnularRing",
+    "ShortCircuit",
+    "NetAntennae",
 )
 """The Altium kinds in the order their rules are written: the three kinds of change c0038 first."""
 _ROWS: dict[str, RuleRow] = {row.neutral: row for row in TABLE}
@@ -200,8 +236,12 @@ _LENGTH_KEYS: dict[tuple[str, str], tuple[str, ...]] = {
     ("hole_size", "max"): ("MAXLIMIT",),
     ("hole_to_hole", "min"): ("GAP",),
     ("annular_width", "min"): ("MINIMUMRING",),
+    ("antenna", "max"): ("NETANTENNAETOLERANCE",),
 }
 """(neutral kind, limit) → the keys that hold the limit."""
+SHORT_ALLOWED: dict[str, str] = {"ignore": "TRUE", "error": "FALSE"}
+"""The ``ALLOWED`` key of a Short-Circuit record by the severity of its ``short`` rule (change c0465, design
+D5; S-2243)."""
 _VIA_PARTNER: dict[str, RuleKind] = {"via_diameter": "via_drill", "via_drill": "via_diameter"}
 
 
@@ -300,14 +340,17 @@ def rule_selector(rule: Rule) -> str:
 
 
 def _leaf(selector: Selector, row: RuleRow) -> tuple[str, str]:
-    """The scope text and the name part of a ``net`` or ``netclass`` leaf."""
-    if selector.op not in ("net", "netclass") or selector.op not in row.scopes:
-        raise _Refused(
-            "scope-unsupported",
-            f"the selector {selector_text(selector)} is outside the scopes written for {row.altium} "
-            "(all, a net, a net class, and the conjunction of those)",
-        )
+    """The scope text and the name part of a ``net``, ``netclass``, ``ref`` or ``item_kind`` leaf."""
     value = selector.value
+    if selector.op == "item_kind":
+        if value not in ITEM_QUERIES:
+            raise _Refused(
+                "scope-unsupported",
+                f"the item kind {value!r} has no query of the closed grammar ({', '.join(ITEM_QUERIES)})",
+            )
+        return ITEM_QUERIES[value], _ITEM_NAMES[value]
+    if selector.op == "net" and value == "*":  # any net: ``InAnyNet``, so ``NO_NET`` is ``Not InAnyNet``
+        return ANY_NET, "any_net"  # (S-1680; change c0420, B7)
     problem = text_problem(value)
     if problem is None and "'" in value:
         problem = "holds an apostrophe, which the scope quotes"
@@ -317,7 +360,33 @@ def _leaf(selector: Selector, row: RuleRow) -> tuple[str, str]:
         raise _Refused("scope-unsupported", f"the value {value!r} of {selector.op} {problem}")
     if selector.op == "net":
         return f"InNet('{value}')", f"net_{value}"
+    if selector.op == "ref":
+        return f"InComponent('{value}')", f"ref_{value}"
     return f"InNetClass('{value}')", value
+
+
+def _query(selector: Selector, row: RuleRow, *, nested: bool = False) -> tuple[str, str]:
+    """The query of ``selector`` and its name part. An operand that is itself a conjunction, a disjunction
+    or a negation is put in parentheses: the grammar holds one kind of operator per level."""
+    form = _FORMS.get(selector.op)
+    if form is None or form not in row.scopes:
+        raise _Refused(
+            "scope-unsupported",
+            f"the selector {selector_text(selector)} is outside the scopes written for {row.altium} "
+            "(all, a net, a net class, a component, a track, via, pad or pour, and their combinations "
+            "with And, Or and Not)",
+        )
+    if selector.op in ("net", "netclass", "ref", "item_kind"):
+        return _leaf(selector, row)
+    if selector.op == "not":
+        inner, inner_name = _query(selector.items[0], row, nested=True)
+        text, name = f"Not {inner}", f"not_{inner_name}"
+    else:
+        parts = [_query(item, row, nested=True) for item in selector.items]
+        word = " And " if selector.op == "and" else " Or "
+        text = word.join(part for part, _name in parts)
+        name = f"_{selector.op}_".join(name for _part, name in parts)
+    return (f"({text})" if nested else text), name
 
 
 def scope_of(selector: Selector | None, row: RuleRow) -> tuple[str, str]:
@@ -326,14 +395,7 @@ def scope_of(selector: Selector | None, row: RuleRow) -> tuple[str, str]:
     is one that ``read.scope.parse_scope`` turns back into ``selector``."""
     if selector is None or selector.op == "all":
         return ALL_SCOPE, ""
-    if selector.op == "and":
-        if "and" not in row.scopes:
-            raise _Refused("scope-unsupported", f"{row.altium} takes no conjunction")
-        parts = [_leaf(item, row) for item in selector.items]
-        text = " And ".join(part for part, _name in parts)
-        name = "_and_".join(name for _part, name in parts)
-    else:
-        text, name = _leaf(selector, row)
+    text, name = _query(selector, row)
     if parse_scope(text) != selector:  # the reader's grammar is the judge of what is written
         raise _Refused("scope-unsupported", f"the scope {text} does not read back as the selector")
     return text, name
@@ -341,7 +403,19 @@ def scope_of(selector: Selector | None, row: RuleRow) -> tuple[str, str]:
 
 def _lengths(rule: Rule, row: RuleRow) -> dict[str, str]:
     """The length keys of ``rule`` as mil text. Refused: a severity other than ``error``, a limit the row
-    does not take, a missing limit, and a positive value below the PCB unit or outside its range."""
+    does not take, a missing limit, and a positive value below the PCB unit or outside its range. A
+    ``short`` rule has no limit: its severity is its ``ALLOWED`` key (change c0465, design D5), ``TRUE`` for
+    ``ignore`` and ``FALSE`` for ``error``."""
+    if rule.kind == "short" and rule.severity in SHORT_ALLOWED:
+        if any(value is not None for value in (rule.min, rule.opt, rule.max)):
+            raise _Refused("value-unsupported", "a ShortCircuit record holds no limit")
+        return {"ALLOWED": SHORT_ALLOWED[rule.severity]}
+    if rule.kind == "short":
+        raise _Refused(
+            "value-unsupported",
+            f"the severity {rule.severity} has no place in a ShortCircuit record, which allows the short "
+            "(ignore) or not (error)",
+        )
     if rule.severity != "error":
         raise _Refused(
             "value-unsupported",
@@ -355,7 +429,8 @@ def _lengths(rule: Rule, row: RuleRow) -> dict[str, str]:
     if missing:
         raise _Refused(
             "value-unsupported",
-            f"{row.altium} holds {', '.join(row.limits)} and the rule gives no {', '.join(missing)}",
+            f"{row.altium} holds {', '.join(row.limits)} and the rule gives no {', '.join(missing)}; "
+            "no record read leaves a limit out, so writing one would add a bound the rule does not hold",
         )
     found: dict[str, str] = {}
     for name in row.limits:
@@ -401,12 +476,70 @@ def _draft(rule: Rule, row: RuleRow) -> _Draft:
     return _Draft(row, scope1, scope2, "_".join(parts), _lengths(rule, row), (rule,))
 
 
+_RECORD_HOLE_KEYS: dict[str, tuple[str, ...]] = {"min": ("MINHOLEWIDTH",), "max": ("MAXHOLEWIDTH",)}
+"""The keys of a Routing Via Style record that a ``hole_size`` rule of vias gives (``adapter.rules``)."""
+
+
+def _record_keys(record_kind: str, rule: Rule) -> dict[str, tuple[str, ...]] | None:
+    """Limit → the keys of a record of ``record_kind`` that hold it for ``rule``; ``None`` when no key of
+    that record holds the rule's kind."""
+    if record_kind == "RoutingVias" and rule.kind == "hole_size":
+        return _RECORD_HOLE_KEYS
+    row = _ROWS.get(rule.kind)
+    if row is None or row.altium != record_kind:
+        return None
+    return {
+        limit: _LENGTH_KEYS[(rule.kind, limit)] for limit in row.limits if (rule.kind, limit) in _LENGTH_KEYS
+    }
+
+
+def edited_fields(
+    fields: Sequence[tuple[str, str]], rules: Sequence[Rule]
+) -> tuple[tuple[str, str], ...] | None:
+    """The keys of a source rule record (from ``RULEKIND`` on) with the limits of ``rules``, the rules it
+    gave whose limits alone were edited in KiCad (change c0457). A key keeps its text when its value did not
+    change. ``None`` when a limit of a rule has no key in the record, or no whole PCB unit: the rules are
+    then lowered as KiCad holds them."""
+    from fenolite.backends.altium.adapter.units import text_length
+
+    keys = dict(fields)
+    kind = keys.get("RULEKIND", "")
+    new: dict[str, str] = {}
+    for rule in rules:
+        table = _record_keys(kind, rule)
+        if table is None:
+            return None
+        for limit, value in (("min", rule.min), ("opt", rule.opt), ("max", rule.max)):
+            if value is None:
+                continue
+            names = table.get(limit, ())
+            if not names or any(name not in keys for name in names) or value < 0:
+                return None
+            try:
+                units = rec.to_units(value)
+            except ValueError:
+                return None
+            if value > 0 and units == 0:
+                return None
+            for name in names:
+                read = text_length(keys[name])
+                same = read is not None and read[0] >= 0 and rec.to_units(read[0]) == units
+                new[name] = keys[name] if same else rec.mil_text(units)
+    return tuple((key, new.get(key, value)) for key, value in fields)
+
+
 def governing_order(rules: Sequence[Rule]) -> tuple[Rule, ...]:
     """``rules`` from the most governing to the least: priority 1, 2, … and then priority 0 (unset); ties
     by falling name, then id. It is the reverse of the order in which the KiCad build writes its rules,
     where the last rule governs, so one script gives both targets the same precedence."""
     rising = sorted(rules, key=lambda r: (r.priority != 0, -r.priority, r.name, r.id))
     return tuple(reversed(rising))
+
+
+def _kept(rule: Rule) -> bool:
+    """Whether ``rule`` came from a kept record of an imported board (``adapter.rules.KEPT_RECORD``)."""
+    held = rule.ext.get("altium")
+    return held is not None and ("kept_record", "1") in held.payload
 
 
 def lower(rules: Sequence[Rule]) -> Lowered:
@@ -416,7 +549,9 @@ def lower(rules: Sequence[Rule]) -> Lowered:
     ``error`` and it gives exactly the limits of the row; nothing is approximated. A ``via_diameter`` and
     a ``via_drill`` rule of the same selector share one Routing Via Style record; either one alone is not
     written. Names come from the kind and the scope (``Width``, ``Width_PWR``, ``Clearance_net_A_to_B``);
-    a repeated name gets ``_2``, ``_3``…"""
+    a repeated name gets ``_2``, ``_3``… A rule of a kept record (the pair ``kept_record`` of an imported
+    rule, change c0424) is left out without a reason: the record is written back as it was read."""
+    rules = [rule for rule in rules if not _kept(rule)]
     refused: dict[str, NotLowered] = {}
     drafts: list[_Draft] = []
     waiting: dict[tuple[RuleKind, str], list[int]] = {}
@@ -564,6 +699,7 @@ __all__ = [
     "ALL_SCOPE",
     "EVIDENCE",
     "EXACT",
+    "edited_fields",
     "KIND_ORDER",
     "NOT_LOWERED_REASONS",
     "TABLE",

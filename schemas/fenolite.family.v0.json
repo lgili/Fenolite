@@ -1,0 +1,721 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.result.family.v0",
+  "title": "FamilyResult",
+  "type": "object",
+  "properties": {
+    "plan": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolPlan"
+      }
+    },
+    "plan_id": {
+      "type": "string"
+    },
+    "issues_summary": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolIssueSummary"
+      }
+    },
+    "recovery": {
+      "$ref": "#/$defs/ProtocolRecovery"
+    },
+    "page": {
+      "$ref": "#/$defs/ProtocolPage"
+    },
+    "candidates": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/FamilyCandidatesItem"
+      }
+    },
+    "combinations": {
+      "type": "integer"
+    },
+    "decoded": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/FamilyDecodedItem"
+      }
+    },
+    "failures": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/FamilyFailuresItem"
+      }
+    },
+    "families": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/FamilyFamiliesItem"
+      }
+    },
+    "family": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/FamilyFamily"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/FamilyFilesItem"
+      }
+    },
+    "matches": {
+      "type": "integer"
+    },
+    "query": {
+      "type": "string"
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "FamilyCandidatesItem": {
+      "type": "object",
+      "properties": {
+        "case": {
+          "type": "string"
+        },
+        "device": {
+          "type": "string"
+        },
+        "dielectric": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "family": {
+          "type": "string"
+        },
+        "footprint": {
+          "type": "string"
+        },
+        "manufacturer": {
+          "type": "string"
+        },
+        "mpn": {
+          "type": "string"
+        },
+        "packing": {
+          "type": "string"
+        },
+        "rating": {
+          "type": "string"
+        },
+        "tolerance": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "case",
+        "device",
+        "dielectric",
+        "family",
+        "footprint",
+        "mpn",
+        "tolerance",
+        "value"
+      ]
+    },
+    "FamilyDecodedItem": {
+      "type": "object",
+      "properties": {
+        "case": {
+          "type": "string"
+        },
+        "codes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "device": {
+          "type": "string"
+        },
+        "dielectric": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "family": {
+          "type": "string"
+        },
+        "footprint": {
+          "type": "string"
+        },
+        "in_matrix": {
+          "type": "boolean"
+        },
+        "manufacturer": {
+          "type": "string"
+        },
+        "mpn": {
+          "type": "string"
+        },
+        "packing": {
+          "type": "string"
+        },
+        "power": {
+          "type": "string"
+        },
+        "rating": {
+          "type": "string"
+        },
+        "suffix": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "tolerance": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "voltage": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "case",
+        "codes",
+        "device",
+        "evidence",
+        "family",
+        "footprint",
+        "in_matrix",
+        "manufacturer",
+        "mpn",
+        "packing",
+        "suffix",
+        "tolerance",
+        "value"
+      ]
+    },
+    "FamilyFailuresItem": {
+      "type": "object",
+      "properties": {
+        "family": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string"
+        },
+        "mpn": {
+          "type": "string"
+        },
+        "position": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "family",
+        "field",
+        "mpn",
+        "position"
+      ]
+    },
+    "FamilyFamiliesItem": {
+      "type": "object",
+      "properties": {
+        "errors": {
+          "type": "integer"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "file": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "manufacturer": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "uid": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "warnings": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "errors",
+        "evidence",
+        "file",
+        "id",
+        "kind",
+        "manufacturer",
+        "summary",
+        "uid",
+        "version",
+        "warnings"
+      ]
+    },
+    "FamilyFamily": {
+      "type": "object",
+      "properties": {
+        "combinations": {
+          "type": "integer"
+        },
+        "datasheet": {
+          "type": "string"
+        },
+        "errors": {
+          "type": "integer"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "exclude": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FamilyFamilyExcludeItem"
+          }
+        },
+        "fields": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/FamilyFamilyFieldsValue"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "file": {
+          "type": "string"
+        },
+        "footprint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "licence": {
+          "type": "string"
+        },
+        "manufacturer": {
+          "type": "string"
+        },
+        "pattern": {
+          "type": "string"
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "summary": {
+          "type": "string"
+        },
+        "symbol": {
+          "type": "string"
+        },
+        "tail": {
+          "type": "string"
+        },
+        "uid": {
+          "type": "string"
+        },
+        "valid": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FamilyFamilyValidItem"
+          }
+        },
+        "version": {
+          "type": "string"
+        },
+        "warnings": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "combinations",
+        "datasheet",
+        "errors",
+        "evidence",
+        "exclude",
+        "fields",
+        "file",
+        "footprint",
+        "id",
+        "kind",
+        "licence",
+        "manufacturer",
+        "pattern",
+        "sources",
+        "summary",
+        "symbol",
+        "tail",
+        "uid",
+        "valid",
+        "version",
+        "warnings"
+      ]
+    },
+    "FamilyFamilyExcludeItem": {
+      "type": "object",
+      "properties": {
+        "size": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "value": {
+          "$ref": "#/$defs/FamilyFamilyExcludeItemValue"
+        },
+        "voltage": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "size",
+        "value",
+        "voltage"
+      ]
+    },
+    "FamilyFamilyExcludeItemValue": {
+      "type": "object",
+      "properties": {
+        "max": {
+          "type": "string"
+        },
+        "min": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "max",
+        "min"
+      ]
+    },
+    "FamilyFamilyFieldsValue": {
+      "type": "object",
+      "properties": {
+        "codes": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/FamilyFamilyFieldsValueCodesValue"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "prefer": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "role": {
+          "type": "string"
+        },
+        "scheme": {
+          "type": "string"
+        },
+        "series": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "FamilyFamilyFieldsValueCodesValue": {
+      "type": "object",
+      "properties": {
+        "case": {
+          "type": "string"
+        },
+        "dielectric": {
+          "type": "string"
+        },
+        "footprint": {
+          "type": "string"
+        },
+        "packing": {
+          "type": "string"
+        },
+        "rating": {
+          "type": "string"
+        },
+        "tolerance": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "FamilyFamilyValidItem": {
+      "type": "object",
+      "properties": {
+        "dielectric": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "size": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "tolerance": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "value": {
+          "$ref": "#/$defs/FamilyFamilyValidItemValue"
+        },
+        "voltage": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "dielectric",
+        "size",
+        "tolerance",
+        "value",
+        "voltage"
+      ]
+    },
+    "FamilyFamilyValidItemValue": {
+      "type": "object",
+      "properties": {
+        "max": {
+          "type": "string"
+        },
+        "min": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "max",
+        "min"
+      ]
+    },
+    "FamilyFilesItem": {
+      "type": "object",
+      "properties": {
+        "errors": {
+          "type": "integer"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "file": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "manufacturer": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "uid": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "warnings": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "errors",
+        "evidence",
+        "file",
+        "id",
+        "kind",
+        "manufacturer",
+        "summary",
+        "uid",
+        "version",
+        "warnings"
+      ]
+    },
+    "ProtocolIssueSummary": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "by_severity": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "counts indexed by severity"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "count",
+        "by_severity"
+      ]
+    },
+    "ProtocolPage": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "next": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "limit",
+        "offset",
+        "total",
+        "next"
+      ]
+    },
+    "ProtocolPlan": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "overwrite": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "kind",
+        "bytes",
+        "sha256",
+        "overwrite"
+      ]
+    },
+    "ProtocolRecovery": {
+      "type": "object",
+      "properties": {
+        "failed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "preserved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "failed",
+        "preserved"
+      ]
+    }
+  }
+}

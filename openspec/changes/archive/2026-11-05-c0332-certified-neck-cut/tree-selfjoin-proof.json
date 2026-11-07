@@ -1,0 +1,124 @@
+{
+  "actual03caller": {
+    "elapsed_seconds": 19.75,
+    "index_completed": true,
+    "next_refusal": "exact geometry winding visit budget exceeded",
+    "passed": false
+  },
+  "actual_product_pair_proof": {
+    "NON_GATE_reference_comparison_cap": 2050481,
+    "NON_GATE_reference_seconds": 0.3289513750059996,
+    "actual_candidate_pairs": 104021,
+    "actual_node_and_leaf_visits": 942026,
+    "actual_seconds": 0.330263959011063,
+    "actual_stack_peak": 42,
+    "complete_pair_tuple_equal": true,
+    "driver_sha256": "7ffcdf50943d1fe9b9744760dd2db0c708bf7e4e8c65b4b0a7c4e671a13f2508",
+    "observer_restored": true,
+    "old_own_source_sha256": "c876bcc8a821930c50b0557fb46a79ef983c71bceef654c54148fc590fd5b0bc",
+    "operand_sha256": "ffc92b39facc4da18fcd2325be6db2a6c77660689fdf7a9d71263809979dcdf2",
+    "pair_tuple_sha256": "ad872411b8099665bcfb26f58c8525ebabd2b259c9c3de8941ada71a89e752e8",
+    "scope": "ACTUAL product under original per-call1M cap; separate old NON-GATE finite2050481reference",
+    "source_edges": 44073,
+    "timing_nonexclusive": true
+  },
+  "authoring_red": {
+    "elapsed_seconds": 0.21,
+    "failed": 1
+  },
+  "comparison_scope": "one existing candidate_pairs call, including every node and leaf predicate; not an aggregate across all Boolean index calls",
+  "example_byte_and_architecture_guards": {
+    "baseline_updates": 0,
+    "elapsed_seconds": 23.43,
+    "passed": 226
+  },
+  "external_artifact_sha256": {
+    "product-tree-pair-proof-v1/summary.json": "b0bd0aab95bf38e63457c5ef51dfdc7dd64eef99b0b8876e6a826fffa3fd7c40",
+    "tree-selfjoin-03-v5/summary.json": "7946fc86459eb40ed203fbcb8ebca138680c3b7eb8a6f115b769113a6167f182",
+    "tree-selfjoin-review-v1.md": "786b5d44e4ca35825d71e6d0643c23a02ae14e167ec84c00d129f5be048eba89"
+  },
+  "external_negative_controls": [
+    {
+      "field": "comparisons",
+      "outcome": "geometry.degenerate: exact geometry index-comparison budget exceeded"
+    },
+    {
+      "field": "nodes",
+      "outcome": "geometry.degenerate: exact geometry tree-node storage budget exceeded"
+    },
+    {
+      "field": "candidates",
+      "outcome": "geometry.degenerate: exact geometry candidate-pair budget exceeded"
+    },
+    {
+      "field": "dense-original250k",
+      "outcome": "geometry.degenerate: exact geometry candidate-pair budget exceeded"
+    },
+    {
+      "field": "source100001",
+      "outcome": "geometry.degenerate: exact geometry input-edge budget exceeded"
+    }
+  ],
+  "external_public_variants": [
+    {
+      "candidate_pairs": 104021,
+      "capacity": 4,
+      "case": "reversed-input",
+      "comparisons": 946230,
+      "complete_rebased_pair_tuple_equal": true,
+      "elapsed_seconds": 0.3649784169974737,
+      "leaf_pair_predicates": 567572,
+      "node_pair_visits": 378658,
+      "stack_peak": 42,
+      "tree_node_storage": 14695
+    },
+    {
+      "candidate_pairs": 104021,
+      "capacity": 4,
+      "case": "seeded-permutation",
+      "comparisons": 940598,
+      "complete_rebased_pair_tuple_equal": true,
+      "elapsed_seconds": 0.3846095410117414,
+      "leaf_pair_predicates": 567444,
+      "node_pair_visits": 373154,
+      "stack_peak": 42,
+      "tree_node_storage": 14695
+    },
+    {
+      "candidate_pairs": 104021,
+      "capacity": 4,
+      "case": "reversed-edges",
+      "comparisons": 942026,
+      "complete_rebased_pair_tuple_equal": true,
+      "elapsed_seconds": 0.354072707996238,
+      "leaf_pair_predicates": 566436,
+      "node_pair_visits": 375590,
+      "stack_peak": 42,
+      "tree_node_storage": 14695
+    },
+    {
+      "candidate_pairs": 104021,
+      "capacity": 4,
+      "case": "quarter-turn",
+      "comparisons": 900600,
+      "complete_rebased_pair_tuple_equal": true,
+      "elapsed_seconds": 0.3521892080025282,
+      "leaf_pair_predicates": 532776,
+      "node_pair_visits": 367824,
+      "stack_peak": 40,
+      "tree_node_storage": 14695
+    }
+  ],
+  "focused_geometry_index_pour": {
+    "elapsed_seconds": 4.57,
+    "passed": 111
+  },
+  "full_validation": "pending root-owned exact-head CI; no all-caller or fullfast claim",
+  "old_reference_scope": "separate explicitly NON-GATE2050481comparison finite reference, not a passing old gate",
+  "runtime_source_sha256": {
+    "src/fenolite/geometry/boolean/_exact_noding.py": "c9b08f8a8f756a3fc1d0e93daca159ff466d4cd2a585988f03247f0db0b7ed11",
+    "src/fenolite/geometry/index.py": "e296be066a19da7e5d4c04813768d5cf54eb7bf120cddcd4ecb1b702fc6975b3"
+  },
+  "scope": "Approved exact closed-box self join; unchanged public SpatialIndex APIs and resource ceilings",
+  "source_pyright_errors": 0
+}

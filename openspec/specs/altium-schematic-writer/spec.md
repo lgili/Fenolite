@@ -2,9 +2,7 @@
 
 ## Purpose
 Write Altium schematic files from a model `Design` as pure functions that return bytes: the records and keys of a sheet, the component bodies, designators and library links, the connectivity drawn on the sheet, the deterministic layout, the stable unique ids and the project file. Every fact comes from public sources recorded in `docs/formats/altium/`; the writer opens no file and starts no process.
-
 ## Requirements
-
 ### Requirement: Altium writer package
 `fenolite.backends.altium` SHALL provide `project.write_project(design, *, name, project=True, issues=None, form=DEFAULT_FORM, symbols=None) -> dict[str, bytes]`, which returns `<name>.SchDoc`, one `<library>.SchLib` per library that the components' lib ids name ("Schematic library file") and, when `project` is true, `<name>.PrjPcb`, for a model `Design` whose components hold their pins, and writes no file. `symbols` maps each lib id of the design to its `altsym.AltiumSymbol`; a lib id missing from it, or `symbols=None`, gets its generic symbol ("Generic library symbols").
 - The package MUST import only `fenolite.core` and `fenolite.model`, and MUST NOT open a file, start a process or read the environment. It MUST NOT resolve a library: `lens.altium` passes the resolved symbols in.
@@ -930,10 +928,11 @@ The schematic document writer, in both forms, and the schematic library writer S
 - **THEN** 295 models hold 7 records: 293 hold none, one holds 6 for its 6 pins and one holds 1 for its 8 pins; no record names the pin's own pad alone, and every record numbers its pads from 0 without a gap
 
 ### Requirement: Symbol graphics in libraries and bodies
-`backends.altium.altsym.from_symbol_def(symbol, *, lib_ref, footprint, issues, unmodelled=(), bodies="graphics")` SHALL, with `bodies="graphics"`, map the graphics of a `SymbolDef` to schematic records of their kind, in the symbol's frame, for the library and for the body on the sheet alike. `altsym.SymbolBodies` is `Literal["generic", "graphics"]` and `altsym.DEFAULT_BODIES` is `"graphics"` (decision of the maintainer, 2026-10-06).
+`backends.altium.altsym.from_symbol_def(symbol, *, lib_ref, footprint, issues, unmodelled=(), bodies="graphics", parents=())` SHALL, with `bodies="graphics"`, map the graphics of a `SymbolDef` to schematic records of their kind, in the symbol's frame, for the library and for the body on the sheet alike. `altsym.SymbolBodies` is `Literal["generic", "graphics"]` and `altsym.DEFAULT_BODIES` is `"graphics"` (decision of the maintainer, 2026-10-06).
 - `GRAPHIC_KINDS` MUST be the kinds of `model.library.SymbolGraphic`, which all have a record: `line` (record 13), `rect` (record 14), `polygon` (record 7, closed) and `circle` (record 8, an ellipse of two equal radii). The fill is kept as a flag (`ISSOLID=T` when filled), never as a colour; every graphic holds `LINEWIDTH=1`, `COLOR=128` and, when it can be filled, `AREACOLOR=11599871`, in the key order of `docs/formats/altium/schematic-records.md` ("Graphics the writer draws").
 - Graphic coordinates MUST keep the model's value: a coordinate that is no whole unit of 10 mil is written with its `_FRAC` key (1/100 000 unit, 2.54 nm), rounded half up to that step, the integer and the fraction with the same sign, and a `_FRAC` of zero left out. Only pins need the 10-mil grid.
-- The graphics MUST be drawn only when the symbol has one unit and one body style, holds at least one graphic, every graphic is of a kind of `GRAPHIC_KINDS`, and `unmodelled` is empty. `SymbolGraphic` names neither a unit nor a body style, so the graphics of a symbol of several cannot be given to a part. `unmodelled` names the graphic kinds of the library symbol that the model does not hold; `lens.altium.unmodelled_graphics(symbol)` gives them for a symbol read from a KiCad library (`arc`, `bezier`, `text`, `text_box`).
+- The graphics MUST be drawn only when the symbol holds at least one graphic, every graphic is of a kind of `GRAPHIC_KINDS`, and `unmodelled` is empty. A symbol of one unit and one body style draws every graphic on part 1. A symbol of several units or body styles (change c0261) draws each graphic of body style 0 or 1 on the part of its `SymbolGraphic.unit`, unit 0 on Part Zero (`OWNERPARTID=0`), drops the graphics of other body styles with `altium.symbol-simplified`, and is drawn as rectangles when a part has no graphic of its own and no common graphic exists.
+- A derived symbol (`extends` set) MUST be flattened onto the symbols of `parents` first (`altsym.flatten`): the body of the root of its chain and the properties of the chain, the nearest first; the Altium library has no derivation, so it is written flat under its own lib ref. A missing parent MUST raise `ValueError`. `unmodelled` names the graphic kinds of the library symbol that the model does not hold; `lens.altium.unmodelled_graphics(symbol)` gives them for a symbol read from a KiCad library (`arc`, `bezier`, `text`, `text_box`).
 - Any other symbol, and every symbol with `bodies="generic"`, MUST get the synthesised rectangle of "Library symbols from KiCad symbols" per part. One `altium.symbol-simplified` (info) per symbol MUST say why, and name dropped pins and alternates; a symbol drawn from its graphics with every pin kept gives none. With `bodies="generic"` the mapping, its info and the written bytes MUST be those of change c0034.
 - A drawn symbol MUST hold no rectangle record that its graphics do not hold. `AltiumSymbol.rectangles` then holds, per part, the box of its graphics and of the body ends of its pins, rounded outwards to 10 mil, which the layout and the designator and comment positions use.
 - Pins MUST stay as written before this change, so the pin ends touch the graphics as they do in the symbol.
@@ -951,9 +950,14 @@ The schematic document writer, in both forms, and the schematic library writer S
 - **THEN** its part holds the synthesised rectangle and no other graphic, and one `altium.symbol-simplified` names the symbol and says that the kind has no record
 
 #### Scenario: Symbol of two units
-- **GIVEN** a symbol with graphics and two units
-- **WHEN** it is mapped
-- **THEN** it has one rectangle per part and no graphic, and `altium.symbol-simplified` says that the model does not name the unit of a graphic
+- **GIVEN** a symbol of two units whose graphics are common (unit 0), and the same symbol whose graphics all belong to unit 1
+- **WHEN** each is mapped
+- **THEN** the first draws its graphics on Part Zero, holds one bounding rectangle per part and reports nothing; the second has one rectangle per part and no graphic, and `altium.symbol-simplified` says that a part draws no graphic of its own unit
+
+#### Scenario: Graphics per unit and a derived symbol
+- **GIVEN** a symbol of two units with graphics of unit 1 and unit 2 and one graphic of body style 2, and a derived symbol of a single-unit base
+- **WHEN** they are mapped, the derived one with its base in `parents`
+- **THEN** each kept graphic is on the part of its unit, the graphic of body style 2 is dropped with `altium.symbol-simplified`, and the derived symbol has the base's pins and its own comment
 
 #### Scenario: Generic bodies on request
 - **WHEN** the catalog resistor is mapped with `bodies="generic"`
@@ -963,7 +967,7 @@ The schematic document writer, in both forms, and the schematic library writer S
 With `sheets="modules"`, the writer SHALL write one schematic document per module of the design at any depth: the top sheet holds one sheet symbol per top-level module, and a module's sheet holds its own components and one sheet symbol per module directly below it.
 - `hierarchy.sheet_tree(design)` MUST give every module that holds a component, directly or below it, depth first with siblings in natural order, the order of `kicad-schematic` ("Hierarchical sheets of a design"). The module of a component is its component path without the last segment (`hierarchy.module_of`).
 - A module's file MUST be `<name>_<module path with "." for "/">.SchDoc` beside the project (`hierarchy.sheet_file`), so a top-level module keeps the name of change c0037; the sheet symbol's name (record 32) MUST be the last segment of the module path, and its file name (record 33) the module's file. The project file MUST list the top sheet and then the module sheets in tree order.
-- A net that is not a member of a `power` interface **crosses** a module when it has a pin on the module's sheet or on a sheet below it, and a pin on any other sheet. Each crossing MUST give a port on the module's sheet and a sheet entry of the same name on its sheet symbol, so a net that crosses two levels is passed through the sheet between: that sheet holds a port and, on the symbol of the module below, a sheet entry.
+- A net that is not a member of a `power` interface **crosses** a module when it has a pin on the module's sheet or on a sheet below it, and a pin on any other sheet. Each crossing MUST give a port on the module's sheet and a sheet entry of the same name on its sheet symbol, so a net that crosses two levels is passed through the sheet between: that sheet holds a port and, on the symbol of the module below, a sheet entry. For the sheet of a block instance, the crossings, their names and their order MUST be those of "Sheet entries from block ports"; the wire stubs and net labels keep the net names.
 - A `harness` interface MUST cross only a top-level module, in the binary form, as in "Sheets of a hierarchical project"; below the first level its member nets cross as nets.
 - The unique ids of sheet symbols and ports MUST be `unique_id("sheet:<module path>")` and `unique_id("port:<module path>:<name>")`, stable across builds.
 - That Altium compiles such a project and shows the tree is `H-A-SCHX-TREE`.
@@ -972,6 +976,11 @@ With `sheets="modules"`, the writer SHALL write one schematic document per modul
 - **GIVEN** the authored design `tree` (`tests/data/altium/tree/design.py`) with the modules `power`, `io` and `io/leds`
 - **WHEN** it is built with `sheets="modules"`, in each form, and read back
 - **THEN** four schematic documents exist (`tree.SchDoc`, `tree_io.SchDoc`, `tree_io.leds.SchDoc`, `tree_power.SchDoc`), the sheet of `io` holds a sheet symbol named `leds` whose file name is `tree_io.leds.SchDoc`, and the netlist of the read project equals the design's
+
+#### Scenario: Block instance crossings
+- **GIVEN** the authored design `tests/data/altium/blocks/design.py`: a block `filt` with the ports `IN` (direction `in`) and `OUT` (direction `out`) of kind `Net`, used as `f1`, whose `IN` and `OUT` are joined to the nets `SRC` and `DST`, each with a pin of a part on the top sheet
+- **WHEN** it is built with `sheets="modules"` and the sheet symbol of `f1` and the sheet `blocks_f1.SchDoc` are read
+- **THEN** the sheet entries and the ports are named `IN` and `OUT`, each port's I/O type equals its entry's as "Port and sheet-entry directions" gives it, and the stubs carry the net labels `SRC` and `DST`
 
 #### Scenario: Passed through the sheet between
 - **WHEN** the crossings of `tree` are read
@@ -1095,3 +1104,133 @@ The font table of the sheet record of every schematic document and sheet templat
 #### Scenario: A frame that repeats a font of the sheet record
 - **WHEN** `SheetFrame(…, fonts=((10, False, False),)).sheet_record(base)` is called with the schematic writer's sheet record as `base`
 - **THEN** `ValueError` is raised and names the font
+
+### Requirement: Sheet entries from block ports
+With `sheets="modules"`, the sheet of a block instance SHALL cross first one port per port member that has a pin on that sheet or below it, is not merged and whose net is in no `power` interface, named by its sheet name, in the order of the model's ports (by port name) and of their members (by member name); then the inferred crossings of its other crossing nets, named by the net, in code-point order. This replaces the net-named crossings of "Sheets of a hierarchical project" there.
+
+#### Scenario: Escaping net still crosses
+- **GIVEN** the authored block design of "Block instance crossings", with a net `TEST` that joins a pin inside `f1` and a pin on the top sheet without a port
+- **WHEN** it is built with `sheets="modules"`
+- **THEN** the crossings of `f1` are `IN`, `OUT` and then `TEST`, and the build reports `build.block-net-escape` for `TEST`
+
+#### Scenario: Power port stays global
+- **GIVEN** a block port whose net is a member of a `Power` interface
+- **WHEN** the design is built with `sheets="modules"`
+- **THEN** that port gives no port and no sheet entry, and its pins keep their power ports
+
+### Requirement: Block sheet name clash in Altium
+A port crossing and an inferred crossing of one block sheet with the same name SHALL give `build.block-sheet-name-clash` (error) naming the block path and the name, and the build MUST write nothing. The code joins the Altium build's codes as a later code.
+
+#### Scenario: Escaping net named like a port
+- **GIVEN** the authored block design with its escaping net renamed `IN`
+- **WHEN** it is built for Altium with `sheets="modules"`
+- **THEN** the exit code is 5, `issues` hold `build.block-sheet-name-clash` naming `f1` and `IN`, and no file is written
+
+### Requirement: Automatic global scope of drawn Altium sheets
+The drawn writer SHALL retain Automatic mode 0. Only when Automatic selects Global, it MUST qualify local names shared by several native sheets and report each change, so repeated sheets keep separate partitions. Unique names, Hierarchical names and Flat names MUST remain unchanged. Readback MUST still refuse a partition difference; qualification MUST NOT imply drawing identity or native acceptance.
+
+#### Scenario: Repeated local labels without ports
+- **GIVEN** two repeated sheet instances with a local `FB` label and no top sheet entry or port
+- **WHEN** the writer emits and reads back the native files
+- **THEN** the qualified local labels remain separate, every name change is reported, and the partition equals code
+
+#### Scenario: Complete canonical names for repeated local groups
+- **GIVEN** repeated sheet instances whose isolated native records have exact planned unit/pin/map coverage and whose complete pin partition bijectively matches the corresponding canonical circuit groups
+- **WHEN** a shared local label belongs to one entire canonical net with a unique casefold native name, free of all other global, power and local identifiers including orphan identifiers
+- **THEN** the writer prefers that canonical name, reports the visible label text change, and retains the unchanged final complete-project native comparison
+- **AND** partial groups, ambiguous matches, duplicate references or names and reserved-name collisions retain the explicit scope-preserving fallback without selecting the first candidate; ordinary sheets retain their existing byte path
+
+### Requirement: Drawn sheets in Altium
+`fenolite.backends.altium.drawn.lower_drawn` SHALL write one sheet per drawn sheet instance: wires and buses as polylines, junctions, local labels as net labels, hierarchical labels as ports, references as sheet symbols with sheet entries, power symbols and global labels as power ports of their text, bus entries and no-connect directives. A repeated sheet MUST be written once per instance with `drawn.altium-repeat-flattened` (info).
+
+#### Scenario: Drawn example in Altium
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_drawn_altium.py` builds `examples/drawn/design.py` with `--target altium` and reads the sheets back with the Altium reader
+- **THEN** the read circuit has the nets of code, and the sheet holds one wire record per drawn polyline and one junction per drawn junction
+
+#### Scenario: Kit case
+- **WHEN** the maintainer's kit compiles the drawn example (`H-A-DRAWN-WRITE`)
+- **THEN** the report lists the nets of code and no connectivity message; until then the evidence stays `INFERRED`
+
+### Requirement: Drawn items Altium cannot carry
+A drawn coordinate with no exact form in Altium's units SHALL be a lossy write: refused with `FEN-7001` (exit 7) unless `--allow-lossy`, which rounds it and reports each point as `drawn.coordinate-rounded` (warning). An opaque item without an `altium` text MUST be dropped with `drawn.opaque-dropped` (info). Native-record readback MUST refuse a connectivity difference before any write.
+
+#### Scenario: Off-grid point
+- **GIVEN** a drawn wire point at `[0.0001, 0]`
+- **WHEN** the example is built with `--target altium`, and again with `--allow-lossy`
+- **THEN** the first exits 7 with `FEN-7001` naming the point, and the second writes the sheet with one rounding warning
+
+#### Scenario: Text dropped
+- **GIVEN** a drawn sheet with one opaque `text` item
+- **WHEN** it is built with `--target altium`
+- **THEN** `issues` holds one `drawn.opaque-dropped` info naming the item
+
+### Requirement: Bounded opaque Altium graphics
+Opaque Altium text SHALL contain valid root graphics only. Invalid fields, duplicate keys, owner references, headers, components, pins or other electrical/framework-owned records MUST raise `FormatError` before staging. Unreadable written records MUST fail the native readback guard, never bypass the code-owned connectivity check.
+
+#### Scenario: Opaque component refused
+- **GIVEN** an opaque item whose Altium text contains a component record
+- **WHEN** the drawing is built
+- **THEN** the build exits 3 with `FEN-3004` naming the opaque item and plans no output
+
+### Requirement: Native drawing coverage guard
+Before returning bytes, the Altium builder SHALL match the intended documents, component units, shown logical pin tables and physical pin maps against the native readback. It MUST compare actual logical-pin partitions with code and repeat the guard after templates. Missing, extra, duplicate or unreadable native content MUST plan no write, including unconnected components and pins.
+
+#### Scenario: An unconnected native part disappears
+- **GIVEN** the native producer drops a drawn unit whose pins are all unconnected
+- **WHEN** the drawing is built
+- **THEN** the build reports `build.schematic-netlist-differs` and stages no file
+
+### Requirement: Original FULL fixture has real bus loads
+The authored FULL acceptance fixture SHALL connect B0 and B1 to real resistor terminals, retaining every old physical pin. The complete new universe SHALL be40pins/five components. NoERC MUST mark only actually unused U1-11/U1-12, and all code-assigned nets MUST remain covered without pin filtering or native-result renaming.
+
+#### Scenario: Original full circuit has two pull-down loads
+- **GIVEN** the original36pin fixture has singleton B0/B1 and an unmarked unused U1-12
+- **WHEN** the authored fixture is corrected with R3/R4 and matching drawing intent
+- **THEN** B0 joins U1-18/R3-1, B1 joins U1-19/R4-1, R3-2/R4-2 join GND, all36 old pins remain and the native complete40pin universe is measured in both forms before acceptance
+
+### Requirement: Drawn font losses stay explicit
+The Altium drawn writer SHALL report new explicit fonts or poses it cannot lower through its existing loss policy. Strict conversion MUST refuse those losses. Absent styles MUST keep existing output bytes, and no native acceptance or new Altium hypothesis stem SHALL be inferred from unit readback.
+
+#### Scenario: Unsupported explicit font
+- **WHEN** an authored drawn font has no proved Altium lowering
+- **THEN** its existing not-lowered diagnostic identifies the item and strict conversion refuses
+
+#### Scenario: Legacy drawing
+- **WHEN** an old drawing with no new style is written to Altium
+- **THEN** its existing planned bytes remain unchanged
+
+### Requirement: Schematic of a converted project
+When a KiCad source project holds a schematic, its conversion to Altium SHALL take the circuit from that schematic (as a schematic side of `equivalent` reads it) and the graphics of each symbol from the schematic's own `lib_symbols`, written with the symbol graphics of `--altium-symbols graphics` and one Altium sheet per KiCad sheet of the tree, as `--altium-sheets modules` writes a module.
+
+#### Scenario: Detailed contract for schematic of a converted project
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
+When a KiCad source project holds a schematic, its conversion to Altium SHALL take the circuit from that schematic (as a schematic side of `equivalent` reads it) and the graphics of each symbol from the schematic's own `lib_symbols`, written with the symbol graphics of `--altium-symbols graphics` and one Altium sheet per KiCad sheet of the tree, as `--altium-sheets modules` writes a module. Symbol positions and wires MUST come from the writer's layout, and the report row `schematic` MUST be `changed` with the reason "positions and wires are not converted". A source without a schematic keeps the generated sheet of generic symbols.
+
+#### Scenario: Netlist kept
+- **GIVEN** the KiCad 10.0.6 demo project `complex_hierarchy` in the corpus
+- **WHEN** it is converted to Altium and the written project is compared with the KiCad schematic by `equivalent`
+- **THEN** levels 1 and 2 report no difference, and the written project holds one schematic document per KiCad sheet
+
+### Requirement: Tolerant texts and nets of a read circuit
+The schematic writer SHALL write a circuit that was read from a file, as follows:
+
+#### Scenario: Detailed contract for tolerant texts and nets of a read circuit
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
+The schematic writer SHALL write a circuit that was read from a file, as follows:
+- a comment that starts with `=` and was read from an Altium document MUST be written as read; one read from a KiCad file MUST be written with a leading space and counted `changed`;
+- in the binary form, a text with a character outside Windows-1252 MUST be written with its `%UTF8%` twin holding the text and a plain value with `?` for each such character; the ASCII form keeps refusing it;
+- a pin that the import puts on two nets MUST be written on the net with more pins (the smaller name on a tie), and the other net MUST be counted lost under `pin-net`.
+
+#### Scenario: Public project sets judged
+- **WHEN** `uv run pytest tests/corpus/test_altium_rta3.py -k sets -rA` runs with the corpus cached
+- **THEN** the sets `altium-set:01`, `altium-set:02` and `altium-set:04` are judged, not `no-document`, and each difference is one the report counts
+
+#### Scenario: Text outside the code page
+- **GIVEN** a component whose comment holds a character outside Windows-1252
+- **WHEN** it is written in the binary form and read back
+- **THEN** the reader gives the comment from the `%UTF8%` twin, equal to the model's
+

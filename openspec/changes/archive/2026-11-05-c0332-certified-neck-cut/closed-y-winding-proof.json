@@ -1,0 +1,51 @@
+{
+  "actual03pour": {
+    "next_refusal": "arithmetic bit budget exceeded in boundaries aggregate signed area,4096bit unchanged",
+    "passed": false,
+    "seconds": 6.31
+  },
+  "all_complete_seed_sets_equal_brute": 379,
+  "authored_RED_original_fullscan": {
+    "failed": 1,
+    "global_cap": 5000
+  },
+  "averaged_median_authored": {
+    "actual_visits": 4947,
+    "cap4946": "refuse",
+    "cap5000": "pass"
+  },
+  "build_visits": 466859,
+  "driver_sha256": "e14aa5e94a86e7e6f9748862fa98f607f3af5a6805e7564f9fcbfcf934efdab2",
+  "examples_and_index_controls": {
+    "baseline_changes": 0,
+    "passed": 203,
+    "seconds": 5.66
+  },
+  "external_receipts": {
+    "closed-y-winding-03-v1/summary.json": "6e81cbf1b55e51e98eea388c635f7f602931f14b6758df05c82e0d4312209f89",
+    "product-winding-pour03-v1.log": "cb18c63e8bb407459478d74065113683aa56bf8175932e414da247d62d5bc9b9",
+    "product-winding-proof-v1.json": "27a6b92f75be8f08068fd89a691b013b40158a2ae366cb7fea45da87317b4e23",
+    "product-winding-proof-v1.py": "e14aa5e94a86e7e6f9748862fa98f607f3af5a6805e7564f9fcbfcf934efdab2"
+  },
+  "focused_tests": {
+    "passed": 273,
+    "seconds": 6.19
+  },
+  "honest_endpoint_median_failed_prototype": {
+    "cap": 5000,
+    "passed": false,
+    "total_required_visits": 5059
+  },
+  "matches_previous_complete_NON_GATE_reference": true,
+  "operand_sha256": "ffc92b39facc4da18fcd2325be6db2a6c77660689fdf7a9d71263809979dcdf2",
+  "query_huge_denominator_refuses": true,
+  "rss_peak_bytes": 71204864,
+  "scope": "Reviewed exact closed-Y winding only; actual caller still refuses later",
+  "seconds": 4.905427666992182,
+  "selected_pyright_errors": 0,
+  "source_edges": 44073,
+  "timing_nonexclusive": true,
+  "total_global_visits": 514167,
+  "tree_nodes": 5755,
+  "winding_vector_sha256": "2b78c8694df3be3e03310277d336ae865646b992649a6f51de73d47f577b1729"
+}

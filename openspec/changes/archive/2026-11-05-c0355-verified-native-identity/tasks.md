@@ -1,0 +1,158 @@
+## Re-scoped — coordinator decision on the maintainer's authority, 2026-11-05
+
+The proven TEST-ONLY descriptors, their guards, ledger v5 and the native-project context correction
+ship with this change. Every open task below is moved to c0384-native-identity-follow-up and is not
+done here; it stays unticked. See design, "Re-scope".
+
+## Deferred — maintainer decision, 2026-11-04
+
+The investigation showed a real limit: the generated code does not carry the normal fills and original
+order that the Royal proof must preserve, and the design forbids removing or seeding fills to reach
+equality. Asked whether to defer c0355/Royal to a later version (keeping files and experimental results)
+or to widen the implementation in v0.7, the maintainer answered "Adiar c0355/Royal, preservando o
+trabalho". The change stays open and out of the v0.7 batches; every proof file in this folder and the
+branch `codex/cac-royal-identity-copy` are kept as they are. L7 is not recorded as passing.
+
+## 0. Read-only causality and coordinator review
+
+- [x] 0.1 Confirm free ID and read existing common-native/profile, exact geometry, rule-context and format contracts. Measure class-specific UUID and track-order controls on private copies; preserve raw files/digests and all vertices. Proof: completed external receipts and explicit unchanged-source observations.
+- [x] 0.2 Coordinator approves bounded identity/reference/multiset matching, annotation preservation preconditions, unknown/ambiguity boundaries, ordinary-cache retention and exact result semantics BEFORE runtime. Proof: explicit recorded decision.
+- [x] 0.3 Coordinator reviews the separate import-only native pad-slot carrier addendum before its focused preservation iteration. No new public name/model field/default writer behavior. Approved2026-11-03; repeated references require complete physical identity, never a ref dictionary or Pin fallback; ambiguous annotated identity refuses.
+
+- [x] 0.4 **Moved to c0384 (decided 2026-11-05; design, "Re-scope").** After nonconvergent common-ID COPY, profile numeric netcode structural references and author conservative missing/duplicate/conflicting/outside/JSON negatives, then measure native table-order-only and renumber-only controls before any Royal transformation. Coordinator approved this diagnostic plan; caches/names/classes/rules remain untouched and native results return for review.
+
+## 1. Independent pre-runtime controls
+
+- [x] 1.0 **Moved to c0384 (decided 2026-11-05; design, "Re-scope").** Author the import-only physical-pad annotation/presence regression, prove the existing loss, then implement only the approved vendor callback restoration through the validated order-preserving local transform. Prove duplicates, variants, missing/empty, malformed/identity negatives, native loads/save, unchanged generic library defaults and fresh Royal exact physical annotations before proceeding to identity normalization.
+- [x] 1.1 **Moved to c0384 (decided 2026-11-05; design, "Re-scope").** Author native pad/via/track/junction UUID/order controls and complete electrical/geometry before proofs. Add changed physical/net/class/config/annotation/unknown/reference/missing/duplicate ambiguity negatives.
+- [x] 1.2 Resolve measured pad annotation preservation through an approved contract and prove source/output values, rather than removing fields from the matcher. If unsupported, keep proof refusal visible.
+- [x] 1.3 **Moved to c0384 (decided 2026-11-05; design, "Re-scope").** Prove full object correspondence, no first-match, collision/reference closure and unchanged normal-fill/editable field multisets before any private rewrite.
+
+## 2. One focused approved implementation
+
+- [x] 2.1 **Moved to c0384 (decided 2026-11-05; design, "Re-scope").** Implement only approved private identity/order preparation with complete receipts and local refusals. One native run per side, every exact vertex/multiplicity and all old checks retained.
+- [x] 2.2 **Moved to c0384 (decided 2026-11-05; design, "Re-scope").** Preserve defaults/source/canonical/native file bytes, add facts/guide/result-owner changes only if needed and approved, update CHANGELOG and run focused checks.
+- [x] 2.3 **Moved to c0384 (decided 2026-11-05; design, "Re-scope").** Fresh production Royal/native public and authored neighbors with full inputs/context, exact raw and qualified observations, no normal-cache removal or acceptance waiver.
+
+## 3. Required final closure
+
+- [x] 3.1 **Moved to c0384 (decided 2026-11-05; design, "Re-scope").** Root-owned combined fast and exact-head native CI, source/format/surface review and all linked literal gates. Never archive merely because a private diagnostic improved.
+
+Coordinator review2026-11-03: explicit bounded approval of task0.2 received before any identity runtime. Require complete editable fields/partitions/context/reference closure, one native run per side with ordinary fills intact, no default writer/raw-equality claim. Duplicate physical signatures/source IDs require separate authored native exchangeability and zero external references; otherwise REFUSE. Known unique pad-child field ordering may be matched by key only after authored native proof, without reordering children in the input copies; duplicate or unknown children refuse. Any public result/schema delta still needs owner review. This worktree implements no production identity normalizer.
+
+Bounded pre-runtime field-order control: actual9.0.9 and10.0.6 each pass authored circular and rounded-rectangular pad cases after permuting only a unique known net child among other known fields; exact copper SVG bodies remain equal. Raw SVGs are retained; only the native clock inside non-rendered title metadata is ignored (9 slash-date and10 ISO date). Native10 additionally performs exactly one refill/save per input and compares every exact derived region; native9 has NO refill/save claim. The source pads/normal geometry stay unchanged. Royal40actual native output retains all428annotation presence/text values across71footprints (source319pinfunction/389pintype), independently of the two unchanged L7 failures. Receipt: coordinator-field-order-proof.json. Task1.2 value preservation is complete; duplicate-signature/source-ID exchangeability, unknown/reference negatives and strict correspondence still gate1.1/1.3 and all identity runtime. No common-ID COPY convergence or production pass is claimed.
+
+Additional independent controls (no runtime): actual native10 keeps complete saved physical pad multisets/counts and exact filled geometry for two original authored cases: swapping two identical physical signatures with different IDs, and an aliased native pad ID between distinct physical roles versus unique IDs. Each side refills once. All declared companion strings are checked;6reference negatives cover known/unknown/embedded references, JSON escapes, cross-kind alias and missing identities. The initial naive Atom-object-identity exemption incorrectly let2refs through because the parser interns equal Atoms; occurrence-path exemptions fix both authored reds. Both native controls pass8.62s after the full companion guard, and6unit guards pass. Receipt duplicate-reference-control-proof.json. These prove only their explicit circle-pad controls; they do NOT automatically qualify Royal, unmodeled fields or arbitrary duplicate signatures. Full physical/context matching, all remaining negative guards, actual COPY pair convergence, result-owner review and production integration remain pending.
+
+Exploratory COPY outcome on immutable40d27f47: complete strict levels1–6 pass,1554electrical object fields match by complete non-ID features, exact partitions and proven quarter-turn parent frames; one fully identical physical multiplicity group has2pads. Both full documents and declared companion text have zero affected external references, with16aliased source pad IDs recorded. Only known unique net-field placement is keyed after authored9/10circle/roundrect/through-hole/chamfered controls (8cases); all other object children/order remain literal. The test-only guard was corrected to structural ROLE as well as occurrence: a nested polygon arc is not a root track identity;7reference controls now pass. The COPY experiment preserves all35source normal-fill caches and0generated caches, rewrites only private electrical IDs/order and strips only existing qualified padvia caches, then runs native10once per side. It STILLdiffers:289/a b353550fba23c1be5298babbaf015cefe80e1188290c96861b51dcd7c58643da vs293/b 1f980dffa6a0e24c33dfc5bdaba64186afa9de131af68bb8ce8f749b89037ef3. No runtime normalizer or passing comparison was added; the two genuine productionL7findings remain. Post-hoc collision audit proves actual generated IDs did not collide with untouched IDs, but this is explicitly NOT a substitute for pre-native production eligibility/negative guards. Receipt copy-causality-negative-proof.json. Tasks1.1/1.3/2.x/3.1 remain pending; do not archive by improving diagnostics.
+
+Task0.4 partial authored proof:18structural/reference guards pass, including occurrence-specific coordinate exemption versus interned unknown occurrence, numeric/string/key JSON references, swapped literal A/B labels despite equal unlabelled partition sets, and NO_NET absorption. Two original labelled routed networks plus0 run through native10.0.6 baseline/table-order-only/netcode-only inputs, exactly one refill each; complete labelled terminal sets and derived geometry agree (netcode-authored-proof.json). No Royal transformation was run. Read-only Royal profile finds95nonzero codes eachside and exact bijection by complete physical partitions, no unbound declarations or duplicate partition/code groups, but2672/2299numeric occurrences outside net-reference roles and116project numeric occurrences EACH remain unclassified; generated rawDRU also needs profile. Some physical pads legitimately lack an explicit net field and need exact NO_NET treatment before helper eligibility. Those are blockers, not waived numeric references. Task0.4 remains open until complete nonreference/context profile and coordinator review.
+
+Approved exploratory ORDER-ONLY Royal observation (order-only-royal-proof.json): original source535dbe... and only95nonzero root net-declaration slots reversed in raw byte spans (copy0aebb6...) each run native10once using identical input basenames/companions in separate scratch directories. NO_NET0 stays in its original slot; every byte outside those declaration spans, all UUIDs, full literal labelled partitions and all35ordinary/263derived input caches remain exact. Both outputs have289derived regions with complete exact digest a562fa7965020cc8dfd270a007b7dcf1da04d716c994b7ffeb8a8fb81278ad12 and35ordinary fills digest3444d7365b7716e05205e909cba12691bdc5c5cd1f351eded59d4976e76af89b. Saved file hashes differ; no byte equality claim. This measured order-only change does NOT cause geometry differences on this source. No renumbering, commoncode, pair equality, production normalizer or acceptance was introduced. Task0.4 remains pending for any further numeric-reference/profile work.
+
+
+Task0.4 further partial proof (numeric-role-ledger-proof.json):31 structural reference guards and15 closed-role guards pass. Four original native10 two-network controls additionally preserve an unnumbered physical NO_NET pad (NPTHcircle or SMDrect/roundrect/custom), complete labelled terminal sets and all four derived regions. Strict JSON decoding rejects duplicate/nonfinite inputs. The test-only full-path ledger counts numeric layer heads separately and never grants a role from a template match or an observed value. Unknown project KEYS remain blockers even when zero/false; escaped slash keys and array indices cannot collide with literal object keys.
+
+Coordinator approved only two additional bounded TEST-ONLY descriptors after authored red controls: direct-root footprint zone_connect integer0..3, and gr_text F/B.SilkS render_cache with exact matching owner text/rotation, declared face, ordered polygons/pts/xy rational coordinates. Native10 original controls measure connection0/1/2 distinct ordinary fills (3 matches2 only for this SMD control, no THT claim); cache angle follows owner0/90 and all14 ordered polygon vertex trees translate exactly5mm/7mm without normalization. Unknown members, wrong owners/layers/types/arity, duplicate selectors and mismatched text/rotation refuse. Source PCB unknown numeric occurrences drop19705→10 (Plot only), generated1→0; known-invalid0 both. Project unknown key paths remain335/343, so task0.4 and every Royal renumber/production task remain OPEN. No Royal cache/UUID/netcode/reference was changed or native Royal rerun.
+
+
+Task0.4 ERC follow-up remains partial: coordinator approved only TEST-ONLY erc.pin_map12×12 wire integers0..2 after official manual/native key linkage. Original four passive terminals retain their complete graph in9.0.9/10.0.6: uniform0 gives no violations,1 three warnings,2 three errors. Raw3 also gives errors but is deliberately REFUSED as potentially invalid-value fallback; Royal actually uses only0/1/2 (76/31/37 cells on both sides). Seven authored reds precede the descriptor;53 total reference/role unit guards now pass, covering unknown enum/type/shape/ownership/member and duplicate JSON. The external initial diagnostic summary read the wrong report level; corrected typed interpretation of unchanged saved reports is explicitly recorded, with no native rerun or input edit. Ledger v5 leaves10source PCB Plot numeric occurrences and331/339project unknown key paths; no renumbering or production eligibility. Receipt erc-numeric-role-proof.json.
+
+
+- [x] 0.5 Submit a single-variable external project-context diagnostic for coordinator review before execution: keep the original PCB bytes, UUID/netcodes and all ordinary/derived caches; replace only the original project's net_settings.netclass_patterns JSON value with the exact two generated patterns. Pin the original/candidate hashes and unchanged byte prefix/suffix, compare every other JSON value, declare the same isolated companions and native command. Only after explicit review run one native10 case, retaining complete output geometry and the original baseline; do not renumber, normalize, waive or claim pair equivalence.
+
+
+Task0.5 actual approved single-case result: native10.0.6 exits0 after exactly one refill/save, with the original PCB535dbe... byte-identical and35ordinary/263derived input caches retained. Only the two reviewed generated patterns replace the source empty array; candidate project6db0a99a... matches the pre-review prediction, all other JSON/prefix/suffix bytes remain exact. Complete labelled physical partitions remain unchanged. The289output regions have exact geometry digest9241ebb6ee97ab8a3e319981b18c15f915c82cb306a0eb84a283c328d3b4c58f, DIFFERENT from the recorded original289/a562baseline; ordinary output count stays35 but its raw AST digest also changes. This is a positive causal observation for that pattern addition in this exact source context, NOT a repaired production comparison or proof of the source/generated289/293 cause in full. All outputs/findings/stdout/stderr and source hashes are retained externally; no rerun/iteration/renumber/cache manipulation. Receipt project-pattern-causal-proof.json. Every production/final CI gate remains open.
+
+
+## 4. Approved private native-project context correction (2026-11-03)
+
+Coordinator explicitly approved the bounded private `native/project.context.json` architecture in
+carrier-review.md before implementation. This does not approve identity normalization or a Royal pass.
+
+- [x] 4.1 Before runtime, author actual reviewed import/build REDs for a raw native spelling with scalar/list legacy assignment, moved-folder rebuild, closed decoder negatives, stale confirmation and composition with c0359; retain the failing output.
+- [x] 4.2 Implement the private bounded producer/consumer: original physical bijection and exact class values/membership, version-neutral pre-restoration fingerprint, digest guard/read-set, scoped existing stored-name bag restoration and qualified native assignment/pattern preservation. Reject missing/tamper/symlink/oversize/duplicate/unknown/collision/stale/edited model/target/nested capture. Never change IDs/canonical names, source bytes, comparator, derived eligibility, public DSL/model or default writer behavior.
+- [x] 4.3 Prove the authored REDs green, focused affected modules/types/lint and unchanged default build byte maps without updating baselines. Document portable read-only context and no input fetching. Return code/proofs and proposed original authored native bench to coordinator BEFORE any CAD/Royal execution.
+- [x] 4.4 **Moved to c0384 (decided 2026-11-05; design, "Re-scope").** After coordinator review, perform only the approved authored native proof and then the approved original Royal comparison, retaining complete old acceptance gates; coordinator-owned combined fast/exact-head CI and final closure remain required.
+
+- [x] 4.2a Coordinator-approved prerequisite refactor: first prove literal authored parity for existing native `bindings`/`raw_bindings` (NO_NET, missing refs, unnamed pads, repeated physical copies, conflicting references/pads/names), then relocate only those helpers to the KiCad backend and reexport them from API. Preserve the exact old semantics and package-layering; no comparator/profile/baseline change.
+
+
+Tasks4.1–4.3/4.2a local proof: native-project-context-proof.json pins runtime/test/doc bytes and retained
+external logs to base4b11df0a (later coordinator commits are unrelated spec/docs). Initial12actual API
+REDs became green; final34carrier+6helper controls pass, c0359/project-template/Altium/guide155pass,
+API/native-rule/derived-cache/verify100pass, helper+package-layering73pass. The one default-guard
+regression invocation had261pass and one new guide-writing failure; every default byte guard passed,
+then the guide wording was fixed and its full page module passed. No interrupted or failed aggregate
+is labelled passed; no baseline was changed or default guard rerun. Touched ruff/format/types pass.
+The original authored native candidate is prepared, NOT executed; zero input derived caches means
+production cache eligibility is intentionally false. Its direct native diagnostic proposal and exact
+requests require coordinator review. Task4.4 and all broader production/final gates remain unchecked.
+
+
+Task4.4 partial approved authored native proof: native-project-authored-native-proof.json records exactly
+one native10.0.6 refill/save per side using the reviewed driver/bin/requests, both exit0, one NONZERO
+derived region each and complete exact region digest161dd373e65bf56768c178bbcab52b394654ad709e02c14fce7aa6b4e0551567
+equal. Complete named physical bindings, original files and native project/rule companions remain
+unchanged. Each side also has one ordinary filled_polygon with equal complete literal AST digest;
+this grants no general ordinary-fill or DRC-safety claim. Raw DRC findings remain unwaived in captured
+reports. Zero raw derived cache inputs deliberately leave production eligibility false; this is an
+original authored diagnostic, not a production acceptance or Royal pass. Runtime remains frozen;
+no Royal run, normalization, eligibility change, fullfast/CI or commit/push occurred. Task4.4 and every
+final broader gate remain open pending coordinator review and any separately approved Royal proof.
+
+
+Task4.4 first approved fresh Royal production comparison FAILED and is retained in
+royal-fresh-project-context-proof.json. Coreb1e9349a, public source7hashes and licence were unchanged;
+importdry/exactplanconfirm/freshbuilddry/exactplanconfirm all exit0. The ONE read-only verify-source
+(target9, oracle10.0.6) ran all1–8/S with0accepted/0excluded: L1–6,S,8equal, L7retains2findings.
+The original whole net_settings,4legacy assignments, empty patterns, complete class values/membership
+and95literal native names/physical partitions now agree. Nevertheless fresh native output is
+source289/a562fa7965020cc8dfd270a007b7dcf1da04d716c994b7ffeb8a8fb81278ad12 versus
+generated293/4b439125f5f7f38c4fa565299aafcf2a2332a2886730288467ddf06a54e6844c;
+raw teardrop263→0 correctly remains a conditional finding while exact geometry differs. Both native
+requests exit0, with complete captured byte inputs/outputs/stdout/stderr and an immutable manifest.
+No retry, normalization/renumber/COPY/UUID/cache edit, acceptance, runtime/library edit or push followed.
+Root explicitly allowed this independent native proof before the separately running combined-fast14
+verdict, which remains required and unpresumed. Context mutation is resolved, but is not the sole
+Royal mismatch cause. Task4.4 and every final broader/CI gate remain UNCHECKED; this is no completion,
+archive, waiver, hypothesis promotion or permission for another Royal experiment.
+
+Task4.4 public replay on 2026-11-04 (resumed by the maintainer; no new Royal experiment): the ordinary
+public import/verify replay of the unchanged corpus row kicad-demo-10-0-6-pcb-13 (board535dbe21...,
+source tree d9bcf1ae..., 50 files) on head468d8a61 with kicad-cli10.0.6, recorded in
+docs/evidence/public-replays-20261104.json, reproduces the retained result exactly: import dry/confirm
+exit0, verify-source exit5 with L1-6,S,8 equal and only the two L7 findings, source289/a562fa79... versus
+generated293/4b439125... and teardrop263->0. Source files stay byte-identical (kicad-cli only adds a
+.kicad_prl to the copy). No COPY/renumber/UUID/cache edit, acceptance, src change or private board.
+The branch codex/cac-royal-identity-copy (tip12450fc6) was read and left untouched: its c0355 proof
+JSONs are byte-identical on this head; its other files belong to the pre-rewrite history. Tasks0.4,
+1.0-1.3, 2.1-2.3, 3.1 and 4.4 stay UNCHECKED: each needs a new coordinator-approved descriptor, and
+4.4 still fails on the same exact geometry.
+
+
+- [x] 4.3a Repair only the missing evidence declaration of the shared native_net_binding backend helper exposed by the completed fast14 on b1e9349a (7failed/22399passed/52skipped). Preserve an INFERRED level under an appropriate existing reader hypothesis, without any new/promotion/native-pass claim; regenerate matrices with the canonical tool and run the five failed declaration/page guards plus touched lint/format. The two independent rebuild-fingerprint failures and real Royal L7 failure remain open.
+
+
+Task4.3a proof: the completed fast14 remains failed atb1e9349a(7failed/22399passed/52skipped),
+logSHA0a7bd93fb7bb7987ba61aafac75ff91a454d2c653d0dc3a5b35144a9936e07db.
+The helper now declares onlyINFERRED under existingH-K-PCB-READ; no hypothesis row/format/
+capability level was promoted. Canonicalgen_evidence_matrix adds exactly its module row.
+All5failed declaration/page nodes passed27.98s; touchedruff/format pass. The2rebuildmodelSHA
+failures and realRoyalL7failure are independent and remain open; no newfast/CI/nativeclaim.
+
+- [x] 4.3b Repair only overbroad native-project-context activation exposed by the two unchanged shared-sheet footprint-identity rebuild tests. Before production, retain authored REDs for ordinary raw Default nets, native-only DRU Default references, Quiet scalar/list legacy assignments, literal pattern ordering/representation and malformed shapes. Simulate the actual ordinary DSL stored spellings only in a predicate-local model copy; compare assignment/pattern presence and values literally, with no missing/null/empty normalization. Nonempty legacy assignments or preserved native DRU plus raw-name drift stay mandatory. Preserve the source model byte/canonical identity and every real context fingerprint/restore/class/member/target/unknown/stale guard; do not normalize the286observed rebuild fields, move the guard or update its baseline. Prove the two original failed tests unchanged, affected carrier/context/c0359 modules and touched lint/types. No CAD/Royal/newfast/commit/push or promotion.
+
+
+Task4.3b local proof is activation-repair-proof.json. The original2shared-sheet failures replayed
+unchanged with a readonly external observer, then all6affectedmodules passed130tests33.33s after
+the approved activation-only repair. All15authored activation boundaries pass1.31s, including
+actual rawDefaultnativeDRU import with both privateguards; genuine Quietlegacy contexts remain
+required. The source model remains canonical-byte/ID/name-identical after the predicate.
+Assignment/pattern order and missing/null/empty states stay literal. Nine critical original
+function bodies (restore/read_binding/before_write/fingerprint/native-ruleguards/eligible/prove/
+_compare) are exact againstb1e9349a: no286field normalization or baseline change.
+Touchedruff/format/types,2guideguards and strictc0355/diffchecks pass. An initial authored int0
+project-JSON setup error and the planned absent-private-keyword RED are identified separately,
+not claimed as a geometry failure. Runtime is frozen for root's single combinedfast15; no
+newfast/CAD/Royal/CI/commit/push was performed, and no full or native pass is inferred.

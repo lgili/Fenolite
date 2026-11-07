@@ -1,0 +1,2818 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.result.analyze.v0",
+  "title": "AnalyzeResult",
+  "type": "object",
+  "properties": {
+    "plan": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolPlan"
+      }
+    },
+    "plan_id": {
+      "type": "string"
+    },
+    "issues_summary": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolIssueSummary"
+      }
+    },
+    "recovery": {
+      "$ref": "#/$defs/ProtocolRecovery"
+    },
+    "page": {
+      "$ref": "#/$defs/ProtocolPage"
+    },
+    "balance": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/BalanceRow"
+      }
+    },
+    "bodies": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/BodyRow"
+      }
+    },
+    "connectivity": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/NetGroups"
+      }
+    },
+    "coupling": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/CouplingRow"
+      }
+    },
+    "coupling_victims": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/VictimRow"
+      }
+    },
+    "crossings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/CrossingRow"
+      }
+    },
+    "current": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/CurrentRow"
+      }
+    },
+    "dead": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/DeadRow"
+      }
+    },
+    "decoupling": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/DecouplingRow"
+      }
+    },
+    "distances": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/DistanceRow"
+      }
+    },
+    "domains": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Island"
+      }
+    },
+    "inputs": {
+      "$ref": "#/$defs/AnalyzeInputs"
+    },
+    "lengths": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/LengthRow"
+      }
+    },
+    "loops": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/LoopRow"
+      }
+    },
+    "necks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/NeckRow"
+      }
+    },
+    "pairs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PairRow"
+      }
+    },
+    "pours": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ZoneLayer"
+      }
+    },
+    "power": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PathRow2"
+      }
+    },
+    "relief": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ReliefRow"
+      }
+    },
+    "returns": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ReturnRow"
+      }
+    },
+    "sense": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SenseRow"
+      }
+    },
+    "split": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SplitRow"
+      }
+    },
+    "summary": {
+      "$ref": "#/$defs/AnalyzeSummary"
+    },
+    "ties": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TieRow"
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "AnalyzeInputs": {
+      "type": "object",
+      "properties": {
+        "aggressors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "arc_tol": {
+          "type": "integer"
+        },
+        "barriers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "board_thickness": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "board_thickness_source": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "boundary": {
+          "$ref": "#/$defs/AnalyzeInputsBoundary"
+        },
+        "clearance": {
+          "type": "integer"
+        },
+        "copper_thickness": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "x-fenolite-map": true
+            }
+          ]
+        },
+        "cuts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dead_distance": {
+          "type": "integer"
+        },
+        "domains": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "x-fenolite-map": true
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "from": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "groove_nm": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "kicad_version": {
+          "type": "integer"
+        },
+        "kinds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "loop_baseline": {
+          "type": "string"
+        },
+        "nets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "pairs": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "paths": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "pour_grid": {
+          "type": "integer"
+        },
+        "reference": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "requirements": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "resistivity_pohm_m": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sense": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "split": {
+          "type": "boolean"
+        },
+        "stackup": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/AnalyzeInputsStackup"
+            }
+          ]
+        },
+        "temp_rise_mk": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ties": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "via_distance": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "via_plating": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "victims": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "width": {
+          "type": "integer"
+        },
+        "within": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "arc_tol",
+        "board_thickness",
+        "board_thickness_source",
+        "boundary",
+        "copper_thickness",
+        "groove_nm",
+        "kinds",
+        "pairs",
+        "paths",
+        "requirements",
+        "resistivity_pohm_m",
+        "stackup",
+        "temp_rise_mk",
+        "via_plating",
+        "within"
+      ]
+    },
+    "AnalyzeInputsBoundary": {
+      "type": "object",
+      "properties": {
+        "band": {
+          "type": "integer"
+        },
+        "cutouts": {
+          "type": "integer"
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "band",
+        "cutouts",
+        "source"
+      ]
+    },
+    "AnalyzeInputsStackup": {
+      "type": "object",
+      "properties": {
+        "copper": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "thickness": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "copper",
+        "thickness"
+      ]
+    },
+    "AnalyzeSummary": {
+      "type": "object",
+      "properties": {
+        "balance": {
+          "$ref": "#/$defs/AnalyzeSummaryBalance"
+        },
+        "bodies": {
+          "$ref": "#/$defs/AnalyzeSummaryBodies"
+        },
+        "connectivity": {
+          "$ref": "#/$defs/AnalyzeSummaryConnectivity"
+        },
+        "coupling": {
+          "$ref": "#/$defs/AnalyzeSummaryCoupling"
+        },
+        "crossings": {
+          "$ref": "#/$defs/AnalyzeSummaryCrossings"
+        },
+        "current": {
+          "$ref": "#/$defs/AnalyzeSummaryCurrent"
+        },
+        "dead": {
+          "$ref": "#/$defs/AnalyzeSummaryDead"
+        },
+        "decoupling": {
+          "$ref": "#/$defs/AnalyzeSummaryDecoupling"
+        },
+        "distances": {
+          "$ref": "#/$defs/AnalyzeSummaryDistances"
+        },
+        "domains": {
+          "$ref": "#/$defs/AnalyzeSummaryDomains"
+        },
+        "length": {
+          "$ref": "#/$defs/AnalyzeSummaryLength"
+        },
+        "loops": {
+          "$ref": "#/$defs/AnalyzeSummaryLoops"
+        },
+        "necks": {
+          "$ref": "#/$defs/AnalyzeSummaryNecks"
+        },
+        "power": {
+          "$ref": "#/$defs/AnalyzeSummaryPower"
+        },
+        "relief": {
+          "$ref": "#/$defs/AnalyzeSummaryRelief"
+        },
+        "returns": {
+          "$ref": "#/$defs/AnalyzeSummaryReturns"
+        },
+        "split": {
+          "$ref": "#/$defs/AnalyzeSummarySplit"
+        },
+        "ties": {
+          "$ref": "#/$defs/AnalyzeSummaryTies"
+        }
+      },
+      "additionalProperties": true
+    },
+    "AnalyzeSummaryBalance": {
+      "type": "object",
+      "properties": {
+        "one_sided": {
+          "type": "integer"
+        },
+        "parts": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "one_sided",
+        "parts"
+      ]
+    },
+    "AnalyzeSummaryBodies": {
+      "type": "object",
+      "properties": {
+        "rows": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "rows"
+      ]
+    },
+    "AnalyzeSummaryConnectivity": {
+      "type": "object",
+      "properties": {
+        "nets": {
+          "type": "integer"
+        },
+        "outline": {
+          "type": "integer"
+        },
+        "simulated": {
+          "type": "integer"
+        },
+        "split": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "nets",
+        "outline",
+        "simulated",
+        "split"
+      ]
+    },
+    "AnalyzeSummaryCoupling": {
+      "type": "object",
+      "properties": {
+        "heights": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "note": {
+          "type": "string"
+        },
+        "pairs": {
+          "type": "integer"
+        },
+        "victims": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "heights",
+        "note",
+        "pairs",
+        "victims"
+      ]
+    },
+    "AnalyzeSummaryCrossings": {
+      "type": "object",
+      "properties": {
+        "cuts": {
+          "type": "integer"
+        },
+        "short": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "cuts",
+        "short"
+      ]
+    },
+    "AnalyzeSummaryCurrent": {
+      "type": "object",
+      "properties": {
+        "fit": {
+          "type": "string"
+        },
+        "nets": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/AnalyzeSummaryCurrentNetsValue"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "rows": {
+          "type": "integer"
+        },
+        "skipped": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "fit",
+        "nets",
+        "rows",
+        "skipped"
+      ]
+    },
+    "AnalyzeSummaryCurrentNetsValue": {
+      "type": "object",
+      "properties": {
+        "capacity_ma": {
+          "type": "integer"
+        },
+        "where": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "capacity_ma",
+        "where"
+      ]
+    },
+    "AnalyzeSummaryDead": {
+      "type": "object",
+      "properties": {
+        "dropped": {
+          "type": "integer"
+        },
+        "far": {
+          "type": "integer"
+        },
+        "islands": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "dropped",
+        "far",
+        "islands"
+      ]
+    },
+    "AnalyzeSummaryDecoupling": {
+      "type": "object",
+      "properties": {
+        "far": {
+          "type": "integer"
+        },
+        "pins": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "far",
+        "pins"
+      ]
+    },
+    "AnalyzeSummaryDistances": {
+      "type": "object",
+      "properties": {
+        "missing": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "Missing geometry and stack-up inputs counted by input kind."
+        },
+        "boundary": {
+          "type": "string"
+        },
+        "faces_alone": {
+          "type": "integer"
+        },
+        "grooves": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/AnalyzeSummaryDistancesGroovesValue"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "pairs": {
+          "type": "integer"
+        },
+        "unsupported": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "boundary",
+        "faces_alone",
+        "pairs",
+        "unsupported"
+      ]
+    },
+    "AnalyzeSummaryDistancesGroovesValue": {
+      "type": "object",
+      "properties": {
+        "bridged": {
+          "type": "integer"
+        },
+        "counted": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "bridged",
+        "counted"
+      ]
+    },
+    "AnalyzeSummaryDomains": {
+      "type": "object",
+      "properties": {
+        "islands": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "islands"
+      ]
+    },
+    "AnalyzeSummaryLength": {
+      "type": "object",
+      "properties": {
+        "count_vias": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "major": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "nets": {
+          "type": "integer"
+        },
+        "stackup": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "count_vias",
+        "major",
+        "nets",
+        "stackup"
+      ]
+    },
+    "AnalyzeSummaryLoops": {
+      "type": "object",
+      "properties": {
+        "above": {
+          "type": "integer"
+        },
+        "loops": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "above",
+        "loops"
+      ]
+    },
+    "AnalyzeSummaryNecks": {
+      "type": "object",
+      "properties": {
+        "necks": {
+          "type": "integer"
+        },
+        "nets": {
+          "type": "integer"
+        },
+        "skipped": {
+          "type": "integer"
+        },
+        "slivers": {
+          "type": "integer"
+        },
+        "tips": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "necks",
+        "nets",
+        "skipped",
+        "slivers",
+        "tips"
+      ]
+    },
+    "AnalyzeSummaryPower": {
+      "type": "object",
+      "properties": {
+        "elements": {
+          "type": "integer"
+        },
+        "fit": {
+          "type": "string"
+        },
+        "missing": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "paths": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "elements",
+        "fit",
+        "missing",
+        "paths"
+      ]
+    },
+    "AnalyzeSummaryRelief": {
+      "type": "object",
+      "properties": {
+        "pads": {
+          "type": "integer"
+        },
+        "simulated": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "pads",
+        "simulated"
+      ]
+    },
+    "AnalyzeSummaryReturns": {
+      "type": "object",
+      "properties": {
+        "edge": {
+          "type": "integer"
+        },
+        "nets": {
+          "type": "integer"
+        },
+        "split": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "edge",
+        "nets",
+        "split"
+      ]
+    },
+    "AnalyzeSummarySplit": {
+      "type": "object",
+      "properties": {
+        "grid": {
+          "type": "integer"
+        },
+        "paths": {
+          "type": "integer"
+        },
+        "unsolved": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "grid",
+        "paths",
+        "unsolved"
+      ]
+    },
+    "AnalyzeSummaryTies": {
+      "type": "object",
+      "properties": {
+        "sense": {
+          "type": "integer"
+        },
+        "shared": {
+          "type": "integer"
+        },
+        "split": {
+          "type": "integer"
+        },
+        "ties": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "sense",
+        "shared",
+        "split",
+        "ties"
+      ]
+    },
+    "BalanceRow": {
+      "description": "A two-pad SMD part: the copper of each pad's net joined to the pad near it, in square nanometres,",
+      "type": "object",
+      "properties": {
+        "part": {
+          "type": "string"
+        },
+        "pads": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "layer": {
+          "type": "string"
+        },
+        "copper_nm2": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "ratio_permille": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "copper": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "part",
+        "pads",
+        "layer",
+        "copper_nm2",
+        "ratio_permille",
+        "copper"
+      ]
+    },
+    "BodyRow": {
+      "description": "The copper of the class of a ``[[body_copper]]`` row inside the plan view of one part on one layer:",
+      "type": "object",
+      "properties": {
+        "requirement": {
+          "type": "string"
+        },
+        "part": {
+          "type": "string"
+        },
+        "plan": {
+          "type": "string"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "nets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "copper": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "requirement",
+        "part",
+        "plan",
+        "layer",
+        "nets",
+        "items",
+        "copper"
+      ]
+    },
+    "CouplingRow": {
+      "description": "One pair: the parallel length on one layer, the narrowest gap of those stretches, the score, the",
+      "type": "object",
+      "properties": {
+        "aggressor": {
+          "type": "string"
+        },
+        "victim": {
+          "type": "string"
+        },
+        "parallel": {
+          "type": "integer"
+        },
+        "gap": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "score": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "broadside": {
+          "type": "integer"
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "aggressor",
+        "victim",
+        "parallel",
+        "gap",
+        "score",
+        "broadside",
+        "layers"
+      ]
+    },
+    "CrossingRow": {
+      "description": "One cut: its length, the width and the clearance of a new track, the ways per copper layer, the",
+      "type": "object",
+      "properties": {
+        "cut": {
+          "type": "string"
+        },
+        "a": {
+          "$ref": "#/$defs/Point"
+        },
+        "b": {
+          "$ref": "#/$defs/Point"
+        },
+        "length": {
+          "type": "integer"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "clearance": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LayerWays"
+          }
+        },
+        "supply": {
+          "type": "integer"
+        },
+        "demand": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Demand"
+          }
+        },
+        "open": {
+          "type": "integer"
+        },
+        "routed": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "cut",
+        "a",
+        "b",
+        "length",
+        "width",
+        "clearance",
+        "layers",
+        "supply",
+        "demand",
+        "open",
+        "routed"
+      ]
+    },
+    "CurrentRow": {
+      "description": "The capacity of one track, arc or via. ``width`` is ``None`` for a via, whose ``thickness`` is the",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "track",
+            "arc",
+            "via"
+          ]
+        },
+        "where": {
+          "type": "string"
+        },
+        "entity_id": {
+          "type": "string"
+        },
+        "net": {
+          "type": "string"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "at": {
+          "$ref": "#/$defs/Point"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "thickness": {
+          "type": "integer"
+        },
+        "area_nm2": {
+          "type": "integer"
+        },
+        "external": {
+          "type": "boolean"
+        },
+        "temp_rise_mk": {
+          "type": "integer"
+        },
+        "capacity_ma": {
+          "type": "integer"
+        },
+        "in_range": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "kind",
+        "where",
+        "entity_id",
+        "net",
+        "layer",
+        "at",
+        "width",
+        "thickness",
+        "area_nm2",
+        "external",
+        "temp_rise_mk",
+        "capacity_ma",
+        "in_range"
+      ]
+    },
+    "DeadRow": {
+      "description": "Copper joined to nothing useful: ``reason`` is ``island`` (a fill polygon whose group holds no pad) or",
+      "type": "object",
+      "properties": {
+        "net": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "where": {
+          "type": "string"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "distance": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "copper": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "net",
+        "kind",
+        "where",
+        "layer",
+        "reason",
+        "distance",
+        "copper"
+      ]
+    },
+    "DecouplingRow": {
+      "description": "A supply pin (``REF-PIN``, a pin of type power input) and its nearest capacitor pad on the same net:",
+      "type": "object",
+      "properties": {
+        "pin": {
+          "type": "string"
+        },
+        "net": {
+          "type": "string"
+        },
+        "capacitor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "distance": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "straight": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ret": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "loop_area_nm2": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "limit": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "pin",
+        "net",
+        "capacitor",
+        "distance",
+        "straight",
+        "ret",
+        "loop_area_nm2",
+        "limit"
+      ]
+    },
+    "Demand": {
+      "description": "A net that must cross the cut: ``open`` connections whose straight line crosses it, ``routed`` tracks",
+      "type": "object",
+      "properties": {
+        "net": {
+          "type": "string"
+        },
+        "open": {
+          "type": "integer"
+        },
+        "routed": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "net",
+        "open",
+        "routed"
+      ]
+    },
+    "DistanceRow": {
+      "description": "The CLI omits the measures of analysis kinds that were not requested.",
+      "type": "object",
+      "properties": {
+        "net_a": {
+          "type": "string"
+        },
+        "net_b": {
+          "type": "string"
+        },
+        "gaps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Measure"
+          }
+        },
+        "clearance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Measure"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "creepage": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Measure"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "insulation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Measure"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sheets": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "net_a",
+        "net_b"
+      ]
+    },
+    "Interval": {
+      "description": "``low ≤ value ≤ high`` in whole units; ``high`` is ``None`` when no upper bound is known.",
+      "type": "object",
+      "properties": {
+        "low": {
+          "type": "integer"
+        },
+        "high": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "low",
+        "high"
+      ]
+    },
+    "Island": {
+      "description": "Nets joined through parts that are not barriers, sorted, and the barrier parts with a pin on them.",
+      "type": "object",
+      "properties": {
+        "nets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "barriers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "nets",
+        "barriers"
+      ]
+    },
+    "LayerWays": {
+      "type": "object",
+      "properties": {
+        "layer": {
+          "type": "string"
+        },
+        "ways": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Way"
+          }
+        },
+        "tracks": {
+          "type": "integer"
+        },
+        "obstacles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Obstacle"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "layer",
+        "ways",
+        "tracks",
+        "obstacles"
+      ]
+    },
+    "LengthRow": {
+      "description": "The length of one net: the parts and the total of the facts, the start pad, the path to every other",
+      "type": "object",
+      "properties": {
+        "net": {
+          "type": "string"
+        },
+        "routed": {
+          "type": "integer"
+        },
+        "vias": {
+          "type": "integer"
+        },
+        "die": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "via_count": {
+          "type": "integer"
+        },
+        "start": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "paths": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PathRow"
+          }
+        },
+        "off_path": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "net",
+        "routed",
+        "vias",
+        "die",
+        "total",
+        "via_count",
+        "start",
+        "paths",
+        "off_path"
+      ]
+    },
+    "LoopLeg": {
+      "description": "A leg of a loop between two of its pads: ``copper`` along the shortest path along copper, or",
+      "type": "object",
+      "properties": {
+        "start": {
+          "type": "string"
+        },
+        "end": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "length": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "start",
+        "end",
+        "kind",
+        "length"
+      ]
+    },
+    "LoopRow": {
+      "description": "A ``[[loop]]`` row measured: the area of the closed path through its pads (``None`` when a pad is",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "pads": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "area_nm2": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "legs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LoopLeg"
+          }
+        },
+        "limit": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "baseline_nm2": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "change_nm2": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "name",
+        "pads",
+        "area_nm2",
+        "legs",
+        "limit",
+        "baseline_nm2",
+        "change_nm2"
+      ]
+    },
+    "Measure": {
+      "description": "A distance as an interval of nanometres: ``low ≤ d ≤ high``. ``layer`` names the layer, or the two",
+      "type": "object",
+      "properties": {
+        "low": {
+          "type": "integer"
+        },
+        "high": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "layer": {
+          "type": "string"
+        },
+        "points": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Point"
+          }
+        },
+        "items": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "bounded": {
+          "type": "boolean"
+        },
+        "over": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "low",
+        "high",
+        "layer",
+        "points",
+        "items",
+        "bounded",
+        "over"
+      ]
+    },
+    "NeckRow": {
+      "description": "A place where the pour of a net narrows below the width of its ``[[neck]]`` row: ``shape`` is",
+      "type": "object",
+      "properties": {
+        "net": {
+          "type": "string"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "shape": {
+          "type": "string"
+        },
+        "at": {
+          "$ref": "#/$defs/Point"
+        },
+        "width": {
+          "type": "integer"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "requirement": {
+          "type": "string"
+        },
+        "extent": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "copper": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "net",
+        "layer",
+        "shape",
+        "at",
+        "width",
+        "limit",
+        "requirement",
+        "extent",
+        "copper"
+      ]
+    },
+    "NetGroups": {
+      "description": "A net and the pads of each group of its copper, the groups sorted; ``copper`` holds the states of its",
+      "type": "object",
+      "properties": {
+        "net": {
+          "type": "string"
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "split": {
+          "type": "boolean"
+        },
+        "copper": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "net",
+        "groups",
+        "split",
+        "copper"
+      ]
+    },
+    "Obstacle": {
+      "description": "Where an obstacle lies along the cut, ``start`` to ``end`` in nm from its first end: ``kind`` (pad,",
+      "type": "object",
+      "properties": {
+        "start": {
+          "type": "integer"
+        },
+        "end": {
+          "type": "integer"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "where": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "start",
+        "end",
+        "kind",
+        "where"
+      ]
+    },
+    "PairRow": {
+      "description": "The skew of a differential pair: ``skew`` is ``total_p − total_n``, so a negative skew means that",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "p": {
+          "type": "string"
+        },
+        "n": {
+          "type": "string"
+        },
+        "total_p": {
+          "type": "integer"
+        },
+        "total_n": {
+          "type": "integer"
+        },
+        "skew": {
+          "type": "integer"
+        },
+        "path_skew": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "name",
+        "p",
+        "n",
+        "total_p",
+        "total_n",
+        "skew",
+        "path_skew"
+      ]
+    },
+    "PathElement": {
+      "description": "One active element of a path: ``kind`` is ``track``, ``arc``, ``via-group`` or ``fill``; ``layer``",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "where": {
+          "type": "string"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "series": {
+          "type": "boolean"
+        },
+        "area_nm2": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "section": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Measure"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ports": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "capacity_ma": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "in_range": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "resistance_uohm": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Interval"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hull_free": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "kind",
+        "where",
+        "layer",
+        "series",
+        "area_nm2",
+        "section",
+        "ports",
+        "capacity_ma",
+        "in_range",
+        "resistance_uohm",
+        "hull_free"
+      ]
+    },
+    "PathRow": {
+      "description": "The shortest path along the copper from the start pad of a net to the pad ``end`` (``REF-PIN``):",
+      "type": "object",
+      "properties": {
+        "end": {
+          "type": "string"
+        },
+        "length": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "vias": {
+          "type": "integer"
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "end",
+        "length",
+        "vias",
+        "layers"
+      ]
+    },
+    "PathRow2": {
+      "description": "One power path. ``milliamps`` and ``drop_mv`` are ``None`` for a path that is only measured;",
+      "type": "object",
+      "properties": {
+        "net": {
+          "type": "string"
+        },
+        "start": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "end": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "milliamps": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "temp_rise_mk": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "elements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PathElement"
+          }
+        },
+        "resistance_uohm": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Interval"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "drop_mv": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Interval"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "net",
+        "start",
+        "end",
+        "milliamps",
+        "temp_rise_mk",
+        "elements",
+        "resistance_uohm",
+        "drop_mv"
+      ]
+    },
+    "Point": {
+      "description": "A position in nanometres.",
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "integer"
+        },
+        "y": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "x",
+        "y"
+      ]
+    },
+    "ProtocolIssueSummary": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "by_severity": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "counts indexed by severity"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "count",
+        "by_severity"
+      ]
+    },
+    "ProtocolPage": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "next": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "limit",
+        "offset",
+        "total",
+        "next"
+      ]
+    },
+    "ProtocolPlan": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "overwrite": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "kind",
+        "bytes",
+        "sha256",
+        "overwrite"
+      ]
+    },
+    "ProtocolRecovery": {
+      "type": "object",
+      "properties": {
+        "failed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "preserved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "failed",
+        "preserved"
+      ]
+    },
+    "ReliefRow": {
+      "description": "A pad joined to a zone by thermal relief: the ring at the pad's edge (its copper box grown by half the",
+      "type": "object",
+      "properties": {
+        "pad": {
+          "type": "string"
+        },
+        "net": {
+          "type": "string"
+        },
+        "zone": {
+          "type": "string"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "copper": {
+          "type": "string"
+        },
+        "spokes": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "milliamps": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "capacity_ma": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "pad",
+        "net",
+        "zone",
+        "layer",
+        "copper",
+        "spokes",
+        "width",
+        "milliamps",
+        "capacity_ma"
+      ]
+    },
+    "ReturnRow": {
+      "description": "One signal net: its routed length (centre lines), the length without reference, the spans, and its",
+      "type": "object",
+      "properties": {
+        "net": {
+          "type": "string"
+        },
+        "length": {
+          "type": "integer"
+        },
+        "unreferenced": {
+          "type": "integer"
+        },
+        "spans": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Span"
+          }
+        },
+        "vias": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ViaReturn"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "net",
+        "length",
+        "unreferenced",
+        "spans",
+        "vias"
+      ]
+    },
+    "SenseRow": {
+      "description": "One sense net: its copper nodes and the other-net nodes its copper touches.",
+      "type": "object",
+      "properties": {
+        "net": {
+          "type": "string"
+        },
+        "items": {
+          "type": "integer"
+        },
+        "shared": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TieItem"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "net",
+        "items",
+        "shared"
+      ]
+    },
+    "Span": {
+      "description": "A part of a track without reference copper: its layer, the item, its ends on the board, its length",
+      "type": "object",
+      "properties": {
+        "layer": {
+          "type": "string"
+        },
+        "where": {
+          "type": "string"
+        },
+        "start": {
+          "$ref": "#/$defs/Point"
+        },
+        "end": {
+          "$ref": "#/$defs/Point"
+        },
+        "length": {
+          "type": "integer"
+        },
+        "kind": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "layer",
+        "where",
+        "start",
+        "end",
+        "length",
+        "kind"
+      ]
+    },
+    "SplitElement": {
+      "description": "One element of a solved path: ``kind`` is ``track``, ``arc``, ``fill``, ``island`` or ``via``;",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "where": {
+          "type": "string"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "share_permille": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "milliamps": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "kind",
+        "where",
+        "layer",
+        "share_permille",
+        "milliamps"
+      ]
+    },
+    "SplitRow": {
+      "description": "A power path solved on the raster: the elements that carry its current, its resistance (with a",
+      "type": "object",
+      "properties": {
+        "net": {
+          "type": "string"
+        },
+        "start": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "end": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "milliamps": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "elements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SplitElement"
+          }
+        },
+        "resistance_uohm": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "bounds": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Interval"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "within": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "nodes": {
+          "type": "integer"
+        },
+        "iterations": {
+          "type": "integer"
+        },
+        "converged": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "net",
+        "start",
+        "end",
+        "milliamps",
+        "elements",
+        "resistance_uohm",
+        "bounds",
+        "within",
+        "nodes",
+        "iterations",
+        "converged"
+      ]
+    },
+    "TieItem": {
+      "description": "A node of the copper graph: ``kind`` (pad, track, arc, via or fill), the model id of its entity",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "where": {
+          "type": "string"
+        },
+        "net": {
+          "type": "string"
+        },
+        "layer": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "kind",
+        "id",
+        "where",
+        "net",
+        "layer"
+      ]
+    },
+    "TieRow": {
+      "description": "The proof of one tie. ``removed`` are the nodes taken out, ``groups`` the pads of each group that",
+      "type": "object",
+      "properties": {
+        "tie": {
+          "type": "string"
+        },
+        "nets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "removed": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TieItem"
+          }
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "split": {
+          "type": "boolean"
+        },
+        "path": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TieItem"
+          }
+        },
+        "extra": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "zones": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "tie",
+        "nets",
+        "removed",
+        "groups",
+        "split",
+        "path",
+        "extra",
+        "zones"
+      ]
+    },
+    "ViaReturn": {
+      "description": "A via of a signal net and the nearest via of a reference net (``None`` without one), with the",
+      "type": "object",
+      "properties": {
+        "where": {
+          "type": "string"
+        },
+        "at": {
+          "$ref": "#/$defs/Point"
+        },
+        "nearest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "distance": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "where",
+        "at",
+        "nearest",
+        "distance"
+      ]
+    },
+    "VictimRow": {
+      "description": "A victim net: its routed length and the share of it, in per mille, with reference copper under it.",
+      "type": "object",
+      "properties": {
+        "net": {
+          "type": "string"
+        },
+        "length": {
+          "type": "integer"
+        },
+        "referenced_permille": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "net",
+        "length",
+        "referenced_permille"
+      ]
+    },
+    "Way": {
+      "description": "A free interval of the cut, ``start`` to ``end`` in nm from its first end (``a`` and ``b`` on the",
+      "type": "object",
+      "properties": {
+        "start": {
+          "type": "integer"
+        },
+        "end": {
+          "type": "integer"
+        },
+        "length": {
+          "type": "integer"
+        },
+        "tracks": {
+          "type": "integer"
+        },
+        "a": {
+          "$ref": "#/$defs/Point"
+        },
+        "b": {
+          "$ref": "#/$defs/Point"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "start",
+        "end",
+        "length",
+        "tracks",
+        "a",
+        "b"
+      ]
+    },
+    "ZoneLayer": {
+      "description": "The copper of one zone on one layer: ``state`` (one of ``STATES``), ``reason`` (``\"\"`` for a saved",
+      "type": "object",
+      "properties": {
+        "zone_id": {
+          "type": "string"
+        },
+        "where": {
+          "type": "string"
+        },
+        "net": {
+          "type": "string"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "priority": {
+          "type": "integer"
+        },
+        "state": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "cells": {
+          "type": "integer"
+        },
+        "dropped": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "zone_id",
+        "where",
+        "net",
+        "layer",
+        "priority",
+        "state",
+        "reason",
+        "cells",
+        "dropped"
+      ]
+    }
+  }
+}

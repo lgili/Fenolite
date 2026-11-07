@@ -26,6 +26,8 @@ from fenolite.verify.kit.manifest import FORM_FILE, blank_form
 from fenolite.verify.kit.results import form_problems, privacy_scan, verify_results
 from fenolite.verify.kit.steps import POUR_SAMPLES, STEPS
 
+pytestmark = pytest.mark.long_flow
+
 USERS = "Users"  # the folder name is put together here, so that this file holds no path of a home folder
 
 
@@ -466,6 +468,19 @@ def test_the_documents_of_every_sample_project_are_its_files(built_kit: Path) ->
     for sample in kit.samples:
         if sample in POUR_SAMPLES:
             continue  # free documents, no project (change c0215)
+        if sample == "slots":
+            for variant in ("regions", "clearance", "gate-off"):
+                path = built_kit / sample / variant / "slots.PrjPcb"
+                listed = [d.path for d in read_project(path.read_bytes(), file=path.name).documents]
+                expected = ["slots.PcbDoc", "slots.SchDoc"]
+                if variant == "clearance":
+                    expected += ["slots.PcbLib", "slots.SchLib"]
+                assert sorted(listed) == sorted(expected)
+                assert results.project_documents(path.read_bytes()) == listed
+                files = results.sample_documents(kit, f"slots/{variant}/slots.PrjPcb")
+                assert files == sorted([*listed, *(["build-report.json"] if variant == "gate-off" else [])])
+                assert all(f"slots/{variant}/{name}" in kit.files for name in listed)
+            continue
         path = built_kit / sample / f"{sample}.PrjPcb"
         listed = [d.path for d in read_project(path.read_bytes(), file=path.name).documents]
         assert results.project_documents(path.read_bytes()) == listed
@@ -544,3 +559,77 @@ def test_a_document_saved_under_the_name_of_another_kind_is_named(kit: Path) -> 
     assert reasons["K1.2"] == ("results/flat/flat.PcbDoc does not exist",)
     stray.unlink()
     assert _outcomes(verify_results(kit, judge=quick))["K5.1"] == "skipped"
+
+
+@pytest.mark.parametrize("version", ["AD 24.5", "AD 26.5"])
+def test_pending_native_version_form_syntax_without_claiming_a_run(version):
+    form = {
+        "schema": results.FORM_SCHEMA,
+        "altium_version": version,
+        "os_family": "Windows",
+        "date": "2026-11-03",
+        "synthetic": True,
+        "values": {},
+    }
+    assert form_problems(form, ()) == []
+    assert form["synthetic"] is True
+
+
+@pytest.mark.parametrize("version", ["AD 24.5.2.23", "24.5", "AD 24", "AD 24.x"])
+def test_pending_native_scope_preserves_exact_major_minor_form_dialect(version):
+    form = {
+        "schema": results.FORM_SCHEMA,
+        "altium_version": version,
+        "os_family": "Windows",
+        "date": "2026-11-03",
+        "synthetic": True,
+        "values": {},
+    }
+    assert form_problems(form, ()) == ["altium_version is not of the form 'AD <major>.<minor>'"]
+
+
+# PDF name objects (c0172 follow-up): ``/Type/Font`` is two names of the PDF syntax, never a path; a path
+# that a PDF holds as text, in a literal string, a stream or a comment, is still reported.
+_PDF_PATH = "/".join(("", "srv", "kitwork", "round", "board.PcbDoc"))
+_PDF_DRIVE = "\\".join(("E:", "KitWork", "round", "board.PcbDoc"))
+
+
+def _pdf(body: str) -> bytes:
+    return ("%PDF-1.4\n" + body + "\n%%EOF\n").encode("latin-1")
+
+
+def test_pdf_name_objects_are_not_paths() -> None:
+    data = _pdf(
+        "1 0 obj <</Type/Catalog/Pages 2 0 R>> endobj\n"
+        "2 0 obj <</Type/Pages/Kids[3 0 R]/Count 1>> endobj\n"
+        "3 0 obj <</Type/Page/Resources<</ProcSet[/PDF/Text/ImageB/ImageC/ImageI]"
+        "/ColorSpace<</CS/DeviceRGB>>/Font<</F1 4 0 R>>/ExtGState<</G 5 0 R>>>> >> endobj\n"
+        "4 0 obj <</Type/Font/BaseFont/XKABEJ+Arial/Subtype/TrueType>> endobj\n"
+        "5 0 obj <</Type/ExtGState>> endobj\n"
+        "6 0 obj <</Length 11/Filter/FlateDecode>>\nstream\nxx\nendstream endobj"
+    )
+    assert results.privacy_scan({"F0-14.pdf": data}) == ()
+    # the same bytes without the PDF header are no PDF: their names read as paths, as before
+    assert results.privacy_scan({"x.txt": data.removeprefix(b"%PDF-1.4\n")})
+
+
+def test_paths_in_pdf_strings_streams_and_comments_are_still_found() -> None:
+    cases = [
+        f"1 0 obj <</Title (saved from {_PDF_PATH})/Type/Catalog>> endobj",
+        f"1 0 obj <</Title (a (nested \\) paren) then {_PDF_DRIVE})>> endobj",
+        f"1 0 obj <</Length 40>>\nstream\nBT ({_PDF_PATH}) Tj ET\nendstream endobj",
+        f"% written in {_PDF_PATH}\n1 0 obj <</Type/Catalog>> endobj",
+    ]
+    for body in cases:
+        data = _pdf(body)
+        found = results.privacy_scan({"out.pdf": data})
+        assert [finding.kind for finding in found] == ["absolute-path"], body
+        expected = _PDF_DRIVE if "E:" in body else _PDF_PATH
+        assert found[0].text.startswith(expected) and found[0].offset == data.index(expected.encode()), body
+
+
+def test_pdf_names_masked_keeps_length_and_strings() -> None:
+    data = _pdf(f"<</Type/Font/Title ({_PDF_PATH})>>")
+    masked = results.pdf_names_masked(data)
+    assert len(masked) == len(data) and b"/Type" not in masked and _PDF_PATH.encode() in masked
+    assert results.pdf_names_masked(b"/Type/Font") == b"/Type/Font"

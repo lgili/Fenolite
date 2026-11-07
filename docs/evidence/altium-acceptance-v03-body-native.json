@@ -1,0 +1,102 @@
+{
+  "source": "S-1306",
+  "writer_source": "b5f6c84ade0cd74690874143bc1de96605279522",
+  "native_version": "Altium Designer24.5.2.23",
+  "source_pcb_sha256": "2a78551faf793ea1c95843b1fac518c175caba105c03fc722566412c9ebd212e",
+  "native_saved_pcb_sha256": "64f43648437e427b894bccbb0bbe8a6150eb606d313803dc34fdcee97cd56734",
+  "SDK_procedure": "ExportC0092Body",
+  "SDK_source_sha256": "d567518fdc5fef3fc28b3aba68ec40b9533ce80745612201807839f89bf14b05",
+  "SDK_project_sha256": "749d038419ec8175f5400cd561c8326de57aebcc2f7046609f03778d8dbe9e30",
+  "raw_export_sha256": "d2763a615f02874525d05c185116cef798b379e146f20b639b4246bed16caa02",
+  "collection_manifest_sha256": "d6d4a1f25e45bccf8a167d3c234b7f681751a05f651c2a6261da9564d3c7c41f",
+  "complete_native_body_count": 4,
+  "body_fields": [
+    "layer",
+    "standoff_height",
+    "overall_height",
+    "body_projection",
+    "left",
+    "bottom",
+    "right",
+    "top"
+  ],
+  "native_coordinate_units_per_mil": 10000,
+  "all_native_fields_equal_immutable_source": true,
+  "all_owners_measured": [
+    "R1",
+    "R2",
+    "R3",
+    "R4"
+  ],
+  "measurements": {
+    "R3": [
+      69,
+      0,
+      196850,
+      0,
+      21417323,
+      21614173,
+      22204724,
+      22007874
+    ],
+    "R1": [
+      69,
+      0,
+      196850,
+      0,
+      13543307,
+      21614173,
+      14330709,
+      22007874
+    ],
+    "R4": [
+      69,
+      0,
+      196850,
+      0,
+      25354331,
+      21614173,
+      26141732,
+      22007874
+    ],
+    "R2": [
+      69,
+      0,
+      196850,
+      0,
+      17480315,
+      21614173,
+      18267717,
+      22007874
+    ]
+  },
+  "original_prepared_packet_files_verified": 50,
+  "closed_collected_files": 6,
+  "staged2_unchanged": true,
+  "all_reads_exclusive": true,
+  "prior_v1_layer_attempt": {
+    "success": false,
+    "error": "Undeclared identifier: FirstLayer",
+    "body_export_completed": false,
+    "zero_byte_partial_file_preserved": true
+  },
+  "native_3d_visual_inspection_complete": false,
+  "native_copper_stack_inspection_complete": false,
+  "parent_task5_3_complete": false,
+  "write_kind_graduated": false,
+  "scope": "Complete native body owner/layer/heights/projection/bounds census on the owned saved acceptance PCB; no native geometry edits, DRC or Save. Does not settle copper stack, 3D visual inspection, body copy/fit, full kit or graduation.",
+  "native_3d_top_view_observation": {
+    "method": "CUA native Parallels screenshot after guarded public View > 3D Layout Mode",
+    "date": "2026-11-03",
+    "visible_owners": [
+      "R1",
+      "R2",
+      "R3",
+      "R4"
+    ],
+    "four_grey_bodies_visible_between_corresponding_pads": true,
+    "human_review_claimed": false,
+    "view_request_sha256": "93e3bd62dc306c79a51b646945eb16f5d942e6be6e1f65393bf6616df47ecf17",
+    "scope": "Qualitative top-view observation only; exact body owner/heights/bounds come from the complete native SDK export. No oblique/mesh/model-copy/fit acceptance."
+  }
+}

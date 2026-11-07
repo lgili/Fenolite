@@ -1,0 +1,227 @@
+{
+  "schema": "fenolite.c0319.census-comparison-subjects.v1",
+  "base_commit": "0b51a60aadf858ad85512796c398145383fd6cda",
+  "task": "2.20",
+  "producer": {
+    "file": "tests/_drawn_corpus.py",
+    "sha256": "185ac55b9ce3698bee45313ffe11916e735127966aa7c619cb9088ffc964bb60",
+    "function": "measure",
+    "actual_call_arguments": {
+      "partition": [
+        "own",
+        "references",
+        "native"
+      ],
+      "lowered_partition": [
+        "lowered_own",
+        "references",
+        "native"
+      ],
+      "lowered_native_partition": [
+        "original_netlist",
+        "{ref: ref for ref, _ in all_pins}",
+        "lowered_native"
+      ]
+    },
+    "original_groups_iterable": "native.items()",
+    "third_left_subject": "original_netlist constructed from original native names/groups",
+    "third_right_subject": "lowered_native export of rewritten drawing",
+    "third_is_lowered_resolver": false
+  },
+  "comparison_subjects": {
+    "partition": [
+      "source resolver",
+      "original native export"
+    ],
+    "lowered_partition": [
+      "lowered/readback resolver",
+      "original native export"
+    ],
+    "lowered_native_partition": [
+      "original native export",
+      "rewritten native export"
+    ]
+  },
+  "unchanged_historical_summary": {
+    "source": "985f59a1d01a612b2eac0219243199896c24075a",
+    "CI_run": 41708879698,
+    "CI_conclusion": "failure",
+    "records_file": "docs/evidence/drawn-ci-census-985f59a1.json",
+    "records_sha256": "a0034d17c072b36cb5a62c410416ce200457f5e10ab27b5ac8742babd52a157c",
+    "naming": {
+      "10": {
+        "lowered_native_partition": {
+          "contexts": 113,
+          "equal": 113,
+          "different": 0,
+          "name_differences_sum": 0
+        },
+        "lowered_partition": {
+          "contexts": 113,
+          "equal": 31,
+          "different": 82,
+          "name_differences_sum": 18586
+        },
+        "partition": {
+          "contexts": 113,
+          "equal": 31,
+          "different": 82,
+          "name_differences_sum": 18586
+        }
+      },
+      "9": {
+        "lowered_native_partition": {
+          "contexts": 87,
+          "equal": 87,
+          "different": 0,
+          "name_differences_sum": 0
+        },
+        "lowered_partition": {
+          "contexts": 87,
+          "equal": 30,
+          "different": 57,
+          "name_differences_sum": 18515
+        },
+        "partition": {
+          "contexts": 87,
+          "equal": 30,
+          "different": 57,
+          "name_differences_sum": 18515
+        }
+      }
+    }
+  },
+  "protected_files": [
+    {
+      "file": "docs/evidence/drawn-ci-census-985f59a1.json",
+      "bytes": 1307755,
+      "sha256": "a0034d17c072b36cb5a62c410416ce200457f5e10ab27b5ac8742babd52a157c"
+    },
+    {
+      "file": "docs/evidence/drawn-context.json",
+      "bytes": 2810818,
+      "sha256": "e963036334cb61d1e3340c4785be742d23e4f0df3984dea119bfa8a9a73ac3d5"
+    },
+    {
+      "file": "docs/evidence/drawn-empty-title-blocks-proof.json",
+      "bytes": 4591,
+      "sha256": "721ec6d99ca29fd60ce5f22eb01a7a29992a639f567a100c5d640872b750e46d"
+    },
+    {
+      "file": "docs/evidence/drawn-empty-title-import-bytes.json",
+      "bytes": 1514,
+      "sha256": "076721d71066e92fb90795d96f6bc030e3ec7f87126939bf4a18eb5e1e5f6ebb"
+    },
+    {
+      "file": "docs/evidence/drawn-font-styles-default-scenes.json",
+      "bytes": 3645,
+      "sha256": "acf30dccccbf457a45ab14af4d32e24cb25cd944cd150e4536e5572ec0c1252a"
+    },
+    {
+      "file": "docs/evidence/drawn-native-census-20261103.json",
+      "bytes": 1113295,
+      "sha256": "67f204742a1c63c93b47f123c7b9289ca02691f5e59c4f314daa1e0fb5ab78d4"
+    },
+    {
+      "file": "docs/evidence/drawn-schematic.json",
+      "bytes": 631666,
+      "sha256": "101950108297d7094bfc2aa5a74581586b53cae224576307f68b5531e54938af"
+    },
+    {
+      "file": "docs/evidence/kicad/probes/10.0.6.json",
+      "bytes": 43961,
+      "sha256": "e5cf07a6a668d25f444dd8afa2354b421b43a8d0197667b15454cc0f58fb4ef0"
+    },
+    {
+      "file": "docs/evidence/kicad/probes/9.0.9.json",
+      "bytes": 34678,
+      "sha256": "f7fd5e8855c4d85409156ef7ebcdc2a2f6943b8ac20d75d69e6965c5a45f73c4"
+    },
+    {
+      "file": "docs/hypotheses.md",
+      "bytes": 868259,
+      "sha256": "0a22bc8463afa20338d755c3d2cd88c2a902ebc5b3b2a0926524a0a27b16c77c"
+    },
+    {
+      "file": "openspec/changes/c0276-drawn-schematic/census-7.2-proof.json",
+      "bytes": 18006,
+      "sha256": "83d1ba990b1b4b7cedbfadcde391f995b89512ca95cf43c01282fd1d224ed68a"
+    },
+    {
+      "file": "openspec/changes/c0276-drawn-schematic/design.md",
+      "bytes": 53362,
+      "sha256": "5b45b8ab0e509b7f1182de6739649db0e1f198f22047d721ea421a60594572a5"
+    },
+    {
+      "file": "openspec/changes/c0276-drawn-schematic/documentary-guard-proof.json",
+      "bytes": 2150,
+      "sha256": "fd01444700d08900ca839c03525808abeb53fdde971c9e80b137368f28424ce4"
+    },
+    {
+      "file": "openspec/changes/c0276-drawn-schematic/five-probe-records-proof.json",
+      "bytes": 5249,
+      "sha256": "99b7ace8cd1116aee9fee88d8b5ec4e19b13db247583b39785137d2278e79080"
+    },
+    {
+      "file": "openspec/changes/c0276-drawn-schematic/full-canonical-order-proof.json",
+      "bytes": 7511,
+      "sha256": "8d7ff6945fb76a8ab87f4311af6c25a676570f335aec102748aee9d8619bcf9f"
+    },
+    {
+      "file": "openspec/changes/c0276-drawn-schematic/full-closure-proof.json",
+      "bytes": 2634,
+      "sha256": "f2638348dc067a1d8c2629455505e152046bcb04be47c93a5db622e8f9aa11dd"
+    },
+    {
+      "file": "openspec/changes/c0276-drawn-schematic/native-visual-proof.json",
+      "bytes": 12901,
+      "sha256": "cd2faafa2b1d0128eab6aed881af4e26a87c72c2172c4c127c2632128440cd5e"
+    },
+    {
+      "file": "openspec/changes/c0276-drawn-schematic/repeat-closure-proof.json",
+      "bytes": 1630,
+      "sha256": "25260f64ea81eda392cb12fe975c582f70cb51737f08938e0fc04a77134f41e8"
+    },
+    {
+      "file": "openspec/changes/c0276-drawn-schematic/tasks.md",
+      "bytes": 65524,
+      "sha256": "c3488b064fcc983bda3d28049712badd0cb578dfc978fe31dfd88a4dd2c5f0a3"
+    },
+    {
+      "file": "tests/_drawn_context.py",
+      "bytes": 6614,
+      "sha256": "e29f9c4df61c1e063e87e2e4056e035423339819efb19d1151f5a5284096178d"
+    },
+    {
+      "file": "tests/_drawn_corpus.py",
+      "bytes": 14668,
+      "sha256": "185ac55b9ce3698bee45313ffe11916e735127966aa7c619cb9088ffc964bb60"
+    },
+    {
+      "file": "tests/corpus/manifest.toml",
+      "bytes": 200720,
+      "sha256": "bdc796c64b61f1e0a0240f2c133e879cc367a1ed256ea006cf883320b2cb4dcc"
+    },
+    {
+      "file": "tests/kicad/schematic/test_drawn_corpus.py",
+      "bytes": 9057,
+      "sha256": "603aa013d44fbe2b46a5aab175a6024d5afa80829f280b8fadb45b07e912dffd"
+    }
+  ],
+  "documentation_change": "One comparison-field table and explicit explanations; one ambiguous label replaced without changing numeric content. Removing the declared inserts/reversing that label restores the original MD bytes exactly.",
+  "hypothesis_statement_and_label_unchanged": true,
+  "c0276_tasks_and_all_measurements_unchanged": true,
+  "runtime_tests_tools_and_normative_specs_unchanged": true,
+  "new_native_or_CI_or_suite": false,
+  "archive_or_hypothesis_promotion": false,
+  "documentary_checks": {
+    "producer_AST": "PASS",
+    "protected_files_exact": 23,
+    "original_page_bytes_restorable": "PASS",
+    "OpenSpec_version": "1.3.0",
+    "strict_c0319": "PASS",
+    "diff": "PASS",
+    "private_initial": "ON;0hits;6files",
+    "final_private_required_before_commit": true
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "artifact_sha256": {
+    "ported-noding-receipt.json": "1cce35fccb20527f5a1274960dea85c8d9fffa4058765ced6d51df3ea4c342b9",
+    "prove_ported_noding.py": "fc195e11ccb02e91cea4c4e28e25667788a057bfcf6f642021903220bda7718c"
+  },
+  "base_commit": "7178cd0706ef1ad10ea8569fbf014ef01c302b48",
+  "bounded_cases": 269,
+  "full_source": {
+    "candidates": 20346,
+    "fragments": 10334,
+    "intersecting_pairs": 16018,
+    "name": "full-indexed-source",
+    "nodes": 7889,
+    "segments": 8058,
+    "signed_graph_sha256": "18d9c68488a4e3f771f2db71e08f8b9f6385e30e6aef2f8b15016565293375a0"
+  },
+  "module_sha256": "46d195c99d99d7d5cf3fea4ca443a0b2e8d5aba4b53ede9ca97fd438d33c5c30",
+  "production_integrated": false,
+  "schema": "fenolite.ported-exact-noding-proof.v0",
+  "script_sha256": "fc195e11ccb02e91cea4c4e28e25667788a057bfcf6f642021903220bda7718c",
+  "seconds": 14.858188916987274,
+  "skipped_variants": [
+    "domain_boundary/translated"
+  ],
+  "source_binding": "base commit plus exact uncommitted module/test hashes; no clean-head claim",
+  "status": "ported-noding-passed",
+  "tests_sha256": "ac057acf57d0d80d0e5f1b75f2bda7657d66210a959da4b300e07120d4b0f984",
+  "unit_tests": {
+    "passed": 18,
+    "seconds": 0.23
+  }
+}

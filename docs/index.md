@@ -10,13 +10,24 @@ Create PCB projects from Python, inspect KiCad and Altium files, and review desi
 |---|---|
 | Open a project, board, schematic or library in the browser | [Viewer](viewer.md) |
 | Choose a built-in symbol or footprint and inspect its source/limits | [Component catalog](catalog/README.md), [coverage and pin mapping](catalog/coverage.md) |
+| Place parts from reviewed device records (symbol, footprint, pin map, ratings) | [Devices](devices.md) |
+| Import downloaded component files locally, with source digests and package screening | [Local library import](library-import.md) |
+| Read or write library records (pins, packages, devices, parts), versions and licences | [Library records](library-records.md) |
+| Build offline with pinned device items or plan a conservative LibrePCB seed | [Device items](library-devices.md) |
+| Choose passives by value and ratings, and let generators pick divider or filter values | [Picking parts](picking.md) |
 | Create components, connections, placement and copper in Python | [DSL](dsl.md), [copper](copper.md) |
+| Generate a symbol of any size from a pin table | [Symbols from pin tables](symbols.md) |
+| Generate a footprint, its 3D body and STEP model from package dimensions | [Footprints from package records](footprint-generators.md) |
 | Convert KiCad and Altium projects; downgrade KiCad | [Conversion](conversion.md) |
+| Turn a KiCad board into Fenolite code | [Import](import.md) |
+| Get third-party symbols, footprints, devices, blocks and boards from fenolite-library, with their licences | [The library repository](library-repo.md) |
 | Compare designs and check what changed | [Equivalence](equivalence.md) |
-| Run electrical and physical checks | [CLI contract](cli-contract.md), [analyses](analyses.md), [net roles](roles.md) |
+| Test a Python design and compare reviewed SVGs | [Design testing](testing.md) |
+| Run electrical and physical checks | [CLI contract](cli-contract.md), [analyses](analyses.md), [net roles](roles.md), [electrical contracts](contracts.md) |
 | Preserve editor changes and sync placement into source | [Layout and rebuilds](lens.md) |
 | Produce fabrication and assembly files | [Exports](exports.md), [assembly](assembly.md), [drawings](drawings.md) |
 | Use my own sheet template | [Sheet templates](sheet-templates.md) |
+| Keep a schematic drawn by hand beside the code | [Drawn schematics](drawn-schematic.md) |
 | Work with Altium files | [Altium support](altium.md) |
 | Let a coding agent use Fenolite | [Packaged agent guide](../src/fenolite/agent/skill/SKILL.md) |
 
@@ -27,6 +38,7 @@ Create PCB projects from Python, inspect KiCad and Altium files, and review desi
 - [Detailed release scope and limits](release/v0.6.md) (0.6; [0.5](release/v0.5.md)).
 - [CLI reference and JSON contract](cli-contract.md).
 - [Model and units](design-model.md).
+- [Canonical model folders and migrations](model-versions.md).
 - [Evidence matrix](evidence/matrix.md).
 - [Changelog](../CHANGELOG.md).
 - [Contributing](../CONTRIBUTING.md) and [help](https://github.com/lgili/Fenolite/issues).
@@ -37,3 +49,8 @@ The core has no runtime package dependencies. Viewing supported files and buildi
 require KiCad or Altium. KiCad ERC, DRC, fill and fabrication workflows require `kicad-cli`; external
 routers and 3D model meshing have their own prerequisites. The [quickstart](quickstart.md) separates them.
 Altium writes and all conversions remain experimental in 0.6; see the input-specific report and limits.
+
+- [Library rules and human review](library-rules.md): findings, waivers, sheets and acceptance.
+- [Library review in CI](library-ci.md): checking data and retaining review artefacts.
+
+- [Cited datasheet proposals](datasheet-proposals.md): structured facts, generation and human review.

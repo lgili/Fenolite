@@ -21,7 +21,9 @@ from fenolite.checks.diff import diff_designs
 from fenolite.core.coords import Point, Size
 from fenolite.core.errors import Issue
 from fenolite.model.board import Board, FootprintInstance, Graphic, Text
+from fenolite.model.circuit import NetClass
 from fenolite.model.design import Design, DesignHeader
+from fenolite.model.rules import Rule, RuleSet, Selector
 
 ROOT = Path(__file__).resolve().parents[4]
 SAMPLES = ROOT / "tests" / "data" / "altium"
@@ -93,6 +95,69 @@ def test_bottom_footprint_keeps_its_layers_and_points(tmp_path: Path) -> None:
             )
             for b in theirs.graphics
         ), a.id
+
+
+def test_the_refusal_lists_every_loss() -> None:
+    """Change c0434: the refusal of a write with a refused loss also lists the losses that consent would
+    accept with it (here a creepage rule, which no record holds), so a consent covers what it was shown."""
+    first = _read(SAMPLES / "blink" / "blink.PcbDoc")
+    r1 = _footprint(first, "R1")
+    line = Graphic(
+        id="gfx_copper", kind="line", layer="F.Cu", points=(Point(0, 0), Point(MM, 0)), width=200_000
+    )
+    design = _with_footprint(first, dataclasses.replace(r1, graphics=(*r1.graphics, line)))
+    creepage = Rule(
+        id="rul_creepage", name="creepage", kind="creepage", selector_a=Selector("all"), min=4 * MM
+    )
+    rules = design.rules or RuleSet(id="rules")
+    design = dataclasses.replace(design, rules=dataclasses.replace(rules, rules=(*rules.rules, creepage)))
+    with pytest.raises(lower.LossyWriteError) as refused:
+        AltiumBackend().write(design)
+    wheres = [found.where for found in refused.value.issues]
+    assert wheres[0] == "footprint-copper" and "rule" in wheres[1:]
+    assert "(footprint-copper); --allow-lossy also leaves out items of" in str(refused.value)
+    assert "rule" in str(refused.value).split("also leaves out items of", 1)[1]
+
+
+def test_a_model_write_writes_no_net_class_width_or_via_rule() -> None:
+    """Change c0434: a write of a model writes the rules of its design and no class track width or via size,
+    which KiCad does not check: a net class that holds them (as every class of a KiCad project does) gives
+    no Width or Routing Via Style record and is counted changed. A build writes them all."""
+    design, classes = _valued_classes()
+    inputs = lower.from_design(design, issues=[])
+    assert inputs.pcb is not None and inputs.pcb.class_kinds == {"Clearance"}
+    assert sorted(inputs.changed["netclass"][lower.CLASS_VALUES_CHANGED]) == sorted(c.id for c in classes)
+    records = pcbdoc.rule_records(inputs.pcb, "blink.PcbDoc")
+    built_spec = dataclasses.replace(inputs.pcb, class_kinds=lower.CLASS_KINDS_BUILT)
+    built = pcbdoc.rule_records(built_spec, "blink.PcbDoc")
+    assert len(built) - len(records) >= 2 * len(classes)  # the class Width and Routing Via Style rules
+
+
+def test_a_clearance_rule_on_every_object_overrides_the_class_clearances() -> None:
+    """Change c0434: as an unconditioned KiCad rule overrides every class clearance, a clearance rule of the
+    design on every object leaves the class Clearance records out of a write of a model too."""
+    design, _classes = _valued_classes()
+    every = Rule(id="rul_every", name="general", kind="clearance", selector_a=Selector("all"), min=100_000)
+    design = dataclasses.replace(design, rules=RuleSet(id="rules", rules=(every,)))
+    inputs = lower.from_design(design, issues=[])
+    assert inputs.pcb is not None and inputs.pcb.class_kinds == frozenset()
+    records = pcbdoc.rule_records(inputs.pcb, "blink.PcbDoc")
+    assert len(records) == 1 and b"InNetClass(" not in records[0]
+
+
+def _valued_classes() -> tuple[Design, tuple[NetClass, ...]]:
+    first = _read(SAMPLES / "blink" / "blink.PcbDoc")
+    classes = tuple(
+        dataclasses.replace(
+            item, clearance=200_000, track_width=200_000, via_diameter=600_000, via_drill=300_000
+        )
+        for item in first.circuit.netclasses
+    )
+    assert classes
+    circuit = dataclasses.replace(first.circuit, netclasses=classes)
+    return dataclasses.replace(
+        first, circuit=circuit, rules=RuleSet(id="rules")
+    ), classes  # no rule of its own
 
 
 def test_copper_inside_a_footprint_needs_allow_lossy(tmp_path: Path) -> None:
@@ -218,7 +283,8 @@ def test_mechanical_layers_of_a_rewrite(tmp_path: Path) -> None:
 
 def test_free_text_of_a_footprint_is_written(tmp_path: Path) -> None:
     """Group 5a: a text of a footprint that is no field is a text record of the component, with its string
-    as stored; a text that the record cannot hold is counted under ``footprint-text``."""
+    as stored; a text that the record cannot hold is counted under ``footprint-text``. A line feed is written
+    as CR LF since c0460 task 2.5, so only the text on an unknown layer is left out."""
     first = _mechanical_document()
     (footprint,) = [fp for fp in _board(first).footprints if fp.texts]
     assert [text.text for text in footprint.texts] == ["note"]
@@ -237,8 +303,8 @@ def test_free_text_of_a_footprint_is_written(tmp_path: Path) -> None:
     unknown = dataclasses.replace(wanted, id="txt_layer", layer="User.9")
     design = _with_footprint(first, dataclasses.replace(footprint, texts=(wanted, broken, unknown)))
     inputs = lower.from_design(design, issues=[])
-    assert inputs.not_lowered["footprint-text"] == ("txt_bad", "txt_layer")
-    assert inputs.written["footprint-text"] == 1
+    assert inputs.not_lowered["footprint-text"] == ("txt_layer",)
+    assert inputs.written["footprint-text"] == 2
 
 
 def test_fill_and_region_of_a_footprint_are_regions(tmp_path: Path) -> None:
@@ -307,15 +373,17 @@ def test_in_model_frame_names_fenolite_mechanical_layers() -> None:
 def test_rta3_takes_out_the_footprint_items_that_are_not_written(tmp_path: Path) -> None:
     """Capability altium-verification, "Round-trip level RT-A3": ``rta3.without_unwritten`` takes out of the
     first model the footprint graphics that the write counts under ``footprint-copper`` and
-    ``footprint-graphic`` (here a track of the component on the top copper layer and a track of zero width
-    on Mechanical 1), so the first model and the reading of the rewrite are equal in the written scope
-    (design of c0126, "Found on 2026-10-08", 16)."""
+    ``footprint-graphic`` (here a track of the component on the top copper layer and a track without extent
+    on Mechanical 1; a track of width 0 there is written since change c0450 task 4.6), so the first model
+    and the reading of the rewrite are equal in the written scope (design of c0126, "Found on 2026-10-08",
+    16)."""
     from fenolite.backends.altium.rta3 import without_unwritten
 
     first = _mechanical_document()
     owner = next(fp for fp in _board(first).footprints if fp.graphics)
     copper = dataclasses.replace(owner.graphics[0], id="gfx_copper", layer="F.Cu")
-    thin = dataclasses.replace(owner.graphics[0], id="gfx_thin", width=0)
+    start = owner.graphics[0].points[0]
+    thin = dataclasses.replace(owner.graphics[0], id="gfx_thin", points=(start, start))
     design = _with_footprint(first, dataclasses.replace(owner, graphics=(*owner.graphics, copper, thin)))
     written = AltiumBackend().write(design, allow_lossy=True, rewrite=True)
     kept = written.inputs.not_lowered

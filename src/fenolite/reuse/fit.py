@@ -340,6 +340,7 @@ def fit_block(
     anchor: str | None = None,
     mapping: Mapping[str, str] | None = None,
     tolerance: Nm = DEFAULT_TOLERANCE,
+    transform: Transform | None = None,
 ) -> BlockFit:
     """Fit the parts ``parts`` of ``target`` (references on the target board) onto their reference parts
     of ``reference``: the part of the same reference, or ``mapping[ref]``.
@@ -350,7 +351,11 @@ def fit_block(
     part whose fit leaves a pad farther than ``tolerance`` from its goal, or that has no pad paired by
     number, is not placed (``reuse.no-fit``), and a part placed on the other side than the preferred one
     gives ``reuse.mirror-suspected``. The anchor keeps its placement. ``ValueError`` for an empty or
-    repeated part list, or an anchor that is not in it."""
+    repeated part list, or an anchor that is not in it.
+
+    With an explicit ``transform`` (a block layout reuse in a build, change c0255) there is no search:
+    that transform is the block transform, the anchor is fitted like every other part, and the block
+    flips when the transform mirrors."""
     chosen = list(parts)
     if not chosen or len(set(chosen)) != len(chosen):
         raise ValueError("the parts of a block must be named once each")
@@ -371,10 +376,15 @@ def fit_block(
             )
         else:
             known.append((ref, source))
-    if head not in dict(known):
-        return BlockFit(None, head, False, tolerance, (), tuple(issues))
     numbered = {ref: _numbered(ours[ref], theirs[source]) for ref, source in known}
     nets = _net_images([pair for pairs in numbered.values() for pair in pairs])
+    if transform is not None:
+        given_fits, given_issues = _fit_parts(
+            known, ours, theirs, numbered, nets, transform, transform.mirror, tolerance, head=None
+        )
+        return BlockFit(transform, head, transform.mirror, tolerance, given_fits, (*issues, *given_issues))
+    if head not in dict(known):
+        return BlockFit(None, head, False, tolerance, (), tuple(issues))
     first, first_source = ours[head], theirs[names.get(head, head)]
     flipped = first.footprint.side != first_source.footprint.side
     head_pairs = list(numbered[head])
@@ -415,11 +425,44 @@ def fit_block(
         )
         return BlockFit(None, head, flipped, tolerance, (), tuple(issues))
     transform = block.transform
+    fits, more = _fit_parts(
+        known,
+        ours,
+        theirs,
+        numbered,
+        nets,
+        transform,
+        flipped,
+        tolerance,
+        head=head,
+        anchor_fit=(head_pairs, block),
+    )
+    issues += more
+    return BlockFit(transform, head, flipped, tolerance, fits, tuple(issues))
+
+
+def _fit_parts(
+    known: Sequence[tuple[str, str]],
+    ours: Mapping[str, _Part],
+    theirs: Mapping[str, _Part],
+    numbered: Mapping[str, list[_Pair]],
+    nets: Mapping[str, str],
+    transform: Transform,
+    flipped: bool,
+    tolerance: Nm,
+    *,
+    head: str | None,
+    anchor_fit: tuple[list[_Pair], Rigid] | None = None,
+) -> tuple[tuple[PartFit, ...], list[Issue]]:
+    """Each known part fitted onto the block ``transform`` of its reference part's pads; the anchor
+    ``head`` keeps its placement with the pairs and fit of ``anchor_fit``."""
+    issues: list[Issue] = []
     fits: list[PartFit] = []
     for ref, source in known:
         part, origin = ours[ref], theirs[source]
         before = part.placement
-        if ref == head:
+        if ref == head and anchor_fit is not None:
+            head_pairs, block = anchor_fit
             fits.append(
                 PartFit(
                     ref,
@@ -508,7 +551,7 @@ def fit_block(
                 mirror_suspected=suspected,
             )
         )
-    return BlockFit(transform, head, flipped, tolerance, tuple(fits), tuple(issues))
+    return tuple(fits), issues
 
 
 def _fit(

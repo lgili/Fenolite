@@ -21,7 +21,7 @@ from dataclasses import dataclass
 
 from fenolite.backends.altium.cutouts import CUTOUT_TOL
 from fenolite.backends.base import EdgeRing
-from fenolite.convert.report import ConversionReport
+from fenolite.convert.report import EMBEDDED_BOARD_CUTOUT_COPIED, ConversionReport
 from fenolite.core.coords import Point
 from fenolite.geometry.errors import BackendUnavailable, GeometryError
 from fenolite.geometry.predicates import dist2_point_segment
@@ -117,6 +117,31 @@ def _groups(report: ConversionReport) -> dict[int, tuple[str, tuple[int, ...]]]:
     return found
 
 
+def _copied(report: ConversionReport) -> int:
+    """How many cut-outs the copies of an Embedded Board Array carry (``cutout`` changes of
+    ``EMBEDDED_BOARD_CUTOUT_COPIED``): rings that the written board holds and the source document does not."""
+    row = report.row("cutout")
+    return sum(
+        len(reason.ids)
+        for reason in (row.reasons if row is not None else ())
+        if reason.outcome == "changed" and EMBEDDED_BOARD_CUTOUT_COPIED in reason.reason.split("; ")
+    )
+
+
+def _encloses(outer: Sequence[Point], inner: Sequence[Point], tol: int = RING_TOL) -> bool:
+    """Whether the box of ``outer`` holds the box of ``inner`` within ``tol``: a source cut-out that the
+    written board merged with a copy's cut-out (change c0428). When copies carry cut-outs, the ``cutout/<k>``
+    ids of the writer's merges count the copies' rings too, so they do not name the source's rings."""
+    if not outer or not inner:
+        return False
+    return (
+        min(p.x for p in outer) - tol <= min(p.x for p in inner)
+        and min(p.y for p in outer) - tol <= min(p.y for p in inner)
+        and max(p.x for p in outer) + tol >= max(p.x for p in inner)
+        and max(p.y for p in outer) + tol >= max(p.y for p in inner)
+    )
+
+
 def _text(ring: EdgeRing) -> str:
     return " ".join(f"({p.x},{p.y})" for p in ring.points)
 
@@ -144,6 +169,7 @@ def compare_rings(
     outline = report.row("outline")
     merges: dict[tuple[int, ...], str | None] = {}
     differences: list[RingDifference] = []
+    copied = _copied(report)
     for i in unmatched:
         ring = source[i]
         k = _index(ring.name)
@@ -158,10 +184,14 @@ def compare_rings(
                 if members not in merges:
                     merges[members] = _merged(source, members, shift, b, free)
                 why = merges[members]
+        if why is None and copied and any(_encloses(b[j], a[i]) for j in free):
+            why = "cutout"  # change c0428: merged on the written board with a cut-out that a copy carries
         differences.append(RingDifference("source", ring.name, _text(ring), why))
     for j in free:
         ring = written[j]
         why = "outline" if j == 0 and outline is not None and (outline.changed or outline.lost) else None
+        if why is None and j and copied:  # change c0428: a cut-out that an array's copy carries
+            why, copied = "cutout", copied - 1
         differences.append(RingDifference("written", ring.name, _text(ring), why))
     return tuple(differences)
 

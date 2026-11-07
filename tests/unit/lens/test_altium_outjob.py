@@ -28,6 +28,7 @@ from fenolite.lens.altium import build_altium, kept_documents
 PROJECT_FILES = ("blink.PcbDoc", "blink.PcbLib", "blink.PrjPcb", "blink.SchDoc", "blink.SchLib")
 KINDS = ["gerbers", "drill", "pos", "bom", "schematic_print", "pcb_print"]
 JOB_HYPOTHESES = {
+    "H-A-DWF-OUTJOB",
     "H-A-OUTJOB-GERBER-ACCEPT",
     "H-A-OUTJOB-GERBER-LAYERS",
     "H-A-OUTJOB-GERBER-RECORD",

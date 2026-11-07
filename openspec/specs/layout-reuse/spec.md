@@ -2,9 +2,7 @@
 
 ## Purpose
 A block of a reference board is copied onto a target by a rigid fit over its pads (`place --strategy reuse`), with its tracks, vias and zones when asked, every copy checked; groups of parts are turned, shifted or posed with the copper they own (`place --strategy group`).
-
 ## Requirements
-
 ### Requirement: Rigid fit of a block
 `fenolite.reuse.fit_block(reference, target, parts, *, anchor=None, mapping=None, tolerance=50_000) -> BlockFit` SHALL fit the block transform on the anchor's pads (the first part by default), paired by numbers found once in both footprints, over four quarter turns and both mirrors by least squares; the fit within `tolerance` with the mirror the anchor's sides give wins, then the smallest residual. The anchor MUST keep its placement.
 
@@ -108,12 +106,17 @@ A copied zone whose reader output holds a fill and no outline MUST get the outli
 - **THEN** every pad lies on its old position turned by 90° about the point, the tracks among the group's pads are turned with them, and the copper check finds nothing new
 
 ### Requirement: Copper of a moved group
-A group move SHALL move with the parts the tracks, arcs and vias of each joined group of a net (without fills) that holds a pad of the group and no other pad, and each zone whose stored fill joins pads of the group only. Copper that joins a pad of the group to another pad MUST stay (`place.copper-left`). A new copper-check finding MUST be `place.group-failed`, and nothing is written.
+A group move SHALL move with the parts the tracks, arcs and vias of each joined group of a net (without fills) that holds a pad of the group and no other pad, and each zone whose stored fill joins pads of the group only. It SHALL drag the copper on the group's pads (change c0432): a via whose copper touches a pad of the group and no pad of a part outside the group MUST move with the group, and each end of a track that touches a pad of the group or such a via MUST move with them, the other end staying. An arc that joins a pad of the group to another pad MUST stay (`place.copper-left`). A new copper-check finding MUST be `place.group-failed`, and nothing is written.
 
-#### Scenario: A track to a part outside the group stays
+#### Scenario: A track to a part outside the group stretches
 - **GIVEN** the board of "A module turned with its satellites" with a track from `C1` to `R9`, which is not in the group
 - **WHEN** `uv run pytest tests/unit/cli/test_place_group.py -k shift` shifts the group by 1 mm
-- **THEN** that track stays with one `place.copper-left` naming `C1`, and the tracks to `U1` move by 1 mm
+- **THEN** that track's end on `C1` moves by 1 mm and its end on `R9` stays, there is no `place.copper-left`, and the tracks to `U1` move by 1 mm
+
+#### Scenario: A via in a pad and a track to another part
+- **GIVEN** the authored Altium `routed` sample converted to KiCad, whose part R1 has a via in one pad and a track from each pad to another part
+- **WHEN** `fenolite place --shift R1 --by 1mm,0mm` runs
+- **THEN** the via moves with R1, the tracks' ends on R1 move with it and their other ends stay, there is no `place.copper-left` and no `place.group-failed`, and the command exits 0
 
 ### Requirement: Pose search
 `--pose-search` with `--turn REFS --about X,Y --within LENGTH` SHALL try the four quarter turns about the point with every shift of a grid of step `--pitch` within `--within` on each axis, and report for each pose the demand across the group's border: per net with a pad in the group and one outside, the shortest distance between them. It MUST write nothing and refuse `--angle`.
@@ -129,3 +132,32 @@ A group move SHALL move with the parts the tracks, arcs and vias of each joined 
 #### Scenario: Every group code is explained
 - **WHEN** `uv run pytest tests/unit/cli/test_explain_cmd.py` runs
 - **THEN** both codes have an entry whose `see` is the heading `place`
+
+### Requirement: Block layout reuse in a build
+A block reuse SHALL place each child that no level 1 to 4 source places from the reference board's part with the same block-local path, at its position in the reference board's `place()` frame composed with the block pose. c0210's per-part fit MUST run under that transform only, giving `reuse.no-fit` for pads that differ; a child without a reference part MUST be staged with `reuse.unknown-part` (warning).
+
+#### Scenario: A block placed from its own board
+- **GIVEN** `blocks/buck.kicad_pcb`, an authored layout of the block alone, and `p3.layout(reuse="blocks/buck.kicad_pcb")` with `p3.place(mm(20), mm(5))`
+- **WHEN** `uv run pytest tests/unit/cli/test_build_reuse.py -k placed` builds the design
+- **THEN** every pad of `buck3`'s parts lies within 1 µm of its reference pad moved by 20 mm and 5 mm
+
+### Requirement: Nets mapped by port
+With `copper=True`, each reference net SHALL map to the parent net joined to the instance's port of that name, or to the instance's local net of that name; the tracks, arcs, vias and zones of the block MUST then be copied and settled as c0210 and c0227 specify, with this map and no inference, and kept as locked items. A reference net that is neither a port nor a local net MUST give `reuse.port-unmapped` (error).
+
+#### Scenario: Copper follows the ports
+- **GIVEN** the same reference board, whose `VIN` and `GND` are ports and `FB` a local net, and `p3`'s `VIN` joined to `V12`
+- **WHEN** `uv run pytest tests/unit/cli/test_build_reuse.py -k copper` builds with `copper=True`
+- **THEN** the copied `VIN` copper is on `V12`, the `FB` copper on `buck3/FB`, every copy is locked, and the copper guard finds nothing new
+
+#### Scenario: A net without a port
+- **GIVEN** a reference board with a net `TEST` that the block neither exports nor declares
+- **WHEN** the build runs with `copper=True` and `--confirm`
+- **THEN** the exit code is 5, `issues` hold `reuse.port-unmapped` naming `TEST`, and nothing is written
+
+### Requirement: Block reuse codes
+`reuse.port-unmapped` (error) SHALL join `fenolite.reuse.codes.ISSUE_CODES`, explained by `fenolite explain` and listed in `docs/cli-contract.md`, "Layout reuse".
+
+#### Scenario: The code is explained
+- **WHEN** `uv run pytest tests/unit/cli/test_explain_cmd.py` runs
+- **THEN** `reuse.port-unmapped` has an entry whose `see` is the heading `build`
+

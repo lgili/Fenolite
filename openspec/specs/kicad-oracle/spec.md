@@ -2,9 +2,7 @@
 
 ## Purpose
 Use `kicad-cli` 9.0 and 10.0 as external oracles: pinned Docker images, an isolated environment per run, per-kind load checks, and the token fuzz harness whose committed results prove each inventory row on each major. Facts and sources: `docs/formats/kicad/versions.md`.
-
 ## Requirements
-
 ### Requirement: Load check per file kind
 `tools/kicad_token_fuzz.py` SHALL decide whether `kicad-cli` loads a case file with one command per kind, and SHALL record the outcome `load`, `reject`, `timeout` or `inconclusive`:
 
@@ -2214,8 +2212,8 @@ The tests' own `kicad-cli` launchers (`tests/_kicad.py`, `tests/_libs.py`, and e
 - **THEN** every run gives its usual result (each ERC run "Failed to load schematic", exit 3, no report) and none prints a lock message, and a run given `TMPDIR` creates `org.kicad.kicad/instances` in that folder
 
 ### Requirement: Created layer tables are probed on both majors
-`tests/kicad/board/test_layer_tables.py` (marker `needs_kicad`, major-aware) SHALL settle `H-K-PCB-LAYERS` on the running `kicad-cli` with the created test board `tests/_boards.py::created_board`, whose layer table is replaced by the table of n copper layers and whose stack-up, when the created test board carries one (`board-stackup`), is removed, so that the probes judge the table alone and KiCad derives its default stack-up: for n = 2, 4, 6 and 8 the table of `layers.created_layers(n)`, and for n = 3 the table that the row rule of `kicad-file-backend`, "Created board header", gives for three layers, written by `tests/kicad/board/_layertables.py` because Fenolite refuses to create it. Each table MUST be written for targets 9 and 10 and run through c0009's package runner on a copy in `tmp_path`, with a `{}` project file and an empty `KICAD_CONFIG_HOME`.
-- **Load.** On 9.0.9 the target-9 text, and on 10.0.6 both texts, of n = 2, 4, 6 and 8 MUST load: `pcb drc --format json --severity-all` writes a report that `read_drc_report` parses (probe `pcb-layers-<n>-t<M>` = `load`). The table of 3 MUST be refused on the same majors (probe `pcb-layers-odd-t<M>` = `reject`).
+`tests/kicad/board/test_layer_tables.py` (marker `needs_kicad`, major-aware) SHALL settle `H-K-PCB-LAYERS` on the running `kicad-cli` with the created test board `tests/_boards.py::created_board`, whose layer table is replaced by the table of n copper layers and whose stack-up, when the created test board carries one (`board-stackup`), is removed, so that the probes judge the table alone and KiCad derives its default stack-up: for every even n from 2 to 32 the table of `layers.created_layers(n)`, for n = 1 the table holding `F.Cu` as its only copper row (change c0277), and for n = 3 the table that the row rule of `kicad-file-backend`, "Created board header", gives for three layers, written by `tests/kicad/board/_layertables.py` because Fenolite refuses to create it. Each table MUST be written for targets 9 and 10 and run through c0009's package runner on a copy in `tmp_path`, with a `{}` project file and an empty `KICAD_CONFIG_HOME`.
+- **Load.** On 9.0.9 the target-9 text, and on 10.0.6 both texts, of every even n from 2 to 32 MUST load: `pcb drc --format json --severity-all` writes a report that `read_drc_report` parses (probe `pcb-layers-<n>-t<M>` = `load`). The table of 3 MUST be refused on the same majors (probe `pcb-layers-odd-t<M>` = `reject`). The table of 1 MUST be run and its outcome recorded, `load` or `reject` (probe `pcb-layers-1-t<M>`); it settles `H-K-PCB-ONE-COPPER` and decides whether 1 is a created count.
 - **Gerbers.** `pcb export gerbers` MUST write exactly one Gerber per copper layer of the table, named after that layer (probe `pcb-layers-gerbers-<n>-t<M>` = `equal`).
 - **Re-save.** On 10.0.6, after `pcb upgrade --force` on the copy, the copper rows of the table (number, name, type and user name, in order) MUST equal the written rows, for both texts (probe `pcb-layers-resave-<n>-t<M>` = `equal`). `kicad-cli` 9.0.9 has no `pcb upgrade` (S-0037), so this probe MUST NOT run there.
 - **Same table.** A hermetic test MUST assert that `_layertables.py` gives the rows of `created_layers(n)` for every count of `CREATED_COPPER_COUNTS`, so the probes judge the table that the writer creates.
@@ -2224,16 +2222,16 @@ The tests' own `kicad-cli` launchers (`tests/_kicad.py`, `tests/_libs.py`, and e
 #### Scenario: Tables on KiCad 10
 - **GIVEN** `kicad-cli` 10.0.6
 - **WHEN** `uv run pytest tests/kicad/board/test_layer_tables.py -rA` runs
-- **THEN** both texts of n = 2, 4, 6 and 8 record `load` and `equal` for their Gerber and re-save probes, the eight-layer texts give the Gerbers `F.Cu`, `In1.Cu` to `In6.Cu` and `B.Cu`, and both texts of the table of 3 record `reject`
+- **THEN** both texts of every even n from 2 to 32 record `load` and `equal` for their Gerber and re-save probes, the thirty-two-layer texts give the Gerbers `F.Cu`, `In1.Cu` to `In30.Cu` and `B.Cu`, both texts of the table of 3 record `reject`, and both texts of the table of 1 record their outcome
 
 #### Scenario: Tables on KiCad 9
 - **GIVEN** `kicad-cli` 9.0.9 in the pinned image
 - **WHEN** `uv run pytest tests/kicad/board/test_layer_tables.py -rA` runs
-- **THEN** the target-9 texts of n = 2, 4, 6 and 8 record `load` and `equal` for their Gerber probes, the target-9 table of 3 records `reject`, and no re-save probe runs
+- **THEN** the target-9 texts of every even n from 2 to 32 record `load` and `equal` for their Gerber probes, the target-9 table of 3 records `reject`, the table of 1 records its outcome, and no re-save probe runs
 
 #### Scenario: Probe tables follow the writer
 - **WHEN** the hermetic `uv run pytest tests/kicad/board/test_layer_tables.py -k same_table` runs without `kicad-cli`
-- **THEN** for n = 2, 4, 6 and 8 the rows of `_layertables.py` equal those of `created_layers(n)`
+- **THEN** for every count of `CREATED_COPPER_COUNTS` the rows of `_layertables.py` equal those of `created_layers(n)`
 
 ### Requirement: Builds of four, six and eight copper layers pass the oracle
 `tests/kicad/build/test_layer_builds.py` (marker `needs_kicad`, major-aware) SHALL settle `H-K-BUILD-LAYERS` with the blink variant of `tests/kicad/build/_layercases.py` for n = 4, 6 and 8 copper layers: a zone on every inner layer, on `GND` for `In1.Cu`, `In3.Cu` and `In5.Cu` and on `VIN` for the others; the `LED_A` track stepping through a via to the deepest inner layer and back to `B.Cu`; and one via drop each for `GND` and `VIN`. Every run MUST use a temporary folder, an empty `KICAD_CONFIG_HOME` and `--seed`, `--timestamp` and `--no-backup`, and judge DRC only from the JSON report.
@@ -2941,3 +2939,45 @@ With `--gate drc`, `result.gate` SHALL hold `tool_version`, `runs`, `refilled`, 
 - **GIVEN** an edit of two added tracks in one group, a new finding naming one of them
 - **WHEN** `trial` runs with `gate=True` and that group in `together`
 - **THEN** both tracks are dropped, each with that finding
+
+### Requirement: Impedance targets pass the oracle
+The KiCad test suite SHALL settle `H-K-PRO-TUNING-DRC` and `H-K-DRU-IMPEDANCE` with the bench of `tests/kicad/impedance/_zbench.py`: a four-copper board written by `write_triad` with a stack-up written by c0101 (0.2 mm, 1.065 mm and 0.2 mm dielectrics, 35 µm copper), the classes `SE50` (a track on `F.Cu`, one on `B.Cu`) and `USB90` (a pair on `F.Cu`), class clearances of 0.2 mm, and the canary scoped to its own net.
+
+#### Scenario: Detailed contract for impedance targets pass the oracle
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
+The KiCad test suite SHALL settle `H-K-PRO-TUNING-DRC` and `H-K-DRU-IMPEDANCE` with the bench of `tests/kicad/impedance/_zbench.py`: a four-copper board written by `write_triad` with a stack-up written by c0101 (0.2 mm, 1.065 mm and 0.2 mm dielectrics, 35 µm copper), the classes `SE50` (a track on `F.Cu`, one on `B.Cu`) and `USB90` (a pair on `F.Cu`), class clearances of 0.2 mm, and the canary scoped to its own net. Every verdict MUST come from the JSON report ("DRC verdicts come from the JSON report"), and a run whose canary does not fire MUST fail.
+- `tests/kicad/impedance/test_tuning_drc.py` (marker `needs_kicad`, 10.0 only) MUST record, from profiles written by `tuning.lower_profile`: `pro-tuning-width` (a 50 µm narrower track reported as `track_width` at `error` and at `warning` of `tuning_profile_track_geometries`, and not at `ignore`), `pro-tuning-exact` (1 µm wider and 100 nm narrower both reported), `pro-tuning-norow`, `pro-tuning-missing` (`missing_tuning_profile`), `pro-tuning-gap` (`diff_pair_gap_out_of_range` at a 50 µm wider gap), `pro-tuning-single-under-diff`, `pro-tuning-rule-governs` (a custom class rule replaces the check), `pro-tuning-gap-clearance` (no clearance finding between the pair at a gap below the class clearance, at `ignore`) and `pro-tuning-gap-clearance-rule` (the same with a board-wide custom clearance rule of 0.2 mm, recorded either way).
+- `tests/kicad/impedance/test_impedance_rules.py` (both majors) MUST record `dru-impedance-width`: the per-layer rules of "Impedance targets in the DSL" report a track 1 µm above `max` and one 50 µm below `min` on their layers, and nothing on a track of the class on a layer without a rule.
+- A design with both targets, built for each major, MUST load in `pcb drc` with no `missing_tuning_profile` and the canary firing; its tracks drawn at the targets' widths and gap MUST get no `track_width` and no `diff_pair_gap_out_of_range` finding, while one drawn 50 µm narrower gets one `track_width` finding.
+- The outcomes MUST be recorded in both probe files, and the facts written to `docs/formats/kicad/project.md`, `rules.md` and `drc.md` with their sources and labels. When `pro-tuning-gap-clearance-rule` records a clearance finding, `build.impedance-gap-clearance` MUST also apply to target 10 when a custom clearance rule governs the pair.
+
+#### Scenario: Profiles on 10.0.6
+- **WHEN** `uv run pytest tests/kicad/impedance/test_tuning_drc.py -rA` runs on the local KiCad 10.0.6
+- **THEN** each of the eight measured `pro-tuning-*` probes records the outcome of the design's measurements, `pro-tuning-gap-clearance-rule` holds an outcome, and the canary fires in every run
+
+#### Scenario: Rules and the built design on both majors
+- **WHEN** `uv run pytest tests/kicad/impedance/test_impedance_rules.py -rA` runs on the local KiCad 10.0.6 and inside the pinned 9.0.9 image
+- **THEN** `dru-impedance-width` records `present` on both majors, and the built design gives exactly one `track_width` finding, on the narrowed track
+
+### Requirement: Coverage items pass the oracle
+`tests/kicad/board/test_coverage_items.py` (marker `needs_kicad`, major-aware) SHALL settle `H-K-COPPER-ART`, `H-K-PAD-SHAPES`, `H-K-TEARDROP`, `H-K-GROUP`, `H-K-IMAGE`, `H-K-DIM-KINDS`, `H-K-ZONE-ARC`, `H-K-FP-OVERRIDE`, `H-K-MODEL-REF` and `H-K-VERBATIM` with one built board per item, each loaded by `pcb drc`, exported to Gerbers and, on 10.0.6, re-saved on a copy in `tmp_path`.
+
+#### Scenario: Items on KiCad 10
+- **GIVEN** `kicad-cli` 10.0.6
+- **WHEN** `uv run pytest tests/kicad/board/test_coverage_items.py -rA` runs
+- **THEN** every item board records `load`, no violation that names an item of the board, and after `pcb upgrade --force` the item is still present (teardrop zones excepted), with outcomes in `docs/evidence/kicad/probes/10.0.6.json`
+
+#### Scenario: Items on KiCad 9
+- **GIVEN** `kicad-cli` 9.0.9 in the pinned image
+- **WHEN** the same test runs
+- **THEN** the target-9 boards record `load` and no violation that names an item, and no re-save probe runs
+
+### Requirement: Builds of ten, sixteen and thirty-two copper layers pass the oracle
+`tests/kicad/build/test_layer_builds.py` SHALL settle `H-K-BUILD-LAYERS-32` with the blink variant of `_layercases.py` for n = 10, 16 and 32, under the rules that "Builds of four, six and eight copper layers pass the oracle" sets for n = 4, 6 and 8, and the probe `pcb-stackup-default-<n>` for the same counts.
+
+#### Scenario: Thirty-two layers on KiCad 10
+- **GIVEN** `kicad-cli` 10.0.6
+- **WHEN** `uv run pytest tests/kicad/build/test_layer_builds.py -k "10 or 16 or 32" -rA` runs
+- **THEN** each build fills every zone, the DRC report holds no violation and no unconnected item while the canary fires, the export writes one Gerber per copper layer with `Copper,L<i>,…` functions, and the second build writes the same bytes

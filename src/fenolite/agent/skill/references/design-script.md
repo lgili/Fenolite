@@ -1,22 +1,21 @@
 ---
 topic: design-script
 title: Writing a design script
-summary: The shape of a script: design, modules, nets, parts, lengths with units, the board frame, and the edit and build cycle.
+summary: Design scripts: modules, nets, parts, unit lengths, board frame and build cycle.
 ---
 
 # Writing a design script
 
-A design script is a Python file that binds a module-level name `design` to a `Design`. `fenolite build`
-runs it as your own code, in its own process, and writes a project from what `design` holds. Never build
-a script you do not trust. A script imports from `fenolite.dsl` and nothing else of Fenolite.
+A Python script binds module-level `design` to a `Design`. `fenolite build` runs that code in its
+own process. Use `fenolite.dsl` and `fenolite.blocks` starter circuits. Build only scripts you trust.
 
 ## A whole script
 
 ```fenolite-design
 from fenolite.dsl import Design, Module, Net, Part, connect, inch, mil, mm, nm, no_connect
 
-design = Design("lamp")  # the name becomes the stem of every file
-design.board(mm(30), inch("0.8"))  # width and height of the outline; two copper layers
+design = Design("lamp")  # file stem
+design.board(mm(30), inch("0.8"), outline_width=mm("0.23"))  # optional root stroke; two copper layers
 
 # Your fabricator's limits. These numbers are examples.
 design.rules.minimum(clearance=mm(0.2), track_width=nm(200_000), edge_clearance=mm(0.3))
@@ -46,7 +45,7 @@ d1.place(mm(15), mm(6), rot=180)
 ## What each piece is
 
 - **`Design(name)`** holds everything. `design.board(width, height, copper=2)` declares the outline, once;
-  `copper` is 2, 4, 6 or 8.
+  `copper` is an even count, 2 to 32. `outline_width=` is a nonnegative length; omission keeps the default.
 - **`Module(name)`** groups parts. A module has `add()` like the design, and modules nest. A part's path
   is its reference at the top and `module/REF` inside a module; the path names the part across builds.
 - **`Part(ref, lib_id, footprint=..., value=...)`** is one component (page `parts`).
@@ -55,12 +54,72 @@ d1.place(mm(15), mm(6), rot=180)
   every pin with that name. A pin joins one net.
 - **`no_connect(*pins)`** marks pins that stay open on purpose, so the electrical check does not
   report them. A pin is either connected or marked, never both.
-- **`Power(hv, lv)`** records a supply: its high net and its low net; `design.add(Power(vin, gnd))` adds
-  it. The design block of the page `altium` uses it. A KiCad build puts a power flag on both nets, so
-  the electrical check takes a supply that comes in through a connector as driven. It builds with
-  parts of the built-in catalog as well: the flag then lies in the catalog's library.
-- A wrong call raises an error at its own line: a duplicate reference, a second `place()`, a bare
+- **`Power(hv, lv)`** (also named `Rail`) records a supply; `design.add(Power(vin, gnd))` adds it. A KiCad
+  build puts a power flag on both nets, so the electrical check takes a supply through a connector as
+  driven, with parts of the built-in catalog as well. Rails with a voltage, grounds, logic lines and
+  whole interfaces: page `board-schematic`.
+- A wrong call raises an error at its line: a duplicate reference, a second `place()`, a bare
   number where a length is expected. The build reports it as `FEN-3004` with `line:N` (page `recovery`).
+
+## Connection helpers
+
+```fenolite-design
+from fenolite.dsl import I2C, Design, Net, Part, connect, decouple, mm, pull_down, pull_up, series
+
+design = Design("helpers")
+design.board(mm(40), mm(30))
+j1 = Part("J1", "Fenolite:Connector_4", footprint="Fenolite:Header_1x4_P2.54", value="IN")
+u1 = Part("U1", "Fenolite:Microcontroller", footprint="Fenolite:SOIC_8", value="MCU")
+chip = "Fenolite:Chip_0603"
+r1, r2, r3, r4, r5 = (Part(f"R{n}", "Fenolite:Resistor", footprint=chip) for n in range(1, 6))
+d1 = Part("D1", "Fenolite:LED", footprint=chip, value="RED")
+c1 = Part("C1", "Fenolite:Capacitor", footprint=chip, value="100n")
+design.add(j1, u1, r1, r2, r3, r4, r5, d1, c1)
+
+v33, gnd, sda, scl, led, rst = Net("3V3"), Net("GND"), Net("SDA"), Net("SCL"), Net("LED"), Net("RST")
+connect(v33, j1[1], u1[1])
+connect(gnd, j1[2], u1[2])
+connect(sda, j1[3], u1[4])
+connect(scl, j1[4], u1[5])
+pull_up(I2C(sda, scl), v33, r1, r2)  # R1 on SDA, R2 on SCL
+decouple(v33, gnd, c1, near=u1.pad(1), within=mm(3))  # also rule decouple/C1
+connect(led, u1[8])
+series(led, r3, d1, gnd)  # R3 and D1 meet on net R3-D1
+connect(rst, u1[3])
+pull_down(rst, gnd, r4)
+connect(v33, r5.a)  # a/b: pins 1 and 2
+connect(Net("ADC"), r5.b, u1[7])
+u1.unused_no_connect()  # marks CLK, the one open pin
+```
+
+- `series` takes nets at both ends and parts between (in at `a`, out at `b`; `(d1.b, d1.a)` turns one). `decouple` puts each capacitor across two nets;
+  `pull_up` and `pull_down` take a net and one resistor or an `I2C` bus and two. A refused call connects nothing.
+- `part.unused_no_connect(keep=(...))` marks, at build, every open pin except `keep` and pins of type
+  `no_connect`. An open `power_in` pin stops the build with `build.must-connect-unconnected`; a part used
+  through `a`/`b` or a helper whose symbol has other than two pins gives `build.not-two-terminal`. Both are
+  errors: exit 5, nothing written.
+
+## Parts without a ref
+
+`design.part(...)` and `module.part(...)` create and add a part. Without a ref the build gives one; the
+path is the module path and the prefix (`reg/U`) or `name=`. Two parts of one prefix in a module need
+`name=`; `prefix=` names a prefix outside the catalog. Refs are kept in `design.lock` (page `files`).
+
+```fenolite-design
+from fenolite.dsl import Design, Module, Net, Part, connect, mm
+
+design = Design("reg")
+design.board(mm(30), mm(20))
+j1 = Part("J1", "Fenolite:Connector_2", footprint="Fenolite:Header_1x2_P2.54")
+design.add(j1)
+reg = Module("reg")
+design.add(reg)
+u = reg.part(lib_id="Fenolite:Linear_Regulator", footprint="Fenolite:SOT223_3_Diodes")  # reg/U, U1
+c_in = reg.part(name="c_in", lib_id="Fenolite:Capacitor", footprint="Fenolite:Chip_0805")  # C1
+vin, gnd = Net("VIN"), Net("GND")
+connect(vin, j1[1], u["IN"], c_in[1])
+connect(gnd, j1[2], u["GND"], c_in[2])
+```
 
 ## Lengths carry a unit
 
@@ -120,7 +179,7 @@ fenolite build blink/design.py --out blink/build --confirm --json
 fenolite build blink/design.py --out blink/build --kicad-version 9 --dry-run --json
 ```
 
-- `init` writes `blink/design.py`, a starter that builds as it is; edit it or write your own.
+- `init` writes `blink/design.py`, a starter that builds as it is.
 - `build --dry-run` runs the script and returns `result.plan`, the files it would write, and every issue.
   Read the issues: an `error` means nothing would be written. `--confirm` writes.
 - The project goes under `--out`, never beside the script: board, schematic, project and rules files,
@@ -176,5 +235,9 @@ ships no frame; this command turns your specification into a KiCad drawing sheet
 ```fenolite-cmd
 fenolite template build blink/frame.sheet.toml --target kicad -o blink/frame.kicad_wks --dry-run --json
 ```
+
+For `stimulus`, read `block-testing`.
+
+For the five circuits and `design.use`, read `starter-blocks`.
 
 Read next: `parts`, `placement`, `routing`.

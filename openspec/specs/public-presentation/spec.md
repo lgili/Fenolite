@@ -29,3 +29,12 @@ Repository settings and bilingual launch copy SHALL describe existing features, 
 
 - **WHEN** the maintainer opens the launch checklist
 - **THEN** exact description, topics, release text, announcements and assets are available along with a record of validation and remaining publication steps
+
+### Requirement: Third-party material in public assets
+Fenolite's README, site and launch material SHALL show third-party boards and other third-party-derived items only as images of the `fenolite-library` gallery, each with its attribution line (title, authors, upstream link, SPDX id, "Not endorsed by the authors"). An item by an organisation MUST have `featured` permission recorded in its `PROVENANCE.json` before such use.
+
+#### Scenario: Image without attribution
+- **GIVEN** a public asset list that names a gallery image of a converted board without its attribution line
+- **WHEN** `uv run pytest tests/unit/test_public_presentation.py -k library` runs
+- **THEN** the test fails naming the image
+

@@ -1,0 +1,86 @@
+{
+  "LibrePCB_reviews": {
+    "all_four_exact_approved_sheet_confirmations_preserved": true,
+    "integration_proof": {
+      "path": "docs/librepcb-source-integration-proof-20261103.json",
+      "sha256": "1d1880d91b4d3d00b196cde22be782921706b8726ba21bf7ac5898e036a48b2f"
+    },
+    "new_approval_receipt": {
+      "path": "docs/librepcb-source-integration-approval-20261103.json",
+      "sha256": "8ff3e4b0d79c0d9cec90697bb94c79503da10d29149874dd00d5629d91079cf9"
+    },
+    "new_human_review_required": false,
+    "new_item_audit_exits": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "record_check_exit": 0,
+    "record_check_warnings": 4
+  },
+  "checkboxes_to_keep_unchecked": [
+    "c0273.4.3",
+    "c0273.5.3",
+    "c0266.4.1",
+    "c0266.4.2",
+    "c0266.5.6"
+  ],
+  "current_tools": {
+    "fenolite": "b8b24842c1b792a0fcb37a6a7e5ca0270b90efd6",
+    "kicad_cli": "10.0.6",
+    "kicad_image": "docker.io/kicad/kicad@sha256:18693567392b80da435f9fa952ce3a3e534c66eb5a6033f5b9c80aa3b19dd3ec",
+    "uv": "0.12.23"
+  },
+  "historical_Royal_metadata": {
+    "current_Royal_fidelity_qualified": false,
+    "expected_payload_tree": "fenolite-tree-1:36398699ce9d3d37002024633c731798842759e46e43023a8f1d4af24b1b4198",
+    "independent_fresh_L7_failures_open": 2,
+    "payload_LICENCE_old_NOTICE_bytes_and_accepted_entries_preserved": true,
+    "payload_bytes_equal_to_first_commit": "e1d4308a31a0caf35de45b5fee629528e0a893b7",
+    "payload_files": 67,
+    "reason_source": "Original fidelity.accepted A003 text; no new acceptance.",
+    "restored_S_reason": "drawn-unavailable",
+    "tree_role": "Expected historical payload checksum, not a newly executed replay.",
+    "version": "1.0.2"
+  },
+  "library_CI_PR_release_complete": false,
+  "library_branch": "codex/cac-completion",
+  "library_commit": "5edffa69584890dbf5c4cea0bc3ad613fa176f6c",
+  "library_previous_source": "8b38b308411b9c7e36d44f65625f648798910378",
+  "metadata_receipt": {
+    "path": "docs/royal-historical-metadata-reconciliation-20261103.json",
+    "sha256": "1007bb6184646cca260c4e6e10a178f8e2aadbf225c86b6b3e3c0549d9da1b59"
+  },
+  "new_native_replay_CI_or_test_execution_for_this_note": false,
+  "private_staged_residue": {
+    "existing_waivers": 22,
+    "exit": 0,
+    "files": 5,
+    "hits": 0,
+    "private_gate": "on"
+  },
+  "root_before": {
+    "issues": 2,
+    "log_sha256": "b7f2762734bedb4e41ab6c411775874f56e90f6310cf0d4192e68547db5eeec7"
+  },
+  "root_static_audit": {
+    "artifact_file": "root-static-audit.json",
+    "artifact_packet": "fenolite-cac-organization-20261103/cac-tasks-agent/royal-historical-metadata-review-v1",
+    "command": "fenolite library audit <library-checkout> --json",
+    "exit": 0,
+    "issues": 0,
+    "items": 20,
+    "log_sha256": "e0da7a470bd77be61c3d75354bc62d7c2227627447e91de65ebd7efd894788a8"
+  },
+  "royal_static_version_audit": {
+    "artifact_file": "royal-static-version-audit.json",
+    "command": "fenolite library audit <library-checkout> --item boards/cern-ohl-p/kicad-demos/royalblue54l_feather --base 8b38b308411b9c7e36d44f65625f648798910378 --json",
+    "exit": 0,
+    "issues": 0,
+    "log_sha256": "a9619b5c18882c85d1f9db7ce7adb405b8e3bc02e1f1ff24c45ac69e0854994e"
+  },
+  "schema": "fenolite.local-library-audit-proof.v0",
+  "scope": "Completed LOCAL schema/provenance/version audit only; external CI, release and current Royal fidelity remain open.",
+  "unchanged_other_item_rows": 19
+}

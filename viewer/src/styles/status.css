@@ -1,0 +1,15 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* Copyright (c) 2026 Fenolite contributors */
+/* The status bar (c0300, design decision 6). */
+#status { grid-column:1/-1; grid-row:4/5; display:flex; gap:var(--space-4); align-items:center; padding:0 var(--space-3); background:var(--surface-1); border-top:1px solid var(--border);
+  color:var(--text-3); white-space:nowrap; overflow:hidden; font-size:var(--text-sm); font-variant-numeric:tabular-nums; }
+.sItem[hidden] { display:none; }
+.sItem:empty { display:none; }
+.sCoord { display:inline-flex; align-items:center; gap:6px; color:var(--text-2); min-width:210px; }
+.sCoord .ic { color:var(--text-3); }
+.sSel { color:var(--text-1); font-weight:500; overflow:hidden; text-overflow:ellipsis; }
+.sSpacer { flex:1; }
+.sLive { display:inline-flex; align-items:center; gap:6px; }
+.sLive::before { content:""; width:7px; height:7px; border-radius:50%; background:var(--ok); }
+.sLive[data-state=busy]::before { background:var(--warn); } .sLive[data-state=err]::before { background:var(--err); }
+.sLive:not([data-state])::before { background:var(--text-3); }

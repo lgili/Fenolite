@@ -1,0 +1,112 @@
+{
+  "version": 1,
+  "source_base_commit": "4b11df0aaa7c615f3630eb447f8d234cb52d650a",
+  "current_base_commit": "7f253a401c2f7187bc10d83148fff2c9e2f57008",
+  "runtime_and_test_file_sha256": {
+    "src/fenolite/lens/native_project_context.py": "1107a25e2154ce9c3ee33c3780ebf405dbb6c6f74db763e30ae5e49ef39ee8d2",
+    "src/fenolite/lens/project_template.py": "6b62bb6c37ae4184d93bd2ff08443936ba9c61327d1f78647170fce73db8e7e1",
+    "src/fenolite/lens/build.py": "24047d25acc636405be74272ae44dd0d4d5819b570d112dffe683e05faff80c3",
+    "src/fenolite/cli/cmd_build.py": "8db05f205d090e72203983ce12857f97db8cfaefd7127feaf2a258d8ce7a4e84",
+    "src/fenolite/cli/cmd_import.py": "279a1917ab9969f80c9c662b8ef3404df88ac7f88ce187c12acabbbe5067ffd5",
+    "src/fenolite/backends/kicad/pro.py": "763f057887602a9d9a78483e1da40765e14d5a71fc67a4820bcb6b3d4dbcb04c",
+    "src/fenolite/backends/kicad/triad.py": "b250f47291acf119ddc4655c565dbdc60ddc24e3da74909a9b2d161f13df8376",
+    "src/fenolite/backends/kicad/native_net_binding.py": "0b32f92f3ffcb7a5f916b6c65e76e0661b3684208c5c380e0cf9d6f83a824cba",
+    "src/fenolite/api/_native_rules.py": "bc4bfb4f5f70adb06386b1c781bb16f00683ba999325fb6109582b3cf7327e08",
+    "tests/unit/importer/test_native_project_context.py": "2dd19f60b083e898a6bbcab3970633b0e4e399132f483048c584a093eab5fac1",
+    "tests/unit/backends/kicad/test_native_net_binding.py": "6caf42a5c4084cad96f65bf0d16f22f04525306f0937d3aa602e97f4da2c2c2d",
+    "docs/import.md": "4db3960142ebadc1b5c8d7d0d711faa57357a8489af88d3051cbefe359fddeb2",
+    "docs/cli-contract.md": "77906e4443c4a9cf491e8f59b857db7bce15b00b758dc82ab187abca1845cc3c",
+    "src/fenolite/agent/skill/references/equivalent-s.md": "ad37b9773b0cc2891605c9688a95e39e8ba45d7315dde29dc9040b4bc91f0541"
+  },
+  "proof_log_sha256": {
+    "native-project-runtime-red.log": "217c9e4cc1d223969b2d69f6e24d8e8c5c0f632a59261591f8ba3901c3ed8d9b",
+    "native-binding-before.log": "d3c75c9d953237d073631a24c7b34684b4025bdd95bd24aefe222c2a0e7964f3",
+    "native-binding-after-layering.log": "114b88fd8d315f5268d96aab70506e9e652f5766d705ef213ee82cda0254cb2d",
+    "native-project-default-regressions.log": "7d355562fe53f9097f9b3916daa5f9708f4f66d48a898ef5e69e225d37320d32",
+    "native-project-final-focused.log": "a92c7736a4a4816ec0c45066e2bbb28036c92ff18d7282156c0df28a2f943aec",
+    "native-project-api-regressions.log": "4a982182e4a00a703d9aa721ee986a5634985623c8e97f882019dbb21e12b93e",
+    "native-project-author-final.log": "99d7317bbd756628128fe788cc82ff372884b3cef5625578e79bf4fbf18e3cf8",
+    "native-project-lint.log": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+    "native-project-format.log": "75b7030be9d7de96bf4e76e79b1f03f14af8899d169fd8d79564d59167d1ab80",
+    "native-project-types.log": "6d88a1b220adb7a3d62092b6e38431f0b3fe8babe9864fab90e5849766260332"
+  },
+  "checks": [
+    {
+      "command": "uv run pytest tests/unit/importer/test_native_project_context.py -q",
+      "phase": "pre-runtime initial12controls",
+      "outcome": "12 actual portable-context REDs, no collection/setup errors",
+      "log": "native-project-runtime-red.log"
+    },
+    {
+      "command": "uv run pytest tests/unit/backends/kicad/test_native_net_binding.py -q",
+      "phase": "before helper relocation",
+      "outcome": "6 passed0.75s",
+      "log": "native-binding-before.log"
+    },
+    {
+      "command": "uv run pytest tests/unit/backends/kicad/test_native_net_binding.py tests/unit/test_import_graph.py -q",
+      "phase": "after helper relocation",
+      "outcome": "73 passed4.16s",
+      "log": "native-binding-after-layering.log"
+    },
+    {
+      "command": "uv run pytest tests/unit/backends/kicad/test_pro_native_names.py tests/unit/backends/kicad/test_pro_read.py tests/unit/backends/kicad/test_pro_update.py tests/unit/backends/kicad/test_pro_synth.py tests/unit/importer/test_roundtrip.py tests/unit/importer/test_board_only.py tests/unit/importer/test_data.py tests/unit/agent/test_pages.py tests/unit/test_build_bytes.py -q",
+      "outcome": "261passed,1guide-writing failure21.52s; default byte guards passed once; guide wording then corrected and retested below",
+      "log": "native-project-default-regressions.log"
+    },
+    {
+      "command": "uv run pytest tests/unit/importer/test_native_project_context.py tests/unit/importer/test_native_rule_context.py tests/unit/importer/test_project_template.py tests/unit/importer/test_altium_input.py tests/unit/agent/test_pages.py -q",
+      "outcome": "155 passed21.77s, includes corrected guide",
+      "log": "native-project-final-focused.log"
+    },
+    {
+      "command": "uv run pytest tests/unit/api/test_native_rules.py tests/unit/cli/test_native_rules_context.py tests/unit/cli/test_derived_cache.py tests/unit/cli/test_derived_cache_schema.py tests/unit/cli/test_verify_source.py -q",
+      "outcome": "100 passed19.52s",
+      "log": "native-project-api-regressions.log"
+    },
+    {
+      "command": "uv run pytest tests/unit/importer/test_native_project_context.py tests/unit/backends/kicad/test_native_net_binding.py -q",
+      "outcome": "40 passed11.83s (34carrier/6parity), includes raw/stored spelling and version-neutral c0359 composition",
+      "log": "native-project-author-final.log"
+    },
+    {
+      "command": "uv run ruff check <the11touchedPythonfiles>",
+      "outcome": "All checks passed",
+      "log": "native-project-lint.log"
+    },
+    {
+      "command": "uv run ruff format --check <the11touchedPythonfiles>",
+      "outcome": "11files already formatted",
+      "log": "native-project-format.log"
+    },
+    {
+      "command": "uv run pyright <the9touchedProductionPythonfiles>",
+      "outcome": "0errors,0warnings,0informations",
+      "log": "native-project-types.log"
+    }
+  ],
+  "invariants": {
+    "source_files_read_only": true,
+    "ids_and_canonical_names_unchanged": true,
+    "pre_restoration_model_fingerprint": true,
+    "same_restored_model_for_c0359": true,
+    "no_new_public_DSL_or_model_or_ext_key_or_FEN": true,
+    "no_comparator_or_cache_eligibility_change": true,
+    "no_baseline_update": true,
+    "no_global_cache": true,
+    "no_CAD_or_Royal_execution": true,
+    "no_full_suite_or_fast_or_CI_or_push_or_commit": true
+  },
+  "native_candidate": {
+    "packet": "native-project-authored-bench-v2",
+    "manifest_sha256": "249adb13879ae5ae6fcce0e087c80f9c1b23504ef3f2f188cea79a53da024d36",
+    "driver_sha256": "736555fb227462b48b8ce353d38cdf0e8f844a67a884f7e6e3b92a50bb7b7fb9",
+    "status": "prepared_only_coordinator_review_required",
+    "important_limit": "zero raw derived caches means production eligible remains false; proposed direct original authored native diagnostic is not production acceptance"
+  },
+  "remaining": [
+    "Coordinator review and original authored native diagnostic",
+    "Any approved original Royal proof retains all existing findings and no pass is presumed",
+    "Root-owned shared CHANGELOG, combined check-fast, source/format review and exact-head CI; broader c0355 tasks remain open"
+  ]
+}

@@ -98,16 +98,16 @@ def test_arc_fill_explains_the_call_that_judged(zone: int) -> None:
     made = Copper()
     made.netclass("Default", 1500)
     made.arc("B", Point(50000, 0), Point(0, 50000), Point(-50000, 0), width=1000)
-    # Apex at 50000; copper extends by 500, then an authored gap of 2200 nm.
-    ring = (Point(-30000, 52700), Point(30000, 52700), Point(30000, 82700), Point(-30000, 82700))
+    # Apex at 50000; copper extends by 500, then an authored gap of 1200 nm.
+    ring = (Point(-30000, 51700), Point(30000, 51700), Point(30000, 82700), Point(-30000, 82700))
     made.zone("A", ring, fills=[ring], clearance=zone)
     design = made.build()
     (found,) = check_copper(design, pads=None).findings
     explained = found.explanation
     assert explained is not None
     shown_zone = next((r.value for r in explained.candidates if r.source == "zone"), None)
-    assert shown_zone is None
-    assert (found.clearance, found.source) == (1500, "class:Default")
+    assert shown_zone == (zone or None)
+    assert (found.clearance, found.source) == ((2000, "zone") if zone else (1500, "class:Default"))
     assert explained.governing.value == found.clearance
     assert explained.governing.source == found.source
     assert (

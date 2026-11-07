@@ -18,7 +18,7 @@ that Fenolite checks and that are archived. It is the base of the label `ALTIUM-
 - `kit_script.pas`: a script that the user may start from inside Altium for the steps marked `scripted`;
 - `results/`: empty but for `form.json`, the form that the user fills in.
 
-Nothing in the kit comes from outside this repository, and nothing that the kit builds is committed.
+Nothing in the kit comes from outside this repository. Generated kit folders and native results are not committed; the pinned Part S catalogue contains only Fenolite-authored writer inputs, with its recipe and provenance.
 
 ## What a run proves
 
@@ -53,7 +53,7 @@ fenolite kit build --out kit --dry-run --json
 fenolite kit build --out kit --confirm --json
 ```
 
-The command runs in a source checkout: it builds the seven scripts under `examples/kit/` (`--samples DIR`
+The command runs in a source checkout: it builds the eight scripts under `examples/kit/` and loads the pinned authored `slots` catalogue (`--samples DIR`
 names another folder). The two pour samples need the `geo` extra: without it the command exits 6. Without `--seed` and `--timestamp` it uses seed 0 and `2026-01-01T00:00:00Z`, so
 everyone who builds the same commit gets the same kit and the same `kit_sha256`. No external tool runs.
 
@@ -66,6 +66,8 @@ everyone who builds the same commit gets the same kit and the same `kit_sha256`.
 | `libs` | `examples/kit/libs/design.py` | a schematic library and a PCB library of seven parts |
 | `pour` | `examples/kit/pour/design.py` | eleven probes of the polygon pour on two layers (change c0215): two free PCB documents, `computed/pour.PcbDoc` with Fenolite's pour and `reference/pour.PcbDoc` without its regions, and `probes.json` |
 | `pour4` | `examples/kit/pour4/design.py` | the probes of the inner layers of four, with blind and buried vias, in the same form as `pour` |
+| `pour-hatched` | `examples/kit/pour-hatched/design.py` | hatched polygons of the four styles, two that show the grid's origin and one with a slanted edge, a ring that touches itself and one that crosses itself (change c0463), in the same form as `pour` |
+| `slots` | `examples/kit/slots/design.py` | the pinned authored Part S regions, clearance and gate-off projects and report; each project, schematic and PCB is source-bound, never a native-saved result |
 
 `routed` is built with the pour mode `outline` (as is every sample but the two pour samples), so step K6.1
 still repours a board that holds no poured copper. Each probe of `pour` and `pour4` is its own polygon on its
@@ -75,6 +77,28 @@ Fenolite's import.
 
 The kit also holds `templates/iso5457_generic.SchDot`, the sheet template of group K8. It is built from the
 shipped specification when the kit is built: no template file is kept in the repository.
+
+
+## Part S formal mapping
+
+K5.6–K5.13 map respectively to Part S S1–S8 (`slots/criteria.md`). All eight
+must pass for H-A-SLOT-KIT; missing or false observations and a failed S7 saved
+file prevent the hypothesis verdict. S1 still opens the regions project and PCB,
+inspects D1 and produces its NC drill and drill drawing. S7's `slots-readback`
+check retains exactly the existing four-hole/three-cut-out criterion within1µm
+(and slot axis within0.001°), without adding DRC, SDK or another reopen.
+
+The seven form values are actual operator observations on the one Altium version
+named by the run form. Historical26.5 observations cannot populate a24.5 run.
+The sample digest includes every regions/clearance/gate-off project, schematic
+and PCB, the clearance project libraries, the negative report and its authoring recipe. Changed inputs invalidate
+its verdict; old samples and their step fingerprints do not change merely because
+this catalogue was added. The installed CLI uses the existing `--samples DIR`
+mechanism with a complete copy of `examples/kit`, including the `slots` assets.
+
+Catalogue tests use synthetic runs, not native evidence. No real Part S record
+or label is created until its actual missing outcomes have been supplied and
+reviewed. A valid H-A-SLOT-KIT record alone does not graduate the PCB writer.
 
 ## The steps
 
@@ -88,7 +112,7 @@ without a run, not measurements.
 | K3 | Change order into an empty board | flat | 2 | 8 |
 | K4 | Rules editor and rule check | routed | 4 | 8 |
 | K5 | Layer stack, vias, texts, keep-outs | board6 | 5 | 10 |
-| K6 | Repour | routed, pour, pour4 | 11 | 34 |
+| K6 | Repour | routed, pour, pour4, pour-hatched | 12 | 37 |
 | K7 | Output job | routed | 2 | 6 |
 | K8 | Sheet template and special strings | flat, kit | 3 | 5 |
 | K9 | Libraries | libs | 2 | 5 |
@@ -107,6 +131,9 @@ All (`H-A-POUR-SCRIPT`: the two ways give the same copper). K6.4 and K6.10 save 
 K6.5 and K6.6 count the polygons the Polygon Manager and the rule check flag on it (0 each), K6.7 and K6.11
 force a repour of `computed/`, and K6.8 is the value of `PCB.Polygon.AdvancedPour` (off). Every one is a
 manual step: each that leaves a board ends in a save under a new name, which the script does not do.
+Step K6.12 (change c0463, task 3.1) repours `pour-hatched/reference/` with Repour All and saves it. Only
+`repoured` judges it: its saved board is the record of Altium's hatch (S-2223), from which the hatched pour
+is built (task 3.2); `pour-match` joins it then.
 
 Fenolite writes no component body, so no step reads one. The DSL has no bus, so the sample `tree` gets its
 bus from its script's `kit_model`; no step reads the bus in Altium, and `H-A-SCHX-BUS` stays an author
@@ -118,7 +145,9 @@ report.
 of the kit and give it the focus, open `kit_script.pas`, run File » Run Script and choose `FenoliteKitRun`;
 do that once per sample project. For the project in focus the script compiles it, writes the messages to
 `results/<sample>/messages.txt` and adds one line to `results/script.log`: the step and `done`, or the
-step and an error text. It writes nothing outside `results/`. Nothing in Fenolite starts Altium or the
+step and an error text. The first line creates the log (`Rewrite` when `FileExists` says it is missing)
+and every later line adds to it (`Append`): no exception chooses between the two, because Altium stopped
+on the error of `Append` on the missing log in run `2026-11-05-e28d0bb1`. It writes nothing outside `results/`. Nothing in Fenolite starts Altium or the
 script.
 
 The names and signatures of the script's calls were read from a text rendering of each documentation
@@ -152,13 +181,14 @@ third-party script was used. Every routine, method and property it uses:
 | `DM_ProjectFileName` | the project's file name, which names the sample | S-0504 |
 | `DM_ProjectFullPath` | the project's path, from which the kit's folder follows | S-0504 |
 | `AssignFile` | names a text file | S-0501 |
-| `Append` | opens `results/script.log` to add a line | S-0501 |
+| `Append` | opens `results/script.log` to add a line when the file exists | S-0501 |
 | `Rewrite` | creates a text file | S-0501 |
 | `Writeln` | writes a line | S-0501 |
 | `CloseFile` | closes the file | S-0501 |
 | `Copy` | a part of a string | S-0501 |
 | `Length` | the length of a string | S-0501 |
 | `UpperCase` | compares the project's file name without regard to case | S-0501 |
+| `FileExists` | tells whether `results/script.log` exists, so that the first line creates it with `Rewrite` and every later line adds to it with `Append` (change c0389) | S-1591 |
 
 Its keywords (`And`, `Begin`, `Do`, `Else`, `End`, `Except`, `Function`, `If`, `Nil`, `Not`, `Procedure`, `Result`, `Then`, `Try`, `Var`, `While`) are those of the keywords page (S-0502).
 
@@ -277,6 +307,14 @@ sample that the row's steps use has other bytes in the kit that the tree builds 
 had, with the stale run named in its result, until a new run is recorded. A synthetic run never gives a
 record, and an author report is never recorded as a kit run.
 
+## Known hazards
+
+Steps that hang Altium and are not to be run again:
+
+- **c0444 BMS pass b**: setting the polygon island threshold to 155 mil² on the round-trip document of the
+  public row `-01` hangs Altium Designer every time, with one core at 100% for 20 minutes or more
+  (S-2203). The step is not repeated; no kit step sets that threshold.
+
 ## What is not there yet
 
 - No run is recorded: no row carries the kit label. The maintainer made a first manual run in Altium
@@ -287,3 +325,5 @@ record, and an author report is never recorded as a kit run.
 - No JSON Schema file is generated for `kit.json` and for the run record: `schemas/` is generated from
   dataclasses, and both documents are built as plain mappings. `record.record_problems` and
   `results.form_problems` check their form.
+
+The slots/design.py example is an executable Fenolite DSL regions design. Its evaluation only declares that model; the kit producer reads the pinned historical eleven CAD inputs and does not execute this recipe or regenerate those files. The recipe and provenance remain part of the source fingerprint.

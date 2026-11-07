@@ -9,6 +9,13 @@ summary: One master for every change, net classes on the wire, connectivity by p
 The board is drawn from the schematic. A fault in the schematic reaches the board, and a fix made only on
 the board is lost at the next update. Many faults that a layout review finds were born on a sheet.
 
+`Part(..., bom_only=True)` retains a pinless purchasing item in the canonical BOM and KiCad schematic,
+with no board footprint, placement or electrical pins. DNP is independent; Altium output refuses it.
+`equiv.bom-only` reports changed purchasing membership: inspect the canonical BOM and source flags.
+
+Keep formatted bus prefixes literal: `BUS_{A}{D[0..3]}` contains `BUS_{A}.D0` through `BUS_{A}.D3`.
+Flattening the markup changes electrical names; malformed groups must not invent connections.
+
 ## One master
 
 - **Make every change in the schematic.** Change nets, values and part numbers there, and derive the
@@ -60,6 +67,76 @@ fenolite equivalent before/board.kicad_pcb after/board.kicad_pcb --json
   Swap pins on an instance only between pins that the datasheet calls equivalent, and record the swap.
   An update of the symbol from its library undoes the swap.
 
+## A generated schematic
+
+`fenolite build` draws each sheet wired: parts stand beside the IC pin they serve, local nets are wires,
+supplies are power symbols (rails up, grounds down), signals run left to right, and a net carries a
+global label only where it leaves its wired group. `--schematic-layout readable` gives a label at every
+pin, `grid` the plain grid. A sheet with placed symbols, or one too large for A0, is drawn readable and
+the build reports `build.schematic-wired-fallback` (info). Name supplies as supplies (`GND`, `+3V3`,
+`VBUS`) or declare them with `Power(...)`: a net named like a signal (`VIN_RAW`) is wired and labelled.
+`fenolite.backends.kicad.schreadability.measure_sheet` counts labels, crossings, wires over pins or bodies,
+four-way points, T joints without a dot and overlapping texts of any sheet.
+
+```fenolite-cmd
+fenolite build blink/design.py --out build/blink --schematic-layout wired --dry-run --json
+```
+
+## A drawn schematic
+
+`design.load_schematic("schematic.toml")` draws the sheets from that file beside the script instead of
+generating them. The script keeps the nets: `build` and the `check` stage `schematic.drawn` refuse a drawing
+that means other nets. After you redraw in KiCad, copy the drawing back; a generated schematic is frozen once:
+
+```fenolite-cmd
+fenolite sync blink/design.py --out build/blink --to-source --freeze-schematic --dry-run --json
+```
+
+Custom sheet-reference metadata uses `properties.<name>` with required `text` and `at`,
+plus optional pose/font. Sheetname/Sheetfile remain code-owned; custom properties cannot override them.
+Keep unsupported data visible as a refusal instead of dropping it. Empty text is preserved,
+and these properties never add an electrical connection. See `docs/drawn-schematic.md`.
+
+A global label can carry `intersheet_refs = { at = [15, 22], hide = true }` in
+`schematic.toml`; it preserves the fixed Intersheetrefs placeholder pose, including hidden fields.
+Project settings and the selected sheet instance determine the effective text; never replace
+`${INTERSHEET_REFS}` with a literal visible reference or discard its pose because it is hidden.
+
+## Rails, levels and interfaces in the script
+
+State each supply's voltage once, and the operating range, draw and thresholds of each port from the
+datasheet; `fenolite build` and the stage `circuit.rules` of `check` then judge every rail and level.
+
+```fenolite-design
+from fenolite.dsl import Design, Ground, Logic, Net, Part, Rail, connect, mm, volt
+
+design = Design("rails")
+design.board(mm(30), mm(20))
+gnd = design.ground("GND")  # the net GND and its Ground
+v5 = design.rail("5V", voltage=volt(5).pct(5), ground=gnd)
+v33 = Rail(Net("3V3"), voltage=volt("3.3").pct(3))
+irq = Logic(Net("IRQ"), reference=v33)  # its levels refer to 3V3
+agnd = Ground(Net("AGND"))
+design.add(v33, irq, agnd)
+j1 = Part("J1", "Fenolite:Connector_4", footprint="Fenolite:Header_1x4_P2.54", value="IN")
+j2 = Part("J2", "Fenolite:Connector_2", footprint="Fenolite:Header_1x2_P2.54", value="SENSE")
+design.add(j1, j2)
+connect(v5, j1[1])  # a rail, a ground or a logic line stands for its net
+connect(gnd, j1[2], j2[2])
+connect(v33, j1[3])
+connect(irq, j1[4])
+connect(agnd, j2[1])
+```
+
+- A port that states `current` says whether it draws it (`direction="in"`) or sources it (`"out"`):
+  `b.port("VOUT", Rail, direction="out", voltage=vout, current=amp(1))`. A connector port states none.
+- `requires=("pullup", "supply")` names what a port needs; device records declare their ports
+  (`part.vdd`).
+- When every argument of `connect` is an interface or a port, members join by name:
+  `connect(v33, mcu.vdd, sen.vdd)`, `connect(I2C(sda, scl), mcu.i2c1, sen.i2c)`; two UART ports cross.
+- A level is never assumed from a rail: state `output_high_min` and the input thresholds, or read
+  `circuit.logic-unknown`.
+
 ## Ratings and protection
 
 - **Rate each bus part for DC.** Every part on a DC bus or an inverter output needs a DC rating and a
@@ -108,5 +185,7 @@ fenolite equivalent before/board.kicad_pcb after/board.kicad_pcb --json
   alone, which say nothing about breaking a DC fault.
 - **Line and neutral crossed in a part.** A pin-to-pad map that nobody tested crossed line and neutral
   through the windings of the choke.
+
+`build.bom-only` and `model.bom-only` reject electrical or physical claims on a typed purchasing item. Correct the source membership before retrying; retain the canonical BOM identity.
 
 Read next: `board-practice`, `board-emc`, `parts`.

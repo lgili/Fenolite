@@ -47,6 +47,140 @@ Archive publication remains c0092 task 3.1; no write kind graduates merely
 because this kit implementation is archived. The original native result
 folder still reports privacy findings separately from its passing step verdict.
 
+## Kit run of 2026-11-05 (c0385)
+
+A Claude agent ran this kit at the maintainer's request (delegation of 2026-11-04) on 2026-11-05 (S-1590).
+It is not the maintainer's own run. Altium Designer 24.5.2.23 (Trial), as `Client.GetProductVersion`
+reports it, ran in the maintainer's Parallels Windows VM. c0385 renumbered the DIP-8 land, so the run
+`2026-10-13-87c930fa` was stale for the samples `flat`, `libs`, `routed` and `board6`. This run repeats the
+steps of those four samples, and it is recorded as `2026-11-05-e28d0bb1.json`.
+
+- Kit: built at `7e0c4ba8` with `fenolite kit build` (seed 0, timestamp `2026-01-01T00:00:00Z`), Fenolite
+  `0.7.0.dev0`. Kit digest `9d7e289915e57060ee95b24dd4b02428e6d35e2dfe95fce1df4573aee5af88ba`, script
+  `685ab54f…`, samples `flat` `d06a59a5…`, `libs` `d49ef8ad…`, `routed` `3fc10dcb…`, `board6` `954b4d4d…`.
+- Steps run: K1.1–K1.6, K1.8, K2.1, K2.3–K2.5, K3.1, K3.2, K4.1–K4.4, K5.1–K5.5, K6.1, K7.1, K7.2, K8.2,
+  K8.3, K9.1 and K9.2. K1.7 and K2.2 (sample `tree`) were run too, because `H-A-KIT-COMPILE`,
+  `H-A-KIT-RESAVE` and `H-A-WRITE-SCHDOC` also name those steps. `kit verify`: 31 steps pass, none fail,
+  19 are skipped (`pour`, `pour4`, `slots` and K8.1, which keep the old run). 24 of the 25 stale rows get
+  this run's label. So does `H-A-SCHX-TREE`, whose `tree` steps this run also passed. The conformance
+  matrix's kit scope (`claims.KIT_SOURCE`) now names this run.
+- `H-A-KIT-SCRIPT` is skipped. For each sample, the kit script compiles the project and writes
+  `results/<sample>/messages.txt`. Its first append to `results/script.log`, a file that does not exist
+  yet, then raises an `EInOutError` dialog ("The specified file was not found"), and the script pauses.
+  Run » Run did not finish it, and neither did OK followed by Run » Stop, so no `script.log` exists. The
+  compile steps K2.1 and K2.3–K2.5 therefore count as manual steps. By the coordinator's decision of 2026-11-05 (maintainer's
+  delegation of 2026-11-04), the row goes back to `INFERRED`, its level before run `87c930fa`; c0389 task 6.1
+  holds the script fix and the K2 rerun.
+- Observed values: K3.2 = 0 (the change order held 12 changes, all done); K4.1 true (three Clearance
+  rules and two Width rules as listed); K4.3 = 1, K4.4 = 1. `drc.html` is Altium's own HTML report:
+  10 violations in all. "Create Report File" was off by default and was switched on. K5.2 = 6 copper
+  layers. K5.3: through, blind Top–Mid Layer 1, and buried Mid Layer 1–Internal Plane 1. K5.4: Via and
+  Track checked; Copper, SMD Pad and TH Pad not. K5.5: the four texts as listed, `Tensão 5 V` saved as
+  0xE3. K7.1 true, with no message; the Schematic Prints output names `routed.SchDoc` as its source, not
+  `[Project]`. K7.2: 23 output files. The BOM output reported "Files Generated: 0". K8.2 `Flat`,
+  K8.3 `B`, K9.2 = 0.
+- K1.8 is typed `false`. No sample document showed a repair, upgrade or error dialog on opening or saving.
+  The agent's own mistake caused one error: a Save As went to the script editor's document, so the first
+  K1.1 save said "a file is already open with that path". The wrong file was removed, and the retry
+  saved without a message.
+- `kit verify` reports 26 privacy findings: VM paths in the saved boards and in `drc.html`, and the
+  VM's home folder in `eco.PcbDoc`. The archive (`e28d0bb1…`, 2087805 bytes) stays in local storage,
+  unpublished. Nothing was copied from another project. Every document was closed with Don't Save after
+  its result was written.
+
+## K2 rerun of 2026-11-05 (c0389, task 6.1)
+
+A Claude agent reran group K2 with the fixed kit script (S-1591) at the maintainer's request (delegation of
+2026-11-04), on Altium Designer 24.5.2.23 (Trial) in the maintainer's Parallels Windows VM (S-1603). It is
+recorded as `2026-11-05-c91de60a.json`. Kit digest `cb286eb0…`, the kit the tree builds (`fenolite kit
+status`: no stale row); script `843f93f7…`. The run started with no `results/script.log`. For each of the
+samples `flat`, `tree`, `routed`, `board6` and `libs`, the agent opened the project, showed its schematic,
+ran `FenoliteKitRun` from File » Run Script, and closed the project. No error dialog came up. The script
+created `results/script.log` on its first call and appended to it after that; the log holds `K2.1 done`
+to `K2.5 done`. Every `messages.txt` reports "Compile successful, no errors found", and `tree` also has
+its two "no driving source" warnings. `kit verify` exits 0: K2.1 to K2.5 pass, the other 45 steps are
+skipped, and the privacy scan finds nothing. `H-A-KIT-SCRIPT` and `H-A-PH-NO-CACHE` pass. The archive
+(`c91de60a…`, 2051 bytes) stays in local storage, unpublished.
+
+## Stale rows after c0389 task 2.7 (2026-11-05)
+
+c0389 task 2.7 makes the PCB writer add one `Split Plane` polygon per internal plane and the plane rules
+`PlaneConnect` and `PlaneClearance` (`docs/formats/altium/pcb-copper.md`, "Layer stack"). The sample `board6`
+holds a plane, so its PCB document has other bytes, and the runs `2026-11-05-e28d0bb1` and
+`2026-11-05-c91de60a` are stale for its steps K2.4 and K5.1 to K5.5; no other sample changes. Before the rows
+below were set back, `fenolite kit status` listed them as nine stale rows. Each is set back to its level
+before the kit runs, with the stale run named in its result: `H-A-WRITE-PCBDOC`, `H-A-PH-NO-CACHE`,
+`H-A-KIT-RESAVE`, `H-A-KIT-COMPILE` and `H-A-KIT-SCRIPT` to `INFERRED`; `H-A-PCBX-STACK`, `H-A-PCBX-VIASPAN`,
+`H-A-PCBX-TEXT` and `H-A-PCBX-KEEPOUT` to the author report of 2026-10-09. To restore them, build the current
+kit and run K2.4 and K5.1 to K5.5 on `board6`, then `fenolite kit verify` and `fenolite kit record --confirm`.
+
+## board6 rerun of 2026-11-05 (c0389, task 2.7)
+
+A Claude agent reran kit steps K2.4 and K5.1 to K5.5 on `board6` at the maintainer's request (delegation of
+2026-11-04), relayed by the coordinator. It used Altium Designer 24.5.2.23 (Trial) in the maintainer's
+Parallels Windows VM (S-1607). The run is recorded as `2026-11-05-ddbe216c.json`. The kit was built at
+`cdf2f84c`, after change c0389 task 2.7, with `fenolite kit build` (seed 0, timestamp `2026-01-01T00:00:00Z`):
+kit digest `14c30ba1…`, script `843f93f7…`, `board6.PcbDoc` `1a065a8f…`. The run started with no
+`results/script.log`.
+
+- K2.4: with `board6.PrjPcb` focused, `FenoliteKitRun` from File » Run Script. No error dialog came up.
+  `script.log` holds `K2.4 done`, and `messages.txt` reports "Compile successful, no errors found".
+- K5.1: `board6.PcbDoc` was saved with File » Save As as `results/board6/board6.PcbDoc` (`450e889e…`).
+- K5.2 = 6: the Layer Stack Manager lists Signal, Signal, Plane, Signal, Signal and Signal.
+- K5.3 true. The three vias, read by an authored read-only DelphiScript, are `VIN` Top Layer to Bottom
+  Layer at (10, 18.81), `LED_A` Top Layer to Mid Layer 1 at (38, 9), and `GND` Mid Layer 1 to Internal
+  Plane 1 at (20, 24), in mm from the outline's upper-left corner.
+- K5.4 true: the Properties panel of the selected keep-out checks Via and Track, and not Copper, SMD Pad
+  or TH Pad.
+- K5.5 true. The texts are `Tensão 5 V` on Top Overlay, `BOARD6 REV A` on Bottom Overlay (mirrored),
+  `ASSEMBLY TOP` on Mechanical 13, and `BOTTOM` on Mechanical 14 at 90°, mirrored.
+
+`kit verify` exits 0: K2.4 and K5.1 to K5.5 pass, the other 44 steps are skipped, and the privacy scan
+finds only the VM work folder in the saved board. `kit record --confirm` restores `H-A-PCBX-STACK`,
+`H-A-PCBX-VIASPAN`, `H-A-PCBX-TEXT` and `H-A-PCBX-KEEPOUT`. The archive (`ddbe216c…`, 195733 bytes) stays in
+local storage, unpublished. Every document was closed with Don't Save. Altium added a
+`board6.PrjPcbStructure` file beside the project in the VM copy. The kit folder that was verified holds
+the built files and the run's `results/` only.
+
+The other five rows of the stale list, `H-A-WRITE-PCBDOC`, `H-A-PH-NO-CACHE`, `H-A-KIT-RESAVE`,
+`H-A-KIT-COMPILE` and `H-A-KIT-SCRIPT`, stay at `INFERRED`. `kit verify` decides each of them within one
+run, and in this run they are skipped: they also name steps of the other samples. Those steps are K1.1 to
+K1.8 and K2.1 to K2.5, plus K3.1 and K3.2 for `H-A-KIT-COMPILE` and K6.1 for `H-A-KIT-RESAVE`. The earlier
+runs that passed them used other kit digests. Restoring them needs those steps on the current kit.
+
+## One-run rerun of 2026-11-05 (c0389, after task 2.7)
+
+A Claude agent reran kit steps K1.1 to K1.8, K2.1 to K2.5, K3.1, K3.2, K5.1 and K6.1 in one run at the
+maintainer's request (delegation of 2026-11-04), relayed by the coordinator. It used Altium Designer
+24.5.2.23 (Trial) in the maintainer's Parallels Windows VM (S-1608). The run is recorded as
+`2026-11-05-074713b5.json`. The kit was the one of the board6 rerun above (built at `cdf2f84c`, digest
+`14c30ba1…`), copied again with empty `results/` and no `results/script.log`.
+
+- K1.1 to K1.7: `flat.SchDoc`, `flat.PcbDoc`, `libs.SchLib`, `libs.PcbLib`, the project `flat.PrjPcb`, the
+  ASCII `flat.SchDoc` and the four sheets of `tree` were saved with File » Save As or File » Save Project
+  As into `results/`. Altium offered the document's own format first and no other type was chosen. Each
+  project was closed with Don't Save.
+- K1.8 = false: no repair prompt, upgrade prompt or error dialog came up while these documents were opened
+  or saved. The only dialog was "Unsaved Changes" when a project was closed after Save As.
+- K2.1 to K2.5: `FenoliteKitRun` from File » Run Script, once per sample with its project focused. No error
+  dialog came up, and `script.log` holds `K2.1 done` to `K2.5 done`. Each `messages.txt` reports "Compile
+  successful, no errors found". `tree` also reports two warnings of nets with no driving source.
+- K3.1: a new PCB was added to `flat` and saved as `results/flat/eco.PcbDoc`. Design » Update PCB Document
+  listed 12 changes (four components, four nets, one component class, one net class and two rules). All
+  of them validated, they were executed with no dialog, and the document was saved. K3.2 = 0.
+- K5.1: `board6.PcbDoc` was saved as `results/board6/board6.PcbDoc`.
+- K6.1: Tools » Polygon Pours » Repour All on `routed.PcbDoc`. An authored read-only DelphiScript counted
+  0 poured regions in the polygon `GND_L02_P000` (Bottom Layer, `GND`) before the repour and 1 after it.
+  The document was saved as `results/routed/routed.PcbDoc`.
+
+`kit verify` exits 0: these 17 steps pass and the other 33 are skipped. The privacy scan finds the VM work
+folder in the saved boards and library, and a Windows home folder in `eco.PcbDoc`. The archive is not
+published. `kit record --confirm` decides 14 rows. It restores the five rows that the board6 rerun left at
+`INFERRED`: `H-A-WRITE-PCBDOC`, `H-A-PH-NO-CACHE`, `H-A-KIT-RESAVE`, `H-A-KIT-COMPILE` and
+`H-A-KIT-SCRIPT`. The other nine rows already hold the level of run `2026-11-05-e28d0bb1`, and the register
+keeps it. The archive (`074713b5…`, 1099794 bytes) stays in local storage, unpublished. Altium added
+`.PrjPcbStructure` files, a `History` folder and a project log in the VM copy, outside the verified folder.
+
 ## Author report of 2026-10-07 (opening only)
 
 On 2026-10-07 the author reported that the projects of the kit built from `5adad054` opened in Altium

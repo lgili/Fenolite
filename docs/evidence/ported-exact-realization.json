@@ -1,0 +1,92 @@
+{
+  "artifact_sha256": {
+    "ported-realization-receipt.json": "c8b6e7af2968588f91db31c3af8ff49ebbdcc8359ec73cbdede513ed0523ed8c",
+    "prove_ported_realization.py": "2a1849f0c5fe6d8e8d489a4f5c7f140e7267d6f8e7643d63f733a535e9d925fc",
+    "realization-proof/ported-noding-receipt.json": "2d6c54ce7e38693c9f6b96363d49845fd9c732d859c5ddaf98900071dfb13a3c"
+  },
+  "base_commit": "ab9d17e60b845da97d55e689f4d6366afda5c1d2",
+  "controls": 84,
+  "files_sha256": {
+    "src/fenolite/geometry/boolean/_exact_contacts.py": "192bae86e204dabb6f03d1be8dadd3858ff1b7d23c8d85800865d9064476e3e4",
+    "src/fenolite/geometry/boolean/_exact_faces.py": "a228cbd0011b7b604c282e85b0d7034907ea09147e3d703f5825adec513fa3e1",
+    "src/fenolite/geometry/boolean/_exact_noding.py": "b54d22c1cc22e0f223d03581a44fc60b0c2cf8423a9cdc77739640b596c42374",
+    "src/fenolite/geometry/boolean/_exact_realization.py": "1d6f3694c718b3302e8a208ef4ecbafcd56ed7f0fc5699a5a09aa7704d536910",
+    "tests/unit/geometry/test_exact_realization.py": "323fbcc00e759b5cd2234ad4aa0f9c8e596a1f1eb9b7d75feeef4b1584f98f0d"
+  },
+  "fresh_noding_proof": {
+    "base_commit": "ab9d17e60b845da97d55e689f4d6366afda5c1d2",
+    "bounded_cases": 269,
+    "full_source": {
+      "candidates": 20346,
+      "fragments": 10334,
+      "intersecting_pairs": 16018,
+      "name": "full-indexed-source",
+      "nodes": 7889,
+      "segments": 8058,
+      "signed_graph_sha256": "18d9c68488a4e3f771f2db71e08f8b9f6385e30e6aef2f8b15016565293375a0"
+    },
+    "module_sha256": "b54d22c1cc22e0f223d03581a44fc60b0c2cf8423a9cdc77739640b596c42374",
+    "production_integrated": false,
+    "schema": "fenolite.ported-exact-noding-proof.v0",
+    "script_sha256": "fc195e11ccb02e91cea4c4e28e25667788a057bfcf6f642021903220bda7718c",
+    "seconds": 14.961350416997448,
+    "skipped_variants": [
+      "domain_boundary/translated"
+    ],
+    "status": "ported-noding-passed",
+    "tests_sha256": "ac057acf57d0d80d0e5f1b75f2bda7657d66210a959da4b300e07120d4b0f984"
+  },
+  "independent_auditors_sha256": {
+    "audit_debris_policy.py": "d27557d95ae9a02094351e89405d7611bb419dff9f9ccf6e08b4a816395153c0",
+    "audit_quantization_contract.py": "1ac341f7ce2a73168f3d0253c053d18ce109f3d44b1e0045f66153dfaff6b8c0"
+  },
+  "local_sign_witness": {
+    "canonical_nodes": 5,
+    "independent_policy_equal": true,
+    "independent_quantization_and_topology": "contract-certificate-passed",
+    "local_sign_changes": 1,
+    "name": "nine-edge-local-sign-witness",
+    "output_sha256": "f609b076755e0245d807469ed79acbcccc165db5af8cb976fa5bac07503ad399",
+    "protected_vertices": 3,
+    "whole_face_losses": 0,
+    "winding_visits": 9
+  },
+  "old_strict_experiment_passed": false,
+  "production_integrated": false,
+  "schema": "fenolite.ported-exact-realization-proof.v0",
+  "script_sha256": "2a1849f0c5fe6d8e8d489a4f5c7f140e7267d6f8e7643d63f733a535e9d925fc",
+  "seconds": 6.26315737501136,
+  "source": {
+    "canonical_nodes": 5822,
+    "independent_policy_equal": true,
+    "independent_quantization_and_topology": "contract-certificate-passed",
+    "local_sign_changes": 17,
+    "name": "actual-full-source",
+    "output_sha256": "923aaa891d6ade45f20cae028ca7fb7894cf6780cc6459bc9b72e494e3e8af17",
+    "protected_vertices": 3601,
+    "whole_face_losses": 430,
+    "winding_visits": 863898
+  },
+  "source_binding": "base commit plus exact uncommitted candidate hashes",
+  "status": "ported-realization-passed",
+  "thin_piece": {
+    "loss_sha256": "62e7065c71ac1c626383ffc52a5e55e721a2b078f0db6b6f870c5fc7ca4f5208",
+    "name": "whole-thin-piece-child",
+    "output_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "postpolicy_holes": 0,
+    "postpolicy_polygons": 0,
+    "prepolicy_holes": 1,
+    "prepolicy_polygons": 1,
+    "projected_nodes": 8,
+    "retained_loops": 0,
+    "seconds": 0.0006364580185618252,
+    "simple_prepolicy_loops": 2,
+    "unchanged_runtime_policy_equal": true,
+    "whole_face_losses": 1,
+    "zero_current_collapsed_loops": 0
+  },
+  "unit_tests": {
+    "passed": 55,
+    "seconds": 0.49
+  }
+}

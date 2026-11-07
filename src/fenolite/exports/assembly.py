@@ -25,6 +25,7 @@ from decimal import Decimal
 from typing import Any, Literal, cast
 
 from fenolite.core.errors import FormatError, Issue
+from fenolite.core.schema_ids import accepts_schema
 from fenolite.core.units import LENGTH_UNITS, Nm, Udeg, round_half_even_div
 from fenolite.exports.codes import issue
 
@@ -394,7 +395,7 @@ def _placement(reader: _Reader, value: Any, where: str) -> Any:
 
 
 def _schema(reader: _Reader, value: Any, where: str) -> Any:
-    if value != SCHEMA:
+    if not accepts_schema(value, SCHEMA):
         return reader.bad(where, f"expected {SCHEMA!r}, got {value!r}")
     return _SKIP
 

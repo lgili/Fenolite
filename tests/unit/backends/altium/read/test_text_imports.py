@@ -21,6 +21,7 @@ TEXT_MODULES = (
     "rul",
     "rules",
     "scope",
+    "packages",  # change c0462: the package checks of read.scope, from a component's pads
     "stackup",
     "annotation",
 )

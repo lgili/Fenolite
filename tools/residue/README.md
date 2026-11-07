@@ -13,6 +13,11 @@ make hooks                                        # install the pre-commit hook
 
 Output lines are `path:offset:pattern-id`; the matched text is **never** printed.
 
+For `abs-user-path`, a match wholly inside a parsed HTTP(S) URL path is a web
+reference rather than a local directory. File URIs and query/fragment values stay
+checked. Private tokens, known blobs and every other pattern still inspect URL
+bytes, including encoded content, archive members and historical blobs.
+
 ## Sources
 
 | Source | Where | Public? |

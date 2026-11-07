@@ -21,8 +21,10 @@ import re
 import struct
 import tomllib
 from collections import Counter
+from collections.abc import Mapping
 from fractions import Fraction
 from functools import cache
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
@@ -650,3 +652,107 @@ def test_body_models_placement(tmp_path_factory: pytest.TempPathFactory) -> None
                 total[body["render"]] += 1
                 total["unmeshed"] += body["fit"] == "the model could not be meshed"
     assert total == PLACED
+
+
+def test_embedded_models_keep_their_names() -> None:
+    """Change c0449, task 4.3 (row ``-04``): each embedded model is written to KiCad under its own record
+    name, whatever its footprint is called. U1's footprint carries another part's name; its model file used
+    to carry that name too, so the right model seemed to be the wrong one."""
+    import hashlib
+
+    from fenolite.api import convert
+    from fenolite.backends.altium.models3d import body_models
+    from fenolite.convert.models import model_file, model_stem
+
+    (item,) = [i for i in DOCUMENTS if i.id.endswith("-04")]
+    path = require(item)
+    found = body_models(path, issues=[])
+    written = [
+        name.rsplit("/", 1)[-1] for name in convert(path, to="kicad", allow_lossy=True).conversion.files
+    ]
+    for model in found:
+        digest = hashlib.sha256(model.data).hexdigest()[:12]
+        expected = model_file("x", model_stem(model.name), model.data).rsplit("/", 1)[-1]
+        assert {n for n in written if n.endswith(f"_{digest}.step")} == {expected}
+    assert any(model_stem(m.name).startswith("IC_Texas_Instruments_TPS63050") for m in found)
+
+
+def test_embedded_models_keep_their_stored_heights(tmp_path: Path) -> None:
+    """Change c0449, task 4.3 (row ``-04``): each embedded model body taken to KiCad and back with the same
+    model and placement keeps the ``STANDOFFHEIGHT`` and ``OVERALLHEIGHT`` its source stores. U1's STEP box
+    gives 8.2677 and 24.6457 mil, where the source stores 0 and 10 mil."""
+    from fenolite.api import convert
+    from fenolite.convert.models import model_stem
+
+    def heights(document: Path) -> dict[str, tuple[str, str]]:
+        read = read_pcbdoc(document.read_bytes(), file=document.name)
+        storage = {name.lower(): streams for name, streams in read.storages.items()}[PLAIN.lower()]
+        return {
+            model_stem(record.properties.text("MODEL.NAME") or ""): (
+                record.properties.text("STANDOFFHEIGHT") or "",
+                record.properties.text("OVERALLHEIGHT") or "",
+            )
+            for record in read_bodies(storage["Data"], storage=PLAIN)
+            if record.properties.text("MODEL.MODELTYPE") == "1"
+        }
+
+    def write(files: Mapping[str, bytes], folder: Path) -> Path:
+        for key, data in files.items():
+            (folder / key).parent.mkdir(parents=True, exist_ok=True)
+            (folder / key).write_bytes(data)
+        return folder
+
+    (item,) = [i for i in DOCUMENTS if i.id.endswith("-04")]
+    path = require(item)
+    source = heights(path)
+    kicad = write(convert(path, to="kicad", allow_lossy=True).conversion.files, tmp_path / "kicad")
+    (board,) = kicad.glob("*.kicad_pcb")
+    altium = write(convert(board, to="altium", allow_lossy=True).conversion.files, tmp_path / "altium")
+    (document,) = altium.glob("*.PcbDoc")
+    back = {name.rsplit("_", 1)[0]: value for name, value in heights(document).items()}
+    assert len(source) == 3 and {name: back[name.replace(" ", "_")] for name in source} == source
+    assert source["IC_Texas_Instruments_TPS63050YFFR_eec"] == ("0mil", "10mil")
+
+
+def test_embedded_models_keep_their_source_ids(tmp_path: Path) -> None:
+    """Change c0449, task 4.3 (row ``-04``): each embedded model taken to KiCad and back with its bytes keeps
+    its record's ``ID`` and ``CHECKSUM``, and each of its bodies, placed as before, its ``MODELID`` and
+    ``MODEL.CHECKSUM``. Altium seems to serve a model it has opened by its ``ID``: with the IDs of the
+    model's bytes alone, a session that had opened an older round trip showed that file's model names."""
+    import hashlib
+    import zlib
+
+    from fenolite.api import convert
+    from fenolite.backends.altium.models3d import model_records
+
+    def ids(document: Path) -> tuple[dict[str, tuple[str, str]], set[tuple[str, str]]]:
+        read = read_pcbdoc(document.read_bytes(), file=document.name)
+        storages = {name.lower(): streams for name, streams in read.storages.items()}
+        models = storages[MODELS.lower()]
+        by_data: dict[str, tuple[str, str]] = {}
+        for k, r in enumerate(model_records(models["Data"])):
+            by_data[hashlib.sha256(zlib.decompress(models[str(k)])).hexdigest()] = (r["ID"], r["CHECKSUM"])
+        bodies = {
+            (record.properties.text("MODELID") or "", record.properties.text("MODEL.CHECKSUM") or "")
+            for record in read_bodies(storages[PLAIN.lower()]["Data"], storage=PLAIN)
+            if record.properties.text("MODEL.MODELTYPE") == "1"
+        }
+        return by_data, bodies
+
+    def write(files: Mapping[str, bytes], folder: Path) -> Path:
+        for key, data in files.items():
+            (folder / key).parent.mkdir(parents=True, exist_ok=True)
+            (folder / key).write_bytes(data)
+        return folder
+
+    (item,) = [i for i in DOCUMENTS if i.id.endswith("-04")]
+    path = require(item)
+    source, source_bodies = ids(path)
+    kicad = write(convert(path, to="kicad", allow_lossy=True).conversion.files, tmp_path / "kicad")
+    (board,) = kicad.glob("*.kicad_pcb")
+    altium = write(convert(board, to="altium", allow_lossy=True).conversion.files, tmp_path / "altium")
+    (document,) = altium.glob("*.PcbDoc")
+    back, back_bodies = ids(document)
+    assert len(source) == 3 and {sha: back[sha] for sha in source} == source
+    assert all(checksum != "0" for _, checksum in source.values())
+    assert source_bodies <= back_bodies

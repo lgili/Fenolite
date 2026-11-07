@@ -1,0 +1,74 @@
+{
+  "source": "S-1303",
+  "writer_source": "b5f6c84ade0cd74690874143bc1de96605279522",
+  "native_version": "Altium Designer24.5.2.23",
+  "scope": "Actual schematic compile/full export, save three fresh owned native copies, close/reopen all and compile/export again. PCB/DRC/OutJob/physical kit and per-kind graduation not accepted by this proof.",
+  "SDK_procedure": "RunC0092AcceptanceBatch",
+  "SDK_source_sha256": "dc533c89661b8024a1d37acdff717081280bc4dec25b8078210c67b3526e8e80",
+  "SDK_project_sha256": "22c5d83d429b984e2e212b94b56cb0300196bc58b3189d3d422887002c5643f3",
+  "canonical_circuit_sha256": "fc3968100834dd0fdd4a14a7ad8d4b0d5fdfaf156336c7b62e72c18a3417bcca",
+  "collection_manifest_sha256": "e93b68a84439380e5a576530afc0833dc9939558463e28be0d4eee7ce4ded3b2",
+  "closed_collected_files": 34,
+  "all_reads_exclusive": true,
+  "staged_17_files_unchanged": true,
+  "original_prepared_packet_files_verified": 50,
+  "native_saved_schematic_files": {
+    "acceptance_v03.SchDoc": "6efc98fb114a572b02fda853634eeb2b4ee04823453e048dccac19ae10e9e089",
+    "acceptance_v03_front.SchDoc": "3fca7c02dbe53be9418efd15508d7c47f6ef1e11730b73906a21149fa8794e0b",
+    "acceptance_v03_front.stage.SchDoc": "a8c75c6998e212ed66f2a322f83524d58d3b9d063ed03b6c72a7a612603f9312"
+  },
+  "all_complete_exports_byte_identical_after_save_reopen": true,
+  "compiler_ERC_settings_changed": false,
+  "parent_task5_3_complete": false,
+  "write_kind_graduated": false,
+  "cases": [
+    {
+      "phase": "memory",
+      "physical_components": 4,
+      "complete_pins": 8,
+      "physical_net_groups": 3,
+      "native_net_objects_including_metadata": 4,
+      "empty_native_bus_metadata": [
+        {
+          "short": "D[0..1]",
+          "full": "D[0..1]"
+        }
+      ],
+      "all_pin_and_logical_identities_equal": true,
+      "all_net_object_memberships_and_names_equal": true,
+      "native_messages": [
+        "[Info]|Compile successful, no errors found.|Compiler",
+        "end of messages"
+      ],
+      "exports": {
+        "messages.txt": "ca55a1941df78a29d89b3f4e1a2eeb009136cbe75294492e706b4aca85d16258",
+        "pins.tsv": "07cc327c1eb89b48c0ca0b7b9283201fd0e50e8a12008882b5ea69f56b6a949a",
+        "nets.tsv": "7a1ee100e40f9c15a03930f4246cb4d66a2ce964bd2bb6759b93a0f48affe439"
+      }
+    },
+    {
+      "phase": "saved",
+      "physical_components": 4,
+      "complete_pins": 8,
+      "physical_net_groups": 3,
+      "native_net_objects_including_metadata": 4,
+      "empty_native_bus_metadata": [
+        {
+          "short": "D[0..1]",
+          "full": "D[0..1]"
+        }
+      ],
+      "all_pin_and_logical_identities_equal": true,
+      "all_net_object_memberships_and_names_equal": true,
+      "native_messages": [
+        "[Info]|Compile successful, no errors found.|Compiler",
+        "end of messages"
+      ],
+      "exports": {
+        "messages.txt": "ca55a1941df78a29d89b3f4e1a2eeb009136cbe75294492e706b4aca85d16258",
+        "pins.tsv": "07cc327c1eb89b48c0ca0b7b9283201fd0e50e8a12008882b5ea69f56b6a949a",
+        "nets.tsv": "7a1ee100e40f9c15a03930f4246cb4d66a2ce964bd2bb6759b93a0f48affe439"
+      }
+    }
+  ]
+}

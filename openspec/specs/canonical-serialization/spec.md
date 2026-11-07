@@ -29,12 +29,16 @@ Give every design one byte-stable JSON representation that re-serialises idempot
 - **THEN** exactly those six files exist and `meta.json` carries `schema_version` `"0"`
 
 ### Requirement: Schema generation and drift control
-`tools/gen_schemas.py` SHALL generate `schemas/fenolite.model.v0/<layer>.json` from the dataclasses, and `tests/unit/test_schema_drift.py` MUST fail if regeneration changes any byte of the committed schemas.
+`tools/gen_schemas.py` SHALL generate `schemas/fenolite.model.v<MAJOR>/<layer>.json` from the dataclasses, for the major of `SCHEMA_VERSION`, and `tests/unit/test_schema_drift.py` MUST fail if regeneration changes any byte of the committed schemas. The layer schemas of a major that was released MUST stay in `schemas/` byte for byte.
 
 #### Scenario: Drift detected
 - **GIVEN** a contributor adds a field to `Track` without regenerating schemas
 - **WHEN** the drift test runs
 - **THEN** it fails naming `board.json`
+
+#### Scenario: The v0 schemas stay
+- **WHEN** the schemas are regenerated for `SCHEMA_VERSION` `"1.0"`
+- **THEN** `schemas/fenolite.model.v1/` holds the layer schemas and every file of `schemas/fenolite.model.v0/` is unchanged
 
 ### Requirement: Validation against schema
 `canonical.loads` MUST validate the document against the layer schema before constructing objects and MUST raise `FormatError` with the JSON pointer of the first violation.
@@ -72,4 +76,24 @@ Renaming a component reference or moving a footprint SHALL change only the lines
 - **GIVEN** a folder written by `dump_dir` that also holds a `build.json`
 - **WHEN** `load_dir` reads it
 - **THEN** it returns the design without error, equal to the design read from the same folder without `build.json`
+
+### Requirement: Versioned schemas
+Validation in `canonical.loads` and `canonical.load_dir` SHALL use the layer schemas of the major of `SCHEMA_VERSION`, after a folder of an older version is migrated (`model-versions`, "Migrators"); a document is never validated against the schema of the version it was written with.
+
+#### Scenario: A v0 board validates after migration
+- **GIVEN** `tests/data/model/v0.2.1/blink_2layer.board.json` in a folder of version `"0"`
+- **WHEN** `canonical.load_dir` reads the folder
+- **THEN** the board is validated against `schemas/fenolite.model.v1/board.json` after the migration, and no `FormatError` is raised
+
+### Requirement: Drawn style default omission
+New optional drawn style fields SHALL be omitted when absent. Old canonical JSON and drawn TOML without them MUST retain exact bytes, ids and ordering. Explicit false and zero MUST remain distinguishable from absence. All existing example build maps MUST pass without rebaselining.
+
+#### Scenario: Legacy drawing
+- **GIVEN** a canonical drawing without optional fonts or new sheet-property poses
+- **WHEN** it is read, serialized and built
+- **THEN** its canonical bytes and existing planned-file digests are unchanged
+
+#### Scenario: Explicit false
+- **WHEN** a drawing with explicit false bold is read and written twice
+- **THEN** false remains present and both canonical texts are identical
 

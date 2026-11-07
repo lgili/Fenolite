@@ -4,12 +4,12 @@
 Decide whether two designs are equivalent at four levels (components, netlist as REF-PIN sets, footprints and pads, placement) with stated tolerances, normalisation and exclusion lists, and report each difference with its location. It defines `fenolite equivalent` and the triangle oracle that compares Fenolite's own read of an Altium PCB document with `kicad-cli`'s import of the same file.
 ## Requirements
 ### Requirement: Equivalence package
-The package `fenolite.checks.equivalence` SHALL compare two `fenolite.model.design.Design` values and SHALL hold the modules `model.py`, `norm.py`, `levels.py`, `routing.py`, `exclusions.py` and `codes.py`.
+The package `fenolite.checks.equivalence` SHALL compare two `fenolite.model.design.Design` values and SHALL hold the modules `model.py`, `norm.py`, `levels.py`, `routing.py`, `strict.py`, `rules.py`, `shapes.py`, `drawn.py`, `exclusions.py` and `codes.py`.
 - It MUST import only the standard library, `fenolite.core`, `fenolite.model`, `fenolite.geometry`, `fenolite.backends.base` and `fenolite.checks`. It MUST name no backend: no string `kicad` or `altium` appears in its code outside docstrings.
-- `fenolite.checks.equivalence` MUST re-export `LEVELS`, `LEVEL_NAMES`, `Tolerances`, `Difference`, `Excluded`, `LevelResult`, `EquivalenceReport`, `compare_designs`, `max_level`, `difference_issues`, `Rule`, `Profile`, `load_profiles`, `select_profile` and `EQUIVALENCE_CODES`.
-- `LEVELS` MUST be `(1, 2, 3, 4, 5)` and `LEVEL_NAMES` MUST map them to `components`, `netlist`, `footprints`, `placement` and `routing`.
-- `compare_designs(a, b, *, level, tolerances=Tolerances(), frame="absolute", ignore_refs=(), rules=())` MUST run the levels 1 to `level` in order and return an `EquivalenceReport` with one `LevelResult` per level run. A `level` outside `LEVELS` MUST raise `ValueError`.
-- `max_level(a, b)` MUST return 5 when both designs hold a board with at least one footprint and at least one track, arc or via, 4 when both hold a board with at least one footprint, and 2 otherwise. `compare_designs` with a `level` above `max_level(a, b)` MUST raise `ValueError` naming the side without footprints, or the side without copper when only level 5 is out of reach.
+- `fenolite.checks.equivalence` MUST re-export `LEVELS`, `LEVEL_NAMES`, `Tolerances`, `Difference`, `Excluded`, `LevelResult`, `EquivalenceReport`, `compare_designs`, `max_level`, `difference_issues`, `Rule`, `Profile`, `load_profiles`, `select_profile`, `EQUIVALENCE_CODES`, `PRESENTATION_LEVEL`, `SCHEMATIC_LEVEL`, `compare_drawn` and `accepted_rules`.
+- `LEVELS` MUST be `(1, 2, 3, 4, 5, 6, 7)` and `LEVEL_NAMES` MUST map them to `components`, `netlist`, `footprints`, `placement`, `routing`, `rules` and `geometry`. `PRESENTATION_LEVEL` MUST be `8` (named `presentation`) and `SCHEMATIC_LEVEL` MUST be `"S"` (named `schematic`); `compare_designs` runs neither: level 8 renders ("Level 8 compares rendered presentation") and level S compares drawn schematics (`compare_drawn`).
+- `compare_designs(a, b, *, level, tolerances=Tolerances(), frame="absolute", ignore_refs=(), rules=(), strict=False)` MUST run the levels 1 to `level` in order, level 5 with the item rule of "Level 5 strict compares copper items" too when `strict` is true, and return an `EquivalenceReport` with one `LevelResult` per level run. A `level` outside `LEVELS` MUST raise `ValueError`.
+- `max_level(a, b)` MUST return 5 when both designs hold a board with at least one footprint and at least one track, arc or via, 4 when both hold a board with at least one footprint, and 2 otherwise; it never returns 6 or 7. Levels 6 and 7 MUST be available when both designs hold a board with at least one footprint, and level 7 then also compares level 5 when both sides hold copper. `compare_designs` with a `level` of 5 or less above `max_level(a, b)`, or with level 6 or 7 when a side has no footprint, MUST raise `ValueError` naming the side without footprints, or the side without copper when only level 5 is out of reach.
 - The comparison MUST be pure: it reads no file, runs no tool and uses no float.
 
 #### Scenario: Layering holds
@@ -27,9 +27,15 @@ The package `fenolite.checks.equivalence` SHALL compare two `fenolite.model.desi
 - **WHEN** `compare_designs(a, b, level=3)` runs
 - **THEN** it raises `ValueError` whose message names side `a`
 
+#### Scenario: Levels 6 and 7 on request
+- **GIVEN** the design read from `tests/data/kicad/board/two_layer.kicad_pcb`
+- **WHEN** `compare_designs(d, d, level=7, strict=True)` runs
+- **THEN** the report holds seven level results, each with no difference, and `max_level(d, d)` is still 5
+
 ### Requirement: Differences are located
-Every difference SHALL be a `Difference(level, kind, where, field, a, b)`.
+Every difference SHALL be a `Difference(level, kind, where, field, a, b)`, whose `level` is an `int` of 1 to 8 or the text `S`.
 - `where` MUST be the component reference `REF` at levels 1 and 4 and for footprint kinds, and `REF-PIN` (the reference, `-`, the pin or pad number) for pin and pad kinds. A pad without a number MUST give `REF-` followed by `@<x>,<y>`, its footprint-local position in nanometres. At level 5 `where` MUST be the net's name on side `a`, followed, for a kind that concerns one pad set, by `:` and the first three pads of the set joined by `,` (then `,+<n>` for the `n` pads left out).
+- At the strict kinds of level 5 and at levels 6 to 8 and S, `where` MUST be the form that "Level 5 strict compares copper items", "Level 6 compares rules", "Level 7 compares exact geometry", "Level 8 compares rendered presentation" and "Level S compares drawn schematics" give.
 - `a` and `b` MUST be the two values as strings: text verbatim, lengths as decimal integers of nanometres, points as `<x>,<y>`, sizes as `<w>x<h>`, angles as decimal integers of microdegrees, a missing object as the empty string.
 - The kinds and their levels MUST be exactly those of this table.
 
@@ -51,6 +57,7 @@ Every difference SHALL be a `Difference(level, kind, where, field, a, b)`.
 | 3 | `pad-position` | `position` | the footprint-local positions differ beyond the tolerance |
 | 3 | `pad-rotation` | `rotation` | the footprint-relative rotations differ beyond the tolerance |
 | 3 | `pad-copper` | `layers` | the copper spans differ |
+| 3 | `pad-mask` | `mask_margin` | the solder-mask expansions differ beyond the tolerance (change c0440) |
 | 4 | `side` | `side` | `FootprintInstance.side` differs |
 | 4 | `position` | `position` | the positions differ beyond the tolerance, in the chosen frame |
 | 4 | `rotation` | `rotation` | the rotations differ beyond the tolerance |
@@ -60,10 +67,51 @@ Every difference SHALL be a `Difference(level, kind, where, field, a, b)`.
 | 5 | `route-length` | `length` | a routed length per copper span differs beyond the tolerance for one pad set |
 | 5 | `route-stub` | `stubs` | the pieces without a pad differ in number or in total length (a notice) |
 | 5 | `route-unjudged` | `zones` | the net's connectivity depends on an unfilled zone (a notice) |
+| 5 | `track-missing` | `track` | strict: a track that only one side holds |
+| 5 | `track-width` | `width` | strict: matched tracks of different widths |
+| 5 | `track-net` | `net` | strict: matched tracks on nets of different names |
+| 5 | `arc-missing` | `arc` | strict: an arc that only one side holds |
+| 5 | `arc-width` | `width` | strict: matched arcs of different widths |
+| 5 | `arc-net` | `net` | strict: matched arcs on nets of different names |
+| 5 | `via-missing` | `via` | strict: a via that only one side holds |
+| 5 | `via-size` | `diameter` | strict: matched vias of different diameters |
+| 5 | `via-drill` | `drill` | strict: matched vias of different drills |
+| 5 | `via-span` | `layers` | strict: matched vias of different copper spans or types |
+| 5 | `via-net` | `net` | strict: matched vias on nets of different names |
+| 5 | `copper-locked` | `locked` | strict: matched items whose lock differs (a notice) |
+| 6 | `netclass-missing` | `name` | a net class that only one side holds |
+| 6 | `netclass-field` | the field | a field of a net class differs |
+| 6 | `netclass-members` | `nets` | the nets assigned to a net class differ |
+| 6 | `rule-missing` | `name` | a custom rule that only one side holds |
+| 6 | `rule-field` | the field | a field of a custom rule differs |
+| 6 | `ruleset-field` | the field | a board-wide rule or minimum differs |
+| 6 | `stackup-missing` | `layer` | a stack-up layer that only one side holds, or out of order |
+| 6 | `stackup-field` | the field | a field of a stack-up layer, or the finish, differs |
+| 6 | `layer-missing` | `layer` | a board layer of one kind and ordinal that only one side holds |
+| 7 | `outline-missing` | `ring` | an outline ring, cut-out or slot that only one side holds |
+| 7 | `zone-missing` | `zone` | a zone outline that only one side holds |
+| 7 | `zone-field` | the field | a field of matched zones differs (never the fill) |
+| 7 | `keepout-missing` | `keepout` | a rule area that only one side holds |
+| 7 | `keepout-field` | the field | a field of matched rule areas differs |
+| 7 | `graphic-missing` | `graphic` | a board or footprint graphic that only one side holds |
+| 7 | `text-missing` | `text` | a board or footprint text that only one side holds |
+| 7 | `text-field` | the field | a field of matched texts differs |
+| 7 | `field-pose` | the field | a field of a footprint field (reference, value, user field) differs |
+| 7 | `hole-missing` | `hole` | a board hole that only one side holds |
+| 7 | `dimension-missing` | `dimension` | a dimension that only one side holds |
+| 8 | `render-missing` | `layer` | a layer or sheet that only one side renders |
+| 8 | `render-pixels` | `pixels` | a layer or sheet whose rendered masks differ beyond the pixel tolerance |
+| S | `sheet-missing` | `sheet` | a sheet instance that only one side holds |
+| S | `symbol-missing` | `symbol` | a symbol unit that only one side draws |
+| S | `symbol-pose` | the field | the position, rotation or mirror of a matched symbol differs |
+| S | `symbol-field` | the field | the pose of a field of a matched symbol differs |
+| S | `item-missing` | the item kind | a wire, bus, bus entry, junction, no-connect flag, label, power symbol, sheet reference, sheet pin or opaque item that only one side holds |
+| S | `item-field` | the field | a field of a matched label, sheet reference or sheet pin differs |
+| S | `drawn-net` | `net` | the drawn connectivity differs (a `REF-PIN` in another group) |
 
 - The differences of a level MUST be sorted by `(where, kind, field)` in code-point order, so that equal inputs give equal output.
 - A component reported as `component-missing` or `ref-ambiguous` MUST NOT be compared at any level, and a component reported as `footprint-missing` MUST NOT be compared further at levels 3 and 4: each fault is reported once.
-- `difference_issues(report)` MUST return one `Issue` of severity `error` per difference that no rule excludes, with `where` as above. Its code MUST be `netlist.assignment-differs` for kind `net` (c0020's code, built with `checks.codes.issue`) and `equiv.<kind>` for every other kind. It MUST then return one `Issue` per notice of a level (`LevelResult.notices`) that no rule excludes, of code `equiv.<kind>` and of severity `warning` for `route-stub` and `info` for `route-unjudged`; a notice is located as a difference is and never makes `EquivalenceReport.equivalent` false. `EQUIVALENCE_CODES` (also named `ISSUE_CODES` in `codes.py`, the name by which `fenolite explain` finds issue-code tables) MUST map each `equiv.*` code this capability emits to its severities, including `equiv.excluded` (info), `equiv.import-message` (info), `equiv.no-exclusion-profile` (warning) and `equiv.oracle-failed` (error).
+- `difference_issues(report)` MUST return one `Issue` of severity `error` per difference that no rule excludes, with `where` as above. Its code MUST be `netlist.assignment-differs` for kind `net` (c0020's code, built with `checks.codes.issue`) and `equiv.<kind>` for every other kind. It MUST then return one `Issue` per notice of a level (`LevelResult.notices`) that no rule excludes, of code `equiv.<kind>` and of severity `warning` for `route-stub` and `copper-locked` and `info` for `route-unjudged`; a notice is located as a difference is and never makes `EquivalenceReport.equivalent` false. `EQUIVALENCE_CODES` (also named `ISSUE_CODES` in `codes.py`, the name by which `fenolite explain` finds issue-code tables) MUST map each `equiv.*` code this capability emits to its severities, including `equiv.excluded` (info), `equiv.import-message` (info), `equiv.no-exclusion-profile` (warning) and `equiv.oracle-failed` (error).
 
 #### Scenario: Kinds table is closed
 - **WHEN** `uv run pytest tests/unit/checks/equivalence/test_codes.py` runs
@@ -73,6 +121,11 @@ Every difference SHALL be a `Difference(level, kind, where, field, a, b)`.
 - **GIVEN** two designs with differences on `R2`, `R10` and `C1`
 - **WHEN** `compare_designs` runs twice, the second time with the footprints of both designs in reverse order
 - **THEN** both reports are equal, and the level-1 differences come in the order `C1`, `R10`, `R2`
+
+#### Scenario: Pad mask expansion
+- **GIVEN** the pads of the KiCad board above written to Altium with their own margins, and the original `blink.PcbDoc`, whose pads follow the rules of a document without a `SolderMaskExpansion` rule
+- **WHEN** `uv run pytest tests/unit/convert/test_pad_mask_c0440.py` runs level 3 of `equivalent`
+- **THEN** the written document and the KiCad board give no `pad-mask` difference, and the original and the written document give one per pad, with `a` = `rules`: a pad's expansion is its own margin, else its Altium manual value (`none` for mode 0), else the expansion of its side's first enabled `SolderMaskExpansion` rule of scope `All`; a KiCad pad without a margin follows the board's setting, which agrees with any value
 
 ### Requirement: Tolerances and normalisation
 `Tolerances(length_nm=0, angle_udeg=0, length_ppm=0)` SHALL hold three non-negative integers; a negative value or a non-integer MUST raise `ValueError`. The rules of `norm.py` MUST be these, in integer arithmetic only:
@@ -119,7 +172,8 @@ Every difference SHALL be a `Difference(level, kind, where, field, a, b)`.
 ### Requirement: Level 1 compares components
 Level 1 SHALL compare the components of `Design.circuit.components` by their `ref`.
 - A reference matching one of the `ignore_refs` globs (`fnmatch.fnmatchcase`) MUST be left out on both sides and counted in the summary as `ignored`.
-- An empty reference, and a reference that a side holds more than once, MUST give one `ref-ambiguous` difference per reference, with the two counts as `a` and `b`.
+- **Shared references** (change c0277). Before level 1, `compare_designs` SHALL pair a reference that both sides hold equally often, more than once or empty, when it matches no `ignore_refs` glob and each of its holders has exactly one footprint on its side: the holders of each side, in placement order (side, x, y, rotation, footprint name), MUST take the references `REF#1`, `REF#2`, … for every level, unless one of those names is already a reference of either side.
+- An empty reference, and a reference that a side holds more than once, that is not paired MUST give one `ref-ambiguous` difference per reference, with the two counts as `a` and `b`.
 - A reference held by one side only MUST give `component-missing`, with the other side's value empty.
 - For each reference both sides hold once, `value` and `dnp` MUST be compared.
 - `LevelResult.compared` MUST be the count of references both sides hold once.
@@ -133,6 +187,11 @@ Level 1 SHALL compare the components of `Design.circuit.components` by their `re
 - **GIVEN** side `a` holding the reference `REF**` twice and side `b` holding it once
 - **WHEN** levels 1 to 4 run, and then again with `ignore_refs=("REF[*][*]",)`
 - **THEN** the first run reports exactly one difference for `REF**`, of kind `ref-ambiguous`, and the second reports none and counts `ignored`
+
+#### Scenario: Shared references are paired by placement
+- **GIVEN** two sides that each hold `STITCH1` twice, placed at x 0 and 1 mm, and `R1`, the second `STITCH1` of side `b` with the value `x`
+- **WHEN** levels 1 to 4 run
+- **THEN** `compared` is 3 at level 1 and the only difference is `value` at `STITCH1#2`; with both values empty the sides are equivalent, and the same holds for an empty reference
 
 ### Requirement: Level 2 compares the netlist as REF-PIN sets
 Level 2 SHALL compare the net-to-pin assignments of the two sides as partitions of `REF-PIN` elements, with `fenolite.checks.assignment_compare.compare(a, b, min_pins=1)` and c0020's `PadNetList`. It MUST NOT compare net names and MUST NOT hold a second partition algorithm.
@@ -240,7 +299,7 @@ Level 4 SHALL compare, for each footprint pair that level 3 compared, `side`, `p
   - any other file, read with `registry.for_path(path).read(path)`: a KiCad board, or whatever c0043's Altium backend reads (a PCB document, a schematic document, a project file).
 
   A path no backend detects MUST exit 2 with `FEN-2001`. A missing path MUST exit 3 with `FEN-3001`. A read that returns a library MUST exit 2 with `FEN-2001`. A reader error keeps its own code.
-- **Options.** `--level N` (1 to 5; the default is `max_level` of the two sides), `--tolerance-nm N`, `--tolerance-udeg N` and `--tolerance-ppm N` (non-negative integers, default 0), `--frame absolute|relative` (default `absolute`), `--ignore-ref GLOB` (repeatable), `--exclusions FILE` with `--profile NAME`, `--against kicad-import`, `--kicad-cli PATH` and `--timeout SECONDS` (default 300). A level above `max_level`, a bad value, `--exclusions` without `--profile` or the reverse, a profile the file lacks, and `B` together with `--against` or neither of them, and `--exclusions` or `--profile` together with `--against`, MUST exit 2 with `FEN-2001`; the message for a level names the side without footprints, or without copper for level 5, and the highest level available.
+- **Options.** `--level N` (1 to 8 or `S`; the default is `max_level` of the two sides; levels 6 to 8 and S follow "Levels 6 to 8 and S in the equivalent command"), `--strict`, `--tolerance-nm N`, `--tolerance-udeg N` and `--tolerance-ppm N` (non-negative integers, default 0), `--frame absolute|relative` (default `absolute`), `--ignore-ref GLOB` (repeatable), `--exclusions FILE` with `--profile NAME`, `--against kicad-import`, `--kicad-cli PATH` and `--timeout SECONDS` (default 300). A level above `max_level`, a bad value, `--exclusions` without `--profile` or the reverse, a profile the file lacks, and `B` together with `--against` or neither of them, and `--exclusions` or `--profile` together with `--against`, MUST exit 2 with `FEN-2001`; the message for a level names the side without footprints, or without copper for level 5, and the highest level available.
 - **Profile defaults.** A selected profile supplies `frame`, `tolerance_nm`, `tolerance_udeg` and `tolerance_ppm`; an option given on the command line overrides the profile's value.
 - **Result.** `result` MUST validate against `schemas/fenolite.equivalent.v0.json` ("Equivalent result schema") and MUST hold `level`, `equivalent`, `sides` (`a` and `b`, each with `path` as the name without its folder, `sha256` for a file, `backend`, `netlist_source` (`board`, `circuit` or `schematic`), `components` and `footprints`), `tolerances` (`length_nm`, `angle_udeg`, `length_ppm`), `frame`, `translation`, `levels` (one object per level run with `level`, `name`, `compared`, `differences`, `excluded` and `notices` as counts, and `summary`), `differences`, `notices` and `excluded` (lists of objects with `level`, `kind`, `where`, `field`, `a`, `b`, and `rule` for excluded ones) and `profile` (`null`, or `name`, `tool_version` and the count of rules).
 - **Issues and exit.** `issues` MUST be `difference_issues(report)`, then the notices of the triangle (`equiv.no-exclusion-profile`, `equiv.import-message`), then the readers' warnings and infos of both sides. The exit code MUST be 5 when any difference is not excluded and 0 otherwise.
@@ -268,7 +327,7 @@ Level 4 SHALL compare, for each footprint pair that level 3 compared, `side`, `p
 - **THEN** levels 1 to 4 report no difference outside the differences the test lists by kind with their cause, and no subprocess runs
 
 #### Scenario: Usage errors
-- **WHEN** `fenolite equivalent a.kicad_pcb` runs without `B` and without `--against`, and `fenolite equivalent a.kicad_pcb b.kicad_pcb --level 6` runs
+- **WHEN** `fenolite equivalent a.kicad_pcb` runs without `B` and without `--against`, and `fenolite equivalent a.kicad_pcb b.kicad_pcb --level 9` runs
 - **THEN** both exit 2 with `FEN-2001`
 
 #### Scenario: Read-only and hermetic
@@ -376,8 +435,8 @@ Level 4 SHALL compare, for each footprint pair that level 3 compared, `side`, `p
 - **THEN** every rule id and every `kicad-cli` version line of the data file appears in `docs/evidence/equivalence-triangle.md`
 
 ### Requirement: Equivalence documentation
-`docs/equivalence.md` SHALL describe the five levels, the routed pieces of level 5, the kinds table, the tolerance and normalisation rules, the frame, the exclusion file format and the triangle, and `docs/cli-contract.md` SHALL gain a section `equivalent` with the options, the result keys, the issue codes and the exit codes.
-- `docs/roadmap.md` MUST mark levels 1 to 4 as delivered by c0045 and level 5 as delivered by c0089, and no page MUST say that level 5 is not built.
+`docs/equivalence.md` SHALL describe the eight levels and level S, the strict rule of level 5, the matching and normalisation of levels 6 and 7, the rendering and pixel tolerance of level 8, the routed pieces of level 5, the kinds table, the tolerance and normalisation rules, the frame, the exclusion file format and the triangle, and `docs/cli-contract.md` SHALL gain a section `equivalent` with the options, the result keys, the issue codes and the exit codes.
+- `docs/roadmap.md` MUST mark levels 1 to 4 as delivered by c0045, level 5 as delivered by c0089 and its strict rule, levels 6 to 8 and level S as delivered by c0278, and no page MUST say that a level is not built.
 - `fenolite capabilities --json` MUST list `equivalent` with `mutates` `false`.
 
 #### Scenario: Codes are documented
@@ -438,7 +497,8 @@ Level 4 SHALL compare, for each footprint pair that level 3 compared, `side`, `p
 ### Requirement: Level 5 in the equivalent command
 `fenolite equivalent` SHALL accept `--level 5`, and `max_level` SHALL be 5 when both sides hold at least one track, arc or via.
 - `--tolerance-ppm N` (a non-negative integer, default 0) MUST set the relative length tolerance; a profile MAY supply it.
-- `--level 5` when a side holds no copper MUST exit 2 with `FEN-2001` naming that side. A level above 5 MUST exit 2.
+- `--level 5` when a side holds no copper MUST exit 2 with `FEN-2001` naming that side. A level above 8 MUST exit 2.
+- `--strict` MUST run the item rule of "Level 5 strict compares copper items" at level 5; it MUST exit 2 with `FEN-2001` when the level run is below 5.
 - `result.levels` MUST hold the object of level 5 with its counts and summary, and the differences of the level MUST follow the rules of the command for issues, exclusions and exit code.
 
 #### Scenario: Routed board against itself
@@ -449,6 +509,10 @@ Level 4 SHALL compare, for each footprint pair that level 3 compared, `side`, `p
 - **WHEN** `fenolite equivalent routed.kicad_pcb unrouted.kicad_pcb --level 5` runs
 - **THEN** the exit code is 2 and the message names the second side
 
+#### Scenario: Strict copy
+- **WHEN** `fenolite equivalent routed.kicad_pcb routed.kicad_pcb --level 5 --strict --json` runs on a routed board
+- **THEN** the exit code is 0, and `result.levels` holds the strict counts of level 5 with `differences` 0
+
 ### Requirement: Level 5 over the triangle
 The triangle oracle of c0045 SHALL run at level 5 on routed boards: the KiCad board, the Altium PCB document that Fenolite writes from it and KiCad's import of that document MUST be pairwise equal at level 5 within the tolerances of the triangle's profile, and `docs/evidence/equivalence-triangle.md` MUST hold the boards, the tolerances and every exclusion with its cause.
 
@@ -457,11 +521,22 @@ The triangle oracle of c0045 SHALL run at level 5 on routed boards: the KiCad bo
 - **THEN** every pair is equal at level 5, and the probe `equiv-l5-triangle` records `equal`
 
 ### Requirement: Public equivalence API
+`fenolite.api.equivalent` SHALL retain its existing integer/default-level behavior and additionally accept `level="S"`. Explicit S MUST compare actual extracted schematic hierarchies and resolved connectivity, return only level S, apply existing profile rules/tolerances, and refuse a side without a readable drawing. It MUST run no netlist-export tool for S. Existing integer/default result bytes MUST remain unchanged.
+
+#### Scenario: Existing API contract remains in force
+- **WHEN** callers use the API at integer or default levels
+- **THEN** the complete existing contract MUST remain in force:
+
 The package `fenolite.api` SHALL provide `equivalent(a, b, *, level=None, tolerances=None, frame=None, ignore_refs=(), profile=None, against=None, kicad_cli=None, timeout=300.0) -> EquivalenceResult`. It MUST read the sides as "Equivalent command" describes, run `compare_designs` at the highest level both sides hold when `level` is `None`, and return an `EquivalenceResult` with `report`, `a`, `b`, `profile`, `issues` and `evidence`, whose `to_json()` MUST return the command's `result`.
 
 #### Scenario: Same reply as the command
 - **WHEN** `uv run pytest tests/unit/api/test_equivalence_api.py -k same_as_cli` calls `equivalent` and runs `fenolite equivalent --json` on the two-layer board and its copy with one footprint moved
 - **THEN** `to_json()` of the call equals `result` of the reply, and the issues are equal in order
+
+#### Scenario: Actual schematic is compared hermetically
+- **GIVEN** authored hierarchical, bus and Repeat projects, and their native root schematic files
+- **WHEN** the API and CLI request level S with subprocesses refused
+- **THEN** both return the same existing-key result with `level` S and the actual schematic counts, and a planted junction deletion remains a located S difference
 
 ### Requirement: Public equivalence API inputs
 `a` and `b` of `fenolite.api.equivalent` MUST each be a path (a `str` or a `Path`) of any side that `fenolite equivalent` reads, or a `fenolite.model.design.Design`; `b` MUST be `None` exactly when `against` is `"kicad-import"`.
@@ -523,6 +598,12 @@ The do-not-populate flag of a component of a schematic side SHALL come from the 
 - **THEN** one `dnp` difference is reported at `D1`, `true` on side `a` and `false` on side `b`
 
 ### Requirement: Equivalent result schema
+`schemas/fenolite.equivalent.v0.json` SHALL retain the existing result keys, closed kinds and object boundaries. Its top-level, level-object, difference and excluded `level` fields MUST additionally accept only the string `S` beside the existing integers, preserving their integer bounds. Existing integer/default result bytes MUST remain unchanged.
+
+#### Scenario: Existing schema contract remains in force
+- **WHEN** command results are validated
+- **THEN** the complete existing contract MUST remain in force:
+
 `schemas/fenolite.equivalent.v0.json` SHALL be a JSON Schema of the `result` object of `fenolite equivalent`: every key of "Equivalent command" with its type, `additionalProperties` false on every object, and the kinds of difference as the closed list of `docs/equivalence.md`. `tests/consistency` MUST validate the `result` of every command for which a file `schemas/fenolite.<name>.v0.json` exists.
 
 #### Scenario: Reply validates
@@ -534,6 +615,10 @@ The do-not-populate flag of a component of a schematic side SHALL come from the 
 - **WHEN** it is validated against the schema
 - **THEN** validation fails naming `extra`
 
+#### Scenario: S is typed without opening the schema
+- **WHEN** an actual S result and integer/default results are validated
+- **THEN** they pass; an unknown level string, unknown kind or extra key fails
+
 ### Requirement: Level 2 names every pad of a pin
 On a side whose source is `circuit`, level 2 SHALL take one element `REF-<pad>` per pad of each pin of the components it compares, with the pads of `Component.pads_of`, as `assignment_compare.model_netlist` gives them ("Assignment comparison names every pad of a pin" of `verification-loop`). The reference and pad of each element in a located difference MUST be those of the pad, not of the pin.
 - A side whose source is `board` is unchanged: its elements are its numbered pads.
@@ -544,3 +629,521 @@ On a side whose source is `circuit`, level 2 SHALL take one element `REF-<pad>` 
 - **GIVEN** side `a` without a board, whose `U1` has `pin_pad_map == (("3", "3"), ("3", "EP"))` and pin `3` on `GND`, and side `b` with a board whose `U1` has the pads `3` and `EP` on `GND`
 - **WHEN** `uv run pytest tests/unit/checks/equivalence/test_levels.py -k several_pads` compares them at level 2
 - **THEN** there is no `pin-missing` and no `net` difference; and with the pad `EP` of side `b` on another net there is one `net` difference whose `where` names `U1` and `EP`
+
+### Requirement: Level 2 open nets of one element
+Level 2 SHALL read a net whose name starts with `unconnected-(` and whose pads are all pads of one `REF-PIN` element as no net, on both sides, so that a pad on no net equals a pad on the net KiCad derives for its unconnected pin, however many pads share that number.
+
+#### Scenario: Two pads of one number
+- **GIVEN** an authored side whose connector `J4` has two pads `0` on no net, and a copy where both are on `unconnected-(J4-0-Pad0)`
+- **WHEN** `uv run pytest tests/unit/checks/equivalence/test_c0281_levels.py -k open` runs level 2
+- **THEN** it reports no difference; a copy where the net also holds a pad of `J5` reports a `net` difference
+
+### Requirement: Level 6 pairs layers by name
+Level 6 SHALL match the board layers of the two sides by name. A name on one side only MUST give `layer-missing` with `where` `<kind>:<name>`; a matched layer of another kind MUST give `layer-field` with field `kind`; common layers in another relative order MUST give one `layer-field` with `where` `layers` and field `order`. Ordinals MUST NOT be compared.
+
+#### Scenario: Two user layers missing
+- **GIVEN** an authored board and a copy without `Eco1.User` and `Eco2.User`
+- **WHEN** `uv run pytest tests/unit/checks/equivalence/test_c0281_levels.py -k layers` runs level 6
+- **THEN** it reports exactly two `layer-missing` differences, one per missing layer
+
+### Requirement: Level 7 graphic widths
+Level 7 SHALL match graphics, of the board and of each footprint pair, by layer, kind, normalised geometry and fill, and a matched pair whose width differs MUST give one `graphic-field` difference with field `width`.
+
+#### Scenario: Outline drawn wider
+- **GIVEN** an authored board whose four `Edge.Cuts` lines are 0.2 mm wide and a copy with 0.1 mm lines
+- **WHEN** `uv run pytest tests/unit/checks/equivalence/test_c0281_levels.py -k width` runs level 7
+- **THEN** it reports four `graphic-field` differences with field `width`, `a` `200000`, `b` `100000`, and no `graphic-missing`
+
+### Requirement: Level 7 leaves out the lens property
+Level 7 SHALL leave the footprint field `fenolite.path` out of the field comparison (`shapes.LENS_FIELDS`): the build writes it as the lens key of each footprint.
+
+#### Scenario: Built board against an original
+- **GIVEN** an authored board and a copy whose footprints carry `fenolite.path`
+- **WHEN** `uv run pytest tests/unit/checks/equivalence/test_c0281_levels.py -k lens` runs level 7
+- **THEN** it reports no `field-pose` difference
+
+### Requirement: Opaque items counted at level 7
+The kinds table SHALL hold `(6, "layer-field", "field")`, `(7, "graphic-field", "field")` and `(7, "opaque-count", "item")`; an `opaque-count` difference names a kind of opaque root item in `field` and the counts of each side in `a` and `b`, and the package itself MUST NOT compute it (it names no backend).
+
+#### Scenario: Kinds and codes
+- **WHEN** `uv run pytest tests/unit/checks/equivalence/test_codes.py` runs
+- **THEN** the three kinds are in `KINDS`, their `equiv.*` codes are in `EQUIVALENCE_CODES` and `fenolite explain equiv.opaque-count` exits 0
+
+### Requirement: Drawn effects remain observable
+Level S SHALL compare target-probed effective fonts and text effects as drawn content. Scene extraction MUST preserve supported effects or report unsupported rendering, including positive sub-µm sizes that round to zero. It MUST NOT substitute default size or relax thresholds, sheet matching, geometry, junction checks or losses.
+
+#### Scenario: Planted font change
+- **GIVEN** equal authored drawings
+- **WHEN** one explicit font size changes
+- **THEN** level S reports the changed effect and level 8 retains its unchanged comparison rules
+
+#### Scenario: Redundant junction removed
+- **GIVEN** an authored drawing with an electrically redundant junction at a wire endpoint
+- **WHEN** that junction is removed
+- **THEN** the connectivity guard can pass but level S still reports the missing junction
+
+#### Scenario: Positive size below scene resolution
+- **GIVEN** an exact positive size below one micrometre
+- **WHEN** its scene is extracted
+- **THEN** a supported exact representation or explicit unsupported-render finding replaces silent default-size substitution
+
+### Requirement: Typed L7 orientation follows the existing cyclic angle metric
+L7 Text.rotation and FootprintField.rotation SHALL compare using the existing
+360degree angle distance and angular tolerance. This SHALL not normalize model
+values or erase canonical presence. Generic fields, noncyclic sweeps/ranges,
+level6 and S SHALL remain unchanged.
+
+#### Scenario: Exact equal cyclic orientation
+- **WHEN** a text/field rotation differs only by a full turn, including0/360 or-90/270
+- **THEN** L7 reports equal orientation at exact zero tolerance
+- **AND** both original model values and canonical encodings remain unchanged
+
+#### Scenario: True changes and noncyclic values remain visible
+- **WHEN** rotations are90vs0,180vs0 or1microdegreevs0 at exact tolerance
+- **THEN** L7 still reports a rotation difference regardless of length tolerance
+- **WHEN** a noncyclic sweep is0vs360, or a leaf differs between None/false/zero
+- **THEN** the new orientation path does not make it equal
+
+### Requirement: Level 5 strict compares copper items
+With `strict=True`, level 5 SHALL also compare the tracks, arcs and vias of the two boards item by item, by the rule table of `strict.py` beside the rule of `routing.py`: each kind matched as a multiset, then the widths, drills, spans, types and net names of matched items compared. Copper spans MUST be named as level 5 names them. The routing rule MUST still run, and its differences come first.
+
+#### Scenario: A faithful copy is strictly equal
+- **GIVEN** the routed two-layer board and a copy written and re-read by the KiCad backend
+- **WHEN** level 5 runs with `strict=True`
+- **THEN** it reports no difference and the summary counts the matched tracks, arcs and vias
+
+#### Scenario: Same connectivity, other path
+- **GIVEN** a copy in which one track of a net is replaced by two tracks through a new corner point that join the same pads
+- **WHEN** level 5 runs without and with `strict=True`
+- **THEN** the first reports nothing, and the second reports one `track-missing` with side `a` filled and two with side `b` filled
+
+#### Scenario: Planted strict edits
+- **WHEN** `uv run pytest tests/unit/checks/equivalence/test_strict.py -k planted` widens a track, changes a via drill, makes a through via blind and unlocks an arc, one at a time
+- **THEN** each run reports exactly `track-width`, `via-drill`, `via-span` and the notice `copper-locked`, in that order
+
+### Requirement: Level 5 strict matching
+Strict matching SHALL be deterministic: items of one kind are keyed by copper span and geometry (a track by its two ends as an unordered pair, an arc by its ends and mid, a via by its position), matched first on equal keys, then each unmatched item of side `a` in key order with the first unmatched item of side `b` within the length tolerance. Inside one equal key, an item of side `a` MUST pair first with the first unmatched item of side `b` whose strict-rule fields are all equal, and only then with the first unmatched item of that key, so equal keys match as a multiset of their compared fields. `where` MUST be `<net name>:<kind>:<span>:<points>`.
+
+#### Scenario: Reversed track
+- **GIVEN** a copy in which one track's start and end are exchanged
+- **WHEN** level 5 runs with `strict=True` at tolerance 0
+- **THEN** no difference is reported
+
+#### Scenario: Tolerance
+- **GIVEN** a copy with one via moved by 5 nm on x
+- **WHEN** level 5 runs with `strict=True` at `length_nm` 4 and at 5
+- **THEN** the first reports one `via-missing` per side, located `GND:via:top-bottom:<x>,<y>`, and the second reports nothing
+
+#### Scenario: Coincident tracks in another order
+- **GIVEN** two tracks with the same ends, widths 0.3 mm and 0.29997 mm, written in the other order on side `b`
+- **WHEN** level 5 runs with `strict=True` at tolerance 0
+- **THEN** no difference is reported, and changing one width on side `b` still reports one `track-width`
+
+### Requirement: Level 6 compares rules
+Level 6 SHALL compare net classes by name, custom rules by name, the board-wide rule set, the stack-up layers in order and the board layers by kind and ordinal. Fields MUST be the fields of the canonical JSON of each entity except `id`, `native_ids`, `ext` and provenance, compared exactly, lengths with the length tolerance; `field` is the dotted path. Net class members MUST be compared as sets of net names.
+
+#### Scenario: A clearance changed
+- **GIVEN** the two-layer design and a copy whose net class `Default` has a clearance 1 nm larger
+- **WHEN** level 6 runs at tolerance 0
+- **THEN** it reports one `netclass-field` at `Default` with field `clearance`
+
+#### Scenario: Dielectric thickness
+- **GIVEN** a four-layer design and a copy whose second dielectric is thicker
+- **WHEN** level 6 runs
+- **THEN** it reports one `stackup-field` naming the layer and `thickness`
+
+#### Scenario: Ids do not matter
+- **GIVEN** a copy whose net classes and rules carry other ids and native ids
+- **WHEN** level 6 runs
+- **THEN** it reports nothing
+
+### Requirement: Level 7 compares exact geometry
+Level 7 SHALL compare the outline rings, cut-outs and slots, the zones (outline, layers, net name, priority and settings, never the fill), rule areas, board graphics, board texts, holes, dimensions, and the graphics, texts and fields of each footprint pair that level 3 compared, after the normalisation of "Level 7 normalisation". Unmatched items give `<kind>-missing`; matched items compare every field.
+
+#### Scenario: Zone refilled is equal
+- **GIVEN** the two-layer design and a copy whose zones were filled again with other fill polygons
+- **WHEN** level 7 runs
+- **THEN** no difference is reported
+
+#### Scenario: Silkscreen text moved
+- **GIVEN** a copy in which the reference field of `R1` is moved by 0.1 mm
+- **WHEN** level 7 runs at tolerance 0
+- **THEN** one `field-pose` is reported at `R1:Reference` with field `position`
+
+#### Scenario: Outline arc changed
+- **GIVEN** a copy whose outline has one arc with another mid point
+- **WHEN** level 7 runs
+- **THEN** one `outline-missing` is reported on each side
+
+### Requirement: Level 7 normalisation
+Before matching, level 7 SHALL normalise geometry in integer arithmetic: a closed ring starts at its smallest point in (x, y) order and runs counter-clockwise; a segment's ends form an unordered pair; an arc is kept by its ends and mid with its ends ordered; a circle by its centre and radius. Points compare with the length tolerance per coordinate, as "Tolerances and normalisation" says.
+
+#### Scenario: Ring drawn the other way
+- **GIVEN** a copy whose outline ring lists the same points from another start, clockwise
+- **WHEN** level 7 runs
+- **THEN** no difference is reported
+
+#### Scenario: Pure
+- **WHEN** `uv run pytest tests/unit/checks/equivalence/test_package.py` runs
+- **THEN** `shapes.py` uses no float and imports no backend
+
+### Requirement: Level 8 compares rendered presentation
+Level 8 SHALL render each board layer, and each schematic sheet instance when both sides have sheets, of both sides with one renderer into integer masks on one grid, and SHALL report `render-pixels` when the differing pixels exceed `pixel_ppm` of the inked pixels, after a tolerance of one pixel. `where` MUST be the layer's span or name, or the sheet path, with the box of the largest differing region.
+
+#### Scenario: Same board, no difference
+- **WHEN** level 8 compares the two-layer board with a copy written and re-read by the KiCad backend
+- **THEN** no difference is reported
+
+#### Scenario: Moved logo on silkscreen
+- **GIVEN** a copy whose silkscreen graphic is moved by 2 mm
+- **WHEN** level 8 runs with the default tolerance
+- **THEN** one `render-pixels` names the silkscreen layer with a box around both places
+
+### Requirement: Level S compares drawn schematics
+`compare_drawn(a, b, *, tolerances, pins_a, pins_b) -> LevelResult` SHALL compare two drawn schematics: sheet instances by path, symbols by component path and unit, and wires and buses as their maximal collinear segments, so a wire split differently is the same drawing; other items as multisets by kind and position. It MUST also resolve both drawings and report `drawn-net` for the first `REF-PIN` in another group.
+
+#### Scenario: A drawing against itself
+- **GIVEN** the drawn value extracted from the authored hierarchical fixture
+- **WHEN** `compare_drawn(d, d, ...)` runs
+- **THEN** it reports nothing
+
+#### Scenario: Wire split differently
+- **GIVEN** a copy in which one wire is split into two collinear segments
+- **WHEN** level S runs
+- **THEN** it reports nothing
+
+#### Scenario: Junction removed
+- **GIVEN** a copy without the junction on a crossing
+- **WHEN** level S runs
+- **THEN** it reports one `item-missing` for the junction and one `drawn-net`
+
+### Requirement: Levels 6 to 8 and S in the equivalent command
+`fenolite equivalent` SHALL accept `--level 6`, `7`, `8` and `S`. Levels 6 and 7 MUST need a footprint on both sides, level 8 a board on both sides, and level S a schematic on both sides that extraction reads; otherwise exit 2 with `FEN-2001` naming the side. `--pixel-ppm N` (default 1000) and `--render-pitch-um N` (default 50) MUST set level 8.
+
+#### Scenario: Geometry level on request
+- **WHEN** `fenolite equivalent two_layer.kicad_pcb two_layer.kicad_pcb --level 7 --json` runs
+- **THEN** the exit code is 0 and `result.levels` holds seven objects
+
+#### Scenario: Schematic level on a board
+- **WHEN** `fenolite equivalent two_layer.kicad_pcb two_layer.kicad_pcb --level S` runs
+- **THEN** the exit code is 2 with `FEN-2001` naming side `a`
+
+### Requirement: Qualified native-derived teardrop evidence
+A source proof MAY compare native-derived padvia caches by actual common-tool regeneration only after proving editable inputs/configurations and exact complete regenerated geometry multisets. It SHALL expose original cache counts/delta, regenerated counts, tool and source receipts. Pure comparison SHALL retain opaque findings without that proof. Unknown forms, other opaque items, editable poses/rules, normal-zone priorities and thresholds SHALL remain strict.
+
+#### Scenario: Cached source and generated absence
+- **GIVEN** retained editable padvia settings with qualified parents and matched geometry configuration
+- **WHEN** isolated actual same-tool regeneration yields exact complete geometry equality
+- **THEN** source-proof evidence reports that derived equality while preserving the raw cached-count difference and every original input byte
+
+#### Scenario: Failed qualification
+- **WHEN** a tool/configuration/parent is missing, malformed or native regenerated geometry differs
+- **THEN** no derived-cache equality is claimed and no general opaque-count waiver is applied
+
+### Requirement: Private native identity preparation requires verified correspondence
+An explicit common-native derived-cache proof SHALL use private identity preparation only after
+a complete verified object/reference bijection. It SHALL retain original observations,
+every editable/normal-fill field and exact geometric comparison. Unsupported or ambiguous objects
+SHALL refuse; actual pad metadata loss SHALL NOT be hidden to obtain correspondence.
+
+#### Scenario: Equal physical objects have different native identities
+- **GIVEN** authored corresponding pad/via/track objects and complete equal supported native context
+- **WHEN** a fully verified private identity/order preparation is requested
+- **THEN** both private copies use the same collision-free identities/order with complete digest receipts
+- **AND** one native run per side compares every exact outline/fill and all previous checks
+
+#### Scenario: Ambiguous or different source data
+- **GIVEN** a missing/duplicate/changed object, unknown reference, annotation loss or unsupported context
+- **WHEN** correspondence cannot be proved completely
+- **THEN** no first-match, field drop, normal-fill removal, tolerance or repeated native run fabricates equality
+
+### Requirement: Level 3 compares hole widths
+Level 3 SHALL compare the width of each pad's hole: `Pad.drill`, or for a slot with a length the shorter of `Pad.drill` and `Padstack.hole_length`. `pad-drill` MUST report the two widths.
+
+#### Scenario: One slot held two ways
+- **GIVEN** a slot held as drill 2.15 mm with length 1.0 mm on one side, and as drill 1.0 mm with length
+  2.15 mm on the other
+- **WHEN** the two designs are compared at level 3
+- **THEN** no `pad-drill` difference is reported
+
+#### Scenario: A wider slot
+- **GIVEN** the same slot held as drill 1.2 mm with length 2.15 mm on the other side
+- **WHEN** the two designs are compared at level 3
+- **THEN** one `pad-drill` difference names 1000000 and 1200000
+
+### Requirement: Rotated and custom teardrop parents
+Qualification of native-derived padvia caches SHALL accept a parent footprint or pad at any
+whole-microdegree angle and SHALL refuse a finer angle. A non-quarter pose SHALL be judged with the
+fixed-point cosine and sine and an explicit error bound: a containment or contact test SHALL hold only
+when it holds for the parent bodies shrunk by the bound, SHALL fail only when it fails for them grown by
+the bound, and SHALL refuse qualification otherwise. A custom pad SHALL qualify with `(clearance outline)`
+or `(clearance convexhull)`; its body SHALL be its anchor plus only primitive copper known from inside:
+a line of positive width as its round-capped stroke, a filled circle as its disc and, for an exact
+quarter-turn parent, a filled polygon or rectangle as its interior. Arcs, unfilled or unknown primitives
+and the primitives of bottom-side footprints SHALL add no body. Native regeneration SHALL remain the only
+source of derived-cache equality.
+
+#### Scenario: Turned custom antenna and primitive-attached cache
+- **GIVEN** the public demo board `kicad-demo-9-0-9-1-pcb-01` with a custom pad at 20°, a custom pad with
+  `(clearance convexhull)` and a cache attached only to a custom pad's line primitive
+- **WHEN** `verify-source` runs its strict round trip with KiCad 10.0.6
+- **THEN** the derived-cache proof qualifies both sides, regenerates six caches on each with equal exact
+  geometry, and no teardrop `opaque-count` remains
+
+#### Scenario: Native contact agrees with the turned body
+- **GIVEN** authored pads: a 4 × 0.4 mm rectangle at 30°, a custom pad at 30° and 90° with a 1 mm wide
+  line primitive, and a custom pad with `(clearance convexhull)`
+- **WHEN** a probe track of another net ends inside the turned body but outside the unturned one, in a
+  line's round cap, past that cap, or inside the convex-hull anchor
+- **THEN** KiCad 9.0.9 and 10.0.6 report `shorting_items` exactly where the parent body predicts contact
+
+#### Scenario: Unsettled contact refuses
+- **WHEN** a non-quarter parent's contact test differs between its shrunk and grown bodies, or a
+  coordinate lies beyond the bounded board frame
+- **THEN** the board does not qualify and no derived-cache equality is claimed
+
+### Requirement: Level 3 compares slot length and axis
+Level 3 SHALL compare the length and the axis of each pad's slot hole, read by its extents: the length is the longer of `Pad.drill` and `Padstack.hole_length`, and the axis, in the footprint's frame and modulo a half turn, lies along that longer side (`Pad.rotation + Padstack.hole_rotation`, plus a quarter turn when `Pad.drill` is the longer). A `pad-slot` difference MUST be reported when only one pad has a slot hole, or when the lengths or the axes differ beyond the tolerances. A slot whose two numbers are equal is a round hole.
+
+#### Scenario: One slot held two ways
+- **GIVEN** a slot held as drill 2.15 mm, length 1.0 mm and hole rotation 0° on one side, and as drill 1.0
+  mm, length 2.15 mm and hole rotation 90° on the other
+- **WHEN** the two designs are compared at level 3
+- **THEN** no `pad-slot` and no `pad-drill` difference is reported
+
+#### Scenario: A longer slot
+- **GIVEN** the same slot held as drill 1.0 mm and length 3.0 mm at hole rotation 90° on the other side
+- **WHEN** the two designs are compared at level 3
+- **THEN** one `pad-slot` difference names `2150000@90000000` and `3000000@90000000`
+
+#### Scenario: A slot along the other axis
+- **GIVEN** the slot held as drill 1.0 mm and length 2.15 mm at hole rotation 0° on the other side
+- **WHEN** the two designs are compared at level 3
+- **THEN** one `pad-slot` difference names `2150000@90000000` and `2150000@0`
+
+#### Scenario: KiCad's oval of an Altium slot
+- **GIVEN** an authored PcbLib with slot pads in both orders of the two numbers and on turned pads
+- **WHEN** it is upgraded by `kicad-cli fp upgrade` 10.0.6 and imported by Fenolite
+- **THEN** every slot KiCad encodes has the same length, width and axis on both sides
+
+### Requirement: Cross-backend side completion
+When the two sides of `equivalent` come from different backends and no triangle is asked for, the API SHALL
+complete each read design before comparing. A KiCad side with a traced project SHALL carry the project's net
+classes and memberships, the custom rules of `<stem>.kicad_dru`, and its footprint graphics and texts as
+model entities. An Altium side SHALL carry the flattened outline of each zone whose polygon has an arc vertex,
+and the connection, thermal settings and clearance that its Polygon Connect Style and clearance rules govern;
+a zone that no polygon record outlines MUST stay as read. The keep-out layers of each side SHALL be passed to
+the comparison. Sides of one backend MUST be compared as read. The native project rule context SHALL run only
+when both sides are KiCad.
+
+#### Scenario: KiCad project completed
+- **GIVEN** a KiCad project with net classes and a `.kicad_dru`, compared with a side of another backend
+- **WHEN** the sides are completed
+- **THEN** the KiCad design holds the project's classes and the file's rules, and compared with a KiCad side
+  it stays as read
+
+#### Scenario: Native context does not refuse another backend
+- **GIVEN** a KiCad side whose traced project changed after it was read
+- **WHEN** the native rule context runs against a side of another backend
+- **THEN** the report is returned unchanged, and two such KiCad sides still refuse
+
+### Requirement: Across-backend comparison
+`compare_designs` SHALL take an `across` flag, which `equivalent` sets for sides of two backends. With it
+level 6 MUST NOT report: a net class on one side only that holds no net; a net class field that one side
+leaves unset; a stack-up layer of kind silkscreen, solder paste or solder mask that the other stack-up does
+not state; the letter case of a stack-up layer name; a non-copper layer on one side only that no item of that side uses (a pad counted on its copper
+layers); the kind of a paired mechanical and user layer; the order of non-copper layers. With it level 7 MUST
+NOT report a hidden footprint field on one side only, nor a field on one side only that the other side's
+component holds as a parameter of that name (with the value the field's own component holds, if any). Without the flag each of these MUST be reported as
+before. A net class that holds nets, a field both sides state, a dielectric or copper stack-up layer of another
+name, a used or copper layer, the copper order, a visible field that names no parameter, and a field whose
+parameter value differs MUST still be reported with the flag.
+
+#### Scenario: Unstated against stated
+- **GIVEN** side `b` with an extra unused user layer, an extra member-less class, a class field side `a`
+  leaves unset, mask stack-up layers side `a` does not state, and a hidden extra footprint field
+- **WHEN** levels 6 and 7 run with `across`
+- **THEN** nothing of these is reported, and without `across` each is reported
+
+#### Scenario: Real differences across backends
+- **GIVEN** with `across` a used extra layer, a copper layer on one side only, a class with nets on one side
+  only, a class field both sides state differently, a missing dielectric, swapped copper layers and a visible
+  extra field
+- **WHEN** levels 6 and 7 run
+- **THEN** each is reported
+
+### Requirement: Level 6 rule pairing
+Level 6 SHALL identify a rule by its name, by `<name>:<kind>` when one name holds several kinds, and by a
+repeat number. A rule named `fenolite_<p>_<slug>`, optionally followed by a repeat or layer suffix, that no
+rule of the other side matches by identity SHALL pair with an unmatched rule of the other side of the same
+kind, priority `p` and slugged name `<slug>`, preferring the one whose other fields are equal. Such a pair MUST
+compare every field except `name` and `priority`. A written name whose priority, slug or kind matches no rule
+MUST stay `rule-missing`.
+
+#### Scenario: Written names pair
+- **GIVEN** side `a` with rule `GND Clearance` (priority 3) and side `b` with `fenolite_3_gnd_clearance` of
+  the same kind
+- **WHEN** level 6 runs
+- **THEN** no `rule-missing` is reported, and another minimum on side `b` gives one `rule-field`
+
+#### Scenario: Declared format limit
+- **GIVEN** side `a` with a rule marked `kept_record=1` that side `b` does not hold
+- **WHEN** level 6 runs
+- **THEN** it is listed under `excluded` with rule id `declared-limit` and the comparison is equivalent; an
+  unmarked rule stays `rule-missing`
+
+#### Scenario: Wrong written priority
+- **GIVEN** side `b` names the rule `fenolite_4_gnd_clearance` with priority 4
+- **WHEN** level 6 runs
+- **THEN** one `rule-missing` is reported on each side
+
+### Requirement: Level 6 layer aliases and keep-out layers
+A layer with no same-named layer on the other side SHALL pair with a layer of the other side whose user name
+is its name, and level 7 SHALL compare the items of the pair under one name. A keep-out layer passed for a
+side and held by that side only MUST NOT give `layer-missing`. A user name that names another layer MUST NOT
+pair.
+
+#### Scenario: Mechanical layer under a user name
+- **GIVEN** side `a` with layer `Mech.1` holding a line and side `b` with `User.1` named `Mech.1` holding the
+  same line
+- **WHEN** levels 6 and 7 run
+- **THEN** no `layer-missing` and no `graphic-missing` is reported, and a user name `Mech.2` reports both
+  layers and both lines
+
+### Requirement: Level 7 representation pairing
+Level 7 SHALL pair, given the keep-out layers of a side, each graphic on such a layer with rule areas of the
+other side by the area it keeps out (a filled shape's outline, a stroke's band of its width) on every copper
+layer, comparing what the drawing keeps out. It SHALL compare the board's `Edge.Cuts` lines, arcs, polygons
+and rectangles left unmatched as items that form closed rings as rings. Before level 1 it SHALL take a
+board-only footprint with no reference and exactly one NPTH pad as a board hole when the other side holds an
+unplated board hole at the pad's board position with its drill. A differing band, ring, position, drill or
+reference MUST stay a difference.
+
+#### Scenario: Keep-out band
+- **GIVEN** side `a` with a 0.5 mm keep-out line and side `b` with the rule area of its band on both copper
+  layers
+- **WHEN** level 7 runs
+- **THEN** no `keepout-missing` or `graphic-missing` is reported; a band of another width reports
+  `keepout-missing` on both sides, and a rule area that allows vias reports one `keepout-field`
+
+#### Scenario: Outline as segments and as a polygon
+- **GIVEN** a closed outline drawn as four lines on side `a` and as one polygon on side `b`
+- **WHEN** level 7 runs
+- **THEN** nothing is reported, and moving one polygon vertex reports one `graphic-missing` per side
+
+#### Scenario: Mounting hole footprint
+- **GIVEN** a board hole on side `a` and a board-only footprint with one NPTH pad of the same drill at the
+  same place on side `b`
+- **WHEN** levels 1 to 7 run
+- **THEN** nothing is reported, and another drill or a reference keeps the footprint and reports
+  `hole-missing`
+
+### Requirement: Strict level 5 straight arcs
+The strict rule SHALL pair an arc of one side left unmatched with a track of the other side left unmatched
+when both lie on one copper span, the track's ends are the arc's ends within the length tolerance, and the
+arc's mid lies within the length tolerance of their chord; the pair SHALL be compared by the track rule and
+counted with the tracks. An arc whose mid lies farther from the chord MUST stay `arc-missing` with the track
+`track-missing`.
+
+#### Scenario: Sub-micron arc written as a track
+- **GIVEN** a track on side `a` and on side `b` an arc between the same ends whose mid lies 300 nm off the
+  chord
+- **WHEN** strict level 5 runs with a 1000 nm length tolerance
+- **THEN** no `arc-missing` or `track-missing` is reported; without the tolerance, or with the mid 2000 nm
+  off the chord, both are reported
+
+### Requirement: Copper of a net-tie footprint
+
+Level 3 SHALL compare the copper of each footprint pair where a side has net-tie groups: the graphics on the
+board's copper layers, in the footprint's frame, as segments, regions and arcs, the layer named by its role
+(`top`, `inner<k>`, `bottom`), and the primitives of its custom pads that have no number and no net, placed by
+the pad's position and rotation (how KiCad's importer holds a copper region of a component). Each piece that no piece of the other side matches within the length tolerance
+SHALL be one difference of kind `net-tie-copper` (field `copper`) at the reference, with the piece's text on
+its side and `""` on the other. A footprint that is a net tie on neither side SHALL compare no copper.
+
+| level | kind | field | when |
+|---|---|---|---|
+| 3 | `net-tie-copper` | `copper` | a piece of copper of a net-tie footprint is on one side only |
+
+#### Scenario: An open net tie is a difference
+
+- **GIVEN** the conversion of `net_tie_copper.kicad_pcb` and its reading with the tie's line removed
+- **WHEN** the two are compared at level 3
+- **THEN** there is exactly one `net-tie-copper` difference, at `NT1`, whose side `a` names a `top segment`
+  of width 300000 nm and whose side `b` is empty
+
+#### Scenario: A moved tie line
+
+- **GIVEN** the reading with the tie's line moved by 0.1 mm
+- **WHEN** it is compared with the conversion at level 3
+- **THEN** there are two `net-tie-copper` differences, one per side, and none when neither footprint is a
+  net tie
+
+#### Scenario: Tie copper held by an unnumbered pad
+
+- **GIVEN** the reading with the tie's line replaced by a custom pad without a number or a net, turned by 90
+  degrees, whose segment primitive draws the same line
+- **WHEN** it is compared with the conversion at level 3
+- **THEN** there is no `net-tie-copper` difference, and two, one per side, when the primitive is 0.1 mm longer
+
+### Requirement: Footprint names after the library rewrite
+Level 3 of `equivalent` SHALL NOT report `footprint-name` for two names that are equal once each is
+rewritten by `core.libnames.library_name(name, allow_space=True)`, the rewrite the Altium to KiCad
+conversion gives the entries of its derived library (change c0435).
+
+#### Scenario: A slash
+- **WHEN** `uv run pytest tests/unit/convert/test_flow_b_fidelity.py -k library_rewrite -q` compares names
+- **THEN** `R/0603` and `R_0603` are the same name, and `R_0603` and `R_0805`, or `R/0603` and `R_0603_2`, are not
+
+### Requirement: Copper without a net
+
+Level 5 SHALL compare the copper without a net of both sides: tracks, arcs and graphics on copper layers
+(a footprint's own graphics and zone fills left out; a KiCad graphic's net read from its KiCad slot). Each
+piece that one side holds and no piece of the other matches within the length tolerance SHALL be one
+difference of kind `copper-no-net` (field `copper`) at `(no net):<span>`.
+
+| level | kind | field | when |
+|---|---|---|---|
+| 5 | `copper-no-net` | `copper` | a piece of copper without a net is on one side only |
+
+#### Scenario: A cut-out written as copper
+
+- **GIVEN** the reading of the converted `polygon_cutouts.kicad_pcb`, and the same reading with one F.Cu
+  cut-out replaced by a filled polygon of no net
+- **WHEN** the two are compared at level 5
+- **THEN** they are not equivalent, with one `copper-no-net` difference at `(no net):top`
+
+### Requirement: Level 7 board shape in the relative frame
+With `frame` `relative`, level 7 SHALL move every point of side b's board shape (the outline rings,
+cut-outs and slots, and the `Edge.Cuts` drawings and the rings they chain into) by minus the translation
+that level 4 removed, before matching (change c0441); the location texts keep each side's own coordinates.
+Every other item of level 7 keeps the absolute frame. With `frame` `absolute` the translation is (0, 0) and
+nothing moves.
+
+#### Scenario: A board moved whole
+- **GIVEN** the authored `routed` sample with one corner rounded, and a copy whose footprints and edges are
+  moved by (1.27 mm, -2.54 mm)
+- **WHEN** `uv run pytest tests/unit/convert/test_round_trip_shape.py -k level_7` compares them at level 7
+- **THEN** in the relative frame the translation is (1.27 mm, -2.54 mm) and no `Edge.Cuts` difference is
+  reported; in the absolute frame the ring of the edges is missing on each side
+
+#### Scenario: A flattened arc
+- **GIVEN** an Altium document with a rounded corner, taken to KiCad and back with its outline arcs written
+  as straight edges
+- **WHEN** `equivalent` compares the two documents at level 7 in the relative frame
+- **THEN** differences of the `Edge.Cuts` drawings are reported; with the arc written as an arc vertex none is
+
+### Requirement: Form of a drawn keep-out
+
+When both sides of a pair of matched rule areas are drawings of a keep-out layer, level 7 SHALL also
+compare their `form`: `stroke` for a track, an arc, a circle or an outline drawn with a width, and `area`
+for a filled shape or an outline of width 0. A difference SHALL be one `keepout-field` difference with
+field `form`. A drawing against a rule area SHALL compare no form.
+
+#### Scenario: A keep-out line written as a region is reported
+
+- **GIVEN** a board whose Keep-Out layer draws a line, and the same board drawing in its place the filled
+  ring that the line's band covers
+- **WHEN** the two are compared at level 7 with the Keep-Out layer named a keep-out layer on both sides
+- **THEN** there is one `keepout-field` difference, on `form`
+

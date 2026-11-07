@@ -9,7 +9,8 @@ it, from the import (``design``) and the document's bytes (``data``, read for ``
 
 * ``labels``: model layer name to native name, the name ``Board6`` gives the layer (``LAYER<i>NAME``), else
   Altium's default name of its id (``read.pcbstack.LAYER_NAMES``);
-* ``tabs``: model layer name to its place in Altium's order of layer tabs;
+* ``tabs``: model layer name to its place in the deterministic viewer fallback order; the browser lets
+  the user configure presentation order without inferring Altium's view preferences;
 * ``openings``: per model pad id, its solder-mask and paste expansion in nanometres and their source: the
   pad's manual value, the ``SolderMaskExpansion`` or ``PasteMaskExpansion`` rule that governs it, or the
   default (``docs/formats/altium/pcb-records.md``, "Pad"; ``rule-file.md``).
@@ -58,7 +59,8 @@ TAB_GROUPS: tuple[tuple[range, int], ...] = (
     (range(55, 57), 6),  # drill guide, keep-out
     (range(73, 75), 7),  # drill drawing, multi-layer
 )
-"""Altium's order of layer tabs, as groups of ids (``docs/viewer.md``, "Altium boards"; INFERRED)."""
+"""Default viewer order by layer-id groups, not a universal Altium tab order. A browser preference may
+replace the presentation order (``docs/viewer.md``, "Altium boards"; change c0181)."""
 
 
 @dataclass(frozen=True, slots=True)

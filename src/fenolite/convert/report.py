@@ -12,16 +12,18 @@ says which differences of the read-back a lost item explains, and where.
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any, Literal
 
+from fenolite.model.board import rule_areas
 from fenolite.model.design import Design
 
 Group = Literal["circuit", "footprint", "copper", "board", "presentation", "project", "downgrade"]
 LossClass = Literal["refuse", "report"]
-Outcome = Literal["changed", "lost"]
+Outcome = Literal["changed", "lost", "kept"]
 Scope = Literal["ref", "pin", "net", "net-pins", "footprint-nets", "same"]
 GROUPS: tuple[Group, ...] = (
     "circuit",
@@ -57,7 +59,7 @@ KINDS: tuple[KindRow, ...] = (
     *_rows(
         "footprint",
         ("footprint", "pad", "footprint-copper"),
-        ("body", "footprint-graphic", "footprint-text", "net-tie", "pad-margin", "model"),
+        ("body", "footprint-graphic", "footprint-text", "net-tie", "pad-margin", "model", "shared-footprint"),
     ),
     *_rows(
         "copper",
@@ -68,6 +70,7 @@ KINDS: tuple[KindRow, ...] = (
         "board",
         (),
         (
+            "embedded-board",
             "outline",
             "cutout",
             "stackup",
@@ -80,7 +83,7 @@ KINDS: tuple[KindRow, ...] = (
         ),
     ),
     *_rows("presentation", (), ("text", "graphic", "dimension", "schematic-text")),
-    *_rows("project", (), ("schematic",)),
+    *_rows("project", ("project-curve-error",), ("schematic",)),
 )
 """The closed vocabulary of kinds, in report order. Every kind that ``lower.LOSS_KINDS`` names and ``dnp``
 are ``refuse``; ``schematic`` is a project file, generated (a change) or not converted (a loss)."""
@@ -109,8 +112,96 @@ OVERLAP_NOT_ONE_RING = (
     "the union of these overlapping cut-outs is not one ring without holes, and KiCad calls overlapping "
     "edge rings a malformed outline"
 )
+EMBEDDED_BOARD_REASON = (
+    "the board places other PCB documents (an Embedded Board Array; the item names the array and its "
+    "document), and where the copies lie is not measured: their components and copper are not converted"
+)
+EMBEDDED_BOARD_MISSING = (
+    "the board places another PCB document (an Embedded Board Array; the item names the array and its "
+    "document) that is not found at its path relative to the board's document, nor relative to the project's "
+    "folder, nor by its file name in either: its copies are not converted"
+)
+EMBEDDED_BOARD_UNREADABLE = (
+    "the board places another PCB document (an Embedded Board Array; the item names the array and its "
+    "document) that does not read as a PCB document: its copies are not converted"
+)
+EMBEDDED_BOARD_ABSOLUTE = (
+    "the board places another PCB document (an Embedded Board Array; the item names the array and the "
+    "document's file name) by an absolute path, which a conversion does not follow: its copies are not "
+    "converted"
+)
+SCHEMATIC_REFUSED = "the schematic generator refused the imported circuit"
+EMBEDDED_BOARD_MIRRORED = (
+    "the board places another PCB document in a mirrored Embedded Board Array (the item names the array and "
+    "its document), and which copper side a mirrored copy takes is not measured: its copies are not converted"
+)
+EMBEDDED_BOARD_ANGLE = (
+    "the board places another PCB document in an Embedded Board Array turned by an angle that is not a "
+    "multiple of 90 degrees (the item names the array and its document), which is not measured: its copies "
+    "are not converted"
+)
+EMBEDDED_BOARD_ORIGIN = (
+    "the board places another PCB document in an Embedded Board Array (the item names the array and its "
+    "document) whose board has no shape or no origin to place its copies by: its copies are not converted"
+)
+EMBEDDED_BOARD_TURNED = (
+    "the array is turned by 180 or 270 degrees: its copies are turned about its location as the measured "
+    "quarter turn is (S-1592), which is inferred, not measured (change c0428)"
+)
+EMBEDDED_BOARD_LINKED = (
+    "the array links its location to the board's origin, which lies away from the lower-left corner of the "
+    "board's shape: the copies are placed by the origin, as the array's properties state (S-0790), which is "
+    "inferred, not measured (change c0428)"
+)
+EMBEDDED_BOARD_CORNER = (
+    "the board's origin lies away from the lower-left corner of its shape and the array does not link its "
+    "location to the origin: the copies are placed by that corner (S-0790, S-1592), which is inferred, not "
+    "measured (change c0428)"
+)
+EMBEDDED_BOARD_CUTOUT_COPIED = (
+    "a board cut-out of an Embedded Board Array's referenced board is written in each copy, moved with it "
+    "(change c0428)"
+)
+EMBEDDED_BOARD_FOUND = (
+    "the referenced document is not at its path relative to the board's document and is read {how} "
+    "(change c0428)"
+)
+EMBEDDED_BOARD_CUTOUT = (
+    "the board places another PCB document in an Embedded Board Array (the item names the array and its "
+    "document) that has board cut-outs, which a copy does not carry yet: its copies are not converted"
+)
+EMBEDDED_BOARD_LAYERS = (
+    "the board places another PCB document in an Embedded Board Array (the item names the array and its "
+    "document) that has copper layers the board does not: its copies are not converted"
+)
+EMBEDDED_BOARD_PLACED = (
+    "the copies of an Embedded Board Array (the item names the array and its document) are written at the "
+    "places Altium gives them (S-1592), each copy's designators suffixed _B<k> and its nets prefixed B<k>/"
+)
+SOURCE_RULE_LOST = (
+    "a rule that came from a rule record of the Altium document the project was converted from, edited in "
+    "KiCad, has no Altium record that holds it as KiCad does"
+)
+"""Change c0434: a loss of such a rule needs consent; a loss of a rule KiCad alone holds is reported."""
 REFUSE_REASONS: Mapping[str, frozenset[str]] = MappingProxyType(
-    {"cutout": frozenset({OVERLAP_NO_UNION, OVERLAP_NOT_ONE_RING})}
+    {
+        "rule": frozenset({SOURCE_RULE_LOST}),  # change c0434
+        "cutout": frozenset({OVERLAP_NO_UNION, OVERLAP_NOT_ONE_RING}),
+        "embedded-board": frozenset(  # changes c0374 and c0386
+            {
+                EMBEDDED_BOARD_REASON,
+                EMBEDDED_BOARD_MISSING,
+                EMBEDDED_BOARD_UNREADABLE,
+                EMBEDDED_BOARD_ABSOLUTE,
+                EMBEDDED_BOARD_MIRRORED,
+                EMBEDDED_BOARD_ANGLE,
+                EMBEDDED_BOARD_ORIGIN,
+                EMBEDDED_BOARD_CUTOUT,
+                EMBEDDED_BOARD_LAYERS,
+            }
+        ),
+        "schematic": frozenset({SCHEMATIC_REFUSED}),  # change c0372
+    }
 )
 """The reasons whose losses need consent in a kind of class ``report`` (change c0170): overlapping cut-outs
 that a conversion to KiCad cannot merge are not written, because KiCad would refuse the board's outline
@@ -122,7 +213,7 @@ several components share, on both sides alike)."""
 
 @dataclass(frozen=True, slots=True)
 class Reason:
-    """The items of one kind changed or lost for one reason."""
+    """The items of one kind changed, lost or kept for one reason."""
 
     reason: str
     outcome: Outcome
@@ -142,7 +233,9 @@ class Reason:
 @dataclass(frozen=True, slots=True)
 class ReportRow:
     """One kind: how many items the source holds, how many the target holds as they were (``written``),
-    in another form that compares equal (``changed``) or not at all (``lost``), and the reasons."""
+    in another form that compares equal (``changed``) or not at all (``lost``), and the reasons. ``kept``
+    counts the items the target cannot hold and the model keeps for a write back to the source's format
+    (change c0424): a declared format limit, not a loss."""
 
     kind: str
     source: int
@@ -150,6 +243,7 @@ class ReportRow:
     changed: int
     lost: int
     reasons: tuple[Reason, ...] = ()
+    kept: int = 0
 
     @property
     def group(self) -> Group:
@@ -176,6 +270,7 @@ class ReportRow:
             "written": self.written,
             "changed": self.changed,
             "lost": self.lost,
+            **({"kept": self.kept} if self.kept else {}),
             "reasons": [reason.to_json(ids=ids) for reason in self.reasons],
         }
 
@@ -184,9 +279,14 @@ Items = Mapping[str, Mapping[str, Iterable[str]]]
 """Kind → reason → the ids of the items (``lower.AltiumInputs.lost``)."""
 
 
-def _reasons(changed: Mapping[str, Iterable[str]], lost: Mapping[str, Iterable[str]]) -> tuple[Reason, ...]:
+def _reasons(
+    changed: Mapping[str, Iterable[str]],
+    lost: Mapping[str, Iterable[str]],
+    kept: Mapping[str, Iterable[str]] | None = None,
+) -> tuple[Reason, ...]:
     found = [Reason(reason, "changed", tuple(ids)) for reason, ids in changed.items()]
     found += [Reason(reason, "lost", tuple(ids)) for reason, ids in lost.items()]
+    found += [Reason(reason, "kept", tuple(ids)) for reason, ids in (kept or {}).items()]
     return tuple(sorted((r for r in found if r.ids), key=lambda r: (-r.count, r.reason, r.outcome)))
 
 
@@ -205,29 +305,32 @@ class ConversionReport:
         written: Mapping[str, int] | None = None,
         changed: Items | None = None,
         lost: Items | None = None,
+        kept: Items | None = None,
     ) -> ConversionReport:
         """The report of the counts ``source`` (what the source holds, per kind), ``written`` (the
         writer's own count of what it wrote, per kind, where it keeps one) and the items ``changed`` and
         ``lost`` per kind and reason. A kind without a count in ``source`` holds what was written, changed
-        and lost; a kind without a count in ``written`` wrote what was neither changed nor lost."""
-        written, changed, lost = written or {}, changed or {}, lost or {}
-        kinds = set(source) | set(written) | set(changed) | set(lost)
+        and lost; a kind without a count in ``written`` wrote what was neither changed nor lost. ``kept``
+        holds the items the model keeps for the source's format (change c0424), per kind and reason."""
+        written, changed, lost, kept = written or {}, changed or {}, lost or {}, kept or {}
+        kinds = set(source) | set(written) | set(changed) | set(lost) | set(kept)
         order = [row.name for row in KINDS] + sorted(kinds - {row.name for row in KINDS})
         rows: list[ReportRow] = []
         for kind in order:
             if kind not in kinds:
                 continue
-            reasons = _reasons(changed.get(kind, {}), lost.get(kind, {}))
+            reasons = _reasons(changed.get(kind, {}), lost.get(kind, {}), kept.get(kind, {}))
             n_changed = sum(r.count for r in reasons if r.outcome == "changed")
             n_lost = sum(r.count for r in reasons if r.outcome == "lost")
+            n_kept = sum(r.count for r in reasons if r.outcome == "kept")
             if kind in source:
                 n_source = source[kind]
             else:
-                n_source = written.get(kind, 0) + n_changed + n_lost
-            n_written = written[kind] if kind in written else max(n_source - n_changed - n_lost, 0)
-            if not (n_source or n_written or n_changed or n_lost):
+                n_source = written.get(kind, 0) + n_changed + n_lost + n_kept
+            n_written = written[kind] if kind in written else max(n_source - n_changed - n_lost - n_kept, 0)
+            if not (n_source or n_written or n_changed or n_lost or n_kept):
                 continue
-            rows.append(ReportRow(kind, n_source, n_written, n_changed, n_lost, reasons))
+            rows.append(ReportRow(kind, n_source, n_written, n_changed, n_lost, reasons, n_kept))
         return cls(tuple(rows))
 
     def row(self, kind: str) -> ReportRow | None:
@@ -257,14 +360,15 @@ def merge(*reports: ConversionReport) -> ConversionReport:
     written: dict[str, int] = {}
     changed: dict[str, dict[str, list[str]]] = {}
     lost: dict[str, dict[str, list[str]]] = {}
+    kept: dict[str, dict[str, list[str]]] = {}
     for report in reports:
         for row in report.rows:
             source[row.kind] = source.get(row.kind, 0) + row.source
             written[row.kind] = written.get(row.kind, 0) + row.written
             for reason in row.reasons:
-                into = changed if reason.outcome == "changed" else lost
+                into = {"changed": changed, "lost": lost, "kept": kept}[reason.outcome]
                 into.setdefault(row.kind, {}).setdefault(reason.reason, []).extend(reason.ids)
-    return ConversionReport.of(source=source, written=written, changed=changed, lost=lost)
+    return ConversionReport.of(source=source, written=written, changed=changed, lost=lost, kept=kept)
 
 
 def census(design: Design) -> dict[str, int]:
@@ -297,8 +401,8 @@ def census(design: Design) -> dict[str, int]:
                 "via": len(board.vias),
                 "zone": len(board.zones),
                 "zone-fill": sum(1 for zone in board.zones if zone.fills),
-                "keep-out": len(board.keepouts),
-                "keepout-footprints": sum(1 for keepout in board.keepouts if keepout.no_footprints),
+                "keep-out": len(rule_areas(board)),
+                "keepout-footprints": sum(1 for keepout in rule_areas(board) if keepout.no_footprints),
                 "hole": len(board.holes),
                 "stackup": int(board.stackup is not None),
                 "text": len(board.texts),
@@ -330,9 +434,12 @@ AT_REF: tuple[str, ...] = (
     "pad-shape",
     "pad-size",
     "pad-drill",
+    "pad-slot",
     "pad-position",
     "pad-rotation",
     "pad-copper",
+    "net-tie-copper",
+    "pad-mask",
     "side",
     "position",
     "rotation",
@@ -366,8 +473,11 @@ EXPLAINS: tuple[Explains, ...] = (
     Explains("dnp", ("dnp",), "ref"),
     Explains("pin-net", ("net",), "pin"),
     Explains("footprint-copper", LEVEL5, "footprint-nets"),
+    Explains("footprint-copper", ("net-tie-copper",), "ref"),
     Explains("net-tie", LEVEL5, "footprint-nets"),
     Explains(SOURCE, ("ref-ambiguous",), "same"),
+    Explains("shared-footprint", ("ref-ambiguous",), "ref"),
+    Explains("schematic", ("component-missing", "ref-ambiguous"), "ref"),
 )
 """The closed table of which differences a lost or changed item explains. A lost or changed pad explains
 only its own ``pad-missing``, ``pin-missing`` and ``pad-kind`` and the level-5 kinds of its net, not every
@@ -420,7 +530,24 @@ class Explainer:
             if not ids:
                 continue
             kind = row.kind
-            if kind in ("footprint", "net-tie"):
+            if kind == "schematic" and row.ids("lost"):
+                # a lost schematic explains the components that only a schematic holds (change c0372), and
+                # the designators the circuit holds more than once, which a conversion that loses the
+                # schematic for them keeps on the board alone (change c0425)
+                placed = {fp.component_id for fp in footprints}
+                self._add(
+                    kind, "ref", {c.ref for c in circuit.components if c.id not in placed and not c.bom_only}
+                )
+                held = Counter(c.ref for c in circuit.components)
+                self._add(kind, "ref", {ref for ref, count in held.items() if count > 1})
+                continue
+            if kind == "shared-footprint":
+                self._add(
+                    kind,
+                    "ref",
+                    {refs.get(by_footprint[i].component_id, "") for i in ids if i in by_footprint},
+                )
+            elif kind in ("footprint", "net-tie"):
                 fps = [by_footprint[i] for i in ids if i in by_footprint]
                 self._add(kind, "ref", {refs.get(fp.component_id, "") for fp in fps})
                 self._add(kind, "footprint-nets", {net for fp in fps for net in fp_nets(fp.id)})
@@ -455,6 +582,11 @@ class Explainer:
             elif kind == "footprint-copper":
                 holders = {footprint_of_graphic.get(i) for i in ids}
                 self._add(kind, "footprint-nets", {net for fp_id in holders for net in fp_nets(fp_id)})
+                self._add(
+                    kind,
+                    "ref",
+                    {refs.get(by_footprint[h].component_id, "") for h in holders if h in by_footprint},
+                )
 
     def _add(self, kind: str, scope: Scope, places: set[str]) -> None:
         places.discard("")
@@ -495,7 +627,10 @@ __all__ = [
     "OVERLAP_NOT_ONE_RING",
     "OVERLAP_NO_UNION",
     "REFUSE",
+    "EMBEDDED_BOARD_REASON",
     "REFUSE_REASONS",
+    "SCHEMATIC_REFUSED",
+    "SOURCE_RULE_LOST",
     "SOURCE",
     "ConversionReport",
     "Explainer",

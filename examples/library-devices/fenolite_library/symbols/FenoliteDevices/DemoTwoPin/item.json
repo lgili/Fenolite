@@ -1,0 +1,15 @@
+{
+  "depends": [],
+  "executes": false,
+  "files": [
+    "record.toml"
+  ],
+  "id": "FenoliteDevices:DemoTwoPin",
+  "kind": "symbol",
+  "schema": "fenolite.library-item.v0",
+  "spdx": "CC0-1.0",
+  "summary": "Authored for Fenolite as illustrative test data (c0266).",
+  "tags": [],
+  "title": "Demo266:TwoPin",
+  "version": "1.0.0"
+}

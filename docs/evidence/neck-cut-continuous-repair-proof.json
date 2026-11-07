@@ -1,0 +1,98 @@
+{
+  "artifact_sha256": {
+    "boundary-shortcuts-v1/receipt.json": "1f9d591cde84629a1ae8cb7fe1c8fe93b426866e7b7df142d4160adcad4ce860",
+    "boundary-shortcuts-v1/verification-receipt-v2.json": "07bd282ddecde6dba49f03c4b4f982126ddb19db1ff11b8ba0a573ede55dbe5c",
+    "probe_boundary_shortcuts.py": "7755dc3a2ab6fcf88ef61acb57cece2a8963bc252151302aa9cacd85688c8515",
+    "verify_shortcut_witness_v2.py": "e8458ab7a4450561f7b027f02ab09726f37d6e3470e941ab5c67d7de61a79ed8"
+  },
+  "base_commit": "3d1bd1257bee1a45d1257faf7abce63d5e4b201a",
+  "independent_verification": {
+    "negative_controls": {
+      "endpoint_only_false_cover": "uncovered continuous interval endpoint",
+      "interior_interval_gap": "parameter gap or overlap",
+      "omitted_integer_source": "integer/original node omitted"
+    },
+    "old_exact_pointset_gate_passed": false,
+    "producer_receipt_sha256": "1f9d591cde84629a1ae8cb7fe1c8fe93b426866e7b7df142d4160adcad4ce860",
+    "production_approved": false,
+    "rows": [
+      {
+        "continuous_leaves": 362,
+        "output_sha256": "be7125bee1454cfc4d18ac87ec4b7f2d15860833b2356efd536bd051618e959a",
+        "protected_vertices": 104,
+        "test": "tests/unit/backends/altium/test_pour_engine.py::test_direct_connect_and_no_connect",
+        "whole_face_losses": 6
+      },
+      {
+        "continuous_leaves": 604,
+        "output_sha256": "3c1c7d231c23255c7acbbae35a897244c0386b504f84f8d2bce92d2959ccaa4e",
+        "protected_vertices": 284,
+        "test": "tests/unit/backends/altium/test_pour_engine.py::test_dead_copper",
+        "whole_face_losses": 0
+      }
+    ],
+    "schema": "fenolite.boundary-shortcut-witness-verification.v0",
+    "script_sha256": "e8458ab7a4450561f7b027f02ab09726f37d6e3470e941ab5c67d7de61a79ed8",
+    "seconds": 0.11190241598524153,
+    "status": "independent-continuous-witnesses-passed"
+  },
+  "old_exact_pointset_gate_passed": false,
+  "production_approved": false,
+  "rows": [
+    {
+      "attempts": 16,
+      "input_sha256": "07c0ffe68e9e8c210fc19f437e52f8e7be835b75050476bf6c2966298855d36c",
+      "rejections": {
+        "geometry.degenerate: exact geometry: nonsimple projected/retained ring": 15
+      },
+      "seconds": 0.11893708299612626,
+      "success": {
+        "continuous_leaves": 362,
+        "distance_predicates": 2090,
+        "local_sign_changes": 2,
+        "maximum_certified_squared_distance": [
+          105915521916487421,
+          274515602964480000
+        ],
+        "maximum_depth": 14,
+        "maximum_distance_bits": 80,
+        "omitted_node_count": 4,
+        "output_sha256": "be7125bee1454cfc4d18ac87ec4b7f2d15860833b2356efd536bd051618e959a",
+        "protected_vertices": 104,
+        "whole_face_losses": 6
+      },
+      "test": "tests/unit/backends/altium/test_pour_engine.py::test_direct_connect_and_no_connect",
+      "variables": 4
+    },
+    {
+      "attempts": 4,
+      "input_sha256": "1324eb10005af844a929699e8ead1ba117e317e92a245f638b42be918ee6204a",
+      "rejections": {
+        "geometry.degenerate: exact geometry: nonsimple projected/retained ring": 3
+      },
+      "seconds": 0.10172837501158938,
+      "success": {
+        "continuous_leaves": 604,
+        "distance_predicates": 2784,
+        "local_sign_changes": 0,
+        "maximum_certified_squared_distance": [
+          36557260691921,
+          237774892433408
+        ],
+        "maximum_depth": 13,
+        "maximum_distance_bits": 72,
+        "omitted_node_count": 2,
+        "output_sha256": "3c1c7d231c23255c7acbbae35a897244c0386b504f84f8d2bce92d2959ccaa4e",
+        "protected_vertices": 284,
+        "whole_face_losses": 0
+      },
+      "test": "tests/unit/backends/altium/test_pour_engine.py::test_dead_copper",
+      "variables": 2
+    }
+  ],
+  "schema": "fenolite.boundary-shortcut-feasibility.v0",
+  "scratch_only": true,
+  "script_sha256": "7755dc3a2ab6fcf88ef61acb57cece2a8963bc252151302aa9cacd85688c8515",
+  "seconds": 0.24314545799279585,
+  "status": "feasible"
+}

@@ -1,0 +1,125 @@
+{
+  "schema": "fenolite.scoped-cac-closure.v1",
+  "spec": "c0105-impedance-targets",
+  "tested_implementation": "985f59a1d01a612b2eac0219243199896c24075a",
+  "scope_decision": "The maintainer clarified that problematic c0332 geometry was already excluded from this closure CI batch before the run. Its27known failures remain DEFERRED_NOT_PASSED.",
+  "CI_run": 41708879698,
+  "whole_workflow_result": "failure",
+  "KiCad10_job_result": "failure",
+  "global_success_claimed": false,
+  "later_CAC_runtime_validated": false,
+  "c0355_and_later_integration_CI_closed": false,
+  "successful_required_jobs": [
+    {
+      "id": 126171394269,
+      "name": "unit (windows-latest, py3.12)",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394428,
+      "name": "unit (ubuntu-latest, py3.12)",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394460,
+      "name": "unit (macos-latest, py3.12)",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394556,
+      "name": "unit (ubuntu-latest, py3.11)",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394700,
+      "name": "unit (ubuntu-latest, py3.13)",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394740,
+      "name": "kicad-9 (kicad-cli 9.0 oracle)",
+      "conclusion": "success"
+    }
+  ],
+  "native_proofs": [
+    {
+      "path": "tests/kicad/impedance/test_tuning_drc.py",
+      "source985_sha256": "f3a375ebdf2a7497ca1e5047d32f0fc35e6047e8a6207f1fa866d41d71f1495c",
+      "current_file_equal": true,
+      "native9_explicit_PASSED": [],
+      "native10_explicit_nonpass_records": [],
+      "native10_proof_method": "Complete collection plus exhaustive -ra non-pass summary; source-bound inference, not a nominal PASSED line or successful job10."
+    },
+    {
+      "path": "tests/kicad/impedance/test_impedance_rules.py",
+      "source985_sha256": "c253356f56623557f8c14ee35ad4f15eb46862c438af38451a2067bc1cc240a1",
+      "current_file_equal": true,
+      "native9_explicit_PASSED": [
+        {
+          "line": 4174,
+          "text": "2026-11-03T21:22:42.1529122Z PASSED tests/kicad/impedance/test_impedance_rules.py::test_width_rules_per_layer"
+        },
+        {
+          "line": 4175,
+          "text": "2026-11-03T21:22:42.1529325Z PASSED tests/kicad/impedance/test_impedance_rules.py::test_built[False]"
+        },
+        {
+          "line": 4176,
+          "text": "2026-11-03T21:22:42.1529518Z PASSED tests/kicad/impedance/test_impedance_rules.py::test_built[True]"
+        }
+      ],
+      "native10_explicit_nonpass_records": [],
+      "native10_proof_method": "Complete collection plus exhaustive -ra non-pass summary; source-bound inference, not a nominal PASSED line or successful job10."
+    }
+  ],
+  "KiCad10_proof_method": "Source-bound inference: complete unfiltered collection reaches100percent; exhaustive configured -ra report has27failures/168skips/3xfails, none in this spec’s modules; no nominal PASSED line or green job10 claimed.",
+  "log_bindings": {
+    "20261103T214312Z-metadata.json": {
+      "bytes": 36593,
+      "sha256": "cd7a28fbc69631a6f3613865fba28f4879ab79efcf2d6c6a2e2cc82879da73fe"
+    },
+    "kicad9-126171394740-completed.log": {
+      "bytes": 1951631,
+      "sha256": "3ac138d8cafad5c225d11d9bd22774c872f9369925c7d892d271be0401ab8d94"
+    },
+    "126171394674/logs.raw": {
+      "bytes": 368635,
+      "sha256": "014e4eb36c889f4848842d7abf57462ab6da185e2b8fcf5b28ddbb9334d1a68b"
+    }
+  },
+  "fast_proof": {
+    "source": "2c0540572c936303eb5c46a25002872648dfabad",
+    "receipt": "c0319-integration-repairs/fast13-receipt.json",
+    "receipt_sha256": "6b7c348011a8bafe24cc532e5ce74d505addecfd1dc3d56dba9f35bb80628a8e",
+    "command": "make check-fast PYTEST_MAX_WORKERS=2",
+    "exit": 0,
+    "log_sha256": "3e74d627e77139979c42ba6ca13e53344a23b8416aff252e747e34d56286abfe",
+    "tested_runtime_tests_tools_config_equal_to_985": true,
+    "rerun": false
+  },
+  "closed_remaining_tasks": [],
+  "authorized_normative_rebase": null,
+  "existing_supporting_records": [],
+  "limitations": [
+    "Original RED, incomplete, native skip and geometry-failure observations remain historical evidence.",
+    "No library item/catalog audit, review, publication, Altium evidence graduation, CAD quality or release gate is closed here.",
+    "Runtime/tests/tools/configuration in the isolated archive equal985; later root runtime remains separately pending."
+  ],
+  "special_gate": {
+    "kind": "actual native GUI acquisition, not another requested human review",
+    "fixture": "tests/data/kicad/project/tuning_10.kicad_pro",
+    "fixture_sha256": "c9ce320f1be18609b3339cc6fbf7d95db7000be5642ede68b5406412ad6829cf",
+    "manifest": "tests/data/MANIFEST.toml",
+    "GUI_version": "10.0.6",
+    "key_test": "tests/unit/backends/kicad/test_tuning_profiles.py::test_gui_save",
+    "limitation": "Native UNDEFINED reference versus writer empty string is preserved; no whole-value equality or new evidence promotion."
+  },
+  "unit_visual_tests_sha256": {
+    "tests/unit/backends/kicad/test_tuning_profiles.py": "5b390da0de0b47f7b1b66f733fbd434363ca51f63e7b6c88f191cf439028b956",
+    "tests/unit/analysis/test_impedance.py": "108052a48c6b2f76784938428b5d2c3334fe7e4e30ff7f1f9c03578b4eadb66d",
+    "tests/unit/dsl/test_impedance_dsl.py": "b4b7077472b236c462fef19d0619d805f690ab2bb1dfff9b8d34972ed285ce92",
+    "tests/unit/lens/test_impedance_checks.py": "f8d651b03a9de20aa850aa8351219fbbef0b651d53e62c84ac2282d00c80161c",
+    "tests/unit/exports/test_impedance_table.py": "651b3cc13118fa7cb2ed18968eff4431960e2a5f289edb28ff1d8074b0db78db",
+    "tests/unit/cli/test_impedance_cmd.py": "757e4b2b77e5f0cd40fe41269adcd67b08d3a13d63334d40aeacaee2a63e749a"
+  }
+}

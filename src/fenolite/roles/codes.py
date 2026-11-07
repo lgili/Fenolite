@@ -36,6 +36,14 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "roles.ambiguous": ("warning",),
         "roles.unconfirmed": ("info",),
         "roles.declared-differs": ("info",),
+        "roles.copper-skipped": ("info", "warning"),
+        "roles.copper-blocked": ("warning",),
+        "roles.copper-extra": ("warning",),
+        "roles.copper-kept": ("info",),
+        "roles.copper-worse": ("error",),
+        "roles.copper-placement": ("warning",),
+        "roles.copper-narrow": ("warning",),
+        "roles.corridor-blocked": ("warning",),
     }
 )
 TOPOLOGICAL = frozenset({"roles.kelvin-outer", "roles.kelvin-shared", "roles.gate-return-shared"})

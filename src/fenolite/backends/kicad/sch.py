@@ -9,7 +9,10 @@ properties, instances) stays an opaque slot at its position, so an unchanged she
 tree-equal. The reader never derives nets, and nothing here writes a file or runs a tool.
 
 ``write_schematic`` writes a created sheet for a target (c0061), with the wires and the sheet references
-of a hierarchy (c0070): a wire as two points, a sheet reference as a box without pins.
+of a hierarchy (c0070): a wire as two points, a sheet reference as a box with its pins. A sheet lowered from
+a drawn schematic (change c0276) also holds junctions, buses, bus entries, bus aliases, local and
+hierarchical labels, power symbols, field poses and opaque items; ``opaque_drawing`` reads those of a read
+sheet back from its opaque root slots.
 """
 
 from __future__ import annotations
@@ -26,7 +29,7 @@ from types import MappingProxyType
 from typing import Any, get_args
 
 from fenolite.backends.base import RoundTrip, WriteResult
-from fenolite.backends.kicad import _pcbwrite, resolver, schlayout
+from fenolite.backends.kicad import _drawn_font, _drawn_style, _pcbwrite, resolver, schlayout
 from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad._fpmap import angle_atom, node, point_node
 from fenolite.backends.kicad._libread import (
@@ -62,21 +65,27 @@ from fenolite.backends.kicad.versions import (
     require_editable,
 )
 from fenolite.core.coords import Point, Size
-from fenolite.core.errors import Issue, Severity
+from fenolite.core.errors import FormatError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import content_hash, content_id, derived_id
 from fenolite.model.base import Entity, ExtBag, Modeled, Opaque, Slot
 from fenolite.model.canonical import to_data
+from fenolite.model.drawn import DrawnFont
 from fenolite.model.library import SymbolDef
 from fenolite.model.presentation import SheetFrameRef
 from fenolite.model.schematic import (
     SYMBOL_ROTATIONS,
+    BusAlias,
+    BusEntry,
+    BusWire,
+    Junction,
     LabelKind,
     LabelShape,
     NetLabel,
     NoConnectFlag,
     SchematicSheet,
     SheetPage,
+    SheetPin,
     SheetRef,
     SheetUse,
     SymbolInstance,
@@ -105,15 +114,21 @@ DROPPED_CODE = "kicad.sch.dropped-too-new"
 WRITE_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType({DROPPED_CODE: "warning"})
 """The codes of ``write_schematic`` and of the symbol embedding (``symembed``)."""
 TEXT_SIZE = 1_270_000
+DRAWN_EXT = "drawn"
+"""The extension bag of a created entity that carries what a drawn schematic adds (change c0276): on a
+symbol instance the field poses (``field`` pairs), on a sheet the opaque items (``opaque`` pairs) in
+order."""
 SHEET_TEXT_GAP = 1_270_000
 """The properties of a created sheet reference lie this far above and below its box."""
 SHEET_FILL = "(fill (color 0 0 0 0.0))"
 """A created sheet reference has no fill colour: KiCad draws it in the colour of its theme."""
-"""The height and width of every text a created sheet writes (KiCad's default, 50 mil)."""
+"""The legacy default text height/width (50 mil); explicit drawn fonts keep their own dimensions."""
 FIRST_PROPERTIES: tuple[str, ...] = ("Reference", "Value", "Footprint", "Datasheet", "Description")
 VISIBLE_PROPERTIES: frozenset[str] = frozenset({"Reference", "Value"})
 INTERSHEET = ("Intersheetrefs", "${INTERSHEET_REFS}")
-"""The property KiCad 10 keeps on every global label: the list of the pages that use the label."""
+"""The fixed native global-label property; project context expands its page references."""
+INTERSHEET_EXT = "drawn-intersheet"
+"""Private typed field-pose carrier, separate from the label text-style role."""
 
 ROOT = ("kicad_sch",)
 SYMBOL_CHAIN = ("kicad_sch", "symbol")
@@ -1035,6 +1050,273 @@ def roundtrip_schematic(text: str, *, file: str = "") -> RoundTrip:
     )
 
 
+# --- what a drawn schematic adds to created entities (change c0276) ---------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class FieldPose:
+    """The pose of one field of a created symbol instance, as a drawn schematic gives it."""
+
+    name: str
+    at: Point
+    rotation: int = 0
+    justify: str = ""
+    hide: bool = False
+    font: DrawnFont | None = None
+
+
+def field_pose_ext(poses: Sequence[FieldPose]) -> ExtBag:
+    """The ``DRAWN_EXT`` bag that carries ``poses`` on a created symbol instance."""
+    legacy = tuple(
+        (
+            "field",
+            "\x1f".join((p.name, str(p.at.x), str(p.at.y), str(p.rotation), p.justify, str(int(p.hide)))),
+        )
+        for p in poses
+    )
+    fonts = tuple(
+        (_drawn_style.FIELD_FONT, _drawn_style.font_payload(p.font, name=p.name))
+        for p in poses
+        if p.font is not None
+    )
+    return ExtBag(None, (*legacy, *fonts))
+
+
+def field_poses(
+    symbol: SymbolInstance | SheetRef | NetLabel, *, namespace: str = DRAWN_EXT
+) -> dict[str, FieldPose]:
+    """The field poses a drawn schematic gives ``symbol``, by field name; empty for a generated symbol."""
+    bag = symbol.ext.get(namespace)
+    texts = _drawn_style.sheet_property_texts(symbol)
+    if texts and not isinstance(symbol, SheetRef):
+        raise FormatError("custom sheet property text cannot override a symbol field")
+    found: dict[str, FieldPose] = {}
+    fonts: dict[str, DrawnFont] = {}
+    for key, value in bag.payload if bag is not None else ():
+        if key == _drawn_style.FIELD_FONT:
+            name, font = _drawn_style.read_font(value, named=True, where=f"{namespace}.{key}")
+            assert name is not None
+            if name in fonts:
+                raise FormatError(f"repeated drawn font for field {name!r}", locator=f"{namespace}.{key}")
+            fonts[name] = font
+            continue
+        if _drawn_style.style_key(key):
+            raise FormatError(f"unsupported drawn field style {key!r}", locator=f"{namespace}.{key}")
+        if key != "field":
+            continue
+        try:
+            name, x, y, rotation, justify, hide = value.split("\x1f")
+            if name in found or hide not in {"0", "1"}:
+                raise ValueError("a field pose has a unique name and hide 0 or 1")
+            found[name] = FieldPose(name, Point(int(x), int(y)), int(rotation), justify, hide == "1")
+        except ValueError as error:
+            raise FormatError(
+                f"invalid legacy drawn field pose: {error}", locator=f"{namespace}.field"
+            ) from error
+    for name, font in fonts.items():
+        if name not in found:
+            raise FormatError(
+                f"drawn font has no field pose {name!r}", locator=f"{namespace}.{_drawn_style.FIELD_FONT}"
+            )
+        found[name] = dataclasses.replace(found[name], font=font)
+    return found
+
+
+def opaque_ext(fragments: Sequence[str]) -> ExtBag:
+    """The ``DRAWN_EXT`` bag that carries the opaque items ``fragments`` of a created sheet, in order."""
+    return ExtBag(None, tuple(("opaque", fragment) for fragment in fragments))
+
+
+def opaque_items(sheet: SchematicSheet) -> tuple[str, ...]:
+    """The opaque items of a created sheet, in order; empty for a generated sheet."""
+    bag = sheet.ext.get(DRAWN_EXT)
+    return tuple(value for key, value in (bag.payload if bag is not None else ()) if key == "opaque")
+
+
+@dataclass(frozen=True, slots=True)
+class OpaqueDrawing:
+    """What the opaque root slots of a read sheet hold of a drawing, in file order (change c0276): the
+    points of each ``wire`` and ``bus``, the position and size of each ``bus_entry``, the position and
+    diameter of each ``junction``, the name and members of each ``bus_alias``, and every other slot
+    verbatim (``rest``, with the inexact slots). ``order`` gives, per slot, its kind and its index in that
+    kind's tuple."""
+
+    wires: tuple[tuple[Point, ...], ...] = ()
+    buses: tuple[tuple[Point, ...], ...] = ()
+    bus_entries: tuple[tuple[Point, Point], ...] = ()
+    junctions: tuple[tuple[Point, int], ...] = ()
+    bus_aliases: tuple[tuple[str, tuple[str, ...]], ...] = ()
+    rest: tuple[Opaque, ...] = ()
+    inexact: tuple[str, ...] = ()
+    """The heads of the slots kept in ``rest`` because a number is not whole nanometres."""
+
+
+_DRAWING_HEADS = frozenset({"wire", "bus", "bus_entry", "junction", "bus_alias"})
+
+
+def _points(item: Node) -> tuple[Point, ...]:
+    points = item.find("pts")
+    return tuple(
+        Point(xy.atoms()[0].to_nm(), xy.atoms()[1].to_nm())
+        for xy in (points.nodes("xy") if points is not None else ())
+    )
+
+
+def opaque_drawing(sheet: SchematicSheet) -> OpaqueDrawing:
+    """The drawing kept in the opaque root slots of a read sheet (``OpaqueDrawing``); an empty value for a
+    sheet that was not read from a file. A slot whose numbers are not whole nanometres stays in ``rest``.
+    The reader's slot rules are unchanged."""
+    bag = sheet.ext.get("kicad")
+    wires: list[tuple[Point, ...]] = []
+    buses: list[tuple[Point, ...]] = []
+    entries: list[tuple[Point, Point]] = []
+    junctions: list[tuple[Point, int]] = []
+    aliases: list[tuple[str, tuple[str, ...]]] = []
+    rest: list[Opaque] = []
+    inexact: list[str] = []
+    for slot in slotlib.from_ext(bag, ".") if bag is not None else ():
+        if not isinstance(slot, Opaque):
+            continue
+        match = _HEAD.match(slot.fragment)
+        head = match.group(1) if match is not None else ""
+        if head not in _DRAWING_HEADS:
+            rest.append(slot)
+            continue
+        item = parse(slot.fragment)
+        try:
+            if head in ("wire", "bus"):
+                points = _points(item)
+                if len(points) < 2:
+                    raise ValueError("a wire of fewer than two points")
+                (wires if head == "wire" else buses).append(points)
+            elif head == "bus_entry":
+                at, size = item.find("at"), item.find("size")
+                if at is None or size is None:
+                    raise ValueError("a bus entry without at and size")
+                entries.append(
+                    (
+                        Point(at.atoms()[0].to_nm(), at.atoms()[1].to_nm()),
+                        Point(size.atoms()[0].to_nm(), size.atoms()[1].to_nm()),
+                    )
+                )
+            elif head == "junction":
+                at = item.find("at")
+                if at is None:
+                    raise ValueError("a junction without at")
+                diameter = item.find("diameter")
+                junctions.append(
+                    (
+                        Point(at.atoms()[0].to_nm(), at.atoms()[1].to_nm()),
+                        diameter.atoms()[0].to_nm() if diameter is not None and diameter.atoms() else 0,
+                    )
+                )
+            else:
+                named = leading_atoms(item)
+                members = item.find("members")
+                if not named or members is None:
+                    raise ValueError("a bus alias without a name or members")
+                aliases.append((named[0].value, tuple(a.value for a in members.atoms())))
+        except (ValueError, IndexError):
+            rest.append(slot)
+            inexact.append(head)
+    return OpaqueDrawing(
+        tuple(wires),
+        tuple(buses),
+        tuple(entries),
+        tuple(junctions),
+        tuple(aliases),
+        tuple(rest),
+        tuple(inexact),
+    )
+
+
+def opaque_sheet_pins(ref: SheetRef) -> tuple[tuple[str, str, Point, int], ...]:
+    """(name, shape, point, rotation in µdeg) of the opaque ``pin`` slots of a read sheet reference, in
+    file order (change c0269); a pin whose numbers are not whole nanometres is left out."""
+    bag = ref.ext.get("kicad")
+    found: list[tuple[str, str, Point, int]] = []
+    for slot in slotlib.from_ext(bag, ".") if bag is not None else ():
+        if not isinstance(slot, Opaque) or not slot.fragment.startswith("(pin"):
+            continue
+        item = parse(slot.fragment)
+        named = leading_atoms(item)
+        at = item.find("at")
+        if len(named) < 1 or at is None:
+            continue
+        shape = next((a.value for a in item.atoms()[1:] if a.kind.name == "SYMBOL"), "")
+        try:
+            atoms = at.atoms()
+            point = Point(atoms[0].to_nm(), atoms[1].to_nm())
+            rotation = _udeg(atoms[2].text) if len(atoms) > 2 else 0
+        except (ValueError, IndexError):
+            continue
+        found.append((named[0].value, shape, point, rotation))
+    return tuple(found)
+
+
+def _udeg(text: str) -> int:
+    whole, _, frac = text.partition(".")
+    sign = -1 if whole.startswith("-") else 1
+    digits = (frac + "000000")[:6]
+    if frac[6:].strip("0"):
+        raise ValueError(f"angle {text} is not whole µdeg")
+    return sign * (abs(int(whole or "0")) * 1_000_000 + int(digits))
+
+
+def symbol_field_poses(symbol: SymbolInstance) -> tuple[FieldPose, ...]:
+    """The pose of each ``property`` of a read symbol instance, in file order: its point and angle, its
+    justification, supported effective font and whether it is hidden (``hide`` as a child of the
+    property, 10.0, or of ``effects``, 9.0). Unsupported fonts refuse explicitly. A property whose
+    pose numbers are not whole nanometres is left out."""
+    return _source_field_poses(symbol)
+
+
+def _source_properties(symbol: SymbolInstance | SheetRef) -> tuple[Node, ...]:
+    bag = symbol.ext.get("kicad")
+    found: list[Node] = []
+    for slot in slotlib.from_ext(bag, ".") if bag is not None else ():
+        if not isinstance(slot, Opaque) or not slot.fragment.startswith("(property"):
+            continue
+        found.append(parse(slot.fragment))
+    return tuple(found)
+
+
+def _source_field_poses(symbol: SymbolInstance | SheetRef) -> tuple[FieldPose, ...]:
+    found: list[FieldPose] = []
+    for item in _source_properties(symbol):
+        named = leading_atoms(item)
+        at = item.find("at")
+        if not named or at is None:
+            continue
+        effects = item.find("effects")
+        hidden = _hidden(item) or (effects is not None and _hidden(effects))
+        name = named[0].value
+        file = symbol.provenance.file if symbol.provenance is not None else ""
+        shown = symbol.ref or symbol.lib_ref if isinstance(symbol, SymbolInstance) else symbol.name
+        font = _drawn_font.read_font(
+            item, default_nm=TEXT_SIZE, where=f"{shown}.fields.{name}.font", file=file
+        )
+        try:
+            atoms = at.atoms()
+            point = Point(atoms[0].to_nm(), atoms[1].to_nm())
+            rotation = _udeg(atoms[2].text) if len(atoms) > 2 else 0
+        except (ValueError, IndexError):
+            continue
+        words = _drawn_font.read_justify(item, where=f"{shown}.fields.{name}.justify", file=file)
+        found.append(FieldPose(name, point, rotation, words, hidden, font))
+    return tuple(found)
+
+
+def _hidden(item: Node) -> bool:
+    for child in item.children:
+        if isinstance(child, Node) and child.name == "hide":
+            atoms = child.atoms()
+            return not atoms or atoms[0].value == "yes"
+        if isinstance(child, Atom) and child.kind.name == "SYMBOL" and child.value == "hide":
+            return True
+    return False
+
+
 # --- writing created sheets -----------------------------------------------------------------------
 
 
@@ -1061,23 +1343,35 @@ def gate_created(root: Node, target: int, allow_lossy: bool, issues: list[Issue]
     return root
 
 
-def _font(*extra: Node) -> Node:
-    size = node("size", Atom.from_nm(TEXT_SIZE), Atom.from_nm(TEXT_SIZE))
-    return node("effects", node("font", size), *extra)
+def _font(*extra: Node, font: DrawnFont | None = None) -> Node:
+    return node("effects", _drawn_font.font_node(font, default_nm=TEXT_SIZE), *extra)
 
 
 def _property(
-    key: str, text: str, at: Point, *, ten: bool, hidden: bool, justify: str = "", angle: int = 0
+    key: str,
+    text: str,
+    at: Point,
+    *,
+    ten: bool,
+    hidden: bool,
+    justify: str = "",
+    angle: int = 0,
+    font: DrawnFont | None = None,
 ) -> Node:
     """One ``property`` of a created item: ``hide`` is a child of the property for target 10 and a child
     of ``effects`` for target 9, and target 10 also gets ``show_name`` and ``do_not_autoplace``."""
     hide = [_yes_no("hide", True)] if hidden else []
-    side = [node("justify", Atom.symbol(justify))] if justify else []
+    side = [node("justify", *(Atom.symbol(word) for word in justify.split()))] if justify else []
     children: list[Node | Atom] = [Atom.string(key), Atom.string(text), _at(at, angle)]
     if ten:
-        children += [_yes_no("show_name", False), _yes_no("do_not_autoplace", False), *hide, _font(*side)]
+        children += [
+            _yes_no("show_name", False),
+            _yes_no("do_not_autoplace", False),
+            *hide,
+            _font(*side, font=font),
+        ]
     else:
-        children.append(_font(*side, *hide))
+        children.append(_font(*side, *hide, font=font))
     return node("property", *children)
 
 
@@ -1154,12 +1448,31 @@ def _created_symbol(
     if ten:
         children.append(_yes_no("in_pos_files", symbol.on_board))
     children += [*items["dnp"], node("uuid", Atom.string(kicad_uuid(symbol)))]
-    anchor = _text_anchor(symbol, definition, labels)
+    poses = field_poses(symbol)
+    # a drawn symbol with field poses shows the posed fields only; the others are hidden at its origin
+    anchor = _text_anchor(symbol, definition, labels) if not poses else None
     names = [k for k in FIRST_PROPERTIES if k in symbol.properties]
     names += sorted(k for k in symbol.properties if k not in FIRST_PROPERTIES)
     for key in names:
-        at = {"Reference": anchor.reference, "Value": anchor.value}.get(key, symbol.position)
-        visible = key in VISIBLE_PROPERTIES
+        pose = poses.get(key)
+        if pose is not None:
+            children.append(
+                _property(
+                    key,
+                    symbol.properties[key],
+                    pose.at,
+                    ten=ten,
+                    hidden=pose.hide,
+                    justify=pose.justify,
+                    angle=pose.rotation,
+                    font=pose.font,
+                )
+            )
+            continue
+        visible = key in VISIBLE_PROPERTIES and not poses
+        at = symbol.position
+        if visible and anchor is not None:
+            at = {"Reference": anchor.reference, "Value": anchor.value}[key]
         children.append(
             _property(
                 key,
@@ -1167,8 +1480,8 @@ def _created_symbol(
                 at,
                 ten=ten,
                 hidden=not visible,
-                justify=anchor.justify if visible else "",
-                angle=anchor.angle if visible else 0,
+                justify=anchor.justify if visible and anchor is not None else "",
+                angle=anchor.angle if visible and anchor is not None else 0,
             )
         )
     if definition is not None:
@@ -1198,27 +1511,90 @@ def _created_symbol(
 
 def _created_label(label: NetLabel, ten: bool) -> Node:
     head = next(h for h, kind in LABEL_HEADS.items() if kind == label.kind)
-    justify = "left" if label.rotation in (0, 90_000_000) else "right"
+    font, explicit = _drawn_style.text_style(label)
+    justify = explicit if explicit is not None else _drawn_font.label_justify(label.rotation)
+    alignment = [node("justify", *(Atom.symbol(word) for word in justify.split()))] if justify else []
     children: list[Node | Atom] = [Atom.string(label.name)]
     if label.shape:
         children.append(node("shape", Atom.symbol(label.shape)))
     children += [
         _at(label.position, label.rotation),
-        _font(node("justify", Atom.symbol(justify))),
+        _font(*alignment, font=font),
         node("uuid", Atom.string(kicad_uuid(label))),
     ]
-    if ten and label.kind == "global":
+    poses = field_poses(label, namespace=INTERSHEET_EXT)
+    if poses:
+        if label.kind != "global" or set(poses) != {INTERSHEET[0]}:
+            raise FormatError("a label field pose must be the fixed global Intersheetrefs property")
+        pose = poses[INTERSHEET[0]]
+        children.append(
+            _property(
+                *INTERSHEET,
+                pose.at,
+                ten=ten,
+                hidden=pose.hide,
+                justify=pose.justify,
+                angle=pose.rotation,
+                font=pose.font,
+            )
+        )
+    elif ten and label.kind == "global":
         children.append(_property(*INTERSHEET, label.position, ten=True, hidden=True, justify=justify))
     return node(head, *children)
 
 
-def _created_wire(wire: Wire) -> Node:
-    """A wire of a created sheet: its two points, the default stroke and a uuid."""
+def _created_wire(wire: Wire | BusWire) -> Node:
+    """A wire (or a bus segment) of a created sheet: its two points, the default stroke and a uuid."""
     return node(
-        "wire",
+        "wire" if isinstance(wire, Wire) else "bus",
         node("pts", point_node("xy", wire.start), point_node("xy", wire.end)),
         node("stroke", node("width", Atom.from_nm(0)), node("type", Atom.symbol("default"))),
         node("uuid", Atom.string(kicad_uuid(wire))),
+    )
+
+
+def _created_junction(junction: Junction) -> Node:
+    """A junction of a created sheet: ``at``, ``diameter``, ``color`` and a uuid (S-0367)."""
+    return node(
+        "junction",
+        _at(junction.position, None),
+        node("diameter", Atom.from_nm(junction.diameter)),
+        node("color", Atom.integer(0), Atom.integer(0), Atom.integer(0), Atom.integer(0)),
+        node("uuid", Atom.string(kicad_uuid(junction))),
+    )
+
+
+def _created_bus_entry(entry: BusEntry) -> Node:
+    """A bus entry of a created sheet: ``at``, ``size``, the default stroke and a uuid (S-0367)."""
+    return node(
+        "bus_entry",
+        _at(entry.position, None),
+        node("size", Atom.from_nm(entry.size.x), Atom.from_nm(entry.size.y)),
+        node("stroke", node("width", Atom.from_nm(0)), node("type", Atom.symbol("default"))),
+        node("uuid", Atom.string(kicad_uuid(entry))),
+    )
+
+
+def _created_bus_alias(alias: BusAlias) -> Node:
+    """A bus alias of a created sheet: its name and ``members`` (S-0367)."""
+    return node(
+        "bus_alias", Atom.string(alias.name), node("members", *(Atom.string(m) for m in alias.members))
+    )
+
+
+def _created_sheet_pin(ref: SheetRef, pin: SheetPin) -> Node:
+    """A pin of a created sheet reference: name, shape, ``at``, a uuid and ``effects`` justified away from
+    the box edge it stands on (``H-K-SCH-BLOCK-PINS``)."""
+    font, explicit = _drawn_style.text_style(pin)
+    justify = explicit if explicit is not None else _drawn_font.pin_justify(pin.rotation)
+    alignment = [node("justify", *(Atom.symbol(word) for word in justify.split()))] if justify else []
+    return node(
+        "pin",
+        Atom.string(pin.name),
+        Atom.symbol(pin.shape),
+        _at(pin.position, pin.rotation),
+        node("uuid", Atom.string(kicad_uuid(pin))),
+        _font(*alignment, font=font),
     )
 
 
@@ -1228,6 +1604,40 @@ def _created_sheet_ref(ref: SheetRef, ten: bool) -> Node:
     items, _ = _emit_sheet_ref(ref)
     above = Point(ref.position.x, ref.position.y - SHEET_TEXT_GAP)
     below = Point(ref.position.x, ref.position.y + ref.size.h + SHEET_TEXT_GAP)
+    poses = field_poses(ref)
+    properties: list[Node] = []
+    for key, text, default in (("Sheetname", ref.name, above), ("Sheetfile", ref.file, below)):
+        pose = poses.get(key)
+        properties.append(
+            _property(
+                key,
+                text,
+                pose.at if pose is not None else default,
+                ten=ten,
+                hidden=pose.hide if pose is not None else False,
+                justify=pose.justify if pose is not None else "left",
+                angle=pose.rotation if pose is not None else 0,
+                font=pose.font if pose is not None else None,
+            )
+        )
+    for key, text in _drawn_style.sheet_property_texts(ref):
+        if text == "~" and not ten:
+            raise FormatError("literal tilde custom sheet text cannot be represented by KiCad 9", locator=key)
+        pose = poses.get(key)
+        if pose is None:
+            raise FormatError("custom sheet property text has no matching pose", locator=key)
+        properties.append(
+            _property(
+                key,
+                text,
+                pose.at,
+                ten=ten,
+                hidden=pose.hide,
+                justify=pose.justify,
+                angle=pose.rotation,
+                font=pose.font,
+            )
+        )
     projects: dict[str, list[Node]] = {}
     for use in ref.uses:
         projects.setdefault(use.project, []).append(
@@ -1244,8 +1654,8 @@ def _created_sheet_ref(ref: SheetRef, ten: bool) -> Node:
         node("stroke", node("width", Atom.from_nm(0)), node("type", Atom.symbol("solid"))),
         parse(SHEET_FILL),
         node("uuid", Atom.string(kicad_uuid(ref))),
-        _property("Sheetname", ref.name, above, ten=ten, hidden=False, justify="left"),
-        _property("Sheetfile", ref.file, below, ten=ten, hidden=False, justify="left"),
+        *properties,
+        *(_created_sheet_pin(ref, pin) for pin in ref.pins),
         node("instances", *(node("project", Atom.string(p), *paths) for p, paths in projects.items())),
     )
 
@@ -1273,10 +1683,11 @@ def write_schematic(
 ) -> WriteResult:
     """The text of a ``.kicad_sch`` file for KiCad ``target``.0 from a created sheet; no file is written.
 
-    The root holds the header, the sheet's uuid, paper and title block, the embedded symbols, then the
-    no-connect flags, the wires, the labels, the symbol instances and the sheet references, each kind in
-    the order of its collection, and the page list when the sheet has pages: a child sheet of a hierarchy
-    has none, and gets no ``sheet_instances``.
+    The root holds the header, the sheet's uuid, paper and title block, the embedded symbols, the bus
+    aliases, then the no-connect flags, the junctions, the bus entries, the wires, the buses, the labels,
+    the symbol instances, the sheet references and the opaque items of a drawn sheet, each kind in the
+    order of its collection, and the page list when the sheet has pages: a child sheet of a hierarchy has
+    none, and gets no ``sheet_instances``. An opaque item passes the emit check like every other node.
 
     Target 10 writes what KiCad 10 keeps on a re-save (``body_style``, ``in_pos_files``,
     ``show_name``, ``do_not_autoplace``, ``hide`` as a child of a property, ``Intersheetrefs``); target 9
@@ -1301,17 +1712,22 @@ def write_schematic(
     if sheet.title_block is not None:
         children.append(title_block_node(sheet.title_block))
     children.append(node("lib_symbols", *(_created_def(d, target) for d in sheet.lib_symbols)))
+    children += [_created_bus_alias(alias) for alias in sheet.bus_aliases]
     for flag in sheet.no_connects:
         children.append(
             node("no_connect", _at(flag.position, None), node("uuid", Atom.string(kicad_uuid(flag))))
         )
+    children += [_created_junction(junction) for junction in sheet.junctions]
+    children += [_created_bus_entry(entry) for entry in sheet.bus_entries]
     children += [_created_wire(wire) for wire in sheet.wires]
+    children += [_created_wire(bus) for bus in sheet.buses]
     children += [_created_label(label, ten) for label in sheet.labels]
     label_angles = {label.position: label.rotation // 1_000_000 for label in sheet.labels}
     for symbol in sheet.symbols:
         definition = definitions.get(symbol.lib_name or symbol.lib_ref)
         children.append(_created_symbol(symbol, definition, ten, label_angles))
     children += [_created_sheet_ref(ref, ten) for ref in sheet.sheets]
+    children += [parse(fragment) for fragment in opaque_items(sheet)]
     if sheet.pages:
         children.append(_pages_node(sheet.pages))
     if not ten:
@@ -1481,19 +1897,28 @@ def hierarchy_components(
 
 
 __all__ = [
+    "DRAWN_EXT",
     "EVIDENCE",
     "ISSUE_CODES",
     "KEPT_CODE",
+    "FieldPose",
+    "OpaqueDrawing",
     "SchComponent",
     "SheetTree",
     "WRITE_EVIDENCE",
     "WRITE_ISSUE_CODES",
     "components",
+    "field_pose_ext",
+    "field_poses",
     "gate_created",
     "hierarchy_components",
     "opaque_count",
     "opaque_digests",
+    "opaque_drawing",
+    "opaque_ext",
     "opaque_heads",
+    "opaque_items",
+    "opaque_sheet_pins",
     "opaque_wires",
     "read_schematic",
     "rebuild_schematic",
@@ -1501,5 +1926,6 @@ __all__ = [
     "roundtrip_schematic",
     "sheet_files",
     "source_info",
+    "symbol_field_poses",
     "write_schematic",
 ]

@@ -2,9 +2,7 @@
 
 ## Purpose
 Give Fenolite its own check of the copper of a board for shorts and clearance, without `kicad-cli`: tracks, arcs, vias, pads and zone fills become exact integer thick shapes, pairs of different nets on a shared layer are judged against the clearance in force (classes, custom rules and board minimums), and the findings are deterministic, located, documented case by case against KiCad's DRC and labelled with their evidence.
-
 ## Requirements
-
 ### Requirement: Copper check function
 `fenolite.checks.copper.check_copper(design, *, pads, min_clearance=None, rules_over_classes=True, floor_over_rules=False, arc_tol=ARC_TOL_NM, inputs=()) -> CopperReport` SHALL judge the copper of `design.board` for shorts and clearance, and SHALL be a pure function: it MUST read no file, run no subprocess and write nothing.
 - `pads` MUST be the board-frame pad records of c0028's `BoardFrame.board_pads(design)` (`backend-protocol`, "Board-frame protocol"), or `None` when no frame is available.
@@ -24,14 +22,12 @@ Give Fenolite its own check of the copper of a board for shorts and clearance, w
 - **THEN** a `ValueError` is raised
 
 ### Requirement: Copper items and their shapes
-`check_copper` SHALL turn each copper item of the board into one or more `Thick` shapes (`geometry-kernel`, "Thick shapes"), each on one copper layer and on one net:
-- A `Track`: the segment `start`–`end` with its `width`, on its `layer`.
-- An `Arc`: the polyline of `geometry.Arc(start, mid, end).polygonize(arc_tol)` with its `width`, on its `layer`. Its band is `arc_tol + 1` nm, the bound within which the polyline follows the true arc (`geometry-kernel`, "Deterministic polygonisation with a chord-error bound").
-- A `Via`: a point at `position` with width `diameter`, on every copper layer of its span. The span MUST be the copper layers of `Board.layers`, in table order, from `layers[0]` to `layers[1]` inclusive; a `through` via, or a via whose `layers` does not name two copper layers of the board, MUST span every copper layer.
-- A pad: for each `PadCopper` entry of its c0028 `BoardPad` record, `Thick(entry.core, entry.width, entry.filled)` on `entry.layer`, with the pad's net. An entry with `exact=False` is a superset of the pad (`board-frame`, "Pad copper entries"): it is judged as given, so no clearance violation is missed, a short it gives carries ` (approximated pad shape)` in its message, and such entries are counted in `summary.approximated`.
-- A `ZoneFill`: its `polygon` as a filled ring of width 0, on the fill's `layer`, with the zone's net.
-- Zone outlines, rule areas (`Keepout`), graphics, texts, holes and pads of kind `np_thru_hole` MUST NOT be copper.
-- An item that cannot be shaped MUST be left out and counted per kind in `summary.unsupported`, with one `copper.item-unsupported` warning per kind naming the count: a pad of a kind other than `np_thru_hole` whose `layers` name a copper layer but whose record holds no copper entry, a pad whose copper entry `Thick` refuses (`GeometryError`), every pad of a kind other than `np_thru_hole` when `pads` is `None`, a fill whose polygon `Polygon` refuses, and an arc whose points `geometry.Arc` refuses. A pad without a copper layer, and every `np_thru_hole` pad, is not copper and is not counted.
+`check_copper` SHALL turn each board copper item into one or more `Thick` shapes, each on one copper layer and one net. A track is its `start`–`end` segment at its `width`; an arc is its exact `geometry.Arc(start, mid, end)` core at its unchanged `width`. Both keep their `layer`. Via, pad and fill shapes and unsupported items MUST follow the requirements below; arc polygonisation bands MUST NOT alter copper boundaries.
+
+#### Scenario: Arc copper retains its width
+- **GIVEN** an authored circular arc with integer start, mid, end and width
+- **WHEN** the copper items are built with different positive `arc_tol` values
+- **THEN** its exact circular core, layer, net and width are unchanged
 
 #### Scenario: Via span on four layers
 - **GIVEN** a four-layer board whose copper layers are `F.Cu`, `In1.Cu`, `In2.Cu`, `B.Cu` in table order, a blind via with `layers == ("F.Cu", "In1.Cu")` and a through via
@@ -95,9 +91,7 @@ Give Fenolite its own check of the copper of a board for shorts and clearance, w
 - **THEN** it reports one `copper.clearance` error naming `NT1-2` and the track, as KiCad's DRC does
 
 ### Requirement: Shorts
-`check_copper` SHALL report one `copper.short` error for each judged item pair whose shapes touch or overlap on a shared copper layer (`thick_touch`), whatever the clearance in force. For a pair that involves an arc, the arc's shape MUST first be narrowed by its band (width reduced by twice the band, not below 0), so that a short is reported only when the true copper touches.
-- The `CopperFinding` MUST hold the code, the severity, the layer, a point (`thick_witness`), both items as `CopperRef(kind, where, entity_id, net)`, a gap of 0, and the clearance in force with its source when one exists.
-- The message MUST name both nets (`<no net>` for an item without a net), the layer and the point in millimetres.
+`check_copper` SHALL report one `copper.short` error for each judged item pair whose supplied copper shapes touch or overlap on a shared layer (`thick_touch`), whatever the clearance in force. Arc cores MUST retain their true width without narrowing. The finding and message MUST retain the short metadata defined below.
 
 #### Scenario: Via touching a track of another net
 - **GIVEN** a via of net `GND` with diameter 0.6 mm whose centre is 0.425 mm from the centre line of a 0.25 mm track of net `VIN` on `F.Cu`
@@ -179,14 +173,11 @@ Give Fenolite its own check of the copper of a board for shorts and clearance, w
 - **THEN** the rule does not govern
 
 ### Requirement: Clearance findings
-`check_copper` SHALL report one `copper.clearance` finding for each judged item pair that does not short and whose shapes are closer than the clearance in force on a shared copper layer (`thick_closer_than(a, b, value)`, a strict comparison). For a pair that involves an arc, the arc's shape MUST first be widened by twice its band, so that no violation is missed. When the value in force of such a pair comes from a zone (`source == "zone"`), the pair MUST be judged twice: the widened shape with the value that `resolve` gives without `zone_clearance`, and the arc's shape narrowed by twice its band, never below a width of 0, with the zone's value. The pair is a finding when either is too close; it carries the zone's value and source when the narrowed shape is, and the other value and its source otherwise. KiCad's filler cuts a fill to the zone's clearance around the true arc, so the widened shape judged with the zone's value would report fills that KiCad just made; with this rule no finding of the earlier rule is lost.
-- The severity MUST be the governing rule's severity, and `error` for a class, zone or floor value.
-- The finding MUST hold the gap rounded down to a whole nanometre (`thick_gap_floor`, a lower bound for arcs), the clearance value and its source.
-- The message MUST name both nets, the layer, the point, the gap and the clearance in millimetres, and the source.
+`check_copper` SHALL report one `copper.clearance` per judged, non-shorting item pair whose exact gap on a shared layer is strictly below the governing clearance minus the injected `tolerance`. A nonpositive threshold gives no clearance finding. Arc and zone pairs MUST use this same comparison without widening, narrowing or a second zone comparison. Direct calls with `tolerance=0` remain strict; finding metadata MUST follow the requirement below.
 
 #### Scenario: Strict comparison
 - **GIVEN** two 0.25 mm tracks of nets `A` and `B` on `F.Cu` whose edges are 0.2 mm apart, and a class clearance of 0.2 mm on both nets
-- **WHEN** `uv run pytest tests/unit/checks/test_copper.py -k strict` runs `check_copper`
+- **WHEN** `uv run pytest tests/unit/checks/test_copper.py -k strict` calls `check_copper` with its default zero tolerance
 - **THEN** it reports no finding, and with the edges 1 nm closer it reports one `copper.clearance` error with gap 199 999 nm, clearance 200 000 nm and source `class:<class name>`
 
 #### Scenario: Warning rule
@@ -196,18 +187,18 @@ Give Fenolite its own check of the copper of a board for shorts and clearance, w
 
 #### Scenario: Arc band never hides a violation
 - **GIVEN** a 0.25 mm arc track and a track of another net whose true edge gap is 5 µm below a 0.2 mm clearance
-- **WHEN** `check_copper` runs with the default `arc_tol`
-- **THEN** it reports one `copper.clearance` finding
+- **WHEN** `check_copper` runs with different positive `arc_tol` values and zero tolerance
+- **THEN** it reports one `copper.clearance` finding with the same exact gap and governing clearance
 
 #### Scenario: A fill cut around an arc is not reported
-- **GIVEN** a 0.25 mm arc track of net `B` and a fill of net `A` whose zone has a clearance of 0.5 mm, the fill's edge following the arc at a true distance of exactly 0.5 mm, both nets in a class of 0.2 mm
-- **WHEN** `uv run pytest tests/unit/checks/test_copper.py -k zone_arc` runs `check_copper` with the default `arc_tol`
-- **THEN** it reports no finding; with the fill's edge 5 µm closer it reports one `copper.clearance` with source `zone`; and with the fill's edge 0.19 mm from the arc it reports one with clearance 500 000 nm and source `zone`, as a straight track at that distance does
+- **GIVEN** a 0.25 mm arc track of net `B` and a fill of net `A` whose zone has a clearance of 0.5 mm, the fill's edge at a true distance of exactly 0.5 mm from the arc, both nets in a class of 0.2 mm
+- **WHEN** `uv run pytest tests/unit/checks/test_copper.py -k zone_arc` runs `check_copper` with zero tolerance
+- **THEN** it reports no finding; with the fill's edge 5 µm closer it reports one `copper.clearance` with source `zone`; and at 0.19 mm it reports clearance 500 000 nm and source `zone`, as for a straight track
 
 #### Scenario: The widened arc keeps the value without the zone
-- **GIVEN** the same arc and fill with a zone clearance of 200 001 nm, 1 nm above the class value, and the fill's edge at a true distance of exactly 0.2 mm from the arc
-- **WHEN** `uv run pytest tests/unit/checks/test_copper.py -k zone_arc` runs `check_copper` with the default `arc_tol`
-- **THEN** it reports one `copper.clearance` with clearance 200 000 nm and source `class:<class name>`, the finding the check reports for that pair without a zone value
+- **GIVEN** the former widened-arc fixture, now using exact cores, with zone clearance 200 001 nm, class clearance 200 000 nm and true edge gap 200 000 nm
+- **WHEN** `uv run pytest tests/unit/checks/test_copper.py -k zone_arc` runs `check_copper` with zero tolerance
+- **THEN** it reports clearance 200 001 nm and source `zone`; without a zone value, the class equality is clean
 
 ### Requirement: Zone outline overlaps
 `check_copper` SHALL report one `copper.zone-overlap` warning for each pair of zones with different `net_id`, the same `priority` and a shared copper layer whose outlines, as `Polygon`s, intersect (`polygons_intersect`), because the fill of the overlap then depends on the filler's order. Zones with an empty outline, or with an outline that `Polygon` refuses, MUST be counted in `summary.unsupported` as `zone-outline` and left out of this check.
@@ -272,12 +263,7 @@ Each copper finding SHALL locate both items and a point, and the report SHALL be
 - **THEN** the JSON file holds 21 boards under `copper`, each with its counts and time, and `docs/evidence/copper-check.md`, written from it, passes `uv run python tools/residue/scan.py`
 
 ### Requirement: Rule areas in the copper check
-`check_copper` SHALL find, for each copper item and each copper layer it is on, the names of the rule areas it lies in, and SHALL pass them to `ClearanceResolver.subject` as `areas`, so that clearance rules scoped to an area are judged where KiCad's DRC applies them (`H-K-AREA-COND`).
-- A rule area is a `Keepout` of `design.board.keepouts` with a non-empty `name`. An item lies in it on a layer when the layer is one of the area's `layers` and the item's shape on that layer, narrowed by its band for an arc as for shorts, touches or overlaps the area's outline taken as a filled polygon (`thick_touch`). Fills count as items; zone outlines do not.
-- An item lies in a name that two areas carry when it lies in either.
-- A `Keepout` whose outline is empty (kept opaque by the reader) or refused by `Polygon` MUST be left out, counted in `summary.unsupported` under `rule-area`, and reported by one `copper.item-unsupported` warning with the count, as "Copper items and their shapes" does for items it cannot shape. Its name then matches no item and its settings are not judged ("Keep-out findings").
-- `summary.rule_areas` MUST report the count of rule areas that were used.
-- The membership is computed once per item and layer, from a spatial index of the areas' boxes, and changes no shape and no pair of "Pairs that are judged".
+`check_copper` SHALL pass each item's named rule areas per layer to `ClearanceResolver.subject` as `areas` (`H-K-AREA-COND`). An item lies in a named `Keepout` of `design.board.keepouts` on a listed layer when its copper shape touches or overlaps the filled outline (`thick_touch`). Arcs MUST use their true width without narrowing. Fills count; zone outlines do not. Membership of either area carrying a name grants that name.
 
 #### Scenario: Larger clearance inside a high-voltage area
 - **GIVEN** a rule area `HV` on `F.Cu` and `B.Cu`, a clearance rule with `selector_a = area HV` and `min = 2 mm`, and two pairs of tracks of different nets 1 mm apart, one inside the area and one outside
@@ -360,12 +346,7 @@ Each copper finding SHALL locate both items and a point, and the report SHALL be
 - **THEN** its candidate rows hold `pair-gap:USB` with 0.1 mm and `class:USB` with 0.2 mm, the governing source is `pair-gap:USB`, and resolving the explained subjects gives the finding's limit; the explanation of a `USB_P` track against a `CLK` track holds no `pair-gap` row
 
 ### Requirement: Copper to board edge clearance
-`check_copper` SHALL judge every copper shape against every ring of `BoardFrame.board_edges`, each a closed line of width 0 whose arcs are polygonised at `ARC_TOL_NM`. A gap from the copper to the edge line below the edge clearance in force (`ClearanceResolver.edge`: the governing `edge_clearance` rule, else `DesignRules.min_edge_clearance`) MUST give one `copper.edge-clearance` per item and ring, with the rule's severity, naming the item, the ring, the gap and the limit. An arc of a ring MUST be widened by twice its band (`ARC_TOL_NM + 1`), so that no violation is missed, except for a zone fill: KiCad's filler cuts a fill to the edge clearance around the true arc, so a fill MUST be judged against the arc's polygonisation with the limit lowered by the band, the arc narrowed by its band as for a fill along a copper arc ("Clearance findings").
-
-#### Scenario: A pad near a slot
-- **GIVEN** the shared fixture with a plated hole part of 2 mm copper whose copper lies 0.47 mm from slot `S1`, and a board minimum of 0.5 mm
-- **WHEN** `uv run pytest tests/unit/checks/test_copper_edges.py -k slot` runs `check_copper`
-- **THEN** it gives one `copper.edge-clearance` error naming the part's pad, `slot S1`, 0.47 mm and 0.5 mm, and none at 0.52 mm
+`check_copper` SHALL compare every copper shape with every ring of `BoardFrame.board_edges`, each a closed zero-width segment/circular-arc core. Exact gaps strictly below the governing `ClearanceResolver.edge` value MUST give one `copper.edge-clearance` per item and ring. Edge clearance stays strict for every item kind, independently of injected copper tolerance and `arc_tol`; no arc band or fill exception applies. Edge metadata MUST follow the requirement below.
 
 #### Scenario: A rule for one net
 - **GIVEN** an `edge_clearance` rule of 1 mm for the net `HV` and a board minimum of 0.5 mm
@@ -375,7 +356,12 @@ Each copper finding SHALL locate both items and a point, and the report SHALL be
 #### Scenario: A fill along a curved edge
 - **GIVEN** a board ring whose upper side is an arc, a board minimum of 0.3 mm, a fill and a track on another layer whose edges lie 0.5 µm outside 0.3 mm from the top of the arc
 - **WHEN** `uv run pytest tests/unit/checks/test_copper_edges.py -k curved` runs `check_copper`
-- **THEN** the track gives `copper.edge-clearance` and the fill does not; with both 2 µm inside 0.3 mm, both do
+- **THEN** neither item gives `copper.edge-clearance`; with both 2 µm inside 0.3 mm, both do
+
+#### Scenario: A pad near a slot
+- **GIVEN** the shared fixture with a plated hole part of 2 mm copper whose copper lies 0.47 mm from slot `S1`, and a board minimum of 0.5 mm
+- **WHEN** `uv run pytest tests/unit/checks/test_copper_edges.py -k slot` runs `check_copper`
+- **THEN** it gives one `copper.edge-clearance` error naming the part's pad, `slot S1`, 0.47 mm and 0.5 mm, and none at 0.52 mm
 
 ### Requirement: Drilled holes against cut-outs and holes
 `check_copper` SHALL give `copper.hole-in-cutout` (error) for a pad drill, via drill or board hole whose area overlaps the area of a cut-out or slot or crosses the board ring, and `copper.hole-overlap` (warning) for two drilled holes whose areas overlap. No clearance value is applied to holes.
@@ -389,3 +375,151 @@ Each copper finding SHALL locate both items and a point, and the report SHALL be
 - **GIVEN** two hole parts with oval NPTH pads that overlap
 - **WHEN** `check_copper` runs
 - **THEN** it gives one `copper.hole-overlap` warning naming both pads
+
+### Requirement: Arc verdicts use true distances
+The copper check SHALL decide copper pairs, rule-area membership and edge clearance with exact circular arc cores. Arc polygonisation bands MUST NOT change these verdicts. The governing copper clearance minus the injected tolerance applies to zone pairs too; edge clearance stays strict. `arc_tol` remains accepted and reported for compatibility.
+
+#### Scenario: Clearance within the previous band
+- **GIVEN** authored arc pairs at the exact clearance and at 500 nm and 501 nm below it
+- **WHEN** the check runs with 500 nm tolerance and different positive arc_tol values
+- **THEN** the first two are clean and the third is a finding, independently of arc_tol
+
+### Requirement: Via copper layer span
+A via SHALL be a point at `position` with width `diameter`, on every copper layer of its span. The span MUST follow `Board.layers` table order from `layers[0]` through `layers[1]` inclusive. A `through` via, or a via whose `layers` does not name two board copper layers, MUST span all copper layers.
+
+#### Scenario: Layer span metadata follows the board table
+- **GIVEN** copper layers `F.Cu`, `In1.Cu`, `In2.Cu`, `B.Cu` in table order, a blind via with `layers == ("F.Cu", "In1.Cu")` and a through via
+- **WHEN** `uv run pytest tests/unit/checks/test_copper.py -k span` builds the copper items
+- **THEN** the blind via has shapes on `F.Cu` and `In1.Cu` only, and the through via on all four layers
+
+### Requirement: Pad copper shape metadata
+Each `PadCopper` entry of a pad's `BoardPad` record SHALL yield `Thick(entry.core, entry.width, entry.filled)` on `entry.layer`, with the pad's net. An `exact=False` entry is a superset and MUST be judged as given so no clearance violation is missed. A short it gives MUST carry ` (approximated pad shape)` in its message; such entries MUST count in `summary.approximated`.
+
+#### Scenario: Approximated pad short metadata
+- **GIVEN** a pad copper entry with `exact=False` touching another net
+- **WHEN** `check_copper` reports the short
+- **THEN** its message retains ` (approximated pad shape)` and `summary.approximated` counts the entry
+
+### Requirement: Zone fill copper and exclusions
+A `ZoneFill` SHALL be its `polygon` as a filled ring of width 0, on the fill's `layer`, with the zone's net. Zone outlines, rule areas (`Keepout`), graphics, texts, holes and pads of kind `np_thru_hole` MUST NOT be copper.
+
+#### Scenario: Empty zone fill does not create copper
+- **GIVEN** a zone on net `GND` on `F.Cu` without fills whose outline covers a track of net `VIN`
+- **WHEN** `check_copper` runs
+- **THEN** it reports no `copper.short` and no `copper.clearance`
+
+### Requirement: Unsupported copper shape accounting
+An item whose shape is refused SHALL be left out, counted by kind in `summary.unsupported`, and reported by one `copper.item-unsupported` warning per kind naming the count. This includes pad entries refused by `Thick` (`GeometryError`), fills refused by `Polygon`, and arc points refused by `geometry.Arc`. Missing pad records and entries MUST follow the unsupported-pad requirement below.
+
+#### Scenario: Refused copper shapes are counted
+- **GIVEN** a fill polygon and arc points that their geometry constructors refuse
+- **WHEN** `check_copper` runs
+- **THEN** both items are left out and counted by kind, with one warning naming each count
+
+### Requirement: Unsupported pad eligibility
+A non-`np_thru_hole` pad whose `layers` name a copper layer SHALL count as unsupported when its board-frame record has no copper entry, or when `pads=None`. A pad without a copper layer and every `np_thru_hole` pad MUST be excluded from both copper and unsupported counts. Unsupported pads MUST use the warning and count metadata above.
+
+#### Scenario: Missing frame counts eligible copper pads
+- **GIVEN** a board with two footprints of two copper pads each
+- **WHEN** `check_copper(design, pads=None)` runs
+- **THEN** `summary.unsupported` holds `pad: 4`, and one `copper.item-unsupported` warning names 4 pads
+
+#### Scenario: Nonplated holes stay excluded
+- **GIVEN** `Mini_Edge_Cases` placed at (0, 0), 0°, on top of a two-layer board, whose unnumbered `np_thru_hole` pad has no copper entry
+- **WHEN** `uv run pytest tests/unit/checks/test_copper.py -k npth` runs `check_copper` with `KicadBackend().board_pads(design)`
+- **THEN** `summary.unsupported` holds no `pad` count, and no unsupported-pad warning is emitted
+
+### Requirement: Short finding metadata
+A short `CopperFinding` MUST hold code, severity, layer, a `thick_witness` point, both items as `CopperRef(kind, where, entity_id, net)`, gap 0, and the clearance in force with its source when one exists. Its message MUST name both nets (`<no net>` for an item without a net), the layer and the point in millimetres.
+
+#### Scenario: Short fields survive exact arc checking
+- **GIVEN** an authored short involving a circular arc and a governing clearance
+- **WHEN** `check_copper` reports it
+- **THEN** the finding retains both item references, gap 0, the witness, layer, severity, governing clearance and source, and its message names both nets and the point
+
+### Requirement: Clearance finding metadata
+A clearance `CopperFinding` MUST keep code, layer, `thick_witness`, both `CopperRef(kind, where, entity_id, net)` items, gap floored to whole nm (`thick_gap_floor`), original governing clearance and source. Severity MUST be the rule's, or `error` for class, zone or floor. Its message MUST name both nets, layer, point, gap and clearance in millimetres, and source.
+
+#### Scenario: Tolerance preserves the governing metadata
+- **GIVEN** a 200 000 nm governing clearance, 500 nm tolerance and exact gap 199 499 nm
+- **WHEN** `check_copper` reports the violation
+- **THEN** the finding keeps gap 199 499 nm, clearance 200 000 nm, the governing source and severity, both items and the witness
+
+### Requirement: Rule area membership accounting
+Rule-area membership SHALL be computed once per item and layer using a spatial index of area boxes, without changing any copper shape or any pair of "Pairs that are judged". `summary.rule_areas` MUST report the number of named rule areas used.
+
+#### Scenario: Membership leaves copper pairs unchanged
+- **GIVEN** identical copper with and without a valid named rule area
+- **WHEN** the copper items and membership are built
+- **THEN** shapes and eligible item pairs are unchanged, membership is layer-specific and the area count is reported
+
+### Requirement: Unsupported rule area accounting
+A `Keepout` whose outline is empty or refused by `Polygon` MUST be left out, counted under `summary.unsupported["rule-area"]` and reported by one `copper.item-unsupported` warning naming the count. Its name MUST match no item and its keep-out settings MUST remain unjudged.
+
+#### Scenario: Opaque area settings stay unjudged
+- **GIVEN** a board read from a file whose rule area `HV` has an arc in its opaque `pts`
+- **WHEN** `check_copper` runs
+- **THEN** `summary.unsupported` holds `rule-area: 1`, one warning names it, and no item lies in `HV`
+
+### Requirement: Edge clearance finding metadata
+`ClearanceResolver.edge` SHALL use the governing `edge_clearance` rule, else `DesignRules.min_edge_clearance`. An edge-clearance finding MUST retain that severity and name the copper item, ring, gap and limit.
+
+#### Scenario: Slot finding keeps severity and dimensions
+- **GIVEN** a plated-hole part with 2 mm copper lying 0.47 mm from slot `S1`, and a board minimum of 0.5 mm
+- **WHEN** `uv run pytest tests/unit/checks/test_copper_edges.py -k slot` runs `check_copper`
+- **THEN** one `copper.edge-clearance` error names the part's pad, `slot S1`, 0.47 mm and 0.5 mm, and none is reported at 0.52 mm
+
+### Requirement: Clearance tolerance of the tool
+`check_copper` SHALL take `tolerance=0` (nm, not negative) and judge a pair too close when its shapes are closer than the value in force minus `tolerance`; edge clearance keeps the strict rule. `DesignRules.clearance_tolerance` SHALL give it: 500 nm from the KiCad rules source (`H-K-COPPER-EPSILON`), 0 from others; the build's copper guard and the `copper.clearance` stage MUST pass it.
+
+#### Scenario: KiCad's tolerance
+- **GIVEN** two tracks of nets `A` and `B` whose edges are 500 nm closer than a 0.2 mm class clearance, written as a KiCad project
+- **WHEN** `uv run pytest tests/unit/checks/test_copper_tolerance.py` runs the build's copper guard
+- **THEN** it reports no finding, and at 501 nm closer it reports one `copper.clearance`; `check_copper` without `tolerance` reports both
+
+#### Scenario: Measured against KiCad
+- **WHEN** `uv run pytest tests/kicad/copper/test_drc_tolerance.py -rA` runs in the `kicad-9` and `kicad-10` jobs
+- **THEN** KiCad's DRC is clean at `c − 500 nm` and reports `clearance` at `c − 501 nm` for track pairs under a rule, a class, a board minimum and a class pair gap, and the copper guard agrees on every row
+
+### Requirement: Model-only pad geometry of non-plated holes
+The model-only pad geometry (`checks.padpath.model_pads`) SHALL give an `np_thru_hole` pad no copper
+entries, as the KiCad and Altium pad frames do, and SHALL leave out any copper entry that a copper record
+cannot hold, such as a disc of diameter 0. The pad SHALL stay in the result with its position, layers and
+net. No check SHALL fail with an internal error because a pad has no copper.
+
+#### Scenario: A non-plated hole without copper
+- **WHEN** a board holds an `np_thru_hole` pad of size 0 on `*.Cu` and `fenolite check` runs
+- **THEN** the check completes the selected steps without `FEN-1001`
+- **AND** `model_pads` lists the pad with no copper entries
+
+#### Scenario: A plated pad of size 0
+- **WHEN** a plated pad has a size of 0
+- **THEN** `model_pads` lists the pad without the refused copper entry instead of raising
+
+### Requirement: Copper against drilled holes
+`check_copper` SHALL judge every drilled hole (pad drills, plated or not, round or slot; via drills on their span; board holes) against the copper of other items on each copper layer it passes, and report `copper.hole-clearance` when the gap to the hole's wall is below the hole clearance in force: the governing `hole_clearance` rule, else `DesignRules.min_hole_clearance` (KiCad: `board.design_settings.rules.min_hole_clearance`). Copper of the hole's own pad or via, copper of the same net as a plated hole, and a pair that already has a `copper.short` or `copper.clearance` finding MUST NOT be reported; without a value the pass MUST be skipped. The build's copper guards and the `copper.clearance` stage of `fenolite check` SHALL pass the value (change c0403, F9).
+
+#### Scenario: Script copper across an unplated hole
+- **GIVEN** an authored design script whose track crosses a 3 mm unplated hole of a footprint, on a project with a hole clearance of 0.25 mm
+- **WHEN** `uv run pytest tests/unit/cli/test_build_copper_guard.py -k mounting_hole` builds it with `--dry-run`
+- **THEN** the reply holds `copper.hole-clearance` and plans no write, and the same track 0.3 mm from the wall builds
+
+### Requirement: Copper narrower than the governing track width
+`fenolite build` SHALL judge each track and arc of the planned board against the `min` of the `track_width` rule that governs it (the last match in `rule_precedence` order, its layers holding the item's layer) and report one `copper.track-width` per net and rule, with the rule's severity, the narrowest width, the rule and its `min`. The KiCad copper guard MUST treat it as its other copper errors, so an error plans no write (change c0403, F10).
+
+#### Scenario: A narrow script row
+- **GIVEN** a design script with `design.rules.minimum(track_width=mm(0.2))` and a `track_table` row of 0.162 mm
+- **WHEN** `uv run pytest tests/unit/cli/test_build_copper_guard.py -k narrow_script_copper` builds it with `--dry-run`
+- **THEN** the exit code is 5, the reply holds `copper.track-width` naming the rule and 0.162 mm, and no write is planned
+
+### Requirement: Hole clearance within the tool tolerance
+`copper.hole-clearance` SHALL judge the gap to a hole's wall against the hole clearance in force less the `clearance_tolerance` of the rules source (500 nm with KiCad rules, `H-K-COPPER-EPSILON`), as `copper.clearance` does, so a gap that differs from the limit by a declared rounding is no finding; KiCad's hole clearance test allows the same tolerance (change c0420, N4).
+
+#### Scenario: Gaps at the tolerance
+- **WHEN** `uv run pytest tests/unit/checks/test_copper_holes.py -k tolerance -q` judges gaps of 5 nm and 500 nm below the limit with a tolerance of 500 nm, 501 nm below it, and 5 nm below it with no tolerance
+- **THEN** the first two give no finding and the last two give one each
+
+#### Scenario: KiCad at the same boundary
+- **WHEN** `uv run pytest tests/kicad/checks/test_hole_clearance_epsilon.py -q` checks a track beside an unplated hole at 400 nm and 600 nm below a 0.25 mm minimum hole clearance
+- **THEN** KiCad reports no `hole_clearance` for the first and one for the second
+

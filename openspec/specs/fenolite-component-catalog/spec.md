@@ -10,9 +10,12 @@ MUST incrementally cover the common component families and standard package styl
 coverage matrix, including passives, discrete and optoelectronic semiconductors, protection,
 power/control ICs and electromechanical interfaces. Every entry MUST have a stable lib id, kind,
 category, summary, evidence level and public source ids for factual electrical or physical claims.
-Definitions MUST NOT be copied or vendored from another CAD library or private project. The catalog
-MUST NOT claim complete coverage of commercial parts, choose a package for a part, or assert
-manufacturing qualification. Non-standard or proprietary geometry remains project-authored unless
+Definitions MUST NOT be copied or vendored from a CC-BY-SA library, from another CAD library under any
+licence other than CC0-1.0, or from a private project. Data from a library whose licence is CC0-1.0
+MAY be used openly: each such record MUST carry `origin` (library name, release or commit, the original
+element's id), `licence = "CC0-1.0"` and evidence `UNVERIFIED` until a review of its current digest
+raises it. The catalog MUST NOT claim complete coverage of commercial parts, choose a package for a part,
+or assert manufacturing qualification. Non-standard or proprietary geometry remains project-authored unless
 it is separately specified as a reusable generic package with public evidence.
 
 #### Scenario: Catalog covers the published family matrix
@@ -34,6 +37,16 @@ it is separately specified as a reusable generic package with public evidence.
 - **WHEN** the design is built
 - **THEN** package selection remains explicit on the part and no footprint is silently inferred
 
+#### Scenario: A record from a CC0 library is labelled
+- **GIVEN** a shipped record converted from a CC0-1.0 library element
+- **WHEN** the catalog source check runs
+- **THEN** it passes only if the record holds `origin` with library, version and element id, `licence = "CC0-1.0"`, and evidence `UNVERIFIED` or a review of its current digest
+
+#### Scenario: A record from a CC-BY-SA library is refused
+- **GIVEN** a shipped record whose `origin.licence` is `CC-BY-SA-4.0`
+- **WHEN** the catalog source check runs
+- **THEN** it fails naming the record and the licence
+
 ### Requirement: Discoverable catalog API and CLI
 The public `fenolite.catalog` API SHALL list and retrieve symbol/footprint definitions by stable lib id, with optional case-insensitive search over id, category and summary. `fenolite catalog list` and `fenolite catalog show <lib-id>` SHALL expose the same entries through the CLI JSON envelope, including evidence and source ids, without running an external tool.
 
@@ -46,7 +59,7 @@ The public `fenolite.catalog` API SHALL list and retrieve symbol/footprint defin
 - **THEN** it returns its kind, metadata, source ids and package/symbol definition summary
 
 ### Requirement: Build resolves built-in definitions
-The KiCad `fenolite build` SHALL resolve catalog symbol and footprint lib ids without consulting global/project CAD library tables for those ids. It SHALL write the definitions used by the design into the generated project's local libraries. A project-authored definition whose lib id exactly matches a catalog entry MUST take precedence for that build only; other catalog entries remain available. The build MUST report the origin as `builtin` for an unmodified catalog entry and `authored` for a project override.
+The KiCad `fenolite build` SHALL resolve catalog symbol and footprint lib ids without consulting global/project CAD library tables for those ids. It SHALL write the definitions used by the design into the generated project's local libraries. A project-authored definition whose lib id exactly matches a catalog entry MUST take precedence for that build only; other catalog entries remain available. Vendored records rank between them. Origins MUST be reported as `builtin`, `library` or `authored`.
 
 #### Scenario: Offline built-in build
 - **GIVEN** a design that names a shipped symbol and footprint
@@ -58,20 +71,32 @@ The KiCad `fenolite build` SHALL resolve catalog symbol and footprint lib ids wi
 - **WHEN** the project is built
 - **THEN** the authored definition is used and labelled `authored`, with no mutation of the shipped catalog
 
+#### Scenario: Vendored definition resolved offline
+- **GIVEN** a design that names the footprint of a `footprint` item vendored under `fenolite_library/footprints/`, with empty library tables
+- **WHEN** it is built
+- **THEN** the footprint is written into the local output library and the result labels its origin `library`, with the item id and version
+
 ### Requirement: Source and evidence labels
 Each factual symbol pin map, polarity claim or physical package dimension in the catalog SHALL cite
 one or more public sources registered in `docs/evidence/sources.md`. A land pattern not explicitly
 specified by those sources MUST be labelled `INFERRED` in catalog metadata and the definition
 description. A writer/readback check MUST NOT upgrade an inferred dimension's evidence level.
 Public sources MUST be sufficient for each claim; private board data and copied CAD library content
-MUST NOT be used as provenance.
+MUST NOT be used as provenance. A record taken from a CC0-1.0 library MAY name that library, registered
+as a source with its licence, as its origin; that origin is not evidence of correctness, so the record
+stays `UNVERIFIED` until it is reviewed.
 
 #### Scenario: Every family pack has independent provenance
 - **WHEN** the catalog source check runs
 - **THEN** it fails for an unregistered source id, a factual claim without supporting provenance,
   or an inferred footprint without an inferred-land description
 - **AND** it rejects catalog provenance that points to a private board artifact or third-party CAD
-  library file
+  library file, other than the registered origin of a CC0-1.0 record
+
+#### Scenario: Origin is not evidence
+- **GIVEN** a record whose only source is the registered CC0 library of its `origin`, without a review
+- **WHEN** the catalog source check runs
+- **THEN** it passes only if the record's evidence is `UNVERIFIED`
 
 ### Requirement: Reusable symbol body graphics
 `SymbolDef` SHALL carry optional ordered symbol-local graphic primitives in integer nanometres. The DSL symbol authoring API SHALL create line, rectangle, circle and polygon primitives, and the KiCad symbol reader/writer SHALL preserve those primitives through a read/write round-trip. Symbols with declared graphics MUST use those graphics for their body and MUST NOT get an additional synthetic pin-bounds rectangle; symbols with no declared graphics retain the existing fallback.
@@ -428,3 +453,353 @@ The standalone catalog browser SHALL support selection of a symbol and footprint
 - **WHEN** every pin and numbered pad is mapped unambiguously and the user explicitly confirms their datasheet review
 - **THEN** the generated Python Part snippet contains the selected symbol ID, footprint ID and exact pad_map
 - **AND** changing either definition or the mapping clears confirmation before another snippet is available
+
+### Requirement: Device records
+`fenolite.catalog.devices.parse_device(text, *, file) -> DeviceDef` SHALL read one TOML record of schema `fenolite.device.v0` with `tomllib` and `parse_float=Decimal`, and SHALL return a `fenolite.model.library.DeviceDef` that joins a symbol, a footprint, a function-to-pin-and-pad map, an identity, a reference prefix, a value, ratings, an evidence label, sources and an optional provenance. No float MUST be created.
+
+#### Scenario: A device record is read
+- **GIVEN** the authored file `tests/data/devices/example_buck.toml` with `id = "Example:BUCK_6V_2A"`, `symbol = "Example:Buck_6pin"` and `footprint = "Fenolite:SOT23_6_TI_DBV0006A"`
+- **WHEN** `uv run pytest tests/unit/catalog/test_devices.py -k read` parses it
+- **THEN** a `DeviceDef` with that id, symbol and footprint is returned, and no field holds a float
+
+### Requirement: Device record keys
+A device record SHALL hold `schema`, `id` (`<namespace>:<name>`, each part matching `[A-Za-z0-9_.+-]+`), `summary`, `symbol`, `footprint`, `evidence` and `pins`, and MAY hold `manufacturer`, `mpn`, `datasheet` (an `https://` URL), `ref_prefix` (`[A-Z][A-Z_]*`), `value`, `sources`, `ground`, `unused_pads`, `properties`, `ratings`, `ends` (two function names) and `provenance`. Another key, a missing key or a wrong type MUST raise `FormatError` (`FEN-3004`) naming the file and the key.
+
+#### Scenario: Unknown key
+- **WHEN** a record holding the key `colour` is parsed
+- **THEN** `FormatError` with code `FEN-3004` is raised, naming the file and `colour`
+
+#### Scenario: Shipped namespace needs sources
+- **WHEN** a record with `id = "Fenolite:X"` and no `sources` is parsed
+- **THEN** `FormatError` with code `FEN-3004` is raised, naming `sources`
+
+### Requirement: Reserved device keys
+The keys `interfaces` and `options`, and a schema version higher than `fenolite.device.v0`, SHALL raise `FormatError` mapped to `FEN-3002`, with a message that names the key as reserved for a later format (c0252 and c0257).
+
+#### Scenario: Reserved key
+- **WHEN** a record holding an `interfaces` table is parsed
+- **THEN** `FormatError` with code `FEN-3002` is raised, naming `interfaces`
+
+### Requirement: Device pin functions
+Each key of `pins` SHALL be a function name matching `[A-Za-z_][A-Za-z0-9_+.~-]*`, unique under `str.casefold`. Its value MUST be a string (one symbol pin on the pad of its number), a list of strings (several such pins), or a table with exactly one of `pins` and `map` (symbol pin to pads, spelled as `Part.pad_map` is), plus optional `voltage`, `current` and `must_connect`. Each symbol pin MUST be in one function, and each pad MUST be on at most one pin.
+
+#### Scenario: Three spellings
+- **GIVEN** `BST = "1"`, `GND = { map = { "2" = ["2", "EP"] } }` and `VIN = { pins = ["5"] }`
+- **WHEN** the record is parsed
+- **THEN** `BST` has `pin_pads == (("1", "1"),)`, `GND` has `pin_pads == (("2", "2"), ("2", "EP"))` and `VIN` has `pin_pads == (("5", "5"),)`
+
+#### Scenario: Refused pin tables
+- **WHEN** records are parsed that repeat a symbol pin in two functions, name functions `vin` and `VIN`, name a function `1V8`, or give a table with both `pins` and `map`
+- **THEN** each raises `FormatError` with code `FEN-3004`, naming the function
+
+### Requirement: Device ratings in integers
+Device ratings SHALL use only the keys `voltage`, `current`, `power` and `temperature`, and pin ratings only `voltage` and `current`. Each rating holds `min`, `max` or both, as text with a unit (`V`, `A`, `W`, `degC`, with an SI prefix), parsed by `fenolite.core.quantities` and stored as an exact integer in µV, µA, µW or m°C. A value that is not a whole number of these units, a unit that does not fit the key, or `min > max` MUST raise `FormatError` (`FEN-3004`).
+
+#### Scenario: Ratings read exactly
+- **GIVEN** `VIN = { pins = ["5"], voltage = { min = "2.7V", max = "6V" } }` and `temperature = { min = "-40degC", max = "125degC" }`
+- **WHEN** the record is parsed
+- **THEN** the pin `VIN` has `voltage.min == 2_700_000` and `voltage.max == 6_000_000` in µV, and the device rating `temperature` has `min == -40_000` and `max == 125_000` in m°C
+
+#### Scenario: Refused ratings
+- **WHEN** records with `voltage = { max = "6.0000005V" }`, `current = { max = "6V" }` and `power = { min = "2W", max = "1W" }` are parsed
+- **THEN** each raises `FormatError` with code `FEN-3004`
+
+### Requirement: Canonical device text
+`fenolite.catalog.devices.device_text(device) -> str` SHALL give the canonical TOML of a record: a fixed key order, one table per long-form function, LF line ends and one final newline. `parse_device(device_text(d)) == d` MUST hold for every record.
+
+#### Scenario: Canonical text round trip
+- **WHEN** every shipped device and every device under `tests/data/devices` is written with `device_text` and parsed again
+- **THEN** each record equals the one read, and writing it twice gives identical bytes
+
+### Requirement: Device sources and precedence
+The DSL SHALL resolve a device id from, in this order: the records given to `Design.devices(*records)`, the project devices of `devices/*.toml` beside the design script (installed by the script runner in file-name order), and `fenolite.catalog.devices.shipped_devices()`. The first source that holds the id MUST win. The DSL itself MUST read no file.
+
+#### Scenario: Project device beside the script
+- **GIVEN** `examples/devices/design.py` with `devices/example_buck.toml` beside it
+- **WHEN** `fenolite build examples/devices/design.py --out B --dry-run --json` runs
+- **THEN** the exit code is 0 (a dry run) and `result.devices` holds `Example:BUCK_6V_2A` with `origin` `authored`
+
+### Requirement: Project devices override shipped ones
+A project device whose id is a shipped id SHALL give `device.overrides-builtin` (info), and its `origin` SHALL be `authored`. An unmodified shipped device MUST be reported as `builtin`. Two project files with one id MUST raise `FormatError` (`FEN-3004`) naming both files.
+
+#### Scenario: Override of a shipped device
+- **GIVEN** a project file `devices/r0603.toml` whose id is `Fenolite:R_0603`
+- **WHEN** a design that uses `Fenolite:R_0603` is built with `--dry-run`
+- **THEN** `issues` holds one `device.overrides-builtin` info, and the device's `origin` is `authored`
+
+#### Scenario: One id in two files
+- **GIVEN** `devices/a.toml` and `devices/b.toml`, both with `id = "Proj:X"`
+- **WHEN** the design is built with `--dry-run`
+- **THEN** the exit code is 3, stderr carries `FEN-3004`, and the message names both files
+
+### Requirement: Device files are build inputs
+`cmd_build` SHALL list the name, relative to the script folder, and the SHA-256 of every project device file in `result.device_files`, and SHALL add the files to the inputs that a plan id depends on (`Result.depends`), so that a changed device file changes the plan. The envelope's `input` keeps naming the design script alone (contract v0).
+
+#### Scenario: Device file in the input
+- **WHEN** `examples/devices/design.py` is built with `--dry-run --json`
+- **THEN** `result.device_files` lists `devices/example_buck.toml` with its SHA-256, and no absolute path
+
+### Requirement: Shipped generic devices
+The catalog SHALL ship the Fenolite-authored devices `Fenolite:R_0402`, `R_0603`, `R_0805`, `R_1206`, `C_0402`, `C_0603`, `C_0805`, `C_1206`, `LED_0603` and `Conn_1x2_P2.54`. Each MUST join one catalog symbol and one catalog footprint, have no manufacturer, MPN or ratings, carry `INFERRED` and the sources of its two entries, and pass `check_device`. Two-terminal devices name their functions `P1` and `P2` (the LED `A` and `K`) and list them in `ends`.
+
+#### Scenario: Every shipped device agrees with the catalog
+- **WHEN** `uv run pytest tests/unit/catalog/test_devices.py -k shipped` runs `check_device` on every shipped device with its catalog symbol and footprint
+- **THEN** no issue is returned, every device has a non-empty `sources`, and none has a manufacturer or an MPN
+
+#### Scenario: The LED keeps the cathode-first map
+- **WHEN** `Fenolite:LED_0603` is read
+- **THEN** its pin `A` has `pin_pads == (("1", "2"),)` and its pin `K` has `pin_pads == (("2", "1"),)`
+
+### Requirement: Device digest
+`fenolite.catalog.devices.device_digest(device) -> str` SHALL be the lowercase hex SHA-256 of the canonical JSON of the record with `provenance` set to `None`, so that a change of formatting or of key order does not change it.
+
+#### Scenario: Reformatting keeps the digest
+- **GIVEN** a device file and a copy with its keys reordered and blank lines added
+- **WHEN** both are parsed
+- **THEN** their digests are equal
+
+### Requirement: Device provenance and edits
+A `provenance` table SHALL hold `tool`, `source` (never an absolute path), `date` (an ISO 8601 date) and `sha256`. A record whose `provenance.sha256` differs from its digest SHALL be `edited`: the build reports `device.edited` (info) once per edited device it uses, and `catalog show` gives `"edited": true`. The evidence label written in an edited record MUST be kept. A record without `provenance` is never `edited`.
+
+#### Scenario: A hand edit is detected
+- **GIVEN** a device written by `fenolite catalog import --confirm`, whose `mpn` is then changed by hand
+- **WHEN** a design that uses it is built with `--dry-run --json`
+- **THEN** `issues` holds `device.edited` naming the device, and `result.devices[0].edited` is `true`
+
+#### Scenario: Reformatting is not an edit
+- **GIVEN** the same imported device with its keys reordered and no value changed
+- **WHEN** it is loaded
+- **THEN** it is not `edited`
+
+### Requirement: Devices in the catalog list and show
+`fenolite catalog list --kind device` SHALL list the shipped devices in id order, each with `id`, `kind` `device`, `summary`, `evidence` and `sources`; without `--kind` the list holds symbols, footprints and devices. `catalog show <id> --kind device` SHALL show the record, `digest`, `edited`, `shadowed` (functions that are `Part` attribute names) and, for catalog symbol and footprint, the `check_device` issues. Without `--kind`, `show` gives a device only when no symbol or footprint has the id.
+
+#### Scenario: List devices
+- **WHEN** `fenolite catalog list --kind device --json` runs
+- **THEN** `result` lists the ten shipped devices in id order, each with `kind` `device`
+
+#### Scenario: Show a device
+- **WHEN** `fenolite catalog show Fenolite:R_0603 --kind device --json` runs
+- **THEN** `result` holds the record, a 64-character `digest`, `edited` `false` and an empty `shadowed`
+
+### Requirement: Device import
+`fenolite catalog import --symbol LIB:SYM --footprint LIB:FP --id NS:NAME --out FILE [--pin FUNCTION=PIN[:PAD[+PAD]]]... [--manufacturer T] [--mpn T] [--datasheet URL] [--ref-prefix P]` SHALL plan one write of kind `device` holding `device_text` of a record with `evidence = "UNVERIFIED"` and a provenance whose `tool` is `fenolite catalog import`, `source` the two lib ids, `date` the date of `--timestamp` (else today in UTC) and `sha256` the digest.
+
+#### Scenario: Import a template
+- **WHEN** `fenolite catalog import --symbol Fenolite:Resistor --footprint Fenolite:Chip_0603 --id Proj:R_0603 --out devices/r.toml --timestamp 2026-10-29T00:00:00Z --confirm --json` runs
+- **THEN** the exit code is 0, `receipt.written` lists `devices/r.toml`, the file parses with `evidence` `UNVERIFIED` and `provenance.date` `2026-10-29`, and a second run with the same flags writes identical bytes
+
+### Requirement: Device import pins and pads
+`catalog import` SHALL name functions after the symbol's pin names, grouping pins that share a name and naming an empty or `~` name `P<number>`, and SHALL map pins to the pads of their numbers unless `--pin` maps them. A pin without such a pad MUST give `catalog.pin-without-pad` (error), and no write is planned. A footprint pad that no pin names MUST give `catalog.pad-unmapped` (warning) and is left out.
+
+#### Scenario: A pin without a pad
+- **WHEN** `catalog import` pairs a three-pin symbol with a two-pad footprint and passes no `--pin`
+- **THEN** the exit code is 5, `issues` holds `catalog.pin-without-pad` naming pin `3`, and nothing is written
+
+#### Scenario: Grouped names
+- **GIVEN** an authored symbol whose pins `2` and `9` are both named `GND`
+- **WHEN** it is imported with a footprint that has pads `1` to `9`
+- **THEN** the record has one function `GND` with `pin_pads == (("2", "2"), ("9", "9"))`
+
+### Requirement: Device import keeps hand edits
+`catalog import` onto an existing `FILE` that is `edited` SHALL exit 7 with `FEN-7001` and write nothing unless `--allow-lossy` is given; onto an existing file that is not edited it SHALL plan the replacement. Catalog ids MUST resolve offline, and other lib ids through the build's `LibraryResolver` with the project folder set to the folder of `--out`. `example_args` and `mutation_example_args` MUST use catalog ids and run no subprocess.
+
+#### Scenario: Re-import over a hand edit
+- **GIVEN** `devices/r.toml` from "Import a template", with its `summary` changed by hand
+- **WHEN** the same import runs with `--confirm`
+- **THEN** the exit code is 7, stderr carries `FEN-7001`, and the file is unchanged
+
+#### Scenario: Re-import of an unedited file
+- **GIVEN** `devices/r.toml` from "Import a template", unchanged
+- **WHEN** the import runs again with `--mpn X-1 --confirm`
+- **THEN** the exit code is 0 and the file holds `mpn = "X-1"` with a new `provenance.sha256`
+
+### Requirement: Catalog definitions are data files
+Every shipped catalog symbol and footprint SHALL be given by a record file under `src/fenolite/catalog/data/` (`pins/` or `packages/`), read with `fenolite.catalog.records`. The package MUST NOT hold symbol or footprint geometry in Python. `get_symbol`, `get_footprint`, `list_entries`, `ENTRIES`, `default_pad_map`, `ANODE_FIRST_SYMBOLS` and `CATHODE_FIRST_LANDS` SHALL keep their names and results.
+
+#### Scenario: No geometry in code
+- **WHEN** `uv run pytest tests/unit/catalog/test_data_only.py` runs
+- **THEN** it finds no `_symbol_expansion.py` and no dimension table in `src/fenolite/catalog/*.py`, and every entry of `ENTRIES` has one record file
+
+#### Scenario: Pad map from the records
+- **WHEN** `default_pad_map("Fenolite:LED", "Fenolite:LED0603_Kingbright_APT1608SURCK")` is called
+- **THEN** it returns `(("1", "2"), ("2", "1"))`, computed from `polarity` and `pad1` in the records
+
+### Requirement: The move to data keeps every byte
+`tests/data/catalog/golden.json`, written from the Python catalog before the move, SHALL hold per lib id the `output_digest` of its definition and the SHA-256 of each file built for the catalog examples. After the move every digest MUST be equal. The file SHALL change only together with a version change in `VERSIONS.toml`.
+
+#### Scenario: Definitions equal the golden digests
+- **WHEN** `uv run pytest tests/unit/catalog/test_golden.py` runs
+- **THEN** every shipped symbol and footprint has the `output_digest` recorded in `golden.json`
+
+#### Scenario: Built files are byte-identical
+- **WHEN** the KiCad job builds `examples/catalog*` with `--seed 1` and a fixed `--timestamp`
+- **THEN** every written file but `.fenolite/meta.json` (which names the version of Fenolite) has the SHA-256 recorded in `golden.json`
+
+### Requirement: Catalog entries show version and licence
+`CatalogEntry` SHALL gain `version`, `licence` and `uid` with defaults. `fenolite catalog list` and `fenolite catalog show` SHALL add the keys `version`, `licence` and `uid` to each entry; every existing key and value MUST stay as before.
+
+#### Scenario: Show a moved entry
+- **WHEN** `fenolite catalog show Fenolite:Resistor --json` runs
+- **THEN** the entry holds `version` `1.0.1` (written `1.0.0` by the move, raised by the change of licence to `CC0-1.0`), `licence` `CC0-1.0`, its `uid`, and the same kind, category, summary, evidence and sources as on 0.6.0
+
+### Requirement: Interface ports of a device
+A c0248 device record SHALL define its reserved key `interfaces` as `[[interfaces]]` tables. Each holds `name`, `kind`, `direction`, `members` (member name to a list of the device's functions), the parameters allowed for its kind and direction (a range in c0248's `{ min, max }` spelling, a threshold as one quantity text), `reference` (another `power` interface of the device), `requires` and `evidence`. A power `voltage` is an operating range, never an absolute rating.
+
+#### Scenario: Valid ports load
+- **GIVEN** an illustrative device record authored for Fenolite with the ports `vdd` (`power`, `in`) and `i2c1` (`i2c`, `inout`, `reference = "vdd"`, `requires = ["pullup", "supply"]`, `input_high_min = "1.3V"`, `output_low_max = "0.4V"`)
+- **WHEN** `uv run pytest tests/unit/catalog/test_device_ports.py -k valid` loads it
+- **THEN** both interfaces load with their members, parameters, thresholds, companions and evidence, and the record no longer gives `FEN-3002`
+
+### Requirement: Refused device interfaces
+The device loader SHALL give `FEN-3004`, naming the file, the interface and the rule, for an interface whose kind or member is unknown, that names a function the device lacks or one in two members, whose `reference` is not another `power` interface of the device, that sets a parameter its kind and direction do not allow (`current` on `inout` included), with a `requires` entry its kind does not take, or named like a function of the device or an attribute of `Part`.
+
+#### Scenario: Bad ports refused
+- **WHEN** the loader reads, in turn, an interface naming a function the device lacks, an interface named like one of the device's functions, a `reference` to a non-`power` interface, a `current` on a `logic` interface, a `current` on an `inout` `power` interface, and `requires = ["chip_select"]` on an `i2c` interface
+- **THEN** each gives `FEN-3004` naming the file, the interface and the rule
+
+### Requirement: Parametric families in the shipped catalog
+The shipped catalog SHALL hold family records (`fenolite.family.v0`) for E24 5 % and E96 1 % chip resistors and for C0G and X7R chip capacitors in the cases 0402, 0603, 0805 and 1206, each naming a shipped symbol and footprint. Every numeric attribute MUST cite a registered public source with a label no higher than the source allows; an attribute without a source MUST be absent, and no family MUST name a manufacturer part number.
+
+#### Scenario: Every family number has a source
+- **WHEN** `uv run pytest tests/unit/catalog/test_families.py` runs
+- **THEN** every numeric attribute of every shipped family names a source id registered in `docs/evidence/sources.md`, no family has an MPN, and every symbol and footprint it names is a shipped entry
+
+### Requirement: Catalog data version
+`fenolite.catalog.FAMILIES_VERSION` SHALL name the version of the catalog data and MUST change whenever a family's canonical text changes. `fenolite catalog list --kind family` and `fenolite catalog show <family id>` MUST show the families with their sources.
+
+#### Scenario: The version follows the data
+- **GIVEN** a shipped family whose canonical text differs from the one recorded for the current `FAMILIES_VERSION` in `src/fenolite/catalog/families/VERSIONS.toml`
+- **WHEN** the catalog test runs
+- **THEN** it fails naming the family and asking for a new `FAMILIES_VERSION`
+
+### Requirement: Absolute and operating limits of a device
+In a device record, a pin's `voltage` and `current`, each key of `[ratings]` and each `[[limits]]` `voltage` SHALL be a table of `abs_max` and/or `operating`, each a `{ min, max }` table or a string read as the maximum. The single `{ min, max }` form of c0248 MUST raise `FormatError` (`FEN-3004`) naming the file and the key, with a hint to say `abs_max` or `operating`. An `operating` range outside its `abs_max` range MUST raise `FEN-3004`.
+
+#### Scenario: Both kinds on one pin
+- **GIVEN** `VIN = { pins = ["5"], voltage = { operating = { min = "2.7V", max = "6V" }, abs_max = "6.5V" } }`
+- **WHEN** `uv run pytest tests/unit/catalog/test_devices.py -k limits` parses the record
+- **THEN** `VIN` holds the rating (`voltage`, `abs_max`, max 6 500 000 µV) and the rating (`voltage`, `operating`, 2 700 000 to 6 000 000 µV)
+
+#### Scenario: The ambiguous form is refused
+- **WHEN** records with `VIN = { pins = ["5"], voltage = { min = "2.7V", max = "6V" } }` and with `voltage = { operating = "7V", abs_max = "6.5V" }` are parsed
+- **THEN** each raises `FormatError` with code `FEN-3004` naming `VIN`, the first with the hint naming `abs_max` and `operating`
+
+### Requirement: Limits between two pins
+A device record SHALL accept `[[limits]]` tables, each with `between` (two distinct functions of the device) and `voltage` (as "Absolute and operating limits of a device"), meaning the voltage of the first function minus that of the second. An unknown function, a repeated pair or another key MUST raise `FEN-3004`. The canonical text MUST order the rows by `between`.
+
+#### Scenario: Bootstrap to switch node
+- **GIVEN** `[[limits]]` with `between = ["BST", "SW"]` and `voltage = { abs_max = "6V" }` in a record whose functions include `BST` and `SW`
+- **WHEN** the record is parsed and written with `device_text`
+- **THEN** `DeviceDef.limits` holds one `PinPairLimit` for `("BST", "SW")` with `abs_max` 6 000 000 µV, the text round-trips, and `between = ["BST", "XX"]` raises `FEN-3004` naming `XX`
+
+### Requirement: Logic thresholds of device pins
+A pin of a device record MAY state `input_high_min`, `input_low_max`, `output_high_min`, `output_low_max` (voltages from `ground`) and `output_current_max` (a current), each one quantity text from the datasheet. A c0252 `logic` or bus port of the device SHALL take a threshold its own table omits from its member pins, the strictest of them (highest `input_high_min`, lowest `input_low_max`, lowest `output_high_min`, highest `output_low_max`, lowest `output_current_max`).
+
+#### Scenario: A port takes its pins' thresholds
+- **GIVEN** a record whose pins `PB6` and `PB7` state `input_high_min` 1.3 V and 1.4 V and whose `i2c1` port (`sda` on `PB7`, `scl` on `PB6`) states no `input_high_min`
+- **WHEN** `uv run pytest tests/unit/catalog/test_device_ports.py -k thresholds` loads it and builds a part
+- **THEN** the model `Port` `i2c1` has the param `input_high_min` of 1.4 V, and with `input_high_min = "1.2V"` in the port's table it has 1.2 V
+
+### Requirement: Device class key
+A device record MAY hold `class`, one name of the roles' class vocabulary (`net-roles`, "Part classes"). Another name MUST raise `FEN-3004` listing the vocabulary. The key is evidence for `fenolite.roles.classify`, never a second classifier.
+
+#### Scenario: A ferrite says what it is
+- **GIVEN** a record with `ref_prefix = "L"` and `class = "ferrite"`
+- **WHEN** a part placed from it is classified by `roles.classify`
+- **THEN** its class is `ferrite` with confidence `high` and source `device`, and `class = "bead"` raises `FEN-3004`
+
+### Requirement: Device temperatures in kelvin
+Device temperature limits SHALL be stored in integer millikelvin (unit `mK`), read from texts in `degC` or `K` by `fenolite.core.quantities`. A text that is not a whole number of millikelvin MUST raise `FEN-3004`.
+
+#### Scenario: Celsius and kelvin agree
+- **WHEN** records with `temperature = { operating = { min = "-40degC", max = "125degC" } }` and `temperature = { operating = { min = "233.15K", max = "398.15K" } }` are parsed
+- **THEN** both give the operating range 233 150 to 398 150 mK, and `"-40.0001degC"` raises `FEN-3004`
+
+### Requirement: Catalog footprints come from the generators
+The catalog footprints SHALL be drawn only from their c0259 package records, without private land helpers or land tuples in `fenolite.catalog`, and every catalog `.kicad_mod` MUST keep the bytes recorded in `tests/data/catalog/footprints.sha256`, which changes only together with a record version in `VERSIONS.toml` (c0385 changed the 55 mirrored footprints).
+
+#### Scenario: Catalog bytes unchanged
+- **GIVEN** `tests/data/catalog/footprints.sha256`, the SHA-256 of every catalog footprint written for KiCad 9 and 10
+- **WHEN** `uv run pytest tests/unit/catalog/test_catalog_generated.py -k golden` writes every footprint that `list_entries(kind="footprint")` names
+- **THEN** all 100 digests equal the golden list for both targets
+
+#### Scenario: No private land helper remains
+- **WHEN** `uv run pytest tests/unit/catalog/test_catalog_generated.py -k helpers` searches the modules of `src/fenolite/catalog/`
+- **THEN** none defines `_chip_footprint`, `_two_terminal_footprint`, `_row_pads`, `_quad_pads`, `_paste_grid`, `_thermal_paste`, `_pin1_index` or `_make_footprint`, and none holds a `_*_LANDS_UM` table
+
+### Requirement: Family entries reproduced under drawing 0
+c0259 stores each catalog footprint as an explicit pad list (`generator = "explicit"`); the family-shaped entries (chips, molded two-terminals, small-outline, QFN, DFN, QFP and DIP entries) MUST be reproduced exactly by `fenolite.catalog.footprints.generate` under `drawing = 0` from a record with a `[land]` holding the same numbers. `drawing = 0` keeps the 0.6 placement, which numbers the leads clockwise; since c0385 the catalog entry of a chiral land MUST equal the `drawing = 0` output mirrored about the X axis, and an achiral one the output itself. A record moves to its family only with `drawing = 1`, which numbers counter-clockwise.
+
+#### Scenario: Drawing 0 reproduces the catalog
+- **GIVEN** family records with `drawing = 0` and a `[land]` holding the numbers of `Chip_0603`, `SOIC14_TI_D0014A`, `LQFP48_TI_PT0048A`, `QFN16_Diodes_W3030_A1`, `DFN6_Diodes_W2020_US` and `DIP8_Microchip_P`
+- **WHEN** `generate` draws each
+- **THEN** `Chip_0603` equals `get_footprint` of its catalog entry, and each of the others mirrored about its X axis equals `get_footprint` of the catalog entry of the same name
+
+### Requirement: Records move to a family only with cited numbers
+A record SHALL be re-expressed in its family only when the family keys the generator requires (span, lead length and width) come from the sources the record cites; numbers the 0.6 tables never held MUST NOT be invented.
+
+#### Scenario: Span not in the sources
+- **WHEN** the sources a catalog record cites give no span or lead length for its package
+- **THEN** the record stays `generator = "explicit"` and no family key is added to it
+
+### Requirement: Vendored library records
+The runner SHALL read `fenolite_library/symbols`, `fenolite_library/footprints` and `fenolite_library/devices` beside the script as project records with c0259's `load_tree`, importing no module. For each id, authored records SHALL win over vendored ones (`library.overrides-item`, info), and vendored over the shipped catalog. One id in two vendored items MUST give `library.item-conflict` (error) naming both folders.
+
+#### Scenario: Authored record wins
+- **GIVEN** the vendored device `Demo:EXB` and a project device in `devices/` with the same id
+- **WHEN** a design using it is built
+- **THEN** the project device is used and `issues` holds `library.overrides-item`
+
+#### Scenario: Two vendored items, one id
+- **GIVEN** two vendored device folders that both hold the record `Shop:X`, and a design using `Shop:X`
+- **WHEN** it is built
+- **THEN** the build reports `library.item-conflict` naming both folders and writes nothing
+
+#### Scenario: Unused vendored item changes nothing
+- **GIVEN** a design using only shipped devices, built once without and once with a vendored `Demo:EXB`
+- **WHEN** both output trees are compared
+- **THEN** they are byte-identical
+
+### Requirement: Vendored records in checks and private tests
+Circuit checks and private block tests SHALL use the owning project's authored records before vendored records, with native reference files preserved. Private tests MUST leave source files and locks unchanged. Conflicting vendored identities MUST remain error findings in circuit checks. A golden plan MUST bind the device inputs used by its private build.
+
+#### Scenario: Vendored block uses a vendored device
+- **GIVEN** a block and its device items fetched from authored local releases, with an optional authored device override
+- **WHEN** its usage example and a plain test calling `instantiate` run
+- **THEN** both private builds resolve the device and the original project bytes are unchanged
+
+#### Scenario: Circuit check finds conflicting vendored data
+- **GIVEN** a built design whose device id now occurs in two vendored folders, with or without an authored override
+- **WHEN** `check --stages circuit.rules` runs
+- **THEN** it reports `library.item-conflict` and does not select a conflicting vendored device
+
+#### Scenario: Device edit after golden review
+- **GIVEN** a dry-run golden plan for a vendored block using an authored device override
+- **WHEN** the device record changes before confirmation
+- **THEN** confirmation gives `FEN-4002` and writes no golden
+
+### Requirement: Device builds stay offline
+No build, check, `capabilities` or `doctor` run SHALL open a network connection or read device data outside the project, the shipped catalog and, for hints only, the cached library index. An unknown id whose namespace is in the newest cached index SHALL get the hint `fenolite get device <id> --dry-run`.
+
+#### Scenario: Build with vendored records and no network
+- **GIVEN** `socket.socket.connect` patched to raise and a vendored `Demo:EXB`
+- **WHEN** a design using it is built
+- **THEN** it succeeds and no connection was attempted
+
+#### Scenario: Hint for a library id
+- **GIVEN** a cached library index holding `device` `Demo:OTHER` and a design naming `Demo:OTHER`, not vendored
+- **WHEN** the design is built
+- **THEN** it fails as an unknown device and the message names `fenolite get device Demo:OTHER --dry-run`
+
+### Requirement: Catalog lands numbered counter-clockwise
+Every shipped catalog package whose land has a perimeter numbering SHALL number its leads counter-clockwise in the top view (X right, Y down), and no shipped record SHALL waive `library.pin-order`. A single-row part whose body outline is asymmetric SHALL keep its pads and body in the orientation of its cited top view. Change c0385 mirrored 55 records about their X axis at version `1.1.0` and kept their pad numbers, sizes and kinds.
+
+#### Scenario: No clockwise catalog land
+- **WHEN** `uv run pytest tests/unit/library/test_rules.py -k shipped_catalog` checks every shipped package record
+- **THEN** no `library.pin-order` finding is reported and no record waives it
+
+#### Scenario: SOT-23 pad 1 at the upper left
+- **WHEN** `get_footprint("Fenolite:SOT23_3")` is read
+- **THEN** pad 1 is at (−1.05, −0.95) mm, pad 2 at (−1.05, +0.95) mm and pad 3 at (+1.05, 0) mm
+

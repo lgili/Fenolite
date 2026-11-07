@@ -101,6 +101,12 @@ class GeneratedLike(Protocol):
 
 
 class BandLike(GeneratedLike, Protocol):
+    """A band record. A role band (change c0243) may also carry ``group`` (the bands of one group are united
+    into one zone named after it; such a band widens neither into a rule area that forbids pours nor over a
+    zone of another net of at least its priority), ``connection`` (the zone's pad connection),
+    ``square_ends`` (no bevel at its two ends) and ``avoid`` (rings of its own net's copper it does not widen
+    over, such as a Kelvin branch); all are optional and read with ``getattr``."""
+
     @property
     def net(self) -> str: ...
     @property
@@ -143,6 +149,9 @@ class BodyLike(AreaLike, Protocol):
 
 
 class BarrierLike(AreaLike, Protocol):
+    """A barrier record. A role barrier (change c0243) may carry ``nets`` instead of a class: it is then
+    resolved after the bands and holds the zones of those nets too."""
+
     @property
     def netclass(self) -> str: ...
     @property
@@ -167,6 +176,9 @@ class FanoutLike(GeneratedLike, Protocol):
 
 
 class StitchPiecesLike(GeneratedLike, Protocol):
+    """A stitching record. A via array of the role copper (change c0243) may carry ``patch`` (a ring the
+    vias stay inside) and ``avoid`` (rings they stay out of)."""
+
     @property
     def net(self) -> str: ...
     @property
@@ -417,8 +429,15 @@ def _pad_shapes(pad: BoardPad, layers: Collection[str] | None) -> list[tuple[str
     return found
 
 
-def _item_shapes(design: Design, nets: Collection[str] | None, *, exclude: str | None = None) -> list[Thick]:
-    """The tracks, arcs and vias of ``nets`` (of every net but ``exclude`` when ``nets`` is ``None``)."""
+def _item_shapes(
+    design: Design,
+    nets: Collection[str] | None,
+    *,
+    exclude: str | None = None,
+    layers: Collection[str] | None = None,
+) -> list[Thick]:
+    """The tracks, arcs and vias of ``nets`` (of every net but ``exclude`` when ``nets`` is ``None``); with
+    ``layers``, only the tracks and arcs on those layers (a via spans them)."""
     board = design.board
     assert board is not None
     names = {net.id: net.name for net in design.circuit.nets}
@@ -429,10 +448,10 @@ def _item_shapes(design: Design, nets: Collection[str] | None, *, exclude: str |
 
     found: list[Thick] = []
     for track in board.tracks:
-        if chosen(track.net_id):
+        if chosen(track.net_id) and (layers is None or track.layer in layers):
             found.append(Thick((track.start, track.end), track.width))
     for arc in board.arcs:
-        if chosen(arc.net_id):
+        if chosen(arc.net_id) and (layers is None or arc.layer in layers):
             try:
                 core = tuple(GeoArc(arc.start, arc.mid, arc.end).polygonize(DEFAULT_TOL))
             except (GeometryError, ValueError):
@@ -551,12 +570,39 @@ def _band(ctx: _Board, intent: BandLike, outline: BoardOutline) -> tuple[list[Zo
             obstacles += [
                 shape for layer, shape in _pad_shapes(pad, layers) if layer in layers or layer is None
             ]
-    obstacles += _item_shapes(ctx.design, None, exclude=net.name)
+    # c0224's band reads the tracks of every layer; a role band (change c0243) those of its own layers
+    on_layers = layers if _group(intent) is not None else None
+    obstacles += _item_shapes(ctx.design, None, exclude=net.name, layers=on_layers)
     index = SpatialIndex[Thick].build((thick_bbox(shape).inflate(clearance), shape) for shape in obstacles)
+    walls: list[Thick] = []
+    if _group(intent) is not None:
+        # a role band (change c0243) also stays out of the rule areas that forbid pours on its layers and off
+        # the zones of other nets of at least its priority, the role zones resolved before it included
+        board = ctx.current().board
+        assert board is not None
+        for area in board.keepouts:
+            on_layer = not area.layers or layers & set(area.layers)
+            if area.no_copper_pour and len(area.outline) >= 3 and on_layer:
+                walls.append(Thick(tuple(area.outline), 0, filled=True))
+        for other in board.zones:
+            if (
+                other.net_id != net.id
+                and other.priority >= intent.priority
+                and len(other.outline) >= 3
+                and layers & set(other.layers)
+            ):
+                walls.append(Thick(tuple(other.outline), max(0, 2 * clearance - 2), filled=True))
+        avoid = cast("Sequence[Sequence[Point]]", getattr(intent, "avoid", ()) or ())
+        # grown by the clearance less a nanometre: copper exactly the clearance away keeps it
+        grown = max(0, 2 * clearance - 2)
+        walls += [Thick(tuple(ring), grown, filled=True) for ring in avoid if len(ring) >= 3]
+    fence = SpatialIndex[Thick].build((thick_bbox(shape), shape) for shape in walls)
 
     def clear(ring: Sequence[Point]) -> bool:
         shape = Thick(tuple(ring), 0, filled=True)
         box = thick_bbox(shape)
+        if any(thick_closer_than(shape, other, 1) for other in fence.query(box)):
+            return False
         return not any(thick_closer_than(shape, other, clearance) for other in index.query(box))
 
     half, step = intent.width // 2, intent.step
@@ -628,7 +674,10 @@ def _band(ctx: _Board, intent: BandLike, outline: BoardOutline) -> tuple[list[Zo
                 else:
                     second.caps[side][0] = start - 1
                 changed = True
-    ring = _simplified([*_walk(runs, 1, half, offset), *reversed(_walk(runs, -1, half, offset))])
+    square = bool(getattr(intent, "square_ends", False))
+    ring = _simplified(
+        [*_walk(runs, 1, half, offset, square), *reversed(_walk(runs, -1, half, offset, square))]
+    )
     try:
         simple = Polygon(ring).is_simple()
     except (GeometryError, ValueError):
@@ -651,24 +700,96 @@ def _band(ctx: _Board, intent: BandLike, outline: BoardOutline) -> tuple[list[Zo
                 "move the spine away from the copper of other nets or narrow the band",
             )
         )
+    if _group(intent) is not None:
+        return [_zone(intent, key, ring, net, clearance)], found
     ctx.take("zone", key, key)
-    zone = Zone(
-        id=derived_id("zon", DSL, f"zone:{key}"),
-        outline=ring,
-        name=key,
+    return [_zone(intent, key, ring, net, clearance)], found
+
+
+def _group(intent: GeneratedLike) -> str | None:
+    """The ``group`` of a band record (an optional attribute, change c0243), or ``None``."""
+    found = getattr(intent, "group", None)
+    return found if isinstance(found, str) and found else None
+
+
+def _zone(intent: BandLike, name: str, ring: Sequence[Point], net: Net, clearance: int) -> Zone:
+    """The locked zone ``name`` of a band's outline; a role band may carry its pad ``connection``."""
+    connection = getattr(intent, "connection", None)
+    settings = ZoneSettings(clearance=clearance)
+    if connection in ("solid", "thermal", "thru_hole_only", "none"):
+        settings = dataclasses.replace(settings, connection=connection)
+    return Zone(
+        id=derived_id("zon", DSL, f"zone:{name}"),
+        outline=tuple(ring),
+        name=name,
         layers=intent.layers,
         net_id=net.id,
         priority=intent.priority,
-        settings=ZoneSettings(clearance=clearance),
+        settings=settings,
         locked=True,
     )
-    return [zone], found
 
 
-def _walk(runs: Sequence[_Run], side: int, half: int, offset: Callable[[int], int]) -> list[Point]:
+def _united(
+    ctx: _Board, members: Sequence[BandLike], outline: BoardOutline
+) -> tuple[list[Zone], list[Issue]]:
+    """The bands of one ``group`` resolved one by one and united into one locked zone named after the group
+    (change c0243, decision 3): a single band needs no union; several need the Clipper union of the ``geo``
+    extra (``kicad.generate.unknown`` without it). A band with an error is left out and adds its issue; a
+    union in several pieces gives ``<group>``, ``<group>.1``, …; a hole of the union is filled, since a zone
+    of the model has one outline and the fill keeps the clearance from what the hole holds."""
+    group = _group(members[0])
+    assert group is not None
+    found: list[Issue] = []
+    resolved: list[tuple[BandLike, Zone]] = []
+    for intent in members:
+        try:
+            zones, warned = _band(ctx, intent, outline)
+        except _Refused as refused:
+            found.append(refused.issue)
+            continue
+        except GeometryError as error:
+            found.append(issue("kicad.generate.unknown", f"{intent.key}: {error}", intent.key))
+            continue
+        found += warned
+        resolved += [(intent, zone) for zone in zones]
+    if not resolved:
+        return [], found
+    first, zone = resolved[0]
+    if len(resolved) == 1:
+        rings: list[tuple[Point, ...]] = [tuple(zone.outline)]
+    else:
+        from fenolite.geometry.boolean import select_backend
+        from fenolite.geometry.errors import BackendUnavailable
+
+        try:
+            backend = select_backend(operation="union")
+        except BackendUnavailable:
+            raise _Refused(
+                "kicad.generate.unknown",
+                f"{group}: uniting {len(resolved)} bands into one zone needs the union of the geo extra",
+                group,
+                "install the geo extra (pip install fenolite[geo])",
+            ) from None
+        united = backend.union([Polygon(item.outline) for _, item in resolved])
+        rings = [_simplified(polygon.outer) for polygon in united]
+    made: list[Zone] = []
+    net = ctx.nets[first.net]
+    for number, ring in enumerate(rings):
+        name = group if number == 0 else f"{group}.{number}"
+        ctx.take("zone", name, group)
+        made.append(_zone(first, name, ring, net, zone.settings.clearance))
+    return made, found
+
+
+def _walk(
+    runs: Sequence[_Run], side: int, half: int, offset: Callable[[int], int], square: bool = False
+) -> list[Point]:
     """The edge of a band on ``side`` of its spine, from the start to the end: each run's profile, a
-    single point on the inside of a turn, a bevelled corner on the outside, and bevelled ends."""
+    single point on the inside of a turn, a bevelled corner on the outside, and bevelled ends (square ends
+    for a role band that asks for them, change c0243: its ends meet the other bands of its group)."""
     bevel = half // 2
+    end_bevel = 0 if square else bevel
     points: list[Point] = []
     last = len(runs) - 1
     for number, run in enumerate(runs):
@@ -676,7 +797,7 @@ def _walk(runs: Sequence[_Run], side: int, half: int, offset: Callable[[int], in
         cut_start, cut_end = -1, run.length
         if number == 0:
             o = profile[0][1]
-            cap = min(bevel, run.lengths[0])
+            cap = min(end_bevel, run.lengths[0])
             points += [run.at(0, side * (o - cap)), run.at(cap, side * o)]
             cut_start = cap
         elif _inner(runs[number - 1], run, side):
@@ -685,11 +806,11 @@ def _walk(runs: Sequence[_Run], side: int, half: int, offset: Callable[[int], in
         if following is not None and _inner(run, following, side):
             cut_end = run.length - offset(following.levels[side][0])
         elif following is None:
-            cut_end = run.length - min(bevel, run.lengths[-1])
+            cut_end = run.length - min(end_bevel, run.lengths[-1])
         points += [run.at(t, side * o) for t, o in profile if cut_start < t < cut_end]
         o_end = profile[-1][1]
         if following is None:
-            cap = min(bevel, run.lengths[-1])
+            cap = min(end_bevel, run.lengths[-1])
             points += [run.at(run.length - cap, side * o_end), run.at(run.length, side * (o_end - cap))]
         elif _inner(run, following, side):
             points.append(run.at(cut_end, side * o_end))
@@ -753,17 +874,38 @@ def _body(ctx: _Board, intent: BodyLike) -> list[Keepout]:
     return [ctx.area(intent, key, _hull(points))]
 
 
+def _nets(intent: GeneratedLike) -> tuple[str, ...]:
+    """The ``nets`` of a barrier record over a net set (an optional attribute, change c0243), or ``()``."""
+    found = cast(object, getattr(intent, "nets", ()))
+    return tuple(cast("Sequence[str]", found)) if isinstance(found, (tuple, list)) else ()
+
+
 def _barrier(ctx: _Board, intent: BarrierLike) -> tuple[list[Keepout], list[Issue]]:
     key, netclass, pieces = intent.key, intent.netclass, intent.pieces
-    cls = next((item for item in ctx.classes.values() if item.name == netclass), None)
-    if cls is None:
-        raise _Refused("kicad.generate.unknown", f"{key}: {netclass!r} is not a net class of the design", key)
-    members = {net.name for net in ctx.nets.values() if net.netclass_id == cls.id}
+    named = _nets(intent)
+    if named:
+        members = {ctx.net(name, key).name for name in named}
+        netclass = "of " + ", ".join(sorted(members))
+    else:
+        cls = next((item for item in ctx.classes.values() if item.name == netclass), None)
+        if cls is None:
+            raise _Refused(
+                "kicad.generate.unknown", f"{key}: {netclass!r} is not a net class of the design", key
+            )
+        members = {net.name for net in ctx.nets.values() if net.netclass_id == cls.id}
     shapes: list[Thick] = []
     for pad in ctx.pads:
         if pad.net in members and ctx.placed(pad):
             shapes += [shape for layer, shape in _pad_shapes(pad, None) if layer is not None]
     shapes += _item_shapes(ctx.design, members)
+    if named:
+        # a barrier over a net set holds the zones of its nets too, the bands resolved before it included
+        board = ctx.current().board
+        assert board is not None
+        ids = {ctx.nets[name].id for name in members}
+        for zone in board.zones:
+            if zone.net_id in ids and len(zone.outline) >= 3:
+                shapes.append(Thick(tuple(zone.outline), 0, filled=True))
     if not shapes:
         raise _Refused(
             "kicad.generate.unknown", f"{key}: the class {netclass} holds no copper on the board", key
@@ -1015,20 +1157,41 @@ def _stitch(
                 return False
         return True
 
+    patch, avoid = _patch(intent)
+
+    def allowed(point: Point) -> bool:
+        """Inside the patch and outside each ring to avoid, by half the reach (change c0243)."""
+        if patch is not None and not _inside(point, patch, reach):
+            return False
+        for ring in avoid:
+            if point_in_ring(point, ring) is not Location.OUTSIDE:
+                return False
+            edges = zip(ring, (*ring[1:], ring[0]), strict=True)
+            if any(4 * dist2_point_segment(point, a, b) < reach * reach for a, b in edges):
+                return False
+        return True
+
     candidates: dict[Point, str] = {}
     for _, ring_a, ring_b in overlaps:
         box = BBox.of_points(ring_a)
         other = BBox.of_points(ring_b)
         x0, y0 = max(box.x0, other.x0), max(box.y0, other.y0)
         x1, y1 = min(box.x1, other.x1), min(box.y1, other.y1)
-        for j in range(-(-y0 // pitch), y1 // pitch + 1):
-            for i in range(-(-x0 // pitch), x1 // pitch + 1):
-                point = Point(i * pitch, j * pitch)
+        ox, oy = 0, 0
+        if patch is not None:
+            held = BBox.of_points(patch)
+            x0, y0, x1, y1 = max(x0, held.x0), max(y0, held.y0), min(x1, held.x1), min(y1, held.y1)
+            # a patch aligns the grid on its own corner, so a patch sized for its vias holds them all
+            ox, oy = held.x0 + (reach + 1) // 2, held.y0 + (reach + 1) // 2
+        for j in range(-(-(y0 - oy) // pitch), (y1 - oy) // pitch + 1):
+            for i in range(-(-(x0 - ox) // pitch), (x1 - ox) // pitch + 1):
+                point = Point(ox + i * pitch, oy + j * pitch)
                 if (
                     point not in candidates
                     and _inside(point, ring_a, reach)
                     and _inside(point, ring_b, reach)
                     and free(point)
+                    and allowed(point)
                 ):
                     candidates[point] = f"via[{i},{j}]"
     ordered = sorted(candidates.items(), key=lambda item: (item[0].y, item[0].x))
@@ -1045,20 +1208,46 @@ def _stitch(
         edge_floor=edge_floor,
     )
     found: list[Issue] = []
+    within = " within the patch" if patch is not None else ""
     for label, ring_a, ring_b in overlaps:
         count = sum(
-            1 for via in kept if _inside(via.position, ring_a, reach) and _inside(via.position, ring_b, reach)
+            1
+            for via in kept
+            if _inside(via.position, ring_a, reach)
+            and _inside(via.position, ring_b, reach)
+            and (patch is None or _inside(via.position, patch, reach))
         )
+        if patch is not None and not _overlaps(patch, ring_a, ring_b):
+            continue
         if count < intent.min_vias:
             found.append(
                 issue(
                     "kicad.generate.stitch-short",
-                    f"{key}: the overlap {label} holds {count} via(s), fewer than {intent.min_vias}",
+                    f"{key}: the overlap {label}{within} holds {count} via(s), fewer than {intent.min_vias}",
                     key,
                     "reduce the pitch, the margin or the via size, or enlarge the overlap",
                 )
             )
     return list(kept), found
+
+
+def _patch(intent: StitchPiecesLike) -> tuple[tuple[Point, ...] | None, tuple[tuple[Point, ...], ...]]:
+    """The optional ``patch`` ring of a stitching record and the rings it must ``avoid`` (change c0243,
+    decision 6: a via array at a layer change, away from the pads of a hot loop)."""
+    patch = cast("Sequence[Point] | None", getattr(intent, "patch", None))
+    avoid = cast("Sequence[Sequence[Point]]", getattr(intent, "avoid", ()) or ())
+    ring = tuple(patch) if patch is not None and len(patch) >= 3 else None
+    return ring, tuple(tuple(found) for found in avoid if len(found) >= 3)
+
+
+def _overlaps(patch: Sequence[Point], ring_a: Sequence[Point], ring_b: Sequence[Point]) -> bool:
+    try:
+        held = Polygon(tuple(patch))
+        return polygons_intersect(held, Polygon(tuple(ring_a))) and polygons_intersect(
+            held, Polygon(tuple(ring_b))
+        )
+    except (GeometryError, ValueError):
+        return False
 
 
 # --- resolution -----------------------------------------------------------------------------------------
@@ -1099,7 +1288,19 @@ def resolve_generated(
     ring = outline if outline is not None else board_outline(design)
     edge = edge_clearance_in_force(design, edge_floor)
     order = {call: index for index, call in enumerate(CALLS)}
-    for intent in sorted(intents, key=lambda item: (order.get(item.call, len(order)), item.key)):
+
+    def rank(item: GeneratedLike) -> tuple[int, int, str]:
+        # change c0243: a barrier over a net set is resolved after the bands, so its envelope holds them; the
+        # bands of a group by falling priority, so a band widens around the zones of higher priority
+        if item.call == "barrier" and _nets(item):
+            return (order["band"], 1, item.key)
+        if item.call == "band" and _group(item) is not None:
+            return (order["band"], -cast(BandLike, item).priority, item.key)
+        return (order.get(item.call, len(order)), 0, item.key)
+
+    ordered = sorted(intents, key=rank)
+    united: set[str] = set()
+    for intent in ordered:
         try:
             if intent.call == "keepout_ring":
                 ctx.keepouts += _ring(ctx, cast(RingLike, intent))
@@ -1108,6 +1309,15 @@ def resolve_generated(
             elif intent.call == "barrier":
                 areas, warned = _barrier(ctx, cast(BarrierLike, intent))
                 ctx.keepouts += areas
+                found += warned
+            elif intent.call == "band" and _group(intent) is not None:
+                group = _group(intent)
+                if group in united:
+                    continue
+                united.add(cast(str, group))
+                members = [cast(BandLike, item) for item in ordered if _group(item) == group]
+                zones, warned = _united(ctx, members, ring)
+                ctx.zones += zones
                 found += warned
             elif intent.call == "band":
                 zones, warned = _band(ctx, cast(BandLike, intent), ring)

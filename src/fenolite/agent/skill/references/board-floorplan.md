@@ -1,7 +1,7 @@
 ---
 topic: board-floorplan
 title: Floorplan and placement practice
-summary: Mechanical constraints first, regions by domain and function, a power flow in one direction, the loop parts first, decoupling at the pin, and reference blocks.
+summary: Mechanical constraints first, regions by domain and function, one-way power flow, loop parts first, decoupling at the pin, reference blocks, placement in code.
 ---
 
 # Floorplan and placement practice
@@ -133,6 +133,47 @@ fenolite place board --turn U1,C1,C2 --about 20mm,20mm --angle 90 --dry-run --js
 ```
 - **Show the owner an overlay** of the proposal on the reference before routing, when the owner judges
   the layout against a physical sample.
+
+## 7. Placement in code
+
+Write the relation, not the coordinate: a part placed by reference follows when its reference moves.
+
+```fenolite-design
+from fenolite.dsl import Design, Net, block, column, connect, grid, mm, pack, row
+
+design = Design("floor")
+board = design.board(mm(60), mm(40))
+
+
+@block
+def bank(b, *, n=3):
+    vin = b.port("VIN")
+    for i in range(n):
+        connect(vin, b.part(f"C{i}", "Fenolite:Capacitor", footprint="Fenolite:Chip_0603", value="1u")[1])
+    b.layout(row(gap=mm(1)))  # the block's default
+
+
+u1 = design.part("U1", "Fenolite:Capacitor", footprint="Fenolite:Chip_1206", value="10u")
+c1 = design.part("C1", "Fenolite:Capacitor", footprint="Fenolite:Chip_0603", value="100n")
+vin = Net("VIN")
+connect(vin, u1[1], c1[1])
+u1.place(mm(10), mm(10), locked=True)
+c1.place(right_of=u1.pad(2), gap=mm(1), by=c1.pad(1))  # pad 1 of C1 next to pad 2 of U1
+for name, layout, x in (("a", None, 5), ("b", column(), 25), ("c", grid(2), 35), ("d", pack(mm(6)), 45)):
+    inst = design.use(bank, name, n=4)
+    connect(vin, inst.VIN)
+    if layout is not None:
+        inst.layout(layout)  # wins over the block's row
+    inst.place(left=board.left + mm(x), top=mm(20))  # the whole block moves as one piece
+```
+
+- **Relations:** `right_of`, `left_of`, `above` and `below` with `gap` and `align`; edge keys such as
+  `left=board.left + mm(2)`; `by=part.pad(n)` measures a part by its own pad.
+- **Blocks:** `inst.place(...)` poses a block instance; `b.layout(...)` or `inst.layout(...)` arranges
+  its unplaced parts by `row`, `column`, `grid` or `pack`, or takes the layout and copper of a proven
+  board with `layout(reuse="ref.kicad_pcb", copper=True)`: parts by path, nets by port.
+- **Who wins:** a locked `place()`, then the board, then `edits.toml`, then `place()`, then the frame's
+  `layout()`, then staging. A part moved in KiCad stays; its followers follow it.
 
 ## Looking
 

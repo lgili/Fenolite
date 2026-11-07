@@ -2,9 +2,7 @@
 
 ## Purpose
 Map what the Altium readers return onto the design model: units and frame, identifiers and provenance, layers, nets, footprints, padstacks, copper, zones, outline, the circuit of a schematic with its hierarchy, buses and harnesses, rules and libraries. It defines the registered Altium backend, the import issue codes, the count of unmapped records and the oracles that judge the result.
-
 ## Requirements
-
 ### Requirement: Adapter package
 Fenolite SHALL provide the adapter from the Altium readers' records into the neutral model as the package `fenolite.backends.altium.adapter`.
 - It MUST export `import_board(doc, *, file, sha256, issues=None) -> Design`, `import_circuit(sheets, *, options=NetOptions(), issues=None) -> Circuit`, `import_project(project: ProjectInput, *, issues=None) -> Design`, `import_footprints(library, *, name, file, sha256, issues=None) -> Library`, `import_symbols(library, *, name, file, sha256, issues=None) -> Library`, `netlist(sheets, *, options=NetOptions(), issues=None) -> Netlist`, the dataclasses `SheetInput`, `BoardInput`, `RulesInput`, `ProjectInput`, `NetOptions`, `Netlist`, `NetGroup`, `BusGroup`, `HarnessGroup` and `PinKey`, the tables `LAYERS`, `PIN_TYPES`, `EXT_KEYS` and `IMPORT_ISSUE_CODES`, and `EVIDENCE`.
@@ -890,3 +888,126 @@ When the current footprint model of a schematic component carries a pin map, the
 #### Scenario: An authored document without models
 - **WHEN** `uv run pytest tests/unit/backends/altium/test_models3d.py` reads `tests/data/altium/body2/body2.PcbDoc`
 - **THEN** `body_models` returns an empty tuple and raises nothing
+
+### Requirement: Board cut-outs and free holes of a document
+The import SHALL give a region whose keys make a board cut-out as `Edge.Cuts` graphics of width 0 (a polygon, or lines and arcs from shape-based vertices), so `board_outline` takes it as a cut-out. A free pad on Multi-Layer without name, net or copper ring SHALL become a board `Hole` with its drill, plating, slot length and rotation; every other free pad stays a board-only footprint.
+
+#### Scenario: Written fixture read back
+- **GIVEN** the shared fixture built for Altium with `pcbdoc.CUTOUT_REGIONS` true in the test
+- **WHEN** `uv run pytest tests/unit/backends/altium/adapter/test_free_holes.py` imports the document
+- **THEN** `Board.holes` holds the round hole `H1`, `edge_outline` gives the three cut-out rings within 1 µm, and no board-only footprint is made for them
+
+### Requirement: A pin stays on the net of the sheets
+The Altium import SHALL keep a pin on the net of the sheets only, when the PCB document puts its pad on a
+net that no sheet holds; the pad SHALL keep its own net on the board, the import SHALL report
+`altium.import.pcb-net-conflict` (warning) naming each such pin with both net names, and no pin SHALL be
+a member of two nets of the circuit.
+
+#### Scenario: A board out of sync with its schematic
+- **WHEN** a pad's PCB net `SHIELD` is no net of the sheets and its pin is on the sheets' net `Vin`
+- **THEN** the circuit's `SHIELD` net does not list the pin, the board pad keeps `SHIELD`
+- **AND** `altium.import.pcb-net-conflict` names the pin with `Vin` and `SHIELD`
+
+### Requirement: Copper fills and regions of a net
+The Altium reader SHALL import a free fill or region on a copper layer as a filled graphic whose `net_id`
+is the net of its record (none for a record without a net), keeping the net's name in the extension bag. A
+KiCad conversion SHALL write such a graphic on its net, and the copper check SHALL judge it as copper of
+that net. A fill or region off copper SHALL have no net.
+
+#### Scenario: A region and a fill on the net of a pad
+- **WHEN** an Altium document holds a region and a fill on a copper layer of net `GND`
+- **THEN** both graphics carry the id of `GND` as `net_id`
+- **AND** the converted KiCad board writes them with `(net "GND")` and verifies without unexplained differences
+
+### Requirement: Outline arcs end on their vertices
+The Altium reader SHALL take an arc vertex k of the board outline as the arc from vertex k to vertex k+1.
+When both ends computed from the arc's centre, radius and angles lie within 10 µm of those two vertices,
+the arc's graphic MUST start and end exactly on the two vertices, its middle point coming from the centre
+and the angles; otherwise it MUST keep its computed ends. The fact is recorded with its evidence in
+`docs/formats/altium/pcb-document.md` ("Outline arcs").
+
+#### Scenario: An arc whose end vertex lies off its circle
+- **WHEN** a board outline holds an arc of 100 mil whose end vertex lies 0.2 mil off the arc's circle
+- **THEN** the arc graphic ends on that vertex, where the next line starts
+- **AND** the edge ring of the source equals the edge ring KiCad reads back from the written board
+
+#### Scenario: An arc far from its vertices
+- **WHEN** an arc's computed end lies more than 10 µm from its vertex
+- **THEN** the arc keeps the ends of its centre, radius and angles
+
+### Requirement: Unmeasured body records stay declared
+The Altium import SHALL give a component body known heights only when its projection side, model type and
+heights match a case that public files or a saved kit file prove. Every other body SHALL be kept with
+unknown heights and an `altium.import.body-unknown` warning that names its reasons.
+
+#### Scenario: A body projected from the other side
+- **WHEN** a top component holds a body whose `BODYPROJECTION` is 1 and no saved kit file measures that case
+- **THEN** the body is kept with unknown heights and the import warns `altium.import.body-unknown`
+
+#### Scenario: A measured case
+- **WHEN** a saved kit file proves the meaning of a body record that was unknown
+- **THEN** the import gives such bodies their heights and the fact is recorded with its source and label
+
+### Requirement: Keep-outs and polygon cut-outs on copper are rule areas
+The Altium board import SHALL make a rule area, never copper, of a polygon cut-out (a region of `KIND=1`) and of a track, arc, fill or region on a copper layer whose second flag byte is 2 (a keep-out), whether the primitive is free or belongs to a component.
+
+- A polygon cut-out MUST forbid poured copper alone. It is on its copper layer, or on every copper layer of
+  the board when it lies on the Keep-Out or the Multi-Layer layer.
+- A keep-out track or arc MUST give the band its width covers, with round ends. A full circle gives two half
+  bands.
+- A keep-out fill or region MUST give its outline.
+- Each keep-out is on its own layer. A region keeps the restrictions it holds (`KEEPOUTRESTRICTIONS`, else
+  `KEEPOUTRESTRIC`); a track, arc or fill takes every restriction.
+- A keep-out of a component becomes a rule area of the board, in the board's frame.
+- Drawings on the Keep-Out layer stay graphics of `Altium.KeepOut`.
+
+#### Scenario: A polygon cut-out on Top
+- **GIVEN** an authored document with a region of `KIND=1` on Top without a net
+- **WHEN** it is imported
+- **THEN** the board holds no copper graphic for it and one rule area on `F.Cu` that forbids pours alone,
+  as KiCad 10.0.6's `pcb import` makes of the same document
+
+#### Scenario: A keep-out track on Top
+- **GIVEN** the same document with a 0.5 mm track on Top whose keep-out flag is set
+- **WHEN** it is imported
+- **THEN** the board holds no track for it and one rule area on `F.Cu`: the band of 0.5 mm along the
+  track, with every restriction
+
+#### Scenario: Polygon cut-outs of a public document
+- **GIVEN** the public row `altium-third-party-pcbdoc-06`, with thirteen regions of `KIND=1` on Top,
+  Bottom and Multi-Layer
+- **WHEN** it is imported
+- **THEN** the board holds thirteen pour-only rule areas and no graphic of layer 74
+
+### Requirement: Keep-outs of a library footprint give no copper
+The Altium library import SHALL make no graphic of a keep-out track, arc, fill or region on a copper layer of a library footprint, nor of a polygon cut-out on a copper, the Keep-Out or the Multi-Layer layer. Each MUST be counted under the census category `footprint-keepouts`, and the hint of `altium.import.unmapped` MUST name change c0411, which gives footprint definitions rule areas.
+
+#### Scenario: An authored library with keep-outs
+- **GIVEN** a PcbLib footprint with a keep-out track on Top, a polygon cut-out on Top, a keep-out region on
+  Bottom, and a flagged and a plain track on the Keep-Out layer
+- **WHEN** it is imported
+- **THEN** the footprint holds no copper graphic, its two Keep-Out layer tracks stay `Altium.KeepOut`
+  graphics, and `altium.import.unmapped` names `footprint-keepouts 3` with a hint that names c0411
+
+### Requirement: Keep-outs of a footprint are its rule areas
+The Altium import SHALL make rule areas of a footprint, never copper and never a loss, of the keep-outs of a library footprint or of a component: keep-out tracks and arcs as bands, keep-out fills and regions as their outlines, and polygon cut-outs as pour-only areas, with the layers and restrictions of the board import.
+
+#### Scenario: The authored library against `fp upgrade`
+- **GIVEN** the authored PcbLib of change c0410
+- **WHEN** it is imported by Fenolite and written as a KiCad footprint, and also upgraded by `kicad-cli fp
+  upgrade` 10.0.6
+- **THEN** both footprints hold the same rule areas: layers, restrictions, boxes within 10 µm and areas
+  within 1 %
+
+### Requirement: Rule records the writer cannot rebuild are kept
+`import_board` SHALL keep, on the board, every rule record that gives no rule which `rulemap.lower` writes again in its own form, so that an Altium write of the imported design writes the record back.
+- A kept record MUST be a `kept_rule` pair of the board's `altium` bag. Its text MUST be the record's kind number, `|`, and its keys from `RULEKIND` on as `KEY=VALUE` joined by `|`. The pairs MUST be in record order.
+- A record is kept when it gives no neutral rule (any reason, `disabled` included), when its kind is not a kind of `rulemap.KIND_ORDER`, or when it is a Hole To Hole Clearance with `ALLOWSTACKEDMICROVIAS=TRUE`.
+- Polygon Connect Style records MUST NOT be kept twice: the board keeps them as `polygon_connect`.
+- A rule mapped from a kept record MUST hold the pair `kept_record` with the value `1` in its bag. `rulemap.lower` MUST leave such a rule out without an issue.
+
+#### Scenario: A disabled rule and a routing topology are kept
+- **GIVEN** an authored PCB document whose rules hold an enabled clearance, a disabled width and a Routing Topology record
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_kept_rules.py` imports it
+- **THEN** `design.rules` holds the clearance alone, and the board holds two `kept_rule` pairs, the width's then the topology's
+

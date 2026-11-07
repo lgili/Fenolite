@@ -48,3 +48,44 @@ These are decisions of the code, not facts about KiCad.
   check of its own for malformed courtyards; Fenolite does not claim to match it.
 - Script copper gets version-8 uuids with the marker `66656e6f-6c69` in the first 48 bits, so a rebuild
   can tell it from copper drawn in KiCad.
+
+### Explicit anchor contact controls (c0340)
+
+ORACLE-VERIFIED(kicad-cli10.0.6), S-1208: on original CC0 rectangular and
+circular anchors of1mm, an other-net routed probe strictly inside the anchor
+and outside an added contained radius0.1mm primitive reports native shorting
+contact for ordinary and custom pads. Outside-anchor controls report no such
+contact. All source bytes are unchanged. This supports using only an explicit
+anchor as a conservative contact subset; it does not approximate extra
+primitive copper or certify DRC safety. Actual input/driver/report digests and
+counts are in docs/evidence/project-custom-anchor-proof.json.
+
+### Turned and custom parent contact controls (c0413)
+
+ORACLE-VERIFIED(kicad-cli9.0.9, kicad-cli10.0.6), S-1740: eight authored CC0
+cases (`tests/kicad/board/test_rotated_custom_parent_oracle.py`, run locally on
+2026-11-05 on the pinned 9.0.9 image and the macOS 10.0.6 `kicad-cli`) report
+native `shorting_items` exactly where `derived_teardrops` predicts contact. A
+4 × 0.4 mm rectangle at 30° shorts a probe inside its turned body and not one
+inside only its unturned body, so a pad's absolute angle turns its body
+counter-clockwise in the Y-down frame. A custom pad's 1 mm `gr_line` primitive
+is given in the pad frame: it turns with the pad at 30° and 90°, and its ends
+are round caps of half its width (a probe 0.3 mm past the end and 0.3 mm aside
+shorts; one 0.6 mm past does not). A custom pad with `(clearance convexhull)`
+keeps its rectangular anchor as copper. A probe track that touches only the
+target pad takes the target's net on load, as a via does (`H-K-VIA-RENET`), so
+each probe starts at a pad of its own net. Only the anchor and line, filled
+circle, polygon and rectangle primitives are used as a contact subset; arcs and
+the stroke beyond a filled shape are not approximated.
+
+### Shifted rectangle parent controls (c0340)
+
+ORACLE-VERIFIED(kicad-cli10.0.6), S-1208:16authored contact cases cover
+rect/roundrect, raw pad angles0/90/180/270 and both footprint sides. The
+through-hole pad's copper moves by its exact drill offset in the pad frame;
+the hole remains at pad.at. Other-net routes contacting the shifted body give
+native shorts; routes touching only the unshifted nominal body away from
+the hole do not. Inputs stay unchanged. This supports only exact whole-nm
+rectangle/roundrect parent translation, not a safety DRC pass. Other offset
+shapes/inexact values remain unqualified. Raw input/report/driver hashes are
+in docs/evidence/project-offset-parent-proof.json.

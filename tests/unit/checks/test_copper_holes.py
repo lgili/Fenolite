@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """Drilled holes against cut-outs, slots and other holes (capability copper-check, "Drilled holes against
-cut-outs and holes"; change c0169). Every board is authored here or is the shared slot fixture of change
-c0167 with items added."""
+cut-outs and holes"; change c0169), and against copper (``copper.hole-clearance``, change c0403). Every
+board is authored here or is the shared slot fixture of change c0167 with items added."""
 
 from __future__ import annotations
 
@@ -11,15 +11,16 @@ import math
 import runpy
 from pathlib import Path
 
-from _coppercheck import Copper, mm
+from _coppercheck import Copper, disc_entry, mm
 from _outlinehelp import build_script
 
 from fenolite import dsl
 from fenolite.backends.base import BoardPad, EdgeRing
 from fenolite.backends.kicad.backend import KicadBackend
-from fenolite.checks.copper import HOLE_IN_CUTOUT, HOLE_OVERLAP, check_copper
+from fenolite.checks.copper import HOLE_CLEARANCE, HOLE_IN_CUTOUT, HOLE_OVERLAP, check_copper
 from fenolite.core.coords import Point
 from fenolite.model.board import Hole
+from fenolite.model.rules import Selector
 
 SLOTS = Path(__file__).resolve().parents[2] / "data" / "slots"
 BOARD = EdgeRing("board", (Point(0, 0), Point(mm(50), 0), Point(mm(50), mm(30)), Point(0, mm(30))))
@@ -124,3 +125,109 @@ def test_hole_overlap_copies_and_touching() -> None:
     assert found == [("H1", "H2"), ("H2", "H3"), ("H5", "H6")]
     assert all(f.severity == "warning" for f in codes(report, HOLE_OVERLAP))
     assert report.summary["holes"] == 6 and report.summary["hole_overlap"] == 3
+
+
+# --- copper against holes (change c0403) -----------------------------------------------------------------
+
+CENTRE = Point(mm(10), mm(10))
+"""The centre of the 3 mm unplated hole of ``MH1``: its wall is 1.5 mm from it."""
+
+
+def _npth(made: Copper) -> None:
+    """The mounting hole ``MH1``: an unplated pad of no copper with a 3 mm drill at ``CENTRE``."""
+    made.pad("MH1", "", None, kind="np_thru_hole", layers=("*.Cu", "*.Mask"))
+    made.pads[-1] = dataclasses.replace(made.pads[-1], position=CENTRE, hole=(CENTRE,), drill=mm(3))
+
+
+def _track_at(made: Copper, gap: float, *, net: str = "SIG", width: float = 0.2) -> None:
+    """A track of ``net`` along x whose copper edge is ``gap`` mm above the hole wall of ``MH1``."""
+    y = mm(10 + 1.5 + gap + width / 2)
+    made.track(net, Point(mm(5), y), Point(mm(15), y), width=mm(width))
+
+
+def test_track_across_an_unplated_hole() -> None:
+    made = Copper()
+    _npth(made)
+    made.track("SIG", Point(mm(5), mm(10)), Point(mm(15), mm(10)))
+    report = check_copper(made.build(), pads=made.pads, min_hole_clearance=mm(0.25))
+    (found,) = codes(report, HOLE_CLEARANCE)
+    assert (found.severity, found.gap, found.clearance, found.source) == ("error", 0, mm(0.25), "floor")
+    assert [(item.kind, item.where) for item in found.items][1] == ("pad", "MH1")
+    assert found.items[0].kind == "track" and found.layer == "F.Cu"
+    assert "is 0 mm from the drill of pad MH1" in found.message
+    assert report.summary["hole_clearance"] == 1
+    assert check_copper(made.build(), pads=made.pads, min_hole_clearance=None).findings == ()
+
+
+def test_gap_to_the_hole_wall() -> None:
+    near, far = Copper(), Copper()
+    for made, gap in ((near, 0.1), (far, 0.3)):
+        _npth(made)
+        _track_at(made, gap)
+    (found,) = codes(check_copper(near.build(), pads=near.pads, min_hole_clearance=mm(0.25)), HOLE_CLEARANCE)
+    assert found.gap == mm(0.1) and found.at == Point(mm(10), mm(10.85))  # between the two cores
+    assert check_copper(far.build(), pads=far.pads, min_hole_clearance=mm(0.25)).findings == ()
+    assert check_copper(near.build(), pads=near.pads, min_hole_clearance=0).findings == ()
+
+
+def test_own_net_and_own_pad_are_left_out() -> None:
+    """A plated pad's hole: its own copper and copper of its net are not judged; a track of another net
+    across the pad is a short, which KiCad reports instead of a hole clearance (one violation a pair)."""
+    made = Copper()
+    lands = (disc_entry(mm(10), mm(10), mm(5)), disc_entry(mm(10), mm(10), mm(5), "B.Cu"))
+    made.pad("J1", "1", "GND", *lands, kind="thru_hole", layers=("*.Cu",))
+    made.pads[-1] = dataclasses.replace(made.pads[-1], hole=(CENTRE,), drill=mm(3))
+    made.track("GND", Point(mm(5), mm(10)), Point(mm(15), mm(10)))
+    report = check_copper(made.build(), pads=made.pads, min_hole_clearance=mm(0.25))
+    assert report.findings == ()
+    made.track("SIG", Point(mm(10), mm(5)), Point(mm(10), mm(15)), layer="B.Cu")
+    report = check_copper(made.build(), pads=made.pads, min_hole_clearance=mm(0.25))
+    (short,) = report.findings
+    assert short.code == "copper.short" and {item.where for item in short.items} >= {"J1-1"}
+
+
+def test_hole_clearance_rule_governs() -> None:
+    """A ``hole_clearance`` rule replaces the board minimum, below it too (``H-K-PRO-MIN-RULE-3``), and
+    one of severity ``ignore`` silences the pair."""
+    made = Copper()
+    _npth(made)
+    _track_at(made, 0.1)
+    made.rule("tight", mm(0.05), kind="hole_clearance")
+    assert check_copper(made.build(), pads=made.pads, min_hole_clearance=mm(0.25)).findings == ()
+    wide = Copper()
+    _npth(wide)
+    _track_at(wide, 0.3)
+    wide.rule("wide", mm(0.5), Selector("net", "SIG"), kind="hole_clearance", severity="warning")
+    (found,) = check_copper(wide.build(), pads=wide.pads, min_hole_clearance=mm(0.25)).findings
+    assert (found.code, found.severity, found.source) == (HOLE_CLEARANCE, "warning", "rule:wide")
+    quiet = Copper()
+    _npth(quiet)
+    _track_at(quiet, 0.1)
+    quiet.rule("quiet", mm(1), kind="hole_clearance", severity="ignore")
+    assert check_copper(quiet.build(), pads=quiet.pads, min_hole_clearance=mm(0.25)).findings == ()
+
+
+def test_via_drill_only_on_its_span() -> None:
+    made = Copper(layers=4)
+    made.via("V", CENTRE, diameter=mm(0.6), layers=("F.Cu", "In1.Cu"), via_type="blind")
+    made.track("SIG", Point(mm(5), mm(10)), Point(mm(15), mm(10)), layer="B.Cu")
+    report = check_copper(made.build(), pads=made.pads, min_hole_clearance=mm(0.25))
+    assert report.findings == ()  # B.Cu is below the blind via's span
+    made.track("SIG", Point(mm(5), mm(10.35)), Point(mm(15), mm(10.35)), width=mm(0.2), layer="In1.Cu")
+    report = check_copper(made.build(), pads=made.pads, min_hole_clearance=mm(0.25))
+    assert codes(report, HOLE_CLEARANCE) == []  # the track touches the via's copper: a short
+    assert [f.code for f in report.findings] == ["copper.short"]
+
+
+def test_hole_clearance_takes_the_tool_tolerance() -> None:
+    """Change c0420, N4: the hole clearance takes the tolerance the pair clearance takes (change c0281), so
+    a gap of the floor less 5 nm, the rounding an imported fill holds, is no finding with KiCad's 500 nm;
+    without a tolerance, and 501 nm below the floor, it is one."""
+    floor = mm(0.25)
+    for short, tolerance, expected in ((5, 500, 0), (500, 500, 0), (501, 500, 1), (5, 0, 1)):
+        made = Copper()
+        _npth(made)
+        y = mm(10) + mm(1.5) + floor - short + mm(0.1)
+        made.track("SIG", Point(mm(5), y), Point(mm(15), y), width=mm(0.2))
+        report = check_copper(made.build(), pads=made.pads, min_hole_clearance=floor, tolerance=tolerance)
+        assert len(codes(report, HOLE_CLEARANCE)) == expected, (short, tolerance)

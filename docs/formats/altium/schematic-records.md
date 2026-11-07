@@ -505,6 +505,15 @@ Record 22: a No ERC directive.
 | `SYMBOL` | text | "" | `symbol` | S-0130, S-0131 | INFERRED | H-A-RD-SCH-CASE |
 | `ORIENTATION` | quarter turns 0 to 3 | 0 | `orientation` | S-0130, S-0131 | INFERRED | H-A-RD-SCH-CASE |
 
+**ORACLE-VERIFIED(Altium Designer24.5.2.23 SDK)**, S-1293: two original authored
+active point-scoped NoERC records at unused U1-11/U1-12 remove exactly the corresponding
+two floating-input errors/two no-driver warnings. Complete40-pin/36-group connectivity
+and all native names remain unchanged; a separately broken connected bus still has
+40pins/40groups and14 errors. Both original forms compile cleanly and new-copy native
+binary save/reopen retains the two exact locations, active/suppression flags and symbol.
+No record-wide/default-field or global ERC-policy verification is inferred; the rows
+above and H-A-DRAWN-WRITE keep their existing evidence limits.
+
 ### 25 `NetLabel`
 
 Record 25: a net label; its location is the connection point.
@@ -935,3 +944,39 @@ character outside printable 7-bit ASCII is written as `%UTF8%TEXT` in UTF-8 and 
 page. For read circuits, printable characters outside Windows-1252 retain their UTF-8 twin and
 use `?` replacements in the plain fallback (c0160); script validation stays strict. Every other text
 stays printable 7-bit ASCII. A bus line holds `LINEWIDTH=2` and the colour of a wire.
+
+## Drawn-sheet writer (c0276)
+
+The drawn writer reuses the record forms above: component/pin records, wires 27, buses 26,
+junctions 29, labels 25, ports 18, power ports 17, sheet symbols/entries 15/16 with names/files 32/33,
+bus entries 37 and no-ERC directives 22 (S-0130, S-0131). Fractional coordinates use the existing
+1/100 000 ten-mil unit, exactly 127/50 nm. Off-grid source points refuse unless the caller accepts
+reported rounding. These implementation choices and their native-record readback remain **INFERRED**
+under `H-A-DRAWN-WRITE`; they are not an application compile or a native GUI save.
+
+The existing Automatic mode 0 selects the scope described by S-0185. When it selects Global, the
+writer qualifies local names shared by several sheet instances and reports every text change. It
+keeps unique local names and Hierarchical/Flat names. Repeated sheets become separate native files;
+this preserves the tested pin partition without claiming drawn text or hierarchy identity.
+
+Native component child geometry carries quarter turns and mirrors, with rectangle bounds ordered
+as the existing rectangle row requires. Component mirror metadata remains unverified. Field anchors,
+rotation, visibility and the documented parameter mirror flag are written; source justification is
+reported as unrepresented rather than assigned an undocumented parameter field. Power ports use
+native glyph/text placement; source power field poses and mirror metadata are reported as unsupported.
+Bus alias declarations and per-sheet source title metadata are not emitted as native metadata; each
+omission is reported. The written connectivity must still match code.
+
+Bus-only alias/group identifiers whose exact members form one contiguous
+canonical numeric range are written as native vectors (S-0301, **INFERRED**,
+`H-A-DRAWN-WRITE`). Matching labels, ports and sheet entries use the same
+expansion; every text change is reported. Scalar wire labels and existing
+vectors remain literal. Heterogeneous, gapped, empty or padded groups refuse
+before output rather than inventing a signal harness or dropping members.
+The [actual 22.2.1 observations](../../evidence/altium-drawn-native.md) retain
+the original invalid `{BUSA}` diagnostic and the independent native proof scope.
+
+The guard checks the actual document set, component units, shown logical pins, footprint maps and
+logical pin partition, including unconnected parts. It repeats after native templates. Opaque native
+text is limited to valid root graphics; unsupported or malformed native content cannot bypass the
+guard. The authored controls are `tests/unit/backends/altium/test_drawn_altium.py`.

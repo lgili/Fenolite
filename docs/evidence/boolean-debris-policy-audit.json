@@ -1,0 +1,83 @@
+{
+  "artifact_sha256": {
+    "audit-receipt.json": "c2dade23d11722586e5bad42dea813899035ecee8a0ce124b365ca3caa1dac25",
+    "audit_debris_policy.py": "d27557d95ae9a02094351e89405d7611bb419dff9f9ccf6e08b4a816395153c0",
+    "audit_quantization_contract.py": "1ac341f7ce2a73168f3d0253c053d18ce109f3d44b1e0045f66153dfaff6b8c0",
+    "capture_operator_context.py": "13ad86675b97144a42a84a02bb475782e0c9fb81d4913f940e5e53b8717e2a31",
+    "operator-context/context-receipt.json": "84b9f2a4e70d095d6b8d90c0ece24a12f8b7a755b57842426792cb5e4fe43380",
+    "policy-receipt.json": "2ae4dd5036fbb0408371c1e80caa4d0b2f13c612a07dc98285bb9bc4796ccf88",
+    "prove_full_reference.py": "1273679f8535b2b3f5744f150b12f9f40d5318d07665ae0aacbade87fd98f47f",
+    "rejected-realization.json": "045b31a875134554ae2716e205b1b74ceae6632325e24099189f8fa0221983e9",
+    "source-exact-loops.json": "bf003c784270e897362c00a477f0deb8826524c27b9fee1eb568a1675d14a404"
+  },
+  "audit_only": true,
+  "context": {
+    "all_188_operations_match_archive": true,
+    "debris_tolerance": 3175,
+    "mandatory_source_vertices": 3601,
+    "missing_original_postpolicy_vertices": 447,
+    "neck_width": 127000,
+    "restored_with_nonzero_turn": 447
+  },
+  "negative_controls": {
+    "frozen_hole_first_result": "candidate differs from unchanged piece-before-hole policy",
+    "shoelace_only_collapse": "zero area does not prove collapsed winding"
+  },
+  "old_strict_experiment_passed": false,
+  "production_approved": false,
+  "schema": "fenolite.debris-policy-audit.v0",
+  "script_sha256": "d27557d95ae9a02094351e89405d7611bb419dff9f9ccf6e08b4a816395153c0",
+  "seconds": 0.8227500419889111,
+  "source": {
+    "loss_sha256": "5e8fe0f8b262e5462b24b5b191003b985a1c516414c32681ff53eaf3ad3162c0",
+    "name": "source-final-neck-cut",
+    "output_sha256": "923aaa891d6ade45f20cae028ca7fb7894cf6780cc6459bc9b72e494e3e8af17",
+    "postpolicy_holes": 10,
+    "postpolicy_polygons": 1,
+    "prepolicy_holes": 413,
+    "prepolicy_polygons": 1,
+    "projected_nodes": 5822,
+    "retained_loops": 11,
+    "seconds": 0.5688348340045195,
+    "simple_prepolicy_loops": 414,
+    "unchanged_runtime_policy_equal": true,
+    "whole_face_losses": 430,
+    "zero_current_collapsed_loops": 27
+  },
+  "source_commit": "f43511296ddf4fd06069e15afdd3e04b45278380",
+  "status": "policy-audit-passed",
+  "thin_piece_control": {
+    "loss_sha256": "62e7065c71ac1c626383ffc52a5e55e721a2b078f0db6b6f870c5fc7ca4f5208",
+    "losses": [
+      {
+        "exact_area": [
+          8,
+          1
+        ],
+        "floor": 9,
+        "id": 0,
+        "integer_area": [
+          8,
+          1
+        ],
+        "kind": "debris-piece",
+        "owned_holes": [
+          1
+        ]
+      }
+    ],
+    "name": "net-area-before-hole",
+    "output_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "postpolicy_holes": 0,
+    "postpolicy_polygons": 0,
+    "prepolicy_holes": 1,
+    "prepolicy_polygons": 1,
+    "projected_nodes": 8,
+    "retained_loops": 0,
+    "seconds": 0.0008095829980447888,
+    "simple_prepolicy_loops": 2,
+    "unchanged_runtime_policy_equal": true,
+    "whole_face_losses": 1,
+    "zero_current_collapsed_loops": 0
+  }
+}

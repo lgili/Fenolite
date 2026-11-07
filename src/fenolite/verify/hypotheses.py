@@ -15,7 +15,7 @@ from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
-from fenolite.core.evidence import Level
+from fenolite.core.evidence import Level, parse_level
 
 ID_PATTERN = re.compile(r"\bH-[AGK]-[A-Z0-9]+(?:-[A-Z0-9]+)*")
 REGISTER_HEADER: tuple[str, ...] = (
@@ -31,44 +31,10 @@ REGISTER_HEADER: tuple[str, ...] = (
 FAMILIES_HEADER: tuple[str, ...] = ("family", "backend", "rows for", "owner")
 PROPOSED_HEADING = "## Hypotheses registered by this change"
 
-_PLAIN = frozenset(
-    {
-        Level.KICAD_VERIFIED,
-        Level.ORACLE_VERIFIED,
-        Level.CORPUS_VERIFIED,
-        Level.INFERRED,
-        Level.UNKNOWN,
-        Level.UNVERIFIED,
-    }
-)
-_SCOPE = re.compile(r"(?P<body>.+?) \((?P<scope>[^()]+)\)")
-_QUALIFIED = re.compile(r"(?P<name>ORACLE-VERIFIED|ALTIUM-VERIFIED)\((?P<qualifier>[^()]+)\)")
 _FAMILY = re.compile(ID_PATTERN.pattern.removeprefix(r"\b") + r"-\*")
 _SUCCESSOR = re.compile(r"superseded by\s+(" + ID_PATTERN.pattern.removeprefix(r"\b") + ")")
 _FAMILY_FOLLOWERS = ("-", "*", "…")
 _CELL_SPLIT = re.compile(r"(?<!\\)\|")
-
-
-def parse_level(text: str) -> Level:
-    """The ``Level`` a label denotes: an exact value, or a qualified form such as
-    ``KICAD-VERIFIED (9.0.x, 10.0.x)`` or ``ALTIUM-VERIFIED(author-report; AD 24.x; 2026-09; …)``."""
-    body = text
-    scoped = _SCOPE.fullmatch(text)
-    if scoped is not None and scoped.group("scope").strip():
-        body = scoped.group("body")
-    for level in _PLAIN:
-        if body == level.value:
-            return level
-    qualified = _QUALIFIED.fullmatch(body)
-    if qualified is not None and qualified.group("qualifier").strip():
-        if qualified.group("name") == "ORACLE-VERIFIED":
-            return Level.ORACLE_VERIFIED
-        kind = qualified.group("qualifier").split(";")[0].strip()
-        if kind == "kit":
-            return Level.ALTIUM_VERIFIED_KIT
-        if kind == "author-report":
-            return Level.ALTIUM_VERIFIED_AUTHOR_REPORT
-    raise ValueError(f"not an evidence label: {text!r}")
 
 
 @dataclass(frozen=True, slots=True)

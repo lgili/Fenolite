@@ -137,6 +137,8 @@ class ReadSide:
     ``circuit``."""
     power_symbols: int | None = None
     """The power symbols of a schematic side, which its circuit leaves out."""
+    source_files: tuple[tuple[Path, str], ...] = ()
+    """Exact additional project-context inputs, including its board; absent for legacy board-only reads."""
 
 
 def existing(path: Path) -> Path:
@@ -155,11 +157,70 @@ def notices(issues: list[Issue] | tuple[Issue, ...]) -> tuple[Issue, ...]:
     return tuple(issue for issue in issues if issue.severity != "error")
 
 
+def source_hashes(files: tuple[tuple[Path, str], ...]) -> dict[str, str]:
+    """Public basename-to-digest trace, refusing ambiguous names instead of clobbering an input."""
+    found: dict[str, str] = {}
+    paths: dict[str, Path] = {}
+    for path, digest in files:
+        if path.name in paths and (paths[path.name] != path or found[path.name] != digest):
+            raise SideUsageError(f"ambiguous input basename {path.name!r}", where=path.name)
+        paths[path.name], found[path.name] = path, digest
+    return dict(sorted(found.items()))
+
+
+def _project_context(board: Path, explicit: Path | None) -> Path | None:
+    if explicit is not None:
+        return explicit
+    candidates = tuple(
+        path
+        for path in board.parent.iterdir()
+        if path.suffix.lower() == ".kicad_pro" and path.stem.casefold() == board.stem.casefold()
+    )
+    if len(candidates) > 1:
+        raise SideUsageError(
+            f"ambiguous adjacent project for {board.name}",
+            where=board.name,
+            hint="pass the exact .kicad_pro file",
+        )
+    project = candidates[0] if candidates else None
+    if project is not None and not project.is_file():
+        raise SideUsageError(f"{project.name} is not a project file", where=project.name)
+    return project
+
+
+def _with_project_curve(
+    design: Design, board: Path, explicit: Path | None
+) -> tuple[Design, tuple[tuple[Path, str], ...]]:
+    """Project only the typed curve setting, not unrelated project classes/rules, with exact input hashes."""
+    from fenolite.backends.kicad import pro
+
+    project = _project_context(board, explicit)
+    if project is None or design.board is None:
+        return design, ()
+    raw = project.read_bytes()
+    data = pro.read_project_text(raw.decode("utf-8"), file=project.name)
+    error = pro.project_curve_error(data, file=project.name)
+    provenance = design.board.provenance
+    board_sha = provenance.file_sha256 if provenance is not None else _digest(board)
+    inputs = ((board.resolve(), board_sha), (project.resolve(), hashlib.sha256(raw).hexdigest()))
+    source_hashes(inputs)
+    value = None if error == pro.DEFAULT_MAX_CURVE_ERROR else error
+    return replace(design, board=replace(design.board, max_curve_error=value)), inputs
+
+
+def _with_source_bom(design: Design, root: Path) -> Design:
+    """Reuse the checked purchasing-identity traversal without replacing a source's rules/context."""
+    from fenolite.importer.bom_only import preserve
+
+    return preserve(design, root)
+
+
 def read_path(path: Path) -> ReadSide:
     """One side: a built design, a KiCad project resolved to its board, or any file a backend reads."""
     if path.is_dir() and any((path / name).is_file() for name in BUILT_FILES):
         return ReadSide(path.name, None, BUILT_BACKEND, load_dir(path), (), BUILT_EVIDENCE, "fenolite_model")
-    if path.is_dir() or path.suffix == ".kicad_pro":
+    explicit = path if path.is_file() and path.suffix.lower() == ".kicad_pro" else None
+    if path.is_dir() or explicit is not None:
         path = resolve_board(path)
     backend = registry.for_path(path)
     if backend is None:
@@ -173,7 +234,21 @@ def read_path(path: Path) -> ReadSide:
             f"{path.name} is a library, not a design", where=path.name, hint="compare libraries with diff"
         )
     kind = path.suffix.lower().lstrip(".")
-    return ReadSide(path.name, _digest(path), backend.name, read.content, notices(found), read.evidence, kind)
+    design, inputs = read.content, ()
+    if kind == "kicad_pcb":
+        design = _with_source_bom(design, path.with_suffix(".kicad_sch"))
+    if backend.name == "kicad" and path.suffix.lower() == ".kicad_pcb":
+        design, inputs = _with_project_curve(design, path, explicit)
+    return ReadSide(
+        path.name,
+        _digest(path),
+        backend.name,
+        design,
+        notices(found),
+        read.evidence,
+        kind,
+        source_files=inputs,
+    )
 
 
 def netlist_design(netlist: KicadNetlist, name: str, *, dnp: frozenset[str] = frozenset()) -> Design:
@@ -285,6 +360,9 @@ def read_schematic(path: Path, *, kicad_cli: str | None = None, timeout: float =
         for component in design.circuit.components
     )
     design = replace(design, circuit=replace(design.circuit, components=components))
+    from fenolite.importer.bom_only import preserve
+
+    design = preserve(design, path)
     return ReadSide(
         path.name, _digest(path), SCHEMATIC_BACKEND, design, (), evidence, SCHEMATIC_KIND,
         netlist_source=SCHEMATIC_SOURCE, power_symbols=_power_symbols(sheets, project),
@@ -355,6 +433,7 @@ __all__ = [
     "NO_TOOL_HINT",
     "READS",
     "ReadSide",
+    "source_hashes",
     "SideError",
     "SideExportError",
     "SideMissingError",

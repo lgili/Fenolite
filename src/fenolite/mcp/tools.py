@@ -26,7 +26,10 @@ from fenolite.cli.main import build_parser
 PREFIX = "fenolite_"
 NOT_TOOLS = frozenset({"mcp", "skill"})
 """``mcp`` is this server; ``skill`` installs files into an agent's own folders, outside any project."""
-LEFT_OUT = {"view": frozenset({"serve", "port", "no_browser"})}
+LEFT_OUT = {
+    "view": frozenset({"serve", "port", "no_browser"}),
+    "library": frozenset({"accept", "revoke", "reviewer", "sheet"}),
+}
 """Arguments a tool does not take: ``view --serve`` is a server that does not return."""
 READ_TOOLS = {"check": frozenset({"exclude", "reason"}), "diff": frozenset({"three_way", "out"})}
 """Writing commands that write only through these options (``check --exclude``, change c0209; ``diff
@@ -131,6 +134,10 @@ def _tool(command: Command, shared: Mapping[str, Argument]) -> Tool:
             raise ValueError(f"{command.name}: two arguments named {argument.name!r}")
         properties[argument.name] = _schema(argument, described=argument.name not in shared)
     properties["fields"] = {"type": "array", "items": {"type": "string"}}
+    if command.name == "library":
+        # Actions are positional words, so dropping flags alone is not an exclusion.
+        properties["path"]["prefixItems"] = [{"not": {"enum": ["review"]}}]
+        properties["path"]["items"]["not"] = {"pattern": "^--(?:accept|revoke)(?:=|$)"}
     inputs = INPUT_FILES.get(command.name, {})
     for argument_name in inputs.values():
         del properties[argument_name]
@@ -258,6 +265,19 @@ class Catalog:
         file arguments ``given`` by the server; raises :class:`KeyError` for an unknown tool and
         :class:`InputRefused` for arguments that do not fit."""
         tool = self.tools[name]
+        if tool.command == "library":
+            path = arguments.get("path", [])
+            words = cast(list[Any], path) if isinstance(path, list) else [path]
+            if (
+                words
+                and words[0] == "review"
+                or any(
+                    isinstance(word, str)
+                    and (word in {"--accept", "--revoke"} or word.startswith(("--accept=", "--revoke=")))
+                    for word in words
+                )
+            ):
+                raise InputRefused("library review acceptance and revocation are human steps", where="path")
         allowed = set(cast("Json", tool.definition["inputSchema"]["properties"]))
         unknown = sorted(set(arguments) - allowed)
         if unknown:

@@ -32,8 +32,11 @@ templates come only from GUI saves** (see "Templates").
 | `board.design_settings.rules` holds the board-setup minimums, among them `min_clearance`, `min_track_width`, `min_via_diameter` and `min_through_hole_diameter`; the empty save sets 0, 0.2, 0.5 and 0.3 mm | S-0020 | KICAD-VERIFIED (10.0.x; GUI save) | H-K-PRO-FLOOR |
 | A `min_clearance` above a class clearance governs: HV at 0.5 mm gives no violation at a 1.0 mm gap, and does once `min_clearance` is 1.5 | S-0038, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PRO-FLOOR |
 | `kicad-cli pcb drc` and `pcb export svg` never rewrite `.kicad_pro`; 10.0.6 writes a `.kicad_prl` next to the board, 9.0.9 does not | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PRO-PRL |
+| Native `sch export svg` 10.0.6 creates a project-local `.kicad_prl` beside the authored drawn-font project; every pre-existing input byte is unchanged. The c0326/c0319 oracle exports an exact copy and records the new local-settings file separately | S-0020 | KICAD-VERIFIED (10.0.6; authored CLI controls, 2026-11-02) | H-K-PRO-PRL |
+| A stale cached `schematic.top_level_sheets` root UUID can make a10.0.6 GUI save rewrite repeated child paths and collapse their context references. Binding root filename/name/UUID and `sheets` to the emitted hierarchy retains distinct references through an actual GUI save. Only these caches are managed when emitting a schematic. | S-0020; authored c0344 pre/post controls | KICAD-VERIFIED (10.0.6; real GUI save) | H-K-PRO-SHEET-IDENTITY |
 | A `.kicad_dru` next to the board is read without a project file; only the net classes need the project | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-TOK-RULES-SILENT |
 | `board.design_settings.rules` also holds `min_copper_edge_clearance` (0.5 mm in the empty save); `kicad-cli` 9.0.9 and 10.0.6 apply all five minimum keys to items that no custom rule governs | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PRO-MIN-KEYS |
+| `board.design_settings.rules` also holds `min_hole_clearance` (0.25 mm in the template Fenolite writes, `data/project_template_*.json`), the board-setup copper-to-hole clearance: the clearance between a drilled hole of a pad or a via and copper of another net, measured from the hole's wall. A via hole 0.2 mm from a track of another net is reported as `hole_clearance` under the template project and not under a board-wide `hole_clearance` rule of 0.1 mm (`H-K-PRO-MIN-RULE-3`, KICAD-VERIFIED); which key gives that 0.25 mm is not probed (the template's `min_hole_to_hole` is 0.25 mm too), so the key's role is inferred from the manuals' Board Setup constraint and rule descriptions. The copper check reads it as the hole minimum (change c0403); nothing writes it from a rule | S-0010, S-0038, S-0020 | INFERRED | H-K-PRO-MIN-RULE-3 |
 | A board-wide custom rule governs below the board-setup minimums: an item between the rule's `min` and a higher minimum is not reported, although the manuals call the minimums absolute | S-0038, S-0010, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PRO-MIN-RULE-2 |
 | The project Fenolite writes from board-wide rules lets every rule value take effect | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PRO-MIN-WRITE |
 | A board-wide custom clearance rule governs the items of a class with a larger clearance: the class clearance is not applied | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PRO-MIN-CLASS |
@@ -268,11 +271,13 @@ names it by its key `tuning_profile`. Fenolite writes one profile per impedance 
 
 | fact | source | label | hypothesis |
 |---|---|---|---|
-| A profile written with `profile_name`, `type`, `target_impedance`, `enable_time_domain_tuning`, `layer_entries` (each `signal_layer`, `top_reference_layer`, `bottom_reference_layer`, `width`, `diff_pair_gap`, `delay`), `via_prop_delay` and `via_overrides` is loaded by `pcb drc` 10.0.6 and judged (measured 2026-10-05, design of c0105; owed: probe `pro-tuning-width` on kicad-cli 10); the keys `frequency`, `model_solder_mask` and `net_chain_bridge_prop_delay` with `meta.version` 2 are loaded with the same findings (measured 2026-10-05). Whether a GUI save writes the same key set is not known (owed: the GUI save of `H-K-PRO-TUNING-KEYS`) | S-0020 | INFERRED | H-K-PRO-TUNING-KEYS |
+| A profile written with `profile_name`, `type`, `target_impedance`, `enable_time_domain_tuning`, `layer_entries` (each `signal_layer`, `top_reference_layer`, `bottom_reference_layer`, `width`, `diff_pair_gap`, `delay`), `via_prop_delay` and `via_overrides` is loaded by `pcb drc` 10.0.6 and judged (measured 2026-10-05, design of c0105; owed: probe `pro-tuning-width` on kicad-cli 10); the keys `frequency`, `model_solder_mask` and `net_chain_bridge_prop_delay` with `meta.version` 2 are loaded with the same findings (measured 2026-10-05). The original GUI-save debt is measured separately below | S-0020 | INFERRED | H-K-PRO-TUNING-KEYS |
 | `type` 1 makes a profile check the pair gap of its class (`diff_pair_gap_out_of_range`) and not its single tracks; `type` 0 checks single tracks (measured 2026-10-05, design of c0105; owed: probes `pro-tuning-gap`, `pro-tuning-single-under-diff` and `pro-tuning-width` on kicad-cli 10) | S-0020 | INFERRED | H-K-PRO-TUNING-DRC |
 | A profile whose layer entries lack the two reference keys is not loaded: DRC reports `missing_tuning_profile` for the class that names it | S-0020 | INFERRED | H-K-PRO-TUNING-DRC |
 | A width written `350000.0` is loaded, and the keys of later schemas with `meta.version` 2 are loaded without a change in the findings | S-0020 | INFERRED | H-K-PRO-TUNING-DRC |
 | `pcb upgrade --force` leaves a project with profiles byte for byte unchanged: `kicad-cli` never saves a project, so the key set a GUI save writes is not observable headless | S-0020, S-0022 | INFERRED | H-K-PRO-TUNING-KEYS |
+
+| The actual KiCad 10.0.6 GUI-authored SE50 Single and USB90 Differential profiles have the exact profile/layer key sets and value kinds of `lower_profile`; JSON object keys are sorted. With no top reference, the save writes `top_reference_layer: "UNDEFINED"`, whereas the current writer uses `""`; this observation does not establish their semantic equivalence (2026-11-02, c0105 task 1.4 and fixture SHA in the data manifest) | S-1281 | KICAD-VERIFIED (10.0.6; GUI save only) | H-K-PRO-TUNING-KEYS |
 
 What Fenolite writes, for target 10 only (`tuning.apply_profile_keys`, called by `write_triad` after
 `apply_sheet_keys`):
@@ -305,3 +310,68 @@ skipped with `kicad.project.unread-entry`. A profile that no class names stays i
 | fact | source | label | hypothesis |
 |---|---|---|---|
 | While an editor holds a file open, KiCad keeps a lock file in that file's folder named `~` + the file name + `.lck` (`~board.kicad_pcb.lck`); it holds a JSON object with `username`, `hostname` and `token`, and is removed on close, so a crash leaves it behind | S-0828, S-0829 | INFERRED | H-K-PRO-LOCK |
+
+## Project curve approximation control
+
+S-1207, ORACLE-VERIFIED(kicad-cli9.0.9|10.0.6):
+`/board/design_settings/rules/max_error` configures a project approximation
+length in millimetres. Original authored circular-pad controls export complete
+DXF geometry ENTITIES identically with the field omitted or set to0.005mm,
+while0.01mm changes those entities on both actual versions. Native10 refill
+also produces identical two-region teardrop geometry for missing/0.005mm, and
+different geometry at0.01mm. This is a measured setting, not a universal claim
+that every algorithm uses its bound. No third-party parser/grammar code is used.
+
+The model’s optional `Board.max_curve_error` stores exact positive integer
+nanometres. Canonical explicit presence is exact; the native adapter may
+normalize the proved effective5000nm default to absence. Nondefault10000nm
+must survive a fresh standalone build and level6 comparison. `None` retains
+legacy default bytes and an existing project’s setting. This is separate from
+comparison tolerances, DRC minimum rules and Fenolite kernel certificates.
+
+
+## Explicit imported project baseline (c0351)
+
+The Python importer retains the checked original project JSON as `native/project.kicad_pro`
+and emits `design.kicad_project(path, sha256=..., preserve_minimums=True)`. This is a declared, digest-bound input,
+not a canonical model field and not ambient discovery. Paths must stay within the script folder;
+exact JSON, writable version pairs and known drawing-sheet resource references are checked before
+staging. A nonempty native frame reference must be covered by an exact checked relative worksheet
+bundle (c0354), or replaced by the existing explicit managed drawing-sheet input. The bundle retains
+raw worksheet bytes and each native pointer scope; it adds no canonical setting or semantic-equality claim.
+
+With this declaration the native input is authoritative for unmanaged values on both fresh builds
+and rebuilds. Typed/code-owned minima, classes, stack, copper curve, text variables and frame
+override it; final file names, root UUID, sheets and top-level caches are rebound to fresh outputs.
+The optional exact-bool `preserve_minimums` defaults False and retains that managed minimum behavior. Import explicitly sets True: the five supported project hard floors stay owned by the declared native input in all three planners and final output, and only actual source DRU constraints become DSL custom rules. This keeps hard floors and overriding rules independent; the existing measured H-K-PRO-MIN-RULE-2 precedence is unchanged. Copper planning and final writing use the same ownership. Without a declaration,
+existing template/update behavior and default bytes remain unchanged. Altium refuses this
+KiCad-specific input even with `--allow-lossy`; changed template bytes invalidate a confirmed plan.
+
+**ORACLE-VERIFIED(kicad-cli)** (S-1288 authored native controls extended by c0351): actual import
+and confirmed rebuild on 9.0.9 and 10.0.6 retain all five inter-sheet reference settings, effective
+SVG reference text, full named electrical partitions, and a native annular-width finding caused by
+an unmanaged project minimum. Every unrelated DRC finding is compared too. This proves the scoped
+controls, not semantic interpretation of every retained native key. The original and portable
+sidecar are checked unchanged. Proof: `tests/kicad/importer/test_project_template.py`.
+
+### Exact stored names in class patterns (c0352)
+
+**ORACLE-VERIFIED(kicad-cli)** (S-1288, authored native controls): KiCad9.0.9 and10.0.6 both enforce a named clearance class for an exact literal source net `/12Vext` and its generated PCB spelling `{slash}12Vext`, when the project pattern uses the corresponding exact stored spelling. Both arms preserve the measured track UUID pair and independent DRU canary. Fenolite reuses `pcb.stored_net_name` for writer-owned class patterns and project application, retaining native-read spellings rather than guessing slash substitutions. Native-name collisions refuse before dictionary overwrite; arbitrary user patterns and existing unsafe/overmatch refusals are unchanged. Proof: `tests/kicad/project/test_pro_native_names.py`; this is not a claim that arbitrary regex semantics match every native case.
+
+
+### ERC matrix key linkage, scoped numeric-role witness (S-1299)
+
+`KICAD-VERIFIED`: the official Eeschema9 manual describes the pin-type conflict map with Ignore/Warning/Error choices (https://docs.kicad.org/9.0/en/eeschema/eeschema.html). `ORACLE-VERIFIED(KiCad9.0.9/10.0.6)`: original four-passive-terminal controls keep their complete labelled graph while changing only erc.pin_map: uniform0 yields no pin conflicts,1 yields three warnings,2 yields three errors. The12×12 JSON wire-integer0..2 descriptor is TEST-ONLY. The raw3 control also produces errors; no meaning is assigned because this can be invalid-value fallback, and3 remains refused. All other pin-pair meanings and unknown ERC keys remain unproved. Receipt: `openspec/changes/c0355-verified-native-identity/erc-numeric-role-proof.json`.
+
+### Project and plot numerics that are not netcode references, scoped witness (S-0020, c0384)
+
+`ORACLE-VERIFIED(KiCad10.0.6)`: an original authored board and project set 85 numeric project leaves
+(`board/design_settings` defaults, rules, track/via/diff-pair/teardrop/tuning tables, `schematic/drawing`,
+`schematic` ints and `net_settings/classes/*/line_style`) and the ten numeric `setup/pcbplotparams` children
+to the board's only netcode, then renumber only that netcode. `pcb drc --refill-zones --save-board` gives equal
+labelled partitions, refilled derived geometry, DRC findings and saved plot values for both inputs, and
+returns no companion file. The three section `meta/version` leaves keep their native values. The board
+saves `svgprecision` clamped to 3 and drops the obsolete `hpglpen*` children. This classifies those numeric
+leaves as TEST-ONLY non-reference roles in `tests/_native_numeric_roles.py`; it admits no renumbering, and
+their non-numeric containers and every other unknown project key remain blockers. Test:
+`tests/kicad/board/test_native_netcode_order.py::test_project_and_plot_numbers_are_not_netcode_references`.

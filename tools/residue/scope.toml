@@ -6,6 +6,7 @@
 
 exclude = [
     "uv.lock",                  # hashes and versions of third-party packages only
+    "viewer/package-lock.json", # the same for the viewer's Node packages (change c0304)
     "tests/corpus/cache/**",    # fetched public corpus
     "tools/residue/patterns.regex",
 ]
@@ -55,9 +56,19 @@ pattern = "numeric-code"
 reason = "KiCad INT_MAX Default class priority 2147483647, in the authored project of the pair board of fenolite route (c0110)"
 
 [[waiver]]
+path = "tests/data/import_python/two_sheet/two_sheet.kicad_pro"
+pattern = "numeric-code"
+reason = "KiCad INT_MAX class priority 2147483647, in the authored input project of fenolite import (c0275)"
+
+[[waiver]]
 path = "tests/data/lens/sync_minimal/*.kicad_pro"
 pattern = "numeric-code"
 reason = "KiCad INT_MAX Default class priority 2147483647, in the example project of fenolite sync (c0069)"
+
+[[waiver]]
+path = "tests/data/fidelity/*/*.kicad_pro"
+pattern = "numeric-code"
+reason = "KiCad INT_MAX net class priority 2147483647, in the authored original of the fidelity proof (c0278)"
 
 [[waiver]]
 path = "tests/data/altium/outjob/blink.OutJob"
@@ -73,3 +84,53 @@ reason = "board coordinates in nanometres of the example board, 100 mm to 150 mm
 path = "tests/data/model/v0.2.1/blink_2layer.board.json"
 pattern = "numeric-code"
 reason = "integer nanometre coordinates of a board larger than 100 mm (the board origin of a design script is at 100 mm, 100 mm), in a model document written by release 0.2.1: the board.json of examples/blink_2layer, kept byte for byte as the fixture of additive model keys (c0101; approved per file on 2026-10-07)"
+
+[[waiver]]
+path = "examples/testing/golden/net-GND.svg"
+pattern = "numeric-code"
+reason = "Authored c0256 canonical SVG: data-at attributes are grid coordinates in integer nanometres (100000000 through 130000000), not component codes or private data; generated from examples/testing/design.py through reviewed render plan/confirm. All other residue patterns still apply."
+
+[[waiver]]
+path = "tests/data/library_import/exb6202.PcbLib"
+pattern = "numeric-code"
+reason = "Authored c0264 library generated reproducibly by tests/_library_import.py: the four VP.LX/HX/LY/HY view-window values 499000000 and 501000000 come from libboard.VIEWPORT, like the existing authored PcbLib waivers. No component code or third-party fixture is present; all other residue patterns still apply."
+
+[[waiver]]
+path = "tests/data/proposals/exb6202.pdf"
+pattern = "numeric-code"
+reason = "Authored c0265 one-page PDF: its six ten-digit xref offsets are PDF structure (zero and byte offsets 98, 147, 204, 330, 400), not component codes. The page describes an invented part and is CC0-1.0; all other residue patterns still apply."
+
+[[waiver]]
+path = "examples/import_python/native/project.kicad_pro"
+pattern = "numeric-code"
+reason = "Exact digest-bound copy of the already waived Fenolite-authored tests/data/import_python/two_sheet/two_sheet.kicad_pro (c0351): both numeric matches are KiCad INT_MAX class priority 2147483647. Source and sidecar SHA-256 are c0c49764831dbbb9ab9a54a643153d4fb636b70e8113c56e328e1f431f78173f. All other public/private patterns and known-blob checks remain active."
+
+[[waiver]]
+path = "tests/data/model/v0.1.0/board.json"
+pattern = "numeric-code"
+reason = "Authored blink_2layer integer nanometre coordinates 100000000 to 150000000 (outline and three placements), reproduced offline from public Fenolite tag v0.1.0 with original SOURCE commit/SHA256 (c0218). Exact-byte legacy migration input; all other residue/private patterns still apply."
+
+[[waiver]]
+path = "tests/data/model/v0.2.0/board.json"
+pattern = "numeric-code"
+reason = "Authored blink_2layer integer nanometre coordinates 100000000 to 150000000 (outline and three placements), reproduced offline from public Fenolite tag v0.2.0 with original SOURCE commit/SHA256 (c0218). Exact-byte legacy migration input; all other residue/private patterns still apply."
+
+[[waiver]]
+path = "tests/data/model/v0.3.0/board.json"
+pattern = "numeric-code"
+reason = "Authored blink_2layer integer nanometre coordinates 100000000 to 150000000 (outline and three placements), reproduced offline from public Fenolite tag v0.3.0 with original SOURCE commit/SHA256 (c0218). Exact-byte legacy migration input; all other residue/private patterns still apply."
+
+[[waiver]]
+path = "tests/data/model/v0.4.0/board.json"
+pattern = "numeric-code"
+reason = "Authored blink_2layer integer nanometre coordinates 100000000 to 150000000 (outline and three placements), reproduced offline from public Fenolite tag v0.4.0 with original SOURCE commit/SHA256 (c0218). Exact-byte legacy migration input; all other residue/private patterns still apply."
+
+[[waiver]]
+path = "tests/data/model/v0.5.0/board.json"
+pattern = "numeric-code"
+reason = "Authored blink_2layer integer nanometre coordinates 100000000 to 150000000 (outline and three placements), reproduced offline from public Fenolite tag v0.5.0 with original SOURCE commit/SHA256 (c0218). Exact-byte legacy migration input; all other residue/private patterns still apply."
+
+[[waiver]]
+path = "examples/kit/slots/clearance/slots.PcbLib"
+pattern = "numeric-code"
+reason = "Fenolite-authored Part S clearance library: exactly four VP.LX/HX/LY/HY values 499000000 and 501000000 from libboard.VIEWPORT, as in the existing authored blink/routed/board6 PcbLib waivers. The library bytes are unchanged; all other public/private patterns and known-blob checks remain active."

@@ -2,9 +2,7 @@
 
 ## Purpose
 Describe the public test corpus with licences and hashes, fetch it reproducibly, and allow only public-domain or authored files to be committed.
-
 ## Requirements
-
 ### Requirement: Corpus manifest schema
 `tests/corpus/manifest.toml` SHALL describe every external test file as a `[[file]]` table with the keys `id`, `url`, `ref`, `sha256`, `license` (SPDX identifier), `license_variant`, `embeddable` (boolean), `uses` (list of strings) and `notes`, and `tests/corpus/test_manifest.py` SHALL validate the schema.
 
@@ -434,3 +432,47 @@ A copy of a `sch` row that `kicad-cli` 10.0.6 makes with `sch upgrade --force` S
 - **GIVEN** a temporary manifest with one `rt0` row and one `rta` row
 - **WHEN** `uv run python tools/corpus_fetch.py --manifest <it> --cache <tmp> --uses rta` runs
 - **THEN** only the `rta` row is fetched, and the summary counts one item
+
+### Requirement: Converted code stays out of the tool repository
+Code that `fenolite import` writes from a corpus item or any third-party board SHALL be written only under pytest's temporary directory or the corpus cache, and MUST NOT be committed to the tool repository; converted boards live in the separate `fenolite-library` repository. A residue test MUST flag every tracked file that holds the line `Converted from` followed by a URL, unless the file also holds `Authored for Fenolite`.
+
+#### Scenario: Converted corpus board planted
+- **GIVEN** the code of a corpus board imported into a tracked folder in the test
+- **WHEN** `uv run pytest tests/residue/test_converted_code.py -q` runs
+- **THEN** the detector reports every emitted `.py` and its conversion line
+
+#### Scenario: Authored import example passes
+- **GIVEN** `examples/import_python/`, imported from a board authored for Fenolite and marked `Authored for Fenolite`
+- **WHEN** the same test runs
+- **THEN** no file of it is reported
+
+### Requirement: Round-trip fidelity use
+`tests/corpus/manifest.toml` SHALL tag with the use `rtf` the KiCad demo project rows whose upstream licence is on the board library's allow-list (Apache-2.0, CERN-OHL, CC BY, CC BY-SA, GPL-2.0-or-later and the others of `docs/research/board-library.md`, section 3) and never a row under an NC or ND licence. Files derived from `rtf` rows MUST stay under pytest's temporary directory.
+
+#### Scenario: Excluded licence
+- **GIVEN** a manifest in which a row under CC BY-NC-SA carries `rtf`
+- **WHEN** `uv run pytest tests/corpus/test_manifest.py -k rtf` checks it
+- **THEN** it fails naming the row and its licence
+
+#### Scenario: Fetch by use
+- **WHEN** `uv run python tools/corpus_fetch.py --uses rtf` runs
+- **THEN** it fetches exactly the rows tagged `rtf`
+
+#### Scenario: Emitted code is derived
+- **GIVEN** a `design.py` emitted from an `rtf` row and planted under `tests/data/`
+- **WHEN** `uv run pytest tests/residue -q` runs with the corpus cache present
+- **THEN** the residue test reports the file and the row id
+
+### Requirement: Library items in the corpus
+A test that needs a `fenolite-library` item SHALL fetch it through a `tests/corpus/manifest.toml` row whose `url` is the release asset, `ref` the release tag, `sha256` the archive digest, `license` the item's SPDX id, and `uses` holds `origin:third-party` and `library:<kind>/<id>@<version>`. Such a row MUST be `embeddable = false` unless the id is `CC0-1.0`, and no item, item `PROVENANCE.json` or vendored `fenolite_library/` folder MAY be committed.
+
+#### Scenario: Share-alike library row marked embeddable
+- **GIVEN** a manifest row with `uses = ["origin:third-party", "library:footprint/Demo:SA_PAD@1.0.0"]`, `license = "CC-BY-SA-4.0"` and `embeddable = true`
+- **WHEN** `uv run pytest tests/corpus/test_manifest.py` runs
+- **THEN** the test fails naming the row id
+
+#### Scenario: Vendored item committed
+- **GIVEN** a file `examples/x/fenolite_library/devices/Demo/EXB/PROVENANCE.json` of schema `fenolite.provenance.v0` with `origin = "converted"`
+- **WHEN** `uv run pytest tests/residue` runs
+- **THEN** the test fails naming the file
+

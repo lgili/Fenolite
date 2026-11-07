@@ -12,10 +12,12 @@ from fenolite.library.derive import (
     MISSING,
     Derived,
     Footprint,
+    derive_from_model,
     derive_library,
     differences,
     drift,
     drift_issues,
+    nickname_of,
 )
 
 __all__ = [
@@ -25,9 +27,11 @@ __all__ = [
     "MISSING",
     "Derived",
     "Footprint",
+    "derive_from_model",
     "derive_library",
     "differences",
     "drift",
     "drift_issues",
     "issue",
+    "nickname_of",
 ]

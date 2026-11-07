@@ -11,11 +11,12 @@ a mirror of a whole board.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from statistics import median_low
 
 from fenolite.checks.equivalence.model import Tolerances
 from fenolite.core.coords import Point, Size
+from fenolite.core.libnames import library_name
 from fenolite.model.board import Board, Pad
 
 TURN = 360_000_000
@@ -61,6 +62,13 @@ def footprint_name(lib_ref: str) -> str:
     return lib_ref.rpartition(":")[2]
 
 
+def same_footprint_name(a: str, b: str) -> bool:
+    """Whether two footprint names (``footprint_name``) are equal, or equal once each is written as an entry
+    of a KiCad library (``core.libnames.library_name``, change c0435): an Altium name holding ``/`` is
+    ``_`` in the library its KiCad conversion derives."""
+    return a == b or library_name(a, allow_space=True) == library_name(b, allow_space=True)
+
+
 def pad_symmetry(pad: Pad, tolerances: Tolerances) -> int | None:
     """The period of ``pad``'s rotation: ``None`` when the shape has no rotation (a circle, or an oval of
     two equal sizes), a half turn for ``rect``, ``oval`` and ``roundrect``, a full turn otherwise."""
@@ -91,9 +99,54 @@ def pads_equal_turned(a: Pad, b: Pad, tolerances: Tolerances) -> bool:
     return angles_equal(a.rotation, b.rotation + QUARTER_TURN, tolerances, HALF_TURN)
 
 
+def drill_width(pad: Pad) -> int | None:
+    """The width of a pad's hole (change c0407): ``Pad.drill``, or for a slot with a length the shorter of
+    ``Pad.drill`` and ``Padstack.hole_length``. The model holds a slot as its width and its longer length
+    (``docs/design-model.md``), but a document may give the two numbers the other way round: an Altium
+    record may hold a slot length below its hole size, which a KiCad file holds as an oval of the same two
+    sizes, so ``pad-drill`` compares the two holes' widths and never a length with a width."""
+    stack = pad.padstack
+    if pad.drill is None or stack is None or stack.hole_shape != "slot" or stack.hole_length is None:
+        return pad.drill
+    return min(pad.drill, stack.hole_length)
+
+
+def slot_form(pad: Pad) -> tuple[int, int, int] | None:
+    """The width, length and axis of a pad's slot hole (change c0416), read by its extents as ``KiCad``'s
+    oval is: the width is the shorter of ``Pad.drill`` and ``Padstack.hole_length``, the length the longer,
+    and the axis lies along the longer side, in the footprint's frame (``Pad.rotation`` plus
+    ``Padstack.hole_rotation``, plus a quarter turn when ``Pad.drill`` is the longer) modulo a half turn.
+    ``None`` for a hole that is not a slot with a length, and for a slot whose two numbers are equal (a round
+    hole, as ``KiCad`` reads ``(drill oval d d)``)."""
+    stack = pad.padstack
+    if pad.drill is None or stack is None or stack.hole_shape != "slot" or stack.hole_length is None:
+        return None
+    if pad.drill == stack.hole_length:
+        return None
+    across = QUARTER_TURN if pad.drill > stack.hole_length else 0
+    axis = (pad.rotation + stack.hole_rotation + across) % HALF_TURN
+    return min(pad.drill, stack.hole_length), max(pad.drill, stack.hole_length), axis
+
+
+def slot_text(form: tuple[int, int, int] | None) -> str:
+    """``<length>@<axis>`` of a ``slot_form``, or empty for a pad without a slot."""
+    return "" if form is None else f"{form[1]}@{form[2]}"
+
+
 def copper_span(pad: Pad, board: Board) -> frozenset[str] | None:
     """The subset of ``top``, ``inner`` and ``bottom`` that the pad's layers reach, by the ordinals of the
-    board's copper layers; ``None`` (unknown) when the board declares one of the names not at all."""
+    board's copper layers; ``None`` (unknown) when the board declares one of the names not at all. A
+    non-plated pad no larger than its round hole holds no copper on any layer, so its span is empty whatever
+    layers it names (change c0433: KiCad names ``F&B.Cu`` for such a pad, an Altium multi-layer pad every
+    copper layer)."""
+    if (
+        pad.kind == "np_thru_hole"
+        and pad.drill is not None
+        and pad.size.w <= pad.drill
+        and pad.size.h <= pad.drill
+        and (pad.padstack is None or pad.padstack.hole_shape != "slot")
+    ):
+        return frozenset()
     declared = {layer.name: layer for layer in board.layers}
     ordinals = [layer.ordinal for layer in board.layers if layer.kind == "copper"]
     span: set[str] = set()
@@ -110,6 +163,30 @@ def copper_span(pad: Pad, board: Board) -> frozenset[str] | None:
         else:
             span.add("inner")
     return frozenset(span)
+
+
+MASK_NONE = "none"
+"""The mask expansion of a pad that its side reads as opening no mask."""
+MASK_RULES = "rules"
+"""The mask expansion of a pad that follows a rule its side does not know."""
+MaskOf = Callable[[Pad], "int | str | None"]
+"""How a side gives the solder-mask expansion of a pad for level 3 (change c0440): nanometres,
+``MASK_NONE``, ``MASK_RULES``, or ``None`` when the side makes no statement."""
+
+
+def own_mask(pad: Pad) -> int | None:
+    """The pad's own margin: the ``MaskOf`` of a side without a backend reading (``None``: the pad follows
+    its board's setting, which the model does not hold)."""
+    return pad.mask_margin
+
+
+def masks_equal(a: int | str | None, b: int | str | None, tolerances: Tolerances) -> bool:
+    """Whether two ``mask_expansion`` values agree; ``None`` on a side is no statement and agrees."""
+    if a is None or b is None:
+        return True
+    if isinstance(a, int) and isinstance(b, int):
+        return lengths_equal(a, b, tolerances)
+    return a == b
 
 
 def span_text(span: frozenset[str]) -> str:
@@ -138,6 +215,7 @@ __all__ = [
     "normalise",
     "pad_symmetry",
     "pads_equal_turned",
+    "same_footprint_name",
     "points_equal",
     "shape_class",
     "sizes_equal",

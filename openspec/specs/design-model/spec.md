@@ -2,9 +2,7 @@
 
 ## Purpose
 Specify the neutral in-memory design model every backend, check and export reads and writes: entity header, integer units, identifiers, provenance, extension bags, layers, slots and layout authority.
-
 ## Requirements
-
 ### Requirement: Common entity header
 Every model entity MUST be an immutable dataclass carrying `id: str`, `native_ids: dict[str, str]`, `provenance: Provenance | None` and `ext: dict[str, ExtBag]`, where `ExtBag` holds `min_version: str | None` and an ordered tuple of opaque text fragments.
 
@@ -50,6 +48,7 @@ Objects created from a design script are a fourth case. `fenolite.dsl.to_model` 
 | net | `net` | `net:<net name>` |
 | net class | `cls` | `netclass:<class name>` |
 | interface | `itf` | `interface:<kind>:<interface name>` |
+| port | `prt` | `port:<owner path>:<port name>`, the owner path being the module path of a block port or the component path of a device port |
 | layer | `lay` | `layer:<KiCad layer name>` |
 | zone | `zon` | `zone:<zone name>` |
 | rule | `rul` | `rule:<rule kind>` for a board minimum, `rule:<rule kind>:<class name>` for a class minimum, `rule:named:<rule name>` for a rule of `rule()` |
@@ -119,6 +118,11 @@ Copper created from copper intents is a fifth case. Each track and via that `fen
 - **GIVEN** two DSL designs that declare the rule areas `ANT` and `HV`, the text `rev` and the dimension `width` in opposite orders
 - **WHEN** `uv run pytest tests/unit/dsl/test_ids.py -k board_items` runs `dsl.to_model` on both
 - **THEN** in both models the keep-out `ANT` has the id `derived_id("kpo", "dsl", "area:ANT")`, the text `derived_id("txt", "dsl", "text:rev")` and the dimension `derived_id("dim", "dsl", "dimension:width")`
+
+#### Scenario: Port ids from the owner path and the name
+- **GIVEN** two DSL designs that use the block `channel` as `ch0` and `ch1` in opposite orders, each instance declaring the ports `VIN` and `GND`
+- **WHEN** `uv run pytest tests/unit/dsl/test_ids.py -k ports` runs `dsl.to_model` on both
+- **THEN** in both models the port `VIN` of `ch0` has the id `derived_id("prt", "dsl", "port:ch0:VIN")`
 
 ### Requirement: Provenance record
 `Provenance` MUST contain `backend`, `file`, `file_sha256`, `locator` and `evidence`, and `locator` MUST be treated as an opaque string by everything except the originating backend.
@@ -1205,15 +1209,20 @@ The board and library layers SHALL model a footprint's net-tie groups as `Footpr
 - **THEN** it exits 0, and both schemas list `net_ties` as an array of arrays of strings
 
 ### Requirement: Waivers in the findings layer
-The findings layer SHALL hold a design's waivers as `fenolite.model.findings.Waiver(name: str, code: str, items: tuple[str, ...], reason: str, min_gap: Nm | None = None)`, a frozen dataclass, in `Findings.waivers: tuple[Waiver, ...]`, sorted by name, with the default `()`, so `findings.json` files written before them still load.
-- `code` is a finding code (`copper.short`, `copper.clearance`, `copper.zone-overlap` or `<oracle>.drc.<suffix>`); `items` are names or glob patterns of the finding's items, as `where` prints them; `min_gap` is in integer nm.
+The findings layer SHALL hold a design's waivers as `fenolite.model.findings.Waiver(name: str, code: str, items: tuple[str, ...], reason: str, min_gap: Nm | None = None, digest: str | None = None)`, a frozen dataclass, in `Findings.waivers: tuple[Waiver, ...]`, sorted by name, with the default `()`, so `findings.json` files written before them still load.
+- `code` is a finding code (`copper.short`, `copper.clearance`, `copper.zone-overlap`, `<oracle>.drc.<suffix>` or a `circuit.*` code of `ISSUE_CODES`); `items` are names or glob patterns of the finding's items, as `where` prints them, and for a `circuit.*` code the one row id of the finding without its code; `min_gap` is in integer nm; `digest` is the 16 lowercase hexadecimal digits of the requirement row's digest at waiver time, set for a `circuit.*` code and for no other, and omitted from `findings.json` when `None`.
 - What a waiver may say is checked where it is declared (`design-dsl`, "Waivers in the DSL"); how it matches is `verification-loop`, "Waivers in the check".
-- `docs/design-model.md` MUST describe `Waiver` and the field and MUST say that 0.2.x and 0.3.0 cannot read a `findings.json` that carries `waivers`; `schemas/fenolite.model.v0/findings.json` MUST be regenerated. A design without waivers MUST write the `findings.json` bytes it wrote before.
+- `docs/design-model.md` MUST describe `Waiver` and the field and MUST say that 0.2.x and 0.3.0 cannot read a `findings.json` that carries `waivers`, and that 0.6.x cannot read one whose waiver carries `digest`; `schemas/fenolite.model.v0/findings.json` MUST be regenerated. A design without waivers MUST write the `findings.json` bytes it wrote before.
 
 #### Scenario: Waivers round-trip through the cache
 - **GIVEN** a design whose findings hold two waivers, one with `min_gap=150_000`
 - **WHEN** `uv run pytest tests/unit/model -k waivers` writes it with the canonical writer and loads it back
 - **THEN** the loaded `Findings.waivers` equals the original, in name order, and `findings.json` holds no float
+
+#### Scenario: A circuit waiver keeps its digest
+- **GIVEN** a waiver of code `circuit.rating-voltage`, item `C3:voltage` and digest `9f2c4a1b0d3e5f67`, beside a copper waiver without a digest
+- **WHEN** `uv run pytest tests/unit/model -k waiver_digest` writes and loads the findings
+- **THEN** the loaded waivers are equal, the circuit waiver's JSON object holds `digest`, the copper waiver's holds none, and a `Waiver` of code `copper.short` with a digest, or of a `circuit.*` code without one, raises `ValueError`
 
 ### Requirement: Check severities in the rules layer
 The rules layer SHALL hold the severities that a design gives the checks of a design-rule tool as `RuleSet.severities: dict[str, RuleSeverity]`, with the default `{}`, so `rules.json` files written before it still load. A key is the finding code of the check (`<oracle>.drc.<suffix>`, as `check` reports it), a value is `error`, `warning` or `ignore`, and canonical JSON writes the keys sorted. `docs/design-model.md` MUST describe the field and MUST say that 0.2.x and 0.3.0 cannot read a `rules.json` that carries `severities`; `schemas/fenolite.model.v0/rules.json` MUST be regenerated. A rule set without severities MUST write the bytes it wrote before. A severity is not a rule: it has no `RuleKind` and no row in a backend's rule table.
@@ -1255,3 +1264,356 @@ The rules layer SHALL hold the severities that a design gives the checks of a de
 #### Scenario: Refused values
 - **WHEN** a `NetRole` with the kind `motor`, a `HotLoop` of two pads and a `RoleSet` with two loops named `buck` are built
 - **THEN** each raises `ValueError`
+
+### Requirement: Device definitions in the library layer
+`fenolite.model.library` SHALL provide the frozen value objects `DeviceDef`, `DevicePin`, `Rating` and `DeviceProvenance`, and `Library` SHALL gain `devices`, sorted by id. Devices MUST NOT be part of `Design` or of the `.fenolite/` layer files ("Library definitions"). A built component names its device only through the reserved properties `fenolite.device` and `fenolite.device.sha256`. The schemas MUST be regenerated with `tools/gen_schemas.py`.
+
+#### Scenario: Device round trip
+- **GIVEN** the `DeviceDef` of `Example:BUCK_6V_2A`
+- **WHEN** it is dumped and loaded with `canonical.dumps` and `canonical.loads`
+- **THEN** the loaded record equals the original, and its pins keep code-point order
+
+#### Scenario: Devices stay out of the layer files
+- **WHEN** `examples/devices/design.py` is built with `--confirm`
+- **THEN** no file under `.fenolite/` holds a `DeviceDef`, and the component `U1` in `.fenolite/circuit.json` holds the property `fenolite.device`
+
+### Requirement: Device definition fields
+`DeviceDef` SHALL hold `id`, `summary`, `symbol`, `footprint`, `manufacturer`, `mpn`, `datasheet`, `ref_prefix`, `value`, `evidence`, `sources`, `ground`, `unused_pads`, `properties`, `pins` (ordered by function code point), `ratings` (ordered by key) and `provenance`. Every field but `id` has a default. `DevicePin` SHALL hold `function`, `pin_pads` (ordered pairs in the form of `Component.pin_pad_map`), `voltage`, `current` and `must_connect`.
+
+#### Scenario: Pins in code-point order
+- **GIVEN** a record whose pins are written in the order `VIN`, `BST`, `GND`
+- **WHEN** it is parsed
+- **THEN** `DeviceDef.pins` holds `BST`, `GND`, `VIN` in that order
+
+### Requirement: Integer ratings in the model
+`Rating` SHALL hold `key`, `unit` (`uV`, `uA`, `uW` or `mdegC`), `min` and `max`, each an `int` or `None`. No field of a device definition MUST hold a float.
+
+#### Scenario: No float in a device
+- **WHEN** the canonical JSON of every shipped and test device is scanned
+- **THEN** it holds no number with a fraction or an exponent
+
+### Requirement: Block instances in the circuit model
+The model `Module` SHALL gain `block: str = ""` and `params: tuple[BlockParam, ...] = ()`. `BlockParam(name, type, text)` SHALL be a frozen value object whose `type` is one of `bool`, `int`, `str`, `length`, `quantity`, `range` and `none`. `params` MUST be ordered by name, and two params with one name or an unknown `type` MUST raise `ValueError`.
+
+#### Scenario: Refused params
+- **WHEN** a `Module` with two params named `vout`, and a `BlockParam` of type `float`, are built
+- **THEN** each raises `ValueError`
+
+### Requirement: Ports in the circuit model
+`Circuit` SHALL gain `ports: tuple[Port, ...] = ()`. `Port(Entity)` holds `name`, `owner` (the id of a module or a component), `kind`, `direction` (`in`, `out` or `inout`), `members` (member name to net id) and `optional: bool = False`. An empty `name` or `kind`, or another `direction`, MUST raise `ValueError`. No backend writes ports to a KiCad or Altium file.
+
+#### Scenario: Block instance round trip
+- **GIVEN** a model `Module` with `block="buck"` and the params `current` (`quantity`, `2A`) and `vout` (`quantity`, `3.3V`), and a `Port` named `VOUT` of kind `power` and direction `out` owned by it
+- **WHEN** the design is written with `canonical.dump_dir` and loaded with `canonical.load_dir`
+- **THEN** the loaded module and port equal the originals, and `circuit.json` holds the port under `ports`
+
+#### Scenario: Refused port values
+- **WHEN** a `Port` with the direction `both` is built
+- **THEN** it raises `ValueError`
+
+### Requirement: Block fields are optional in circuit files
+Every field added for blocks and ports SHALL be left out of `circuit.json` when it is empty or has its default. A `circuit.json` written before this change MUST load, validate against the schema regenerated by `tools/gen_schemas.py`, and be written back with the same bytes. `docs/design-model.md` MUST describe the fields.
+
+#### Scenario: Older circuit files
+- **GIVEN** a `circuit.json` written before this change
+- **WHEN** it is loaded, validated against the regenerated schema and written again
+- **THEN** every module has `block == ""` and no params, `ports` is empty, and the written bytes equal the input
+
+### Requirement: Impedance targets in the rules model
+`fenolite.model.rules` SHALL define `ImpedanceKind = Literal["single", "differential"]`, the value object `TraceGeometry(layer, references, width, gap=None)` and the entity `ImpedanceTarget(name, kind, netclass_ids, ohms, tolerance_percent="", layers=())`, and `RuleSet` SHALL gain the field `impedance: tuple[ImpedanceTarget, ...]`, empty by default and stored in `rules.json`. This is an addition to the `rules` layer of "Model layers for v0.1".
+
+#### Scenario: Detailed contract for impedance targets in the rules model
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
+`fenolite.model.rules` SHALL define `ImpedanceKind = Literal["single", "differential"]`, the value object `TraceGeometry(layer, references, width, gap=None)` and the entity `ImpedanceTarget(name, kind, netclass_ids, ohms, tolerance_percent="", layers=())`, and `RuleSet` SHALL gain the field `impedance: tuple[ImpedanceTarget, ...]`, empty by default and stored in `rules.json`. This is an addition to the `rules` layer of "Model layers for v0.1".
+- `TraceGeometry.layer` MUST be a copper layer name; `references` MUST hold one or two layer names in stack order, none equal to `layer`; `width` MUST be an `Nm` above 0; `gap` MUST be an `Nm` above 0 for a `differential` target and `None` for a `single` one.
+- `ImpedanceTarget.netclass_ids` MUST name the classes the target governs, in order; `ohms` and `tolerance_percent` MUST be decimal texts of positive numbers (`"90"`, `"42.5"`) or `""`, never produced from a `float`. `ohms` is `""` only for a target read from a file that gives none. `layers` MUST be in stack order.
+- `Design.validate()` MUST report the error `model.impedance-invalid`, naming the target, for: a class id that names no class, a class named by two targets, two targets of one name, one layer twice in a target, a `gap` that does not fit the kind, a width or gap of 0 or less, a reference count other than one or two or a reference equal to the layer, and an `ohms` or tolerance text that is not a positive decimal, or a tolerance of 100 or more.
+- `schemas/fenolite.model.v0/rules.json` MUST be regenerated, and a `rules.json` without the key `impedance` MUST load with an empty tuple.
+
+#### Scenario: Target round trip
+- **GIVEN** a design whose `RuleSet.impedance` holds `ImpedanceTarget(name="USB90", kind="differential", netclass_ids=(<id of USB90>,), ohms="90", tolerance_percent="10", layers=(TraceGeometry("F.Cu", ("In1.Cu",), 200_000, 150_000),))`
+- **WHEN** it is written with `canonical.dump_dir` and loaded with `canonical.load_dir`
+- **THEN** the loaded target equals the original, and `rules.json` holds it under the key `impedance`
+
+#### Scenario: Rules file of an older build
+- **GIVEN** a `rules.json` written before this change, without the key `impedance`
+- **WHEN** it is loaded and validated against the regenerated schema
+- **THEN** loading succeeds, validation passes and `RuleSet.impedance == ()`
+
+#### Scenario: One class, two targets
+- **GIVEN** two targets `A` and `B` that both name the class `USB90`
+- **WHEN** `design.validate()` runs
+- **THEN** it reports one `model.impedance-invalid` error naming `A`, `B` and `USB90`
+
+### Requirement: Interface parameters in the model
+The model `Interface` SHALL gain `params` (name to a c0246 `ValueRange`), `reference: str | None = None` (the id of a `power` interface) and `shared: bool = False`. c0251's `Port` SHALL gain `params`, `reference` (the id of a `power` port or interface), `share: bool = False` and `requires: tuple[str, ...] = ()`, sorted. A param MUST be written in c0246's encoding (unit name, `Decimal10` bounds). Each field MUST be left out of `circuit.json` when empty or default.
+
+#### Scenario: Parameters round trip
+- **GIVEN** a `power` interface with the param `voltage` and `shared=True`, and a `power` port with the params `voltage` and `current`
+- **WHEN** the design is written with `canonical.dump_dir` and loaded with `canonical.load_dir`
+- **THEN** the loaded entities equal the originals, every bound in `circuit.json` is an integer mantissa and exponent, every unit is a c0246 unit name such as `volt`, and no `min` or `max` key is written
+
+#### Scenario: Older circuit files keep their bytes
+- **GIVEN** a `circuit.json` written before this change, holding a `power` interface
+- **WHEN** it is loaded, validated against the regenerated schema and written again
+- **THEN** the interface has no params, and the written bytes equal the input
+
+### Requirement: Ground and logic kinds in the model
+The circuit model SHALL know the interface kinds `ground` (member `gnd`) and `logic` (member `io`) beside the kinds it holds today. `power_interface_nets` MUST keep reading the kind `power` only. A param name outside the kind's table MUST raise `ValueError`.
+
+#### Scenario: Unknown param refused
+- **WHEN** a model `Interface` of kind `ground` is built with the param `voltage`
+- **THEN** `ValueError` is raised naming `ground` and `voltage`
+
+### Requirement: Device ports in the model
+`to_model` SHALL give one `Port` per declared port of each part placed from a device record, owned by the component's id, with the id `derived_id("prt", "dsl", "port:<component path>:<port name>")`, the params of the record, its evidence label (`evidence`) and the net of each member. A member whose pins are on two nets MUST be left out of `members` and recorded in `split` (member name to the sorted net ids), so that the model alone can name the split.
+
+#### Scenario: Device port recorded
+- **GIVEN** a sensor part `U3` whose device declares the `power` port `vdd` (pin `VDD`, `voltage` 1.71 V to 3.6 V), with `VDD` on the net `3V3`
+- **WHEN** `to_model` runs
+- **THEN** the model holds the `Port` `vdd`, owned by the id of `U3`, of kind `power` and direction `in`, whose `hv` member is the id of `3V3` and whose param `voltage` has the record's bounds
+
+### Requirement: Contracts in the model
+`fenolite.model.rules` SHALL define the frozen value objects `DeratingRule`, `OperatingRange`, `Expectation`, `RigSupply`, `RigSink` and `ContractSet` (with `unknown`), and the closed tables `DERATING_KEYS`, `EXPECT_OPS` and `EXPECT_REFS`. `RuleSet` SHALL gain `contracts: ContractSet | None`, stored under `contracts` only when not empty. Every range MUST use c0246's encoding (unit name, `Decimal10` bounds); no float MAY be stored, and no backend lowers contracts.
+
+#### Scenario: Contracts round trip
+- **GIVEN** a design whose `RuleSet.contracts` holds a derating rule, an ambient range, an expectation `within(value(R1) * 2, [3 V, 4 V])` and a rig supply
+- **WHEN** `uv run pytest tests/unit/model/test_rules.py -k contracts` writes it with `canonical.dump_dir` and loads it with `canonical.load_dir`
+- **THEN** the loaded contracts equal the originals, `rules.json` holds them under `contracts`, and every range in it has a unit name such as `volt` or `kelvin` and `Decimal10` bounds, with no `min` or `max` key
+
+#### Scenario: Files of an older build
+- **GIVEN** a `rules.json` written by 0.6.0
+- **WHEN** it is loaded, validated against the regenerated schema and written again
+- **THEN** `RuleSet.contracts` is `None` and the written bytes equal the input
+
+### Requirement: Expectation trees in the model
+An `Expectation` SHALL hold `id` (`<instance path>/expect#<n>`), `instance`, `reason`, `origin` and `test`. Its test MUST be a tree whose top operation is `within`, `at_least` or `at_most`, whose inner operations are `add`, `sub`, `mul`, `div` and `neg`, and whose leaves are c0246 ranges, exact numbers (`num`) or refs (`value`, `rating` with `limit` and an optional `pin`, `voltage`, `current`) naming entity ids. `origin` MUST be a module name and a line, never a path.
+
+#### Scenario: Refused values
+- **WHEN** a `DeratingRule` with `permille` 0 or 1001, an `Expectation` whose top operation is `add`, an `Expectation` whose `origin` is an absolute path such as `C:/x/design.py:3`, and a `ContractSet` with two rig elements named `bench` are built
+- **THEN** each raises `ValueError`
+
+### Requirement: Block versions in the circuit model
+The model `Module` SHALL gain `block_version: str = ""`, the version of the recorded block that made the instance, which MUST be `MAJOR.MINOR.PATCH` when not empty and MUST be empty when `block` is empty. The field MUST be omitted from `circuit.json` when empty, so a circuit file without it loads, validates and is written back with the same bytes.
+
+#### Scenario: Older circuit file
+- **GIVEN** a `circuit.json` written by c0251 with a block module and no `block_version`
+- **WHEN** it is loaded and written again
+- **THEN** the bytes are equal
+
+#### Scenario: Version without a block
+- **WHEN** a `Module` with `block == ""` and `block_version == "1.0.0"` is built
+- **THEN** `ValueError` is raised naming `block_version`
+
+### Requirement: Limits in device definitions
+`fenolite.model.library.Rating` SHALL gain `limit` (`abs_max` or `operating`, default `abs_max`). `DevicePin` SHALL hold `ratings` (sorted by key and limit) and `thresholds` (`Threshold(key, unit, value)`, the five logic keys) in place of c0248's `voltage` and `current`. `DeviceDef` SHALL gain `limits` (`PinPairLimit(between, ratings)`, sorted by `between`) and `cls`. Every value MUST be an integer in `uV`, `uA`, `uW` or `mK`.
+
+#### Scenario: A split record round-trips
+- **GIVEN** the `DeviceDef` of the illustrative record of `design.md`, decision 1
+- **WHEN** `uv run pytest tests/unit/model/test_library.py -k limits` dumps it with `canonical.dumps` and loads it back
+- **THEN** the loaded record is equal, `VIN` holds two ratings (`voltage`, `abs_max`) and (`voltage`, `operating`), `EN` holds two thresholds, `limits` holds `BST`-`SW`, `cls` is `controller`, and no number is a float
+
+### Requirement: Kelvin ranges in the model
+c0246's `RangeUnit` SHALL gain `kelvin`. A `ValueRange` of unit `kelvin` holds an absolute temperature or a temperature difference in kelvin, encoded like every other range. The DSL-only units `volt_squared` and `ampere_squared` MUST NOT be a `RangeUnit`, and lowering a range of either MUST raise `DslError`.
+
+#### Scenario: An ambient range in kelvin
+- **GIVEN** `between(celsius(-20), celsius(70))` stored as an operating ambient range
+- **WHEN** it is written to `rules.json`
+- **THEN** it is `{"high": {"e": -2, "m": 34315}, "low": {"e": -2, "m": 25315}, "unit": "kelvin"}`
+
+### Requirement: Sheet pins in the schematic model
+`fenolite.model.schematic` SHALL define `SheetPin(Entity)` with `name`, `shape` (`input`, `output` or `bidirectional` for a block's pins; a drawn sheet of change c0276 may also give `tri_state` or `passive`), `position` and `rotation`, and `SheetRef` SHALL gain `pins: tuple[SheetPin, ...] = ()`, ordered and omitted when empty. Only created sheets hold sheet pins; a sheet read from a file keeps them as opaque slots of its reference.
+
+#### Scenario: Older sheet data
+- **GIVEN** a canonical schematic text written before this change
+- **WHEN** it is loaded and written again
+- **THEN** the bytes are equal
+
+#### Scenario: Refused shape
+- **WHEN** a `SheetPin` with `shape="clock"` is built
+- **THEN** `ValueError` is raised naming the shape
+
+### Requirement: Value range object in the model
+`fenolite.model.circuit` SHALL define the frozen value objects `Decimal10(m, e)`, the exact value m·10^e, and `ValueRange(unit, low=None, nominal=None, high=None)`, with no id and no entity header. `unit` MUST be a unit of the DSL's `Quantity` (`ohm`, `farad`, `henry`, `volt`, `ampere`, `hertz`, `watt`, `second`); `low`, `nominal` and `high` MUST be `Decimal10` or `None`. At least one bound MUST be given, `low <= high`, and a nominal MUST lie within the bounds; otherwise `ValueError`.
+
+#### Scenario: Refused ranges
+- **WHEN** `ValueRange("ohm")`, `ValueRange("ohm", low=Decimal10(2, 0), high=Decimal10(1, 0))`, `ValueRange("ohm", low=Decimal10(1, 0), nominal=Decimal10(5, 0), high=Decimal10(2, 0))` and `ValueRange("uohm", low=Decimal10(1, 0))` are built
+- **THEN** each raises `ValueError`
+
+### Requirement: Canonical exact decimals
+A `Decimal10` SHALL hold integers with `|m| <= 10^15 − 1` and `−30 <= e <= 30`, `m` without a trailing zero digit, and zero as `Decimal10(0, 0)`; any other pair MUST raise `ValueError`. One value thus has one form, every integer stays below 2⁵³, and `docs/design-model.md` MUST describe the form and the table of quantity ranges it covers (0.1 mΩ to 10 TΩ, 0.1 pF to 3 000 F, 1 pA to 10 kA, 1 µV to 50 kV, 0.1 nH to 10 H, 1 mHz to 100 GHz, 1 nW to 100 kW, 1 fs to 10⁶ s).
+
+#### Scenario: Refused pairs
+- **WHEN** `Decimal10(10, 0)`, `Decimal10(0, 3)`, `Decimal10(10**15, 0)` and `Decimal10(1, 31)` are built
+- **THEN** each raises `ValueError`
+
+#### Scenario: Extreme realistic values are exact
+- **WHEN** `to_model` lowers part values `ohm("0.1m").pct(1)`, `ohm("10000G").pct(10)`, `farad("0.1p").pct(10)` and `farad(3000).pct(-10, 20)`
+- **THEN** the stored nominals are `Decimal10(1, -4)`, `Decimal10(1, 13)`, `Decimal10(1, -13)` and `Decimal10(3, 3)`, and every bound equals its exact value
+
+### Requirement: Outward rounding of value ranges
+Lowering a DSL `Range` to a `ValueRange` SHALL store every value with at most 15 significant digits exactly, and SHALL round any other value to 15 significant digits: `low` down, `high` up, the nominal to nearest with ties to even, so the stored interval contains the exact one. A value whose exponent would leave −30..30 MUST raise `DslError`.
+
+#### Scenario: Outward rounding
+- **GIVEN** a part whose value is `between(ohm("1"), ohm("2"), nominal=ohm("1.5")) / 3`
+- **WHEN** `to_model` lowers it
+- **THEN** the stored range is `ValueRange("ohm", Decimal10(333333333333333, -15), Decimal10(5, -1), Decimal10(666666666666667, -15))`
+
+### Requirement: Value ranges on components
+`Component` SHALL gain `value_range: ValueRange | None = None` as its last field. The change MUST be additive: `canonical` omits `None`, a `circuit.json` without the key MUST load with `None`, `SCHEMA_VERSION` stays `"0"`, and `schemas/fenolite.model.v0/circuit.json` MUST be regenerated with `tools/gen_schemas.py`, `value_range` optional.
+
+#### Scenario: Ranges survive the canonical round trip
+- **GIVEN** a design whose component `R1` has `value_range == ValueRange("ohm", Decimal10(99, 2), Decimal10(1, 4), Decimal10(101, 2))`
+- **WHEN** it is written with `canonical.dump_dir`, loaded with `canonical.load_dir` and its `circuit.json` validated against the regenerated schema
+- **THEN** the loaded range equals the original, validation passes, and `circuit.json` holds it under the key `value_range` of `R1`
+
+#### Scenario: Circuits without ranges are unchanged
+- **GIVEN** a `circuit.json` written before this change, and the same design dumped after it
+- **WHEN** the old file is loaded and the two texts are compared
+- **THEN** loading succeeds with every `value_range` `None`, and the texts are equal byte for byte
+
+#### Scenario: Schema is regenerated
+- **WHEN** `uv run python tools/gen_schemas.py --check` and `uv run pytest tests/unit/test_schema_drift.py` run
+- **THEN** both pass, and `schemas/fenolite.model.v0/circuit.json` names `value_range` outside the `required` list of a component
+
+### Requirement: Value ranges stay out of backend files
+No backend SHALL write or read `Component.value_range`. A KiCad or Altium build MUST keep it in `.fenolite/circuit.json` only, and every written file outside `.fenolite/` MUST be byte for byte that of the same design with the nominal given as a `Quantity`.
+
+#### Scenario: Written KiCad files do not change
+- **GIVEN** the blink with `R1` given `value=ohm("330").pct(5)`, and the blink with `value=ohm("330")`
+- **WHEN** both are built with the same `--seed` and `--timestamp`
+- **THEN** every planned file outside `.fenolite/` has the same SHA-256 in both receipts, and only `.fenolite/circuit.json` differs, by the `value_range` of `R1`
+
+### Requirement: Drawn schematic entities
+`fenolite.model.schematic` SHALL define `Junction(position, diameter=0)`, `BusWire(start, end)`, `BusEntry(position, size)` and `BusAlias(name, members)`, entities with the common header, and `SchematicSheet` SHALL gain `junctions`, `buses`, `bus_entries` and `bus_aliases`, ordered tuples omitted when empty. Only created sheets hold them; a read sheet keeps them as opaque slots.
+
+#### Scenario: Older sheet data
+- **GIVEN** a canonical schematic text written before this change
+- **WHEN** it is loaded and written again
+- **THEN** the bytes are equal
+
+#### Scenario: Read sheets stay opaque
+- **WHEN** `tests/data/kicad/schematic/flat.kicad_sch` is read
+- **THEN** `sheet.junctions` is empty and its `junction` children are opaque slots
+
+#### Scenario: No float
+- **WHEN** a `Junction` with a float diameter is built
+- **THEN** `TypeError` or `ValueError` is raised
+
+### Requirement: Drawn schematic value
+`fenolite.model.drawn` SHALL define the frozen value of a drawn schematic: `DrawnSchematic(root, sheets)`, `DrawnSheet`, `DrawnSymbol`, `DrawnField`, `DrawnPower`, `DrawnLabel`, `DrawnSheetRef`, `DrawnPin` and `DrawnOpaque`, with positions in integer nm and angles in integer µdeg. A drawn symbol MUST name its component by path relative to its instance's module and never by reference.
+
+#### Scenario: Equality and hashing
+- **WHEN** `uv run pytest tests/unit/model/test_drawn_value.py` builds two equal drawn values
+- **THEN** they are equal, hash equally, and no field holds a float
+
+#### Scenario: Instances from paths
+- **GIVEN** the repeated drawn fixture
+- **WHEN** `DrawnSchematic.instances()` is called
+- **THEN** it gives `("", "root")`, `("ch0", "channel")` and `("ch1", "channel")` in page order
+
+### Requirement: Optional outline stroke width
+`Outline.stroke_width` SHALL be an optional nonnegative integer nanometre value, default `None`, for generated root outline strokes. Canonical JSON MUST omit the default and retain an explicit zero. Existing outlines without the field MUST retain their bytes.
+
+#### Scenario: Default and explicit zero
+- **WHEN** outlines with an omitted width and with zero width are serialized and read back
+- **THEN** the former omits `stroke_width` and the latter preserves zero
+
+### Requirement: Optional drawn font value
+The model SHALL provide a frozen `DrawnFont` with optional size, thickness, bold, italic and face. Size axes MUST be positive integer nm and thickness nonnegative integer nm; booleans MUST retain presence. Empty fonts, floats, invalid names and bool-as-length values MUST refuse.
+
+#### Scenario: Exact asymmetric font
+- **GIVEN** an authored font with distinct positive width and height, zero thickness and explicit false bold
+- **WHEN** it is constructed and serialized
+- **THEN** each value and its presence remain exact
+
+#### Scenario: Invalid model input
+- **WHEN** a font contains zero size, a fractional nm, a control character in its face or no attributes
+- **THEN** construction refuses before changing any model
+
+### Requirement: Drawn text style surfaces
+Drawn fields, labels and sheet pins SHALL carry optional fonts. Labels and pins SHALL carry optional explicit justification. Sheet references SHALL carry optional unique `Sheetname` and `Sheetfile` field poses. Defaults MUST retain the previous model meaning; field poses MUST NOT supply text overrides.
+
+#### Scenario: Sheet property style
+- **GIVEN** a sheet reference with an explicitly styled `Sheetname` pose
+- **WHEN** it is lowered
+- **THEN** its typed sheet name supplies the text and the pose supplies only placement and effects
+
+### Requirement: Explicit BOM-only components
+A canonical component MAY be explicitly BOM-only without a board footprint instance. It SHALL retain purchasing identity, reference, value, properties, DNP state and source instance BOM inclusion. The neutral model BOM SHALL include it. The default false marker SHALL preserve existing canonical bytes. This narrow path SHALL reject pinned, power, board-only and physical-placement contradictions instead of hiding them in opaque graphics.
+
+#### Scenario: Purchasing accessory without a footprint instance
+- **GIVEN** an authored pinless, non-power source accessory included in the BOM and excluded from the board
+- **WHEN** it is strictly imported and rebuilt
+- **THEN** the canonical model and neutral/native BOM retain the same item, the electrical pin partition is unchanged, and no physical footprint is invented
+
+#### Scenario: A purchasing item disappears
+- **WHEN** the accessory is removed or its BOM inclusion changes in one side of a comparison
+- **THEN** the applicable canonical/BOM guard reports the change and cannot claim equivalent purchasing content
+
+#### Scenario: Electrical lookalike
+- **WHEN** a source instance has pins, a power role or contradictory physical flags
+- **THEN** this narrow BOM-only path refuses it before staging and cannot treat it as an opaque graphic
+
+#### Scenario: Incompatible flags between purchasing units
+- **GIVEN** pinless units of one source reference have board or DNP flags that one canonical component cannot preserve
+- **WHEN** strict import or source comparison reads them
+- **THEN** a located existing input error refuses before a write plan, even with loss acceptance
+- **AND** equal flags and independently preserved both-excluded opaque units retain their existing behavior
+
+### Requirement: Slotted board holes
+`Hole` SHALL hold `length: Nm | None = None` and `rotation: Udeg = 0`. With `length`, the hole is a drilled slot of width `drill` and overall length `length`, its length axis turned by `rotation` in the model frame; `length` MUST exceed `drill`. The canonical writer MUST omit both at their defaults, so a document without slotted holes keeps its bytes; release 0.4.x cannot read a document that carries them.
+
+#### Scenario: A slotted hole round-trips
+- **GIVEN** a board `Hole` of drill 2 mm, length 12 mm and rotation 90°
+- **WHEN** `uv run pytest tests/unit/model/test_hole_slots.py` dumps and loads it
+- **THEN** it is equal, and a round hole's document keeps its bytes
+
+### Requirement: Panels in the model
+`model.panel.Panel` SHALL be a frozen entity with `name`, `source`, `array` (rows, cols, gaps, a quarter-turn rotation in µdeg, `mirrored`), `fit`, `frame` (four rail widths), `separations`, `tabs`, `vscore`, `fiducials`, `tooling_holes`, `fiducial_set`, `tooling_set` and `limits`, lengths in `Nm`. It SHALL be written as canonical JSON `panel.json` (schema `fenolite.panel_model.v0`); the writer MUST omit defaults.
+
+#### Scenario: A panel round-trips
+- **GIVEN** a `Panel` of a 2 × 4 grid with rails, tabs between columns and V-score between rows
+- **WHEN** `uv run pytest tests/unit/model/test_panel.py` dumps it with `canonical.dumps` and reads it with `canonical.loads`
+- **THEN** the loaded panel equals the original, and its schema check passes
+
+#### Scenario: A rotation that is no quarter turn
+- **WHEN** a `PanelArray` with rotation 45 000 000 µdeg is made
+- **THEN** it raises `ValueError` naming the rotation
+
+### Requirement: Explicit project curve approximation setting
+Board SHALL append optional max_curve_error as positive exact integer nanometres, rejecting booleans and nonintegers. None SHALL preserve legacy defaults and canonical bytes. The setting SHALL describe target-project configuration, not a universal algorithmic guarantee.
+
+#### Scenario: Exact setting survives
+- **WHEN** code requests max_curve_error10000nm
+- **THEN** canonical/schema/DSL and supported target project read/write preserve that exact setting
+
+#### Scenario: No requested setting
+- **WHEN** an authored board omits max_curve_error
+- **THEN** existing authored outputs remain byte-identical
+
+### Requirement: Footprints hold rule areas
+A footprint definition and a footprint instance SHALL hold rule areas (`keepouts`, `Keepout` entities) in addition to their pads and graphics, and placing a definition MUST carry its rule areas into the instance with the placement's frame and side. An empty tuple MUST be left out of the canonical JSON, so footprints without rule areas keep their bytes.
+
+#### Scenario: A placed definition with a rule area
+- **GIVEN** a footprint definition with one rule area on `F.Cu`
+- **WHEN** it is placed on the bottom side of a board
+- **THEN** the instance holds the rule area on `B.Cu`, and the board's checks see it in the board frame
+
+### Requirement: Board mask margin in the model
+`fenolite.model.board.Board` SHALL hold `mask_margin: Nm | None = None`, placed last, so that documents written before it still load: the board's solder-mask margin, the growth of the mask opening of an untented via, and of a pad that holds no margin of its own, beyond its copper. It may be negative. `None` MUST mean the backend's own default.
+- The model MUST NOT compute an opening; backends do.
+- `tools/gen_schemas.py` MUST regenerate `schemas/fenolite.model.v1/board.json` with the field, an integer or `null`. The canonical JSON of a board whose `mask_margin` is `None` MUST be the text written before this change, because default values are omitted.
+- The field is set by a conversion (change c0445). A KiCad board read from a file leaves it `None` and keeps its setup in its slots.
+
+#### Scenario: Default and old documents
+- **GIVEN** a `board.json` written before this change
+- **WHEN** `canonical.loads` reads it into a `Board` and `to_data` writes it again
+- **THEN** the board has `mask_margin is None` and the written text equals the read one
+
+#### Scenario: Schema regenerated
+- **WHEN** `uv run python tools/gen_schemas.py --check` runs after this change
+- **THEN** it exits 0 and `board.json` lists `mask_margin` on the board
+

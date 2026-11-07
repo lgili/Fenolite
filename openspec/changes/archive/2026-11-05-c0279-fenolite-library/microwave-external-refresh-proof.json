@@ -1,0 +1,87 @@
+{
+  "source_core": "5b0853b718e54f2ce487a2545a3ed44df7bd0f9a",
+  "upstream": {
+    "archive_sha256": null,
+    "commit": "97acc80c223d75520c03fc44cab63cd9a3202c42",
+    "licence_files": [
+      "LICENSE.CC-BY-SA-4.0"
+    ],
+    "path": "demos/microwave",
+    "retrieved": "2026-10-31",
+    "source_location": "https://gitlab.com/kicad/code/kicad/-/tree/97acc80c223d75520c03fc44cab63cd9a3202c42/demos/microwave",
+    "spdx_expression": "CC-BY-SA-4.0",
+    "url": "https://gitlab.com/kicad/code/kicad"
+  },
+  "item_name": "microwave",
+  "version": "1.0.2",
+  "actual_build_target": "kicad-10",
+  "native_cli_observed": "10.0.6",
+  "native_project_schema_major": 9,
+  "source_CAD_inputs": 2,
+  "active_resources": [],
+  "nominal_tables": [],
+  "licence_sources_sha256": {
+    "LICENSE.CC-BY-SA-4.0": "00ba11b9a22d453aed299954eaca389d8efef441a4673d84e2dc4ae10ebc7ca5"
+  },
+  "licence_text_sha256": "17a696cf6cf01b8d795151556dfd51cc121c1b678a33d509d6548658c1008391",
+  "licence_bytes_equal_approved_item": true,
+  "original_authors": [
+    "KiCad project (no individual author is named in the demo's files)"
+  ],
+  "model_references": 0,
+  "unique_model_names": 0,
+  "model_scope": "name-only, no3Dassets/official libraries copied; geometry/licences/equality not judged",
+  "levels": {
+    "1": "equal",
+    "2": "equal",
+    "3": "equal",
+    "4": "equal",
+    "5": "skipped",
+    "6": "equal",
+    "7": "equal",
+    "S": "skipped",
+    "8": "equal"
+  },
+  "actual_skips": {
+    "5": "no-copper",
+    "S": "no-schematic"
+  },
+  "differences": 0,
+  "accepted": 0,
+  "excluded": 0,
+  "notices_exact": [],
+  "native_project_unjudged": "custom DRU rules and unrelated native properties",
+  "raw_import_verbatim": true,
+  "import_dry_exit": 0,
+  "import_confirm_exit": 0,
+  "record_dry_exit": 0,
+  "record_confirm_exit": 0,
+  "replay_exit": 0,
+  "replay_equal": true,
+  "scoped_proof_version_audit_exit": 0,
+  "whole_frame_audit_exit": 5,
+  "remaining_findings": 2,
+  "payload_delta": {
+    "old_count": 8,
+    "new_count": 9,
+    "counts": {
+      "unchanged": 1,
+      "changed": 7,
+      "added": 1
+    }
+  },
+  "all_item_files_scanned": 14,
+  "private_hits": 0,
+  "private_waivers": 0,
+  "private_exclusions": 0,
+  "outputs_tree": "fenolite-tree-1:edb42ee91c5669cb480fb2a7f9dbe375e0a21627dad87a63a8b0813f222fd1ac",
+  "provenance_sha256": "8fc81f4306fa803427489ee057322bdac2dee24ae885d3cc63a2d006f5330b62",
+  "receipt_sha256": "023569a90335bd7afbb98b7e178f769df6500276d47d26a093dea3c76bbee2e3",
+  "original_inputs_unchanged": true,
+  "authoritative_unchanged": true,
+  "outside_item_unchanged": true,
+  "published": false,
+  "promoted": false,
+  "CI_closure_claimed": false,
+  "routing_skip_scope": "zero tracks/vias/zones; footprint/pad copper is not claimed absent"
+}

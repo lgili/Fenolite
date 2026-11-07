@@ -1,0 +1,96 @@
+{
+  "source_core_commit": "938f9c1bbf272eb9ece86c439a7688c227cc005e",
+  "author_commit": "89aacf5013fc0ffe4b988a2e3c5a227bce3c4983",
+  "source_url": "https://github.com/Open-Air-Foundation/pcb-openair-max-main/tree/89aacf5013fc0ffe4b988a2e3c5a227bce3c4983/PCB/openair-max",
+  "input_sha256": {
+    "One-Air-Max.kicad_pcb": "adaa641eddad54edc1aaf8820431cab5c4379177a9425aabef72c05462332f92",
+    "One-Air-Max.kicad_sch": "7330ca1d92aa4ebde3207137f98ab397bcdc04f50a67623f51d3d36edd8f82f3",
+    "One-Air-Max.kicad_pro": "dc019c6ad70f06d4cc7e7aae649b0510f9490a06b7212a2ef02c47e93319bcfa",
+    "Battery-Holder.kicad_sch": "2c066876242023dedba50ab4ed75ef36f44f2793f182934ef1e61814c3ee1fa9",
+    "Solar-Module.kicad_sch": "b9f9c5b3feae46897acf4cedf156ab7c5894baf68c755f054ca61feb53beddc8",
+    "One-Air-Max.kicad_dru": "fc6858c9efdc5ae0e12e01e4475e4c186a7f7b6c4fe99698d4379ec2808985ea"
+  },
+  "receipt_sha256": "c501657ccf2f992a909fa31c59a8a9a4fa1f00d394c3c59a801d4a304ac34733",
+  "native_target": 10,
+  "native_version": "10.0.6",
+  "dry_import_exit": 0,
+  "confirmed_import_exit": 0,
+  "strict_verify_source_exit": 0,
+  "levels": [
+    {
+      "level": 1,
+      "status": "equal",
+      "differences": 0,
+      "excluded": 0,
+      "notices": 0
+    },
+    {
+      "level": 2,
+      "status": "equal",
+      "differences": 0,
+      "excluded": 0,
+      "notices": 0
+    },
+    {
+      "level": 3,
+      "status": "equal",
+      "differences": 0,
+      "excluded": 0,
+      "notices": 0
+    },
+    {
+      "level": 4,
+      "status": "equal",
+      "differences": 0,
+      "excluded": 0,
+      "notices": 0
+    },
+    {
+      "level": 5,
+      "status": "equal",
+      "differences": 0,
+      "excluded": 0,
+      "notices": 27
+    },
+    {
+      "level": 6,
+      "status": "equal",
+      "differences": 0,
+      "excluded": 0,
+      "notices": 0
+    },
+    {
+      "level": 7,
+      "status": "equal",
+      "differences": 0,
+      "excluded": 0,
+      "notices": 0
+    },
+    {
+      "level": "S",
+      "status": "equal",
+      "differences": 0,
+      "excluded": 0,
+      "notices": 0
+    },
+    {
+      "level": 8,
+      "status": "equal",
+      "differences": 0,
+      "excluded": 0,
+      "notices": 0
+    }
+  ],
+  "differences": [],
+  "accepted": [],
+  "native_rules_scope": "custom DRU rules and unrelated native properties",
+  "original_inputs_unchanged": true,
+  "authoritative_openair_item_unchanged": true,
+  "limits": [
+    "All27 routing notices/unjudged remain visible.",
+    "No original normal-fill-cache equality or native DRC-result equivalence claimed.",
+    "No3D assets included or model geometry judged.",
+    "No authoritative item/catalog promotion or release performed.",
+    "Required exact-final-integration CI remains pending."
+  ]
+}

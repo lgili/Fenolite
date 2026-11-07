@@ -70,6 +70,22 @@ def test_the_script_writes_only_under_results() -> None:
     assert f"Procedure {script.PROCEDURE};" in text
 
 
+def test_the_script_creates_its_log() -> None:
+    """Scenario "The log is created by the first scripted step" (change c0389, task 6.1): ``FileExists``
+    chooses ``Rewrite`` or ``Append`` before the log is opened, and no ``Try`` block stands around them, since
+    Altium stopped on the ``EInOutError`` of ``Append`` on the missing log inside ``Try``-``Except``
+    (S-1590)."""
+    text = script.script_text().replace("\r\n", "\n")
+    body = text.split("Procedure LogLine(Root, Line);", 1)[1].split("End;\n\n", 1)[0]
+    path = "Root + 'results\\script.log'"
+    assert f"AssignFile(F, {path});" in body
+    assert f"If FileExists({path}) Then Append(F) Else Rewrite(F);" in body
+    assert "Try" not in body and "Except" not in body
+    assert body.index("FileExists") < body.index("Writeln(F, Line);")
+    assert script.SCRIPT_CALLS["FileExists"] == "S-1591"
+    assert script.LOG == "results/script.log"
+
+
 def test_a_step_that_is_not_a_compile_step_is_refused() -> None:
     typed = next(step for step in STEPS if step.kind == "form")
     with pytest.raises(ValueError, match="compile step"):

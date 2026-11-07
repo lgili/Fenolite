@@ -28,8 +28,8 @@ from types import MappingProxyType
 
 import fenolite.backends.kicad.slots as slotlib
 from fenolite.backends.kicad._fpmap import FP_GRAPHIC_HEADS, Ids, read_graphic, unrepresentable
-from fenolite.backends.kicad._libread import Context, Loaded, leading_atoms
-from fenolite.backends.kicad.sexpr import Node, dumps, parse_fragment
+from fenolite.backends.kicad._libread import Context, Loaded, leading_atoms, truetype_font
+from fenolite.backends.kicad.sexpr import AtomKind, Node, dumps, parse_fragment
 from fenolite.backends.kicad.slots import Opaque
 from fenolite.backends.kicad.versions import FileKind
 from fenolite.core.coords import Size
@@ -110,6 +110,12 @@ def _opaque_nodes(entity: FootprintInstance | Pad) -> list[Node]:
     return [node for _, node in _opaque_slots(entity)]
 
 
+def model_nodes(footprint: FootprintInstance) -> tuple[Node, ...]:
+    """The ``model`` children of a board footprint as ``read_board`` keeps them, opaque slots in their
+    order (change c0449); none for a footprint that was not read from KiCad."""
+    return tuple(node for node in _opaque_nodes(footprint) if node.name == "model")
+
+
 def _plain_stroke(node: Node) -> bool:
     stroke = node.find("stroke")
     kind = stroke.find("type") if stroke is not None else None
@@ -137,6 +143,7 @@ def _text(ctx: Context, node: Node, loc: str, ids: Ids, footprint: FootprintInst
     size = ctx.point(size_node, f"{loc}/effects[0]/font[0]/size[0]")
     stored = ctx.udeg(values[2], f"{loc}/at[0]", at) if len(values) > 2 else 0
     ident, native_ids = ids.of("txt", TEXT_HEAD, node)
+    face, bold, italic = truetype_font(font) or ("", False, False)  # change c0460
     return Text(
         id=ident,
         native_ids=native_ids,
@@ -147,6 +154,9 @@ def _text(ctx: Context, node: Node, loc: str, ids: Ids, footprint: FootprintInst
         layer=layer.atoms()[0].value,
         size=Size(size.y, size.x),
         thickness=ctx.nm(thickness.atoms()[0], f"{loc}/effects[0]/font[0]/thickness[0]", thickness),
+        bold=bold,
+        italic=italic,
+        face=face,
     )
 
 
@@ -295,6 +305,111 @@ def with_footprint_items(design: Design) -> Projection:
     )
 
 
+def graphic_net_name(graphic: Graphic, numbers: Mapping[int, str]) -> str | None:
+    """The name of the net of a board graphic read from a KiCad board, from its ``(net …)`` slot (change
+    c0412): ``(net "GND")`` of a 10.0 board, or ``(net 1)`` of a 9.0 one named through ``numbers`` (the
+    numbers the reader keeps in the nets' bags). ``None`` for a graphic without such a slot, ``(net 0)``,
+    or a number that names no net. The reader keeps the slot and does not set ``net_id`` (c0277)."""
+    bag = graphic.ext.get(BACKEND)
+    for slot in slotlib.from_ext(bag) if bag is not None else ():
+        if not isinstance(slot, Opaque):
+            continue
+        child = slotlib.opaque_child(slot)
+        if isinstance(child, Node) and _is_net(child):
+            return _net_name(child, numbers)
+    return None
+
+
+def _is_net(child: Node) -> bool:
+    return child.name == "net" and not child.nodes() and len(child.atoms()) == 1
+
+
+def _net_name(child: Node, numbers: Mapping[int, str]) -> str | None:
+    """The net a ``(net …)`` child names: ``(net "GND")`` of a 10.0 board, ``(net 1)`` of a 9.0 one."""
+    atom = child.atoms()[0]
+    if atom.value.isdigit() and atom.kind != AtomKind.STRING:
+        return numbers.get(int(atom.value)) or None
+    return atom.value or None
+
+
+def footprint_graphic_nets(footprint: FootprintInstance, numbers: Mapping[int, str]) -> dict[str, str]:
+    """The net name of each projected copper graphic of a board footprint (change c0454), by the graphic's
+    id: the ``(net …)`` child of the drawn child it projects (``drawn_children``). A projection holds no
+    slots of its own, so its net is read from the footprint's child."""
+    found: dict[str, str] = {}
+    for drawn in drawn_children(footprint):
+        if not isinstance(drawn.item, Graphic):
+            continue
+        for child in drawn.node.nodes():
+            if _is_net(child):
+                name = _net_name(child, numbers)
+                if name is not None:
+                    found[drawn.item.id] = name
+    return found
+
+
+def _netted(
+    graphics: Sequence[Graphic],
+    numbers: Mapping[int, str],
+    ids: Mapping[str, str],
+    named: Mapping[str, str] | None = None,
+) -> tuple[Graphic, ...] | None:
+    """``graphics`` whose copper graphics without a ``net_id`` take the id of the net their slot names, or
+    that ``named`` gives their id, or ``None`` when none changes."""
+    changed = False
+    found: list[Graphic] = []
+    for graphic in graphics:
+        name = None
+        if graphic.net_id is None and graphic.layer.endswith(".Cu"):
+            name = (named or {}).get(graphic.id) or graphic_net_name(graphic, numbers)
+        if name is not None and name in ids:
+            found.append(dataclasses.replace(graphic, net_id=ids[name]))
+            changed = True
+        else:
+            found.append(graphic)
+    return tuple(found) if changed else None
+
+
+def with_graphic_nets(design: Design) -> Design:
+    """``design`` whose graphics on a copper layer without a ``net_id`` take the id of the net their KiCad
+    slot names (``graphic_net_name``), so that a writer of copper sees the net: the board's graphics (change
+    c0412) and those of its footprints (change c0454). A slot names a net by its model name or by the
+    spelling the board stores (``{slash}`` for a slash, change c0425). A graphic whose slot names no net of
+    the circuit is left as it is."""
+    board = design.board
+    if board is None:
+        return design
+    from fenolite.backends.kicad.pcb import STORED_KEY  # pcb imports this module when it projects
+
+    numbers: dict[int, str] = {}
+    ids = {net.name: net.id for net in design.circuit.nets}
+    for net in design.circuit.nets:
+        payload = dict(net_bag.payload) if (net_bag := net.ext.get(BACKEND)) is not None else {}
+        number = payload.get("number", "")
+        if number.isdigit():
+            numbers[int(number)] = net.name
+        # the slot of a KiCad 10 graphic names a net in its stored spelling, ``{slash}`` for a slash, which
+        # the reader keeps in the net's bag (change c0425)
+        stored = payload.get(STORED_KEY)
+        if stored:
+            ids.setdefault(stored, net.id)
+    graphics = _netted(board.graphics, numbers, ids)
+    footprints: list[FootprintInstance] = []
+    moved = False
+    for fp in board.footprints:
+        own = _netted(fp.graphics, numbers, ids, footprint_graphic_nets(fp, numbers))
+        footprints.append(fp if own is None else dataclasses.replace(fp, graphics=own))
+        moved = moved or own is not None
+    if graphics is None and not moved:
+        return design
+    board = dataclasses.replace(
+        board,
+        graphics=board.graphics if graphics is None else graphics,
+        footprints=tuple(footprints) if moved else board.footprints,
+    )
+    return dataclasses.replace(design, board=board)
+
+
 def projection_problems(footprint: FootprintInstance) -> list[tuple[str, str]]:
     """``(field, detail)`` for each of ``graphics``, ``texts`` and ``corner_ratio`` of a footprint that
     carries ``PROJECTED_PAIR`` and differs from a fresh projection of its opaque children: the fields are
@@ -321,10 +436,13 @@ __all__ = [
     "FootprintItems",
     "Projection",
     "footprint_items",
+    "graphic_net_name",
     "drawn_children",
     "is_projected",
+    "model_nodes",
     "projection_problems",
     "ratio_ppm",
     "replace_children",
     "with_footprint_items",
+    "with_graphic_nets",
 ]

@@ -1,0 +1,88 @@
+# Authored starter assets; no third-party circuit, layout, table, image or code.
+# Golden JSON is generated from the authored usage under seed 0 and a fixed timestamp.
+licence = "CC0-1.0"
+
+[[file]]
+path = "usage/devices/illustrative_tvs.toml"
+origin = "authored"
+notes = "Authored for Fenolite; illustrative inputs are not specifications of a real device."
+
+[[file]]
+path = "usage/i2c_pullups.py"
+origin = "authored"
+notes = "Authored for Fenolite; illustrative inputs are not specifications of a real device."
+
+[[file]]
+path = "usage/led_indicator.py"
+origin = "authored"
+notes = "Authored for Fenolite; illustrative inputs are not specifications of a real device."
+
+[[file]]
+path = "usage/protected_input.py"
+origin = "authored"
+notes = "Authored for Fenolite; illustrative inputs are not specifications of a real device."
+
+[[file]]
+path = "usage/rc_lowpass.py"
+origin = "authored"
+notes = "Authored for Fenolite; illustrative inputs are not specifications of a real device."
+
+[[file]]
+path = "usage/voltage_divider.py"
+origin = "authored"
+notes = "Authored for Fenolite; illustrative inputs are not specifications of a real device."
+
+[[file]]
+path = "devices/illustrative_tvs.toml"
+origin = "authored"
+notes = "Authored for Fenolite; illustrative inputs are not specifications of a real device."
+
+[[file]]
+path = "layouts/i2c_pullups.toml"
+origin = "authored"
+notes = "Authored for Fenolite; illustrative inputs are not specifications of a real device."
+
+[[file]]
+path = "layouts/led_indicator.toml"
+origin = "authored"
+notes = "Authored for Fenolite; illustrative inputs are not specifications of a real device."
+
+[[file]]
+path = "layouts/protected_input.toml"
+origin = "authored"
+notes = "Authored for Fenolite; illustrative inputs are not specifications of a real device."
+
+[[file]]
+path = "layouts/rc_lowpass.toml"
+origin = "authored"
+notes = "Authored for Fenolite; illustrative inputs are not specifications of a real device."
+
+[[file]]
+path = "layouts/voltage_divider.toml"
+origin = "authored"
+notes = "Authored for Fenolite; illustrative inputs are not specifications of a real device."
+
+[[file]]
+path = "golden/i2c_pullups.json"
+origin = "authored"
+notes = "Generated from an authored usage under seed 0 and a fixed timestamp."
+
+[[file]]
+path = "golden/led_indicator.json"
+origin = "authored"
+notes = "Generated from an authored usage under seed 0 and a fixed timestamp."
+
+[[file]]
+path = "golden/protected_input.json"
+origin = "authored"
+notes = "Generated from an authored usage under seed 0 and a fixed timestamp."
+
+[[file]]
+path = "golden/rc_lowpass.json"
+origin = "authored"
+notes = "Generated from an authored usage under seed 0 and a fixed timestamp."
+
+[[file]]
+path = "golden/voltage_divider.json"
+origin = "authored"
+notes = "Generated from an authored usage under seed 0 and a fixed timestamp."

@@ -313,17 +313,16 @@ def test_clearance_unset_is_counted() -> None:
     assert report.evidence.level is Level.INFERRED  # an unset clearance does not lower the level
 
 
-def test_arc_band_never_hides_a_violation() -> None:
+def test_exact_arc_reports_a_violation() -> None:
     """A 0.25 mm arc of radius 5 mm and a track whose true edge gap is 5 µm below a 0.2 mm clearance."""
     made = classed()
     made.arc("A", Point(mm(5), 0), Point(0, mm(5)), Point(-mm(5), 0))
     made.track("B", Point(-mm(2), mm(5.445)), Point(mm(2), mm(5.445)))
     (found,) = check_copper(made.build(), pads=None).findings
-    assert found.code == "copper.clearance" and found.gap <= 195_000  # a lower bound
-    assert found.gap >= 195_000 - 2 * (ARC_TOL_NM + 1) - ARC_TOL_NM - 2
+    assert found.code == "copper.clearance" and found.gap == 195_000
 
 
-def test_arc_band_reports_a_short_only_when_the_copper_touches() -> None:
+def test_exact_arc_reports_a_short_only_when_the_copper_touches() -> None:
     def gap(edge_gap: int) -> list[str]:
         made = Copper()
         made.arc("A", Point(mm(5), 0), Point(0, mm(5)), Point(-mm(5), 0))
@@ -332,6 +331,8 @@ def test_arc_band_reports_a_short_only_when_the_copper_touches() -> None:
         return [f.code for f in check_copper(made.build(), pads=None).findings]
 
     assert gap(-mm(0.01)) == ["copper.short"]  # 10 µm of overlap: the true copper touches
+    assert gap(0) == ["copper.short"]
+    assert gap(1) == []
     assert gap(mm(0.01)) == []  # no clearance in force, and the copper does not touch
 
 
@@ -419,13 +420,11 @@ def test_zone_arc_fill_cut_around_an_arc_is_not_reported() -> None:
     assert _zone_arc(0.19) == [("copper.clearance", 500_000, "zone")]
 
 
-def test_zone_arc_keeps_the_findings_of_the_rule_without_zones() -> None:
-    """A zone value 1 nm above the class value: the widened arc is still judged with the class value, so
-    the band of an arc hides no violation that the check reported before the zone's value existed."""
-    edge = 0.2  # the true gap equals the class value: only the widened arc is closer than it
-    assert _zone_arc(edge, zone=mm(0.2) + 1) == [("copper.clearance", 200_000, f"class:{CLASS}")]
-    # the same pair without a zone value: the class finding of c0029
-    assert _zone_arc(edge, zone=0) == [("copper.clearance", 200_000, f"class:{CLASS}")]
+def test_zone_arc_uses_the_exact_governing_value() -> None:
+    """A zone value 1 nm above the class is broken; equality to the class alone is clean."""
+    edge = 0.2
+    assert _zone_arc(edge, zone=mm(0.2) + 1) == [("copper.clearance", 200_001, "zone")]
+    assert _zone_arc(edge, zone=0) == []
     # and a straight track at exactly the zone's value is not reported: the comparison stays strict
     made = classed()
     ring = _rect(0, 0, 10, 5)
@@ -578,6 +577,8 @@ def test_findings_and_issues_are_sorted() -> None:
         "clearance",
         "edge_clearance",
         "edges",
+        "hole_clearance",  # change c0403
+        "hole_clearance_judged",
         "hole_in_cutout",
         "hole_overlap",
         "holes",

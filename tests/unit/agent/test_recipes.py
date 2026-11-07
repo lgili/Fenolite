@@ -28,6 +28,7 @@ NEEDED = {
     "copper.short": "crossed",
     "FEN-6001": "starter",
     "FEN-7001": "lossy",
+    "sync.conflict": "conflict",  # c0250
 }
 """The code each recipe of the requirement is about → its sandbox."""
 SENTENCE_END = re.compile(r"[.:!?](?=\s|$)")
@@ -86,7 +87,7 @@ def test_recipes_behave_as_written(block: guide.Block, tmp_path: Path, no_tools:
 
 
 def test_recipes_of_the_requirement_are_on_the_page() -> None:
-    """The seven recipes exist, each in its sandbox, and each is a heading, at most three sentences and
+    """The eight recipes exist, each in its sandbox, and each is a heading, at most three sentences and
     one block."""
     page = guide.page(PAGE)
     found = {_first_code(block): block.argument for block in recipes(page)}
@@ -151,7 +152,7 @@ def test_script_error_is_located_by_its_line(tmp_path: Path, no_tools: None) -> 
 
 def test_runner_sandboxes(tmp_path: Path) -> None:
     """Every sandbox prepares a folder, and an unknown one fails."""
-    assert set(SANDBOXES) == {"starter", "bad-lib-id", "script-error", "crossed", "lossy"}
+    assert set(SANDBOXES) == {"starter", "bad-lib-id", "script-error", "crossed", "lossy", "conflict"}
     for name, prepare in SANDBOXES.items():
         folder = tmp_path / name
         prepare(folder)

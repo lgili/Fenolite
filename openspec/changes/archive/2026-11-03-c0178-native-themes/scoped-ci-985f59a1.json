@@ -1,0 +1,118 @@
+{
+  "schema": "fenolite.scoped-cac-closure.v1",
+  "spec": "c0178-native-themes",
+  "tested_implementation": "985f59a1d01a612b2eac0219243199896c24075a",
+  "scope_decision": "The maintainer clarified that problematic c0332 geometry was already excluded from this closure CI batch before the run. Its27known failures remain DEFERRED_NOT_PASSED.",
+  "CI_run": 41708879698,
+  "whole_workflow_result": "failure",
+  "KiCad10_job_result": "failure",
+  "global_success_claimed": false,
+  "later_CAC_runtime_validated": false,
+  "c0355_and_later_integration_CI_closed": false,
+  "successful_required_jobs": [
+    {
+      "id": 126171394269,
+      "name": "unit (windows-latest, py3.12)",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394428,
+      "name": "unit (ubuntu-latest, py3.12)",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394431,
+      "name": "viewer (visual tests)",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394460,
+      "name": "unit (macos-latest, py3.12)",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394556,
+      "name": "unit (ubuntu-latest, py3.11)",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394700,
+      "name": "unit (ubuntu-latest, py3.13)",
+      "conclusion": "success"
+    },
+    {
+      "id": 126171394740,
+      "name": "kicad-9 (kicad-cli 9.0 oracle)",
+      "conclusion": "success"
+    }
+  ],
+  "native_proofs": [
+    {
+      "path": "tests/kicad/schematic/test_pin_frame_oracle.py",
+      "source985_sha256": "e800c64b1b81d6103113d0731d4c9cc962bac8015922309bb051656b1129ce84",
+      "current_file_equal": true,
+      "native9_explicit_PASSED": [
+        {
+          "line": 4252,
+          "text": "2026-11-03T21:22:42.1549499Z PASSED tests/kicad/schematic/test_pin_frame_oracle.py::test_every_pin_is_on_the_net_of_its_frame"
+        },
+        {
+          "line": 4253,
+          "text": "2026-11-03T21:22:42.1549783Z PASSED tests/kicad/schematic/test_pin_frame_oracle.py::test_the_control_tells_the_two_orders_apart"
+        }
+      ],
+      "native10_explicit_nonpass_records": [],
+      "native10_proof_method": "Complete collection plus exhaustive -ra non-pass summary; source-bound inference, not a nominal PASSED line or successful job10."
+    }
+  ],
+  "KiCad10_proof_method": "Source-bound inference: complete unfiltered collection reaches100percent; exhaustive configured -ra report has27failures/168skips/3xfails, none in this spec’s modules; no nominal PASSED line or green job10 claimed.",
+  "log_bindings": {
+    "20261103T214312Z-metadata.json": {
+      "bytes": 36593,
+      "sha256": "cd7a28fbc69631a6f3613865fba28f4879ab79efcf2d6c6a2e2cc82879da73fe"
+    },
+    "kicad9-126171394740-completed.log": {
+      "bytes": 1951631,
+      "sha256": "3ac138d8cafad5c225d11d9bd22774c872f9369925c7d892d271be0401ab8d94"
+    },
+    "126171394674/logs.raw": {
+      "bytes": 368635,
+      "sha256": "014e4eb36c889f4848842d7abf57462ab6da185e2b8fcf5b28ddbb9334d1a68b"
+    }
+  },
+  "fast_proof": {
+    "source": "2c0540572c936303eb5c46a25002872648dfabad",
+    "receipt": "c0319-integration-repairs/fast13-receipt.json",
+    "receipt_sha256": "6b7c348011a8bafe24cc532e5ce74d505addecfd1dc3d56dba9f35bb80628a8e",
+    "command": "make check-fast PYTEST_MAX_WORKERS=2",
+    "exit": 0,
+    "log_sha256": "3e74d627e77139979c42ba6ca13e53344a23b8416aff252e747e34d56286abfe",
+    "tested_runtime_tests_tools_config_equal_to_985": true,
+    "rerun": false
+  },
+  "closed_remaining_tasks": [],
+  "authorized_normative_rebase": null,
+  "existing_supporting_records": [],
+  "limitations": [
+    "Original RED, incomplete, native skip and geometry-failure observations remain historical evidence.",
+    "No library item/catalog audit, review, publication, Altium evidence graduation, CAD quality or release gate is closed here.",
+    "Runtime/tests/tools/configuration in the isolated archive equal985; later root runtime remains separately pending."
+  ],
+  "special_gate": {
+    "kind": "actual maintainer approval",
+    "record": "openspec/changes/c0178-native-themes/maintainer-colour-review.json",
+    "record_sha256": "a9c568d72122ca40676d5fb6c467acd157d9b4f2e69c88dd77496a31db1b11f3",
+    "response": "Revisei e aprovo a correspondência de cores",
+    "packet_files_verified": 30,
+    "packet_manifest_sha256": "e05008a9eb73f8450db7cee68d4b8cd10f15db9c7b0fa3eda4694da26d6b8406",
+    "scope": "Visual authored/default colour correspondence only; no electrical/native quality or broader evidence promotion."
+  },
+  "unit_visual_tests_sha256": {
+    "tests/unit/view/test_themes.py": "5b71f22fb614a29a45b168ef76b5a5a002c4cf350b1fed4f0d266f5ba6bbc227",
+    "tests/unit/view/test_kicad_schematic.py": "cc94d0be9e50cc24f7bc746bac3306112ab629ff782b044b794252a399f82368",
+    "tests/unit/view/test_page.py": "1f7645ec64043a17b18ec67315fbb2b18c9d0817e87bbf99b2f11380c0469b39",
+    "tests/unit/view/test_project.py": "16e14c93184415f98a311efce26d088cd7f9f59346bda327c9908ce511f0535a",
+    "tests/unit/cli/test_view_cmd.py": "26fe56410527e9438828ee0b2a4ed26243b2f47ebee14340fe9d398da00023a2",
+    "tests/visual/test_screens.py": "a6c065f6ae7616448e7fc307f4bb3f93a780c185ec9291be1e2b8fa695f59809"
+  }
+}

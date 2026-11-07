@@ -36,7 +36,8 @@ shapes on `docs/formats/kicad/frame.md`; this page does not repeat them.
 These are decisions of the code, not facts about KiCad.
 
 - A copper piece is a thick shape: the points within `width / 2` of an integer core (a point, an open
-  polyline or a filled ring). Gaps are decided with integers and exact fractions, never a float
+  polyline, a three-point circular arc or a filled ring). Gaps are decided with exact fractions and
+  radical sign comparisons, never a float
   (`docs/geometry.md`, "Thick shapes").
 - Two items are judged when they share a copper layer and their nets differ. Copper without a net is
   judged against copper with a net.
@@ -48,10 +49,10 @@ These are decisions of the code, not facts about KiCad.
   it replaces a class value. The value is read from the zone: no rule is written for it. Two fills
   take no zone value: nothing measured says which of the two zones' values KiCad's filler keeps
   between two fills.
-- A zone's value is the distance KiCad's filler cuts to around the true copper. An arc is widened by
-  its band so that no violation is missed, so for a value of source `zone` the arc narrowed by its
-  band is judged with the zone's value, and the widened arc with the value in force without the zone.
-  A fill that follows an arc at exactly the zone's clearance is therefore not reported.
+- Circular arcs and board-edge arcs use true distance decisions, not widened polygonisation bands
+  (c0282). A fill uses the same governing clearance as every other copper pair. A fill at exactly
+  that distance is clean. `arc_tol` remains accepted and reported for compatibility and polygonised
+  hole containment topology; it does not bias clearance, short or rule-area decisions.
 - The clearance in force comes from the project's own files: the classes, the class of each net and the
   board minimum of `<stem>.kicad_pro`, and the rules of `<stem>.kicad_dru`. Fenolite ships no rule
   values, so a board without them is judged for shorts only (`copper.clearance-unset`).
@@ -72,7 +73,7 @@ not repeatable ("Via re-net" below), so shorts are proved by Fenolite's own exac
 | case | Fenolite | KiCad's DRC | parity 9.0.9 | parity 10.0.6 | basis |
 |---|---|---|---|---|---|
 | tracks | exact: the centre segment swept by the width | the same | equal | equal | H-K-COPPER-SHAPES |
-| arc tracks | within a band of 1.001 µm: a short only when the true copper touches, a clearance finding whenever the true gap may be below the clearance | the true arc | equal | equal | H-K-COPPER-SHAPES |
+| arc tracks | exact circular core, width unchanged; exact positive gap floored to nm (c0282) | the true arc; near-boundary implementation behaviour remains measured separately | earlier canaries equal; exact-distance canaries pending CI | earlier canaries equal; exact-distance canaries pending CI | H-K-COPPER-SHAPES; ideal geometry is an INFERRED mathematical convention |
 | vias | exact: a disc of the via's diameter on every copper layer of its span | removes the annular ring on layers where the via connects to nothing, when the board asks for it | equal | equal | H-K-COPPER-SHAPES; unused-layer removal not modelled (Fenolite may report more): documented difference |
 | SMD pads | exact for circle, rect, oval, roundrect and polygon custom pads; a conservative superset for trapezoid, chamfered and curved custom pads | the pad's own shape | equal | equal | H-K-COPPER-SHAPES; H-G-FRAME-SHAPE |
 | through-hole pads | the pad's shape on every copper layer it names | removes unused pad layers when the board asks for it | equal | equal | H-K-COPPER-SHAPES; unused-layer removal not modelled (Fenolite may report more): documented difference |
@@ -83,7 +84,7 @@ not repeatable ("Via re-net" below), so shorts are proved by Fenolite's own exac
 | the zone's own clearance | applied between a fill and a track, an arc, a via or a pad of another net, as a class value is: the largest of the zone, the class and the board minimum, and a governing custom rule replaces it | the same, 0.5 mm when the zone sets none | equal (the outcome recorded for the `kicad-9` job; measured by hand at proposal time) | equal | H-K-COPPER-ZONECLR: `copper-zoneclr-zone-above-class` (fill–track, fill–via, fill–pad), `-class-above-zone`, `-rule-below-zone`, `-floor-above-zone`; a refilled pour is clean (`copper-zoneclr-fresh`, 10.0.6) |
 | pairs of two fills | judged with the rule, class and board-minimum values only, never with a zone's clearance | judges no pair of fills that do not touch | recorded: `copper-fill-fill` `absent` | recorded: `copper-fill-fill` `absent` | documented difference (Fenolite may report more: a stale or hand-made fill that comes too close to another fill) |
 | keep-outs (c0103) | one `copper.keepout` per track, arc, via or pad that touches an area forbidding its kind, on a layer of the area; fills are never reported; an area whose outline cannot be shaped is left out (`rule-area` in `summary.unsupported`) | `items_not_allowed` for the same items, and for footprints | not recorded yet | equal | H-K-COPPER-AREA, H-K-AREA-KEEPOUT; footprints in a keep-out are not copper: documented difference |
-| clearance rules scoped to an area (c0103) | an item is in an area when its copper touches the area's filled outline on one of the area's layers; the name is compared with letter case and `*` | the same (`intersectsArea`) | not recorded yet | equal | H-K-COPPER-AREA, H-K-AREA-COND; within 1 µm of an area's edge the two may differ |
+| clearance rules scoped to an area (c0103) | an item is in an area when its exact copper touches the area's filled outline on one of the area's layers; the name is compared with letter case and `*` | the same (`intersectsArea`) | not recorded yet | earlier canaries equal; exact arc boundary pending CI | H-K-COPPER-AREA, H-K-AREA-COND |
 | graphics, texts, holes, board edges, mask and silkscreen | not checked, so the copper of a net tie's bridge is never seen | checked; with the net-tie token a pad is not judged against a copper graphic of its own footprint | n/a | n/a | documented difference |
 | project severity overrides and exclusions | not applied to copper findings; one finding is accepted by a waiver of the design script (`design.waive()`; `docs/cli-contract.md`, "Waivers") | applied | n/a | n/a | documented difference |
 | custom rules outside the closed grammar | not applied; `copper.rules-incomplete` and the stage is `UNVERIFIED` | applied | n/a | n/a | documented difference |
@@ -91,8 +92,34 @@ not repeatable ("Via re-net" below), so shorts are proved by Fenolite's own exac
 | clearance from net classes | the larger of the two classes | the same | equal | equal | H-K-COPPER-RESOLVE |
 | clearance from the board minimum | raises class values; does not raise a custom rule | the same | equal | equal | H-K-PRO-FLOOR; H-K-PRO-MIN-RULE-2 |
 | clearance between the two nets of a differential pair | for two nets that pair by name, both in one class whose pair gap is below its clearance, the class value is the pair gap (source `pair-gap:<class>`); a governing custom rule replaces it, the board minimum is a floor above it, and a `diff_pair` leaf is compared with its letter case | the same; KiCad's extra `diff_pair_gap_out_of_range` under a board minimum is not a clearance finding and is not compared | equal | equal | H-K-COPPER-PAIR; H-K-PRO-PAIR |
-| the clearance boundary | strict: a gap equal to the clearance is clean, 1 nm less is a finding | a tolerance: 1 µm less is reported, 1 nm less is not | recorded | recorded | documented difference |
+| the clearance boundary | with the KiCad rules source: an exact ideal gap at `c − 500 nm` is clean and at `c − 501 nm` is a finding, including circular cores (c0282); a direct call without tolerance stays strict | measured500 nm threshold for the authored straight track/via/pad/through-hole rows under rule/class/floor, plus the pair-class gap bench; this does not cover near-boundary arc parity | selected straight rows equal on9.0.9, four explicit PASSED controls in source985f59a1 | selected straight rows equal on10.0.6 by completed-run terminal-classification inference, source985f59a1; job10 badge remains failure | H-K-COPPER-EPSILON KICAD-VERIFIED (9.0.x, 10.0.x), scoped receipt below; exact ideal arc decisions do not claim near-boundary KiCad arc parity |
+| the hole clearance boundary | `copper.hole-clearance` judges the gap against the limit less the clearance tolerance (change c0420, N4) | a gap 400 nm below a 0.25 mm minimum hole clearance gives no `hole_clearance`, one 600 nm below gives one (`tests/kicad/checks/test_hole_clearance_epsilon.py`) | not run | equal on 10.0.6 (S-1792) | H-K-COPPER-EPSILON |
 | a project without net classes | no clearance in force; shorts only | KiCad's own defaults apply | n/a | n/a | documented difference |
+
+The [straight-clearance scoped receipt](../../evidence/cac-c0281-scoped-ci-985f59a1.json)
+binds the four `test_kicad_tolerance` controls to source
+`985f59a1d01a612b2eac0219243199896c24075a` and preserved CI logs from2026-11-03.
+The completed native10 run has no failure, skip or xfail in this module; its27
+geometry failures were outside the maintainer-authorized batch scope. The run
+and native10 job remain failed. The label covers the selected straight rows
+only; the following near-boundary arc observations are not promoted.
+
+## Exact-arc boundary observations (c0282)
+
+The authored `test_exact_arc_boundary_controls` ran locally on `kicad-cli` **9.0.2** on
+2026-11-01 (S-1010). The same results held under a custom rule, a class and a board minimum.
+Fenolite used exact circular distance and the injected 500 nm tolerance:
+
+| true gap relative to clearance | KiCad 9.0.2 | Fenolite |
+|---|---|---|
+| +1,000 nm or exactly equal | clean | clean |
+| −1 nm | clean | clean |
+| −500 nm | clearance | clean |
+| −501 nm or −2,000 nm | clearance | clearance |
+
+The −500 nm arc row is a documented implementation difference, not an exact geometry
+uncertainty. The new decisions remain **INFERRED** with respect to KiCad parity pending
+the exact-commit KiCad 9/10 CI jobs. Straight-item tolerance measurements retain their scope.
 
 ## Via re-net
 

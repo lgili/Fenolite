@@ -1,0 +1,179 @@
+{
+  "driver_sha256": "22fd9945d8eb175948c5e7143506de5d7d209a4108962b83331b0bd78d502df2",
+  "first_preflight_failure_kicad_calls": 0,
+  "first_preflight_failure_sha256": "43ab16b91967f08735951128d02d067bbdcbac82491c697cfa6381e79123ac9b",
+  "focused_proof": {
+    "aggregator_calls": 0,
+    "command": [
+      "uv",
+      "run",
+      "--frozen",
+      "pytest",
+      "tests/unit/test_drawn_probes.py::test_five_probes_registered_without_native_execution",
+      "-q"
+    ],
+    "exit": 0,
+    "log_sha256": "63203b4ec2b29e7ab8c45616e4d500960794bb60488784fb13fb7fe05b0386bf",
+    "native_calls": 0,
+    "result": "1 passed"
+  },
+  "hermetic_reconciliation": {
+    "exit": 0,
+    "native_calls": 0,
+    "old_pairs_unchanged": {
+      "10.0.6": 1116,
+      "9.0.9": 881
+    },
+    "only_ten_measured_pairs_added": true,
+    "script_sha256": "cebb4915181dc24b4ba4d4a2ba69acfd3f3a212404f2b6840cf6ce16c117fa84",
+    "stdout_sha256": "6d979b0d9bb373f501d224175c7b7a3fce22d4eb0e6a62b6d94a039b4e5e1b3e"
+  },
+  "implementation_source": "cc7c4c42f88ec71351fc47bff078476ae2f1fa37",
+  "kind": "five selective authored-probe snapshot records",
+  "measurement_outer_receipt_sha256": "2a66a7653a07281c7229fe98670efe5a6ff42e0e35329ceb965a0c1f4573389d",
+  "reports": {
+    "10.0.6": {
+      "all_six_connectivity_erc_clean": true,
+      "all_six_names_equal": true,
+      "all_six_partitions_equal": true,
+      "case_counts": {
+        "bus": {
+          "groups": 36,
+          "pins": 40
+        },
+        "example": {
+          "groups": 33,
+          "pins": 38
+        },
+        "flat": {
+          "groups": 33,
+          "pins": 34
+        },
+        "full": {
+          "groups": 32,
+          "pins": 40
+        },
+        "hier": {
+          "groups": 33,
+          "pins": 36
+        },
+        "repeat": {
+          "groups": 5,
+          "pins": 8
+        }
+      },
+      "image": "kicad/kicad:10.0.6@sha256:18693567392b80da435f9fa952ce3a3e534c66eb5a6033f5b9c80aa3b19dd3ec",
+      "native_calls": 13,
+      "original_sources_unchanged": true,
+      "outcomes": {
+        "drawn-bus": "equal",
+        "drawn-connect": "equal",
+        "drawn-names": "equal",
+        "drawn-repeat": "equal",
+        "drawn-write": "equal"
+      },
+      "report_sha256": "54f3e888d7d8c980ccbffa73a6a7fe023398ec70cc37ab8385c5c538466eb628",
+      "retained_nonconnective_ERC_types": [
+        "pin_not_connected",
+        "pin_not_driven",
+        "power_pin_not_driven"
+      ]
+    },
+    "9.0.9": {
+      "all_six_connectivity_erc_clean": true,
+      "all_six_names_equal": true,
+      "all_six_partitions_equal": true,
+      "case_counts": {
+        "bus": {
+          "groups": 36,
+          "pins": 40
+        },
+        "example": {
+          "groups": 33,
+          "pins": 38
+        },
+        "flat": {
+          "groups": 33,
+          "pins": 34
+        },
+        "full": {
+          "groups": 32,
+          "pins": 40
+        },
+        "hier": {
+          "groups": 33,
+          "pins": 36
+        },
+        "repeat": {
+          "groups": 5,
+          "pins": 8
+        }
+      },
+      "image": "kicad/kicad:9.0.9@sha256:e638b79b0321f29395a5b783e94bb9f3c73303e8da15da27b8f5cb4b67a37729",
+      "native_calls": 13,
+      "original_sources_unchanged": true,
+      "outcomes": {
+        "drawn-bus": "equal",
+        "drawn-connect": "equal",
+        "drawn-names": "equal",
+        "drawn-repeat": "equal",
+        "drawn-write": "equal"
+      },
+      "report_sha256": "2a46133b21f916bca62bd4223da47499e55d88a215871299d22f323cef6eff39",
+      "retained_nonconnective_ERC_types": [
+        "pin_not_connected",
+        "pin_not_driven",
+        "power_pin_not_driven"
+      ]
+    }
+  },
+  "reviewed_measurement_calls": 26,
+  "schema": 1,
+  "scope": {
+    "all_previous_pairs_preserved": true,
+    "complete_CI_pass_claim": false,
+    "corpus_naming_warnings_preserved": true,
+    "hypotheses_promoted": false,
+    "measurement_rerun_for_recording": false,
+    "new_keys_per_version": [
+      "drawn-connect",
+      "drawn-names",
+      "drawn-bus",
+      "drawn-repeat",
+      "drawn-write"
+    ],
+    "parent_7_1_complete": false,
+    "parent_7_2_complete": false,
+    "parent_9_2_complete": false,
+    "six_authored_fixtures_only": true,
+    "universal_names_claim": false
+  },
+  "sealed_measurement_sha256": "8f0099ecddcc997e8d23af14adcf1765dda7e6839b2da6be3ec2445e49500c3c",
+  "snapshots": {
+    "10.0.6": {
+      "after": {
+        "count": 1121,
+        "sha256": "e5cf07a6a668d25f444dd8afa2354b421b43a8d0197667b15454cc0f58fb4ef0"
+      },
+      "before": {
+        "canonical_json": true,
+        "count": 1116,
+        "sha256": "611660a05e7cd85e0170bb24d9d0dae4c7491911a723d253b8089f959ac435b5"
+      },
+      "path": "docs/evidence/kicad/probes/10.0.6.json"
+    },
+    "9.0.9": {
+      "after": {
+        "count": 886,
+        "sha256": "f7fd5e8855c4d85409156ef7ebcdc2a2f6943b8ac20d75d69e6965c5a45f73c4"
+      },
+      "before": {
+        "canonical_json": true,
+        "count": 881,
+        "sha256": "165860b671a744ef2a43e3dee921bfc36fc1a05b0ecb1542d33696a0c687d08c"
+      },
+      "path": "docs/evidence/kicad/probes/9.0.9.json"
+    }
+  },
+  "source_bindings_sha256": "c4f22b764831cd13ddd2721c0c633b1763cfa8204c3c7b4b6cd15c5f61ec79cb"
+}

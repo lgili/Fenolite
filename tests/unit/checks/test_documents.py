@@ -104,6 +104,7 @@ def _stage(report: CheckReport, name: str) -> StageResult:
 def test_stage_names() -> None:
     assert DOCUMENT_STAGES == (
         "model.validate",
+        "circuit.rules",
         "erc.lite",
         "copper.clearance",
         "placement.rules",
@@ -120,6 +121,7 @@ def test_stage_names() -> None:
     # of c0222)
     assert set(DOCUMENT_STAGES) & set(STAGE_ORDER) == {
         "model.validate",
+        "circuit.rules",
         "copper.clearance",
         "placement.rules",
         "roles.rules",
@@ -190,6 +192,7 @@ def test_library_alone_is_not_judged_by_the_model_stages() -> None:
     statuses = {stage.name: (stage.status, stage.reason) for stage in report.stages}
     assert statuses == {
         "model.validate": ("skipped", "not-judged"),
+        "circuit.rules": ("skipped", "no-model"),
         "erc.lite": ("skipped", "no-schematic"),
         "copper.clearance": ("skipped", "single-source"),
         "placement.rules": ("skipped", "single-source"),

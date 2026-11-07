@@ -23,9 +23,11 @@ DESIGN = Path(__file__).resolve().parents[3] / "examples" / "blink_2layer" / "de
 REF_PIN = re.compile(r"^[A-Za-z]+[0-9]+-[0-9A-Za-z]+$")
 DEFAULT = [
     "model.validate",
+    "circuit.rules",  # change c0252: right after model.validate
     "erc.kicad",
     "copper.clearance",
     "length.rules",
+    "topology.rules",  # c0258: the tool-free topology check follows length rules
     "placement.rules",
     "roles.rules",
     "zone.fill",

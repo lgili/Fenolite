@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as synthetic test data (change c0262); no real product.
+schema="fenolite.package.v0"
+id="Rules:RuleChip"
+version="1.0.0"
+summary="Synthetic chip review fixture"
+licence="CC0-1.0"
+evidence="INFERRED"
+family="chip"
+body = {length="2.4mm", width="1.2mm", height="0.8mm"}
+terminal = {length="0.5mm"}
+[land]
+source="Fenolite authored dimensions"
+pad={length="0.8mm",width="1.5mm"}
+row_spacing="2mm"
+[generate]
+lands=1
+drawing=1

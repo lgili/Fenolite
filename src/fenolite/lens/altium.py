@@ -36,6 +36,9 @@ from fenolite.backends.altium import (
     schdot,
     schlib,
 )
+from fenolite.backends.altium import (
+    draftsman as draftsman_writer,
+)
 from fenolite.backends.altium import outjob as job_writer
 from fenolite.backends.altium.altsym import DEFAULT_BODIES, AltiumSymbol, SymbolBodies, from_symbol_def
 from fenolite.backends.altium.ascii import text_problem
@@ -47,6 +50,7 @@ from fenolite.backends.altium.project import WRITE_KINDS, component_path, split_
 from fenolite.backends.altium.read.outjob import OutputGroup, record_fields
 from fenolite.backends.altium.symbols import natural_key
 from fenolite.backends.kicad import slots as kicad_slots
+from fenolite.backends.kicad._fpmap import MARGIN_HEADS
 from fenolite.backends.kicad.embed import footprint_extent
 from fenolite.backends.kicad.layers import created_layers
 from fenolite.backends.kicad.liberrors import LibraryError
@@ -57,7 +61,8 @@ from fenolite.core.errors import FenoliteError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
 from fenolite.core.units import Nm
-from fenolite.lens import altium_copper
+from fenolite.exports.drawing_spec import DrawingSpec
+from fenolite.lens import altium_copper, preserve
 from fenolite.lens.altium_copper import CopperSource, match_source
 from fenolite.lens.build import (
     CACHE_DIR,
@@ -70,6 +75,8 @@ from fenolite.lens.build import (
     UnresolvedLibrariesError,
     height_body,
     impedance_checks,
+    two_terminal_issue,
+    unused_pin_marks,
 )
 from fenolite.lens.placements import FULL_TURN
 from fenolite.model import canonical
@@ -81,11 +88,14 @@ from fenolite.model.board import (
     FootprintInstance,
     Graphic,
     Hole,
+    Keepout,
+    Outline,
     Pad,
 )
 from fenolite.model.circuit import Component, Net, Pin, PinRef
 from fenolite.model.design import Design
-from fenolite.model.library import FootprintDef, SymbolDef
+from fenolite.model.drawn import DrawnSchematic
+from fenolite.model.library import FootprintDef, SymbolDef, flatten_symbol
 from fenolite.model.presentation import PAPER_SIZES, DrawingSheet, SheetBitmap, SheetFrameRef, TitleBlock
 from fenolite.schematic.composition import CompositionError, fail
 from fenolite.schematic.intent import CompositionIntent
@@ -121,6 +131,9 @@ ALTIUM_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "altium.harness-name": "error",
         "altium.harness-net-shared": "error",
         "altium.harness-power-net": "error",
+        "build.not-two-terminal": "error",
+        "build.must-connect-unconnected": "error",
+        "build.block-sheet-name-clash": "error",
         "altium.no-footprint": "warning",
         "altium.sheet-custom": "warning",
         "altium.pin-lossy": "warning",
@@ -136,13 +149,18 @@ ALTIUM_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "altium.schlib-generic": "info",
         "altium.schlib-not-in-project": "info",
         "altium.not-lowered": "info",
+        "altium.verbatim-skipped": "warning",
+        "altium.image-skipped": "warning",
         "altium.project-kept": "info",
         "altium.footprint-extras-dropped": "info",
+        "altium.footprint-definition": "info",
         "altium.pcbdoc-not-written": "info",
         "altium.pcb-staged": "info",
         "altium.pcb-not-in-project": "info",
         "altium.sheets-not-in-project": "info",
         "altium.outjob-not-listed": "info",
+        "altium.draftsman-not-written": "info",
+        "altium.draftsman-not-listed": "info",
         "altium.experimental": "info",
         **altium_copper.COPPER_ISSUE_CODES,
     }
@@ -196,6 +214,7 @@ PCB_EXPERIMENTAL: Mapping[str, object] = MappingProxyType(
 
 
 KEPT_PROJECT_CODES = (
+    "altium.draftsman-not-listed",
     "altium.outjob-not-listed",
     "altium.pcb-not-in-project",
     "altium.project-kept",
@@ -230,6 +249,38 @@ def kept_documents(paths: Sequence[str]) -> frozenset[str]:
 
 def issue(code: str, message: str, where: str = "", hint: str = "") -> Issue:
     return Issue(code, ALTIUM_ISSUE_CODES[code], message, where=where, hint=hint)
+
+
+def with_footprint_definitions(design: Design) -> tuple[Design, list[Issue]]:
+    """``design`` with each part's ``footprint_definition_ref`` taken as its footprint link (change c0412):
+    the Altium build resolves and writes the definition the import pinned, geometry and name, as the KiCad
+    build resolves it. One PcbLib holds one footprint per name, so the native name cannot stay where it
+    names another geometry; each part whose written footprint name differs from its native one gets one
+    ``altium.footprint-definition`` info. A part without the override is unchanged."""
+    issues: list[Issue] = []
+    components: list[Component] = []
+    for component in design.circuit.components:
+        definition = component.footprint_definition_ref
+        if not definition:
+            components.append(component)
+            continue
+        native = component.lib_footprint_ref
+        if definition.split(":")[-1] != native.split(":")[-1]:
+            issues.append(
+                issue(
+                    "altium.footprint-definition",
+                    f"{component.ref} is written with the footprint {definition!r} that its "
+                    f"footprint_definition pins, not under its native name {native!r}",
+                    where=component.ref,
+                )
+            )
+        components.append(
+            dataclasses.replace(component, lib_footprint_ref=definition, footprint_definition_ref="")
+        )
+    if all(a is b for a, b in zip(components, design.circuit.components, strict=True)):
+        return design, issues
+    circuit = dataclasses.replace(design.circuit, components=tuple(components))
+    return dataclasses.replace(design, circuit=circuit), issues
 
 
 def generic_pins(design: Design) -> Design:
@@ -279,12 +330,21 @@ def resolve_symbols(
     design: Design,
     resolver: LibraryResolver | None,
     authored: Mapping[str, SymbolDef] = MappingProxyType({}),
+    *,
+    extra: Sequence[str] = (),
 ) -> dict[str, SymbolDef]:
     """Lib id → resolved ``SymbolDef`` of every KiCad lib id; ``UnresolvedLibrariesError`` (FEN-3001)
     with one ``kicad.lib.*`` issue per lib id that does not resolve. A lib id of ``authored`` (a symbol
     the script authored or took from the catalog, change c0086) is that symbol and is not resolved."""
-    wanted = kicad_lib_ids(design)
-    found: dict[str, SymbolDef] = {lib_id: authored[lib_id] for lib_id in wanted if lib_id in authored}
+    wanted = tuple(sorted(set(kicad_lib_ids(design)) | set(extra)))
+    # a derived symbol the script authored is flattened onto its base of the same library (change c0261)
+    found: dict[str, SymbolDef] = {
+        lib_id: flatten_symbol(
+            authored[lib_id], [s for s in authored.values() if s.library == authored[lib_id].library]
+        )
+        for lib_id in wanted
+        if lib_id in authored
+    }
     wanted = tuple(lib_id for lib_id in wanted if lib_id not in found)
     if not wanted:
         return found
@@ -293,7 +353,9 @@ def resolve_symbols(
     errors: list[LibraryError] = []
     for lib_id in wanted:
         try:
-            found[lib_id] = resolver.symbol(lib_id)
+            # the resolver already gives a derived library symbol its root's body (``resolve_extends``)
+            # and keeps the ``extends`` name; Altium has no derivation, so the symbol is written flat
+            found[lib_id] = dataclasses.replace(resolver.symbol(lib_id), extends="")
         except LibraryError as error:
             errors.append(error)
     if errors:
@@ -395,6 +457,56 @@ def kicad_pins(design: Design, symbols: Mapping[str, SymbolDef]) -> tuple[Design
     return dataclasses.replace(design, circuit=circuit), issues
 
 
+def resolve_requests(
+    design: Design, unused: Mapping[str, Sequence[str]], two_terminal: Sequence[str]
+) -> tuple[Design, list[Issue]]:
+    """``design`` (pins on every component, net members and marks as pin numbers) with the marks of the
+    unused-pin requests (component path → ``keep`` designators), resolved as the KiCad build resolves them
+    (``lens.build.unused_pin_marks``), after the two-pin check of the parts of ``two_terminal`` (change
+    c0247). A ``keep`` designator is a pin number, else every pin of that name; one that names neither gives
+    ``altium.unknown-pin``. A path the build does not hold is ignored."""
+    issues: list[Issue] = []
+    by_path = {component_path(c): c for c in design.circuit.components}
+    for path in sorted(two_terminal):
+        component = by_path.get(path)
+        found = None if component is None else two_terminal_issue(component, path)
+        if found is not None:
+            issues.append(found)
+    marks = set(design.circuit.no_connects)
+    for path, keep in sorted(unused.items()):
+        component = by_path.get(path)
+        if component is None:
+            continue
+        numbers = {p.number for p in component.pins}
+        kept: set[str] = set()
+        for designator in keep:
+            named = (
+                [designator]
+                if designator in numbers
+                else [p.number for p in component.pins if p.name == designator]
+            )
+            if not named:
+                issues.append(
+                    issue(
+                        "altium.unknown-pin",
+                        f"{component.ref} {designator}: neither a pin number nor a pin name of its symbol, "
+                        "so it cannot be kept open",
+                        path,
+                        "keep the pin by its number",
+                    )
+                )
+            kept.update(named)
+        connected = {
+            m.pin for net in design.circuit.nets for m in net.members if m.component_id == component.id
+        }
+        marked = {m.pin for m in design.circuit.no_connects if m.component_id == component.id}
+        new, found_issues = unused_pin_marks(component, connected, marked, kept, path)
+        marks.update(new)
+        issues += found_issues
+    circuit = dataclasses.replace(design.circuit, no_connects=tuple(sorted(marks)))
+    return dataclasses.replace(design, circuit=circuit), issues
+
+
 FootprintSource = Literal["altium", "kicad"]
 PAD_DROPPED: Mapping[str, str] = MappingProxyType(
     {
@@ -411,7 +523,9 @@ PAD_DROPPED: Mapping[str, str] = MappingProxyType(
         "die_length": "die length",
     }
 )
-"""KiCad pad children Altium's pad record has no field for: left out with ``altium.primitive-dropped``."""
+"""KiCad pad children Altium's pad record has no field for: left out with ``altium.primitive-dropped``
+unless the model holds them as a pad field (``kicad._fpmap.MARGIN_HEADS``), which ``pcblib.pad_bytes``
+writes (changes c0440, c0448)."""
 PAD_REFUSED: Mapping[str, str] = MappingProxyType(
     {
         "chamfer_ratio": "has chamfered corners",
@@ -464,7 +578,8 @@ def pad_extras(defn: FootprintDef) -> dict[str, pcblib.PadExtras]:
     (margins, zone connection, thermal settings). Only this lens reads KiCad fragments (layering)."""
     out: dict[str, pcblib.PadExtras] = {}
     for pad in defn.pads:
-        ratio: Decimal | None = None
+        # A generated or authored rounded rectangle carries its ratio in the model (change c0260).
+        ratio: Decimal | None = None if pad.corner_ratio is None else Decimal(pad.corner_ratio) / 1_000_000
         refusal: str | None = None
         dropped: list[str] = []
         if pad.padstack is not None and pad.padstack.hole_shape == "slot" and pad.padstack.layers:
@@ -483,7 +598,16 @@ def pad_extras(defn: FootprintDef) -> dict[str, pcblib.PadExtras]:
             elif head in PAD_DROPPED and PAD_DROPPED[head] not in dropped:
                 if _decimal_atom(node) == 0:
                     continue
+                if getattr(pad, MARGIN_HEADS.get(head, ""), None) is not None:
+                    continue  # the pad writer writes it as a manual expansion (changes c0440, c0448)
                 dropped.append(PAD_DROPPED[head])
+        # an authored pad holds its shape in the model (change c0277)
+        if ratio is None and pad.corner_ratio is not None and pad.shape == "roundrect":
+            ratio = Decimal(pad.corner_ratio).scaleb(-6)
+        if pad.chamfer_ratio:
+            refusal = refusal or PAD_REFUSED["chamfer_ratio"]
+        if pad.primitives:
+            refusal = refusal or PAD_REFUSED["primitives"]
         out[pad.id] = pcblib.PadExtras(ratio, refusal, tuple(dropped))
     return out
 
@@ -865,6 +989,20 @@ def _instance_graphic(graphic: Graphic, *, bottom: bool) -> Graphic:
     )
 
 
+def _instance_keepout(area: Keepout, *, bottom: bool, copper: Sequence[str]) -> Keepout:
+    """A library rule area in the pad frame of an instance on its side (change c0411; the inverse of
+    ``lower._library_keepout``): ``*.Cu`` is every copper layer of the board, and on the bottom side the
+    points are mirrored about the footprint's X axis and the layers are those of the other side."""
+    layers = tuple(dict.fromkeys(n for name in area.layers for n in (copper if name == "*.Cu" else (name,))))
+    if bottom:
+        return dataclasses.replace(
+            area,
+            outline=tuple(Point(p.x, -p.y) for p in area.outline),
+            layers=tuple(_other_side(n) for n in layers),
+        )
+    return dataclasses.replace(area, layers=layers)
+
+
 def place_footprints(
     design: Design,
     footprints: Mapping[str, pcblib.LibFootprint],
@@ -879,8 +1017,9 @@ def place_footprints(
 
     An instance is placed where ``placements`` says, or staged right of the outline with one
     ``altium.pcb-staged`` info, as the KiCad build stages it. It holds the pads and graphics that
-    ``pcblib.check_footprint`` keeps of the library definition, in the pad frame (``_instance_pad``,
-    ``_instance_graphic``), with ids derived from the component's id; a rounded pad holds the corner ratio
+    ``pcblib.check_footprint`` keeps of the library definition, and its rule areas, in the pad frame
+    (``_instance_pad``, ``_instance_graphic``, ``_instance_keepout``), with ids derived from the component's
+    id; a rounded pad holds the corner ratio
     that is written, ``PPM_PER_PERCENT`` times ``pcbrecords.corner_percent(ratio)``, and every pad the id of
     the net of its pin through the pin-to-pad map (``altium_copper.pad_net_names``). The component bodies
     of the model's footprints of the component are kept. A comment outside 7-bit ASCII gives one
@@ -892,7 +1031,11 @@ def place_footprints(
     net_ids = {net.name: net.id for net in design.circuit.nets}
     outline = board.outline.points
     cursor = max(p.x for p in outline) + STAGING_OFFSET
+    after = preserve.staging_after(placements)
+    if after is not None:
+        cursor = max(cursor, after)  # the strategy groups staged as one box come first (change c0255)
     top = min(p.y for p in outline)
+    copper = tuple(layer.name for layer in board.layers if layer.kind == "copper")
     staged: list[str] = []
     wide: list[str] = []
     placed: list[FootprintInstance] = []
@@ -909,6 +1052,8 @@ def place_footprints(
             staged.append(component.ref)
         else:
             at, rotation, side, locked = request.at, request.rotation, request.side, request.locked
+            if preserve.is_staged(request):
+                staged.append(component.ref)
         if lower.written_comment(component)[1]:
             # the PCB document's texts are 7-bit; the schematic holds the comment (change c0086)
             wide.append(component.ref)
@@ -941,6 +1086,15 @@ def place_footprints(
             )
             for index, graphic in enumerate(check.graphics)
         )
+        keepouts = tuple(
+            dataclasses.replace(
+                _instance_keepout(area, bottom=bottom, copper=copper),
+                id=derived_id("kpo", TARGET, f"placed:{component.id}:kpo:{index}"),
+                native_ids={},
+                provenance=None,
+            )
+            for index, area in enumerate(footprint.defn.keepouts)
+        )
         bodies = tuple(
             body for fp in board.footprints if fp.component_id == component.id for body in fp.bodies
         )
@@ -956,6 +1110,8 @@ def place_footprints(
                 pads=tuple(pads),
                 bodies=bodies,
                 graphics=graphics,
+                keepouts=keepouts,
+                net_ties=footprint.defn.net_ties,  # written as a net-tie component (change c0420, N1)
             )
         )
     if wide:
@@ -1027,6 +1183,13 @@ def cutout_issues(board: Board | None) -> list[Issue]:
     return found
 
 
+def _ring_vertices(outline: Outline) -> int:
+    """The vertices of the board record (``docboard.board_records``): the points of the board ring without a
+    closing repeat. An arc is the vertex at its start (change c0441); its mid is no vertex."""
+    points = outline.points
+    return len(points) - (len(points) > 1 and points[0] == points[-1])
+
+
 def lowered_pcb(
     design: Design,
     *,
@@ -1064,12 +1227,17 @@ def lowered_pcb(
     with_links = [c for c in components if c.lib_footprint_ref]
     if board is None or board.outline is None or not board.outline.points:
         reason = "the design has no board outline"
-    elif any(arc.ring == 0 for arc in board.outline.arcs):
-        # no fact row gives the form of an arc in the board ring of the document (change c0102); the arcs of
-        # a cut-out are polygonised in its region (change c0168)
-        reason = "the board outline has arcs, which the document does not write"
-    elif len(board.outline.points) < 3:
-        reason = "the design has no board outline"
+    elif _ring_vertices(board.outline) < 3:
+        # an arc of the board ring is an arc vertex (change c0441), written by a build as by a conversion
+        # (change c0448; c0102 refused it), but the board record needs three vertices and an arc's mid is
+        # none: a ring of fewer, such as a round board, is not written; the arcs of a cut-out are
+        # polygonised (c0168)
+        has_arcs = any(arc.ring == 0 for arc in board.outline.arcs)
+        reason = (
+            "the board outline has arcs and fewer than three vertices, which the document does not write"
+            if has_arcs
+            else "the design has no board outline"
+        )
     else:
         altium = [c.ref for c in with_links if footprint_source(c.lib_footprint_ref) == "altium"]
         missing = [
@@ -1431,6 +1599,16 @@ def _check(
         hint = "name its nets <stem><n> with consecutive integers to draw it as a bus"
         issues.append(issue("altium.bus-flattened", message, bus, hint))
     issues += _hierarchy_checks(design)
+    for module, clash in hierarchy.name_clashes(design) if sheets == "modules" else ():
+        issues.append(  # a port and a net that crosses without one would share an entry (change c0269)
+            issue(
+                "build.block-sheet-name-clash",
+                f"block {module}: the port {clash} and the net {clash}, which leaves the block's sheet "
+                "without a port, would give one sheet entry",
+                module,
+                "rename the net, or connect it through a port of the block",
+            )
+        )
     ids: dict[str, str] = {}
     keyed = [(c.id, c.ref, component_path(c)) for c in components]
     if not any(i.severity == "error" for i in issues):
@@ -1537,14 +1715,18 @@ def lowered_harnesses(design: Design, sheets: project.SheetMode, form: project.S
 
 def kicad_only_issues(design: Design, footprints: Mapping[str, pcblib.LibFootprint]) -> list[Issue]:
     """What an Altium build reports instead of writing, because it is KiCad data (change c0114): the
-    components whose footprint has net-tie groups (the pads are written, without a mark that ties them)
-    and the check severities of the design, one ``altium.not-lowered`` info per kind, with the kinds of
-    ``backends.altium.lower`` as ``where``."""
+    components whose footprint has net-tie groups that a component of the kind Net Tie does not say
+    (change c0420, N1: ``lower.net_tie_differs``) and the check severities of the design, one
+    ``altium.not-lowered`` info per kind, with the kinds of ``backends.altium.lower`` as ``where``."""
     found: list[Issue] = []
     tied = sorted(
         component.ref
         for component in design.circuit.components
-        if component.lib_footprint_ref in footprints and footprints[component.lib_footprint_ref].defn.net_ties
+        if component.lib_footprint_ref in footprints
+        and lower.net_tie_differs(
+            footprints[component.lib_footprint_ref].defn.net_ties,
+            footprints[component.lib_footprint_ref].defn.pads,
+        )
     )
     if tied:
         message = (
@@ -1857,6 +2039,7 @@ def _summary(
     copper: Mapping[str, object] | None = None,
     pcb: Mapping[str, object] | None = None,
     outjob: Mapping[str, object] | None = None,
+    draftsman: Mapping[str, object] | None = None,
     drawing_sheet: Mapping[str, object] | None = None,
     rules: Mapping[str, object] | None = None,
     directions: bool = True,
@@ -1869,8 +2052,11 @@ def _summary(
     hidden parameters and the ports and sheet entries that carry a direction; it is ``None`` for a refused
     build."""
     plans = [sheet.plan for sheet in planned.sheets] if planned is not None else []
+    explicit = [dict(record) for plan in plans for record in (plan.drawn_records or ())]
     labels = sum(1 for plan in plans for s in (*plan.links, *plan.stubs) if s.net.kind == "label")
+    labels += sum(record.get("RECORD") == "25" for record in explicit)
     ports = sum(1 for plan in plans for s in plan.stubs if s.net.kind == "port")
+    ports += sum(record.get("RECORD") == "17" for record in explicit)
     members = [symbol for symbols in (libraries or {}).values() for symbol in symbols]
     crossed = [
         item.crossing
@@ -1884,12 +2070,22 @@ def _summary(
             "symbols": symbol_bodies,
             "symbols_drawn": sum(1 for symbol in members if symbol.drawn),
             "symbols_simplified": sum(1 for symbol in members if not symbol.drawn),
-            "buses": sum(len(plan.bus_blocks) for plan in plans),
+            "buses": sum(len(plan.bus_blocks) for plan in plans)
+            + sum(record.get("RECORD") == "26" for record in explicit),
             "parameters": sum(
-                len(part.spec.parameters) for plan in plans for part in plan.parts if part.part == 1
-            ),
+                len(part.spec.parameters)
+                for plan in plans
+                if plan.drawn_records is None
+                for part in plan.parts
+                if part.part == 1
+            )
+            + sum(record.get("RECORD") == "41" for record in explicit),
             "directions": "on" if directions else "off",
-            "directed": sum(1 for crossing in crossed if crossing.io != "unspecified"),
+            "directed": sum(1 for crossing in crossed if crossing.io != "unspecified")
+            + sum(
+                record.get("RECORD") in {"16", "18"} and record.get("IOTYPE", "0") != "0"
+                for record in explicit
+            ),
         }
     found = list(libraries or {})
     if footprints:
@@ -1899,21 +2095,25 @@ def _summary(
         "nets": len(design.circuit.nets),
         "labels": labels,
         "power_ports": ports,
-        "no_connects": sum(len(plan.no_connects) for plan in plans),
+        "no_connects": sum(len(plan.no_connects) for plan in plans)
+        + sum(record.get("RECORD") == "22" for record in explicit),
         "sheet": planned.top.plan.size.name if planned is not None else None,
         "libraries": found,
         "symbols": sum(len(symbols) for symbols in (libraries or {}).values()),
         "footprints": footprints,
         "pcb_document": pcb_document,
-        "sheet_mode": sheets,
+        "sheet_mode": planned.mode if planned is not None and explicit else sheets,
         "sheets": [sheet.file for sheet in planned.sheets] if planned is not None else [],
-        "ports": sum(len(plan.ports) for plan in plans),
-        "sheet_entries": sum(len(symbol.entries) for plan in plans for symbol in plan.symbols),
+        "ports": sum(len(plan.ports) for plan in plans)
+        + sum(record.get("RECORD") == "18" for record in explicit),
+        "sheet_entries": sum(len(symbol.entries) for plan in plans for symbol in plan.symbols)
+        + sum(record.get("RECORD") == "16" for record in explicit),
         "harnesses": len({block.name for plan in plans for block in plan.harnesses}),
         "schematic": schematic,
         "copper": copper,
         "pcb": pcb,
         "outjob": outjob,
+        "draftsman": draftsman,
         "drawing_sheet": drawing_sheet,
         "rules": rules,
         "kept": list(kept),
@@ -1940,6 +2140,7 @@ def _written_claims(
         ".pcbdoc": project.PCBDOC_KIND,
         ".harness": project.HARNESS_KIND,
         ".outjob": job_writer.OUTJOB_KIND,
+        ".pcbdwf": draftsman_writer.DRAFTSMAN_KIND,
         ".schdot": schdot.SCHDOT_KIND,
     }
     kinds = {suffixes[suffix] for name in files if (suffix := PurePosixPath(name).suffix.lower()) in suffixes}
@@ -1966,6 +2167,7 @@ def refused_altium(
     """The output of an Altium build that was refused before ``build_altium`` ran (change c0053, "Script
     copper in an Altium build": the script's copper intents did not resolve): no file, ``issues`` and the
     summary of a refused build, whose ``copper`` and ``pcb_document`` are ``None``."""
+    lower.refuse_bom_only(design)
     evidence = Evidence.combine(ALTIUM_BUILD_EVIDENCE, project.EVIDENCE, schlib.EVIDENCE, PCB_BUILD_EVIDENCE)
     kept = [f"{name}.PrjPcb"] if project_exists else []
     return BuildOutput(design, {}, tuple(issues), evidence, _summary(design, kept, None, form, sheets=sheets))
@@ -2002,6 +2204,11 @@ def build_altium(
     composition: CompositionIntent | None = None,
     pour: PourMode | None = None,
     pour_regions: bool = True,
+    unused: Mapping[str, Sequence[str]] | None = None,
+    two_terminal: Sequence[str] = (),
+    draftsman: bool = False,
+    drawing_spec: DrawingSpec | None = None,
+    drawn: DrawnSchematic | None = None,
 ) -> BuildOutput:
     """Every file of the Altium project of ``design`` as bytes, or no file when an issue is an error.
 
@@ -2057,10 +2264,16 @@ def build_altium(
     documents it really lacks, and none when it lists them all. Without it (``None``) every document is
     named, as before; ``project_unreadable`` says that the file was there and could not be read, which
     the infos then say in their hint.
+    ``unused`` and ``two_terminal`` are the side channels of the script (``dsl.convert.unused_marks`` and
+    ``dsl.convert.two_terminal``, change c0247), resolved by ``resolve_requests`` as the KiCad build does.
     ``drawing_sheet`` is drawn on
     every schematic document, with the title block of ``design.board`` as sheet parameters; a part of
     it that the Altium form cannot carry raises ``read.sheet.SheetLossError`` unless ``allow_lossy``.
     """
+    lower.refuse_bom_only(design)
+    curve_loss = lower.curve_error_issue(design.board)
+    if curve_loss is not None and not allow_lossy:
+        raise lower.LossyWriteError((curve_loss,))
     if sheets not in ("flat", "modules"):
         raise ValueError(f"unknown sheet mode {sheets!r}")
     body_mode = pcbdoc.body_mode(bodies)
@@ -2089,9 +2302,16 @@ def build_altium(
         design = hole_parts.design
         placed = tuple(path for path in placed if path in paths)
         placements = {path: request for path, request in (placements or {}).items() if path in paths}
-    resolved = resolve_symbols(design, resolver, authored_symbols)
+    extra_symbols = (
+        tuple(sorted({symbol.symbol for sheet in drawn.sheets for symbol in sheet.symbols if symbol.symbol}))
+        if drawn is not None
+        else ()
+    )
+    resolved = resolve_symbols(design, resolver, authored_symbols, extra=extra_symbols)
     design = _with_symbol_fields(design, resolved)
     issues = _check(design, name, placed, sheets, form)
+    if curve_loss is not None:
+        issues.append(curve_loss)
     if fiducial_info is not None:
         issues.append(fiducial_info)
     issues += impedance_layer_issues(design, copper)
@@ -2108,6 +2328,9 @@ def build_altium(
     issues += pin_issues
     symbols = library_symbols(resolved, issues, symbol_bodies)
     model = with_written_values(generic_pins(model))
+    if unused or two_terminal:
+        model, request_issues = resolve_requests(model, unused or {}, two_terminal)
+        issues += request_issues
     validation = list(model.validate())
     if any(found.code == "model.pin-pad-map" for found in validation):
         # A pad that two pins stand for: the build says it under its own code, as the release 0.2.1
@@ -2207,8 +2430,63 @@ def build_altium(
             )
         )
     planned = hierarchy.plan_sheets(
-        model, name=name, sheets=sheets, form=form, symbols=symbols, directions=directions
+        model,
+        name=name,
+        sheets="modules" if drawn is not None else sheets,
+        form=form,
+        symbols=symbols,
+        directions=directions,
     )
+    if drawn is not None:
+        from fenolite.backends.altium.drawn import EVIDENCE as DRAWN_EVIDENCE
+        from fenolite.backends.altium.drawn import lower_drawn
+        from fenolite.backends.kicad.drawn import unit_signature
+        from fenolite.model.drawn_connect import instances as drawn_instances
+        from fenolite.model.drawn_connect import issue as drawn_issue
+
+        aliases: dict[str, tuple[str, AltiumSymbol]] = {}
+        by_path = {component_path(c): c for c in model.circuit.components}
+        for instance in drawn_instances(drawn)[0]:
+            sheet = drawn.sheet(instance.sheet)
+            if sheet is None:
+                continue
+            for pose in sheet.symbols:
+                if not pose.symbol:
+                    continue
+                component = by_path.get(instance.component(pose.part))
+                primary = resolved.get(component.lib_symbol_ref) if component is not None else None
+                alternate = resolved.get(pose.symbol)
+                body = symbols.get(pose.symbol)
+                if (
+                    primary is None
+                    or alternate is None
+                    or body is None
+                    or (unit_signature(primary, pose.unit) != unit_signature(alternate, pose.unit))
+                ):
+                    issues.append(
+                        drawn_issue(
+                            "drawn.part-unknown",
+                            "the drawn unit alias is missing or has incompatible logical pins",
+                            instance.component(pose.part),
+                        )
+                    )
+                    continue
+                aliases[pose.symbol] = (project.schlib_name(pose.symbol, design=name), body)
+        planned = lower_drawn(
+            drawn,
+            model,
+            planned,
+            name=name,
+            issues=issues,
+            allow_lossy=allow_lossy,
+            form=form,
+            symbol_overrides=aliases,
+        )
+        input_evidence.append(DRAWN_EVIDENCE)
+        if any(found.severity == "error" for found in issues):
+            return BuildOutput(
+                model, {}, tuple(issues), evidence, _summary(model, kept, None, form, sheets=sheets)
+            )
     unlisted = [*(sheet.file for sheet in planned.modules), *sorted(planned.harness_files, key=name_key)]
     unlisted = not_listed(unlisted, project_listed) if project_exists else []
     if unlisted:
@@ -2227,8 +2505,73 @@ def build_altium(
     job: tuple[OutputGroup, ...] | None = None
     job_info: dict[str, object] | None = None
     relist = False
+    drawing: draftsman_writer.DraftsmanSpec | None = None
+    drawing_info: dict[str, object] | None = None
+    title_parameters: tuple[tuple[str, str], ...] = ()
+    if draftsman and not draftsman_writer.NATIVE_WRITE:
+        # Route P (change c0388, task 1.1): the native gate stays shut, so the request writes the title-block
+        # fields as project parameters, which a document made from an Altium template reads.
+        from fenolite.lens.altium_draftsman import title_parameters as title_fields
+
+        try:
+            title_parameters = title_fields(model)
+            # The existing minimal project writer is ASCII. Refuse an unrepresentable parameter before writes.
+            project.write_prjpcb(schematic=f"{name}.SchDoc", parameters=title_parameters)
+        except ValueError as error:
+            issues.append(issue("altium.text-unwritable", str(error), "title_block"))
+            return BuildOutput(
+                model, {}, tuple(issues), evidence, _summary(model, kept, None, form, sheets=sheets)
+            )
+    elif not draftsman or spec is None:
+        reason = "the option is off" if not draftsman else "no PCB document is written"
+        issues.append(issue("altium.draftsman-not-written", f"Draftsman not written: {reason}"))
+    else:
+        from fenolite.exports.drawing_spec import DEFAULT as DEFAULT_DRAWING
+        from fenolite.lens.altium_draftsman import document_summary, draftsman_spec
+
+        try:
+            drawn_model = dataclasses.replace(model, board=lower.stored_board(model, spec))
+            drawing, drawing_issues = draftsman_spec(drawn_model, drawing_spec or DEFAULT_DRAWING)
+            drawing = dataclasses.replace(drawing, name=name)
+            # The existing minimal project writer is ASCII. Refuse an unrepresentable parameter before writes.
+            project.write_prjpcb(schematic=f"{name}.SchDoc", parameters=drawing.parameters)
+        except ValueError as error:
+            issues.append(issue("altium.text-unwritable", str(error), "draftsman"))
+            return BuildOutput(
+                model, {}, tuple(issues), evidence, _summary(model, kept, None, form, sheets=sheets)
+            )
+        issues.extend(drawing_issues)
+        drawing_info = document_summary(drawing)
+        drawing_info["not_lowered"] = [i.message for i in drawing_issues if i.code == "altium.not-lowered"]
+        input_evidence.append(draftsman_writer.EVIDENCE)
+        missing_drawing = project_exists and bool(not_listed([f"{name}.PCBDwf"], project_listed))
+        if missing_drawing:
+            issues.append(
+                issue(
+                    "altium.draftsman-not-listed",
+                    f"the kept {name}.PrjPcb does not list "
+                    f"{name}.PCBDwf; add it in Altium (Project » Add Existing to Project)",
+                    f"{name}.PrjPcb",
+                    unread_hint,
+                )
+            )
+            relist = project_digest is not None
+        elif project_exists:
+            issues.append(
+                issue(
+                    "altium.not-lowered",
+                    "the kept project parameters are not rewritten; "
+                    "check the Draftsman title-block parameters in Altium",
+                    f"{name}.PrjPcb",
+                )
+            )
     if outjob and spec is not None:
-        job = job_writer.from_preset(outjob_preset, name=name, copper=pcbdoc.document_stack(spec).copper)
+        job = job_writer.from_preset(
+            outjob_preset,
+            name=name,
+            copper=pcbdoc.document_stack(spec).copper,
+            draftsman=f"{name}.PCBDwf" if drawing is not None else None,
+        )
         job_info = outjob_summary(name, job, job_writer.unmapped(outjob_preset))
         evidence = Evidence.combine(evidence, job_writer.EVIDENCE)
         if project_listed is not None and f"{name}.OutJob".casefold() in project_listed:
@@ -2245,7 +2588,18 @@ def build_altium(
                 )
             )
         # change c0138: a project file that is as a build wrote it and lacks the job is written again
-        relist = project_exists and not outjob_listed and project_digest is not None
+        relist = relist or (project_exists and not outjob_listed and project_digest is not None)
+    if draftsman and not draftsman_writer.NATIVE_WRITE:
+        from fenolite.lens.altium_draftsman import ROUTE_P
+
+        if not title_parameters:
+            outcome = "the design has no title-block field to write as a project parameter"
+        elif project_exists and not relist:
+            outcome = f"the kept {name}.PrjPcb is not rewritten, so its project parameters are not either"
+        else:
+            count = len(title_parameters)
+            outcome = f"{name}.PrjPcb holds {count} title-block field(s) as project parameters"
+        issues.append(issue("altium.draftsman-not-written", f"Draftsman not written: {ROUTE_P}; {outcome}"))
     frames: dict[str, schdot.SheetFrame] = {}
     sheet_info: dict[str, object] | None = None
     if drawing_sheet is not None:
@@ -2311,12 +2665,16 @@ def build_altium(
             pcb=spec,
             sheets=sheets,
             outjob=job_writer.write_outjob(job) if job is not None else None,
+            draftsman=drawing,
+            title_parameters=title_parameters,
             frames=frames,
             directions=directions,
             composition=composition,
             composition_margins=margins,
             pour_results=pour_results,
             pour_regions=pour_regions,
+            planned_sheets=planned if drawn is not None else None,
+            extra_symbols=extra_symbols,
         )
         pour_mode: PourMode = pour or "computed"
         try:
@@ -2375,6 +2733,19 @@ def build_altium(
         return BuildOutput(
             model, {}, tuple(issues), evidence, _summary(model, kept, None, form, sheets=sheets)
         )
+    if drawn is not None:
+        from fenolite.backends.altium.drawn import planned_coverage, readback_issues
+
+        findings = readback_issues(files, model, expected=planned_coverage(planned))
+        issues.extend(findings)
+        if any(found.severity == "error" for found in findings):
+            return BuildOutput(
+                model,
+                {},
+                tuple(issues),
+                Evidence.combine(evidence, *input_evidence),
+                _summary(model, kept, None, form, sheets=sheets),
+            )
     if relist:
         # the project file is written, so it is not kept and nothing is left for the user to add to it
         kept = []
@@ -2428,6 +2799,7 @@ def build_altium(
         copper=copper_info,
         pcb={**pcb_account, "bodies": body_mode, "pour": pour_info} if spec is not None else None,
         outjob=job_info,
+        draftsman=drawing_info,
         drawing_sheet=sheet_info,
         rules=rules_info,
         directions=directions,
@@ -2451,17 +2823,21 @@ def write_model(
     read, so the design is projected first (``backends.kicad.fpitems.with_footprint_items``, change c0126):
     the written footprints then hold their silkscreen and their rounded pads. ``AltiumBackend.write`` is
     the same write without the projection, for a design that carries its items (one read from an Altium
-    document) or holds none. ``pour`` passes the backend's mode through: ``None`` retains its default,
-    ``outline`` reproduces an unpoured write, and explicit ``computed`` requires the geo extra."""
+    document) or holds none. The copper graphics take the net their KiCad slot names
+    (``fpitems.with_graphic_nets``, change c0412). ``pour`` passes the backend's mode through: ``None``
+    retains its default, ``outline`` reproduces an unpoured write, and explicit ``computed`` requires the
+    geo extra."""
     from fenolite.backends.kicad import fpitems
 
-    projected = fpitems.with_footprint_items(design).design
+    projected = fpitems.with_graphic_nets(fpitems.with_footprint_items(design).design)
     return lower.write_design(projected, allow_lossy=allow_lossy, bodies=bodies, pour=pour)
 
 
 __all__ = [
     "ALTIUM_BUILD_EVIDENCE",
     "ALTIUM_ISSUE_CODES",
+    "with_footprint_definitions",
+    "resolve_requests",
     "EXPERIMENTAL",
     "CopperSource",
     "PCB_BUILD_EVIDENCE",

@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.conformance.v1",
+  "title": "Conformance",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "fenolite.conformance.v1"
+    },
+    "rows": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ConformanceRow"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "rows"
+  ],
+  "$defs": {
+    "ConformanceRow": {
+      "description": "One supported operation/version scope; null version/tool/source means no recorded scope.",
+      "type": "object",
+      "properties": {
+        "backend": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "operation": {
+          "type": "string"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tool": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "level": {
+          "type": "string"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "backend",
+        "kind",
+        "operation",
+        "version",
+        "tool",
+        "level",
+        "source"
+      ]
+    }
+  }
+}

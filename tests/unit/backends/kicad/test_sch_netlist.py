@@ -15,6 +15,7 @@ from pathlib import Path
 import pytest
 from _buildhelp import blink, build
 from _schbuild import blink_unmarked, built_nested, built_stacked, built_units, children_of, sheet_of
+from _wireddesigns import DESIGNS, build_authored
 
 from fenolite.backends.kicad import sch, sch_netlist, schlayout
 from fenolite.backends.kicad.netlist import KicadNetlist, NetlistNet, NetNode
@@ -27,11 +28,12 @@ from fenolite.model.schematic import NetLabel, SchematicSheet, SymbolUse, Wire
 DATA = Path(__file__).resolve().parents[3] / "data" / "kicad" / "schematic"
 SLANTED = '(wire (pts (xy 10.16 10.16) (xy 20.32 12.7)) (stroke (width 0) (type default)) (uuid "{}"))'
 JUNCTION = '(junction (at 10.16 10.16) (diameter 0) (color 0 0 0 0) (uuid "{}"))'
+BUS = '(bus (pts (xy 10.16 10.16) (xy 20.32 10.16)) (stroke (width 0) (type default)) (uuid "{}"))'
 
 
 @cache
 def blink_sheet(marks: bool = True) -> SchematicSheet:
-    output = build(blink() if marks else blink_unmarked())
+    output = build(blink() if marks else blink_unmarked(), schematic_layout="readable")
     assert output.schematic is not None
     return output.schematic.sheet
 
@@ -39,14 +41,14 @@ def blink_sheet(marks: bool = True) -> SchematicSheet:
 @cache
 def units() -> GeneratedSchematic:
     """The units design: ``U2`` on the root, ``D1`` and ``R1`` on the sheet of the module ``mod``."""
-    output = built_units()
+    output = built_units(schematic_layout="readable")
     assert output.schematic is not None
     return output.schematic
 
 
 @cache
 def nested() -> GeneratedSchematic:
-    output = built_nested()
+    output = built_nested(schematic_layout="readable")
     assert output.schematic is not None, [i.message for i in output.issues if i.severity == "error"]
     return output.schematic
 
@@ -213,7 +215,7 @@ def test_generated_sheets_are_inside_the_grammar() -> None:
 def test_authored_sheet_with_a_wire() -> None:
     flat = fixture("flat.kicad_sch")
     found = reasons(flat)
-    assert "wire" in found and "label-kind" in found
+    assert {"wire-end", "label-kind"} <= set(found)  # its junction is read since change c0406
     with pytest.raises(NetlistUnsupportedError) as caught:
         own_netlist(flat, project="flat")
     assert caught.value.issues == grammar_issues(flat)
@@ -251,6 +253,10 @@ def with_item(item: str) -> SchematicSheet:
 
 def with_junction() -> SchematicSheet:
     return with_item(JUNCTION)
+
+
+def with_bus() -> SchematicSheet:
+    return with_item(BUS)
 
 
 def with_slanted_wire() -> SchematicSheet:
@@ -345,7 +351,7 @@ def with_hidden_power() -> SchematicSheet:
 
 
 BUILDERS: dict[str, Callable[[], SchematicSheet]] = {
-    "wire": with_junction,
+    "wire": with_bus,
     "wire-shape": with_slanted_wire,
     "wire-end": with_loose_wire,
     "wire-touch": with_wire_through_a_pin,
@@ -455,10 +461,31 @@ def test_a_wire_joins_its_two_ends_under_one_label() -> None:
     assert own_netlist(read, project="blink") == created
 
 
-def test_two_wires_on_one_pin_are_refused() -> None:
+def test_two_wires_that_end_on_one_pin_join_it() -> None:
+    """Two wire ends on pin 2 join it to both wires (change c0406); a wire through it is ``wire-touch``."""
     sheet = flat_blink()
     one, two, three = (u1_pin(sheet, n) for n in ("1", "2", "3"))
-    assert reasons(with_wires((one, two), (two, three))) == ["wire-touch"]
+    joined = with_wires((one, two), (two, three))
+    assert reasons(joined) == []
+    assert elements(own_netlist(joined, project="blink"), "LED_DRV") == ["R1-1", "U1-1", "U1-2", "U1-3"]
+    assert reasons(with_wires((one, three))) == ["wire-touch"]
+
+
+def test_a_lone_junction_is_read() -> None:
+    """A junction is no longer outside the grammar (change c0406): a read sheet keeps it as a slot."""
+    assert reasons(with_junction()) == []
+
+
+def test_a_wired_build_reads_back_as_written() -> None:
+    """A sheet of the wired layout, written and read back, gives the netlist of the created sheet: its
+    junctions are read from the slots of the read sheet (change c0406)."""
+    output = build_authored(DESIGNS["opamp"]())
+    made = output.schematic
+    assert made is not None and made.sheet.junctions
+    read = sheet_of(output)
+    assert not read.junctions and sch.opaque_heads(read)["junction"] == len(made.sheet.junctions)
+    assert grammar_issues(read) == ()
+    assert own_netlist(read, project="opamp") == own_netlist(made.sheet, project="opamp")
 
 
 def test_labels_of_two_names_on_one_wire() -> None:
@@ -479,7 +506,7 @@ def test_opaque_wires() -> None:
 
 @cache
 def stacked() -> GeneratedSchematic:
-    output = built_stacked()
+    output = built_stacked(schematic_layout="readable")
     assert output.schematic is not None, [i.message for i in output.issues if i.severity == "error"]
     return output.schematic
 
@@ -499,7 +526,7 @@ def test_stacked_pins_are_nodes_of_one_net() -> None:
 
 
 def test_stacked_pins_read_back_from_the_written_files() -> None:
-    output = built_stacked()
+    output = built_stacked(schematic_layout="readable")
     made = stacked()
     read = own_netlist(sheet_of(output), project="stacked", children=children_of(output))
     assert read == own(made, "stacked")

@@ -19,10 +19,39 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from fenolite.cli.output import Evidence, InputRef, Issue, OutputMode
 from fenolite.core.progress import NULL_PROGRESS, Progress
+
+NO_CLAIM = frozenset(
+    {
+        "capabilities",
+        "catalog",
+        "doctor",
+        "edit",
+        "mcp",
+        "explain",
+        "fetch",
+        "guide",
+        "init",
+        "manifest",
+        "restore",
+        "skill",
+    }
+)
+"""Commands eligible for UNVERIFIED replies; supported higher labels are retained.
+
+Private mutation-protocol fixtures are handled separately by the dispatcher; no public name is inferred.
+"""
+
+CONTRACT_VERSION = "v0"
+"""The active CLI wire contract; the 1.0 release changes this to ``v1``."""
+
+
+def contract_schema(name: str) -> str:
+    """An envelope/result schema id under the active contract."""
+    return f"fenolite.{name}.{CONTRACT_VERSION}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,6 +73,10 @@ class Context:
     in_process: bool = False
     """The command runs inside ``fenolite.api.run`` (change c0206): it has no stdin to read and must not
     block, so ``restore -`` and ``view --serve`` refuse with ``FEN-2001``."""
+    deprecations: tuple[Issue, ...] = ()
+    """Notices for deprecated spellings actually used in this call, outside the plan arguments."""
+    kicad_target_explicit: bool = False
+    """The common target was actually supplied; source-preserving imports keep their defaults otherwise."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +118,9 @@ class Result:
     text: str | None = None
     """A text the command wants printed as it is in text mode, after the status line (a page of the
     guide). JSON mode ignores it: the envelope holds no key for it."""
+    text_on_failure: bool = False
+    """Print ``text`` in text mode also when the command failed (``check --matrix``: a matrix is read most
+    when rows fail; change c0274)."""
     depends: tuple[str, ...] = ()
     """The inputs of the command that are not its targets, as :func:`depends_on` spells them: a plan id
     binds their digests, and ``--confirm --plan`` refuses when one changed (cli-contract, "Staged plans")."""
@@ -93,6 +129,29 @@ class Result:
     findings plan no write")."""
     written: Callable[[], None] | None = None
     """Called by the dispatcher once, after the writes of this result were all written."""
+    fail_on_warning: bool = False
+    """The block-test convention treats warnings as incomplete tests (exit 5); other commands keep exit 0."""
+    staged_result: dict[str, Any] | None = None
+    """A filtered result for plan storage: transient supplier offers must not outlive their reply.
+    Writes, inputs, issues and receipts are always controlled by the dispatcher."""
+
+    def __post_init__(self) -> None:
+        if self.staged_result is not None:
+            if set(self.staged_result) & {"plan", "plan_id", "receipt", "written"}:
+                raise ValueError("staged_result cannot override framework plan or write metadata")
+            if not _filtered(self.staged_result, self.result):
+                raise ValueError("staged_result may remove data only, never add or change it")
+
+
+def _filtered(saved: Any, original: Any) -> bool:
+    unchanged_type = type(saved) is type(original)
+    if isinstance(saved, dict) and isinstance(original, dict):
+        left, right = cast(dict[str, Any], saved), cast(dict[str, Any], original)
+        return all(key in right and _filtered(value, right[key]) for key, value in left.items())
+    if isinstance(saved, list) and isinstance(original, list):
+        items, before = cast(list[Any], saved), cast(list[Any], original)
+        return len(items) == len(before) and all(_filtered(a, b) for a, b in zip(items, before, strict=True))
+    return bool(unchanged_type and saved == original)
 
 
 def depends_on(cwd: Path, *paths: str | Path | None) -> tuple[str, ...]:
@@ -133,17 +192,34 @@ class Command:
     """Keys that the command's entry in ``fenolite capabilities`` holds besides those of every entry, each
     with its list (``equivalent``: ``levels`` and ``sides``; change c0158)."""
 
+    deprecated: str | None = None
+    """The release that deprecated this command; ``replacement`` names the supported spelling."""
+    replacement: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.deprecated is not None:
+            from fenolite.cli.deprecation import validate
+
+            validate(self.deprecated, self.replacement or "")
+
     @property
     def hidden(self) -> bool:
         return self.help is None
 
     @property
     def schema(self) -> str:
-        return f"fenolite.{self.name}.v0"
+        return contract_schema(self.name)
 
 
 def module_name_for(command_name: str) -> str:
     return "cmd_" + command_name.replace("-", "_")
+
+
+def deprecate(parser: argparse.ArgumentParser, flag: str, *, since: str, use: str) -> None:
+    """Declare an existing option's replacement, without changing how argparse consumes it."""
+    from fenolite.cli.deprecation import declare
+
+    declare(parser, flag, since=since, use=use)
 
 
 def discover() -> dict[str, Command]:
@@ -164,4 +240,7 @@ def discover() -> dict[str, Command]:
     return found
 
 
-__all__ = ["Command", "Context", "PlannedWrite", "Result", "depends_on", "discover", "module_name_for"]
+__all__ = [
+    "CONTRACT_VERSION", "Command", "Context", "PlannedWrite", "Result", "contract_schema", "depends_on",
+    "deprecate", "discover", "module_name_for",
+]  # fmt: skip

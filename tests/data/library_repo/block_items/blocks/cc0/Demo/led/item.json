@@ -1,0 +1,13 @@
+{
+  "depends": [],
+  "executes": true,
+  "files": ["__init__.py", "block.json"],
+  "id": "Demo:led",
+  "kind": "block",
+  "schema": "fenolite.library-item.v0",
+  "spdx": "CC0-1.0",
+  "summary": "Authored two-terminal test block",
+  "tags": ["authored"],
+  "title": "Authored block fixture",
+  "version": "1.0.0"
+}

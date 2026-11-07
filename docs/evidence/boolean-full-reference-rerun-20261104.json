@@ -1,0 +1,97 @@
+{
+ "capture": {
+  "all_188_operations_match_actual_mac_archive": true,
+  "clean_after": true,
+  "ordered_canonical_inputs_match_archive": true,
+  "raw_operands_sha256": "e9dc5cb64238a2d1a56801f3dffe468275bd524ab7f147f1f624e65ffc8f0000",
+  "trace_matches_archive_measured": true
+ },
+ "capture_matches_archive": true,
+ "census": {
+  "candidate_file_matches_archive": true,
+  "candidate_file_sha256": "04065a7726a1b0efcf7b3adea730c627e49616227ee2739c7074d5ce265e1923",
+  "candidate_pairs": 20346
+ },
+ "certificate_sha256": {
+  "failure-certificate.json": "bec30f75f2204e85425b3200400603f0bcb69e1851086ccdd445e27e59a90295",
+  "rejected-realization.json": "045b31a875134554ae2716e205b1b74ceae6632325e24099189f8fa0221983e9",
+  "source-exact-loops.json": "bf003c784270e897362c00a477f0deb8826524c27b9fee1eb568a1675d14a404"
+ },
+ "certificates_byte_identical_to_archive": {
+  "failure-certificate.json": true,
+  "rejected-realization.json": true,
+  "source-exact-loops.json": true
+ },
+ "change": "c0328",
+ "claims": {
+  "geometry_boolean_edited": false,
+  "platform_hash_selected": false,
+  "production_changed": false,
+  "source_realization_passed": false
+ },
+ "controls": {
+  "cases": 84,
+  "exit": 0,
+  "negative_controls": [
+   "area-global-overflow",
+   "area-overflow",
+   "retained-loss",
+   "seed"
+  ]
+ },
+ "exits": {
+  "bounded": 0,
+  "capture": 0,
+  "census": 0,
+  "controls": 0,
+  "source": 1,
+  "verify": 1
+ },
+ "first_attempt": "the unmodified whole-tree guard refused controls with 'unreviewed source changes' (642 changed files since d90a71e9); kept, not counted",
+ "geometry_subtree": "ff9a4fe83f94371bb0d9d84387cc67aaf6dd6fa3",
+ "measured": "2026-11-04",
+ "programs": {
+  "capture_operands.py": {
+   "changed_lines": 3,
+   "original_sha256": "cababe21991dbdd790733ac2672115d8d0ad4ec686a0e758d7050b912f424ae2",
+   "rebased_sha256": "dc908edf227307a82a0bf75a937e13cc063361a7842338525a620d69ff072f75"
+  },
+  "prove_full_reference.py": {
+   "changed_lines": 2,
+   "original_sha256": "1273679f8535b2b3f5744f150b12f9f40d5318d07665ae0aacbade87fd98f47f",
+   "rebased_sha256": "07635b8337ca148d04a08bc7b02de141e395641fc340e4ff81ac0fd936056834"
+  },
+  "prove_index.py": {
+   "changed_lines": 1,
+   "original_sha256": "28952b214d7aa31a72118e42a445ced5666d583b02f8ca94ea4df8f86f3f4b37",
+   "rebased_sha256": "ddc85311b1a4cf932100997ce180ea8ea36523848aa695ade80c72de5054d949"
+  },
+  "verify_refutation.py": {
+   "changed_lines": 2,
+   "original_sha256": "a242c56991635ef2ec0e4b818f6db10d280758f45c825ef8fce8dac5e2bcd306",
+   "rebased_sha256": "21701f1e1ff01f8736329e371503a8218ae2a45fe61122e166b940ad3b2b610e"
+  }
+ },
+ "rebase": [
+  "REPO/INDEX path constants point at a clean detached HEAD worktree and fresh scratch folders",
+  "capture: the ea762411 geometry-diff assertion and the 188-operation archive assertion are recorded as receipt fields instead of asserted",
+  "full reference: the whole-tree d90a71e9 guard is narrowed to the code it imports: predicates.py, polygon.py and vector.py byte-identical, and the AST of _without_debris equal to d90a71e9's",
+  "full reference: the pinned index-program digest is the rebased copy's digest"
+ ],
+ "schema": "fenolite.boolean-full-reference-rerun.v0",
+ "source": {
+  "exit": 1,
+  "message": "retained original boundary turns lost or inverted",
+  "peak_memory_bytes": 69222400,
+  "rational_max_bits": {
+   "area": 500,
+   "coordinate": 54,
+   "local": 83
+  },
+  "seconds": 10.206,
+  "stage": "realization"
+ },
+ "source_commit": "468d8a61cb4210ea8a40ec546c4e2a637f694648",
+ "task": "2.2",
+ "verify_refutation": "not rerun as a pass: its receipt binds the archived run's own files (exit 1 on the missing archived before-guard snapshot); the three certificates above are compared directly"
+}

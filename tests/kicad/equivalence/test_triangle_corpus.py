@@ -9,9 +9,10 @@ Each ``altium-pcbdoc`` row is read by Fenolite's Altium backend and converted by
 --format altium`` (a subprocess, on a copy in a temporary folder), whose board is read by the KiCad
 backend. The two models are compared at levels 1 to 4 under the ``kicad-import`` profile of the running
 version line (``src/fenolite/backends/kicad/data/altium_import_exclusions.toml``): no difference may
-remain outside its rules. A reference that a document holds several times cannot be paired; such
-references are listed per row in ``IGNORED_REFS`` and in ``docs/evidence/equivalence-triangle.md``, and
-get no rule. The test writes counts only.
+remain outside its rules. Equal repeated references placed once per holder pair by placement (c0277);
+unequal counts remain ambiguous. Historical raw counts and the existing ``IGNORED_REFS`` are retained
+beside current pairs in ``docs/evidence/equivalence-triangle.md``; no new rule is added. The test writes
+counts only.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from _corpus import manifest_items, require
 from _triangle import KNOWN_IMPORT_FAILURES, Sides, counts_line, measure, profile_for, report, sides
 
 from fenolite.checks.equivalence import EquivalenceReport
+from fenolite.checks.equivalence.levels import paired_references
 
 pytestmark = [pytest.mark.needs_kicad, pytest.mark.kicad_min_major(10), pytest.mark.needs_corpus]
 ROWS = [item for item in manifest_items("altium-pcbdoc") if not item.heavy]
@@ -54,6 +56,17 @@ FREE_HOLES: dict[str, int] = {"altium-third-party-pcbdoc-05": 4}
 non-plated pad, which ``test_free_pads`` pairs with the hole by position and drill."""
 SHAPES_NOT_DECIDED = {("custom", "roundrect")}
 """The shape pairs ``(Fenolite, KiCad)`` that the profile's ``undecided`` rule covers: an octagonal pad."""
+UNPAIRED: dict[str, dict[str, tuple[str, str]]] = {
+    "altium-third-party-pcbdoc-01": {"": ("12", "4")},
+    "altium-third-party-pcbdoc-05": {"": ("0", "4")},
+}
+"""Current unpaired references: c0277 pairs the equal, singly placed historical duplicates."""
+PAIRED: dict[str, dict[str, int]] = {
+    "altium-third-party-pcbdoc-03": {"*": 3},
+    "altium-third-party-pcbdoc-04": {"": 2},
+    "altium-third-party-pcbdoc-07": {"": 2},
+}
+"""Exact pairs exposed by the specified placement policy; original native counts remain above."""
 
 
 def _sides(row: str) -> Sides:
@@ -132,12 +145,24 @@ def test_rounding(row: str) -> None:
 
 @pytest.mark.parametrize("row", IDS)
 def test_keys(row: str) -> None:
-    """``H-G-EQ-REF``: references and pad numbers pair without a mapping. The only references that do not
-    pair are those the document holds several times, and the only pins without a twin are the pads that
-    the profile's rules name."""
+    """``H-G-EQ-REF``: retain raw duplicates and prove placement pairs; unequal counts stay ambiguous.
+    Pins without a twin remain restricted to the existing profile's named pads."""
+    sides = _sides(row)
+    for ref, expected in AMBIGUOUS.get(row, {}).items():
+        assert (
+            tuple(str(sum(c.ref == ref for c in side.circuit.components)) for side in (sides.a, sides.b))
+            == expected
+        )
+    paired = paired_references(sides.a, sides.b)
+    for ref, count in PAIRED.get(row, {}).items():
+        expected_names = {f"{ref}#{index}" for index in range(1, count + 1)}
+        for side in paired:
+            names = Counter(c.ref for c in side.circuit.components)
+            assert names[ref] == 0
+            assert all(names[name] == 1 for name in expected_names)
     bare = _report(row, rules=False, ignore=False)
     ambiguous = {d.where: (d.a, d.b) for d in bare.differences if d.kind == "ref-ambiguous"}
-    assert ambiguous == AMBIGUOUS.get(row, {})
+    assert ambiguous == UNPAIRED.get(row, {})
     assert "component-missing" not in _kinds(bare)
     found = _report(row)
     assert not {"component-missing", "ref-ambiguous", "pin-missing"} & set(_kinds(found))

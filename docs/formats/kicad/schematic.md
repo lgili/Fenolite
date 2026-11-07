@@ -52,6 +52,8 @@ any child it does not reproduce tree-equal (`kicad.sch.kept-opaque`); this is ho
 | Load check of a schematic: `kicad-cli sch export netlist <file> -o <out>` exits 0 and writes the netlist; a schematic it cannot load gives "Failed to load schematic" and exit 3 | S-0020, S-0022, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-TOKENS |
 | Load check of a symbol library: `kicad-cli sym export svg <file> -o <folder>` exits 0 and writes one SVG per unit and body style | S-0020, S-0022, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-TOKENS |
 | `sch export netlist --format kicadsexpr` lists one `comp` per reference with `ref`, `value` and `footprint`; the units of one symbol give one `comp`, power symbols (reference starting with `#`) give none, and a symbol with `(on_board no)` gives none on 9.0.9 and on 10.0.6 | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-COMPONENTS-2 |
+| Authored pinless, non-power instances with explicit `(in_bom yes)` and `(on_board no)` appear in the 10.0.6 native BOM but add no electrical netlist node. Original/rebuilt flat and repeated-sheet instances retain their references, DNP and descriptive Footprint property, with complete electrical pin partitions unchanged. This does not make a standalone PCB file carry schematic BOM items | S-1283 | INFERRED (10.0.6 measured; required matrix CI pending) | H-K-BOM-CSV |
+| Native 10.0.6 BOM export accepts authored pinless two-unit inputs whose instance board or DNP flags disagree, retaining all 34 ordinary electrical pins. That acceptance does not prove a single canonical component flag can represent both units. Fenolite refuses unrepresentable combinations; a both-excluded pinless unit continues through the existing opaque path with its own flags | S-1283 | INFERRED (10.0.6 measured; required matrix CI pending) | H-K-BOM-CSV |
 
 ## Generated sheets
 
@@ -68,10 +70,12 @@ rectangular flag and one power-output pin, with no content of any other library.
 | A pin connects at its library position turned into the sheet: for a pin at (px, py) in the library frame (Y up) and an instance at (x, y), the rotation by the instance angle counter-clockwise (90° maps (px, py) to (−py, px)) gives (px′, py′), and the point is (x + px′, y − py′). A global label at the point `schlayout.pin_point` gives leaves no `pin_not_connected`, for the four angles and the three mirror states. The probe symbol has 32 pins that both mirrors map onto themselves, so this row says nothing of the mirror axis and of the order of mirror and rotation (corrected by change c0137; until then the row said that the mirror comes first) | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-PINFRAME |
 | The mirror of an instance acts on the turned symbol: KiCad rotates first and then mirrors, `mirror x` negating the turned py′ and `mirror y` the turned px′. For 0° and 180° the order does not matter; for 90° and 270° the other order (mirror first) is the same as rotating first with the other mirror. Measured on the demo sheets of the corpus (125 readable `.kicad_sch` files at tags 10.0.6 and 9.0.9.1; 7 older files not read) by comparing, for every pin, the point of each order with the wire ends, labels, no-connect flags and symbol origins of the sheet: 188 instances are mirrored and turned by 90° or 270° (84 at 90° and 104 at 270°, all `mirror x`; no instance holds `mirror y` with 90° or 270°); at 142 of them more pins touch something at the rotate-first point, at 45 both orders touch the same number (symmetric two-pin parts), and at one more touch at the mirror-first point (a capacitor of `jetson-agx-thor-baseboard/m2.kicad_sch` whose other-order point is shared by a neighbour's pin and a wire end, while its rotate-first point is the origin of a power symbol). Over all pins of these instances whose two points differ, 336 rotate-first points touch something against 76 mirror-first points. The 142 instances lie on 20 sheets: two sheets of `cm5_minima` (`CM5_MINIMA_3`, `IO`), 15 sheets of `jetson-agx-thor-baseboard` (among them `csi`, `dcdc`, `usb_hub`), `openair-max/Battery-Holder`, `simulation/q17/Q17ng` and the 9.0.9.1 sheet `test_xil_95108/carte_test` (a nine-pin connector at 270° with `mirror x`, its nine wire ends all at the rotate-first points). The mirror axis itself was measured the same way at 0°: of 650 mirrored instances, the pins of `mirror x` (negate py) and `mirror y` (negate px) touch 1 943 points against 336 for the swapped axes (no mirrored instance stands at 180°). `tests/kicad/schematic/test_pin_frame_oracle.py` asks `kicad-cli` the same on an authored sheet and passed on 9.0.9 and 10.0.6 (the `kicad-9` and `kicad-10` jobs of CI run https://github.com/lgili/Fenolite/actions/runs/37836186018, 2026-10-08) | S-0058 (corpus rows `kicad-demo-10-0-6-sch-*` and `kicad-demo-9-0-9-1-sch-*`), S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-PINFRAME-ORDER |
 | A global label at the connection point of a pin puts the pin on the net named by the label's text, and labels of one text are one net; no wire is needed. A `no_connect` at the connection point of a pin on no net removes its `pin_not_connected` and `pin_not_driven` violations | S-0046, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-MINIMAL |
-| `sch export netlist` gives a pin on no net a net of its own: `unconnected-(<ref>-<pin name>-Pad<number>)`, or `unconnected-(<ref>-Pad<number>)` for a pin without a name. For a named pin of a symbol with several units the reference is followed by the unit letter (`U2C` for unit 3); in the pin name a blank is written `_` and a `/` is written `{slash}`; `+`, `-`, `_`, `.`, `~`, `{`, `}`, a leading digit and a name that two pins share are written as they are. A pin with a no-connect flag is named the same way | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-UNCONNECTED |
+| `sch export netlist` gives a pin on no net a net of its own: `unconnected-(<ref>-<pin name>-Pad<number>)`, or `unconnected-(<ref>-Pad<number>)` for a pin without a name. For a named pin of a symbol with several units the reference is followed by the unit letter (`U2C` for unit 3); in the pin name a blank is written `_` and a `/` is written `{slash}`; `+`, `-`, `_`, `.`, `~`, `{`, `}`, `#`, a leading digit and a name that two pins share are written as they are. A pin with a no-connect flag is named the same way | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-UNCONNECTED |
+| A pin whose name equals its pin number is named like a pin without a name, `unconnected-(<ref>-Pad<number>)` without a unit letter (`unconnected-(J1-Pad1)` for pin `1` named `1`); a pin whose name differs keeps it (`unconnected-(J1-P2-Pad2)`). The source reads the same at tags 9.0.9.1 and 10.0.6. `netnames.unconnected_name` applies it (c0384 1.4, change c0408) | S-1490, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-UNCONNECTED |
 | A pin named `~` in an embedded symbol has no name in a `20250114` sheet (9.0.9 names its net `unconnected-(X1-Pad4)`) and the name `~` in a `20260306` sheet (10.0.6: `unconnected-(X1-~-Pad4)`), as the reader's rule for `~` says; the generator therefore writes an empty name for target 10 where the library meant none | S-0020, S-0031 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-UNCONNECTED |
 | The net of a global label is named by the label's text for letters, digits, a blank, `[ ]`, `{ }`, `( )`, a quote, a backslash, a non-ASCII letter and `+ . - _ : , # $ ~ =`. A `/` in the text is stored as `{slash}` in the net name (`mod/LED_A` gives `mod{slash}LED_A`) | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-SLASH |
 | The parity test compares pad nets by their stored names: a board pad on `mod{slash}LED_A` agrees with that label, and the same pad on a net stored `mod/LED_A` gives `net_conflict` | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-SLASH |
+| A net named only by a local or a hierarchical label of a child sheet agrees in the parity test when the board stores it with the raw slashes of the sheet path (`/child/FB`, `/child/IN` for the sheet `child`); the same pads on `{slash}child{slash}FB` give `net_conflict`. Authored drawn build, `tests/kicad/schematic/test_drawn_sheet_net_names.py` (change c0408), 2026-11-05: no parity item, control 2 `net_conflict`, on 9.0.9 (pinned image) and 10.0.6 | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-SLASH |
 | A net whose only driver is a power-input pin gives `power_pin_not_driven`; a symbol flagged `power` with one `power_out` pin on that net (Fenolite's authored `fenolite:PWR_FLAG`) removes it, and that symbol names no net | S-0046, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-POWER |
 | Two hidden power-input pins of one name end on one net whatever labels they carry (pins `VSS` labelled `GND` and `OTHER` are both on `GND`); the same pins without `hide` are on their two nets | S-0046, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-POWER |
 | ERC reports `lib_symbol_issues` for a symbol whose library no table of the project lists. With a project `sym-lib-table` whose row `${KIPRJMOD}/lib/<nickname>.kicad_sym` holds the same definition as the sheet embeds, a pin-pad variant included, it reports neither `lib_symbol_issues` nor `lib_symbol_mismatch` | S-0046, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-LIBTABLE |
@@ -80,15 +84,97 @@ rectangular flag and one power-output pin, with no content of any other library.
 | What KiCad's "Update PCB from Schematic" writes on a built board is not measured by a test: no headless command runs it. One manual run in 10.0.6 on the built blink example added `sheetname`, `sheetfile` and the pads' `pinfunction` and `pintype`, and changed no field text, position or pad net | S-0046 | INFERRED | H-K-SCH-UPDATE |
 | A sheet symbol without pins is loaded, and global labels of one text join the pins of the root and of every child sheet into one net named by that text: a hierarchy needs no hierarchical label and no sheet pin to carry a net. A `sheet` written with `at`, `size`, `exclude_from_sim`, `in_bom`, `on_board`, `dnp`, `stroke`, `fill`, `uuid`, the properties `Sheetname` and `Sheetfile` and `instances` (one `path` with its `page`) is loaded by 9.0.9 and 10.0.6; a child file carries no `sheet_instances` | S-0367, S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-HIER-FILE |
 | The `Sheetfile` of a sheet reference is resolved from the folder of the file that holds the reference: `sheets/a.kicad_sch`, named from the root, names its own child `b.kicad_sch` and the file `sheets/b.kicad_sch` is loaded. The same child named `sheets/b.kicad_sch` from there resolves to no file and is dropped: its symbols are missing from the netlist, ERC reports nothing about it, and `sch erc` and `sch export netlist` exit 0. So nothing in KiCad's reports tells that a sheet was not found | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-HIER-FILE |
+| A sheet pin is a `pin` child of its `sheet`, after the properties and before `instances`: `(pin "<name>" <shape> (at <x> <y> <angle>) (uuid …) (effects (font (size 1.27 1.27)) (justify left\|right)))`, the shape one of `input`, `output`, `bidirectional`, `tri_state`, `passive`; a pin on the left edge has the angle 180, one on the right edge 0. A hierarchical label is `(hierarchical_label "<text>" (shape <shape>) (at …) (effects …) (uuid …))`. Fenolite writes both for the sheet of a block instance and its box (change c0269), in this form for targets 9 and 10 | S-0367 | INFERRED | H-K-SCH-BLOCK-PINS |
+| Hierarchical labels of one text on a child sheet join the sheet pin of that name on its box; a net that meets a global label anywhere is named after the global label, so a block's port nets keep the circuit names when the parent labels each sheet pin with a global label (`kicad-cli` 10.0.6 on `examples/blocks`, 2026-10-29: the six nets under their circuit names, ERC without a violation; 9.0.x in CI) | S-0367, S-0046, S-0020 | INFERRED | H-K-SCH-BLOCK-PINS |
 | In the netlist, a component of the sheet `a/b` has `(sheetpath (names "/a/b/") (tstamps "/<uuid of the reference a>/<uuid of the reference b>/"))` and its own `tstamps`, the uuid of its symbol; a component of the root has `/` for both. The footprint `path` that pairs a footprint with its symbol is that sheet path followed by the symbol's uuid, so `/<uuid of a>/<uuid of b>/<symbol uuid>` in a child sheet and `/<symbol uuid>` on the root. That "Update PCB from Schematic" writes this path was not measured (no headless update) | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-HIER-PATH |
 | A `wire` with `pts` of two points, `stroke` and `uuid` joins the pins whose connection points are its two ends: two pins joined by one wire, with one global label at one end, are one net named by the label, and ERC reports nothing about them. A pin whose connection point lies in the middle of that wire, without a junction, is not on the net (`pin_not_connected`, and its net is `unconnected-(…)`). Fenolite therefore writes one wire from pin end to pin end and never a wire that passes a pin | S-0367, S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-WIRE-END |
 | Pins of one symbol instance whose connection points coincide (stacked pins) are joined: with one global label at the point, each is a node of the label's net in `sch export netlist`, whatever its type (a `passive` hidden pin beside an `output` or a `power_in` pin); ERC reports nothing because of them, and the parity test of `pcb drc --schematic-parity` finds a board whose pads carry that net in agreement. Fenolite embeds one such pin per further pad of a pin that is bonded to several pads (change c0123). A pad number that two pins of one symbol hold gives the ERC error `duplicate_pins` (10.0.6) | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-STACKED |
 | Stacked pins of one name without a label are one net. Under a no-connect flag its name is `unconnected-(<ref>-<pin name>-Pad<number>)` (or without the pin name for an unnamed pin), with the number that is the lowest in code-point order among the stacked pins (`15` for `5`, `15`, `9`). Without a flag they are a net of several pins to KiCad, named `Net-(<ref>-<pin name>-Pad<number>)` with the same number rule (`Net-(D2-K-Pad17)` for the pads `21` and `17`); ERC then reports one `pin_not_connected`, as for one open pin | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-STACKED-OPEN |
 | A property of a symbol instance is drawn turned with its symbol: in an instance at 90 or 270 degrees a field written at angle 0 is drawn upright and one written at angle 90 is drawn level; in an instance at 0 or 180 degrees a field at angle 0 is drawn level. A field without `justify` is drawn centred on its point in every one of these frames. Seen on the PDF exports (`sch export pdf`) of generated sheets by 9.0.9 and 10.0.6 on 2026-10-06; no test measures a drawing, so the generator's text rooms are checked by estimate only | S-0020, S-0029 | INFERRED | H-K-SCH-MINIMAL |
+| A symbol flagged `power` with one hidden `power_in` pin of length 0 at its origin names the net of that pin by the instance's Value, whatever the pin's name: two instances of Fenolite's authored `RAIL` with the Values `+5V` and `VBAT` give the nets `+5V` and `VBAT`, a global label `VBAT` joins the second, and the instances (Reference `#PWR…`) give no `comp`. Such a net still needs a driver: without a `power_out` pin on it ERC reports `power_pin_not_driven`, and Fenolite's power flag wired to one of its power symbols removes it. Measured on 2026-11-05 on the authored designs of `tests/_wireddesigns.py` (`tests/kicad/schematic/test_wired_oracle.py`: ERC without a violation, the exported nets equal to Fenolite's own netlist) (change c0406) | S-0046, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-POWER |
+| Wire ends that coincide are joined, and so are wire ends on a junction; a junction or a wire end on the inside of a wire is not used by the generator (each wire is cut at its joints), and two wires that cross inside both without a junction stay apart. A global label whose point lies on the inside of a wire puts the wire on its net. Measured on the wired sheets of `tests/_wireddesigns.py` on 2026-11-05: the nets of `sch export netlist` equal the groups Fenolite reads (`sch_netlist`), on the written sheets and on the sheets read back, whose wires and junctions are opaque slots (change c0406) | S-0046, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-WIRE-END |
 
 Net names on boards follow the same rule (`pcb.stored_net_name`): a created net is written with
 `{slash}` for a slash, a net read from a file keeps its spelling, and the reader gives a net stored with
 `{slash}` the name with the slash, keeping the stored spelling in the net's `kicad` bag (`stored`).
+
+## Drawn schematic connectivity
+
+The rules of `fenolite.model.drawn_connect.resolve`, the resolver of drawn schematics (change c0276,
+`docs/drawn-schematic.md`), read again for that change in the schematic editor manual (S-0046: wires,
+junctions, labels and their scope, buses, bus entries, bus aliases, sheet pins, power symbols, hidden
+power pins) and the format page (S-0367). On 2026-10-29 `tests/kicad/schematic/test_drawn_oracle.py`
+compared the resolver's nets with `kicad-cli sch export netlist` on the six authored drawn fixtures on
+9.0.9 and 10.0.6 (local `docker:kicad/kicad` images): connectivity and names were equal on both. The rows
+stay `INFERRED` until the KiCad job of CI passes on the commit (task 7.1 of c0276).
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A wire segment joins its two ends, and segments join where their ends meet | S-0046, S-0367 | INFERRED | H-K-DRAWN-CONNECT |
+| A segment end that lies inside another segment (a T) is not joined to it without a junction on that point; with a junction both are one net. Measured on an edited sheet on 9.0.9 and 10.0.6 (a stub ending on a wire carries its label alone, the net keeps the pin name) | S-0046, S-0020 | INFERRED | H-K-DRAWN-CONNECT |
+| Crossing segments do not join unless a junction lies on the crossing point | S-0046 | INFERRED | H-K-DRAWN-CONNECT |
+| A junction joins every segment end, segment inside and pin point at its position | S-0046, S-0367 | INFERRED | H-K-DRAWN-CONNECT |
+| 9.0.9 loses the corner of a wire whose inside holds a junction (the bent wire's second segment reports `unconnected_wire_endpoint` and the pins split); the same sheet with the wire cut at the junction joins on 9.0.9 and 10.0.6. The writer therefore cuts each wire at the junctions on it, and each bus at its junctions and bus entry ends, as KiCad's editor keeps them | S-0020 | INFERRED | H-K-DRAWN-WRITE |
+| A pin joins a wire at the wire's end only (the row of `H-K-SCH-WIRE-END` above) | S-0367, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-WIRE-END |
+| A label joins the wire or the pin its anchor lies on, a wire's inside included; a label that touches nothing names nothing | S-0046 | INFERRED | H-K-DRAWN-CONNECT |
+| A label whose anchor lies on a sheet pin's connection point joins that pin, as on a symbol pin (the form of the generated block sheets of change c0269, whose labels stand on the sheet pins without a wire) | S-0046, S-0367 | INFERRED | H-K-DRAWN-CONNECT |
+| Local labels of one text join on one sheet instance; global labels of one text join on every sheet | S-0046 | INFERRED | H-K-DRAWN-CONNECT |
+| A power symbol (a symbol flagged `power` whose pin is a power input, shown or hidden) joins the global net named by its `Value`; the power flag (a power output pin) joins at its pin only | S-0046 | INFERRED | H-K-DRAWN-CONNECT |
+| On authored 10.0.6 inputs, a power declaration and an identically named local scalar label in the same sheet join even without a wire between their anchors. Unequal names and a local label in another sheet without that power declaration stay separate. A global label already joins the power net. All authored input pins are compared, including singleton nets | S-1282 | INFERRED (10.0.6 measured; required 9/10 CI pending) | H-K-DRAWN-CONNECT |
+| A hidden power-input pin of a part joins the global net of its pin name (the row of `H-K-SCH-POWER` above) | S-0046, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-POWER |
+| A hierarchical label joins the sheet pin of the same name on the reference of its instance | S-0046, S-0367 | INFERRED | H-K-DRAWN-CONNECT |
+| A bus carries the members of the labels and sheet pins on it: `NAME[a..b]` gives `NAMEa` to `NAMEb`, `{A B}` its items, `P{A B}` gives `P.A` and `P.B`, and a bus alias of the sheet its members; written on a bus, an alias is named as `{ALIAS}` (10.0.6 reports `bus_to_net_conflict` for the bare name). A member joins the local labels of its name on the instance and crosses a sheet through a bus sheet pin and the hierarchical label of the same text; a bus entry joins nothing by itself | S-0046, S-0367, S-0020 | INFERRED | H-K-DRAWN-BUS |
+| On authored9.0.2 controls, a bus label at a bus-side entry end or a bus-only junction stays on the bus; that contact alone does not make it a scalar label. Real wires and pins keep their existing priority. Overbar spans such as `CHANNEL.~{READY}` remain literal group member names | S-1280 | INFERRED (9.0.2 measured; wider CI pending) | H-K-DRAWN-BUS |
+| On one connected authored9.0.2 bus, top-level vectors match by ascending index position, including different prefixes, offset index bases and reversed written ranges; qualified groups match their literal scalar members regardless of order. A nested vector with the same written definition matches across group prefixes; the reversed nested definition stays separate. Disconnected bus definitions stay separate. These identities are scoped to KiCad connectivity, not replacements for scalar labels | S-1280 | INFERRED (9.0.2 measured; wider CI pending) | H-K-DRAWN-BUS |
+| Scalar local and hierarchical/global labels of the same exact text on one authored9.0.2 sheet join. The root's local label of that text stays separate when the other sheet has the global/hierarchical label; unequal texts stay separate. An unmatched hierarchical port remains a diagnostic. Generic/Altium scope defaults are unchanged | S-1280 | INFERRED (9.0.2 measured; wider CI pending) | H-K-DRAWN-CONNECT |
+| Bus prefixes may contain text markup. Authored 9.0.9/10.0.6 controls retain subscript, superscript, overbar and nested-format prefix spelling in the expanded member names; formatting-only names and malformed non-format braces do not declare the intended vector/group members. Malformed group text ending in a vector range does not invent native joins | S-1284, S-1285 | INFERRED (9.0.9/10.0.6 measured; required exact-head CI pending) | H-K-DRAWN-BUS |
+| On the original repeated-sheet control, two isolated parent bus islands with equal `{FB}` sheet ports keep their child scalar nets separate. One explicit parent bus label still keeps them separate; two equal bus labels or a physical bus connection join them. Every control covers all eight pins. This bounds the KiCad-only rule against invented parent scalar aliases | S-0020 | KICAD-VERIFIED (CLI 9.0.9 and 10.0.6, 2026-11-02; authored partition controls only) | H-K-DRAWN-BUS |
+| A sheet file named by several sheet references gives one set of local nets per instance, with the references of each instance's `path`; global nets are shared | S-0046, S-0367 | INFERRED | H-K-DRAWN-REPEAT |
+| A net named by a global label or a power symbol takes that text; one named only by local or hierarchical labels takes `/` plus the sheet names from the root and the text, the highest sheet first; ties go to the text that sorts first | S-0046 | INFERRED | H-K-DRAWN-NAMES |
+| A no-connect flag marks a pin as open on purpose and joins nothing | S-0367 | INFERRED | H-K-DRAWN-CONNECT |
+
+## Drawn field-font observations (c0326)
+
+Original authored text controls were loaded and exported with `kicad-cli sch export svg`
+9.0.2 on 2026-11-02, as a subprocess, without a GUI save. The SVG text groups and
+their ancestor styles were compared separately from Fenolite's presentation masks.
+The controls derive only from Fenolite's CC0 Mini fixture. These observations do
+not establish the required 9.0.9/10.0.6 CI or the other typed text surfaces.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| The common `(size HEIGHT WIDTH)` order maps to `Size(w=WIDTH, h=HEIGHT)`: the authored 1-by-2 field is 1 mm high with twice the glyph width of the 2-by-1 field, which is 2 mm high | S-0001, S-0020 | INFERRED (9.0.2 measured; wider CI pending) | H-K-DRAWN-WRITE |
+| A bare `bold` or `italic` flag and its `(bold yes)` or `(italic yes)` form produce equal native SVG groups/styles. Their `no` forms produce the exact omitted-flag group/styles. Canonical false presence therefore does not require a distinct native state | S-0020 | INFERRED (9.0.2 measured; wider CI pending) | H-K-DRAWN-WRITE |
+| Omitted thickness and explicit thickness 0 produce identical field groups/styles. An explicit 0.15 mm thickness changes the native stroke from the default 0.1524 mm on the authored 1.27 mm field | S-0020 | INFERRED (9.0.2 measured; wider CI pending) | H-K-DRAWN-WRITE |
+| An empty font, no font and no effects produce the same field group/styles as explicit size 1.27 mm. Changing the library's default Value bold, italic or size does not change those instance groups; an instance font without size but with bold keeps size 1.27 mm and becomes bold | S-0020 | INFERRED (9.0.2 measured; wider CI pending) | H-K-DRAWN-WRITE |
+| The authored positive sizes 1, 499, 500, 999, 1000 and 1001 nm all export with a 1 µm glyph height at the native SVG precision. They never become a 1.27 mm field. Sub-µm typed fonts remain unsupported at the native/render boundary until represented honestly; the exact model still permits positive integer nm | S-0020 | INFERRED (9.0.2 measured; wider CI pending) | H-K-DRAWN-WRITE |
+
+Native parsing keeps the default spellings equivalent; the canonical drawn codec
+still retains explicit false and zero. Unknown or conflicting font/effect children,
+inexact dimensions and unsupported rendering must refuse with their locator rather
+than select the default font. Font-face output changes the actual ink; preserving
+its name is not proof that the default stroke renderer reproduces that font.
+
+Follow-up: 84 original label/pin/sheet-property controls on the same CLI version
+cover all four label/pin angles and asymmetric fonts on every typed text surface.
+All load/export successfully with unchanged authored source bytes. Missing native
+`justify` and explicit empty `justify` produce exactly equal text SVG groups;
+left/right produce distinct groups on local/global/hierarchical labels, sheet
+pins and sheet-name/file properties. Extraction must preserve native omission as
+explicit centring, not the model's legacy role-selected anchor. An explicit
+native anchor equal to that legacy role may use the legacy model default without
+changing its effective drawing. Width/height order agrees with the field probes
+on all six additional surfaces (S-0020; `INFERRED`, 9.0.2 measured, wider CI pending;
+`H-K-DRAWN-WRITE`). This is still a CLI export, not a GUI save.
+
+The current versioned font oracle repeats those forms across all eight typed
+surfaces and actual model-font output: 27 cases, 94 SVG exports on 9.0.2, every
+source hash unchanged. Complete glyph groups retain native repeated plots and
+ancestor styles; none is selected arbitrarily or deduplicated. Installed
+Inkscape 1.4's 150 dpi raster of the wide/tall field controls differs by 919 RGBA
+pixels, with unchanged SVGs and recorded input/output hashes. These observations
+reuse S-0020 and remain `INFERRED` for wider-version support; exact 9.0.9/10.0.6
+CI and GUI-save requirements are still independent gates.
 
 ## Netlist export
 
@@ -121,3 +207,81 @@ projects that `build` wrote, on 9.0.9 and on 10.0.6. The outcomes per version ar
 ## Issue codes
 
 `sch.ISSUE_CODES` is the closed table of the capability `kicad-schematic`, "Schematic read issue codes". The writer's codes are `sch.WRITE_ISSUE_CODES` (`kicad.sch.dropped-too-new`), and those of the generator, its layout and the embedding are `schgen.ISSUE_CODES`; both are listed in `docs/cli-contract.md` under `build`.
+
+## Custom sheet-property observations (c0329)
+
+These controls are original Fenolite-authored temporary projects, not copied
+demo fields or native GUI saves. The public source is the installed CLI oracle
+S-0020; its raw scratch replies and hashes remain outside the core repository.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| CLI 10.0.6 exports no literal tilde glyph description for custom sheet text `~` in the authored source-format-9 drawing, and one for the authored source-format-10 drawing; both commands exit 0 | S-0020 | KICAD-VERIFIED (10.0.6; authored CLI exports, 2026-11-02) | H-K-DRAWN-WRITE |
+| CLI 9.0.9 exports literal stroked tilde paths for the same authored format-9 custom text `~`; this disagrees with the 10.0.6 reading, so the legacy custom value refuses rather than normalizing to empty | S-0020 | KICAD-VERIFIED (9.0.9 and 10.0.6; authored CLI exports, 2026-11-02) | H-K-DRAWN-WRITE |
+
+The typed custom-property path preserves supported literal text and pose/font
+separately from the code-owned Sheetname/Sheetfile fields. Existing default
+false `show_name` and `do_not_autoplace` writer forms remain accepted; true or
+unrepresented forms refuse. This describes implemented validation, not a new
+native claim for unmeasured flags. A strict all-nine authored internal proof
+and its planted loss controls do not establish native glyph-raster equality
+or the complete public VME resolver result.
+
+## Root hierarchical ports (c0350)
+
+`KICAD-VERIFIED` (S-1289): authored root hierarchical labels remain native
+same-sheet connections even without a parent sheet reference. Native9.0.9 and
+10.0.6 retain all40pins and exact groups/names before/after lowering, with
+same-named child labels isolated. This does not excuse unmatched ports on
+actual child references. Generic/Altium resolver policy is unchanged.
+
+## Global-label inter-sheet reference fields (c0348)
+
+`INFERRED`, S-1290: the official 9/10 manuals describe global-label inter-sheet
+references as project-controlled page lists, expanded from the fixed placeholder.
+The project chooses enabled state, current-page inclusion, short form and affixes.
+
+`ORACLE-VERIFIED(kicad-cli 9.0.9/10.0.6)`, S-1288: authored two-sheet/repeated
+controls agree on enabled/disabled/no-project state, own-page inclusion and
+prefix/suffix, including affixes around an empty list. Short form uses first..last
+for more than two remaining pages even when own-page removal leaves a gap.
+Project show=true displays the field despite stored property hide=yes; without
+a project the default is disabled for either stored hide state. Multiple equal
+global labels on one page do not duplicate that page. Numeric 3,12,4 sorts 3,4,12;
+B,A2,A1 sorts A1,A2,B; numeric ties 2,02 preserve observed hierarchy order.
+Duplicate actual page numbers differ between native 9 and 10 and are not silently
+normalized by a viewer. Complete named Mini native graphs are unchanged by the
+field pose, and moving it by 5 mm/7 mm moves the native SVG text by the same deltas.
+The visible SVG text anchor is not the property's pose point: font/rotation
+baselines offset it. No copied vendor glyph/path/template is introduced.
+
+Further S-1288 authored native controls confirm natural text order A1,A2,A10,
+stable numeric ties in either leading-zero order, case-sensitive A2,B,a10 and
+natural dotted-page order2.1,2.2,2.10 on both actual tools. The private raw-bytes
+scene API treats None context explicitly as no project (display disabled), not
+as recovery from an unresolved owner. Path-aware callers must resolve actual
+project/instance context and cannot silently choose the first repeated instance.
+
+
+## Empty pin numbers at the embedding boundary (c0353)
+
+**ORACLE-VERIFIED(kicad-cli)**, S-1291: in original authored controls, old-format number text `~`
+exports as the empty pin number on9.0.9/10.0.6, while modern-format literal `~` exports as a tilde
+on10.0.6. Empty and literal numbers remain different even at coincident positions. All connected
+control pins and complete named partitions are retained across the four source/target pairs; the
+older executable cannot load a future source, so the modern original is separately measured by10
+and the old target copy by9. No intersection/filter establishes equality.
+
+The embedding writer associates raw slots with checked canonical pins by unit/body-style, pin order,
+cardinality and exact geometry/number identity before rewriting an empty marker. Modern embedding
+converts only a raw tilde whose canonical number/name is empty. Literal tilde numbers are preserved
+on a modern target; an older target refuses locally unless explicit pad mapping supplies a different
+representable number. The authored default body-style0→native1 convention is used only for this
+ephemeral association. No model field is added; the canonical source definition remains unchanged.
+
+Public flat_hierarchy controls are separate source-derived integration evidence, not authored
+fixtures: before correction six HOLE pins changed empty→tilde in direct9→10 embedding. The source
+and portable-import replay remain separate; the latter already retained its generated library's
+correct identities. No native/library source payload is committed here.
+
+**ORACLE-VERIFIED(kicad-cli)** (c0357, S-0020): original authored `#`, `RESET#`, and `A/# B` pin names export exactly as the existing derived-name algorithm predicts on9.0.9 and10.0.6, both open and explicitly no-connect-marked. The hash character is retained literally; existing slash/space transformations remain unchanged. Input/native-netlist SHA receipts are produced by `tests/kicad/schematic/test_hash_pin_names.py`. Only `#` is newly admitted to the proved alphabet; other unmeasured characters stay unsupported.

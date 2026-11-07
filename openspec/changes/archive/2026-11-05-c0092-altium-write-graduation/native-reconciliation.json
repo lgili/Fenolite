@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "date": "2026-11-03",
+  "scope": "Literal read-only native coverage reconciliation; no new CAD/runtime/CI/grad/evidence claim",
+  "source_commits_not_interchangeable": [
+    "615c2814",
+    "b5f6c84ade0cd74690874143bc1de96605279522"
+  ],
+  "rows": [
+    {
+      "criterion": "5.3native schematic",
+      "status": "current24covered",
+      "measured": "S1303/b5f6c84a:4components/8pins/3physical groups, exact short/fullnames, three native saves/close/reopens, completeexports byteidentical; Info1only, ERCunchanged,17staged/50preparedunchanged.",
+      "proof": "docs/evidence/altium-acceptance-v03-schematic-native.json",
+      "remaining_or_reconciliation": "Do not list compile/export/native schematic save/reopen as unexecuted. Emptynativebusmetadata is preserved, not silently replaced."
+    },
+    {
+      "criterion": "5.3native PCB",
+      "status": "current24covered",
+      "measured": "S1304source2a7855\u2026\u2192native64f436\u2026:completekind/pad/via/net/text/rulecensus identical before/after binarysave/close/reopen;9pads/3vias/3nets/37rules,15closedfiles,50preparedunchanged.",
+      "proof": "docs/evidence/altium-acceptance-v03-pcb-native.json",
+      "remaining_or_reconciliation": "Do not rerun native PCBsave/census to complete a generic physical task already measured."
+    },
+    {
+      "criterion": "5.3native DRC/rule records",
+      "status": "current24covered bounded",
+      "measured": "S1305:one unchanged-config DRC,14complete messages(9unrouted/5antennae),duplicates retained,limit500notreached;7originalrule records retain EVERYliteralfield,30native-addeddefaults separated.",
+      "proof": "docs/evidence/altium-acceptance-v03-drc-native.json",
+      "remaining_or_reconciliation": "DRC was run and literalruleparameters compared; do not call either whollymissing. Independent per-category enabled/batch/scope semantic coverage is distinct; DRC-clean is not a newly invented acceptance target for this sparse exercise."
+    },
+    {
+      "criterion": "5.3bodies",
+      "status": "current24covered bounded",
+      "measured": "S1306complete4native bodies:owner/layer/standoff/height/projection/allXYbounds equal source,4bodies visible in actualnative3Dtopview. PriorFirstLayerfailure retained.",
+      "proof": "docs/evidence/altium-acceptance-v03-body-native.json",
+      "remaining_or_reconciliation": "Do not ask again for these measured properties/topview. No human/mesh/oblique/model-copy-fit claim; do not import unrelatedc0175requirements into c0092without an actual criterion."
+    },
+    {
+      "criterion": "5.3layer stack/vias",
+      "status": "current24covered bounded",
+      "measured": "S1308completeLSMCSV15rows:6signal-copper/5TESTcoresDk4/2masks/2overlays, all3via spans. Coredisplay9.843mil vsencoded9.8425mil explicitly0.0005mil/12.7nm rounding;nativePCB/50preparedunchanged.",
+      "proof": "docs/evidence/altium-acceptance-v03-layer-native.json",
+      "remaining_or_reconciliation": "Copper stack inspection now exists. Paste notlistedbyCSV/impedance/backdrill/internal-precision are not proved; no extrapolation or inventednewtest."
+    },
+    {
+      "criterion": "S1307",
+      "status": "public SDKfact source, not a native run",
+      "measured": "Registered public interface documentation supports the procedures; it does not turn prior FirstLayerfailure into success or supply an extra completed test.",
+      "proof": "docs/evidence/sources.md",
+      "remaining_or_reconciliation": "Keep sourcefacts separate from actualS1303/4/5/6/8receipts."
+    },
+    {
+      "criterion": "5.3recorded acceptance-tree kit/fullcriterion5",
+      "status": "still open",
+      "measured": "Current native portions are real but every receipt explicitly parent_task5_3_complete=false andwrite_kind_graduated=false. Historicalclassic kit on other samples cannot replace this tree.",
+      "proof": "openspec/changes/c0092-altium-write-graduation/tasks.md",
+      "remaining_or_reconciliation": "Reconcile remaining exact acceptance-tree record/correspondence, OutJob/frame and any literal unmatched native coverage; do not repeat the measured subcases above or pretend14DRCmessages are a new clean-board blocker."
+    },
+    {
+      "criterion": "5.3PCB+schematic graduation",
+      "status": "still open independent rule",
+      "measured": "Ownreadback, releasedRT-A3, ALLcellhypothesesreleaseverified and one currentnonstaleALTIUM-VERIFIEDkit support are cumulative. Current/source-bound native observations do not replace them.",
+      "proof": "openspec/changes/c0092-altium-write-graduation/design.md",
+      "remaining_or_reconciliation": "Do not check criterion5, graduate writes or promote hypotheses just because source-bound saves/tests ran."
+    },
+    {
+      "criterion": "6.1closing/fullCI",
+      "status": "still open CIgate",
+      "measured": "Historical/fast gates are scoped to their exact source. Current combinedfast/CI has independent ownership.",
+      "proof": "openspec/changes/c0092-altium-write-graduation/tasks.md",
+      "remaining_or_reconciliation": "No localfullsuite, CIcheckbox or oldverdict reuse."
+    },
+    {
+      "criterion": "6.2evidence synchronization",
+      "status": "partially done, aggregate not ready",
+      "measured": "Register/matrix updates and receipt controls exist; remaining graduation conditions stay unsatisfied.",
+      "proof": "openspec/changes/c0092-altium-write-graduation/tasks.md",
+      "remaining_or_reconciliation": "Do not promote missing rows or regenerate a different capability verdict in a documentation audit."
+    }
+  ],
+  "source_proof_sha256": {
+    "docs/evidence/altium-acceptance-v03-schematic-native.json": "988d63fe274099cf4d71d8972d8e8e901c6c7e1f729b11fa238a8a631909761b",
+    "docs/evidence/altium-acceptance-v03-pcb-native.json": "1ecf790681eb8c23570b19fae50efb4098bf5817105aa0e19afde1652374b9a2",
+    "docs/evidence/altium-acceptance-v03-drc-native.json": "33cbfc26f5bc4352cd42200e241ae75b686814c8eb99ea3f4d0b0dae42a0932f",
+    "docs/evidence/altium-acceptance-v03-body-native.json": "70f4a450db988848453ff07f574d39d51248e30a382183b1b0571da4a30192d0",
+    "docs/evidence/altium-acceptance-v03-layer-native.json": "f3179a8ee7b802c91ed940cc64755e81ad1935d37f72869b27b914892f039fef",
+    "docs/evidence/sources.md": "c52262a6fbaaba5d53dc6359332d9e772038c0877b5779498853f26d47bd3109",
+    "openspec/changes/c0092-altium-write-graduation/tasks.md": "004a6d55b02e2e887773a2875a683a485e98e1dc5cdc4a3b76ea20a6879fe27d",
+    "openspec/changes/c0092-altium-write-graduation/design.md": "ad9f66bf68c1042cf1aa28eb3a13b7175e3650409538b2a4144182636fd14269"
+  },
+  "unchecked_tasks_changed": false,
+  "criteria_source_base_commit": "b1e9349a1de97a2597eae3eb788c3308fb745983"
+}

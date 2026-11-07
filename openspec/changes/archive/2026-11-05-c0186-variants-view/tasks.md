@@ -1,0 +1,62 @@
+## 0. Entry check
+
+- [x] 0.1 Find the public projects with variants and record the keys in `project.md`. Proof: `openspec validate c0186-variants-view --strict --no-interactive`.
+  - 2026-10-25: four of the six public project files carry a `[ProjectVariant<n>]` section.
+
+    | project | variant | variations |
+    |---|---|---|
+    | prjpcb-01 | `Production` | 56 (Kind 1: 47, Kind 0: 9) |
+    | prjpcb-03 | `48V` | 45 (Kind 2) |
+    | prjpcb-04 | `Default` | 6 |
+    | prjpcb-06 | `No Crystal` | 1 |
+
+    prjpcb-02 and prjpcb-05 have none.
+  - The keys (`Description`, `UniqueID`, `Variation<k>` with `Designator`, `UniqueId`, `Kind` and `AlternatePart`, `ParamVariation<k>`, `ParamDesignator<k>`) are recorded in `docs/formats/altium/project.md`, "Variants", under `H-A-PRJ-VARIANT` (INFERRED).
+  - A variation keeps the designator the part had when it was made; `No Crystal` names its crystal `X?`. Matching is therefore by unique id (design, decision 2).
+  - Branch `c0186-variants-view`, from `c0185-project-nets`. Proof passed.
+
+## 1. Read and draw
+
+- [x] 1.1 Add `read/variants.py`. Proof: `uv run pytest tests/unit/backends/altium -k variant -q`.
+  - 2026-10-25: proof passed (17). `test_variants_read.py` covers the three kinds, an unknown kind, an alternate part and a parameter variation.
+- [x] 1.2 Draw not-fitted parts and varied parameters (scenario "An authored variant"). Proof: `uv run pytest tests/unit/view/test_variants.py -q`.
+  - 2026-10-25: proof passed (2).
+  - The page has a variant selector. A part that is not fitted is crossed on the sheet, and dimmed and crossed on the board. 3D leaves its body out. The component panel shows the state and the varied parameters.
+  - Browser check, Chromium of the container, on the public project S-0175 (`altium-set:05`) with `No Crystal`: X201 is crossed on its sheet and on the board.
+- [x] 1.3 Add `--variant` (scenario "Unknown variant"). Proof: `uv run pytest tests/unit/cli/test_view_cmd.py -q`.
+  - 2026-10-25: proof passed (16).
+  - `result.variant` gives `{name, fitted, not_fitted}`. On S-0175 it reads 26 fitted and 1 not fitted.
+  - An unknown name is exit 2, `FEN-2001`.
+
+## 2. Closing
+
+- [x] 2.1 Docs, fast gate. Proof: `make check-fast`.
+  - 2026-10-25: proof passed (13 921 passed, 34 skipped).
+  - Changed: `docs/viewer.md` ("Assembly variants"), the `view` section of `docs/cli-contract.md`, a line in `references/files.md`, the hypothesis row, the evidence matrix and the LEGAL-ANNEX row.
+  - `test_altium_build.py::test_evidence` leaves `H-A-PRJ-VARIANT` out of the build's rows, because only `fenolite view` reads variants.
+- [x] 2.2 **Moved to c0389 (decided 2026-11-05), as 5.3.** The maintainer compares a variant of their own with Altium. Proof: the record under this task.
+  - 2026-11-04 (S-1587): agent-run on a public project at the maintainer's request; not the maintainer's own project. Variant `Default` of `PCB-PiDP11IOExpander`: Altium 24.5.2.23's Variant Management lists A0, A1, A2, J2, R2 and R3 as Not Fitted, and the page crosses out exactly these six. Altium's sheet could not be switched to the variant through UI Automation, so its drawn marks are not compared. Stays open. See `docs/evidence/viewer-public-project-2026-11-04.md`.
+  - 2026-11-05, review on the maintainer's delegation of 2026-11-04 (the coordinator's decision: a recorded Claude-agent run in Altium 24.5.2.23 satisfies this task only when its proof criteria pass as written): stays open. The coordinator accepts the public project `PCB-PiDP11IOExpander` in place of the maintainer's own, provided the comparison criteria pass. The not-fitted set matches (A0, A1, A2, J2, R2, R3), but Altium's sheet was not switched to the variant, so the drawn marks were not compared.
+
+## Continuation review — 2026-11-01
+
+Altium Designer is unavailable per the maintainer; no personal native variant comparison was supplied. Task 2.2 remains open.
+See `docs/evidence/altium-native-acceptance.md`, "Continuation inventory", for existing reports and exact remaining dependencies. No native, paid-agent or personal-review outcome is claimed.
+
+Pending Altium observations may use the actual available Designer 24.5.2.23,
+by the maintainer's explicit2026-11-03 approval recorded in c0166. Historical
+26.5 observations remain unchanged; this version permission is not a personal
+project review, a missing implementation or a passing native outcome.
+
+## Maintainer review source choice — 2026-11-03
+
+The maintainer explicitly selected “Preparar exemplos autorais do Fenolite para minha revisão”
+for this pending visual comparison. Original Fenolite-authored examples are the authorized review
+inputs. This is source selection only: prepare source-bound CAD/viewer comparisons and retain
+the complete original review checklist. The maintainer has not yet reviewed or approved those
+comparisons; the human-review task remains unchecked. Preparation and evidence requirements
+are recorded in `docs/evidence/native-viewer-maintainer-review-plan.md`.
+
+- [x] 2.2a Prepare an external source-bound Fenolite-authored comparison packet with actual viewer export, original input hashes, criterion checklist and precise native handoff. Keep missing native captures/theme creation/F0.5 measurements explicit; source choice is not human acceptance. Proof: export dry-run/exact confirmation, fixture provenance and packet manifest. The parent human-review task stays open.
+
+  - 2026-11-03: source bfda2ac4 local input/standalone-export packet passed reviewed-plan writes and input-hash checks; existing focused viewer/writer controls39passed. Native version/captures and the parent human review remain absent. No UI/configuration was operated and no native or evidence promotion is claimed.

@@ -1,0 +1,17 @@
+{
+  "depends": [],
+  "executes": true,
+  "files": [
+    "design.py"
+  ],
+  "id": "demo-src/blink",
+  "kind": "board",
+  "schema": "fenolite.library-item.v0",
+  "spdx": "CERN-OHL-S-2.0",
+  "summary": "A converted demo board",
+  "tags": [
+    "demo"
+  ],
+  "title": "Blink demo board",
+  "version": "1.0.0"
+}

@@ -2,15 +2,14 @@
 
 ## Purpose
 Run the same quality gates on every push and pull request as `make check` runs locally (lint, format, strict types, tests, residue scan) on ubuntu and macOS with a locked environment.
-
 ## Requirements
-
 ### Requirement: Unit CI job on two operating systems
-The repository SHALL contain a GitHub Actions workflow `.github/workflows/ci.yml` with a job `unit` that runs on every push and pull request, using `uv`, on these five combinations: `ubuntu-latest` with Python 3.11, 3.12 and 3.13, `macos-latest` with Python 3.12, and `windows-latest` with Python 3.12.
-- The steps MUST be the same on every combination.
-- No combination MAY carry `continue-on-error`: Windows is a merge gate like the others (the maintainer's decision of 2026-10-05, after a first run with 35 failures).
-- `tests/unit/test_ci_workflow.py` SHALL check the five combinations textually.
-- A test that needs a POSIX executable MUST be skipped on Windows only through `tests/_resources.py::posix_tools`, with the reason `posix-only fake tool`, and the skipped tests MUST be fewer than 5 % of the collected tests (`H-G-REL-WINDOWS`).
+
+Full-profile CI SHALL run the existing five unit environments: ubuntu-latest with Python 3.11/3.12/3.13 and macos-latest/windows-latest with Python 3.12. No unit environment MAY use continue-on-error, except the existing explicitly diagnostic Mac preprobe. Working-branch fast CI MAY omit this matrix only when its distinct fast result cannot satisfy the full gate. All full environments retain the same baseline test collection as before.
+
+#### Scenario: Every pull request executes the matrix
+- **WHEN** a pull request is opened or updated
+- **THEN** all five unit environments are required by the full aggregate
 
 #### Scenario: Every combination executes the job
 - **WHEN** a pull request is opened
@@ -25,7 +24,12 @@ The repository SHALL contain a GitHub Actions workflow `.github/workflows/ci.yml
 - **THEN** the fake `kicad-cli` built by `tests/_fakecli.py` answers `version` through its `.cmd` wrapper
 
 ### Requirement: Quality gates
-The `unit` job MUST run, in order, `uv sync --extra dev`, `uv run ruff check .`, `uv run ruff format --check .`, `uv run pyright src`, `uv run pytest -q -n auto --dist loadfile`, and MUST fail if any step fails. The pytest step runs the same tests as the serial command `uv run pytest -q` ("Parallel test runs").
+
+Every CI profile SHALL require locked sync, lint, format, strict types and current-tree residue checks. Platform-independent quality steps MAY run once in a separate required job. Native macOS and Windows type checks MUST remain. Full unit execution SHALL retain its original full baseline collection and loadfile scheduler, with additional receipt/timing/JUnit instrumentation.
+
+#### Scenario: Quality check fails
+- **WHEN** lint, format, types or residue checking fails
+- **THEN** neither the fast nor full aggregate can succeed
 
 #### Scenario: Lint error fails the job
 - **GIVEN** a source file with an unused import
@@ -40,7 +44,7 @@ The `unit` job MUST run, in order, `uv sync --extra dev`, `uv run ruff check .`,
 #### Scenario: Unit tests run in parallel
 - **GIVEN** the committed `ci.yml`
 - **WHEN** `uv run pytest tests/unit/test_ci_workflow.py` runs
-- **THEN** it passes only if the pytest step of the `unit` job is `uv run pytest -q -n auto --dist loadfile`
+- **THEN** it passes only if the unit wrapper retains the full baseline collection and `-n auto --dist loadfile` execution
 
 ### Requirement: Locked, reproducible environment
 `uv.lock` SHALL be committed and the CI job SHALL use `uv sync --locked` semantics so that a drifted lockfile fails the build.
@@ -66,16 +70,12 @@ The quality gates SHALL be runnable locally through the `Makefile` target `make 
 - **THEN** it passes only if `check` depends on `lint format types residue test`, the `test` recipe is `uv run pytest -q $(PYTEST_PARALLEL)`, and `PYTEST_PARALLEL` holds `-n $(PYTEST_WORKERS)`, `--maxprocesses $(PYTEST_MAX_WORKERS)` and `--dist loadfile`
 
 ### Requirement: kicad-10 oracle job
-`.github/workflows/ci.yml` SHALL contain a job `kicad-10` that runs on every push and pull request on `ubuntu-latest`. The job runs inside the official image `kicad/kicad:10.0.6`, pinned by its index digest (`@sha256:` followed by 64 hex digits), with container `options: --user 0`. It MUST run the following steps in this order:
-1. `actions/checkout@v4`
-2. `astral-sh/setup-uv`
-3. `kicad-cli version`
-4. `uv sync --locked --extra dev`
-5. `actions/cache` of the corpus cache, keyed on `hashFiles('tests/corpus/manifest.toml')`
-6. `uv run python tools/corpus_fetch.py --uses rt0 --uses libs --uses project --uses cfb --uses altium-text --exclude-uses heavy`
-7. `uv run pytest tests/kicad tests/corpus -q -n auto --dist loadfile` with `FENOLITE_REQUIRE=kicad,corpus`
 
-The job MUST fail if any step fails. `tests/unit/test_ci_workflow.py` SHALL check the job textually, because the dev extra has no YAML parser: the digest pin, the container options, the order of the steps above, the cache key, `--uses libs`, `--uses project`, `--uses cfb` and `--uses altium-text` (the rows that c0039 and c0042 added to the workflow), `--exclude-uses heavy`, the environment variable and the parallel options of the pytest step.
+Full CI SHALL retain pinned KiCad 10.0.6, all current corpus uses, geo, FENOLITE_HEAVY=1 and FENOLITE_REQUIRE=kicad,corpus,libs. All tests/kicad and tests/corpus node ids plus whole resource-bearing unit files SHALL execute in four audited whole-file partitions with loadfile scheduling and container-local temporary files. Fast MAY omit these jobs only without satisfying the full gate.
+
+#### Scenario: Heavy corpus test assigned
+- **WHEN** full CI partitions the KiCad 10 collection
+- **THEN** every selected heavy test is assigned once and remains subject to its original assertions
 
 #### Scenario: Oracle job runs on a pull request
 - **WHEN** a pull request is opened
@@ -129,14 +129,12 @@ When the environment variable `FENOLITE_REQUIRE` lists a resource (`kicad`, `cor
 - **THEN** the tests are skipped and the exit code is 0
 
 ### Requirement: KiCad 9.0 oracle job
-`.github/workflows/ci.yml` SHALL contain a job `kicad-9` that runs on every push and pull request inside the official image `kicad/kicad:9.0.9`, pinned by index digest (`@sha256:` followed by 64 hex digits), with the same container mechanism as the `kicad-10` job. It MUST run the following steps in order:
-1. `kicad-cli version`
-2. `uv sync --locked --extra dev`
-3. `actions/cache` of the corpus cache named by `FENOLITE_CORPUS_CACHE`, keyed on `corpus-rt2-9-sch-9-${{ hashFiles('tests/corpus/manifest.toml') }}`
-4. `uv run python tools/corpus_fetch.py --uses rt2-9 --uses sch-9`
-5. `uv run pytest tests/kicad -q -rA -n auto --dist loadfile` (every outcome listed in the log) with `FENOLITE_REQUIRE=kicad`
 
-The job SHALL fetch only the corpus rows tagged `rt2-9` (corpus-policy, "RT2 rows for KiCad 9.0"), which are the five readable non-heavy demo boards at tag 9.0.9.1, and the rows tagged `sch-9` (corpus-policy, "Schematic corpus rows"), which are the demo schematics of the tree of tag 9.0.9.1, and no other row. Its `needs_corpus` tests therefore run on those rows and skip every other row, and tests marked `kicad_min_major(10)` skip without failing. Tests marked `needs_kicad` fail instead of skipping when `kicad-cli` is missing. The job MUST fail if any step fails, and it SHALL be a required check for merging. `tests/unit/test_ci_workflow.py` SHALL check the job textually: the digest pin, the container options, the order of the steps above, the cache key, the single fetch with `--uses rt2-9 --uses sch-9`, the environment variable and the parallel options of the pytest step.
+Full-profile CI SHALL retain the pinned official KiCad 9.0.9 image, existing corpus fetch uses and complete tests/kicad execution with FENOLITE_REQUIRE=kicad and loadfile scheduling. Fast working-branch CI MAY omit this job only without satisfying the full aggregate.
+
+#### Scenario: Full KiCad compatibility
+- **WHEN** any PR runs
+- **THEN** KiCad 9 execution remains required even when KiCad 10 passes
 
 #### Scenario: Job runs the 9.0 binary
 - **GIVEN** a pull request that touches `src/`
@@ -146,7 +144,7 @@ The job SHALL fetch only the corpus rows tagged `rt2-9` (corpus-policy, "RT2 row
 #### Scenario: Workflow shape checked
 - **GIVEN** the committed `ci.yml`
 - **WHEN** `uv run pytest tests/unit/test_ci_workflow.py` runs
-- **THEN** it passes only if the job `kicad-9` exists, its image is `kicad/kicad:9.0.9@sha256:<64 hex>`, its steps follow the order above, its cache key is `corpus-rt2-9-sch-9-${{ hashFiles('tests/corpus/manifest.toml') }}`, its only corpus fetch is `uv run python tools/corpus_fetch.py --uses rt2-9 --uses sch-9`, and its test step runs `uv run pytest tests/kicad -q -rA -n auto --dist loadfile` with `FENOLITE_REQUIRE=kicad`
+- **THEN** it passes only if the job `kicad-9` exists, its image is `kicad/kicad:9.0.9@sha256:<64 hex>`, its steps follow the order above, its cache key is `corpus-rt2-9-sch-9-${{ hashFiles('tests/corpus/manifest.toml') }}`, its only corpus fetch is `uv run python tools/corpus_fetch.py --uses rt2-9 --uses sch-9`, and its audited wrapper runs the complete tests/kicad collection with loadfile scheduling with `FENOLITE_REQUIRE=kicad`
 
 #### Scenario: Unpinned image rejected
 - **GIVEN** a workflow edit that references `kicad/kicad:9.0` without a digest
@@ -426,3 +424,165 @@ The `routing` job of `.github/workflows/ci.yml` (c0016) SHALL also install Java 
 - **GIVEN** a copy of `ci.yml` whose push trigger has no filter
 - **WHEN** the trigger check runs on it
 - **THEN** it fails and says that a tag push would run CI
+
+### Requirement: Portable byte-fidelity proofs
+
+Portability tests SHALL compare canonical UTF-8 bytes using binary output, interpret native paths as paths and parse shell-quoted commands as argument sequences. They MUST retain exact payload equality assertions.
+
+#### Scenario: A Windows path needs quoting
+- **WHEN** a conflict hint quotes an output path
+- **THEN** the test verifies its parsed output argument against the expected path
+
+### Requirement: Container-local corpus temporary files
+
+The KiCad 10 CI job SHALL place pytest temporary files in a directory available inside its container and collect import-census artifacts from the same directory.
+
+#### Scenario: Host temporary paths differ from container paths
+- **WHEN** the oracle and corpus test step starts
+- **THEN** pytest can create its base directory and the artifact step searches that directory
+
+### Requirement: Import census covers selected corpus rows
+
+The recorded import census SHALL include every licence-eligible KiCad 10.0.6 demo-board row selected by the corpus test, including heavy rows. A unit preflight MUST check coverage without fetching or importing boards. Measurements MUST identify their source pins and CI commit/version; the corpus test MUST still require exit 0, exact equivalence and matching omitted-kind counts.
+
+#### Scenario: Heavy imports pass before the missing record fails
+- **GIVEN** CI emits exit 0 and equivalent=true for rows 06 and 18 but their census rows are absent
+- **WHEN** the aggregate measurements are recorded
+- **THEN** the preflight finds all selected rows, and the existing heavy import assertions remain active
+
+### Requirement: Declared CAC closure geometry deferral
+The working-branch CI SHALL restore the maintainer-approved geometry exclusion only for pushes
+whose ref is `refs/heads/codex/cac-next`. Its source-bound manifest MUST name the 27 known native
+c0332 failures and their unchanged test-file digests. They SHALL be explicitly deselected and
+reported as deferred, never passed. Every other selected test remains required. Main, dev and
+pull-request selection MUST remain unchanged. c0332 remains open and this scoped result MUST NOT
+be reported as its complete geometry validation. No runtime acceptance, assertion or budget changes.
+
+#### Scenario: Scoped closure push
+- **WHEN** codex/cac-next runs the native10 closure job with the reviewed unchanged test sources
+- **THEN** only the 27 declared geometry nodeids are deselected and the summary names their deferral
+
+#### Scenario: Full release or pull-request selection
+- **WHEN** the workflow runs on main, dev or a pull request
+- **THEN** the closure-only step does not set selection arguments
+
+#### Scenario: Stale exclusion source
+- **WHEN** a declared test file differs from its bound digest
+- **THEN** scope preparation fails before executing the native suite
+
+### Requirement: Conservative CI profiles
+
+Every pull request and merge group, integration-ref execution, unknown event/ref and CI-control change SHALL select full validation. Only recognized working-branch pushes or explicit manual fast requests on a working branch MAY select fast. Missing or invalid policy inputs MUST NOT downgrade full coverage. Fast SHALL run light tool-free tests on Linux (c0381); full retains all existing tool-free tests and SHALL NOT publish a passing full aggregate.
+
+#### Scenario: Manual downgrade refused
+- **WHEN** a manual fast request targets dev, main or another integration ref
+- **THEN** full validation is selected
+
+#### Scenario: CAC batch integration
+- **WHEN** a push or manual fast request targets cac/lote-12 or another cac/lote-* batch branch
+- **THEN** full integration validation is selected
+
+#### Scenario: CI policy changed on a working branch
+- **WHEN** a push changes CI workflows, test-control files or CI tools
+- **THEN** full validation is selected regardless of the branch prefix
+
+#### Scenario: Owner census proof changed
+- **WHEN** a working push or manual fast request changes owner discovery, census measurement, reuse or its native driver
+- **THEN** full validation is selected to exercise the changed native proof
+
+#### Scenario: CI policy guidance changed
+- **WHEN** docs/ci.md changes on a working branch or an explicit manual fast request
+- **THEN** full validation is selected, as for agent/contributor workflow guidance
+
+### Requirement: Audited file-preserving partition
+
+Full validation SHALL retain all current environments, required resources and assertions. KiCad 10 MAY use multiple runners only with whole-file assignment, original within-file order and an exhaustive disjoint union of the baseline node ids. New tests MUST be assigned automatically, and every selected test MUST have a recorded terminal outcome.
+
+#### Scenario: New test file
+- **WHEN** a new test file enters the collected baseline
+- **THEN** exactly one shard selects each of its node ids
+
+#### Scenario: Shard or outcome omitted
+- **WHEN** a shard receipt or a selected test outcome is missing, duplicated or inconsistent
+- **THEN** coverage auditing and the full aggregate fail
+
+### Requirement: Native coverage of resource-dependent units
+
+KiCad 10 SHALL also run entire unit files containing needs_kicad, needs_corpus or needs_libs cases.
+The Linux/Python 3.12 unit inventory SHALL independently require these files in the native baseline
+and require their resource-marked cases to pass.
+
+#### Scenario: Resource unit test skipped in portable jobs
+- **WHEN** a unit case needs KiCad, corpus or libraries and cannot run in the portable matrix
+- **THEN** its whole file executes in KiCad 10 and the marked case cannot be waived by a native skip
+
+### Requirement: Distinct complete merge gate
+
+A full aggregate SHALL require successful static checks, every full test environment, every specialized check and coverage auditing on the tested commit. Skipped, cancelled, missing or failed dependencies MUST NOT satisfy it. Fast and full aggregates SHALL have different names. Documentation MUST state which full aggregate integration branches require; nightly-only results MUST NOT substitute for it.
+
+#### Scenario: Fast succeeds
+- **WHEN** a working-branch fast run succeeds
+- **THEN** it cannot report the full merge check as successful
+
+#### Scenario: Full dependency skipped
+- **WHEN** a required full job is skipped or absent
+- **THEN** the full aggregate fails
+
+### Requirement: Measured whole-file priority
+
+CI SHALL use the locked loadfile scheduler when prioritizing measured expensive whole files. Every planned
+id and original within-file order SHALL remain unchanged. Serial job order SHALL remain unchanged.
+An actual worker regression MUST prove the scheduling option works across dependency updates.
+
+#### Scenario: Expensive file has few cases
+- **WHEN** a measured expensive file has fewer cases than another file
+- **THEN** it is scheduled early without splitting its cases or omitting any planned id
+
+### Requirement: Hash-bound owner census reuse
+
+The drawn corpus SHALL restrict reuse of a complete owner measurement to one module and matching owner/root,
+manifest, full input inventory and declared/actual hashes, tool instance, major, version and commit
+match. Inputs MUST be checked before lookup and after execution. Internal errors or changed/missing
+inputs MUST NOT seed reuse. The store SHALL retain metadata only, never CAD bytes.
+
+#### Scenario: Two sheets share one complete owner
+- **WHEN** two sheet cases measure exactly the same validated owner project in the same environment
+- **THEN** the complete pipeline executes once, both cases retain their own ids and contexts, and the second report discloses reuse
+
+#### Scenario: Input or execution identity changed
+- **WHEN** any project/library/sheet is missing, changed, differently declared, or the owner/tool/version/commit/manifest differs
+- **THEN** no previous successful measurement can satisfy that case
+
+#### Scenario: Owner measurement fails
+- **WHEN** the complete owner pipeline refuses or finds a connectivity difference
+- **THEN** every target sheet retains that strict failure, including when the same measurement is reused
+
+### Requirement: Independent sheet census proof
+
+Owner measurement reuse SHALL retain every sheet case, complete owner/instance checks, strict result
+assertion and independent report copy. Reports MUST disclose reuse and identify the owner measurement
+without source names, values or absolute paths. Original timings SHALL describe the original pipeline,
+not a new execution.
+
+#### Scenario: Shared result metadata is edited
+- **WHEN** one sheet report is changed after lookup
+- **THEN** other sheet reports and future lookups retain their original independent contents
+
+### Requirement: Light working-push feedback
+Recognized working pushes MAY exclude measured whole-file long_flow tests from fast and use Linux/Python 3.13. Full validation SHALL retain every test and environment, and SHALL remain required on every PR and integration ref. Test/classification changes MUST force full. The target is 5–10 minutes and MUST be measured.
+
+#### Scenario: Long board flow
+- **WHEN** a test file is classified long_flow
+- **THEN** fast excludes the entire file and full still collects every original case
+
+#### Scenario: Classification changed
+- **WHEN** tests or marker configuration change
+- **THEN** the working push selects full
+
+### Requirement: Audited parallel light execution
+CI SHALL run the light selection in three whole-file partitions and SHALL require an exact-commit, complete, disjoint receipt audit before ci-fast succeeds.
+
+#### Scenario: Missing light partition
+- **WHEN** any light partition is missing or unsuccessful
+- **THEN** the light audit and ci-fast SHALL fail
+

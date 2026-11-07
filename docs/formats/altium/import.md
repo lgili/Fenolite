@@ -115,8 +115,9 @@ The closed table `adapter.EXT_KEYS`. A value is text of the record or a decimal 
 | `altium_name` | layer | the name the board record gives the layer |
 | `plane_net` | layer | the net of an internal plane |
 | `plane_cuts` | layer | the number of free primitives on the layer of an internal plane that the import left out: they cut the plane and are no copper |
-| `origin` | board | `ORIGINX,ORIGINY` as written |
+| `origin` | board | `ORIGINX,ORIGINY` as written. A conversion to KiCad carries it in the frame of the design, with the edge's corner, as `Fenolite.Altium.Frame`; the Altium writer writes the board back at its coordinates with that origin (change c0467) |
 | `polygon_connect` | board | one pair per Polygon Connect Style record (rule kind 20), in record order: its keys from `RULEKIND` on, as written, `KEY=VALUE` joined by `\|`. A rewrite with a computed pour writes the records back when every one maps (change c0215; `pcb-pour.md`, "Polygon Connect Style records"); it enters no id |
+| `kept_rule` | board | one pair per rule record that the Altium writer cannot rebuild from the neutral rules, in record order: its kind number, then its keys from `RULEKIND` on, `KEY=VALUE` joined by `\|` (`rule-file.md`, "Kept rule records"); the writer writes it back as it is (change c0424) |
 | `stack_mode` | pad | the stack mode when it is not 0 |
 | `corner_percent` | pad | the corner percentage of a rounded rectangle |
 | `shape` | pad | the shape number of a `custom` pad |
@@ -147,8 +148,14 @@ The closed table `adapter.EXT_KEYS`. A value is text of the record or a decimal 
 | `scope1` | rule | `SCOPE1EXPRESSION` |
 | `scope2` | rule | `SCOPE2EXPRESSION` |
 | `rule_kind` | rule | `RULEKIND` |
-| `cell` | rule | the pair of item kinds of a rule that holds one cell of a Clearance record's object matrix, such as `via-via` (change c0130) |
-| `cells_not_lifted` | rule | on the rule of a Clearance record's generic value: the entries of its object matrix that no rule holds, as written and joined by `;` (an object kind the copper check holds no item of; change c0130) |
+| `cell` | rule | the pair of neutral kinds of a rule that holds one cell of a Clearance record's object matrix, such as `via-via` (change c0130), or the one kind of a rule that holds a cell of a Board Outline Clearance record's matrix, such as `zone` (change c0462) |
+| `layer_value` | rule | the neutral name of the copper layer of a rule that holds one per-layer value of a Width or Differential Pairs Routing record, such as `B.Cu` (change c0462, task 4.1) |
+| `cells_not_lifted` | rule | on the rule of a Clearance or Board Outline Clearance record's generic value: the entries of its object matrix that no rule holds, as written and joined by `;` (a hole, a cavity or a split line; changes c0130 and c0462) |
+| `kept_record` | rule | `1` on a rule given by a kept record (a Hole To Hole Clearance that allows stacked micro vias, a Routing Layers record): the Altium writer leaves the rule out and writes the record back (change c0424) |
+| `stroke` | keep-out | on each rule area of a keep-out track, arc or circle of a copper layer (second flag byte 2): the stroke as read, `<kind>/<x>/<y>/…/<width>/<r>`, its points in nanometres in the frame of the area and r its restriction byte. A conversion to KiCad names the area with the stroke's marker `Altium.KeepOut/flag<r>/<kind>/<numbers>` when the area is still the band of the stroke, so the Altium writer writes the stroke back (change c0450). On each rule area of a keep-out fill of a copper layer: `fill/<x1>/<y1>/…/<x4>/<y4>/<r>`, its four corners as the area's outline and r its restriction byte; a conversion to KiCad names the area `Altium.KeepOut/flag<r>/fill/<corners>` when the area is still the fill's, so the Altium writer writes the fill back (change c0455) |
+| `union_index` | via, track, arc, graphic, text, footprint | the union the item is a member of (change c0460): a via's 32-bit value at offset 70 of its record, a track's at 36 and an arc's at 48 of their long records, a free text's at 119 of its first subrecord, a region's or a component's `UNIONINDEX`, when not 0 (S-2190). A conversion to KiCad carries it by the item's KiCad uuid (`Fenolite.Altium.UnionMembers`); the Altium writer writes it back |
+| `stroke_font` | text, footprint text, field | the font a stroke text record names (font type 0, change c0460): `<bold><italic> <name>`, each flag `0` or `1`, when the record names a font (S-2253). A stroke text draws with neither the name nor the flags. A conversion to KiCad carries it by the text's KiCad uuid (`Fenolite.Altium.StrokeFonts`); the Altium writer writes the name and the flags in the stroke text's record |
+| `text_tail` | text, footprint text, field | the bytes from 137 on of the first subrecord of a text on Mechanical 17 to 32 (change c0450, task 4.5), lowercase hex: the record holds the layer byte of Mechanical 16 and the layer's long id at 226 (`pcb-records.md`, "Text"). A conversion to KiCad carries them by the text's KiCad uuid (`Fenolite.Altium.TextTails`); the Altium writer writes the text in that 232- or 252-byte form with the long id at 226 |
 
 ## The copper check and the parity comparison
 
@@ -203,7 +210,7 @@ position in the footprint; size and round drill for 1 465 simple ones), 3 069 tr
 | pad size and drill | KiCad's pad of another stack mode or of a custom shape is not a plain pad | size and round drill are compared for simple pads of a plain shape only |
 | copper tracks and arcs without a net | KiCad returns no track for them (in one row some come back as graphic lines on the copper layer); the import keeps them as tracks without a net, except on the layer of an internal plane, where it makes no track either ("Layers", change c0124) | counted, not compared (6 tracks of one row; until change c0124 also the 74 and 43 lines on the planes of two rows) |
 | zone vertices | KiCad drops an outline vertex that repeats its neighbour | the import's outline is compared without such a vertex (2 vertices of two rows) |
-| zones with an arc | the model keeps no arc vertex, so the import's outline is empty | not compared (6 zones of two rows) |
+| zones with an arc | the model keeps no arc vertex; since change c0463 the import's outline is the record's ring with each arc chorded within `ARCRESOLUTION`, KiCad's import keeps the arcs | not compared (6 zones of two rows) |
 | board edge | KiCad draws the edge from the board record and adds graphics of other layers to `Edge.Cuts` | not compared: the requirement lists no edge comparison |
 
 ## Measured importer limitations after c0160

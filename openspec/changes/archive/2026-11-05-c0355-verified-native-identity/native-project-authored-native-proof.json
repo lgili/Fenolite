@@ -1,0 +1,129 @@
+{
+  "binary_sha256": "bc9966f4a3c24db726aaac04856debf5dae8c2cc43eee6a482182c0f5df14aa8",
+  "tool_version": "10.0.6",
+  "records": {
+    "source": {
+      "command": [
+        "pcb",
+        "drc",
+        "--format",
+        "json",
+        "--severity-all",
+        "--refill-zones",
+        "--save-board",
+        "-o",
+        "derived-drc.json",
+        "board_only.kicad_pcb"
+      ],
+      "timeout_seconds": 120,
+      "outcome": "exit",
+      "exit": 0,
+      "inputs": {
+        "board_only.kicad_pro": "1ffd4978cbac72ae6f877b9c9877a8a1f8a7c01d562077322332a91633157ea1",
+        "board_only.kicad_pcb": "13461b029bb9141968b60824dddce1c7301f3cac5a2bc36a4b8ddec235cf9e40"
+      },
+      "outputs": {
+        "board_only.kicad_pcb": "f410e7b14e13ddccdee29edabe62b8b9182420afd70f69d15f39557b17a3d0cd",
+        "board_only.kicad_prl": "bd0cec64195a47a25c44b6e759d2524865522357a5247ee4f124ac4450da1034",
+        "derived-drc.json": "cb4aebe9128923afa321b0fb939136a5a227fc69163e4711a4255db7acdd539b"
+      },
+      "derived_regions": 1,
+      "exact_geometry_sha256": "161dd373e65bf56768c178bbcab52b394654ad709e02c14fce7aa6b4e0551567",
+      "exact_named_physical_bindings": true,
+      "ordinary_fill_children": {
+        "count": 1,
+        "literal_ast_sha256": "cfe992db477fd81fd603327ff4c08ce97393a1d16b13b88f3d5608c97aa3940d"
+      },
+      "source_companion_outputs_unchanged": true
+    },
+    "generated": {
+      "command": [
+        "pcb",
+        "drc",
+        "--format",
+        "json",
+        "--severity-all",
+        "--refill-zones",
+        "--save-board",
+        "-o",
+        "derived-drc.json",
+        "board_only.kicad_pcb"
+      ],
+      "timeout_seconds": 120,
+      "outcome": "exit",
+      "exit": 0,
+      "inputs": {
+        "board_only.kicad_pro": "791687bb11abeacf5f5292bfc5a581e198138ef172670b08b32c11a95936b268",
+        "board_only.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+        "board_only.kicad_pcb": "5cb3b7229ad05f28966f13b07bba00b9062c707e2408b47383fab57531f47e5d"
+      },
+      "outputs": {
+        "board_only.kicad_pcb": "96c3d3410ae576ba74c28984e5cc294cbe71c93602c0f36de0fd8e1e27459aef",
+        "board_only.kicad_prl": "bd0cec64195a47a25c44b6e759d2524865522357a5247ee4f124ac4450da1034",
+        "derived-drc.json": "9e1bd5bbb5d25dafbdae2bba2a5339213b0a8b68e36d5d152eae5fb67adc211e"
+      },
+      "derived_regions": 1,
+      "exact_geometry_sha256": "161dd373e65bf56768c178bbcab52b394654ad709e02c14fce7aa6b4e0551567",
+      "exact_named_physical_bindings": true,
+      "ordinary_fill_children": {
+        "count": 1,
+        "literal_ast_sha256": "cfe992db477fd81fd603327ff4c08ce97393a1d16b13b88f3d5608c97aa3940d"
+      },
+      "source_companion_outputs_unchanged": true
+    }
+  },
+  "complete_derived_geometry_equal": true,
+  "both_nonzero": true,
+  "source_files_unchanged": true,
+  "production_eligibility_or_acceptance_claimed": false,
+  "royal_executed": false,
+  "version": 1,
+  "scope": "original authored diagnostic only, exactly one approved native refill/save per side",
+  "coordinator_approval": "2026-11-03 explicit approval of driver736555fb227462b48b8ce353d38cdf0e8f844a67a884f7e6e3b92a50bb7b7fb9",
+  "driver_sha256": "736555fb227462b48b8ce353d38cdf0e8f844a67a884f7e6e3b92a50bb7b7fb9",
+  "pre_execution_manifest_sha256": "249adb13879ae5ae6fcce0e087c80f9c1b23504ef3f2f188cea79a53da024d36",
+  "external_summary_sha256": "6bc969e52d359bb1a8f3b46b750d5a479975c651ba0ef537ea0447b2c781cfce",
+  "external_stdout_sha256": "6bc969e52d359bb1a8f3b46b750d5a479975c651ba0ef537ea0447b2c781cfce",
+  "external_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "driver_exit": {
+    "exit": 0,
+    "seconds": 2.444107791990973
+  },
+  "interpreted_gates": {
+    "source": {
+      "process_exit_zero": true,
+      "derived_nonzero": true,
+      "physical_bindings_exact": true,
+      "companions_unchanged": true
+    },
+    "generated": {
+      "process_exit_zero": true,
+      "derived_nonzero": true,
+      "physical_bindings_exact": true,
+      "companions_unchanged": true
+    }
+  },
+  "native_drc_reports_unwaived": {
+    "source": {
+      "violations": 15,
+      "unconnected_items": 9,
+      "schematic_parity": 0,
+      "severity_counts": {
+        "warning": 15,
+        "error": 9
+      }
+    },
+    "generated": {
+      "violations": 15,
+      "unconnected_items": 9,
+      "schematic_parity": 0,
+      "severity_counts": {
+        "warning": 15,
+        "error": 9
+      }
+    }
+  },
+  "ordinary_scope": "one complete literal ordinary filled_polygon AST each, equal cfe992db477fd81fd603327ff4c08ce97393a1d16b13b88f3d5608c97aa3940d; no general ordinary-fill/DRC-safety claim",
+  "zero_raw_cache_input_limitation": "production eligible intentionally false; direct native diagnostic does not certify production eligibility",
+  "source_core_proof_sha256": "0aee58920dbdd3e6d25809ef2aa2918d61b9269455a3347271b019f924111c2b"
+}

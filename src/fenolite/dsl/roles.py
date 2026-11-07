@@ -300,7 +300,7 @@ def to_roles(design: Design) -> RoleSet | None:
             ),
             limits=tuple(found.limits.values()),
             classes=tuple(
-                PartClass(part.ref, cls, tuple(Terminal(terminal, pins) for terminal, pins in rows))
+                PartClass(part.label, cls, tuple(Terminal(terminal, pins) for terminal, pins in rows))
                 for part, cls, rows in found.classes.values()
             ),
         )

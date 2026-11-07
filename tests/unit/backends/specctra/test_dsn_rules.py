@@ -107,20 +107,27 @@ def test_one_sided_clearance_writes_pairs(found: pb.Loaded) -> None:
 
 
 def test_class_class_self_pair_by_rule_order(found: pb.Loaded) -> None:
-    """A class against itself comes from rules naming it on both sides; the later rule wins (c0197)."""
+    """A class against itself comes from rules naming it on both sides; the governing rule wins, the later in
+    ``rule_precedence`` order (c0197; c0403: that order, not the order of the design's rules)."""
     both = Selector("or", items=(cls("HV"), cls("SIG")))
-    later_lower = write(
-        found,
-        rule("wide", "clearance", both, both, min=1_000_000),
-        rule("tight", "clearance", cls("HV"), cls("HV"), min=500_000),
-    )
+    wide = rule("wide", "clearance", both, both, min=1_000_000)
+    tight = rule("tight", "clearance", cls("HV"), cls("HV"), min=500_000)
+    tie = classes(write(found, wide, tight))
+    assert "(clearance 1000)" in tie["HV"]  # one priority: 'wide' comes after 'tight' by name and governs
+    later_lower = write(found, wide, dataclasses.replace(tight, priority=1))
     made = classes(later_lower)
     assert "(clearance 500)" in made["HV"] and "(clearance 1000)" in made["SIG"]
-    assert "(class_class (classes HV SIG) (rule (clearance 1000)))" in lists(
-        later_lower, "network", "class_class"
-    )
-    floor = write(found, rule("loose", "clearance", cls("HV"), cls("HV"), min=100_000))
-    assert "(clearance 300)" in classes(floor)["HV"]  # the class's own value stays a floor
+    assert lists(later_lower, "network", "class_class") == [
+        "(class_class (classes HV SIG) (rule (clearance 1000)))"
+    ]
+    # c0403: a governing self rule lowers the class below its own value; HV keeps 0.3 mm against the others
+    lower = write(found, rule("loose", "clearance", cls("HV"), cls("HV"), min=100_000))
+    assert "(clearance 100)" in classes(lower)["HV"]
+    assert lists(lower, "network", "class_class") == [
+        "(class_class (classes HV PWR) (rule (clearance 300)))",
+        "(class_class (classes HV SIG) (rule (clearance 300)))",
+    ]
+    assert infos(lower, "specctra.rule-widened") == []
 
 
 def test_class_class_clearance(found: pb.Loaded) -> None:
@@ -180,7 +187,8 @@ def test_clearance_of_named_classes(found: pb.Loaded) -> None:
     )
 
 
-def test_pairs_combine_by_maximum_and_a_class_with_itself(found: pb.Loaded) -> None:
+def test_pairs_take_the_governing_rule_and_a_class_with_itself(found: pb.Loaded) -> None:
+    """A pair takes its governing rule, the later in ``rule_precedence`` order: ``b`` after ``a`` (c0403)."""
     either = Selector("or", items=(cls("SIG"), cls("PWR")))
     result = write(
         found,

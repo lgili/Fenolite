@@ -1,0 +1,17 @@
+{
+  "artifact_sha256": {
+    "final-plans-v1/capture.log": "e15cc76db5779e9bc8af131043a6f4f7a2164ba1b696ac5eeff1b20e48ef5b5e",
+    "final-plans-v1/capture.py": "73532482052b9c7a9cbbdc272f4c8a0b8945dd75cb0641ec7adb7620fc3893df",
+    "final-plans-v1/plans.json": "fedfffe0395ad101ac6906b13206965d37db5df454ad761037c01613286c0844"
+  },
+  "changed_golden_files": 1,
+  "fast_ci_native_acceptance_pending": true,
+  "files": 1172,
+  "focused_tests_passed": 183,
+  "geometry_tests_passed": 77,
+  "matches_reviewed_integrated_map": true,
+  "rows": 75,
+  "schema": "fenolite.final-neck-cut-plans.v0",
+  "source_commit": "d348705f6344a542c842e8cd8bd4423e75c9bca7",
+  "unchanged_refusals": 10
+}

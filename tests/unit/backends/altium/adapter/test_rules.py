@@ -95,7 +95,7 @@ def test_disabled_rule_is_counted_not_mapped() -> None:
 def test_scope_outside_the_grammar_and_kinds_without_a_counterpart() -> None:
     issues: list[Issue] = []
     records = [
-        rec.rule("Clearance", "A", GAP="10mil", SCOPE1EXPRESSION="InPolygon"),
+        rec.rule("Clearance", "A", GAP="10mil", SCOPE1EXPRESSION="InNamedPolygon('GND')"),
         rec.rule("Clearance", "B", GAP="10mil", ENABLED="FALSE"),
         rec.rule("PlaneClearance", "C"),
         rec.rule("Width", "D", MINLIMIT="6mil", PREFEREDWIDTH="10mil", MAXLIMIT="20mil"),
@@ -104,7 +104,7 @@ def test_scope_outside_the_grammar_and_kinds_without_a_counterpart() -> None:
     assert [rule.name for rule in found.rules] == ["D"]
     assert [(i.code, i.message) for i in issues] == [
         ("altium.import.rule-unmapped", "2 rule(s) of kind Clearance are not mapped (disabled 1, scope 1)"),
-        ("altium.import.rule-unmapped", "1 rule(s) of kind PlaneClearance are not mapped (no-counterpart 1)"),
+        ("altium.import.rule-unmapped", "1 rule(s) of kind PlaneClearance are not mapped (read-elsewhere 1)"),
     ]
 
 
@@ -164,7 +164,10 @@ def test_layer_conditions_take_the_layers_of_the_board() -> None:
         "1 rule(s) of kind Clearance are not mapped (no-layer 1)"
     ]
     layers = LayerMap.from_board(board).copper_layers()
-    assert layers.layers == (CopperLayer("Top Layer", "F.Cu"), CopperLayer("Bottom Layer", "B.Cu"))
+    assert layers.layers == (
+        CopperLayer("Top Layer", "F.Cu", False, 1),
+        CopperLayer("Bottom Layer", "B.Cu", False, 32),
+    )
     assert copper_layers_of(design.board.layers) == layers
 
 
@@ -223,7 +226,7 @@ def test_cell_rules_of_an_import_and_the_clearance_in_force() -> None:
     pair of item kinds above the generic rule of the same record."""
     from fenolite.checks.clearance import ClearanceResolver
 
-    matrix = "ClearanceObj_Via-ClearanceObj_Via:35000;ClearanceObj_Track-ClearanceObj_Text:100000"
+    matrix = "ClearanceObj_Via-ClearanceObj_Via:35000;ClearanceObj_Track-ClearanceObj_Hole:100000"
     record = rec.rule(
         "Clearance", "Clearance", GAP="4mil", GENERICCLEARANCE="4mil", OBJECTCLEARANCES=matrix,
         IGNOREPADTOPADCLEARANCEINFOOTPRINT="FALSE",
@@ -236,7 +239,7 @@ def test_cell_rules_of_an_import_and_the_clearance_in_force() -> None:
     assert cell.native_ids == {"altium": "rule:Clearance:Clearance:clearance:via-via"}
     assert dict(cell.ext["altium"].payload)["cell"] == "via-via"
     assert dict(generic.ext["altium"].payload)["cells_not_lifted"] == (
-        "ClearanceObj_Track-ClearanceObj_Text:100000"
+        "ClearanceObj_Track-ClearanceObj_Hole:100000"
     )
     assert "record" not in dict(cell.ext["altium"].payload)
     resolver = ClearanceResolver(design)
@@ -252,6 +255,21 @@ def test_cell_rules_of_an_import_and_the_clearance_in_force() -> None:
     assert between("via", "via") == (88_900, "rule:Clearance/via-via")
     assert between("via", "track") == (101_600, "rule:Clearance")
     assert between("arc", "pad") == (101_600, "rule:Clearance")
+
+
+def test_a_per_layer_rule_of_an_import_keeps_its_layer_in_its_bag() -> None:
+    """A per-layer Width value (change c0462, task 4.1) becomes a rule whose bag holds ``layer_value``, a key
+    of the closed table: its import raised ``KeyError`` before the key entered ``EXT_KEYS``."""
+    record = rec.rule(
+        "Width", "Width", MINLIMIT="0.2mm", PREFEREDWIDTH="0.25mm", MAXLIMIT="1mm",
+        BOTTOMLAYER_PREFWIDTH="0.3mm",
+    )  # fmt: skip
+    design = import_board(rec.document(rules=[record]), file="a.PcbDoc", sha256=rec.SHA)
+    assert design.rules is not None
+    general, bottom = design.rules.rules
+    assert "layer_value" not in dict(general.ext["altium"].payload)
+    assert dict(bottom.ext["altium"].payload)["layer_value"] == "B.Cu"
+    assert general.id != bottom.id
 
 
 def test_the_copper_check_counts_the_cells(monkeypatch: pytest.MonkeyPatch) -> None:

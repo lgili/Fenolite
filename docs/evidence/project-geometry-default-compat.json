@@ -1,0 +1,245 @@
+{
+ "attribution_after_c0340": {
+  "board_40parts@altium": "c0332 floating final neck cut, the recorded darwin digest of tests/unit/test_build_bytes.py",
+  "drawn@9/10/altium and 8 drawn scenes": "authored source edits of examples/drawn and tests/data/drawn/full (c0276 task 6.4); every differing scene has a differing source schematic",
+  "import_python": "c0351 explicit native-10 sidecar: target 10 adds the Default class to circuit.json; targets 9 and altium refuse before staging (exit 7)"
+ },
+ "c0340_own_commit": {
+  "commit": "2bbbb085",
+  "non_project_rows": {},
+  "parent": "fc7f5d15",
+  "plan_files_differ": 0,
+  "plan_rows_differ": 0,
+  "plans_equal": true,
+  "scene_rows_differ": [],
+  "scene_rows_with_changed_source": [],
+  "scenes_equal": true
+ },
+ "c0340_to_head": {
+  "head": "468d8a61",
+  "non_project_rows": {
+   "board_40parts@altium": {
+    "changed": [
+     "board_40parts.PcbDoc"
+    ],
+    "exit": [
+     0,
+     0
+    ],
+    "only_a": 0,
+    "only_b": 0
+   },
+   "drawn@10": {
+    "changed": [
+     ".fenolite/board.json",
+     ".fenolite/circuit.json",
+     "drawn.kicad_pcb",
+     "drawn.kicad_sch",
+     "sheets/child.kicad_sch"
+    ],
+    "exit": [
+     0,
+     0
+    ],
+    "only_a": 0,
+    "only_b": 0
+   },
+   "drawn@9": {
+    "changed": [
+     ".fenolite/board.json",
+     ".fenolite/circuit.json",
+     "drawn.kicad_pcb",
+     "drawn.kicad_sch",
+     "sheets/child.kicad_sch"
+    ],
+    "exit": [
+     0,
+     0
+    ],
+    "only_a": 0,
+    "only_b": 0
+   },
+   "drawn@altium": {
+    "changed": [
+     ".fenolite/board.json",
+     ".fenolite/circuit.json",
+     "drawn.PcbDoc",
+     "drawn.SchDoc",
+     "drawn_drawn_QMSFTVMJ.SchDoc"
+    ],
+    "exit": [
+     0,
+     0
+    ],
+    "only_a": 0,
+    "only_b": 0
+   },
+   "import_python@10": {
+    "changed": [
+     ".fenolite/circuit.json"
+    ],
+    "exit": [
+     0,
+     0
+    ],
+    "only_a": 0,
+    "only_b": 0
+   },
+   "import_python@9": {
+    "changed": [],
+    "exit": [
+     0,
+     7
+    ],
+    "only_a": 17,
+    "only_b": 0
+   },
+   "import_python@altium": {
+    "changed": [],
+    "exit": [
+     0,
+     7
+    ],
+    "only_a": 14,
+    "only_b": 0
+   }
+  },
+  "plan_files_differ": 48,
+  "plan_rows_differ": 7,
+  "plans_equal": false,
+  "scene_rows_differ": [
+   "example@10:drawn.kicad_sch",
+   "example@10:sheets/child.kicad_sch",
+   "example@9:drawn.kicad_sch",
+   "example@9:sheets/child.kicad_sch",
+   "full@10:drawn_full.kicad_sch",
+   "full@10:sheets/sub.kicad_sch",
+   "full@9:drawn_full.kicad_sch",
+   "full@9:sheets/sub.kicad_sch"
+  ],
+  "scene_rows_with_changed_source": [
+   "example@10:drawn.kicad_sch",
+   "example@10:sheets/child.kicad_sch",
+   "example@9:drawn.kicad_sch",
+   "example@9:sheets/child.kicad_sch",
+   "full@10:drawn_full.kicad_sch",
+   "full@10:sheets/sub.kicad_sch",
+   "full@9:drawn_full.kicad_sch",
+   "full@9:sheets/sub.kicad_sch"
+  ],
+  "scenes_equal": false
+ },
+ "captures": {
+  "2bbbb085": {
+   "commit": "2bbbb085a9d6f17e65fd081dab108d9e590c02ad",
+   "plan_files_without_versioned": 1042,
+   "plan_map_sha256": "933df84050f9b20cfba3a76205517320e9c52ca033354165a9e1174861a6e5f0",
+   "plan_rows": 75,
+   "refusals": [
+    "acceptance_v03@9",
+    "altium_hier@10",
+    "altium_hier@9",
+    "altium_kicad@10",
+    "altium_kicad@9",
+    "altium_sample@10",
+    "altium_sample@9",
+    "board_coverage@altium",
+    "schematic_blocks@10",
+    "schematic_blocks@9"
+   ],
+   "scene_bytes": 421801,
+   "scene_map_sha256": "140a6ce1d9b061568522d2ffffb9db2fc8eb035dfac2ac9023d763dcb294c947",
+   "scenes": 22
+  },
+  "HEAD": {
+   "commit": "468d8a61cb4210ea8a40ec546c4e2a637f694648",
+   "plan_files_without_versioned": 1011,
+   "plan_map_sha256": "83f8f651e5cc3b84058118565d74cbb4e052b2989962691fe484716234b2e450",
+   "plan_rows": 75,
+   "refusals": [
+    "acceptance_v03@9",
+    "altium_hier@10",
+    "altium_hier@9",
+    "altium_kicad@10",
+    "altium_kicad@9",
+    "altium_sample@10",
+    "altium_sample@9",
+    "board_coverage@altium",
+    "import_python@9",
+    "import_python@altium",
+    "schematic_blocks@10",
+    "schematic_blocks@9"
+   ],
+   "scene_bytes": 433589,
+   "scene_map_sha256": "7cc06741ac9554319c8abd61ad3cd4dcbef429599c06c7ca355acd1d3a060b59",
+   "scenes": 22
+  },
+  "e2658942": {
+   "commit": "e26589420db604771f0a884b962a0546a2283e43",
+   "plan_files_without_versioned": 1042,
+   "plan_map_sha256": "e797315a6c97bb025999077b438f5b596f8cc6f8bd9c9342727b0448354c768e",
+   "plan_rows": 75,
+   "refusals": [
+    "acceptance_v03@9",
+    "altium_hier@10",
+    "altium_hier@9",
+    "altium_kicad@10",
+    "altium_kicad@9",
+    "altium_sample@10",
+    "altium_sample@9",
+    "board_coverage@altium",
+    "schematic_blocks@10",
+    "schematic_blocks@9"
+   ],
+   "scene_bytes": 421801,
+   "scene_map_sha256": "140a6ce1d9b061568522d2ffffb9db2fc8eb035dfac2ac9023d763dcb294c947",
+   "scenes": 22
+  },
+  "fc7f5d15": {
+   "commit": "fc7f5d1575ccd30ee77479c8778b771984d26e4a",
+   "plan_files_without_versioned": 1042,
+   "plan_map_sha256": "933df84050f9b20cfba3a76205517320e9c52ca033354165a9e1174861a6e5f0",
+   "plan_rows": 75,
+   "refusals": [
+    "acceptance_v03@9",
+    "altium_hier@10",
+    "altium_hier@9",
+    "altium_kicad@10",
+    "altium_kicad@9",
+    "altium_sample@10",
+    "altium_sample@9",
+    "board_coverage@altium",
+    "schematic_blocks@10",
+    "schematic_blocks@9"
+   ],
+   "scene_bytes": 421801,
+   "scene_map_sha256": "140a6ce1d9b061568522d2ffffb9db2fc8eb035dfac2ac9023d763dcb294c947",
+   "scenes": 22
+  }
+ },
+ "change": "c0340",
+ "claims": {
+  "c0340_changes_default_outputs": false,
+  "ci_or_exact_head": false
+ },
+ "compare_sha256": "3f75f566dc272e3fe9dea7701ea5b5c069625d399fec0f3d0b42c6742c0b4dc6",
+ "driver": "complete 22-scene drawn census and tests/_buildbytes.table() on four detached clean checkouts with the locked all-extras environment; versioned .fenolite/meta.json and build.json are excluded as in the byte guard (75 rows x 2 = the 130 files that make 1042 into 1172)",
+ "driver_sha256": "adaf0906ead02f74ca3925a4b65c4a790a0dca77442f305c07ed43e88bf850e4",
+ "head_vs_committed_byte_table": "only board_40parts@altium differs, by its recorded darwin digest; tests/unit/test_build_bytes.py 77 passed",
+ "immutable_baseline_to_c0340": {
+  "baseline": "e2658942",
+  "c0344_project_digests_listed": 41,
+  "c0344_project_digests_match": 41,
+  "non_project_rows": {},
+  "plan_files_differ": 41,
+  "plan_rows_differ": 41,
+  "plans_equal": false,
+  "scene_rows_differ": [],
+  "scene_rows_with_changed_source": [],
+  "scenes_equal": true
+ },
+ "measured": "2026-11-04",
+ "platform": "darwin arm64, Python 3.13",
+ "schema": "fenolite.default-compatibility.v0",
+ "task": "3.1"
+}

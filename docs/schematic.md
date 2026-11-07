@@ -34,10 +34,10 @@ sheet:
   parent: a box with the module's name and no pin, in a row below the parts. All child files lie in one
   folder, `sheets/`, and a child names its own children from that folder, because KiCad resolves a file
   name from the folder of the sheet that names it.
-- **Nets cross sheets by their labels.** Every label is a global label, so a net has the same name on
-  every sheet, and that name is the one of the script and of the board. There is no hierarchical label
-  and no sheet pin: those would rename a net of a module to `/power/FB`, and the board would no longer
-  agree.
+- **Nets cross sheets by their labels.** On the sheet of a plain module every label is a global label,
+  so a net has the same name on every sheet, and that name is the one of the script and of the board.
+  There is no hierarchical label and no sheet pin there. The sheet of a block instance shows the block's
+  ports instead ("Block sheets").
 - **Pages.** The root is page 1; the children follow from 2, a module before the modules inside it,
   in natural order of their names.
 - **Power flags** stay on the root sheet. Each sheet has its own paper, from A4 to A0.
@@ -45,6 +45,36 @@ sheet:
   be `sheets/a.b.kicad_sch`; so would two names that differ only in letter case. The build refuses
   that (`build.sheet-file-collision`): rename one module.
 - **A design without modules** has one sheet, as before.
+
+## Block sheets
+
+The sheet of a block instance (`docs/dsl.md`, "Blocks"; change c0269) shows the block's interface:
+
+| net on the block's sheet | label at each of its pins there |
+|---|---|
+| bound by exactly one port member of the block | hierarchical label named by the member's sheet name, `<port>` or `<port>_<member>`; shape `input`, `output` or `bidirectional` for the port direction `in`, `out` or `inout` |
+| bound by two port members or more | global label of the net, and those members get no sheet pin (`build.block-port-merged`, info) |
+| any other net (a local net, a net that escapes the block) | global label of the net |
+
+- **Sheet pins.** The block's box on the sheet above carries one sheet pin per member that has a
+  hierarchical label: `in` pins on the left edge, `out` and `inout` pins on the right, each side in
+  code-point order, 2.54 mm apart from one step below the top. A box with pins is tall enough for its
+  fuller side. A nested block's sheet pins count as pins of the sheet that holds its box.
+- **Net names stay the circuit's.** The sheet above labels each sheet pin like a pin of that net: a
+  global label of the circuit net, or a hierarchical label again when that sheet is itself a block
+  sheet whose port binds the net. The root is no block sheet, so every net that leaves a block meets a
+  global label of its circuit name, and KiCad names the net after it (measured with `kicad-cli` 10.0.6
+  on `examples/blocks`: every net under its circuit name, ERC silent about pins and labels). Local nets
+  keep their circuit names (`ch0/FB`), because each instance keeps its own sheet file.
+- **Groups.** A block's schematic groups (`b.schematic`) order its sheet: groups in their order, each
+  starting a row (a `top-to-bottom` group gives each part a row of its own), members in their order with
+  the anchor first, then the parts in no group in the flow of a module's sheet. A two-pin part snaps
+  only to an IC of its own group. Group titles are not drawn on KiCad sheets.
+- **Shared arrangement.** Instances of one block that hold the same parts, groups and sheet pins are laid
+  out with one room per label: the longest text at that pin over those instances. Their parts therefore
+  have the same positions on every instance's sheet. A part named in `schematic-placements.toml` takes its
+  placement, and its instance leaves the shared arrangement.
+- **Designs without blocks** keep every written byte.
 
 KiCad drops a sheet whose file it cannot find, and its ERC says nothing about it. The build therefore
 proves, before it writes anything, that every child sheet is reached from the root (see "The netlist of
@@ -153,9 +183,10 @@ name with the slash, and so does Fenolite when it reads the board.
 ## The netlist of the generated sheets
 
 What the generated sheets mean electrically follows from points alone: a pin is on the net whose global
-label lies on its connection point, or on the other end of the one wire that starts there; labels of one
-text are one net, on every sheet; and a pin without a label is alone on a net that KiCad names after
-it. Fenolite reads its own sheets this way (`backends/kicad/sch_netlist.py`), the root and every child
+label lies on its connection point, or on the other end of the one wire that starts there; global labels
+of one text are one net, on every sheet; hierarchical labels of one text on a block sheet are joined to
+the sheet pin of that name on its box, and through it to the label the sheet above writes there; and a
+pin without a label is alone on a net that KiCad names after it. Fenolite reads its own sheets this way (`backends/kicad/sch_netlist.py`), the root and every child
 sheet it names, and that reading is used in two places.
 
 - **Every build checks its own sheets.** Before any file is returned, the nets read back from the sheets
@@ -170,8 +201,9 @@ sheet it names, and that reading is used in two places.
 
 Fenolite reads only what it generates. A sheet with a junction or a bus, a wire that is not one
 straight segment from one pin end to another (or that passes a pin, meets another wire or carries no
-label), a local or hierarchical label, a sheet symbol with pins, a child sheet that is missing or named
-twice, a symbol at another path than its sheet's, a symbol without an embedded definition, a label that
+label), a local label, a hierarchical label on the root, a sheet pin without a hierarchical label of its
+name on its sheet (or the reverse), two sheet pins of one name or a sheet pin off its box, a child sheet
+that is missing or named twice, a symbol at another path than its sheet's, a symbol without an embedded definition, a label that
 lies on no pin, two names on one net, several pins on one point, a power symbol other than Fenolite's
 own flag, or a hidden power pin is refused (`kicad.sch.netlist-unsupported`, the reason first in the
 message). For such a sheet, and for
@@ -241,6 +273,13 @@ tracks, pad nets and net names stay. A project built by an earlier version gets 
 schematic on the next build; the pads of unconnected pins and nets with a slash change their names in
 the board file once, and tracks and zones stay on their nets. Zone fills are kept: a pad that
 only gains the name of its unconnected pin does not make a fill stale.
+
+## A drawn schematic instead
+
+A design that calls `design.load_schematic("schematic.toml")` is not drawn by the generator: its sheets come
+from the drawn schematic file, the build proves that they mean the script's nets, and
+`schematic-placements.toml` is not read (`docs/drawn-schematic.md`, change c0276). `fenolite sync
+--to-source --freeze-schematic` turns a generated schematic into such a file once.
 
 ## Limits
 

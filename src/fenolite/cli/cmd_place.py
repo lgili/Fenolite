@@ -4,9 +4,10 @@
 (capability cli-contract, "Place command"; ``docs/placement.md``; ``docs/cli-contract.md``, "place").
 
 The command reads the board, moves footprints with ``backends.kicad.replace.move_footprint``, judges the
-resulting layout with ``placement.legality.check`` and plans one write: the board. It runs no tool but
-``kicad-cli`` for ``--drc`` of the reuse strategy. An illegal placement is not written unless ``--force``
-is given; KiCad's DRC stays the judge of the board.
+resulting layout with ``placement.legality.check`` and plans one write: the board. An error the board
+before the moves has too, on parts not moved, is ``place.existing`` and refuses nothing (change c0432). It
+runs no tool but ``kicad-cli`` for ``--drc`` of the reuse strategy. An illegal placement is not written
+unless ``--force`` is given; KiCad's DRC stays the judge of the board.
 
 The legality check gets the board's keep-outs, and the grid leaves the box of every rule area that forbids
 footprints free. The placement rules of a built project (``.fenolite/``) are judged on the layout after
@@ -67,7 +68,7 @@ from fenolite.core.ids import derived_id
 from fenolite.core.units import Nm, Udeg, parse_angle, parse_length
 from fenolite.geometry import BBox
 from fenolite.model import canonical
-from fenolite.model.board import FootprintInstance, Keepout, Outline, Side
+from fenolite.model.board import FootprintInstance, Keepout, Outline, Side, area_owners, rule_areas
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef
 from fenolite.placement import EVIDENCE, KEEPOUT_EVIDENCE, Box, check
@@ -239,6 +240,27 @@ def _box(rings: Sequence[Sequence[Point]]) -> BBox | None:
     return BBox.of_points(points) if points else None
 
 
+def _existing(found: Sequence[Issue], before: Sequence[Issue], moved: set[str]) -> list[Issue]:
+    """``found`` with each error that the board before the moves has too (same code, ``where`` and message)
+    and that names no moved part as ``place.existing`` (change c0432): the move did not make it."""
+    seen = {(f.code, f.where, f.message) for f in before}
+    out: list[Issue] = []
+    for f in found:
+        refs = {part.strip() for part in f.where.split(",")}
+        if f.severity == "error" and (f.code, f.where, f.message) in seen and not refs & moved:
+            out.append(
+                issue(
+                    "place.existing",
+                    f"{f.code} on {f.where} was on the board before the move: {f.message}",
+                    f.where,
+                    "the move did not make it, so it does not refuse the write; fix it where it is",
+                )
+            )
+        else:
+            out.append(f)
+    return out
+
+
 def _copper_left(design: Design, pads: Sequence[BoardPad], moved: set[str]) -> list[str]:
     """The ids of the moved footprints that had a track end or a via on a pad."""
     board = design.board
@@ -359,12 +381,17 @@ def _constraints(
         try:
             raw = path.read_bytes()
             data = json.loads(raw)
-            if (
-                not isinstance(data, dict)
-                or cast(dict[str, Any], data).get("schema") != "fenolite.placement-request.v0"
-            ):
+            if not isinstance(data, dict) or cast(dict[str, Any], data).get("schema") not in {
+                "fenolite.placement-request.v0",
+                "fenolite.placement-request.v1",
+            }:
                 raise ValueError("constraints need explicit schema fenolite.placement-request.v0")
-            request = canonical.loads(raw.decode("utf-8"), PlacementRequest, file=path.name)
+            # The prepared v1 file has the same grammar; the domain value keeps its writer's ID.
+            request = canonical.loads(
+                json.dumps({**data, "schema": "fenolite.placement-request.v0"}),
+                PlacementRequest,
+                file=path.name,
+            )
         except (OSError, UnicodeError, ValueError, FormatError) as error:
             raise CliError("FEN-3004", f"{path.name}: {error}", where=path.name) from None
         request = replace(
@@ -481,10 +508,11 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     major = info.major if info is not None and info.major in versions.TARGET_MAJORS else ctx.kicad_target
     backend = KicadBackend()
     outline = board_outline(design)
-    forbidding = forbids_footprints(design.board.keepouts)
+    forbidding = forbids_footprints(rule_areas(design.board))
     region = BBox.of_points(outline.rings[0]) if outline.rings else None
     origin = Point(region.x0, region.y0) if region is not None else Point(0, 0)
     before = _by_ref(design)
+    unmoved = design
     paths = _paths(design)
     issues: list[Issue] = [found for found in reader_issues if found.severity != "info"]
     definitions = _Definitions(board_path.parent, major)
@@ -670,8 +698,27 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         for extent in backend.placed_extents(design)
         if extent.footprint_id in moved or not off_board(after[names[extent.footprint_id]])
     ]
-    legality = check(extents, outline.rings, names=names, keepouts=design.board.keepouts)
-    issues += legality
+    legality = check(
+        extents,
+        outline.rings,
+        names=names,
+        keepouts=rule_areas(design.board),
+        owners=area_owners(design.board),
+    )
+    assert unmoved.board is not None
+    read_names = {fp.id: ref for ref, fp in before.items()}
+    baseline = check(
+        [
+            extent
+            for extent in backend.placed_extents(unmoved)
+            if extent.footprint_id in read_names and not off_board(before[read_names[extent.footprint_id]])
+        ],
+        outline.rings,
+        names=read_names,
+        keepouts=rule_areas(unmoved.board),
+        owners=area_owners(unmoved.board),
+    )
+    issues += _existing(legality, baseline, {names[fp_id] for fp_id in moved})
     cached = _cache(board_path.parent)
     pads_after = backend.board_pads(design)
     crossing_rows: list[dict[str, Any]] = []

@@ -144,3 +144,97 @@ Their prior observations are retained in the register. The
 states the independent criterion or missing kit proof for the other 115 rows
 used by write cells and acceptance/kit families. This changes no capability;
 all nine write kinds still fail the complete graduation rule.
+
+## Fresh native handoff preparation, 2026-11-03
+
+Source `b5f6c84a`, Fenolite `0.7.0.dev0`, prepared a new immutable acceptance-v03-v2 packet with the existing prepare-only runner. Both reviewed build plans confirmed successfully; all twelve written-scope checks passed. Preparation/probe focus:10passed. The packet binds47 prepared files plus a separate handoff/expectation/manifest layer: four components,8pins, exact3net membership, six copper layers and all8 exact rule kinds. Embedded drawing frames are included; no standalone SchDot artifact is claimed.
+
+All43 non-reply prepared files equal the historical v1 packet. Four command replies differ only in elapsed time, locations, plan and receipt identifiers. The new source binding does not reuse the old packet's version or execution claims. Actual native version and run ID remain null; `acceptance_complete` is false. Native compilation/ERC/DRC, save/reopen, current register/graduation conditions and exact-source CI remain gates. No result or evidence promotion follows from this preparation.
+
+## Native OutJob and drawing-frame inspection, 2026-11-04
+
+Source S-1573. A Claude agent ran this inspection at the maintainer's request of 2026-11-04. It operated
+the Altium Designer installed in the maintainer's Parallels Windows VM. This is not the maintainer's own
+review. The tool reports `Client.GetProductVersion` 24.5.2.23 (Trial).
+
+The eight top-level Altium files of the prepared-v2 packet (source `b5f6c84a`) were copied unchanged,
+and their digests equal the packet manifest before and after the run:
+
+| file | SHA-256 |
+|---|---|
+| `acceptance_v03.PrjPcb` | `e2ee4c5c1958b52d6fe8e4d5e8f82ea99aceb5d073913e3a7c01970268e36aa2` |
+| `acceptance_v03.OutJob` | `f2e42097a2728a316a8fa4afd0d4774547ef4656c2e45ca072d096db3a304f3f` |
+| `acceptance_v03.SchDoc` | `53682f6f0314343747b7049acb41ffa49655c9c23b9c5f6169dcf0c5070a0f63` |
+| `acceptance_v03_front.SchDoc` | `bc7b275e8921bc2270ce5dccfddbbe5b3eba8f8c4531b93768afb9a6aa2fd5bb` |
+| `acceptance_v03_front.stage.SchDoc` | `c28bd9df71ddb30ab64697b207e41a5a26304557e7922cfa34657628c2071886` |
+| `acceptance_v03.PcbDoc` | `2a78551faf793ea1c95843b1fac518c175caba105c03fc722566412c9ebd212e` |
+| `acceptance_v03.PcbLib` | `79a54d5b9ba0203fe61c6290a9bd0e467cdecb601c92e52c7ff1fe4c3c4de3ae` |
+| `acceptance_v03.SchLib` | `1e3c3436c173d2c26c0d373018a3833d007bd225bdebab5499fc1072ab760387` |
+
+**Project.** All seven logical documents open with no new message: three sheets, the PCB, the OutJob,
+the PcbLib and the SchLib. The compile gives the single message `Compile successful, no errors found.`
+(Info). It flattens 4 components and 4 nets. This repeats S-1303's result; the net count includes the
+compiler's own entries.
+
+**OutJob.** The OutJob opens in its editor and lists six outputs:
+
+| output | data source |
+|---|---|
+| Schematic Prints | All SCH Documents |
+| PCB Prints | `acceptance_v03.PcbDoc` |
+| Pick and Place | `acceptance_v03.PcbDoc` |
+| Gerber Files | `acceptance_v03.PcbDoc` |
+| NC Drill Files | `acceptance_v03.PcbDoc` |
+| Bill of Materials | `[Project]` |
+
+It lists two output containers:
+
+- `fab` (Generated Files): with `fab` selected, the editor links Gerber Files (1), NC Drill Files (2),
+  Pick and Place (3) and Bill of Materials (4) to it.
+- `doc` (PDF): its local path ends in `acceptance_v03.PDF`.
+
+No output was generated, and the doc container's links were not displayed.
+
+**Embedded drawing frame.** For each of the three sheets, a read-only DelphiScript procedure read the
+document's sheet properties and every label and polyline. The procedure has SHA-256
+`05830cce083177f3b720afc60ad04904988470fb30f66e1daaa14e591b66e592`. All three sheets read the same:
+
+- `UseCustomSheet` true;
+- `CustomX` 116929134 and `CustomY` 82677165 (1169.29134 × 826.77165 in units of 10 mil, that is
+  297 × 210 mm);
+- `BorderOn` false, `TitleBlockOn` false and `SheetStyle` 0;
+- 36 labels and 27 polylines.
+
+Every label's text and location, and every polyline's vertices, equal the label (record 4) and polyline
+(record 6) records that Fenolite's reader decodes from the same file. The match holds on every sheet with
+no missing or extra object. This shows that Altium reads the embedded frame as written. It is not a
+review of the frame's appearance, and no standalone SchDot is part of the packet.
+
+Nothing was saved and no input changed. This closes the OutJob and frame inspection items of the handoff.
+It does not close task 5.3. Three things remain:
+
+- a recorded run of the whole acceptance tree;
+- per-kind graduation, which needs a current `ALTIUM-VERIFIED` kit support that the approved 24.5 scope
+  cannot give;
+- exact-source CI.
+
+## Native run of the handoff steps 2 to 6, 2026-11-04 evening (source S-1586)
+
+A Claude agent ran steps 2 to 6 of the handoff at the maintainer's request of 2026-11-04/05. It operated
+the Altium Designer installed in the maintainer's Parallels Windows VM, which reports
+`Client.GetProductVersion` 24.5.2.23 (Trial). This is not the maintainer's own review. The same eight
+top-level files of prepared-v2 were copied unchanged into a new VM folder. Their digests before the run
+equal the table above.
+
+| step | observed |
+|---|---|
+| 2. open | all seven logical documents open with no new message. The compile leaves one message and flattens 4 components (R1 to R4) and 4 nets. The nets are `D0` = R1.1, R3.1; `D1` = R2.1, R4.1; `GND` = R1.2, R2.2, R3.2, R4.2; plus the bus entry `D[0..1]` with no pin. This is the expected partition: no pin is missing or merged, and there is no singleton net |
+| 3. PCB scope | four components `TwoPin` on Top. Three GND vias of 0.3 / 0.6 mm: through (Top–Bottom), blind (Top–Mid 1) and buried (Mid 1–Mid 2). One polygon, one keepout region, 9 texts, 4 bodies, one free non-plated 2 mm hole. `LayerIsUsed` reports Top, Mid 1, Mid 2 and Bottom, so the six-layer stack is not confirmed by this listing. The rule iterator lists 37 rules under the default names, so the 8 written rule kinds are not singled out |
+| 4. ERC and DRC | the compile is the ERC and leaves one message. DRC gives 14 violations: 9 UnRoutedNet and 5 NetAntennae (three vias and the free track). This is the expected outcome for the sparse, partly routed exercise board; nothing was suppressed |
+| 5. save, close, reopen | each logical document was saved in place by `DoFileSave` and closed. The PcbDoc, the three SchDocs and the PrjPcb keep their bytes. The OutJob (`f7c759cb…`), the PcbLib (`476b6c86…`) and the SchLib (`2c6ae35b…`) are rewritten. After reopening, the compile, the nets and the PCB scope are the same as in steps 2 and 3, and there are still 37 rules |
+| 6. Fenolite read-back of the saved copy | `fenolite inspect` exits 0 on the saved PcbLib, SchLib and PrjPcb. Counts are unchanged: PcbLib 1 footprint, 2 pads, 4 graphics, with 26 opaque records against 20 before; SchLib 1 symbol, 1 unit, 2 pins, with a new `cfb.note.entry-fields` note. The prepared originals were not rewritten |
+
+The saved files and logs stay in `claude-2026-11-04/c0092-saved/` and `c0092-out/`, outside the
+repository. This is an agent run on the acceptance tree. It records the steps and does not graduate any
+kind. Task 5.3 stays open: per-kind graduation needs a current `ALTIUM-VERIFIED` kit support, which the
+approved 24.5 scope cannot give, and exact-source CI is still pending.

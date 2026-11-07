@@ -2,7 +2,7 @@
 
 ## Current status — 2026-10-29
 
-**Released: 0.5.0. Prepared: 0.6.0 (change c0242), waiting for the maintainer's verdict, merge and tag.**
+**Released: 0.6.0 (tag `v0.6.0`, 2026-10-29; PyPI and the GitHub Release by the release workflow). In development: `0.7.0.dev0`.**
 By the maintainer's decision of 2026-10-29 the v1.0 freeze (c0216 to c0220) is held, and `0.6.0` ships what
 `dev` implemented after `0.5.0`: the MCP server and `fenolite edit` (c0195, c0196), the board engineering
 tools of c0175 in their own changes (c0197 to c0214, c0223 to c0229), computed Altium pours (c0215,
@@ -13,8 +13,18 @@ deferred to v0.7; the [0.5 release record](release/v0.5.md) stays the record of 
 improvements follows; its scope is the maintainer's to decide (Open decisions, row 50). The native
 Draftsman writer and Embedded Board Arrays remain gated.
 
+**Status on 2026-11-06.** The maintainer approved releasing `0.7.0` once the CI of lote-29 passes (change
+c0469). The [0.7 release record](release/v0.7.md) gives what ships, what is pending on lote-29 and what is
+deferred; its verdict, the changelog cut and the version are still open.
+
 The dated decisions below preserve the planning history. Earlier “pending publication” and release-hold
 statements describe their stated dates, not the current release. Current milestone rows are updated below.
+
+## Router follow-up specifications — 2026-11-03
+
+The [router roadmap](router-roadmap.md) reconciles the original phases 0–4 with six proposed
+changes c0365–c0370: search, electrical costs, negotiation, external candidates, viewer drawing
+and workflow acceptance. These are unimplemented proposals, not a release commitment or a phase 5.
 
 ## Planning history
 
@@ -106,13 +116,13 @@ write part of v0.3, and “v0.2c” the complex-board part of v0.4.
 | 2. KiCad PCB | v0.1 | c0006–c0031 | an agent closes the loop on a KiCad board | every change archived; v0.1.0 released on 2026-10-05 |
 | 3. KiCad complete | v0.2a | c0060–c0068 | schematic read and write, ERC oracle, netlist, BOM and placement tables, manifest, inspection commands, evidence matrix, v0.1 follow-ups | every change archived (2026-10-05 and 2026-10-06); released in `v0.2.0` on 2026-10-06 |
 | 3. KiCad complete | v0.2b | c0069–c0074 | complete layout lens and `placements.toml`, one schematic sheet per module and a readable layout, full rule kinds, parity, typed interfaces and quantities, the user's drawing sheet, v0.1 follow-ups | every change archived; released in `v0.2.0` on 2026-10-06 |
-| 4. Second backend | v0.3 | read: c0039–c0047. Write: c0032–c0038 pulled forward; c0083–c0092; c0121–c0132, c0134 | read, equivalence levels 1–4, analyses; write, equivalence level 5, verification kit | Released as 0.3.0 with experimental writes (historical record: docs/release/v0.3.md). Reconciled 2026-10-14: c0083-c0091 and the c0125/c0130/c0131/c0132/c0152 chain are archived; c0092's rule, acceptance project, kit publication and per-kind runtime integration are implemented. Native AD 26.5 kit: 32 passed steps, 27 recorded candidate labels, supplemental v0.4.0 archive. KiCad 10.0.6 acceptance/probe passed. No write kind graduates yet; maintainer acceptance review and closing exact-commit CI remain pending. |
+| 4. Second backend | v0.3 | read: c0039–c0047. Write: c0032–c0038 pulled forward; c0083–c0092; c0121–c0132, c0134 | read, equivalence levels 1–4, analyses; write, equivalence level 5, verification kit | Released as 0.3.0 with experimental writes (historical record: docs/release/v0.3.md). Reconciled 2026-10-14: c0083-c0091 and the c0125/c0130/c0131/c0132/c0152 chain are archived; c0092's rule, acceptance project, kit publication and per-kind runtime integration are implemented. Native AD 26.5 kit: 32 passed steps, 27 recorded candidate labels, supplemental v0.4.0 archive. KiCad 10.0.6 acceptance/probe passed. No write kind graduates yet; criteria reviewed and approved 2026-11-03, with acceptance-tree native proof, graduation and closing exact-commit CI still pending. |
 | — | v0.4 | agent track, board authoring and complex-board work; release c0154 | guide, placement, copper findings, readiness and complex-board tooling | released as `0.4.0`; see [the release record](release/v0.4.md) for scope and deferred checks. Historical implementation states are retained in the dated sections below |
 | 5. To 1.0 | v0.5a | v0.5 release c0171 | conversion, downgrade, public `equivalent`, slots, panels, Draftsman reading and the viewer | v0.5a: released as `0.5.0`, including viewer c0176–c0191; the earlier native release hold was superseded on 2026-10-25 |
 | 5. To 1.0 | v0.5b | c0195, c0196 | the MCP server, script editing and image replies | shipped in `0.6.0` |
 | 5. To 1.0 | v0.6 | release c0242; c0175 and c0197–c0214, c0223–c0229; c0195, c0196, c0215, c0221, c0232–c0241 | board engineering tools, MCP, computed Altium pours (experimental), release from a tag, reliability and review work, Altium edit-session measurements | released as `0.6.0` (c0242, the maintainer's decision of 2026-10-29); the verdict, the merge to `main` and the tag `v0.6.0` are his; his deferred tests go to v0.7 |
-| 5. To 1.0 | v0.7 | to be decided | improvements, scope to be decided by the maintainer | after `0.6.0`; the maintainer's deferred tests of `docs/release/v0.6.md` ("Deferred after v0.6") are its candidates |
-| 5. To 1.0 | v1.0 | c0216–c0220 | contract freeze: CLI, envelopes and schemas `v1`, model schema 1.0, conformance matrix, legal and history review | held by the maintainer's decision of 2026-10-29: proposed, not implemented (c0220 tasks 1.1 and 1.2, the history scan of the release and the nightly, are on `dev`) |
+| 5. To 1.0 | v0.7 | release c0469; c0243–c0467 and the changes of earlier releases closed since `0.6.0` | circuits as code, component, block and board libraries, the viewer, import fidelity, the router track, the Altium round trip through KiCad, the v1.0 machinery (contract still `v0`) | approved by the maintainer on 2026-11-06 once the CI of lote-29 passes; see [the release record](release/v0.7.md) (`docs/release/v0.7.md`); c0468 goes to the next lote |
+| 5. To 1.0 | v1.0 | c0216–c0220 | contract freeze: CLI, envelopes and schemas `v1`, model schema 1.0, conformance matrix, legal and history review | the tag held by the maintainer's decision of 2026-10-29; c0216–c0220 are implemented and archived (2026-11-04 and 2026-11-05) and ship their machinery in `0.7.0`, with the contract still `v0` until `1.0.0` |
 
 About 70 changes to 1.0 on this map before the cuts, and about 61 with the cuts the maintainer accepted
 on 2026-10-09 (see [Proposed cuts](#proposed-cuts-for-a-leaner-10)). Both counts were made before 2026-10-07 and do not
@@ -446,7 +456,7 @@ written, and the kit is named and not defined.
 | c0089 | `equivalence-level-5` | `equivalent --level 5`: connectivity, vias and length per net; the triangle at level 5 | archived on 2026-10-07; implemented on 2026-10-06: the triangle holds at level 5 on `kicad-cli` 10.0.6 for the routed sample and the seven public documents (`docs/evidence/equivalence-triangle.md`); the full suite and the CI run are the maintainer's | c0045, c0029 | 4.25 |
 | c0090 | `altium-roundtrip-write` | a model with a board written as Altium documents; RT-A2 on footprints and copper; the level RT-A3 over the corpus; the first round-trip notes in the claims | implemented on 2026-10-06: RT-A2 holds on the 21 example builds with every kind compared; RT-A3 holds on the seven public PCB documents that are not heavy and on two of five project sets, and KiCad's importer reads each rewrite as Fenolite does (`docs/evidence/altium-roundtrip.md`); open: an arc's points can move by more than 2 nm (one heavy document), three sets whose circuit the schematic writer refuses, and the CI run; archived on 2026-10-09 | c0083–c0086, c0089 | 7 |
 | c0091 | `altium-verification-kit` | `fenolite kit build`, `verify` and `record`: the acceptance run in Altium by checklist and by the kit's own script, its files checked by Fenolite, the run record and the rule for `ALTIUM-VERIFIED(kit)` | archived 2026-10-13 after a real recorded native kit; reviewed publication derivative published 2026-10-14 as supplemental v0.4.0 evidence, 32 passed steps; provenance distinguishes historical observations and refreshed saves | c0084–c0090 | 7.25 |
-| c0092 | `altium-write-graduation` | the rule by which a write kind leaves `experimental`, the v0.3 acceptance run, capabilities and documentation | implemented through runtime integration and documentation, 2026-10-14; acceptance/probe passed on KiCad 10.0.6, native kit published and 27 rows labelled; nine writes remain experimental under the rule (re-measured 2026-10-15 after the c0161 integration); maintainer review and exact-commit closing CI pending | c0083–c0091 | 3.25 |
+| c0092 | `altium-write-graduation` | the rule by which a write kind leaves `experimental`, the v0.3 acceptance run, capabilities and documentation | implemented through runtime integration and documentation, 2026-10-14; acceptance/probe passed on KiCad 10.0.6, native kit published and 27 rows labelled; nine writes remain experimental under the rule (re-measured 2026-10-15 after the c0161 integration); criteria approved 2026-11-03; acceptance-tree native proof, graduation and exact-commit closing CI pending | c0083–c0091 | 3.25 |
 | c0121 | `altium-component-bodies` | follow-up of c0085 (decided on 2026-10-06, fact rows first): the fact rows of the saved extruded body from the public documents, then extruded component bodies in the PCB document and library on request (`--altium-bodies extruded`, off by default), read-back, RT-A2 and RT-A3 with bodies, step X8 of Part X; no model body, no STEP data, no change of the model | implemented on 2026-10-07, not archived: the fact rows and their corpus test first, then the document and library writers, the option (off by default), the sample `body2`, the read-back, RT-A2 and RT-A3 with bodies and the KiCad probe; step X8 reported as expected on 2026-10-09 (S-0724); the default became `extruded` the same day by the maintainer's decision (c0155); archived on 2026-10-09, after c0090 | c0085, c0090; beside c0099 of another session; followed by c0129 | 4.75 |
 | c0123 | `multi-pad-pin-map` | a pin bonded to several pads in the model, the DSL, the KiCad build (stacked pins on the generated schematic), the comparisons and the Altium import; an Altium build bonds a pin to every pad of its `pad_map` and writes them (the build of a map of one pad per pin was fixed in 0.2.1 by c0135) | implemented on 2026-10-07 (inside v0.3 by the maintainer's decision of 2026-10-06; the model version stays `"0"`); the full suite and the CI run are the maintainer's | c0083, c0063, c0070, c0086 | 5.5 |
 | c0124 | `altium-plane-lines` | the Altium import makes no copper of what is drawn on an internal plane: such a line cuts the plane; counted in the census and on the plane's layer, and the copper view of c0088 loses its filter | implemented on its branch on 2026-10-06: 74 and 43 tracks fewer on the two public documents with planes, as in KiCad's import; ids of the other items unchanged; archived on 2026-10-09 | c0043, c0088 | 1.25 |
@@ -477,9 +487,9 @@ written, and the kit is named and not defined.
   sheet template), each written as numbered steps in the change's design; an optional one for c0083
   (channel naming formats) and for c0088; and the kit run of c0091 on his machine, which c0092 records.
 
-**v0.3 acceptance (a proposal; the project plan's text for this milestone is not in these pages).**
+**v0.3 acceptance (criteria approved by the maintainer on 2026-11-03; validation remains pending).**
 It is the acceptance of the write part of v0.3; the read part shipped in `0.2.0` with no acceptance
-claimed. Approved as the working target on 2026-10-06, to be reviewed by the maintainer before c0092 closes.
+claimed. The maintainer approved all five criteria as the completion target on 2026-11-03, after reviewing the measured results and limits. This approves the target, not an unmeasured result.
 
 1. A project built for both targets is the same design: `equivalent` at level 5 between the KiCad
    board and the Altium documents, and between the KiCad board and KiCad's import of those documents
@@ -508,12 +518,17 @@ remain the working target; no acceptance or graduation by decision is claimed.
 | 2 | corpus PCB RT-A3 established within written scope | eight listed public PCB documents, from at least three repositories; project-set limits and unwritten counts remain documented in altium-roundtrip.md |
 | 3 | authored short/clearance/parity controls and native planted report established | native report retains one Width and one Clearance violation among seven total; corpus rule-coverage limits remain, and general native DRC parity is not claimed |
 | 4 | exact rule mapping and explicit accounting implemented | rulemap.TABLE, own readback and native kit editor observations; unsupported kinds/scopes retain their reported reason |
-| 5 | kit portion established; write promotion not met | run 2026-10-13-87c930fa, published supplemental archive, current kit status with no stale row; every write kind still fails the complete graduation rule |
+| 5 | historical kit samples passed; acceptance-tree kit and write promotion not met | run 2026-10-13-87c930fa is not the acceptance tree; every write kind still fails the complete graduation rule |
 
-The acceptance heading remains a proposal pending the maintainer's explicit
-review under c0092 task 5.2. Publication and passing CI do not waive the unmet
-write-promotion part of item 5. Details: `docs/evidence/altium-acceptance.md`
+The maintainer approved the five criteria under c0092 task 5.2 on 2026-11-03.
+The historical kit used its own samples, not the acceptance tree; item 5 still needs
+the actual acceptance-tree run on the approved Altium 24.5.2.23 and the required
+write graduation. Publication and passing CI do not waive either condition. Details: `docs/evidence/altium-acceptance.md`
 and `docs/evidence/altium-kit/2026-10-13-87c930fa-publication.md`.
+
+Current-source clarification (2026-11-03): the nine historical experimental write kinds
+are now accompanied by the later Draftsman writer, for ten current experimental
+write cells. Criteria approval does not promote any of them.
 
 **Equivalence levels** (`equivalent A B --level N`, project plan):
 
@@ -523,10 +538,11 @@ and `docs/evidence/altium-kit/2026-10-13-87c930fa-publication.md`.
 | 2 | netlist (`REF-PIN`) | v0.3 read; delivered by c0045 (`docs/equivalence.md`) |
 | 3 | footprints and pads | v0.3 read; delivered by c0045 (`docs/equivalence.md`) |
 | 4 | placement | v0.3 read; delivered by c0045 (`docs/equivalence.md`) |
-| 5 | routing (per net: the pads joined, the vias, the length per layer) | v0.3 write; delivered by c0089 (`docs/equivalence.md`, "Level 5: routing") |
-| 6 | rules | v0.6 |
-| 7 | geometry (XOR) | v0.6 |
-| 8 | presentation | after 1.0 |
+| 5 | routing (per net: the pads joined, the vias, the length per layer) | v0.3 write; delivered by c0089 (`docs/equivalence.md`, "Level 5: routing"); its strict rule (item by item) by c0278 |
+| 6 | rules | delivered by c0278 (`docs/equivalence.md`, "Level 6: rules") |
+| 7 | geometry (normalised rings, zones by outline) | delivered by c0278 (`docs/equivalence.md`, "Level 7: exact geometry") |
+| 8 | presentation (rendered layers) | delivered by c0278 (`docs/equivalence.md`, "Level 8: presentation") |
+| S | drawn schematics | delivered by c0278 once c0276 lands (`docs/equivalence.md`, "Levels") |
 
 ## v0.4: the agent track, board authoring and the complex board
 
@@ -648,7 +664,7 @@ change at that point.
 | v0.5a | conversion between KiCad and the second backend, with a report of what is kept or lost; controlled KiCad downgrade (capability resolver); public `equivalent`. The next release, `0.5.0`, is v0.5a alone (Open decisions, row 38); the annealing placer moved after 1.0 (row 3) |
 | v0.5b | the MCP server: change c0195, `fenolite mcp`, implemented since 2026-10-26 (Open decisions, row 46) and shipped in `0.6.0` with c0196. The rest of the former v0.5b (multi-instance hierarchy, variants, layout reuse per module, schematic editing that keeps presentation) moved after 1.0 (row 3) |
 | v0.6 | released as `0.6.0` by the maintainer's decision of 2026-10-29 (change c0242, [below](#v06-release-060-decided-on-2026-10-29)): what `dev` implemented after `0.5.0`, among it the board engineering tools of c0175 and the poured copper of Altium documents of c0215 (row 48); the maintainer's tests deferred from `0.5.0` (decision of 2026-10-25; [below](#v06-the-maintainers-tests-of-v05)) that are still open move to v0.7. Matched-length and skew analysis moved to v0.4 (c0106), and equivalence levels 6–7, the emulated-evidence category, KiCad 11 IPC, SPICE and the ASCII inspection format moved after 1.0 (row 3) |
-| v0.7 | improvements after `0.6.0`, scope to be decided by the maintainer (row 50); the candidates are the tests he owes ("Deferred after v0.6" of `docs/release/v0.6.md`) |
+| v0.7 | release `0.7.0`, approved by the maintainer on 2026-11-06 once the CI of lote-29 passes (change c0469, record `docs/release/v0.7.md`): what `dev` and lote-29 implemented after `0.6.0` (c0243 to c0467) and the changes of earlier releases closed since, among them the v1.0 machinery of c0216 to c0220 with the contract still `v0`; c0468 goes to the next lote, and the Altium rounds still owed are c0389's. Earlier scope: improvements after `0.6.0` (row 50), the candidates being the tests he owed ("Deferred after v0.6" of `docs/release/v0.6.md`) |
 | v1.0 | held by the maintainer's decision of 2026-10-29 (row 50). freeze: CLI, envelope and schemas `v1`; model schema version 1.0 with migrators; published conformance matrix (format × version × operation × evidence); no `INFERRED` without a hypothesis, no `UNVERIFIED` outside `experimental`; `LEGAL.md` reviewed; residue scan green over the whole history |
 | after 1.0 | the annealing placer; multi-instance hierarchy; variants; layout reuse per module (KiCad groups); schematic editing that keeps presentation; equivalence levels 6–7; the emulated-evidence category; KiCad 11 IPC; SPICE; the ASCII inspection format (Open decisions, row 3) |
 
@@ -776,6 +792,25 @@ c0186, the GUI save of c0105, the agent runs of c0081, his MCP client of c0195) 
 
 The maintainer decides the scope of `0.7.0` after `0.6.0`. Its candidates are the tests he owes, listed under
 "Deferred after v0.6" of `docs/release/v0.6.md`, and the proposal c0222 (net roles).
+
+The viewer part of v0.7 is proposed as four changes (2026-10-29), each shippable in this order; the scope
+stays the maintainer's:
+- c0300 (`viewer-shell`): interface tokens with a light theme, a grouped toolbar with icons, a command
+  palette, collapsible side bar sections, a cleaner status bar;
+- c0301 (`viewer-inspector`): a docked inspector with copyable values and actions, net emphasis, a Layers
+  panel, 3D controls;
+- c0302 (`viewer-run-checks`): read-only commands (`check`, `analyze`, `ready`, `equivalent`) run from a
+  served page, with progress and cancel, filling the project review;
+- c0303 (`viewer-actions`): writing actions behind `fenolite view --serve --allow-actions`, each a reviewed
+  plan with a board overlay, written on Confirm and undone through `restore`; needs c0302.
+
+c0304 (`viewer-build`) moved the page to TypeScript modules before c0300 and c0301. These five were written as
+c0243 to c0247 (the role view as c0255) and renumbered c0250 to c0255 on 2026-10-29; c0243 to c0245 are now
+another session's changes. The six were renumbered c0268 to c0273 the same day, and again on 2026-10-29 to c0300
+to c0305, a range reserved for the viewer away from the `circuits-as-code` line's c0246 to c0279 (that line
+continues from c0280). c0305 (`viewer-roles`) brings the role view of c0245-engineering-viewer, superseded
+otherwise, into this viewer: net roles, loops, Kelvin pairs and role findings on the board, and roles confirmed
+from a served page.
 
 ### v1.0: the freeze (proposed on 2026-10-27; held on 2026-10-29)
 

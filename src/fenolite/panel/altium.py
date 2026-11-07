@@ -18,7 +18,6 @@ panel document alone.
 from __future__ import annotations
 
 import dataclasses
-from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, cast
 
 from fenolite.backends.altium import lower, pcbdoc
@@ -27,22 +26,15 @@ from fenolite.core.errors import Issue
 from fenolite.core.ids import derived_id, is_id, parse_id
 from fenolite.core.trig import FULL_TURN
 from fenolite.core.units import Nm
-from fenolite.model.base import Entity
+from fenolite.model import replicate
 from fenolite.model.board import (
-    Arc,
     Board,
-    Dimension,
     FootprintInstance,
     Graphic,
     Hole,
-    Keepout,
     Layer,
     Outline,
     Pad,
-    Text,
-    Track,
-    Via,
-    Zone,
 )
 from fenolite.model.circuit import Circuit, Component, Net
 from fenolite.model.design import Design
@@ -70,78 +62,9 @@ def _shift(p: Point) -> Point:
     return Point(p.x + ORIGIN.x, p.y + ORIGIN.y)
 
 
-def _ids(value: Any, found: set[str]) -> None:
-    """Every id held by an entity of ``value`` (its ``id`` field), collected into ``found``."""
-    if isinstance(value, Entity):
-        found.add(value.id)
-    if dataclasses.is_dataclass(value) and not isinstance(value, type):
-        for f in dataclasses.fields(value):
-            _ids(getattr(value, f.name), found)
-    elif isinstance(value, (tuple, list)):
-        for item in cast("tuple[Any, ...]", value):
-            _ids(item, found)
-
-
-def _renamed(value: Any, mapping: Mapping[str, str]) -> Any:
-    """``value`` with every string equal to an old id replaced by its new id, recursively."""
-    if isinstance(value, str):
-        return mapping.get(value, value)
-    if dataclasses.is_dataclass(value) and not isinstance(value, type):
-        changes = {}
-        for f in dataclasses.fields(value):
-            old = getattr(value, f.name)
-            new = _renamed(old, mapping)
-            if new is not old:
-                changes[f.name] = new
-        return dataclasses.replace(value, **changes) if changes else value
-    if isinstance(value, tuple):
-        items = cast("tuple[Any, ...]", value)
-        new_items = tuple(_renamed(item, mapping) for item in items)
-        return new_items if any(a is not b for a, b in zip(items, new_items, strict=True)) else items
-    if isinstance(value, dict):
-        table = cast("dict[Any, Any]", value)
-        return {key: _renamed(item, mapping) for key, item in table.items()}
-    return value
-
-
-def _turn(angle: int, rotation: int) -> int:
-    return (angle + rotation) % FULL_TURN
-
-
-def _moved(item: Any, copy: PanelCopy) -> Any:  # noqa: C901, PLR0911
+def _moved(item: Any, copy: PanelCopy) -> Any:
     """A board item with its board-frame points moved into the panel and its absolute angle turned."""
-
-    def at(p: Point) -> Point:
-        return _shift(copy.place(p))
-
-    def ring(points: tuple[Point, ...]) -> tuple[Point, ...]:
-        return tuple(at(p) for p in points)
-
-    turn = copy.rotation
-    if isinstance(item, FootprintInstance):
-        return dataclasses.replace(item, position=at(item.position), rotation=_turn(item.rotation, turn))
-    if isinstance(item, Track):
-        return dataclasses.replace(item, start=at(item.start), end=at(item.end))
-    if isinstance(item, Arc):
-        return dataclasses.replace(item, start=at(item.start), mid=at(item.mid), end=at(item.end))
-    if isinstance(item, Via):
-        return dataclasses.replace(item, position=at(item.position))
-    if isinstance(item, Zone):
-        fills = tuple(dataclasses.replace(f, polygon=ring(f.polygon)) for f in item.fills)
-        return dataclasses.replace(item, outline=ring(item.outline), fills=fills)
-    if isinstance(item, Keepout):
-        return dataclasses.replace(item, outline=ring(item.outline))
-    if isinstance(item, Text):
-        return dataclasses.replace(item, position=at(item.position), rotation=_turn(item.rotation, turn))
-    if isinstance(item, Graphic):
-        return dataclasses.replace(item, points=ring(item.points))
-    if isinstance(item, Dimension):
-        return dataclasses.replace(item, start=at(item.start), end=at(item.end))
-    if isinstance(item, Hole):
-        return dataclasses.replace(
-            item, position=at(item.position), rotation=_turn(item.rotation, turn) if item.length else 0
-        )
-    return item
+    return replicate.moved(item, lambda p: _shift(copy.place(p)), copy.rotation)
 
 
 def _on_box(graphic: Graphic, box: Rect) -> bool:
@@ -173,39 +96,27 @@ def copy_board(board_design: Design, laid: PanelLayout) -> tuple[Circuit, tuple[
             )
         )
     source_ids: set[str] = set()
-    _ids(board_design.circuit, source_ids)
-    _ids(board, source_ids)
+    replicate.entity_ids(board_design.circuit, source_ids)
+    replicate.entity_ids(board, source_ids)
     components: list[Component] = []
     nets: list[Net] = []
     boards: list[Board] = []
-    items = (
-        "footprints",
-        "tracks",
-        "arcs",
-        "vias",
-        "zones",
-        "keepouts",
-        "texts",
-        "graphics",
-        "dimensions",
-        "holes",
-    )
     for copy in laid.copies:
         mapping = {
             old: ids.item_id(parse_id(old)[0], copy.row, copy.col, old) for old in source_ids if is_id(old)
         }
-        circuit = cast(Circuit, _renamed(board_design.circuit, mapping))
+        circuit = cast(Circuit, replicate.renamed(board_design.circuit, mapping))
         components += circuit.components
         nets += [
             dataclasses.replace(net, name=f"B{copy.k}/{net.name}") if net.name else net
             for net in circuit.nets
         ]
         moved: dict[str, tuple[Any, ...]] = {}
-        for name in items:
+        for name in replicate.BOARD_ITEMS:
             values = cast("tuple[Any, ...]", getattr(board, name))
             if name == "graphics":
                 values = tuple(g for g in values if g.layer != EDGE)
-            moved[name] = tuple(_moved(_renamed(v, mapping), copy) for v in values)
+            moved[name] = tuple(_moved(replicate.renamed(v, mapping), copy) for v in values)
         boards.append(dataclasses.replace(board, **moved))
     circuit = Circuit(components=tuple(components), nets=tuple(nets))
     return circuit, tuple(boards), issues
@@ -238,7 +149,7 @@ def panel_design(panel: Panel, laid: PanelLayout, board_design: Design) -> tuple
     # document, knows them by the names of lower.KICAD_MECHANICAL; Mechanical 1 and 2 are the panel's own
     by_id = {ident: name for name, ident in lower.KICAD_MECHANICAL.items()}
     mech = {f"Mech.{n}": by_id[56 + n] for n in range(3, 17) if 56 + n in by_id}
-    boards = tuple(cast(Board, _renamed(b, mech)) for b in boards)
+    boards = tuple(cast(Board, replicate.renamed(b, mech)) for b in boards)
     names = {layer.name for layer in source.layers}
     layers = list(source.layers)
     for n, name in enumerate((ROUTE_USER, VCUT_USER)):
@@ -396,11 +307,66 @@ def flat_files(
     return files, [*issues, *found]
 
 
+def array_record(laid: PanelLayout, document: str) -> bytes:
+    """The ``EmbeddedBoards6`` record of the copies of ``laid`` as one array of ``document`` (a path relative
+    to the panel document), in the frame that ``pcbdoc.write_pcbdoc`` gives the panel (change c0173, task
+    7.2): its location the lower-left corner of the bottom-left copy, in absolute document units as every
+    primitive's; its spacings the pitch from one copy to the next. ``ValueError`` for a turned copy (whose
+    placement in an array no file of phase A shows)."""
+    from fenolite.backends.altium import pcbrecords as rec
+
+    if not laid.copies or any(copy.rotation % FULL_TURN for copy in laid.copies):
+        raise ValueError("an Embedded Board Array is written for unturned copies only")
+    left = min(copy.rect.x0 for copy in laid.copies)
+    low = max(copy.rect.y1 for copy in laid.copies)
+    xs = sorted({copy.rect.x0 for copy in laid.copies})
+    ys = sorted({copy.rect.y0 for copy in laid.copies})
+    offset = pcbdoc.BOARD_OFFSET_MIL * 25_400
+    at = (rec.to_units(left + offset), rec.to_units(laid.size.h - low + offset))
+    pitch_x = xs[1] - xs[0] if len(xs) > 1 else laid.board.width
+    pitch_y = ys[1] - ys[0] if len(ys) > 1 else laid.board.height
+    return rec.embedded_board_array(
+        document,
+        at,
+        (rec.to_units(laid.board.width), rec.to_units(laid.board.height)),
+        rows=laid.rows,
+        cols=laid.cols,
+        row_spacing=rec.to_units(pitch_y),
+        col_spacing=rec.to_units(pitch_x),
+    )
+
+
+def embedded_files(
+    panel: Panel, laid: PanelLayout, board_design: Design, document: str
+) -> tuple[dict[str, bytes], list[Issue]]:
+    """``<name>.PcbDoc`` and ``<name>.PrjPcb`` of the panel as an Embedded Board Array of ``document`` (a
+    path relative to the panel document): the panel's own items of ``flat_files`` (the rectangle, the
+    routed gaps, the score lines, the holes and the fiducials) and one array record, no copy of the board
+    (``H-A-PANEL-RECORD``). The caller holds the gate: ``pcbdoc.EMBEDDED_ARRAYS``
+    (``panel.build.altium_panel``), or the kit of Part Q phase B. Pours are written as outlines.
+    ``ValueError`` for a mirrored or turned array (no file of phase A shows how its copies lie)."""
+    if panel.array.mirrored:
+        raise ValueError("a mirrored array is not written as an Embedded Board Array")
+    design, issues = panel_design(panel, dataclasses.replace(laid, copies=()), board_design)
+    if any(i.severity == "error" for i in issues):
+        return {}, issues
+    found: list[Issue] = []
+    inputs = lower.from_design(design, issues=found)
+    assert inputs.pcb is not None
+    spec = dataclasses.replace(_named_layers(inputs.pcb), embedded_arrays=(array_record(laid, document),))
+    name = panel.name
+    written = pcbdoc.write_pcbdoc_result(spec, filename=f"{name}.PcbDoc", pour="outline")
+    files = {f"{name}.PcbDoc": written.data, f"{name}.PrjPcb": project_file(f"{name}.PcbDoc")}
+    return files, [*issues, *found, *written.issues]
+
+
 __all__ = [
     "FLATTENED",
     "ROUTE_LAYER",
     "VCUT_LAYER",
+    "array_record",
     "copy_board",
+    "embedded_files",
     "flat_files",
     "panel_design",
     "project_file",

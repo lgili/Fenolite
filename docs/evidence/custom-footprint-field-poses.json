@@ -1,0 +1,65 @@
+{
+  "base_commit": "bffa03fd9dcd22e9e03012608e99c628b4e263fb",
+  "native": {
+    "10": {
+      "failures": 0,
+      "junit_sha256": "27245a07015217f47f13d7bbcc0e9e2ddf595c8734e6d09b7aaa228575fe412f",
+      "planted_pose_changes_detected": 2,
+      "positive_complete_primitive_multiset_equal": true,
+      "svg_sha256": {
+        "test_native_custom_field_ink_m0/native-after.svg": "603e2a492dfc13f57dff2fc6bef90b0e53a3dc2e5b54ddfd7113105b78e84113",
+        "test_native_custom_field_ink_m0/native-before.svg": "8bc8ce23cc49e70a246d508302597ecf52e664bf6c11ed1cfb26b824524d244d",
+        "test_native_custom_field_ink_m0/native-planted.svg": "58ff88c48548ede9da748233d1b2f5a00735d5b36404e61e7a1f058b19a0e5d6",
+        "test_native_custom_field_ink_m1/native-after.svg": "e9c830300a89fbc35c77b14f0e02fa92dded264432340faa09dc74238c6b8bcd",
+        "test_native_custom_field_ink_m1/native-before.svg": "33de77ab34c68e50ab92569d8aee72f5fd5f8db7f37d51f58b3f5162372396ca",
+        "test_native_custom_field_ink_m1/native-planted.svg": "4bdbf249652c0657d295dfeab4a2378d0243e3fb8089aeea6e688e772c81f9e4"
+      },
+      "tests": 2,
+      "version": "10.0.6"
+    },
+    "9": {
+      "failures": 0,
+      "junit_sha256": "bc0ae8abe3779bcca4eaa1f0ae797a0cd4d4723d37d62f41e62c53ee8cf6d459",
+      "planted_pose_changes_detected": 2,
+      "positive_complete_primitive_multiset_equal": true,
+      "svg_sha256": {
+        "test_native_custom_field_ink_m0/native-after.svg": "29d6b177ed9cf43af3cd908bfd3d3f7fb9a6bd9b026572becc1f51b55853c929",
+        "test_native_custom_field_ink_m0/native-before.svg": "29d6b177ed9cf43af3cd908bfd3d3f7fb9a6bd9b026572becc1f51b55853c929",
+        "test_native_custom_field_ink_m0/native-planted.svg": "11ec7851784e9dfd82b27c7b6f77b702cfaa9266d1b5df0fba6d3422f082303f",
+        "test_native_custom_field_ink_m1/native-after.svg": "b62b091d0335fd29552c72744125d43322e2d3cbe244551472f3726699670c22",
+        "test_native_custom_field_ink_m1/native-before.svg": "b62b091d0335fd29552c72744125d43322e2d3cbe244551472f3726699670c22",
+        "test_native_custom_field_ink_m1/native-planted.svg": "bb2348d1f8e23234c24085e252b319ed661ae86920588e08e6e138d7a8cef3ac"
+      },
+      "tests": 2,
+      "version": "9.0.9"
+    }
+  },
+  "public_multichannel": {
+    "accepted": 0,
+    "baseline_custom_rotation_losses": 3101,
+    "differences": 0,
+    "generated_custom_field_requests": 3546,
+    "proof_sha256": "f69899fe72526e59399537a283b6c28240e000d003493b02a09d36f0c506bb72",
+    "source": "KiCad public corpus manifest source",
+    "source_revision": "97acc80c223d75520c03fc44cab63cd9a3202c42",
+    "strict_levels": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      "S",
+      8
+    ]
+  },
+  "runtime_sha256": {
+    "src/fenolite/backends/kicad/replace.py": "8f723a435f227697aad75643e1d1eacb4da3a00e6eeaef24e12efe245e572f30",
+    "src/fenolite/dsl/part.py": "000907837deab356e4145a265ecef0e71ec1dbfd9e16b63105a7f6208eebb800",
+    "src/fenolite/importer/emit/design.py": "22daae220e8d189dd6cc54bfc6afc5309e5fdd995e2c556fbaee9b45686e0a64",
+    "src/fenolite/importer/emit/fields.py": "879c48cd1ba6bd558f37986be455c2c83995034d9948db2cca0ce0ddf814f06d"
+  },
+  "schema": "fenolite.custom-field-pose-proof.v0",
+  "scope": "Authored custom Author fields, plain and bold/italic, native exact SVG primitives before/after import/build; planted moved fields must differ. Public Multichannel complete strict proof is separate and retained externally."
+}

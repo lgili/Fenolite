@@ -21,17 +21,54 @@ STEPS = [
     ("corpus cache", "uses: actions/cache"),
     (
         "corpus fetch",
-        "run: uv run python tools/corpus_fetch.py --uses rt0 --uses libs --uses project --uses cfb",
+        "run: uv run python tools/corpus_fetch.py --uses rt0 --uses sch --uses libs "
+        "--uses project --uses cfb",
     ),
-    ("pytest", "run: uv run pytest tests/kicad tests/corpus -q"),
+    ("pytest", "run: uv run python tools/ci_tests.py run --suite kicad-10"),
 ]
-KICAD10_PYTEST = f"run: uv run pytest tests/kicad tests/corpus -q {PARALLEL}"
-UNIT_PYTEST = f"run: uv run pytest -q {PARALLEL}"
+KICAD10_PYTEST = (
+    "run: uv run python tools/ci_tests.py run --suite kicad-10 --shard ${{ matrix.shard }} "
+    "--shards 4 --out /tmp/fenolite-kicad-corpus"
+)
+UNIT_PYTEST = (
+    "run: uv run python tools/ci_tests.py run --suite unit-${{ matrix.os }}-py${{ matrix.python }} "
+    '--out "${{ runner.temp }}/ci-tests/unit"'
+)
+VIEW_ACTIONS_PYTEST = (
+    "run: uv run pytest "
+    "tests/unit/cli/test_view_actions.py::test_export_plans_files_under_fab "
+    "tests/unit/cli/test_view_actions.py::test_fill_plan "
+    "tests/unit/cli/test_view_actions.py::test_tidy_with_the_drc_gate "
+    "-q -rA --basetemp /tmp/fenolite-view-actions-native " + PARALLEL
+)
+VIEW_ACTIONS_REQUIRED_STEP = (
+    "      - name: Native viewer action plans (c0303)\n"
+    "        env:\n"
+    "          FENOLITE_REQUIRE: kicad\n"
+    f"        {VIEW_ACTIONS_PYTEST}\n"
+)
+MAC_BYTE_PROBE = (
+    "run: uv run pytest 'tests/unit/test_build_bytes.py::test_example_keeps_its_bytes[board_40parts@altium]' "
+    '-q --basetemp "${{ runner.temp }}/fenolite-byte-probe"'
+)
+
+
+def test_block_test_workflow() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+    assert "run: uv run fenolite blocks test --json" in job_text(text, "unit")
+    assert "/tmp/wheel-venv/bin/fenolite blocks test --json" in job_text(text, "wheel")
+    assert "--suite kicad-9" in job_text(text, "kicad-9")
+    assert "--suite kicad-10" in job_text(text, "kicad-10")
+    assert (ROOT / "tests/kicad/blocks/test_usage_boards.py").is_file()
 
 
 def pytest_steps(job: str) -> list[str]:
     """The ``run:`` lines of a job that call pytest, stripped."""
-    return [line.strip() for line in job.splitlines() if line.strip().startswith("run: uv run pytest")]
+    return [
+        line.strip()
+        for line in job.splitlines()
+        if line.strip().startswith(("run: uv run pytest", "run: uv run python tools/ci_tests.py run"))
+    ]
 
 
 ALTIUM_READER_USES = (
@@ -75,6 +112,8 @@ def job_problems(workflow: str) -> list[str]:
         if p2 < p1:
             problems.append(f"kicad-10: step {second!r} must come after {first!r}")
     fetches = [line for line in job.splitlines() if "tools/corpus_fetch.py" in line]
+    if not any(re.search(r"--uses sch(?:\s|$)", line) for line in fetches):
+        problems.append("kicad-10: the corpus fetch must pass --uses sch (all declared floor inputs)")
     if not any("--uses libs" in line for line in fetches):
         problems.append("kicad-10: the corpus fetch must pass --uses libs (the demo library rows)")
     if not any("--uses project" in line for line in fetches):
@@ -92,7 +131,9 @@ def job_problems(workflow: str) -> list[str]:
         problems.append("kicad-10: cache key must hash tests/corpus/manifest.toml")
     if not re.search(r"FENOLITE_REQUIRE: kicad,corpus", job):
         problems.append("kicad-10: pytest must run with FENOLITE_REQUIRE=kicad,corpus")
-    if pytest_steps(job) != [KICAD10_PYTEST]:
+    if VIEW_ACTIONS_REQUIRED_STEP not in job:
+        problems.append("kicad-10: native viewer actions must require kicad-cli")
+    if pytest_steps(job) != [VIEW_ACTIONS_PYTEST, KICAD10_PYTEST]:
         problems.append(f"kicad-10: the pytest step must end with {PARALLEL}")
     return problems
 
@@ -122,8 +163,13 @@ def test_steps_out_of_order() -> None:
 
 
 def test_library_rows_not_fetched() -> None:
-    text = WORKFLOW.read_text(encoding="utf-8").replace("--uses rt0 --uses libs ", "--uses rt0 ")
+    text = WORKFLOW.read_text(encoding="utf-8").replace(" --uses libs", "")
     assert "kicad-10: the corpus fetch must pass --uses libs (the demo library rows)" in job_problems(text)
+
+
+def test_floor_schematic_rows_not_fetched() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8").replace(" --uses sch ", " ", 1)
+    assert "kicad-10: the corpus fetch must pass --uses sch (all declared floor inputs)" in job_problems(text)
 
 
 def test_reader_rows_not_fetched() -> None:
@@ -144,19 +190,24 @@ def test_serial_kicad_10_step_rejected() -> None:
 
 
 def test_unit_job_runs_in_parallel() -> None:
-    assert pytest_steps(job_text(WORKFLOW.read_text(encoding="utf-8"), "unit")) == [UNIT_PYTEST]
+    assert pytest_steps(job_text(WORKFLOW.read_text(encoding="utf-8"), "unit")) == [
+        MAC_BYTE_PROBE,
+        UNIT_PYTEST,
+    ]
 
 
-KICAD9_FETCH = "run: uv run python tools/corpus_fetch.py --uses rt2-9 --uses sch-9 --uses downgrade-demo"
+KICAD9_FETCH = (
+    "run: uv run python tools/corpus_fetch.py --uses rt2-9 --uses sch-9 --uses project --uses downgrade-demo"
+)
 KICAD9_KEY = "key: corpus-rt2-9-sch-9-downgrade-demo-${{ hashFiles('tests/corpus/manifest.toml') }}"
 KICAD9_STEPS = [
     ("kicad-cli version", "run: kicad-cli version"),
     ("uv sync", "run: uv sync --locked --extra dev"),
     ("corpus cache", "uses: actions/cache"),
     ("corpus fetch", KICAD9_FETCH),
-    ("pytest", "run: uv run pytest tests/kicad -q -rA"),
+    ("pytest", "run: uv run python tools/ci_tests.py run --suite kicad-9"),
 ]
-KICAD9_PYTEST = f"run: uv run pytest tests/kicad -q -rA {PARALLEL}"
+KICAD9_PYTEST = "run: uv run python tools/ci_tests.py run --suite kicad-9 --out /tmp/fenolite-ci-kicad9"
 
 
 def kicad9_problems(workflow: str) -> list[str]:
@@ -181,14 +232,17 @@ def kicad9_problems(workflow: str) -> list[str]:
             "kicad-9: cache key must be corpus-rt2-9-sch-9-downgrade-demo-"
             "<hash of tests/corpus/manifest.toml>"
         )
-    if pytest_steps(job) != [KICAD9_PYTEST]:
+    if VIEW_ACTIONS_REQUIRED_STEP not in job:
+        problems.append("kicad-9: native viewer actions must require kicad-cli")
+    if pytest_steps(job) != [VIEW_ACTIONS_PYTEST, KICAD9_PYTEST]:
         problems.append(f"kicad-9: the pytest step must end with {PARALLEL}")
     if "FENOLITE_CORPUS_CACHE:" not in job:
         problems.append("kicad-9: FENOLITE_CORPUS_CACHE must name the cached folder")
     fetches = re.findall(r"run: uv run python tools/corpus_fetch\.py.*", job)
     if fetches != [KICAD9_FETCH]:
         problems.append(
-            "kicad-9: its only corpus fetch must be --uses rt2-9 --uses sch-9 --uses downgrade-demo"
+            "kicad-9: its only corpus fetch must be --uses rt2-9 --uses sch-9 "
+            "--uses project --uses downgrade-demo"
         )
     return problems
 
@@ -203,10 +257,37 @@ def test_serial_kicad_9_step_rejected() -> None:
     assert f"kicad-9: the pytest step must end with {PARALLEL}" in kicad9_problems(text)
 
 
+def test_native_viewer_action_nodes_are_required_in_both_jobs() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+    for name, validate in (("kicad-9", kicad9_problems), ("kicad-10", job_problems)):
+        job = job_text(text, name)
+        assert not validate(text)
+        for node in (
+            "test_export_plans_files_under_fab",
+            "test_fill_plan",
+            "test_tidy_with_the_drc_gate",
+        ):
+            selector = f"tests/unit/cli/test_view_actions.py::{node} "
+            assert job.count(selector) == 1
+            changed = job.replace(selector, "", 1)
+            problems = validate(text.replace(job, changed))
+            assert f"{name}: the pytest step must end with {PARALLEL}" in problems, (name, node)
+
+
+def test_native_viewer_actions_cannot_silently_skip_a_missing_cli() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+    for name, validate in (("kicad-9", kicad9_problems), ("kicad-10", job_problems)):
+        job = job_text(text, name)
+        assert job.count(VIEW_ACTIONS_REQUIRED_STEP) == 1
+        without_requirement = VIEW_ACTIONS_REQUIRED_STEP.replace("          FENOLITE_REQUIRE: kicad\n", "")
+        changed = job.replace(VIEW_ACTIONS_REQUIRED_STEP, without_requirement)
+        assert f"{name}: native viewer actions must require kicad-cli" in validate(text.replace(job, changed))
+
+
 def test_both_kicad_jobs_run_tests_kicad() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
     for job in ("kicad-9", "kicad-10"):
-        assert re.search(r"run: uv run pytest tests/kicad\b", job_text(text, job)), job
+        assert f"--suite {job}" in job_text(text, job), job
 
 
 def test_every_kicad_image_is_pinned() -> None:
@@ -243,9 +324,7 @@ def test_kicad_9_cache_key_and_order() -> None:
     other_key = text.replace("corpus-rt2-9-", "corpus-")
     assert any("cache key" in p for p in kicad9_problems(other_key))
     job = job_text(text, "kicad-9")
-    assert (
-        job.find("uses: actions/cache") < job.find(KICAD9_FETCH) < job.find("run: uv run pytest tests/kicad")
-    )
+    assert job.find("uses: actions/cache") < job.find(KICAD9_FETCH) < job.find(KICAD9_PYTEST)
     assert "corpus-rt2-9-" not in job_text(text, "kicad-10")  # the two jobs never share a cache key
 
 
@@ -257,7 +336,9 @@ def test_routing_job_runs_pinned_tool_and_oracle_loop() -> None:
     assert "grid_router-linux-x86_64.so" in job
     assert "sha256sum --check" in job
     assert "FENOLITE_REQUIRE: kicad,router" in job
-    assert "run: uv run pytest tests/routing -q -rA" in job
+    assert "--suite routing-${{ matrix.target }} --workers 0" in job
+    runner = Path(__file__).resolve().parents[2] / "tools" / "ci_tests.py"
+    assert "tests/kicad/routing/test_external_candidates.py" in runner.read_text(encoding="utf-8")
 
 
 FETCH_STEP = "run: uv run fenolite fetch freerouting --dir /tmp/freerouting --confirm --json"
@@ -297,7 +378,7 @@ def freerouting_problems(workflow: str, pinned: str) -> list[str]:
         problems.append("FENOLITE_REQUIRE of the routing job does not list freerouting")
     if "actions/setup-java" not in job or 'java-version: "25"' not in job:
         problems.append("the routing job does not install Java 25")
-    if fetch is not None and fetch.start() > job.find("run: uv run pytest"):
+    if fetch is not None and fetch.start() > job.find("run: uv run python tools/ci_tests.py run"):
         problems.append("the jar is fetched after the tests run")
     if fetch is not None and fetch.start() < job.find("run: uv sync --locked"):
         problems.append("the jar is fetched before Fenolite is installed")
@@ -318,7 +399,7 @@ def test_routing_job_installs_the_pinned_freerouting() -> None:
     assert row.version == PINNED_VERSION and row.file == f"freerouting-{PINNED_VERSION}.jar"
     assert f"FENOLITE_FREEROUTING_JAR: /tmp/freerouting/{row.file}" in job
     assert JAVA_MIN == 25
-    assert "run: uv run pytest tests/routing -q -rA" in job
+    assert "--suite routing-${{ matrix.target }} --workers 0" in job
 
 
 def test_freerouting_version_drift_is_caught() -> None:
@@ -381,6 +462,7 @@ WHEEL_STEPS = [
     ("starter", "fenolite init blink --dry-run --json"),
     ("starter plan", "== ['blink/design.py']"),
     ("wheel contents", 'n.startswith(("tests/", "private/", "examples/"))'),
+    ("viewer bundle", 'f"fenolite/view/static/{n}"'),
 ]
 
 
@@ -419,8 +501,14 @@ def test_unit_matrix() -> None:
     assert unit_combinations(text) == UNIT_COMBINATIONS
     job = job_text(text, "unit")
     assert "runs-on: ${{ matrix.os }}" in job
-    # Windows is a merge gate like the others (the maintainer's decision of 2026-10-05: no cut)
-    assert "continue-on-error" not in job
+    # Every full unit run is a merge gate; only the explicitly Mac-only evidence preprobe may fail early.
+    probe = re.search(
+        r"^      - name: Probe authored Mac byte guard\n.*?(?=^      - |\Z)",
+        job,
+        re.MULTILINE | re.DOTALL,
+    )
+    assert probe and "if: matrix.os == 'macos-latest'" in probe.group(0)
+    assert "continue-on-error" not in job.replace(probe.group(0), "")
     reduced = text.replace('          - os: windows-latest\n            python: "3.12"\n', "")
     assert unit_combinations(reduced) != UNIT_COMBINATIONS
 
@@ -450,6 +538,15 @@ def test_wheel_job() -> None:
     no_starter = job.replace("fenolite init blink --dry-run --json", "fenolite init --help")
     assert "wheel: step 'starter' missing" in ordered_problems(no_starter, "wheel", WHEEL_STEPS)
     assert "cd /tmp/empty-project" in job and job.index("cd /tmp/empty-project") < job.index("guide start")
+
+
+def test_viewer_job_checks_the_bundle() -> None:
+    """Scenario "The viewer job rebuilds" (change c0304): the drift check runs before the visual tests, in the
+    job that sets up Node 22."""
+    job = job_text(WORKFLOW.read_text(encoding="utf-8"), "viewer")
+    check = job.find("run: uv run python tools/build_viewer.py --check")
+    assert 'node-version: "22"' in job and check > job.find("uses: actions/setup-node@v4") > 0
+    assert 0 < check < job.find("run: uv run python tools/ci_tests.py run --suite viewer")
 
 
 def test_dco_job() -> None:
@@ -494,6 +591,14 @@ PUSH_TRIGGER = """  push:
       - "**"
       - "!backup/**"
   pull_request:
+  merge_group:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "Full validation by default; fast is allowed only on a working branch"
+        type: choice
+        options: [full, fast]
+        default: full
 """
 """The ``on`` block of ``ci.yml`` without its comment lines (capability ci-baseline, "Pushes that run CI")."""
 
@@ -889,7 +994,7 @@ def test_kicad_10_heavy_prerequisites_required() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
     disabled = text.replace('FENOLITE_HEAVY: "1"', 'FENOLITE_HEAVY: "0"')
     assert any("FENOLITE_HEAVY" in problem for problem in job_problems(disabled))
-    excluded = text.replace("--uses rt0 --uses libs", "--uses rt0 --exclude-uses heavy --uses libs")
+    excluded = text.replace("--uses rt0", "--uses rt0 --exclude-uses heavy", 1)
     assert any("must not exclude heavy" in problem for problem in job_problems(excluded))
 
 
@@ -925,7 +1030,7 @@ def mcp_job_problems(workflow: str) -> list[str]:
         problems.append("mcp: must sync the oracles extra, which holds the official SDK")
     if not re.search(r"FENOLITE_REQUIRE: mcp-sdk\b", job):
         problems.append("mcp: must set FENOLITE_REQUIRE=mcp-sdk, so that a missing SDK fails")
-    if "uv run pytest tests/unit/mcp" not in job:
+    if "--suite mcp" not in job:
         problems.append("mcp: must run tests/unit/mcp")
     return problems
 
@@ -1046,3 +1151,124 @@ def test_history_scan_shape_rejected() -> None:
         release, nightly, pushed
     )
     assert macos_app_problems(nightly) == [] and yardstick_problems(nightly, ci) == []
+
+
+def test_release_conformance_asset_is_copied_from_the_tag_and_checksummed() -> None:
+    text = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+    github = job_text(text, "github-release")
+    copy = github.index("cp docs/evidence/conformance.json ../dist/conformance.json")
+    checksum = github.index("sha256sum -- * > SHA256SUMS")
+    upload = github.index('gh release upload "$TAG" dist/*')
+    create = github.index('gh release create "$TAG" dist/*')
+    assert "working-directory: source" in github[:copy]
+    assert copy < checksum < upload and checksum < create
+
+
+def test_no_ci_job_deselects_the_c0332_geometry_cases() -> None:
+    # c0332 reconnected the exact neck cut; its 27 native cases run unfiltered on every branch.
+    text = WORKFLOW.read_text(encoding="utf-8")
+    assert "--deselect=" not in text and "cac_geometry_deferred" not in text
+    assert KICAD10_PYTEST in job_text(text, "kicad-10")
+    assert not (ROOT / "tools/ci/cac_geometry_deferred.json").exists()
+
+
+# ---- the optional library-bench nightly job (capability fenolite-library, "Benchmark runs"; c0279) ----
+
+LIBRARY_BENCH_STEPS = [
+    ("checkout", "uses: actions/checkout@v4"),
+    ("setup-uv", "uses: astral-sh/setup-uv"),
+    ("uv sync", "run: uv sync --locked --extra dev --extra geo"),
+    ("kicad-cli version", "kicad-cli version | grep -F 10.0.6"),
+    ("benchmark", "run: uv run python tools/library_bench.py "),
+    ("upload", "uses: actions/upload-artifact@v4"),
+]
+
+
+def library_bench_problems(nightly: str) -> list[str]:
+    """What is wrong with the ``library-bench`` job of ``nightly.yml``: scheduled only, optional, the pinned
+    KiCad 10.0.6 image, the tool run on the head, and the table kept even when a board fails."""
+    job = job_text(nightly, "library-bench")
+    if not job:
+        return ["library-bench: job missing"]
+    problems: list[str] = []
+    if "schedule:" not in triggers(nightly) or re.search(r"^  (push|pull_request):", triggers(nightly), re.M):
+        problems.append(
+            "library-bench: nightly.yml must be scheduled and never run on pushes or pull requests"
+        )
+    if not re.search(r"^    continue-on-error: true\s*$", job, re.MULTILINE):
+        problems.append("library-bench: the job must be optional (continue-on-error: true)")
+    if not re.search(r"image: kicad/kicad:10\.0\.6@sha256:[0-9a-f]{64}\s*$", job, re.MULTILINE):
+        problems.append("library-bench: image must be kicad/kicad:10.0.6 pinned by @sha256 digest")
+    at = -1
+    for name, needle in LIBRARY_BENCH_STEPS:
+        found = job.find(needle)
+        if found < 0:
+            problems.append(f"library-bench: step '{name}' missing")
+        elif found < at:
+            problems.append(f"library-bench: step '{name}' out of order")
+        at = max(at, found)
+    upload = job[job.find("      - name: Upload the table") :]
+    if "if: always()" not in upload or "retention-days: 90" not in upload:
+        problems.append("library-bench: the table must be uploaded always and kept 90 days")
+    return problems
+
+
+def test_library_bench_job() -> None:
+    """Task 4.4 of c0279: Fenolite's optional scheduled job ``library-bench``."""
+    nightly, _ = _workflows()
+    assert library_bench_problems(nightly) == []
+    assert (ROOT / "tools" / "library_bench.py").is_file()
+
+
+def test_library_bench_job_shape_rejected() -> None:
+    nightly, _ = _workflows()
+    job = job_text(nightly, "library-bench")
+    assert library_bench_problems(nightly.replace("  library-bench:", "  other:")) == [
+        "library-bench: job missing"
+    ]
+    required = nightly.replace(job, job.replace("    continue-on-error: true\n", ""))
+    assert "library-bench: the job must be optional (continue-on-error: true)" in library_bench_problems(
+        required
+    )
+    unpinned = nightly.replace(job, re.sub(r"(image: kicad/kicad:10\.0\.6)@sha256:[0-9a-f]{64}", r"\1", job))
+    assert any("pinned by @sha256" in p for p in library_bench_problems(unpinned))
+    no_tool = nightly.replace(job, job.replace("tools/library_bench.py", "tools/other.py"))
+    assert "library-bench: step 'benchmark' missing" in library_bench_problems(no_tool)
+    lost = nightly.replace(
+        job,
+        job.replace(
+            "        if: always()\n        uses: actions/upload-artifact@v4\n",
+            "        uses: actions/upload-artifact@v4\n",
+        ),
+    )
+    assert "library-bench: the table must be uploaded always and kept 90 days" in library_bench_problems(lost)
+    pushed = nightly.replace("on:\n", "on:\n  push:\n", 1)
+    assert any("never run on pushes" in p for p in library_bench_problems(pushed))
+
+
+def release_licence_problems(release: str) -> list[str]:
+    """Why the build job of ``release.yml`` does not compare the shipped licence list with the library's
+    ``licences.toml`` before building (c0279, task 3.2)."""
+    build = job_text(release, "build")
+    checkout = build.find("repository: lgili/fenolite-library")
+    test = build.find("tests/unit/library/test_licences.py -k shipped_copy")
+    problems: list[str] = []
+    if checkout < 0:
+        problems.append("release: the build job must check out lgili/fenolite-library")
+    if test < 0 or "FENOLITE_LIBRARY_CHECKOUT: ${{ github.workspace }}/library" not in build:
+        problems.append("release: the shipped_copy test must run with FENOLITE_LIBRARY_CHECKOUT set")
+    if test >= 0 and (checkout < 0 or test < checkout or test > build.find("- name: Build fenolite")):
+        problems.append("release: the licence comparison must run after the checkout and before the build")
+    return problems
+
+
+def test_release_compares_the_shipped_licence_list() -> None:
+    """Task 3.2 of c0279: at each release the shipped licence list equals the library's."""
+    release = RELEASE_WORKFLOW.read_text(encoding="utf-8")
+    assert release_licence_problems(release) == []
+    unset = release.replace("FENOLITE_LIBRARY_CHECKOUT: ${{ github.workspace }}/library", "OTHER: x")
+    assert "release: the shipped_copy test must run with FENOLITE_LIBRARY_CHECKOUT set" in (
+        release_licence_problems(unset)
+    )
+    alone = release.replace("repository: lgili/fenolite-library", "repository: lgili/other")
+    assert "release: the build job must check out lgili/fenolite-library" in release_licence_problems(alone)

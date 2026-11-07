@@ -1,0 +1,19 @@
+# Authored for Fenolite (CC0-1.0). Numbers from the Diodes Incorporated TO220-3 package outline (S-0377): E
+# (body length along the leads), A (body thickness), b and C (lead width and thickness), L (lead length);
+# the pitch is half of e1, the distance of the outer leads (4.83 mm to 5.33 mm).
+schema = "fenolite.package.v0"
+family = "to"
+name = "TO3_B10.2x4.2_P2.54"
+summary = "TO-220 three-lead, vertical, 2.54 mm pitch"
+evidence = "INFERRED"
+sources = ["S-0377"]
+
+mount = "tht"
+leads = 3
+pitch = "2.415mm..2.665mm"
+body = { length = "9.70mm..10.70mm", width = "3.55mm..4.85mm" }
+lead = { width = "0.51mm..1.14mm", thickness = "0.31mm..1.14mm", length = "12.72mm..14.72mm" }
+
+[generate]
+lands = 1
+drawing = 1

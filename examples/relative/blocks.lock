@@ -1,0 +1,15 @@
+# Design lock written by fenolite build. Review changes in git; hand edits are honoured.
+schema = "fenolite.lock.v0"
+design = "relative_blocks"
+
+[refs]
+"J1" = "J1"
+"ch0/C" = "C1"
+"ch0/D" = "D1"
+"ch0/R" = "R1"
+"ch1/C" = "C2"
+"ch1/D" = "D2"
+"ch1/R" = "R2"
+"ch2/C" = "C3"
+"ch2/D" = "D3"
+"ch2/R" = "R3"

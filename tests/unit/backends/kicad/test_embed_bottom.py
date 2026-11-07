@@ -9,19 +9,29 @@ from pathlib import Path
 
 import pytest
 
-from fenolite.backends.kicad.embed import FLIP_UNSUPPORTED, MIRROR_HEADS, place_footprint
+from fenolite.backends.kicad.embed import (
+    EVIDENCE,
+    FLIP_UNSUPPORTED,
+    MIRROR_HEADS,
+    flip_evidence,
+    flip_footprint_tree,
+    local_footprint,
+    place_footprint,
+)
 from fenolite.backends.kicad.layers import created_layers, flip_layer
 from fenolite.backends.kicad.mod import read_footprint
 from fenolite.backends.kicad.pcb import write_board
 from fenolite.backends.kicad.sexpr import Atom, Node, dumps, parse, walk
 from fenolite.backends.kicad.versions import LossyWriteError
 from fenolite.core.coords import Point
+from fenolite.core.evidence import Level
 from fenolite.model.board import FootprintInstance
 from fenolite.model.circuit import Circuit, Component
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef
 
 MINI = Path(__file__).resolve().parents[4] / "tests" / "data" / "libs" / "Mini.pretty"
+CHAMFER = Path(__file__).resolve().parents[4] / "tests/data/kicad/footprint/ExactChamfer.kicad_mod"
 U1 = Component(id="cmp_00000000-0000-4000-8000-000000000001", ref="U1", value="QFP")
 AT = Point(20_000_000, 15_000_000)
 
@@ -122,3 +132,49 @@ def test_drill_offset_mirrored() -> None:
     fp = written(place_footprint(defn, component=U1, at=AT, side="bottom", key="D1"))
     drill = pad_node(fp, "1").find("drill")
     assert drill is not None and dumps(drill, style="compact") == "(drill 0.9 (offset 0.1 -0.2))"
+
+
+@pytest.mark.parametrize("rotation", [0, 30_000_000, 90_000_000, 180_000_000])
+@pytest.mark.parametrize("mask", range(16))
+def test_bottom_chamfer_corners_and_derivation(rotation: int, mask: int) -> None:
+    """Every corner subset follows the pad's local-Y mirror, independent of placement rotation."""
+    names = ("top_left", "top_right", "bottom_left", "bottom_right")
+    expected = ("bottom_left", "bottom_right", "top_left", "top_right")
+    selected = tuple(name for index, name in enumerate(names) if mask & (1 << index))
+    mirrored = tuple(name for index, name in enumerate(expected) if mask & (1 << index))
+    text = CHAMFER.read_text(encoding="utf-8").replace("top_left bottom_right", " ".join(selected))
+    definition = read_footprint(text, library="Authored")
+    instance = place_footprint(definition, component=U1, at=AT, rotation=rotation, side="bottom", key="U1")
+    fp = written(instance)
+    pad = pad_node(fp, "1")
+    assert pad.find("chamfer") == parse("(chamfer " + " ".join(mirrored) + ")")
+    assert pad.find("chamfer_ratio") == parse("(chamfer_ratio 0.2)")
+    assert pad.find("at").atoms()[0:2] == parse("(at 0.3 0.7)").atoms()  # type: ignore[union-attr]
+    assert pad.find("layers") == parse('(layers "B.Cu" "B.Paste" "B.Mask")')
+    issues = []
+    local = local_footprint(fp, rotation, "bottom", issues)
+    assert issues == []
+    back = pad_node(local, "1")
+    assert back.find("chamfer") == parse("(chamfer " + " ".join(selected) + ")")
+    assert back.find("chamfer_ratio") == pad.find("chamfer_ratio")
+    assert back.find("at") == parse("(at 0.3 -0.7 35)")
+    assert "chamfer" not in FLIP_UNSUPPORTED
+
+
+def test_chamfer_flip_is_an_involution() -> None:
+    tree = parse(CHAMFER.read_text(encoding="utf-8"))
+    issues = []
+    assert flip_footprint_tree(flip_footprint_tree(tree, issues), issues) == tree
+    assert issues == []
+    # An opaque namesake outside a pad is preserved.
+    other = parse("(footprint empty (opaque (chamfer top_left)))")
+    assert flip_footprint_tree(other, []) == other
+
+
+def test_flip_evidence_depends_on_the_definition() -> None:
+    assert flip_evidence(qfp()) == EVIDENCE
+    assert EVIDENCE.level is Level.KICAD_VERIFIED
+    inferred = flip_evidence(read_footprint(CHAMFER, library="Authored"))
+    assert inferred.level is Level.INFERRED
+    assert "H-G-CHAMFER-FLIP" in inferred.hypotheses
+    assert set(EVIDENCE.hypotheses) <= set(inferred.hypotheses)

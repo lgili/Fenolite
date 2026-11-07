@@ -22,23 +22,36 @@ from fenolite.backends.altium.adapter.bodies import component_body
 from fenolite.backends.altium.adapter.codes import Census, issue
 from fenolite.backends.altium.adapter.context import Context
 from fenolite.backends.altium.adapter.evidence import EVIDENCE
-from fenolite.backends.altium.adapter.ids import Exact, Ids, bag
-from fenolite.backends.altium.adapter.layers import MULTI, LayerMap, stackup
+from fenolite.backends.altium.adapter.ids import UNION_KEY, Exact, Ids, bag
+from fenolite.backends.altium.adapter.layers import MULTI, LayerMap, stackup, with_long_mechanical
 from fenolite.backends.altium.adapter.pads import pad
 from fenolite.backends.altium.adapter.rules import connect_texts, import_rules
 from fenolite.backends.altium.read.bodies import BodyRecord, read_bodies
 from fenolite.backends.altium.read.pcb import ComponentRecord, PcbDocument
 from fenolite.backends.altium.read.pcbprims import PadRecord, RawPrimitive, TextRecord
+from fenolite.backends.altium.read.rooms import LOCATOR, read_rooms
+from fenolite.backends.altium.read.scopedoc import scope_document
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue
 from fenolite.geometry.transform import Transform
-from fenolite.model.board import Board, ComponentBody, FootprintAttribute, FootprintInstance, Hole, Pad
+from fenolite.model.board import (
+    Board,
+    ComponentBody,
+    FootprintAttribute,
+    FootprintInstance,
+    Hole,
+    Keepout,
+    Pad,
+)
 from fenolite.model.circuit import Circuit, Component, Net, NetClass, Pin, PinRef
 from fenolite.model.design import SCHEMA_VERSION, Design, DesignHeader
 from fenolite.model.rules import RuleSet
 
 KIND = "altium_pcbdoc"
 NET_CLASS_KIND = 0
+NET_TIE_KINDS = frozenset({"3", "4"})
+"""The ``COMPONENTKIND`` values of a net tie, in and out of the BOM (pcb-records.md, "Component kind";
+change c0420 N1): their numbered pads form one net-tie group."""
 BODY_STORAGE = "ComponentBodies6"
 DECODED_STORAGES = (BODY_STORAGE,)
 """Storages of ``PcbDocument.storages`` that the adapter decodes; every other one that is not empty is
@@ -63,6 +76,15 @@ class BoardImport:
 def stem(path: str | None) -> str:
     """The file stem of a library path as an Altium record writes it (``\\`` or ``/`` between folders)."""
     return PureWindowsPath(path).stem if path else ""
+
+
+def net_ties(record: ComponentRecord, pads: tuple[Pad, ...]) -> tuple[tuple[str, ...], ...]:
+    """The net-tie groups of a component: one group of its distinct pad numbers, in pad order, when its
+    ``COMPONENTKIND`` is a net tie and it has two numbers or more; none otherwise (change c0420 N1)."""
+    if record.record.get("COMPONENTKIND") not in NET_TIE_KINDS:
+        return ()
+    numbers = tuple(dict.fromkeys(p.number for p in pads if p.number))
+    return (numbers,) if len(numbers) > 1 else ()
 
 
 def _lib_ref(library: str | None, name: str | None) -> str:
@@ -164,9 +186,46 @@ def _bodies(doc: PcbDocument, ctx: Context) -> dict[int, list[tuple[int, BodyRec
     return found
 
 
+def _rooms(doc: PcbDocument, ctx: Context) -> None:
+    """Each room of ``doc`` (``read.rooms``, change c0462 task 2.3) as a named rule area in ``ctx.keepouts``
+    that restricts nothing, on the copper layer of its side, its provenance the room's record. Only a room
+    on the top or the bottom side whose outline is straight edges gives one. The record itself stays a kept
+    record (``kept_rule``), so an Altium write gives it back as it was read; ``WithinRoom`` stays refused
+    (``read.scope``, ``room-membership``)."""
+    rooms, found = read_rooms([r.fields for r in doc.rules])
+    ctx.issues.extend(found)
+    for room in rooms:
+        if room.side is None or not room.lines:
+            continue
+        exact = Exact(ctx.census)
+        points: list[Point] = []
+        for k, vertex in enumerate(room.vertices):
+            x, x_exact = units.units_length(vertex.x)
+            y, y_exact = units.units_length(vertex.y)
+            if not x_exact:
+                exact.inexact(f"outline.{k}.x", str(vertex.x))
+            if not y_exact:
+                exact.inexact(f"outline.{k}.y", str(vertex.y))
+            points.append(Point(x, -y))
+        if len(points) > 1 and points[0] == points[-1]:
+            points.pop()
+        pairs = exact.pairs()
+        ctx.keepouts.append(
+            Keepout(
+                id=ctx.ids.content("kpo", "room", room.index, room.name),
+                provenance=ctx.provenance(f"{LOCATOR}{room.index}"),
+                ext=bag(pairs) if pairs else {},
+                outline=tuple(points),
+                layers=(room.side,),
+                name=room.name,
+            )
+        )
+
+
 def read_board(doc: PcbDocument, *, file: str, sha256: str, ids: Ids) -> BoardImport:
     """Map ``doc`` into its parts with the ids of ``ids`` (``import_board`` and ``import_project`` share
     this function)."""
+    doc = with_long_mechanical(doc)  # Mechanical 17 to 32 by their long ids (change c0450, task 4.4)
     layers = LayerMap.from_board(doc.board)
     ctx = Context(ids=ids, layers=layers, file=file, sha256=sha256)
     ctx.issues.extend(layers.issues)
@@ -317,6 +376,9 @@ def read_board(doc: PcbDocument, *, file: str, sha256: str, ids: Ids) -> BoardIm
             pairs.append(("source_designator", record.source_designator))
         if record.source_lib_reference:
             pairs.append(("source_lib_reference", record.source_lib_reference))
+        member = dict(record.record.fields).get("UNIONINDEX", "0")
+        if member.isdigit() and 0 < int(member) < 1 << 32:  # change c0460: a union member keeps its union
+            pairs.append((UNION_KEY, member))
         footprints.append(
             FootprintInstance(
                 id=fp_id,
@@ -335,6 +397,8 @@ def read_board(doc: PcbDocument, *, file: str, sha256: str, ids: Ids) -> BoardIm
                 bodies=tuple(made_bodies),
                 graphics=items.graphics,
                 texts=items.texts,
+                keepouts=items.keepouts,
+                net_ties=net_ties(record, pads),
             )
         )
         links[fp_id] = record
@@ -401,6 +465,7 @@ def read_board(doc: PcbDocument, *, file: str, sha256: str, ids: Ids) -> BoardIm
     shape_graphics = copper.shapes(doc, ctx, zone_polygons, placed)
     found_texts = copper.texts(doc, ctx, placed)
     edge = copper.outline(doc.board.outline, ctx)
+    edge, shape_graphics = copper.notched(edge, shape_graphics, ctx)  # change c0427
 
     multi = 0
     model_nets: list[Net] = []
@@ -429,6 +494,7 @@ def read_board(doc: PcbDocument, *, file: str, sha256: str, ids: Ids) -> BoardIm
             )
         )
 
+    kept: list[str] = []
     rules = import_rules(
         [r.fields for r in doc.rules],
         ids,
@@ -436,7 +502,11 @@ def read_board(doc: PcbDocument, *, file: str, sha256: str, ids: Ids) -> BoardIm
         sha256=sha256,
         issues=ctx.issues,
         layers=layers.copper_layers(),
+        numbers=[r.kind_number for r in doc.rules],
+        kept=kept,
+        document=scope_document(doc, layers.copper_layers()),
     )
+    _rooms(doc, ctx)
     for name, streams in sorted(doc.storages.items()):
         if name and name not in DECODED_STORAGES and any(streams.get(s) for s in streams if s != "Header"):
             ctx.census.note(name)
@@ -447,6 +517,7 @@ def read_board(doc: PcbDocument, *, file: str, sha256: str, ids: Ids) -> BoardIm
     if x_text is not None and y_text is not None:
         origin.append(("origin", f"{x_text},{y_text}"))
     origin += [("polygon_connect", text) for text in connect_texts([r.fields for r in doc.rules])]
+    origin += [("kept_rule", text) for text in kept]
     board_provenance = ctx.provenance("Board6/Data#0")
     stack = stackup(doc.board, layers, ids, board_provenance, ctx.issues)
     board = Board(
@@ -464,6 +535,7 @@ def read_board(doc: PcbDocument, *, file: str, sha256: str, ids: Ids) -> BoardIm
         zones=tuple(found_zones),
         texts=tuple(found_texts),
         graphics=(*edge, *line_graphics, *arc_graphics, *shape_graphics),
+        keepouts=tuple(ctx.keepouts),
         holes=tuple(holes),
     )
     return BoardImport(board, model_nets, classes, components, rules, links, ctx.issues, ctx.census)
@@ -557,4 +629,4 @@ def import_board(doc: PcbDocument, *, file: str, sha256: str, issues: list[Issue
     )
 
 
-__all__ = ["KIND", "BoardImport", "header", "import_board", "read_board", "stem"]
+__all__ = ["KIND", "NET_TIE_KINDS", "BoardImport", "header", "import_board", "net_ties", "read_board", "stem"]

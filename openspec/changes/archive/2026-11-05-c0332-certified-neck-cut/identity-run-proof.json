@@ -1,0 +1,41 @@
+{
+  "actual_native10_ECC83_triangle04": {
+    "passed": 1,
+    "seconds": 8.19
+  },
+  "all_source_and_target_edges_covered": true,
+  "authored_old_encoder_RED": {
+    "failed": 1,
+    "same_interval_cap": 16,
+    "source_edges": 102
+  },
+  "capsule_intervals_limit": 16384,
+  "encoder_change_explicit": true,
+  "exact_coordinate_mutation1nm_refused": true,
+  "examples": {
+    "baseline_updates": 0,
+    "passed": 35,
+    "seconds": 4.29
+  },
+  "external_receipts_sha256": {
+    "identity-production-RED.log": "a58d05732c9d0d53916295efe7c70b819f268393a537f3e60e1118624e46cf40",
+    "identity-production-native04.log": "ad4400725d40bda5728d2e522329cfb9678baf1562f299fb610d9e7642353ab4",
+    "identity-run-authored-controls-v1.json": "2230ef4a0d9ff723495a7c2fabc3cde77a8a0b0658645337e3e677b116870950"
+  },
+  "final_identity_controls": {
+    "passed": 20,
+    "seconds": 0.59
+  },
+  "focused_geometry_pour_before_additional_duplicate_control": {
+    "passed": 311,
+    "seconds": 5.87
+  },
+  "legacy_Cover_verifier_preserved": true,
+  "new_identity_work_storage_distance_bits_deadline_shared": true,
+  "scope": "Explicit C identity-run encoder only; B/A still external, no production03pass",
+  "selected_pyright_errors": 0,
+  "source_sha256": {
+    "src/fenolite/geometry/boolean/_exact_distance.py": "3916433c93880beb4cfe0bd2312305d01bc51bf9e3d2c7cdd53607db897924e9",
+    "src/fenolite/geometry/boolean/_exact_identity.py": "0c1977f364358b1986042f86453f81051db2005124639e5a8f036671213fd3cc"
+  }
+}

@@ -11,6 +11,8 @@ right, routing is mostly short and straight. When a net will not route, the caus
 upstream: a barrier with too few ways across it, or a part on the wrong side. Change the cause, not the
 router's settings. The page `routing` gives the routers and the commands.
 
+Bounded and role-aware search proposals are on the page `route-search`.
+
 ## Count the crossings
 
 Before you route, find each barrier on the board:
@@ -50,6 +52,20 @@ a rule to make a route pass. A route that needs a smaller clearance needs a deci
    (`--order`). Check after each group.
 4. **Ground last.** Make the final fix-up of a ground domain (stitching, the single tie) after the
    signals are in. A ground pour placed early takes the ways that signals need.
+
+After the critical routes and the power copper, `route --router octilinear --propose` lists every open
+connection with candidate shapes and their facts (connections closed, open before and after, new copper and
+role findings, vias, length), and no score: you choose. It writes nothing. `--accept ID` locks a candidate
+through the plan (`--dry-run`, then `--confirm --plan ID`) and records the decision; `--reject ID --reason
+TEXT` remembers a refusal; `--replay` places the locked decisions again on a new build. A connection with no
+candidate gives its reason and the commands to free it (`route.proposal-open`).
+
+```fenolite-cmd
+fenolite route board.kicad_pcb --router octilinear --propose --candidates 2 --json
+fenolite route board.kicad_pcb --router octilinear --accept c-0123456789abcdef --dry-run --json
+fenolite route board.kicad_pcb --router octilinear --reject c-0123456789abcdef --reason "over the gate loop" --dry-run --json
+fenolite route board.kicad_pcb --router octilinear --replay --dry-run --json
+```
 
 Check each group with `fenolite check` before the next one, or let `--gate drc` drop each new track or
 via that brings a DRC finding. Treat a router's output as a draft that you
@@ -123,6 +139,18 @@ placement for a poor result, read what the router was given:
 
 Judge the routed board with `fenolite check`, not with the router's report.
 
+## Ordered clock and link paths
+
+The `signal-topologies` page teaches `design.topology`, `fs`, `ps`, `ns`, `mdb` and `db`, explicit
+series bridges and user-supplied propagation/loss inputs. Declare order and budgets before routing,
+then judge the current copper with the tool-free `topology.rules` stage. Every number on that page
+is an example. To see which overlapping rule governs, use `--explain-rules`:
+
+```fenolite-cmd
+fenolite check board --stages topology.rules --json
+fenolite check board --stages model.validate --explain-rules --json
+```
+
 ## Typical failures
 
 - **Hours on a barrier with too few ways.** Three nets had to cross the pin row of a power module,
@@ -136,4 +164,4 @@ Judge the routed board with `fenolite check`, not with the router's report.
   owner's rule became: straight runs and few bends, 45° by default, 90° where it straightens, never
   acute.
 
-Read next: `routing`, `board-grounds`, `board-review`.
+Read next: `routing`, `route-search`, `board-review`.

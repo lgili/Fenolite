@@ -1,0 +1,367 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.result.panel.v1",
+  "title": "PanelResult",
+  "type": "object",
+  "properties": {
+    "plan": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolPlan"
+      }
+    },
+    "plan_id": {
+      "type": "string"
+    },
+    "issues_summary": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolIssueSummary"
+      }
+    },
+    "recovery": {
+      "$ref": "#/$defs/ProtocolRecovery"
+    },
+    "page": {
+      "$ref": "#/$defs/ProtocolPage"
+    },
+    "board": {
+      "type": "string"
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PanelFilesItem"
+      }
+    },
+    "name": {
+      "type": "string"
+    },
+    "out": {
+      "type": "string"
+    },
+    "panel": {
+      "$ref": "#/$defs/PanelPanel"
+    },
+    "script_output": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "PanelFilesItem": {
+      "type": "object",
+      "properties": {
+        "bytes": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "bytes",
+        "name"
+      ]
+    },
+    "PanelPanel": {
+      "type": "object",
+      "properties": {
+        "cols": {
+          "type": "integer"
+        },
+        "copies": {
+          "type": "integer"
+        },
+        "form": {
+          "type": "string"
+        },
+        "items": {
+          "$ref": "#/$defs/PanelPanelItems"
+        },
+        "pour": {
+          "$ref": "#/$defs/PanelPanelPour"
+        },
+        "rotation": {
+          "type": "integer"
+        },
+        "rows": {
+          "type": "integer"
+        },
+        "score_layer": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "separations": {
+          "$ref": "#/$defs/PanelPanelSeparations"
+        },
+        "size": {
+          "$ref": "#/$defs/PanelPanelSize"
+        },
+        "target": {
+          "type": "string"
+        },
+        "unused": {
+          "$ref": "#/$defs/PanelPanelUnused"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "cols",
+        "copies",
+        "form",
+        "items",
+        "rotation",
+        "rows",
+        "score_layer",
+        "separations",
+        "size",
+        "target",
+        "unused"
+      ]
+    },
+    "PanelPanelItems": {
+      "type": "object",
+      "properties": {
+        "fiducials": {
+          "type": "integer"
+        },
+        "mouse_bite_holes": {
+          "type": "integer"
+        },
+        "mouse_bite_rows": {
+          "type": "integer"
+        },
+        "score_lines": {
+          "type": "integer"
+        },
+        "tabs": {
+          "type": "integer"
+        },
+        "tooling_holes": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "fiducials",
+        "mouse_bite_holes",
+        "mouse_bite_rows",
+        "score_lines",
+        "tabs",
+        "tooling_holes"
+      ]
+    },
+    "PanelPanelPour": {
+      "type": "object",
+      "properties": {
+        "evidence": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hypotheses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "mode": {
+          "type": "string"
+        },
+        "poured": {
+          "type": "integer"
+        },
+        "unpoured": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "evidence",
+        "hypotheses",
+        "mode",
+        "poured",
+        "unpoured"
+      ]
+    },
+    "PanelPanelSeparations": {
+      "type": "object",
+      "properties": {
+        "columns": {
+          "type": "string"
+        },
+        "rails": {
+          "type": "string"
+        },
+        "rows": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "columns",
+        "rails",
+        "rows"
+      ]
+    },
+    "PanelPanelSize": {
+      "type": "object",
+      "properties": {
+        "h": {
+          "type": "integer"
+        },
+        "w": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "h",
+        "w"
+      ]
+    },
+    "PanelPanelUnused": {
+      "type": "object",
+      "properties": {
+        "h": {
+          "type": "integer"
+        },
+        "w": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "h",
+        "w"
+      ]
+    },
+    "ProtocolIssueSummary": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "by_severity": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "counts indexed by severity"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "count",
+        "by_severity"
+      ]
+    },
+    "ProtocolPage": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "next": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "limit",
+        "offset",
+        "total",
+        "next"
+      ]
+    },
+    "ProtocolPlan": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "overwrite": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "kind",
+        "bytes",
+        "sha256",
+        "overwrite"
+      ]
+    },
+    "ProtocolRecovery": {
+      "type": "object",
+      "properties": {
+        "failed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "preserved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "failed",
+        "preserved"
+      ]
+    }
+  }
+}

@@ -62,7 +62,7 @@ FOLLOW_UPS = (
 """What "Follow-ups found on 2026-10-08" must name."""
 NOT_IN_RELEASE = ("c0151", "c0092")
 RUN = re.compile(r"https://github\.com/[\w.-]+/[\w.-]+/actions/runs/\d+")
-TASK = re.compile(r"^- \[( |x)\] (\d+\.\d+|[A-Z]\d+)\b", re.MULTILINE)
+TASK = re.compile(r"^- \[( |x)\] (\d+\.\d+[a-z]?|[A-Z]\d+)\b", re.MULTILINE)
 
 
 def section(text: str, title: str) -> str:
@@ -351,8 +351,14 @@ def test_missing_change_proof_and_job_are_named() -> None:
     assert "c0145: no job 'kicad-11' in ci.yml" in check(with_cell(text, "c0145", "job", "kicad-11"))
 
 
-def test_open_task_must_be_named() -> None:
-    """Scenario "An open task not named"."""
+def test_open_task_must_be_named(tmp_path, monkeypatch) -> None:
+    """Scenario "An open task not named", independent of historical tasks completing later."""
+    fixture = tmp_path / "tasks.md"
+    fixture.write_text("- [ ] 4.2 Authored open task\n- [ ] 4.3 Another open task\n", encoding="utf-8")
+    original = tasks_file
+    monkeypatch.setitem(
+        globals(), "tasks_file", lambda change: fixture if change == "c0081" else original(change)
+    )
     text = with_cell(record(), "c0081", "open", "4.3")
     assert "c0081: task 4.2 is open and not named" in check(text)
     assert "c0081: 9.9 is not a task of its tasks.md" in check(
@@ -451,3 +457,16 @@ def test_roadmap_names_the_release() -> None:
     problems = roadmap_problems(stale)
     assert "roadmap: the row of v0.4 still says 'not on `dev`'" in problems
     assert f"roadmap: the row of v0.4 does not name {RELEASED}" in problems
+
+
+def test_task_parser_keeps_suffixed_continuation_ids(tmp_path, monkeypatch) -> None:
+    """An authored continuation must not disappear merely because it has a letter suffix."""
+    fixture = tmp_path / "tasks.md"
+    fixture.write_text("- [ ] 3.4a Native comparison\n- [x] 3.4b Measured proof\n", encoding="utf-8")
+    monkeypatch.setitem(globals(), "tasks_file", lambda change: fixture)
+    assert tasks("c9999") == {"3.4a": False, "3.4b": True}
+
+    hidden = {**rows(record())[0], "change": "c9999", "open": "—"}
+    problems = row_problems(record(), hidden, jobs(WORKFLOW.read_text(encoding="utf-8")))
+    assert "c9999: task 3.4a is open and not named" in problems
+    assert "c9999: task 3.4b is open and not named" not in problems

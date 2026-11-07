@@ -1,0 +1,106 @@
+{
+  "source": "S-1300",
+  "native_version": "Altium Designer24.5.2.23",
+  "scope": "Four corrected FULL/REPEAT projects: native save to new copies, close/reopen all ten schematic documents, compile and complete export. ASCII-origin inputs are saved natively as binary.",
+  "procedure": "RunC0276SaveReopenBatch",
+  "SDK_source_sha256": "107c696afd84b290305b9064107ad30e6b5a60b1fb74114e12ca51b6d022e01e",
+  "SDK_project_sha256": "156410a3d233cb45737fa7f8c2987205f5db3672e5043c796d61fcc0aa44f457",
+  "collection_manifest_sha256": "4a2d46c415f7bee41a9f4bcd59b09fc09a2deff12b1de955d335de6c41ee27a8",
+  "complete_memory_proof_sha256": "a42b565d28e498787860a6c88b9ec855fa7c04386c8dc561845ab04bde6c5c3e",
+  "closed_collected_files": 84,
+  "native_saved_schematic_count": 10,
+  "all_reads_exclusive": true,
+  "staged_116_files_unchanged": true,
+  "original_memory_126_files_unchanged": true,
+  "comparison_contract": "Byte-for-byte equality of every complete raw messages/pins/net-object export with the source-bound memory proof, including generated names, empty bus metadata and source-open U1-32. No filtering, normalization or net-scope/ERC changes.",
+  "native_invocation": "Single guarded Windows keyboard invocation after all116 staged hashes; exact owned procedure keyboard focus and OK enabled. Previous UIA selection attempt did not invoke SDK. Temporary operator task definition removed before its input permit.",
+  "remaining_gates": "Full c0276 aggregate fixture acceptance, current CI/census and any separate original task requirements remain; no aggregate H-A-DRAWN-WRITE promotion. FULL current24 baseline acquisition postdates initial code preparation, as recorded in the memory proof.",
+  "cases": [
+    {
+      "case": "full-corrected-binary",
+      "canonical_pins": 40,
+      "canonical_groups": 32,
+      "all_three_raw_exports_byte_identical_to_complete_memory_proof": true,
+      "complete_physical_pin_universe_and_net_objects_preserved": true,
+      "all_declared_and_generated_names_preserved": true,
+      "native_exports": {
+        "messages.txt": "ca55a1941df78a29d89b3f4e1a2eeb009136cbe75294492e706b4aca85d16258",
+        "pins.tsv": "a45a23756d1e7d9c91ebbd1f4ddcd973e7a1f3102d65f57394e9e81a6f070453",
+        "nets.tsv": "8083724dcea67c46ff8377426d495729d289e9f327c0674fb78d305d74da58ab"
+      },
+      "native_saved_documents": {
+        "drawn_full.SchDoc": "248aeb4080e390ac4f4e81e60ecf2ae878637c12e23d431ab2e843f3a892c01c",
+        "drawn_full_drawn_VQKTWNLP.SchDoc": "b153fa3a147af1bcef783c607fc2041669bf79d80b9f3b0e2281f8dc911d4ce4"
+      },
+      "native_messages": [
+        "[Info]|Compile successful, no errors found.|Compiler",
+        "end of messages"
+      ]
+    },
+    {
+      "case": "full-corrected-ascii",
+      "canonical_pins": 40,
+      "canonical_groups": 32,
+      "all_three_raw_exports_byte_identical_to_complete_memory_proof": true,
+      "complete_physical_pin_universe_and_net_objects_preserved": true,
+      "all_declared_and_generated_names_preserved": true,
+      "native_exports": {
+        "messages.txt": "ca55a1941df78a29d89b3f4e1a2eeb009136cbe75294492e706b4aca85d16258",
+        "pins.tsv": "a45a23756d1e7d9c91ebbd1f4ddcd973e7a1f3102d65f57394e9e81a6f070453",
+        "nets.tsv": "8083724dcea67c46ff8377426d495729d289e9f327c0674fb78d305d74da58ab"
+      },
+      "native_saved_documents": {
+        "drawn_full.SchDoc": "d15406ea73ea829dba6ea1f0c3b158285e9582b271627ddac534db40bb8caa9e",
+        "drawn_full_drawn_VQKTWNLP.SchDoc": "3e582a03f1b244f30a590f63a96aac562c784bd32e460df4bdff6e9925e34369"
+      },
+      "native_messages": [
+        "[Info]|Compile successful, no errors found.|Compiler",
+        "end of messages"
+      ]
+    },
+    {
+      "case": "repeat-canonical-binary",
+      "canonical_pins": 8,
+      "canonical_groups": 5,
+      "all_three_raw_exports_byte_identical_to_complete_memory_proof": true,
+      "complete_physical_pin_universe_and_net_objects_preserved": true,
+      "all_declared_and_generated_names_preserved": true,
+      "native_exports": {
+        "messages.txt": "ca55a1941df78a29d89b3f4e1a2eeb009136cbe75294492e706b4aca85d16258",
+        "pins.tsv": "0cdeacb34dd1eb4590847e36b2239babb1697be77d502b7ed2dcc62525149bbf",
+        "nets.tsv": "959b8680044db41a7c7a0668fca1d92c54519781f7148de08a19f0716ff4cf5c"
+      },
+      "native_saved_documents": {
+        "drawn_repeat.SchDoc": "9164705186d69f1a7425dbd0bacbe6e95e353324d91c23eb84d3127cb037e13b",
+        "drawn_repeat_drawn_EVKKEYCV.SchDoc": "859c806a2982f4d7283c665226ff876289a037c7d3d33222b27ca473ec8b56d3",
+        "drawn_repeat_drawn_FKEFGCYI.SchDoc": "44d48c215613b8f2f2d5c0744833dc6cb93dbbccd0637d19242da8d308bde8c9"
+      },
+      "native_messages": [
+        "[Info]|Compile successful, no errors found.|Compiler",
+        "end of messages"
+      ]
+    },
+    {
+      "case": "repeat-canonical-ascii",
+      "canonical_pins": 8,
+      "canonical_groups": 5,
+      "all_three_raw_exports_byte_identical_to_complete_memory_proof": true,
+      "complete_physical_pin_universe_and_net_objects_preserved": true,
+      "all_declared_and_generated_names_preserved": true,
+      "native_exports": {
+        "messages.txt": "ca55a1941df78a29d89b3f4e1a2eeb009136cbe75294492e706b4aca85d16258",
+        "pins.tsv": "0cdeacb34dd1eb4590847e36b2239babb1697be77d502b7ed2dcc62525149bbf",
+        "nets.tsv": "959b8680044db41a7c7a0668fca1d92c54519781f7148de08a19f0716ff4cf5c"
+      },
+      "native_saved_documents": {
+        "drawn_repeat.SchDoc": "40b7a2fd62fd3a60c0b57bf4b9eb95b72c8bf3f85d14996146a238f67f4b4927",
+        "drawn_repeat_drawn_EVKKEYCV.SchDoc": "bd17ff00e39cb08bb76170b086a1f2cdc6ac0045375b562d6c32e4e94b08bad0",
+        "drawn_repeat_drawn_FKEFGCYI.SchDoc": "6ea398c3926e2d7f0bce3d3beef94f6d9552076ff743a7d24b50511253b0710a"
+      },
+      "native_messages": [
+        "[Info]|Compile successful, no errors found.|Compiler",
+        "end of messages"
+      ]
+    }
+  ]
+}

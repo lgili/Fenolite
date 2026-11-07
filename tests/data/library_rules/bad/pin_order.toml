@@ -1,0 +1,66 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as synthetic test data (change c0385); no real product.
+# Six leads in two rows, pad 1 at the upper left but numbered clockwise in the top view: the mirror image
+# of a counter-clockwise land. Only library.pin-order fires.
+schema = "fenolite.package.v0"
+id = "Bad:PinOrder"
+version = "1.0.0"
+summary = "Synthetic clockwise land"
+licence = "CC0-1.0"
+evidence = "INFERRED"
+generator = "explicit"
+kind = "smd"
+
+[[pad]]
+number = "1"
+shape = "rect"
+size = ["0.6mm", "1mm"]
+at = ["-0.95mm", "-1.1mm"]
+layers = ["F.Cu"]
+
+[[pad]]
+number = "2"
+shape = "rect"
+size = ["0.6mm", "1mm"]
+at = ["0mm", "-1.1mm"]
+layers = ["F.Cu"]
+
+[[pad]]
+number = "3"
+shape = "rect"
+size = ["0.6mm", "1mm"]
+at = ["0.95mm", "-1.1mm"]
+layers = ["F.Cu"]
+
+[[pad]]
+number = "4"
+shape = "rect"
+size = ["0.6mm", "1mm"]
+at = ["0.95mm", "1.1mm"]
+layers = ["F.Cu"]
+
+[[pad]]
+number = "5"
+shape = "rect"
+size = ["0.6mm", "1mm"]
+at = ["0mm", "1.1mm"]
+layers = ["F.Cu"]
+
+[[pad]]
+number = "6"
+shape = "rect"
+size = ["0.6mm", "1mm"]
+at = ["-0.95mm", "1.1mm"]
+layers = ["F.Cu"]
+
+[[graphic]]
+kind = "rect"
+layer = "F.CrtYd"
+points = [["-1.6mm", "-2mm"], ["1.6mm", "2mm"]]
+width = "0.05mm"
+
+[[graphic]]
+kind = "line"
+layer = "F.Fab"
+points = [["-1.45mm", "-1.6mm"], ["-1.45mm", "-1.1mm"]]
+width = "0.05mm"

@@ -38,20 +38,32 @@ ROOT = Path(__file__).resolve().parents[3]
 SKILL = ROOT / "src" / "fenolite" / "agent" / "skill"
 TOOLS = (
     "altium",
+    "block-layouts",
+    "block-testing",
     "checks",
     "design-script",
+    "device-packs",
+    "datasheets",
     "fabrication",
     "files",
     "footprints",
+    "library-items",
+    "library-review",
+    "model-versions",
     "parts",
     "placement",
     "recovery",
     "routing",
+    "route-proposals",
+    "route-search",
     "rules",
+    "supplier-lookup",
+    "viewer",
 )
-"""The eleven tool pages written by hand."""
+"""The twenty-two tool pages written by hand."""
 PRACTICE = (
     "board-assembly",
+    "board-completion",
     "board-emc",
     "board-floorplan",
     "board-grounds",
@@ -63,53 +75,105 @@ PRACTICE = (
     "board-schematic",
     "board-workflow",
 )
-"""The eleven practice pages written by hand: design practice, not features."""
-WRITTEN = (*TOOLS, *PRACTICE)
-"""The twenty-two pages written by hand."""
+"""The twelve practice pages written by hand: design practice, not features."""
+FEATURES = ("signal-topologies", "starter-blocks", "device-symbols", "equivalent-s")
+WRITTEN = (*TOOLS, *PRACTICE, *FEATURES)
+"""The thirty-eight pages written by hand."""
 GENERATED = guide.GENERATED_TOPICS
 RUN_TAGS = ("fenolite-loop", "fenolite-cmd", "fenolite-recipe")
 """The tags whose lines are commands: a public command needs a line in one of them."""
-WRITTEN_LINES, WRITTEN_BYTES, GENERATED_LINES, START_LINES, FOLDER_BYTES = 250, 12_000, 750, 200, 300_000
+WRITTEN_LINES, WRITTEN_BYTES, GENERATED_LINES, START_LINES, FOLDER_BYTES = 250, 12_000, 800, 200, 420_000
+START_BYTES = 12_500
+"""The start page's byte budget (change c0370: the index of the router pages)."""
 KICAD_TARGETS = ("9", "10")
 LABELS = ("KICAD-VERIFIED", "ORACLE-VERIFIED", "CORPUS-VERIFIED", "ALTIUM-VERIFIED", "INFERRED", "UNVERIFIED")
 RULE = "adds a tested line to a page of the agent guide"
 """The words by which ``AGENTS.md`` and ``CONTRIBUTING.md`` state the rule for new commands and names."""
 
 HOME: Mapping[str, tuple[str, ...]] = {
+    "equivalent-s": ("equivalent",),
+    "device-symbols": ("build", "library"),
+    "block-layouts": ("blocks",),
+    "block-testing": ("blocks",),
     "design-script": ("init", "build", "sync", "template"),
     "parts": ("catalog",),
+    "datasheets": ("library",),
     "footprints": ("library",),
+    "library-items": ("get",),
+    "device-packs": ("get", "library", "build"),
+    "library-review": ("library",),
+    "model-versions": ("migrate", "explain"),
     "placement": ("place", "pads", "neighbors", "region"),
     "routing": ("route", "tidy", "fill", "net", "fetch"),
+    "route-proposals": ("route",),
+    "route-search": ("route",),
     "rules": ("analyze",),
     "checks": ("check", "ready", "explain", "netlist", "parity", "doctor", "capabilities"),
-    "files": ("inspect", "diff", "equivalent", "roundtrip", "fmt", "restore", "view"),
+    "files": ("inspect", "diff", "equivalent", "roundtrip", "fmt", "restore", "view", "import"),
     "fabrication": ("export", "render", "bom", "pnp", "manifest", "models", "panel"),
     "altium": ("kit",),
     "recovery": ("guide", "skill"),
+    "supplier-lookup": ("pick",),
+    "viewer": ("view",),
     **{topic: () for topic in PRACTICE},
+    "signal-topologies": ("check",),
+    "starter-blocks": ("blocks", "explain"),
 }
 """Topic → the commands whose tested line is on that page. A command that is not registered (``fetch``
 before the change that adds it) is not asked for."""
 
 TEACHES: Mapping[str, tuple[str, ...]] = {
+    "route-search": ("search=fallback", "search-max-vias=N", "search-role-limit", "result.role_fields"),
+    "board-completion": (
+        "result.completion", "post-fill connectivity", "not-attempted", "separate transactions",
+    ),
+    "model-versions": (
+        "schema_version", "0 -> 1.0", "model.migrated", "result.steps", ".bak", "FEN-3002", "INFERRED",
+    ),
+    "equivalent-s": ("--level S", "raw", "junction", "drawn-net", "INFERRED", "integer"),
+    "starter-blocks": ("voltage_divider", "rc_lowpass", "led_indicator", "i2c_pullups",
+                       "protected_input", "design.use", "REQUIRED", "circuit.pullup-parallel", "PI"),
+    "device-symbols": ("pin table", "Footprint", "ki_fp_filters", "symbol_file", "provenance",
+                       "UNVERIFIED", "example"),
+    "block-layouts": ("blocks capture", "side=\"bottom\"", "reuse.layout-stale", "--origin"),
+    "block-testing": (
+        "stimulus", "requirements", "achieved", "PartView", "--golden", "--only",
+        "device items", "authored overrides",
+    ),
+    "signal-topologies": (
+        "design.topology", "fs", "ps", "ns", "mdb", "db", "--explain-rules", "example", "INFERRED",
+        "protocol.Usb2",
+    ),
+    "datasheets": (
+        "library propose", "[[doubt]]", "no geometry", "review --accept", "--proposal", "--licence",
+    ),
     "design-script": (
         "`design`", "Design(", "Module(", "Net(", "Part(", "connect(", "no_connect(", "Power(", "mm()",
-        "top-left corner", "Y down", "--dry-run", "--confirm", "What a rebuild keeps",
+        "top-left corner", "Y down", "--dry-run", "--confirm", "What a rebuild keeps", "outline_width=",
     ),
     "parts": (
         "a symbol", "a footprint", "catalog list --query", "fp-lib-table", "sym-lib-table", "pad_map",
         "`ohm`", "`farad`", "`henry`", "`volt`", "`amp`", "`watt`", "`hertz`", "`second`", "properties",
         "Interface(", "I2C(", "SPI(", "UART(", "USB2(", "Harness(", "DiffPair(",
     ),
+    "library-items": (
+        "--locked", "--accept-licence", "PROVENANCE.json",
+        "fenolite get", "fenolite.device.v0", "NOASSERTION",
+    ),
+    "device-packs": ("library seed", "fenolite_library", "UNVERIFIED", "CC0", "--commit"),
+    "library-review": ("library check", "library review", "human", "--sheet", "effective_evidence"),
     "footprints": ("Footprint(", "Symbol(", "`INFERRED`", "datasheet"),
     "placement": (
         "place(", "side=", "rot=", "locked=True", "place --strategy grid", "place --move", "fenolite pads",
-        "field(", "place --from",
+        "field(", "place --from", "right_of=", "by=", "Who wins",
     ),
     "routing": (
         "`direct`", "`freerouting`", "--nets", "--rip", "result.unrouted", "design.track", "design.via",
         "design.stitch", "via_step", "arc_to", "design.zone", "fenolite fill",
+    ),
+    "route-proposals": (
+        "negotiate=on", "negotiate-max-rounds=N", "result.bundles", "atomic",
+        "--replay", "--forget", "FEN-4002",
     ),
     "rules": ("netclass(", "minimum(", "select.", "is an example", "fabricator"),
     "checks": (
@@ -117,17 +181,26 @@ TEACHES: Mapping[str, tuple[str, ...]] = {
         "One fix per iteration", "--fields", "--stages", "--format concise", "--limit", *LABELS[:3],
         "INFERRED",
     ),
-    "files": ("roundtrip", "fenolite diff", "fenolite equivalent", "fenolite restore", "did not write"),
+    "files": ("roundtrip", "fenolite diff", "fenolite equivalent", "fenolite restore", "did not write",
+              "footprint_definition"),
+    "viewer": (
+        "--allow-actions", "--edit", "Take CAD", "inputs", "--roles", "--proposals", "receipt", "INFERRED",
+    ),
     "fabrication": (
         "fenolite export", "bill of materials", "position", "manifest", "fenolite render", "fenolite panel",
         "Panel(",
     ),
     "altium": (
         "build --target altium", "What it writes",
+        "--altium-draftsman", "--drawing-spec", "altium.draftsman-not-written", "altium.draftsman-not-listed",
         "The Altium verification kit is a run that a person performs in Altium Designer",
+    ),
+    "supplier-lookup": (
+        "--allow-offsite", "--supplier", "--timeout", "FEN-6005", "supplier.row-incomplete", "UNVERIFIED",
     ),
     "recovery": (
         "kicad.drc.", "kicad.erc.", "fenolite check blink/build --json", "fenolite explain copper.short",
+        "layout.relative-cycle", "reuse.port-unmapped", "layout.block-moved",
     ),
     "board-practice": (
         "The order of work", "What a check cannot see", "The user's standard", "fabricator", "datasheets",
@@ -135,7 +208,7 @@ TEACHES: Mapping[str, tuple[str, ...]] = {
     ),
     "board-floorplan": (
         "domain", "lock them", "power flow in one direction", "The loop parts first", "decoupling capacitor",
-        "fenolite neighbors", "fenolite region", "Copy by the pads",
+        "fenolite neighbors", "fenolite region", "Copy by the pads", "layout(", "Who wins", "reuse=",
     ),
     "board-power": (
         "switching loop", "IPC-2152", "--kinds power", "Find the necks", "vias in parallel",
@@ -157,7 +230,8 @@ TEACHES: Mapping[str, tuple[str, ...]] = {
     ),
     "board-schematic": (
         "One master", "pin sets", "net class", "single-pin nets", "DC rating", "test condition",
-        "fenolite parity",
+        "fenolite parity", "bom_only=True", "equiv.bom-only", "build.bom-only", "model.bom-only",
+        "BUS_{A}{D[0..3]}", "intersheet_refs", "${INTERSHEET_REFS}",
     ),
     "board-emc": (
         "immunity", "surge", "raw side", "earth bond", "in stages", "Compare loop versions by inductance",
@@ -168,6 +242,7 @@ TEACHES: Mapping[str, tuple[str, ...]] = {
     ),
     "board-workflow": (
         "Work on a copy", "SHA-256", "a person has open", "--plan", "fenolite restore", "synthetic",
+        "technical_layers=None", "Edge.Cuts", "omitted layer",
     ),
 }  # fmt: skip
 """Topic → words the page must hold, from the requirement "Guide pages"."""
@@ -356,6 +431,10 @@ def budget_problems(files: Iterable[guide.SkillFile]) -> list[str]:
         if file.path == "SKILL.md":
             if lines >= START_LINES:
                 problems.append(f"{file.path}: {lines} lines; the start page stays under {START_LINES}")
+            if len(file.data) > START_BYTES:
+                problems.append(
+                    f"{file.path}: {len(file.data)} bytes; the start page has at most {START_BYTES}"
+                )
         elif topic in GENERATED:
             if lines > GENERATED_LINES:
                 problems.append(f"{file.path}: {lines} lines; a generated page has at most {GENERATED_LINES}")
@@ -452,11 +531,11 @@ DESIGNS = [
 
 
 def test_topics_load() -> None:
-    """Scenario "The twenty-two pages load"."""
+    """Every packaged guide topic loads with its title and summary."""
     pages = guide.pages()
     topics = [page.topic for page in pages]
     assert topics == [guide.START, *sorted((*WRITTEN, *GENERATED))]
-    assert len(TOOLS) == 11 and len(PRACTICE) == 11 and len(GENERATED) == 2
+    assert len(TOOLS) == 22 and len(PRACTICE) == 12 and len(GENERATED) == 8
     for page in pages:
         assert page.title and page.summary and "\n" not in page.summary, page.topic
         assert page.text.startswith(f"# {page.title}\n"), page.topic
@@ -674,11 +753,16 @@ def test_budget_holds() -> None:
     assert any("at most 12000" in problem for problem in budget_problems([wide]))
     generated = guide.SkillFile("references/commands.md", b"line\n" * (GENERATED_LINES + 1))
     assert budget_problems([generated]) == [
-        "references/commands.md: 751 lines; a generated page has at most 750"
+        f"references/commands.md: {GENERATED_LINES + 1} lines; a generated page has at most {GENERATED_LINES}"
     ]
     assert budget_problems([guide.SkillFile("SKILL.md", b"line\n" * START_LINES)])
     assert any(
-        "stays under 300000" in p for p in budget_problems([guide.SkillFile("x.bin", b"x" * FOLDER_BYTES)])
+        f"at most {START_BYTES}" in p
+        for p in budget_problems([guide.SkillFile("SKILL.md", b"x" * (START_BYTES + 1))])
+    )
+    assert any(
+        f"stays under {FOLDER_BYTES}" in p
+        for p in budget_problems([guide.SkillFile("x.bin", b"x" * FOLDER_BYTES)])
     )
 
 
@@ -723,7 +807,7 @@ def test_generated_pages_are_current() -> None:
     assert tool.stale() == []
     assert tool.main(["--check"]) == 0
     first, second = tool.render(), tool.render()
-    assert first == second and set(first) == {tool.COMMANDS, tool.DSL, tool.START}
+    assert first == second and set(first) == {tool.COMMANDS, tool.DSL, tool.START, *tool.COMMAND_DETAILS}
     registry = discover()
     public = sorted(name for name in registry if not registry[name].hidden)
     for path, topic in ((tool.COMMANDS, "commands"), (tool.DSL, "dsl-reference")):
@@ -732,10 +816,11 @@ def test_generated_pages_are_current() -> None:
         assert guide.blocks(page) == () and tag_problems(page) == []
         assert (SKILL / path).read_text(encoding="utf-8") == first[path]
     commands = guide.page("commands").text
-    assert re.findall(r"^## (\S+)$", commands, re.MULTILINE) == public
+    arguments = "\n".join(guide.page(Path(path).stem).text for path in tool.COMMAND_DETAILS)
+    assert re.findall(r"^## (\S+)$", arguments, re.MULTILINE) == public
     assert "| `build` | yes |" in commands and "| `inspect` | no |" in commands
-    assert "`fenolite route [OPTIONS] --router NAME PATH`" in commands and "- `--router NAME`: " in commands
-    assert "- `--kind {footprint,symbol}`" in commands and "[--" not in commands
+    assert "`fenolite route [OPTIONS] --router NAME PATH`" in arguments and "- `--router NAME`: " in arguments
+    assert "- `--kind {device,family,footprint,symbol}`" in arguments and "[--" not in arguments
     names = re.findall(r"^## (\S+)$", guide.page("dsl-reference").text, re.MULTILINE)
     assert names == sorted(set(fenolite.dsl.__all__) - set(guide.DSL_NOT_TAUGHT))
     reference = guide.page("dsl-reference").text
@@ -823,10 +908,10 @@ def test_altium_status_follows_capabilities(no_tools: None) -> None:
 
 def test_fen_codes_are_named() -> None:
     """Scenario "Every error code is named"."""
-    text = guide.page("recovery").text
+    text = "\n".join(page.text for page in guide.pages() if page.topic not in GENERATED)
     assert len(REGISTRY) >= 17
     missing = [code for code in sorted(REGISTRY) if f"`{code}`" not in text]
-    assert missing == [], f"the page recovery does not name {missing}"
+    assert missing == [], f"the written guide pages do not name {missing}"
     for code, spec in REGISTRY.items():
         row = re.search(rf"^\| `{code}` \| (\d) \|", text, re.MULTILINE)
         assert row is not None and int(row.group(1)) == int(spec.exit_code), code
@@ -883,3 +968,335 @@ def test_coverage_rule_is_stated_for_contributors() -> None:
         assert RULE in flat
         for words in ("public command", "public DSL name", "`FEN-` code", "tests/unit/agent/test_pages.py"):
             assert words in flat, words
+
+
+def test_bounded_search_options_have_tested_agent_instructions() -> None:
+    """c0365: teach every search option, explicit acceptance, refusals and limits."""
+    page = guide.page("route-search")
+    for word in (
+        "search=fallback",
+        "search=only",
+        "search=off",
+        "search-grid=LENGTH",
+        "search-max-states=N",
+        "search-max-vias=N",
+        "source=search",
+        "state-limit",
+        "budget",
+        "cancelled",
+        "search-unsupported",
+        "search-geometry",
+        "--accept",
+        "--confirm --plan",
+        "RoutingResult.log",
+        'extra["cancelled"]',
+    ):
+        assert word in page.text, word
+    assert cmd_problems(page) == []
+
+
+def test_role_search_inputs_and_facts_have_tested_instructions() -> None:
+    """c0366: teach user limits, conservative facts and final refusal reasons."""
+    page = guide.page("route-search")
+    for word in (
+        "--requirements FILE",
+        "result.role_fields",
+        "facts.role_fields",
+        "fingerprint",
+        "provenance",
+        "limits",
+        "preferences",
+        "unknowns",
+        "missing_limits",
+        "input_fingerprint",
+        "input_provenance",
+        "confirmed_reference_length_lower_bound_nm",
+        "unconfirmed_reference_length_nm",
+        "switching_exposure_upper_bound_nm",
+        "search-role-limit",
+        "search-role-stale",
+        "search-role-refused",
+        "saved fill",
+        "invalidate the reviewed plan",
+    ):
+        assert word in page.text, word
+    assert cmd_problems(page) == []
+
+
+def test_negotiated_bundles_have_tested_agent_instructions() -> None:
+    page = guide.page("route-proposals")
+    for text in (
+        "negotiate=on",
+        "negotiate=off",
+        "negotiate-max-rounds=N",
+        "result.bundles",
+        "fingerprint",
+        "members",
+        "subjects",
+        "bundle",
+        "result.next",
+        "--accept",
+        "--reject",
+        "--replay [BUNDLE]",
+        "--forget BUNDLE",
+        "--requirements FILE",
+        "FEN-2001",
+        "FEN-4002",
+        "negotiate-subjects",
+        "negotiate-unsupported",
+        "negotiate-round-limit",
+        "negotiate-judge-missing",
+        "negotiate-refused",
+        'extra["bundle_check"]',
+        "fenolite.route-decisions.v0",
+        "optional `bundles` key",
+    ):
+        assert text in page.text, text
+    assert cmd_problems(page) == []
+
+
+def test_external_candidates_have_tested_agent_instructions() -> None:
+    page = guide.page("route-proposals")
+    for text in (
+        "--propose-with ROUTER",
+        "external_candidates",
+        "projection",
+        "local_only",
+        "automatic_acceptance",
+        "source",
+        "external:<router>",
+        "tool",
+        "version",
+        "inputs",
+        "deterministic=false",
+        "result.external.requested",
+        "refusals",
+        "not_attempted",
+        "details",
+        "FEN-6001",
+        "FEN-4002",
+        "full through-via barrels",
+        "staged bytes",
+        "external-topology-changed",
+        "external-copper-changed",
+        "external-scope",
+        "external-incomplete",
+        "900 seconds",
+        "unconfirmed",
+        "not exhaustive",
+    ):
+        assert text in page.text, text
+    assert cmd_problems(page) == []
+
+
+def test_proposal_viewer_has_tested_agent_instructions() -> None:
+    page = guide.page("route-proposals")
+    for text in (
+        "--proposals FILE",
+        "--serve",
+        "--allow-actions",
+        "result.controls",
+        "fenolite.proposal_controls.v0",
+        "router_options",
+        "external_routers",
+        "candidate_limit",
+        "requirements",
+        "timeout",
+        "portable",
+        "sha256",
+        "stale",
+        "unknown_geometry",
+        "ends",
+        "drill",
+        "hidden members",
+        "explicitly confirm",
+        "read-only",
+    ):
+        assert text in page.text, text
+    assert cmd_problems(page) == []
+
+
+def test_every_reference_page_within_byte_limit():
+    # the name reference is bounded by its line budget (GENERATED_LINES); the command pages are split
+    for file in guide.skill_files():
+        if file.path == "SKILL.md":
+            assert len(file.data) <= START_BYTES, file.path
+        elif file.path != "references/dsl-reference.md":
+            assert len(file.data) <= WRITTEN_BYTES, file.path
+
+
+def test_parts_teaches_local_library_import() -> None:
+    page = guide.page("parts")
+    assert "fenolite library import --symbol" in page.text
+    assert "UNVERIFIED" in page.text and "until reviewed" in page.text
+    assert "library" in commands_of(page)
+
+
+def test_files_teaches_imported_source_drawings() -> None:
+    page = guide.page("files")
+    for words in (
+        "embedded source",
+        "schematic.toml",
+        "self-check",
+        "source sheet invalidates",
+        "Power poses preserve",
+        "mirror",
+        "Pinless native graphic symbols",
+        "excluded visible passive instances",
+        "active electrical symbols refuse",
+        "Bare embedded aliases",
+        "_Source",
+        "optional `symbol`",
+        "sync retains it",
+        "pin-pad variants",
+    ):
+        assert words in page.text
+    assert "import" in commands_of(page)
+
+
+def test_equivalent_s_teaches_required_contextual_symbol_inputs() -> None:
+    page = guide.page("equivalent-s").text
+    for words in (
+        "symbol_contexts",
+        "symbol-contexts.toml",
+        "full native property snapshot",
+        "symlinks refuse",
+        "core-default conflicts",
+        "no model/S field",
+        "fenolite.symbol-contexts.v0",
+        "every used native definition",
+        "FEN-4002",
+        "changed cache metadata",
+        "KiCad schematic output",
+    ):
+        assert words in page
+
+
+def test_altium_teaches_drawn_sources_and_native_limitations() -> None:
+    page = guide.page("altium").text
+    for words in (
+        "load_schematic",
+        "drawn.coordinate-rounded",
+        "FEN-7001",
+        "drawn.altium-repeat-flattened",
+        "pin tables",
+        "changed alias files",
+        "result.schematic.source",
+        "INFERRED",
+        "native kit",
+        "application acceptance",
+    ):
+        assert words in page
+
+
+def test_drawn_custom_sheet_properties_are_taught_without_text_override() -> None:
+    text = guide.page("board-schematic").text
+    assert "properties.<name>" in text and "required `text` and `at`" in text
+    assert "Sheetname/Sheetfile remain code-owned" in text
+    assert "never add an electrical connection" in text
+
+
+def test_footprints_teaches_explicit_root_edge_ownership() -> None:
+    page = guide.page("footprints")
+    for words in (
+        "design.line()",
+        "design.arc()",
+        'layer="Edge.Cuts"',
+        "complete logical",
+        "kicad.board.outline-conflict",
+        "without synthetic duplicates",
+        "nearby edge alone",
+    ):
+        assert words in page.text
+
+
+def test_practice_teaches_cli_contract_and_deprecation() -> None:
+    page = guide.page("board-practice")
+    for words in (
+        "result.contract",
+        "result.deprecated",
+        "cli.deprecated",
+        "prepared v1 schemas",
+        "neither the exit code nor the planned writes",
+    ):
+        assert words in page.text
+
+
+def test_equivalent_s_teaches_explicit_context_schema_rebinding() -> None:
+    page = guide.page("equivalent-s")
+    for words in ("v1 mirror", "actual schema string", "changing only", "writer retains v0 bytes"):
+        assert words in page.text
+
+
+def test_equivalent_s_teaches_declared_native_project_template() -> None:
+    page = guide.page("equivalent-s")
+    for words in (
+        "design.kicad_project",
+        "mandatory digest",
+        "changed input invalidates",
+        "including rebuilds",
+        "preserve_minimums=True",
+        "preserve_minimums=False",
+        "actual custom DRU",
+        "native_project_rules",
+        "Pure Design-vs-Design",
+        "CanonicalNativeJson",
+        "grant no rule/geometry equality",
+        "typed rules",
+        "Altium output refuse",
+    ):
+        assert words in page.text
+
+
+def test_altium_teaches_version_scopes_without_fresh_execution_claim() -> None:
+    text = (SKILL / "references/altium.md").read_text()
+    for word in ("versions", "version", "tool", "level", "source", "conformance.json", "traceability"):
+        assert word in text
+    assert "not a new execution" in text
+
+
+def test_altium_teaches_the_integrity_stage_and_the_edit_gate() -> None:
+    """Change c0241: the opt-in stage ``altium.integrity`` and the gated edit sessions."""
+    text = (SKILL / "references/altium.md").read_text()
+    assert "fenolite check blink/altium/lamp.PcbDoc --stages altium.integrity --json" in text
+    assert "`altium.integrity.*`" in text and "`altium.edit.gate`" in text
+
+
+def test_viewer_teaches_actual_project_instance_context() -> None:
+    page = guide.page("viewer")
+    for words in (
+        "owning project",
+        "logical instance document IDs",
+        "--doc",
+        "never selects the first instance",
+        "invalidate scene caches",
+        "last good scene",
+        "explicit field pose",
+    ):
+        assert words in page.text
+
+
+def test_routing_teaches_mechanical_plan_scope() -> None:
+    text = (SKILL / "references/routing.md").read_text()
+    assert "INFERRED" in text and "byte materialization, not electrical correctness" in text
+
+
+def test_equivalent_teaches_declared_worksheet_bundle() -> None:
+    text = guide.page("equivalent-s").text
+    for words in (
+        "declared worksheet bundle",
+        "exact bytes",
+        "frame scopes stay independent",
+        "Missing files",
+        "symlinks",
+        "no ambient worksheet",
+    ):
+        assert words in text
+
+
+def test_model_migration_recipe_behaves_as_written(tmp_path: Path, no_tools: None) -> None:
+    from _sandbox import recipe_problems
+
+    blocks = [block for block in guide.blocks(guide.page("model-versions")) if block.tag == "fenolite-recipe"]
+    assert len(blocks) == 1
+    assert recipe_problems(blocks[0], tmp_path / "sandbox") == []

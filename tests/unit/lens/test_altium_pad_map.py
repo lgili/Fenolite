@@ -165,7 +165,7 @@ def test_a_map_that_names_a_missing_pin_or_pad_is_refused(
 
 
 SAME_NET = (
-    "connect(gnd, u1[10], d1[1])\nconnect(led_drv, u1[1], r1[1])\nconnect(led_a, r1[2], d1[2])",
+    "connect(gnd, u1[10])\nconnect(led_drv, u1[1])\nseries(led_drv, r1, led_a, (d1.b, d1.a), gnd)",
     "connect(gnd, u1[10], d1[1], d1[2])\nconnect(led_drv, u1[1], r1[1])\nconnect(led_a, r1[2])",
 )
 """The blink's connections, and the same with both pins of ``D1`` on ``GND``."""

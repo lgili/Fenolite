@@ -1,0 +1,94 @@
+{
+  "build_maps": {
+    "10": {
+      "after": {
+        ".fenolite/board.json": "60c761229e9f9e5881dce659c30ab4222c055a14bf20b2137e460e836493f65f",
+        ".fenolite/build.json": "5c933a42122a1ef00d06b547455054903eb7ca1d1d01c43e890f2b4eca130646",
+        ".fenolite/circuit.json": "1f680eac099bab57d8bf9236737d9b38e52cb7b6212ffa739897aa12cc791a81",
+        ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+        ".fenolite/meta.json": "d1cf7128af11b2e777a8a0b533949dc8ad0d1f4ec45e9de07671da3144f8c0cf",
+        ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+        "drawn_full.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+        "drawn_full.kicad_pcb": "967e2ae28bdf00acab2297e68c31445d495f3ed8d639230d9e37103e9863f0b8",
+        "drawn_full.kicad_pro": "90861a722dff709fde65692edc30848bba47e8b9c7e86deeab7885d83abcd5b9",
+        "drawn_full.kicad_sch": "cd578cde937f58d86665f538952f2f7c31efb1114936378257928fe19a2e09e3",
+        "fp-lib-table": "4f062e901cb3495d31f831532c4ba5978d07b5a1423e870db006f919ab92d001",
+        "lib/Mini.kicad_sym": "615d84923f161f5d2a333a7df384851b5c4f81de74a5853ca293c95b95531fa8",
+        "lib/Mini.pretty/Mini_QFP-32_7x7mm_P0.8mm.kicad_mod": "796c8dbd4386d3371970294120fe4a56e0766bb1731454ef9dbd89725cd61cf1",
+        "lib/Mini.pretty/Mini_R_0603.kicad_mod": "8a69fd538ee10ea412e2b5cc1c3d63f4834a12c5d1ad45443697d3f3eb65a5b5",
+        "sheets/sub.kicad_sch": "085b1576e3984efdabd8f6b0fcdf8f47c0fa9d101155b50522d3e408eb8a3526",
+        "sym-lib-table": "4243a97bd65fef4990efef9abdcfebadfd6679e97a9f64515074bed7b4605ff9"
+      },
+      "before": {
+        ".fenolite/board.json": "60c761229e9f9e5881dce659c30ab4222c055a14bf20b2137e460e836493f65f",
+        ".fenolite/build.json": "5c933a42122a1ef00d06b547455054903eb7ca1d1d01c43e890f2b4eca130646",
+        ".fenolite/circuit.json": "1f680eac099bab57d8bf9236737d9b38e52cb7b6212ffa739897aa12cc791a81",
+        ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+        ".fenolite/meta.json": "d1cf7128af11b2e777a8a0b533949dc8ad0d1f4ec45e9de07671da3144f8c0cf",
+        ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+        "drawn_full.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+        "drawn_full.kicad_pcb": "967e2ae28bdf00acab2297e68c31445d495f3ed8d639230d9e37103e9863f0b8",
+        "drawn_full.kicad_pro": "90861a722dff709fde65692edc30848bba47e8b9c7e86deeab7885d83abcd5b9",
+        "drawn_full.kicad_sch": "cd578cde937f58d86665f538952f2f7c31efb1114936378257928fe19a2e09e3",
+        "fp-lib-table": "4f062e901cb3495d31f831532c4ba5978d07b5a1423e870db006f919ab92d001",
+        "lib/Mini.kicad_sym": "615d84923f161f5d2a333a7df384851b5c4f81de74a5853ca293c95b95531fa8",
+        "lib/Mini.pretty/Mini_QFP-32_7x7mm_P0.8mm.kicad_mod": "796c8dbd4386d3371970294120fe4a56e0766bb1731454ef9dbd89725cd61cf1",
+        "lib/Mini.pretty/Mini_R_0603.kicad_mod": "8a69fd538ee10ea412e2b5cc1c3d63f4834a12c5d1ad45443697d3f3eb65a5b5",
+        "sheets/sub.kicad_sch": "085b1576e3984efdabd8f6b0fcdf8f47c0fa9d101155b50522d3e408eb8a3526",
+        "sym-lib-table": "4243a97bd65fef4990efef9abdcfebadfd6679e97a9f64515074bed7b4605ff9"
+      },
+      "differences": []
+    },
+    "9": {
+      "after": {
+        ".fenolite/board.json": "014a2f8cacae13ae51f32b2580ac99b377afc32aa15c8d9631d946c71c9980fa",
+        ".fenolite/build.json": "f4b471dd321c149e0d4afc35e0264e6d018dc3982c1fb9857bd77933b3c8f5ee",
+        ".fenolite/circuit.json": "1f680eac099bab57d8bf9236737d9b38e52cb7b6212ffa739897aa12cc791a81",
+        ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+        ".fenolite/meta.json": "d1cf7128af11b2e777a8a0b533949dc8ad0d1f4ec45e9de07671da3144f8c0cf",
+        ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+        "drawn_full.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+        "drawn_full.kicad_pcb": "982470dc8e3e7b93ccbc057762c4fd6f40851c8fd17ed504114a4c0807836b40",
+        "drawn_full.kicad_pro": "81fdac2fdd92fcbd778156d7ed04b6f72292e79f47f00e0cad3c5076c1f97892",
+        "drawn_full.kicad_sch": "967d5d441d38b9c57ecf42f8633cc6f4062a72ac72b0b5b5b08e0d03001485ba",
+        "fp-lib-table": "e4c69c740f1d92eda60fb1e81aa65b1606b492a1e691af1fdb0f2cf540eee2bc",
+        "lib/Mini.kicad_sym": "bd3d608a4e3f8b4eae2095f11e2f43d6aa4ba60b72b839e92d5863dc47e3697b",
+        "lib/Mini.pretty/Mini_QFP-32_7x7mm_P0.8mm.kicad_mod": "796c8dbd4386d3371970294120fe4a56e0766bb1731454ef9dbd89725cd61cf1",
+        "lib/Mini.pretty/Mini_R_0603.kicad_mod": "8a69fd538ee10ea412e2b5cc1c3d63f4834a12c5d1ad45443697d3f3eb65a5b5",
+        "sheets/sub.kicad_sch": "dff0c8f0c9510fc9d16c7bc9a44278be27c0294123a4360a8efe03b484949a70",
+        "sym-lib-table": "3d046811d8a722aff296f987928108858c0cd29eeb2a7aff7932f33631292f2c"
+      },
+      "before": {
+        ".fenolite/board.json": "014a2f8cacae13ae51f32b2580ac99b377afc32aa15c8d9631d946c71c9980fa",
+        ".fenolite/build.json": "f4b471dd321c149e0d4afc35e0264e6d018dc3982c1fb9857bd77933b3c8f5ee",
+        ".fenolite/circuit.json": "1f680eac099bab57d8bf9236737d9b38e52cb7b6212ffa739897aa12cc791a81",
+        ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+        ".fenolite/meta.json": "d1cf7128af11b2e777a8a0b533949dc8ad0d1f4ec45e9de07671da3144f8c0cf",
+        ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+        "drawn_full.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+        "drawn_full.kicad_pcb": "982470dc8e3e7b93ccbc057762c4fd6f40851c8fd17ed504114a4c0807836b40",
+        "drawn_full.kicad_pro": "81fdac2fdd92fcbd778156d7ed04b6f72292e79f47f00e0cad3c5076c1f97892",
+        "drawn_full.kicad_sch": "967d5d441d38b9c57ecf42f8633cc6f4062a72ac72b0b5b5b08e0d03001485ba",
+        "fp-lib-table": "e4c69c740f1d92eda60fb1e81aa65b1606b492a1e691af1fdb0f2cf540eee2bc",
+        "lib/Mini.kicad_sym": "bd3d608a4e3f8b4eae2095f11e2f43d6aa4ba60b72b839e92d5863dc47e3697b",
+        "lib/Mini.pretty/Mini_QFP-32_7x7mm_P0.8mm.kicad_mod": "796c8dbd4386d3371970294120fe4a56e0766bb1731454ef9dbd89725cd61cf1",
+        "lib/Mini.pretty/Mini_R_0603.kicad_mod": "8a69fd538ee10ea412e2b5cc1c3d63f4834a12c5d1ad45443697d3f3eb65a5b5",
+        "sheets/sub.kicad_sch": "dff0c8f0c9510fc9d16c7bc9a44278be27c0294123a4360a8efe03b484949a70",
+        "sym-lib-table": "3d046811d8a722aff296f987928108858c0cd29eeb2a7aff7932f33631292f2c"
+      },
+      "differences": []
+    }
+  },
+  "complete_parsed_drawing_equal": true,
+  "focused_modules": {
+    "passed": 67,
+    "seconds": "4.32"
+  },
+  "native24_test_complete": false,
+  "source_after_sha256": "fb4dbc07044257a3d08792f54dff4d92440c99e3738e86b24d53337a0840415a",
+  "source_before_sha256": "7706a66dbac162f5bd14f01944df8ef63b96877b3db22106824b18c7e58d92ea"
+}

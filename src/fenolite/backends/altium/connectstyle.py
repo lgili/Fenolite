@@ -12,17 +12,18 @@ setting for pads and vias) or the Advanced form (the five keys behind ``THPAD.``
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from typing import Literal
 
 from fenolite.backends.altium.read.proptext import parse_length
-from fenolite.backends.altium.read.scope import parse_scope
+from fenolite.backends.altium.read.scope import ScopeDocument, for_kind, parse_scope
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.units import Nm, Udeg
 from fenolite.model.board import Board, Zone, ZoneSettings
-from fenolite.model.rules import LEAF_OPS, RuleSubject, Selector
+from fenolite.model.rules import CASED_LEAVES, LEAF_OPS, RuleSubject, Selector
 
 ConnectKind = Literal["relief", "direct", "none"]
 ObjectKind = Literal["th_pad", "smd_pad", "via"]
@@ -79,6 +80,11 @@ class ConnectStyle:
     via: Connection | None
     advanced: bool = False
     reason: str = ""
+    named1: frozenset[str] = frozenset()
+    """The polygons a first scope of ``IsNamedPolygon`` names (``named_polygons``), their names in lower
+    case; empty for a scope of the closed grammar."""
+    named2: frozenset[str] = frozenset()
+    """The same for the second scope."""
 
     def connection(self, kind: ObjectKind) -> Connection | None:
         return {"th_pad": self.th_pad, "smd_pad": self.smd_pad, "via": self.via}[kind]
@@ -99,21 +105,59 @@ def _setting(values: Mapping[str, str], prefix: str) -> tuple[Connection | None,
     return Connection(style, width, int(entries), angle, gap), ""
 
 
-def _scope(text: str | None) -> Selector | None:
-    found = parse_scope(text or "")
-    return found if isinstance(found, Selector) else None
+NAMED_POLYGON = "IsNamedPolygon"
+"""The membership check that is true for the polygon pour of the quoted name, not for the primitives of its
+copper (S-1790; change c0420, B5). The public Polygon Connect Style records name a polygon so (S-0835)."""
+_NAMED_TERM = re.compile(r"\s*IsNamedPolygon\s*\(\s*'([^']+)'\s*\)\s*")
+_OR = re.compile(r"\s+or\s+|\s*\|\|\s*", re.IGNORECASE)
+POLYGON_ITEM = Selector("item_kind", "zone")
+"""The selector a scope of named polygons stands for besides its names: the polygon itself."""
 
 
-def read_connect_style(fields: Sequence[tuple[str, str | None]]) -> ConnectStyle | None:
+def named_polygons(text: str) -> frozenset[str] | None:
+    """The names, in lower case, of the polygons the scope ``text`` names when it is ``IsNamedPolygon('n')``
+    or such terms joined by ``Or`` (in any letter case) or ``||``, one pair of parentheses round the whole
+    allowed; ``None`` for any other scope. Altium compares names without case (change c0409)."""
+    body = text.strip()
+    if body.startswith("(") and body.endswith(")"):
+        body = body[1:-1]
+    names: list[str] = []
+    for term in _OR.split(body):
+        match = _NAMED_TERM.fullmatch(term)
+        if match is None:
+            return None
+        names.append(match.group(1).casefold())
+    return frozenset(names) or None
+
+
+def _scope(text: str | None, document: ScopeDocument | None = None) -> tuple[Selector | None, frozenset[str]]:
+    """The selector of a scope and the polygons it names: ``(POLYGON_ITEM, names)`` for a scope of named
+    polygons, ``(selector, ∅)`` for one that ``read.scope.parse_scope`` reads with the document's
+    ``document`` (Altium's precedence, change c0462) and ``(None, ∅)`` for any other."""
+    named = named_polygons(text or "")
+    if named is not None:
+        return POLYGON_ITEM, named
+    found = parse_scope(text or "", document=document)
+    return (found if isinstance(found, Selector) else None), frozenset()
+
+
+def read_connect_style(
+    fields: Sequence[tuple[str, str | None]], document: ScopeDocument | None = None
+) -> ConnectStyle | None:
     """The record ``fields`` as a ``ConnectStyle``, ``None`` when it is not an enabled Polygon Connect
-    Style record."""
+    Style record; its scopes are read with ``document`` (``read.scope.ScopeDocument``), whose parent objects
+    are a polygon's (``read.scope.PARENTS``, change c0462)."""
+    document = for_kind(document, RULE_KIND)
     values = {key: value or "" for key, value in fields}
     if values.get("RULEKIND") != RULE_KIND or values.get("ENABLED", "TRUE").upper() != "TRUE":
         return None
     name = values.get("NAME", "")
     priority_text = values.get("PRIORITY", "")
     priority = int(priority_text) if priority_text.isdigit() and int(priority_text) >= 1 else 0
-    scope1, scope2 = _scope(values.get("SCOPE1EXPRESSION")), _scope(values.get("SCOPE2EXPRESSION"))
+    (scope1, named1), (scope2, named2) = (
+        _scope(values.get("SCOPE1EXPRESSION"), document),
+        _scope(values.get("SCOPE2EXPRESSION"), document),
+    )
     keys = [key for key, _ in fields]
     own = [key for key in keys[keys.index("RULEKIND") :] if key not in HEADER] if "RULEKIND" in keys else []
     advanced_keys = [prefix + key for prefix, _ in PREFIXES for key in SETTING_KEYS]
@@ -124,7 +168,9 @@ def read_connect_style(fields: Sequence[tuple[str, str | None]]) -> ConnectStyle
         reason = "connect-header"
     if own == list(SETTING_KEYS):
         one, problem = _setting(values, "")
-        return ConnectStyle(name, priority, scope1, scope2, one, one, one, False, reason or problem)
+        return ConnectStyle(
+            name, priority, scope1, scope2, one, one, one, False, reason or problem, named1, named2
+        )
     if own == advanced_keys:
         found: dict[ObjectKind, Connection | None] = {}
         for prefix, kind in PREFIXES:
@@ -132,20 +178,27 @@ def read_connect_style(fields: Sequence[tuple[str, str | None]]) -> ConnectStyle
             found[kind] = setting
             reason = reason or problem
         return ConnectStyle(
-            name, priority, scope1, scope2, found["th_pad"], found["smd_pad"], found["via"], True, reason
-        )
-    return ConnectStyle(name, priority, scope1, scope2, None, None, None, False, reason or "connect-keys")
+            name, priority, scope1, scope2, found["th_pad"], found["smd_pad"], found["via"], True, reason,
+            named1, named2,
+        )  # fmt: skip
+    return ConnectStyle(
+        name, priority, scope1, scope2, None, None, None, False, reason or "connect-keys", named1, named2
+    )
 
 
-def read_connect_styles(records: Sequence[Sequence[tuple[str, str | None]]]) -> tuple[ConnectStyle, ...]:
+def read_connect_styles(
+    records: Sequence[Sequence[tuple[str, str | None]]], document: ScopeDocument | None = None
+) -> tuple[ConnectStyle, ...]:
     """The enabled Polygon Connect Style records of ``records`` (the field lists of a document's rules),
     the governing one first: by priority, then by name."""
-    found = [style for style in (read_connect_style(fields) for fields in records) if style is not None]
+    found = [
+        style for style in (read_connect_style(fields, document) for fields in records) if style is not None
+    ]
     return tuple(sorted(found, key=lambda style: (style.priority, style.name)))
 
 
 def _fold(selector: Selector) -> Selector:
-    if selector.op in LEAF_OPS and selector.op not in ("area", "diff_pair"):
+    if selector.op in LEAF_OPS and selector.op not in CASED_LEAVES:
         return replace(selector, value=selector.value.casefold())
     if selector.items:
         return replace(selector, items=tuple(_fold(item) for item in selector.items))
@@ -166,20 +219,47 @@ def _fold_subject(subject: RuleSubject) -> RuleSubject:
     )
 
 
+def fold_selector(selector: Selector) -> Selector:
+    """``selector`` with its names in lower case, as Altium compares them (change c0409)."""
+    return _fold(selector)
+
+
+def fold_subject(subject: RuleSubject) -> RuleSubject:
+    """``subject`` with its names in lower case, as Altium compares them (change c0409)."""
+    return _fold_subject(subject)
+
+
+def _side(selector: Selector, named: frozenset[str], subject: RuleSubject, name: str | None) -> bool:
+    """Whether one scope matches the folded ``subject``; a scope of named polygons matches a polygon whose
+    ``name`` it names (``named_polygons``), and nothing else."""
+    if named:
+        return selector.matches(subject) and name is not None and name in named
+    return selector.matches(subject)
+
+
 def governing_connection(
-    styles: Sequence[ConnectStyle], item: RuleSubject, polygon: RuleSubject, kind: ObjectKind
+    styles: Sequence[ConnectStyle],
+    item: RuleSubject,
+    polygon: RuleSubject,
+    kind: ObjectKind,
+    polygon_name: str | None = None,
 ) -> Connection | str:
-    """The connection of the pad or via ``item`` (of the object kind ``kind``) to the polygon ``polygon``:
-    that of the first record of ``styles`` whose two scopes match the pair in either order, names compared
-    without case. A string is the reason the pour is refused: a record before the governing one whose
-    scope the grammar does not hold (``connect-scope``), a governing record that could not be read (its
-    ``reason``), or no record that matches (``connect-none``)."""
+    """The connection of the pad or via ``item`` (of the object kind ``kind``) to the polygon ``polygon``,
+    named ``polygon_name``: that of the first record of ``styles`` whose two scopes match the pair in
+    either order, names compared without case. A string is the reason the pour is refused: a record before
+    the governing one whose scope the grammar does not hold (``connect-scope``), a governing record that
+    could not be read (its ``reason``), or no record that matches (``connect-none``)."""
     a, b = _fold_subject(item), _fold_subject(polygon)
+    name = polygon_name.casefold() if polygon_name is not None else None
     for style in styles:
         if style.scope1 is None or style.scope2 is None:
             return "connect-scope"
         first, second = _fold(style.scope1), _fold(style.scope2)
-        if not ((first.matches(a) and second.matches(b)) or (first.matches(b) and second.matches(a))):
+        one, two = style.named1, style.named2
+        if not (
+            (_side(first, one, a, None) and _side(second, two, b, name))
+            or (_side(first, one, b, name) and _side(second, two, a, None))
+        ):
             continue
         if style.reason:
             return style.reason
@@ -273,13 +353,15 @@ def connect_fields(text: str) -> tuple[Field, ...]:
     return tuple((key, value) for key, _, value in (item.partition("=") for item in text.split("|")))
 
 
-def kept_mapping(records: Sequence[Sequence[Field]]) -> tuple[bool, tuple[tuple[str, str], ...]]:
+def kept_mapping(
+    records: Sequence[Sequence[Field]], document: ScopeDocument | None = None
+) -> tuple[bool, tuple[tuple[str, str], ...]]:
     """Whether the Polygon Connect Style records of a read document map exactly, and (name, reason) of each
     that does not: an enabled record maps when Fenolite reads its style and both scopes; a disabled one
     governs nothing and maps as it is."""
     problems: list[tuple[str, str]] = []
     for fields in records:
-        style = read_connect_style(fields)
+        style = read_connect_style(fields, document)
         if style is None:
             continue
         reason = style.reason or ("connect-scope" if style.scope1 is None or style.scope2 is None else "")
@@ -346,6 +428,9 @@ __all__ = [
     "ObjectKind",
     "governing_connection",
     "connect_fields",
+    "named_polygons",
+    "fold_selector",
+    "fold_subject",
     "kept_mapping",
     "lower_zone_styles",
     "pad_overrides",

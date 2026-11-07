@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as test data; an illustrative device, not a real product.
+schema = "fenolite.device.v0"
+id = "Proj:R_0603"
+summary = "Resistor template (illustrative)"
+symbol = "Fenolite:Resistor"
+footprint = "Fenolite:Chip_0603"
+evidence = "UNVERIFIED"
+
+[pins]
+A = "1"
+B = "2"
+
+[provenance]
+tool = "fenolite catalog import"
+source = "Fenolite:Resistor Fenolite:Chip_0603"
+date = "2026-10-29"
+sha256 = "530d2b3ca1c56cc9edaf3a9a19ba7a14f5d3760b295405f987c23f1955e2497c"

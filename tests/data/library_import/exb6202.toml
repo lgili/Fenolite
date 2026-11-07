@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite. Fictional outline; no manufacturer dimensions.
+schema = "fenolite.package.v0"
+family = "gullwing"
+name = "EXB6202"
+summary = "SPDX-License-Identifier: CC0-1.0; Authored for Fenolite; https://example.invalid/exb6202"
+pins = 8
+pitch = "1.27mm"
+arrangement = "dual"
+body = { length = "4.8mm", width = "3.8mm", height = "1.4mm" }
+span = "6mm"
+lead = { length = "0.6mm", width = "0.4mm", thickness = "0.2mm" }
+[generate]
+drawing = 1
+[land]
+source = "Fenolite-authored fictional land"
+pad = { length = "1.5mm", width = "0.6mm" }
+row_spacing = "5.5mm"

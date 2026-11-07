@@ -48,8 +48,11 @@ never taken from KiCad's writer code.
 | For a bottom footprint, absolute = `at + R(θ)·stored`, with no further mirror | S-0019 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-G-BOTTOM-PLACE |
 | The stored children of a bottom footprint are the library footprint mirrored about local X (DRC library parity: no mismatch for 12 bottom placements, one for an unmirrored control) | S-0019, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-G-BOTTOM-STORE |
 | Pad angles in board files are absolute: the footprint angle is included (DRC library parity: one mismatch for a control whose stored pad angles leave it out) | S-0019, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-G-PAD-ANGLE-ABS |
+| A footprint `point` child takes no angle: its `at` stays `(at x y)` when the footprint is placed at any angle. 10.0.6 refuses to load a board holding `(point (at x y θ))` (exit 3, "Expecting ')'"), seen on the library board pic_programmer, whose DSUB-9 footprint holds a point (c0279 task 4.6) | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-PCB-WRITE |
 | In the demo boards pad angles lie in [0°, 360°), footprint angles may be negative, and a zero pad or footprint angle is not written | S-0024 | INFERRED | H-K-PCB-READ |
 | `gr_text` is `(gr_text "TEXT" (at X Y [ANGLE]) (layer L [knockout]) (uuid U) (effects …))`; the demo boards write the text angle even when it is 0 (456 of 585 texts) | S-0001, S-0024 | INFERRED | H-K-PCB-READ |
+| The `font` of text effects holds `[(face NAME)] (size HEIGHT WIDTH) [(thickness T)] [bold] [italic]` in this order; the demo boards of 10.0.6 write the flags as `(bold yes)` and `(italic yes)` (`tinytapeout-demo`: 34 bold texts, 3 with a face; `One-Air-Max`: 25 bold), and 124 texts of `tinytapeout-demo` carry `knockout` on their layer | S-0001, S-0058 | CORPUS-VERIFIED | H-K-PCB-READ |
+| In those demos a text on a back layer is mirrored (`justify … mirror`) and a text on any other layer is not, with no exception (`tinytapeout-demo` 136 and 99, `One-Air-Max` 17 and 8) | S-0058 | CORPUS-VERIFIED | H-K-PCB-READ |
 | `zone`: `net`, `net_name`, `layer` (or `layers`), `uuid`, optional `name`, `hatch`, optional `priority` (absent when 0), `connect_pads`, `min_thickness`, optional keepout settings, fill settings, `polygon` (the outline), then one `filled_polygon` per filled area | S-0001 | INFERRED | H-K-PCB-READ |
 | `pcb drc --format json --severity-all --refill-zones --save-board` on a copy of a target-9 or target-10 board saves the copy in the running 10.0.6 board format (`20260206`, generator `pcbnew`) and writes its zone fills; the original file is not changed | S-0020, S-0022 | KICAD-VERIFIED (10.0.x) | H-K-FILL-SAVE |
 | The same refill of the authored project keeps each zone uuid and gives the GND zone one filled polygon with 16 points | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-FILL-SAVE |
@@ -58,6 +61,10 @@ never taken from KiCad's writer code.
 | A zone with a `keepout` child is a rule area; its settings `tracks`, `vias`, `pads`, `copperpour`, `footprints` take `allowed` or `not_allowed` | S-0001 | INFERRED | H-K-PCB-READ |
 | Rule areas gained a `placement` child in 9.0 (`20241009`) | S-0030, S-0050 | INFERRED | H-K-PCB-READ |
 | Teardrops are zones carrying `(attr (teardrop (type …)))` and a name such as `$teardrop_padvia$` | S-0024 | INFERRED | H-K-PCB-READ |
+| The `teardrops` child of a pad and of a via holds `best_length_ratio`, `max_length`, `best_width_ratio`, `max_width`, `curved_edges`, `filter_ratio`, `enabled`, `allow_two_segments` and `prefer_zone_connections`, in this order; a ratio is a decimal fraction of the pad or via size (`0.5`, `1`, `0.9`), a length is in mm, a flag `yes` or `no`. At tag 10.0.6 the demo `RoyalBlue54L-Feather` holds 349 such children (197 on pads, 152 on vias) and `complex_hierarchy` 165 (on pads), each with all nine in that order; the child comes before `uuid` in a pad and between `layers` and `net` in a via | S-0058 | CORPUS-VERIFIED | H-K-TEARDROP |
+| Every teardrop zone of those two demos is of the type `padvia` (263 and 165) | S-0058 | CORPUS-VERIFIED | H-K-TEARDROP |
+| With the project's `td_on_pad_in_zone` false, `kicad-cli` 10.0.6 `pcb drc --refill-zones --save-board` draws no teardrop on a pad inside an ordinary same-net zone that already holds fills: on a copy of the demo `RoyalBlue54L-Feather` (tag 10.0.6) with its 263 teardrop zones stripped, it regenerates 289 teardrop zones; with its 35 ordinary `filled_polygon` children also removed (one input changed), 293, the four extra on GND pads on F.Cu inside the filled GND zone. A zone's `fill yes` flag is fill state, not a setting (c0384, `royal-teardrop-diagnosis.json`) | S-0020, S-0058 | KICAD-VERIFIED (10.0.6) | H-K-TEARDROP |
+| KiCad writes a blind via between the two outer copper layers: every via of the demo `RoyalBlue54L-Feather` at tag 10.0.6 (183, 8 copper layers) is `(via blind … (layers "F.Cu" "B.Cu") …)` | S-0058 | CORPUS-VERIFIED | H-K-PCB-READ |
 | A `pts` list may hold `(arc (start)(mid)(end))` in zone polygons | S-0018 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-G-PTS-ARC |
 | A fill island is marked by the bare `(island)` up to 9.0 and by `(island yes)` or `(island no)` from `20250801` | S-0030 | INFERRED | H-K-PCB-READ |
 | A `uuid` is a version 4 UUID meant to be globally unique | S-0001 | INFERRED | H-K-PCB-UUID |
@@ -95,6 +102,7 @@ never taken from KiCad's writer code.
 | Children of board items as 9.0 and 10.0 write them (no conflicting order in 22 boards per major): `footprint` name, `locked`, `layer`, `uuid`, `at`, `descr`, `tags`, `property`, `path`, `sheetname`, `sheetfile`, …, `attr`, graphics, `pad`, `zone`, `group`, `embedded_*`, `model`; `property` name, value, `at`, `unlocked`, `layer`, `hide`, `uuid`, `effects`; `effects` `font`, `justify`; `font` `face`, `size`, `thickness`, `bold`; `pad` number, type, shape, `at`, `size`, `rect_delta`, `drill`, `property`, `layers`, …, `net`, `pinfunction`, `pintype`, …, `uuid` | S-0020, S-0058 | INFERRED | H-K-PCB-WRITE |
 | Children of tracks and zones as 9.0 and 10.0 write them: `segment` `start`, `end`, `width`, `locked`, `layer`, `net`, `uuid`; `arc` `start`, `mid`, `end`, `width`, `layer`, `net`, `uuid`; `via` type atom, `at`, `size`, `drill`, `layers`, …, `locked`, …, `net`, `uuid`; `zone` `net`, `net_name` (9.0), `layer`, `locked`, `layers`, `uuid`, `name`, `hatch`, `priority`, `attr`, `connect_pads`, `min_thickness`, `filled_areas_thickness` (9.0), `keepout`, `placement`, `fill`, `polygon`, `filled_polygon`; `polygon` `pts`; `filled_polygon` `layer`, `pts`; `keepout` `tracks`, `vias`, `pads`, `copperpour`, `footprints` | S-0020, S-0058 | INFERRED | H-K-PCB-WRITE |
 | Children of drawings as 9.0 and 10.0 write them: `gr_line` `start`, `end`, `stroke`, `locked`, `layer`, `uuid`; `gr_arc` `start`, `mid`, `end`, `stroke`, `locked`, `layer`, `uuid`; `gr_circle` `center`, `end`, `stroke`, `fill`, `layer`, `uuid`; `gr_rect` `start`, `end`, `stroke`, `fill`, `layer`, `net`, `uuid`; `gr_poly` `pts`, `stroke`, `fill`, `layer`, `net`, `uuid`; `gr_text` text, `at`, `layer`, `uuid`, `effects`, `render_cache`; `stroke` `width`, `type`; `pts` `xy` (and `arc`); fills are spelled `(fill yes)` and `(fill no)` | S-0020, S-0058 | INFERRED | H-K-PCB-WRITE |
+| A filled `gr_poly` on `B.Paste` loads in 10.0.6 and a `pcb upgrade --force` re-save keeps it on `B.Paste` with `(fill yes)`; an Altium paste region becomes such a polygon, and `design.polygon()` may draw on a paste layer (change c0427) | S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-11-05) | H-K-PASTE-DRAWING |
 | A `property` of a board footprint writes its angle, also when it is 0: `(at X Y ANGLE)` in all 16 054 properties of the 10.0.6-written boards | S-0020, S-0058 | INFERRED | H-K-PCB-WRITE |
 | The X and Y of a footprint property's `at` are footprint-local: the anchor of the text on the board is `at + R(θ)·local`, θ being the footprint angle, on both sides, with no further mirror on the bottom (a footprint at (6, 38) and 30° on the bottom with local (−5, 0) has its anchor at (1.669873, 40.5)) | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-FIELD-FRAME |
 | The angle of a footprint property's `at` is the angle of the text on the board, not an angle relative to the footprint: on a footprint at 90°, a stored 0 draws the text horizontal and a stored 90 vertical | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-FIELD-FRAME |
@@ -132,13 +140,18 @@ never taken from KiCad's writer code.
 | DRC reports a board footprint whose library is in no active library table, or whose library lacks it ("Footprint not found in libraries"), and a board footprint that differs from its library copy ("Footprint doesn't match copy in library"), both as warnings; demo projects list their severity keys `lib_footprint_issues` and `lib_footprint_mismatch` at tags 9.0.9.1 and 10.0.6 | S-0038, S-0058 | INFERRED | H-K-LIB-DRC |
 | The drawings of a board footprint are its `fp_line`, `fp_arc`, `fp_circle`, `fp_rect` and `fp_poly` children and its `fp_text` children. Their points are in the footprint's own frame, the frame of its pads and of its properties: the place on the board is `at + R(θ)·local`, θ being the footprint angle, with no further mirror, so a footprint on the bottom side stores mirrored points and names the bottom layers. Fenolite's reader keeps each child as an opaque slot; `backends.kicad.fpitems` projects them on request (change c0126) with the mapping of a library footprint (`libraries.md`, "What the reader models"), in child order | S-0021; the rows of `H-K-FIELD-FRAME`, `H-G-FLIP` and `H-K-OUTLINE-FPEDGE` above, which measure the frame for properties, placed copies and edge items | INFERRED | H-K-PCB-FPGFX |
 | The `at` of an `fp_text` of a board footprint holds the angle of the text on the board, as the `at` of a property and of a pad does; the projection gives the angle relative to the footprint, `(stored − θ) mod 360°`. A text without a font `size` or `thickness`, a graphic whose stroke is not solid, a polygon with an arc, `fp_text_box`, `fp_curve`, `dimension` and a number that is no whole number of nanometres are not projected: they are counted by head and stay in their slots | S-0021; the rows of `H-G-PAD-ANGLE-ABS` and `H-K-FIELD-FRAME` above | INFERRED | H-K-PCB-FPGFX |
+| In the 18 boards of the 10.0.6 demos, every footprint with `fp_text` children (2 175 footprints, 4 720 texts) writes them after its `fp_line`, `fp_arc`, `fp_circle`, `fp_rect` and `fp_poly` children and before its first `pad` (census of 2026-11-05, change c0422) | S-0058 | CORPUS-VERIFIED | H-K-PCB-FPGFX |
+| A created footprint writes its own texts (change c0422) as `(fp_text user "…" (at X Y A) (layer "L") (uuid "U") (effects (font (size H W) (thickness T)) (justify …)))` in that place, `A` the angle on the board and `(justify mirror)` on a back layer, as a created text has it; `kicad-cli` 10.0.6 loads such a board and its re-save (`pcb upgrade --force`) keeps each text with its string, layer, place, angle and mirror (`tests/kicad/convert/test_footprint_content_oracle.py`, local run of 2026-11-05); 9.0.9 loads the target-9 board (`pcb drc` exits 0, same date, the pinned image) | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-FIELD-RESAVE |
 | `roundrect_rratio` of a pad is a decimal of the pad's shorter side that gives the corner radius, from 0 to 0.5 (`frame.md`, the row of `H-G-FRAME-SHAPE`). The projection gives it as `Pad.corner_ratio` in parts per million of the shorter side, `r · 1 000 000`, rounded half to even to one ppm when the text has more than six decimals; a value outside 0 to 0.5 is not projected | S-0001 | INFERRED | H-K-PCB-FPGFX |
 | In KiCad's own boards the inner copper rows are `(2k + 2 "In<k>.Cu" signal)` after `F.Cu` and before `(2 "B.Cu" signal)`, without a user name: `In1.Cu` 4 to `In4.Cu` 10 in a six-layer demo (header `20250513`), and to `In6.Cu` 14 in an eight-layer demo (header `20241229`) | S-0058 | CORPUS-VERIFIED | H-K-PCB-LAYERS |
-| A layer table of 2, 4, 6 or 8 copper layers with those inner rows loads on 10.0.6 in the target-9 and the target-10 text (`pcb drc` writes its report), `pcb export gerbers` writes one Gerber per copper layer, named after it, and `pcb upgrade --force` keeps every copper row (number, name, type, no user name, in order) | S-0020, S-0022 | KICAD-VERIFIED (10.0.x) | H-K-PCB-LAYERS |
+| A layer table of every even count of copper layers from 2 to 32 with those inner rows (`In30.Cu` is 62; 10 to 32 measured for change c0277 on 2026-10-30) loads on 10.0.6 in the target-9 and the target-10 text (`pcb drc` writes its report), `pcb export gerbers` writes one Gerber per copper layer, named after it, and `pcb upgrade --force` keeps every copper row (number, name, type, no user name, in order) | S-0020, S-0022 | KICAD-VERIFIED (10.0.x) | H-K-PCB-LAYERS |
 | 10.0.6 refuses a table of three copper layers (`F.Cu`, `In1.Cu`, `B.Cu`) in both texts: no DRC report and no Gerber | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-PCB-LAYERS |
-| 9.0.9 loads the target-9 text of the same tables of 2, 4, 6 and 8 copper layers, gives one Gerber per copper layer and refuses the table of three; its `kicad-cli` has no `pcb upgrade`, so the re-save is judged on 10.0.6 only | S-0029, S-0037 | KICAD-VERIFIED (9.0.x) | H-K-PCB-LAYERS |
+| 9.0.9 and 10.0.6 refuse a table whose only copper row is `F.Cu` (the two-copper table without `B.Cu`) in both texts: `pcb drc` stops with "1 is not a valid layer count", so a single-sided board is a table of two copper layers with nothing on `B.Cu` (measured on 2026-10-30, the pinned images, local run) | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PCB-ONE-COPPER |
+| 9.0.9 loads the target-9 text of the same tables of every even count from 2 to 32 copper layers, gives one Gerber per copper layer and refuses the table of three; its `kicad-cli` has no `pcb upgrade`, so the re-save is judged on 10.0.6 only | S-0029, S-0037 | KICAD-VERIFIED (9.0.x) | H-K-PCB-LAYERS |
 | A copper row of type `power` (`(4 "In1.Cu" power)`) loads on 10.0.6 in the target-9 and the target-10 text and adds no violation type to the DRC report of the same routed board with `signal` rows; its Gerber carries the file function `Copper,L<n>,Inr`, as a signal row's does; `pcb upgrade --force` keeps the type. The type says what the layer is for and changes no check: tracks on it are not reported | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-LAYER-POWER |
 | 9.0.9 loads the target-9 text with `power` rows the same way (measured on 2026-10-05; `pcb-layer-power-t9` recorded `equal` in `9.0.9.json` on 2026-10-08, the pinned image, local run; confirmed by the `kicad-9` job of CI run 37772583226 on `04ef42a`) | S-0029 | KICAD-VERIFIED (9.0.x) | H-K-LAYER-POWER |
+| 10.0.6 loads `power` rows with a user name, `(4 "In1.Cu" power "Ground Plane")`, as the conversion of an Altium plane writes them (change c0466); `pcb upgrade --force` keeps the rows, their names and the board property `Fenolite.Altium.Planes`; `pcb export gerbers` plots them with the file functions `Copper,L2,Inr` and `Copper,L3,Inr` and names each file after the user name (`<board>-Ground Plane.g1`) | S-2252 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-11-06) | H-K-LAYER-POWER |
+| 10.0.6 loads `signal` rows with a user name, `(4 "In1.Cu" signal "Internal Layer 1")` and `(0 "F.Cu" signal "Layer 1")`, as the conversion of an Altium signal layer writes them (change c0466, task 5.1); `pcb upgrade --force` keeps every row and name, and `pcb export gerbers` plots them with their file functions (`Copper,L1,Top` … `Copper,L4,Bot`) and names each file after the user name (`<board>-Internal Layer 1.g1`, `<board>-Layer 1.gtl`) | S-2256 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-11-06) | H-K-PCB-LAYERS |
 | A rule area is a `zone` with a `keepout` child; its name is the child `(name "<name>")`, which 10.0.6 writes right after `uuid`. A created area with the name there and without `hatch`, `connect_pads`, `min_thickness`, `placement` and `fill` loads, and `pcb upgrade --force` on 10.0.6 keeps the name (probe `area-name-keep`, recorded for 10.0.6; the named benches load on 9.0.9 and 10.0.6) | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-AREA-NAME |
 | The text of a `gr_text` is justified by the atoms `left` or `right`, then `top` or `bottom`, of `effects/justify`, before `mirror`; a text without them is centred on its `at`. Texts on `F.SilkS`, `B.SilkS`, `F.Fab`, `Cmts.User` and `Dwgs.User` with each justification load and no DRC violation names them (probe `text-board-load`, recorded for 9.0.9 and 10.0.6) | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-BOARD-TEXT |
 | DRC judges a board text against the board-setup text minimums: a silkscreen text 0.5 mm high with a 0.06 mm stroke gives `text_height` and `text_thickness` (probe `text-height`). A text on `F.Cu` over a track gives `shorting_items` (probe `text-copper-short`), while a `gr_line` on `F.Cu` across a track is named by no violation and gives the track neither `shorting_items` nor `clearance` (probe `graphic-copper-silent`); all recorded for 9.0.9 and 10.0.6 | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-BOARD-TEXT |
@@ -451,6 +464,7 @@ probes `via-prot-*` of `tests/kicad/vias/` on 2026-10-07; corpus census:
 | `none` on a via means the board's value. A re-save by 10.0.6 keeps a child that Fenolite writes: a child is written when one of its values is not `none`, a two-sided child with both sides (`(tenting (front no) (back none))` stays as written), in the order above; `setup` keeps its five children | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-VIAPROT-FORMS |
 | A re-save by 10.0.6 gives a `setup` without protection children `(tenting (front yes) (back yes)) (covering (front no) (back no)) (plugging (front no) (back no)) (capping no) (filling no)`: the default of a board that states none is tented on both sides and nothing else | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-VIAPROT-FORMS |
 | The mask plot (`pcb export gerbers -l F.Mask,B.Mask`) holds a flash at a via's centre on a side exactly when the via's effective tenting there is false: the via's own value, else the board's default, else tented. Covering, plugging, capping and filling open and close nothing | S-0020, S-0029, S-0125 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-VIAPROT-MASK |
+| The flash of an untented via on a mask plot is a circle of the via's diameter plus twice the board's `(setup (pad_to_mask_clearance M))`, a negative `M` included (0.8 mm via: 0.8, 0.9 and 0.5968 mm under 0, 0.05 and -0.1016 mm). A `solder_mask_expansion` constraint of the rules file, with the condition `A.Type == 'Via'` or none, leaves the via's flash as it was while it widens a pad's: the board's value is the one KiCad holds for a via's opening (change c0445; `tests/kicad/vias/test_via_mask_margin_oracle.py`) | S-2042 | KICAD-VERIFIED (10.0.x) | H-K-VIAPROT-MASK |
 | In a board of the 9.0 format a via holds at most `(tenting …)` with the atoms `front`, `back`, both, or `none`; 9.0.9 plots the named sides tented and the others open (`none` and a child without an atom: both open), a via without the child follows the board, and `setup` is read the same way (no child, or `front back`: both tented) | S-0029 | KICAD-VERIFIED (9.0.x) | H-K-VIAPROT-NINE |
 | 9.0.9 does not load a board that holds a 10.0 protection form: `pcb drc` exits 3 on a 9.0 board whose via holds `(plugging (front yes) (back yes))` | S-0029 | KICAD-VERIFIED (9.0.x) | H-K-VIAPROT-NINE |
 | The spelling KiCad 9 itself writes for a via tented on neither side is not observed: 9.0.9 has no headless re-save (`pcb upgrade` does not exist there). `(tenting none)` loads and plots as meant on 9.0.9 | S-0029, S-0037 | INFERRED | H-K-VIAPROT-NINE |
@@ -611,7 +625,10 @@ Everything below is a Fenolite choice built on the facts above; `pcb.WRITE_EVIDE
   `net` node inside opaque content: a number is resolved through the source table to the stored name of
   its net (`pcb.stored_net_name`, `{slash}` kept; c0163) and a name by itself;
   `(net 0)`, `(net 0 "")` and `(net "")` become `(net 0)` for target 9 and are removed for target 10.
-  A 9 → 9 write renumbers nets, so equality is judged on the model.
+  A 9 → 9 write renumbers nets, so equality is judged on the model. A target-10 graphic's `(net "…")`
+  slot therefore names its net in the stored spelling (`A1{slash}GND`), while the reader names the net
+  `A1/GND` and keeps the spelling in its bag: `fpitems.with_graphic_nets` and the importer's
+  `graphic_net` look a slot up by either spelling (c0425).
 - **Rows no longer written.** For target 10, nodes of every inventory row with `until_major = 9` are
   removed after the net conversion (the net table, zone `net_name`, `filled_areas_thickness` and the
   plot rows `hpglpen*` and `plotinvisibletext`), with one `kicad.board.obsolete-dropped` info per row id.
@@ -669,7 +686,9 @@ Everything below is a Fenolite choice built on the facts above; `pcb.WRITE_EVIDE
   `(justify mirror)` on the bottom), font 1 × 1 mm and thickness 0.15 mm (the skeleton's values),
   then `path` and `attr` when set. A created drawing writes `(stroke (width W) (type solid))`; circles,
   rectangles and polygons also write `(fill yes|no)`. A created text writes
-  `(effects (font (size H W) (thickness T)))`, with `(justify mirror)` on a back layer. A created zone
+  `(effects (font (size H W) (thickness T)))`, with `(justify mirror)` on a back layer. A created footprint
+  writes its own drawings (change c0409) and then its own texts as `fp_text user` (change c0422) before its
+  pads, in its frame, a text's angle the one on the board. A created zone
   writes `name` and `priority` only when they are not empty or 0, and its setting children as section
   "Zone settings" describes; a created rule area writes none of them. A created fill writes `(island)` for
   target 9 when it is an island, and `(island yes|no)` for target 10.
@@ -689,8 +708,12 @@ Everything below is a Fenolite choice built on the facts above; `pcb.WRITE_EVIDE
   property) `"kicad-out:<owner id>:<part>"`.
 - **Outline.** A non-empty `Board.outline` becomes one `gr_line` per edge of the outer ring and of each
   cutout, closing every ring, on `Edge.Cuts` with `(stroke (width 0.1) (type solid))` (the skeleton's
-  stroke), parts `outline:<ring>:<k>`. A board with an outline and a graphic on an `edge` layer gives
-  `kicad.board.outline-conflict`.
+  stroke), parts `outline:<ring>:<k>`. With explicit root lines/arcs or unfilled rects on an `edge` layer
+  (c0349; rects c0401, so a `gr_rect` outline is written back as one `gr_rect`),
+  the writer reconstructs the complete logical outline from root and footprint edges using the existing
+  endpoint-chaining contract. Exact agreement of complete edge-text multisets emits the explicit root
+  graphics without synthetic outline edges; failed, ambiguous or inconsistent reconstruction gives
+  `kicad.board.outline-conflict`. This is a Fenolite representation decision, not a KiCad format claim.
 - **Projections.** Before a read item is written, each opaque child that stands for a model field is
   compared with the model value. Reference and Value rewrite only the value atom of their property.
   A modelled child kept opaque for its spelling (`12.000000`, a written zero angle, an unquoted name) is
@@ -721,8 +744,15 @@ the missing-table control firing on both majors (`H-K-LIB-DRC`). `embed.EVIDENCE
   `mid`, `end`, `center`, `xy`, and `offset` under `drill`) has its Y negated, which mirrors it about
   local X; the 3D `model` stays as it is. The angle of every child `at` becomes (−φ) mod 360°. Every
   text (`property`, `fp_text`) whose layer was flipped gains or loses `mirror` in its `justify`.
+  Pad `chamfer` corners swap `top_left` with `bottom_left` and `top_right` with `bottom_right`;
+  `chamfer_ratio` stays unchanged. This new mapping is **INFERRED** (`H-G-CHAMFER-FLIP`, c0282),
+  the geometric consequence of the existing local-Y mirror applied to the corner tokens (S-0001).
+  Bottom derivation applies the same involution. `embed.flip_evidence` adds the inferred hypothesis
+  only for a bottom definition containing chamfers; previous bottom shapes retain `embed.EVIDENCE`.
+  Local `kicad-cli` 9.0.2 measured zero library mismatches for the four authored rotations and four
+  mismatches for the wrong-corner control on 2026-11-01 (S-1010); evidence stays inferred pending CI.
 - **Unsupported geometry.** On the bottom side, `embed.FLIP_UNSUPPORTED` heads (`rect_delta`,
-  `chamfer`, `dimension`, `image`, `fp_text_box`, `table`, `barcode`) give one
+  `dimension`, `image`, `fp_text_box`, `table`, `barcode`) give one
   `kicad.board.flip-unsupported` issue each, and `place_footprint` raises `LossyWriteError`. The list
   grows when a fixture shows another head whose geometry the mirror table does not cover.
 - **Both sides.** Child angles are stored absolute: (angle + θ) mod 360° (`pad_angle_to_board`).
@@ -833,6 +863,22 @@ passed in the `kicad-9` and `kicad-10` jobs of CI run 37772583226 (2026-10-08).
 | A footprint without a courtyard is never reported, whether the area covers the whole part, one pad or the space between the pads | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PLACE-KEEPOUT |
 | An area that covers only the Reference text of a footprint, outside its courtyard, reports nothing | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PLACE-KEEPOUT |
 
+### Rule areas of a footprint (c0411)
+
+A footprint's `zone` with `keepout` is a rule area of the footprint (S-1720, S-1721). The reader projects it
+into `FootprintDef.keepouts` or `FootprintInstance.keepouts` (`backends/kicad/fpzones.py`) and keeps the zone
+an opaque slot; every other footprint zone stays opaque. The model holds an instance's areas in its pad
+frame: a board point is `position + R(rotation)·p`, as for a pad. The rows were measured on 2026-11-05 with
+local `kicad-cli` 10.0.6 (macOS) on boards and footprints authored for Fenolite; their tests are
+`tests/unit/backends/kicad/test_footprint_zones.py` and `tests/kicad/altium/test_keepout_import.py`.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A board holds a footprint's zone points in the board's frame: KiCad neither offsets nor turns them by the footprint's `at`, a DRC finds a track in the zone at those board points, and a re-save keeps them. A `.kicad_mod` holds them relative to the footprint's origin | S-0020, S-0022 | INFERRED | H-K-FP-AREA |
+| `fp upgrade` writes a footprint's rule area with `hatch edge 0.5`, `connect_pads (clearance 0)`, `min_thickness 0.25`, the five `keepout` settings, `placement (enabled no)`, `fill (thermal_gap 0.5) (thermal_bridge_width 0.5)` and one polygon; an area on every copper layer names the 32 copper layers (`F.Cu`, `B.Cu`, `In1.Cu` … `In30.Cu`), which a definition holds as `*.Cu` | S-0020, S-0022 | INFERRED | H-K-FP-AREA |
+| A footprint's area that forbids pads makes `pcb drc` report `items_not_allowed` for the footprint's own pad in it, as for another footprint's pad | S-0020 | INFERRED | H-K-FP-AREA |
+| A footprint's area that forbids footprints reports another footprint whose courtyard meets it and never its own footprint | S-0020 | INFERRED | H-K-FP-AREA |
+
 ### Writer issue codes
 
 | code | severity | when |
@@ -841,11 +887,102 @@ passed in the `kicad-9` and `kicad-10` jobs of CI run 37772583226 (2026-10-08).
 | `kicad.board.obsolete-dropped` | info | target 10: nodes of an `until_major = 9` row removed or converted (one per row id, with the count) |
 | `kicad.board.opaque-net-ref` | error | a `net` node in opaque content matches no form, or names a number absent from the source table |
 | `kicad.board.projection-read-only` | error | a projected value other than Reference, Value or a spelling-only field differs from its fragment |
-| `kicad.board.outline-conflict` | error | a non-empty outline and edge graphics on one board |
+| `kicad.board.outline-conflict` | error | explicit physical edges do not reconstruct the complete logical outline |
 | `kicad.board.flip-unsupported` | error | `place_footprint` on the bottom meets a head of `FLIP_UNSUPPORTED` |
 
 Errors raise `LossyWriteError` (`FEN-7001`); `droppable` is true only when every error is a too-new
 token inside opaque content.
+
+## Teardrop settings (c0277)
+
+- **Created settings.** A pad or via whose model `teardrop` is set gets a `teardrops` child
+  (`backends/kicad/teardrops.py`) with one child per field that is not `None`, in the order of the fact row
+  above, `enabled` always; a ratio held in parts per million is written as the decimal fraction, a length in
+  mm. The child goes where the fact row says: before `uuid` in a pad, between the protection children and
+  `net` in a via. `INFERRED` until `H-K-TEARDROP` loads, checks and re-saves a created board on both majors.
+- **Read boards.** The reader does not project a `teardrops` child; it stays in its slot and is written back
+  as read. When the model of a read pad or via gets settings (a script via over a board that held the via),
+  the writer replaces that slot's child with the model's.
+- **Teardrop zones** are never created: KiCad draws them when it fills the board, from the settings above
+  (`H-K-UUID-KEEP-2`: a 10.0.6 re-save removes them).
+- **Blind vias over the board.** A via table of a script (`Design.via_table`) may hold a blind via whose
+  two layers are the two outer copper layers, written as the fact row above shows; a single via or a via
+  step keeps the rule that a blind via joins one outer layer.
+
+## Board texts and dimensions of a script (c0277)
+
+- **Text styles.** A created text with `Text.knockout` writes `(layer L knockout)`; one with `bold`, `italic`
+  or `face` writes them in its font in the order of the fact row above, the flags as `(bold yes)` and
+  `(italic yes)`. A text on a copper layer is written like any other; the copper check leaves it out
+  (`copper.text-unchecked`, info) and KiCad's DRC judges it (`H-K-BOARD-TEXT`). The reader does not project
+  `knockout`. Since change c0460 it projects `face`, `bold` and `italic` of a text whose font names a face (a
+  TrueType text; the face `KiCad Font` names KiCad's own stroke font and is none): board texts, footprint texts and fields, so a text read from KiCad holds the font a text
+  read from Altium holds. A text in KiCad's stroke font keeps `bold` and `italic` in its slots, and its
+  canonical JSON is unchanged. A read board text still writes its font from its slots; a field's effects are
+  modelled, so it writes the face it holds.
+- **Several lines and an empty text** are written as the string atom holds them (`\n` escaped, as KiCad
+  writes it); the reader reads them back unchanged.
+- **Extension offset.** A created dimension writes `Dimension.extension_offset` in its `style`, 0.5 mm when it
+  is `None`.
+- `INFERRED` until `H-K-COPPER-ART` loads a created board with a copper text and the styles on both majors.
+
+## Board items of an import (c0277)
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A via's `(free yes)` follows its `layers` and comes before its protection children (`tenting` …) | S-0058 (`CM5_MINIMA_3`, `One-Air-Max`, `RoyalBlue54L-Feather` at 10.0.6) | INFERRED | H-K-PCB-WRITE |
+| A graphic on a copper layer holds `(net …)` after its `layer`: the net number on a 9.0 board (`One-Air-Max`); a 10.0 board names its nets in every reference, so the writer names it there | S-0058 | INFERRED | H-K-COPPER-ART |
+| A footprint's `fp_poly` on a copper layer may hold `(net "…")` after its `layer` as well: 10.0.6's `pcb upgrade --force` keeps it there, and its DRC names that net on the item (`Polygon [5V] of L3`). It still reports such copper that touches other copper as `shorting_items`, whether it holds a net or not. A created footprint writes the net of its copper graphics so (change c0454); a graphic on any other layer holds none | S-2131 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-11-06) | H-K-COPPER-ART |
+| A filled shape without an outline is written with `(stroke (width -0.000001) (type solid))` | S-0058 (`CM5_MINIMA_3`) | INFERRED | H-K-PCB-WRITE |
+| A dimension's `units` codes are 0 inches, 1 mils, 2 millimetres and 3 automatic | S-0001, S-0058 (`tinytapeout-demo`) | INFERRED | H-K-DIM |
+| `board_only` follows the type atom of `attr` (`(attr through_hole board_only exclude_from_pos_files exclude_from_bom)`) | S-0058 (150 footprints) | INFERRED | H-K-PCB-WRITE |
+| A zone's `smoothing` and `radius` follow `thermal_bridge_width` in its `fill` | S-0058 (`CM5_MINIMA_3`) | INFERRED | H-K-PCB-WRITE |
+| A placement rule area holds `(placement (enabled yes) (sheetname "/CH1/"))` after its `keepout`; KiCad 9 writes `(placement (enabled no) (sheetname ""))` on a rule area that places nothing | S-0058 (`multichannel_mixer`, `CM5_MINIMA_3`) | INFERRED | H-K-PCB-WRITE |
+| A chamfered pad of a bottom footprint names its corners in the board's frame: brought back to the top side, a top corner is a bottom one (`top_left` ↔ `bottom_left`, `top_right` ↔ `bottom_right`), as the pad is mirrored about its local X axis | S-0058 (`RoyalBlue54L-Feather`, J1) | INFERRED | H-G-FLIP |
+| A `generated` tuning pattern names the tracks it made in `members`, by uuid, and is written after the groups | S-0058 (`CM5_MINIMA_3`, `One-Air-Max`) | INFERRED | H-K-VERBATIM |
+| A board outline may be closed by the `Edge.Cuts` of a footprint (`tinytapeout-demo`'s USB connector J15): the created outline leaves out an edge a footprint draws, in either direction | S-0058 | INFERRED | H-K-OUTLINE-FPEDGE |
+| A zone outline with an arc edge holds `(arc (start) (mid) (end))` items in its `pts`, beside `xy` items; a line joins an item's last point to the next one's first, and the last item to the first | S-0058 (`RoyalBlue54L-Feather`) | INFERRED | H-K-ZONE-ARC |
+| A radial dimension holds `type radial`, `layer`, `uuid`, `pts` (centre, then a point of the circle), `leader_length`, `format` with a prefix such as `"R "`, `style` (`thickness`, `arrow_length`, `text_position_mode`, `extension_offset`, `keep_text_aligned`) and a `gr_text`, and no `height`; a leader holds `type leader`, `pts` (arrow point, then knee), `format` with `(units_format 0)` and `override_value` (the note), `style` with `text_frame` after `text_position_mode`, and a `gr_text` whose `at` is where the note stands | S-0058 (`constraints`, `jetson-agx-thor-baseboard`, `RoyalBlue54L-NFC-Antenna`) | INFERRED | H-K-DIM-KINDS |
+| A board image is a root `(image (at X Y) (layer L) (scale S) (data "…" "…") (uuid U))`: the PNG bytes as base64 text split into strings of 76 characters; 10.0.6 keeps the bytes, the chunks and the children on re-save of an image written so. No demo board holds one (measured on 2026-10-30, the pinned image, local run) | S-0001 ("Images"), S-0020 | INFERRED | H-K-IMAGE |
+| No demo board holds a centre mark. One written as `type center`, `layer`, `uuid`, `pts` (centre, then the end of an arm) and a `style` (`thickness`, `arrow_length`, `text_position_mode`, `extension_offset`), without `format` and `gr_text`, loads on 9.0.9 and 10.0.6, and 10.0.6 keeps those children on re-save; it keeps the radial and leader forms above too, recomputing a radial text's angle; a leader with `(units_format 1)` shows its note with the units appended (measured on 2026-10-30, the pinned images, local run) | S-0020, S-0029 | INFERRED | H-K-DIM-KINDS |
+
+- **Free vias.** The reader keeps a read via's `free` in its slots; a created via of `Via.free` writes it,
+  and a script via over a read one replaces the read child.
+- **Copper graphics.** `Graphic.net_id` is written through the net table of the target, as a track's net;
+  the reader keeps a read graphic's `net` in its slots.
+- **Dimensions.** The reader now projects the codes 1 and 3 into `Dimension.units` (`mils`, `auto`), which
+  it read as `mm` before; a created dimension in `auto` caches its text in millimetres, as KiCad does
+  before it recomputes it. Radial dimensions, leaders and centre marks are modelled (`Dimension.kind`
+  `radial`, `leader`, `center`, with `leader_length`, and a leader's `text` and `frame` projected from its
+  `format` and `style`); one in another form stays an opaque root slot. A created one is written in the
+  forms of the fact rows above (`H-K-DIM-KINDS`): a radial dimension with the prefix `R ` and its text at the
+  end of its leader, a leader with `(units 2) (units_format 0)` and its note 2 mm past the knee unless the
+  model places it, a centre mark with its `style` alone.
+- **Images.** A board `image` is modelled (`Image`, `Board.images`: `at`, `layer`, `scale`, the joined
+  `data`); a created one is written in the form of the fact row above, after the dimensions, and a script
+  image is regenerated on a rebuild as the other board items are (`boarditems`); one in another form stays
+  an opaque root slot.
+- **User layers** of a script are the rows of "User layers for conversion" (`H-K-BOARD-USERLAYERS`), with the
+  user name a script gives.
+- **Explicit technical tables** (c0324) are a Fenolite selection policy over the canonical row names
+  and row form already recorded above (S-0001, S-0021). `board(technical_layers=...)` uses existing
+  model layer rows to retain a supported source table without adding unused standard rows. Copper
+  and declared `User.n` rows remain independent. Default `None` keeps the complete created table.
+  Native writer checks still refuse any modeled item on an undeclared layer, including images;
+  exact layer-table equivalence is unchanged. This adds no format or native-application acceptance
+  claim; authored writer/readback proofs remain `INFERRED`.
+
+## Groups of a script (c0277)
+
+- **Written.** A `Group` of `Board.groups` is written as a root `(group "name" (uuid U) [(locked yes)]
+  (members "…" …))` after the zones, its members the uuids the writer gives the items (a component by the
+  uuid of its footprint), sorted: the place and the sorted members of the fact rows above (`H-K-PCB-WRITE`,
+  `H-K-LENS-RENAME`). A member that the board does not hold is left out.
+- **Read boards.** The reader does not project a group; it stays in its slot and is written back as read.
+  When a script group has the uuid of a read one (a rebuild), the writer writes the model's group in that
+  slot instead, so a rebuild changes no byte and a changed script group replaces the old one.
+- `INFERRED` for the created form until `H-K-GROUP` loads a created board with a nested and a locked group
+  and re-saves it unchanged on both majors (task 4.4 of c0277).
 
 ## Net-tie groups (c0114)
 
@@ -864,10 +1001,31 @@ The third row is the census that change c0114 states (twelve footprints on three
 - `read_board` projects the child into `FootprintInstance.net_ties`, as `read_footprint` does, and keeps
   it as a projected slot: an unchanged board is written back byte for byte.
 - A footprint whose `net_ties` differs from its child, or that gains groups without having the child,
-  gives `kicad.board.projection-read-only` naming `net_ties`. A footprint that was not placed from a
-  library definition cannot carry groups.
+  gives `kicad.board.projection-read-only` naming `net_ties`.
+- A created footprint (one the writer makes whole, such as a converted Altium net tie, `docs/formats/altium/
+  pcb-records.md`, "Component kind") writes its groups as the `net_tie_pad_groups` child after `attr` (change
+  c0420, N1; it was refused before).
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A converted footprint written with the child after `attr` loads, and a copper line of the footprint that joins its two pads of different nets adds no DRC violation; without the child the same line adds `clearance` and `solder_mask_bridge` violations | S-1792 | KICAD-VERIFIED (10.0.6) | H-K-NETTIE-DRC |
 - `embed.place_footprint` carries the child of the definition into the placed footprint, so a library
   net tie, or an authored one, keeps its groups on the board that `build` writes.
+
+## Zone clearance against rules (c0420)
+
+What decides the gap between a zone's fill and an item of another net when KiCad refills the zone, measured on
+an authored board (a zone of net `A` round a 0.25 mm track of net `B`, `tests/kicad/fill/
+test_zone_clearance_oracle.py`).
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A custom rule (`.kicad_dru`) whose condition matches the pair decides the gap, wider or narrower than the zone's `connect_pads` clearance: zone 0.2 mm with a 1.0 mm rule gives 1.0 mm, zone 1.0 mm with a 0.2 mm rule gives 0.2 mm | S-1792 | KICAD-VERIFIED (10.0.6) | H-K-ZONE-CLEARANCE |
+| Without a matching custom rule the gap is the larger of the zone's clearance and the netclass clearance: zone 1.0 mm over a 0.2 mm netclass gives 1.0 mm, zone 0.2 mm under a 1.0 mm netclass 1.0 mm, zone 1.5 mm over 1.0 mm 1.5 mm | S-1792 | KICAD-VERIFIED (10.0.6) | H-K-ZONE-CLEARANCE |
+
+So a converted Altium zone carries the smallest clearance that governs its polygon, and the DRU rules carry
+every wider one (`convert/altium_zones.py`, "Clearance (B6)"). On a converted board whose DRU rules hold one
+without a condition, the widest and the smallest governing clearance on its zones gave the same fill.
 
 ## Drawing items (c0117)
 
@@ -919,3 +1077,76 @@ Fenolite's choices, not format facts:
 - **THEIRS keeps its bytes.** The text of each changed item of OURS is spliced in, with the line ends of
   THEIRS; an added item follows the nearest item before it in OURS. The result must parse to the merged
   items, or the merge fails as a bug.
+
+### Custom field import controls (c0345)
+
+`KICAD-VERIFIED` — On native9.0.9 and10.0.6, an authored visible custom
+`Author` property on a rotated footprint retains exactly the same complete SVG
+primitive/style multiset after import and fresh build, both plain and bold/italic.
+Moving that field produces a different native multiset in each control. This
+verifies the authored cases only, not arbitrary fonts or manufacturing quality.
+Source: S-1286; hashes and scope in `docs/evidence/custom-footprint-field-poses.json`.
+### Common-tool padvia cache proof (c0340)
+
+- **ORACLE-VERIFIED(kicad-cli10.0.6), S-1208:** fresh `pcb drc --refill-zones
+  --save-board` on isolated copies of the declared public Complex source and
+  its generated board produces167 padvia cache regions on each side when
+  project max_error matches. Original raw caches remain165 versus0; no raw
+  cache equality, geometry-validity certificate or safety DRC pass is claimed.
+- The regenerated source contains12 outline/fill rings with proper segment
+  crossings (14 crossing edge pairs). Both sides retain and compare their
+  complete exact rational vertices/crossings/multiplicity; there is no repair
+  or vertex deletion. The artifact/geometry hashes and counts are recorded in
+  `docs/evidence/project-derived-cache-proof.json`. Parent qualification for
+  such a ring uses exact edge/body intersection, never an assumed interior.
+- The measured legacy cache has the name `$teardrop_padvia$`, hatch `full`,
+  and island_area_min; fresh10.0.6 cache has hatch `none` and island mode1.
+  These are observed cache metadata, not equality of the original caches.
+  Closed qualification refuses unknown or malformed metadata and zero-area
+  rings; ordinary zone priorities and pure equivalence are unchanged.
+
+### Unique pad-field order, bounded authored observation (c0355)
+
+**ORACLE-VERIFIED(kicad-cli)** (S-0020): moving the single named net child among existing known pad fields on original circular/rounded-rectangular CC0 controls leaves exact F.Cu SVG geometry unchanged on9.0.9/10.0.6; raw outputs are retained and only the non-rendered title clock is normalized. On10.0.6 the same pair also yields identical complete native regenerated teardrop regions after one refill/save per side. No native9 refill claim is made. This does not establish arbitrary child-order freedom, duplicate-field or unknown-field behavior, duplicate-ID/signature exchangeability, or a runtime acceptance rule. Proof: tests/kicad/board/test_native_pad_field_order.py.
+
+The bounded c0355 observation additionally covers original through-hole and chamfered controls with the net child explicitly crossing known drill/layer/remove-unused/rounded-corner/chamfer fields. All8 native9/10shape cases keep exact copper SVG geometry; all four native10shape cases retain identical complete derived geometry after one refill/save per side. This does not prove arbitrary unknown-child commutation. Nested polygon `arc` nodes are geometry, not root electrical track identities; role scope is structural.
+
+
+### Scoped numeric-role witnesses (S-1299)
+
+`ORACLE-VERIFIED(KiCad10.0.6)`: an original authored board with two labelled routed networks preserves complete terminal membership after table order or known netcode changes; unnumbered NPTH/SMD pads remain physical NO_NET objects. This test-only observation does not qualify a third-party board for renumbering.
+
+`ORACLE-VERIFIED(KiCad10.0.6)`: a direct footprint `zone_connect` wire integer0/1/2 produces distinct ordinary-fill results in the original SMD control;3 matches2 in that control only. No through-hole behavior is inferred. An original silkscreen `gr_text` with an explicit face acquires `render_cache` text matching the owner, followed by its rotation and ordered `polygon/pts/xy` coordinate pairs. Changing only owner rotation0→90 changes that scalar accordingly. Translating the owner5mm/7mm translates all14 ordered cache polygons exactly, with no vertex/ring normalization. The test-only descriptor is limited to F/B.SilkS and refuses unknown members/malformed or ambiguous ownership. No glyph geometry is committed, no cache is seeded, and no copper-cache exception is implied. Receipt: `openspec/changes/c0355-verified-native-identity/numeric-role-ledger-proof.json`.
+
+## Fenolite board properties (c0434)
+
+A conversion from Altium keeps the data the way back needs in root properties of the board, named
+`Fenolite.Altium.<Name>`, whose value is the base64 text of zlib-compressed bytes
+(`backends/kicad/boardcarrier.py`). The value holds no character that needs escaping.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A root `(property "NAME" "VALUE")` written after `setup` loads; `pcb upgrade --force` keeps it after `setup`, with its value, also a value of 80 kB | S-0020 | KICAD-VERIFIED (10.0.6) | H-K-FENOLITE-PROPS |
+| A 10.0.6 re-save writes the board properties sorted by name and keeps each value byte for byte, the four `Fenolite.Altium.*` storage properties of a conversion of public row `-01` among them (the largest 698 048 characters, a 2.3 MB board; change c0450) | S-2092 | KICAD-VERIFIED (10.0.6) | H-K-FENOLITE-PROPS |
+
+`with_carried` writes every `Fenolite.Altium.*` property in name order right after `setup` and changes no
+other byte; `carried` reads them back. Change c0434 writes `Fenolite.Altium.Rules6`
+(`docs/formats/altium/rule-file.md`, "Records through KiCad"), change c0450 the storages of the source
+document (`docs/formats/altium/pcb-records.md`, "Through KiCad"), change c0463 the arc vertices of each chorded polygon as
+`Fenolite.Altium.PolygonArcs` (schema `fenolite.altium-polygon-arcs.v0`, keyed by the KiCad zone's uuid;
+`docs/conversion.md`), change c0449 the stored heights of each
+placed embedded model as `Fenolite.Altium.ModelHeights` (schema `fenolite.altium-model-heights.v0`: per
+model its SHA-256, offset, turns and side in KiCad, its `STANDOFFHEIGHT` and `OVERALLHEIGHT` in nm, and since
+change c0464 the Altium id of its body's mechanical layer 1 to 16 when it has one (`layer`; a generated model
+whose bodies share one such layer has an entry with that layer and no heights);
+`docs/conversion.md`, "Models to Altium") and their identities as `Fenolite.Altium.ModelIds` (schema
+`fenolite.altium-model-ids.v0`: per model SHA-256 its record's `ID` and `CHECKSUM`, per placed model, keyed
+as the heights are, its body's `MODEL.CHECKSUM`).
+
+## Authored native TAB value observations
+
+| Fact | Source | Evidence |
+| --- | --- | --- |
+| KiCad9.0.9 and10.0.6 official PCB SVG exports accept an authored custom property value containing TAB and LF; original and byte-exact native-model-writer controls agree across both sides and normal/styled visible fields. All glyph paths/transforms/style/multiplicity agree; only root title output-name/date metadata is excluded from the independent XML comparison and retained in raw evidence. | S-1301 | KICAD-VERIFIED (9.0.9,10.0.6; authored scope only) |
+
+These preliminary observations prove native representation, not native GUI save/reopen. The separate c0363 implementation-proof.json records complete production import/build controls. Other control characters, names and malformed input have not gained support. Exact native-value equality is independently asserted: existing strict modeled1–7 does not judge Component.properties values.

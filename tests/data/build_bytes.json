@@ -1,0 +1,1376 @@
+{
+  "acceptance_v03@10": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "adc4a00e170d0743c1d77f91124321c12d11ab50acb8de4f7d62307157bb397c",
+      ".fenolite/circuit.json": "6332bd365e4bca5cf049e143447dd1abf47fa6dd116739287318d391c8160095",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "f3be49603a44c44e873442ee097905b8750a3060d63ee7b65e307f4b5334d13a",
+      "acceptance_v03.kicad_dru": "5462903699d5a7b33200d662f37bbf140df0dafbe69d2d9da0f50c21021160a1",
+      "acceptance_v03.kicad_pcb": "1eec77d56cafeacf3bbd58d8fafd17c1fc58299d475d1c627e9e9082be3bfe37",
+      "acceptance_v03.kicad_pro": "d78430c4384ff72ed4da21058ce179bb7eb4461c23fc25082f6a4c00613f0cf8",
+      "acceptance_v03.kicad_sch": "a4dadeeb2a1995714b1534b492f0f28fa7a26f2328447ce0c47a008bac60b3ab",
+      "acceptance_v03.kicad_wks": "a3fd0cefc2362b22db51a9eb91e8d60d80e9aefb45a0726c3d6fa387bf0679ba",
+      "fenolite-base.json": "c342c19c64be720e5717973780e5585ebf7a0c5a4b17239bf69a1192ead166fa",
+      "fp-lib-table": "df55ed21636150b413bed9e1378bd059128337a3c4300eeef236d4d6bb8bc1d1",
+      "lib/Acceptance.pretty/TwoPin.kicad_mod": "905f874cd768e9ea75c9ba832bf3619a5e786f2ab93b7423ed324ba1a511c13e",
+      "lib/Fenolite.kicad_sym": "7dea17d4500dcd1b29505b73bf183047e3932ca1cd5be804e06d5af6d0bb2d50",
+      "sheets/front.kicad_sch": "e177eeb92354dc9752f0a3bf4c06dc1cb4a7c0b80416952da428afcdc74536f9",
+      "sheets/front.stage.kicad_sch": "c2d43fd628e4fd4897d322085153b230181c2d6767020f36da93a37d13ed2f52",
+      "sym-lib-table": "e3893d2062cd3bf78ed9acc4c7ed908a020b3eb92ec8af6d2521cd8d839b242b"
+    }
+  },
+  "acceptance_v03@9": {
+    "exit": 7,
+    "files": {}
+  },
+  "acceptance_v03@altium": {
+    "exit": 0,
+    "files": {
+      ".fenolite/altium-generated/acceptance_v03.SchDoc": "7c7126fabe45eb6e3a5d74a47311d85d2d211f826e47484f0f4c0dc964e4f626",
+      ".fenolite/board.json": "a3befff369d18449aed64a6a714bdf60a7b4accd26ff04cf0f04789284d656cc",
+      ".fenolite/circuit.json": "f05a395e16a19a9ec6e08353abe9a1614e4126aeb7b324905121e84d9d6fa94b",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "f3be49603a44c44e873442ee097905b8750a3060d63ee7b65e307f4b5334d13a",
+      "acceptance_v03.OutJob": "f2e42097a2728a316a8fa4afd0d4774547ef4656c2e45ca072d096db3a304f3f",
+      "acceptance_v03.PcbDoc": "0eee3097208bb124fcbffcb6c503d7c7918ca082b3e767d56ba3fea70ee71922",
+      "acceptance_v03.PcbLib": "79a54d5b9ba0203fe61c6290a9bd0e467cdecb601c92e52c7ff1fe4c3c4de3ae",
+      "acceptance_v03.PrjPcb": "70c5f087de0596f4b1bba39d2e7e01efd5d863f6db60ec881ec77e94d31128c5",
+      "acceptance_v03.SchDoc": "7c7126fabe45eb6e3a5d74a47311d85d2d211f826e47484f0f4c0dc964e4f626",
+      "acceptance_v03.SchLib": "a83ff8c811a306e7e373f7ba1bbe79b9effd839a4873327d728666ff337e13ae",
+      "fenolite-base.json": "c9e8e7b934dd12c32782a504896111e87f93663a4ae4b92e25aba517f5cd7af4"
+    }
+  },
+  "altium_hier@10": {
+    "exit": 3,
+    "files": {}
+  },
+  "altium_hier@9": {
+    "exit": 3,
+    "files": {}
+  },
+  "altium_hier@altium": {
+    "exit": 0,
+    "files": {
+      ".fenolite/altium-generated/altium_hier.SchDoc": "2ee97753c02bd0c1b4231266bb51189b5e6109ac3a55e4dcc3a48dc54e898261",
+      ".fenolite/board.json": "7488a19f819cbaec31ce479ebfa7d8a6a6d80eb1fab266129bd3f7157e38904d",
+      ".fenolite/circuit.json": "30cf08e22d1ec7fda49e9994608e4f205640c6f6aad975405603b52f42148fee",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "FenoliteHier.SchLib": "4bb9a7bded8be3d14827d29112fac29648ad3f7d8066908e310a99831870c15a",
+      "altium_hier.PrjPcb": "ae15675995efcc4992e061f76fe998f30a3048f58517e984be77ebfd066f25be",
+      "altium_hier.SchDoc": "2ee97753c02bd0c1b4231266bb51189b5e6109ac3a55e4dcc3a48dc54e898261",
+      "fenolite-base.json": "f51a79e9a43c139ecab1e969e3fbb267035d8bc600e7aa5072dcf9d4e7375a24"
+    }
+  },
+  "altium_hier_board@10": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "e8016349a8fb5cdcb958a59fcb3c656383767f75107113baccf85fa044119f4e",
+      ".fenolite/circuit.json": "3549aec353b7f03e7878334ef4c340e015c8575f4ffd5483c14970b0b1b368bf",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "altium_hier_board.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+      "altium_hier_board.kicad_pcb": "76723dc70f5e2700f54079ddf0ee4c10d1283e473a7401c9ea9242d7fcb39eb6",
+      "altium_hier_board.kicad_pro": "41ecd48027ab3780464d1b3e7383f45cae19951285561c7871bab7a14f8136b3",
+      "altium_hier_board.kicad_sch": "7b4676a4892c4979a261ae5c9ee6b683758d853e078a361bc7c1a357f6f9a7a1",
+      "fenolite-base.json": "6a8786cf823fe2781dcca0c6faf6355f7ac2f48a82adba6e134d22c9033492a0",
+      "fp-lib-table": "4f062e901cb3495d31f831532c4ba5978d07b5a1423e870db006f919ab92d001",
+      "lib/Mini.kicad_sym": "8e14639415bd075bb21ba9da28fee8817db1ce61b057b621328059ce980f335b",
+      "lib/Mini.pretty/Mini_LED_THT_3mm.kicad_mod": "c7b983f563898280b4c7a3d2647653a90e8688505e988dc9d23666748e9a7ee9",
+      "lib/Mini.pretty/Mini_QFP-32_7x7mm_P0.8mm.kicad_mod": "796c8dbd4386d3371970294120fe4a56e0766bb1731454ef9dbd89725cd61cf1",
+      "lib/Mini.pretty/Mini_R_0603.kicad_mod": "8a69fd538ee10ea412e2b5cc1c3d63f4834a12c5d1ad45443697d3f3eb65a5b5",
+      "lib/fenolite.kicad_sym": "90e16156f0ae4a207402043a2ab84224f12fa388ccc18d308512fbb8580b9caf",
+      "sheets/driver.kicad_sch": "bffb4d47a5526cc9609214356a7266794124e1cf0b75692fe4fbd9fa62ac1109",
+      "sheets/led.kicad_sch": "86c7c508c1fe36e243c8085c8400447df8adb5ad5daac28d2195f27e32ab47c7",
+      "sym-lib-table": "2afe4f59fd648e9c32425bfe03b7be44eb266eee5b815e4527bd35bcdc980e12"
+    }
+  },
+  "altium_hier_board@9": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "b1fbb8db895639a2990030bac5d128589ca032b66dc650fe0122aa54c70c0993",
+      ".fenolite/circuit.json": "3549aec353b7f03e7878334ef4c340e015c8575f4ffd5483c14970b0b1b368bf",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "altium_hier_board.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+      "altium_hier_board.kicad_pcb": "6a17aaa994f89bd5928ccf4e67c8e708814f059c25d0ba483349c1ed2a86ad0b",
+      "altium_hier_board.kicad_pro": "db4b2a7d09cdb7c61964bbfeb70d05ee7f3ea27bd02d4a732dc918f4af31f652",
+      "altium_hier_board.kicad_sch": "aa478d0225b7c892685aa1410d68316cf28654363ec13982497a9761c2ff50ee",
+      "fenolite-base.json": "6a8786cf823fe2781dcca0c6faf6355f7ac2f48a82adba6e134d22c9033492a0",
+      "fp-lib-table": "e4c69c740f1d92eda60fb1e81aa65b1606b492a1e691af1fdb0f2cf540eee2bc",
+      "lib/Mini.kicad_sym": "79138284b24670145d6eca2ad6863c5855de506ac405a5ba651130e8433b5f17",
+      "lib/Mini.pretty/Mini_LED_THT_3mm.kicad_mod": "c7b983f563898280b4c7a3d2647653a90e8688505e988dc9d23666748e9a7ee9",
+      "lib/Mini.pretty/Mini_QFP-32_7x7mm_P0.8mm.kicad_mod": "796c8dbd4386d3371970294120fe4a56e0766bb1731454ef9dbd89725cd61cf1",
+      "lib/Mini.pretty/Mini_R_0603.kicad_mod": "8a69fd538ee10ea412e2b5cc1c3d63f4834a12c5d1ad45443697d3f3eb65a5b5",
+      "lib/fenolite.kicad_sym": "7faa6cc4d206c0370ead0b23ad9910064a5c23943eff39c3cd446d4aafa8bc32",
+      "sheets/driver.kicad_sch": "ddfaa19adea275f0c42e05ef339f9faf892ebcb2cd5b3e9a50c1237492384bae",
+      "sheets/led.kicad_sch": "481966bdf5ff8be35a053d98869b3f070f0d6e0477bc2ffdc1659d9a471c65f3",
+      "sym-lib-table": "c2dc154da17cded945ae64a8745e52396faa7240ef905976564d7d296716d4e4"
+    }
+  },
+  "altium_hier_board@altium": {
+    "exit": 0,
+    "files": {
+      ".fenolite/altium-generated/altium_hier_board.SchDoc": "bcf494f787fc36ab6af988f9647cf48f3c0427adbf275386e8814bf0a073bc5a",
+      ".fenolite/board.json": "ead54a5e0df8e0655f708b3b62cca0946ab49971044f99117b3702860ca2fee5",
+      ".fenolite/circuit.json": "731cd466fa7f32e3d70c20434310b6c9421a38476f06c102e70753c100242fca",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "altium_hier_board.OutJob": "35cb0510445bf4547566d58b7566598e81b565e8da3a37834edee856c6f23e07",
+      "altium_hier_board.PcbDoc": "7afea34178a0b6e3502fb5301fd7791d14a7cd4c6554d1382a522e7f332f700c",
+      "altium_hier_board.PcbLib": "cd644567d4e1208d310bb2563f593e6ffa5fc7c2b5b64418b05184e19dbcc243",
+      "altium_hier_board.PrjPcb": "51ba2d3bf326fecf65c7627939f3ec93242c03c336b6acd1b83814e0de4c1ff3",
+      "altium_hier_board.SchDoc": "bcf494f787fc36ab6af988f9647cf48f3c0427adbf275386e8814bf0a073bc5a",
+      "altium_hier_board.SchLib": "4c8e5542d9d4096ff4a2c3e0a569757ba63ef5aa8899d805afe9b47b5905fa57",
+      "fenolite-base.json": "cba0480cb940d9f81749ee6aa469497a9b7f98179a1ceb74e4278e8742003e32"
+    }
+  },
+  "altium_kicad@10": {
+    "exit": 3,
+    "files": {}
+  },
+  "altium_kicad@9": {
+    "exit": 3,
+    "files": {}
+  },
+  "altium_kicad@altium": {
+    "exit": 0,
+    "files": {
+      ".fenolite/altium-generated/altium_kicad.SchDoc": "1ecb0bb793cf06ecad44422d41615b624116976208f1a929d9b023ebc85e3c28",
+      ".fenolite/board.json": "7488a19f819cbaec31ce479ebfa7d8a6a6d80eb1fab266129bd3f7157e38904d",
+      ".fenolite/circuit.json": "5c8882bb0332283c3057916ac3de363fbaea0914b393de1c741ca8663fe577be",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "altium_kicad.PrjPcb": "0a6f26d9afc01438b641d182ab62d40b3a57fc46773db2ac09ae2a8827808296",
+      "altium_kicad.SchDoc": "1ecb0bb793cf06ecad44422d41615b624116976208f1a929d9b023ebc85e3c28",
+      "altium_kicad.SchLib": "61d202f01f53c3f485a2a8f57a6d00c565cc85cebc43a48c98e1cb60752fc5ea",
+      "fenolite-base.json": "6fd651a29d5718ea18c8005aa1f800caf23544237ed4a544cc64420128825440"
+    }
+  },
+  "altium_sample@10": {
+    "exit": 3,
+    "files": {}
+  },
+  "altium_sample@9": {
+    "exit": 3,
+    "files": {}
+  },
+  "altium_sample@altium": {
+    "exit": 0,
+    "files": {
+      ".fenolite/altium-generated/altium_sample.SchDoc": "86f5747454cca461a3eab5da270a994439d8b4f2bf4a29480d1360ca74a4ee1e",
+      ".fenolite/board.json": "7488a19f819cbaec31ce479ebfa7d8a6a6d80eb1fab266129bd3f7157e38904d",
+      ".fenolite/circuit.json": "5e4741b80e4d45f697ae07ce7d29508b7488e522d33ce76b4a742e79377f28e9",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "FenoliteSample.SchLib": "61e68c6461438a1b76c75d285b62f491fc43dbd91f7a1ccea09ac25e1ee5be6c",
+      "altium_sample.PrjPcb": "082b8c32ea1318af5576405d53fd4a3362a49760d0f48081b32ce6305c547aa0",
+      "altium_sample.SchDoc": "86f5747454cca461a3eab5da270a994439d8b4f2bf4a29480d1360ca74a4ee1e",
+      "fenolite-base.json": "48c0d5827ccb867a25da8c579d05682a5a5c16b96ba96d09d634d189581d993c"
+    }
+  },
+  "blink_2layer@10": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "03c5e887a4c54cd5186aa4676fb554280a8167a5c2f90a2c7a32242e403ce4c6",
+      ".fenolite/circuit.json": "705da4a0b455069c68bf620b8079af5b8becda9800ae71c1fe3633a77f2696a3",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "blink.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+      "blink.kicad_pcb": "4a0471f6a5ef386fa4ddc671ce8fe6697ccd794ded23ca29c420f4994ed1d275",
+      "blink.kicad_pro": "3f93fa5e971df829519f77540279a665183212b0566df2347769a2e21a10cc59",
+      "blink.kicad_sch": "a86aff85a153f9be671d4713814a4cd89cc6fefd842d465fc53a854483c338da",
+      "fenolite-base.json": "9b9e954be113f09d52c87c6839295bb7eaf8f6d17159eaa20a484cc00bf74b83",
+      "fp-lib-table": "4f062e901cb3495d31f831532c4ba5978d07b5a1423e870db006f919ab92d001",
+      "lib/Mini.kicad_sym": "8e14639415bd075bb21ba9da28fee8817db1ce61b057b621328059ce980f335b",
+      "lib/Mini.pretty/Mini_LED_THT_3mm.kicad_mod": "c7b983f563898280b4c7a3d2647653a90e8688505e988dc9d23666748e9a7ee9",
+      "lib/Mini.pretty/Mini_QFP-32_7x7mm_P0.8mm.kicad_mod": "796c8dbd4386d3371970294120fe4a56e0766bb1731454ef9dbd89725cd61cf1",
+      "lib/Mini.pretty/Mini_R_0603.kicad_mod": "8a69fd538ee10ea412e2b5cc1c3d63f4834a12c5d1ad45443697d3f3eb65a5b5",
+      "lib/fenolite.kicad_sym": "90e16156f0ae4a207402043a2ab84224f12fa388ccc18d308512fbb8580b9caf",
+      "sym-lib-table": "2afe4f59fd648e9c32425bfe03b7be44eb266eee5b815e4527bd35bcdc980e12"
+    }
+  },
+  "blink_2layer@9": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "2dc46f96901d3bfd791cd08d8a71bac4eedcc1d05dbee9158ebccc289191ed0e",
+      ".fenolite/circuit.json": "705da4a0b455069c68bf620b8079af5b8becda9800ae71c1fe3633a77f2696a3",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "blink.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+      "blink.kicad_pcb": "a6a99c747690b2620a47c3efe3edfc416492206daccbdde4a66217be273a6851",
+      "blink.kicad_pro": "ec50c23f4e48927f32fa8a9977d144df081088c9ee4269128dd6f7b075ca6067",
+      "blink.kicad_sch": "daf39446a2b8fc879f2a03ac56b9bbeb6c0ed2b8bb7dda1d61eeab8aeac01bbf",
+      "fenolite-base.json": "9b9e954be113f09d52c87c6839295bb7eaf8f6d17159eaa20a484cc00bf74b83",
+      "fp-lib-table": "e4c69c740f1d92eda60fb1e81aa65b1606b492a1e691af1fdb0f2cf540eee2bc",
+      "lib/Mini.kicad_sym": "79138284b24670145d6eca2ad6863c5855de506ac405a5ba651130e8433b5f17",
+      "lib/Mini.pretty/Mini_LED_THT_3mm.kicad_mod": "c7b983f563898280b4c7a3d2647653a90e8688505e988dc9d23666748e9a7ee9",
+      "lib/Mini.pretty/Mini_QFP-32_7x7mm_P0.8mm.kicad_mod": "796c8dbd4386d3371970294120fe4a56e0766bb1731454ef9dbd89725cd61cf1",
+      "lib/Mini.pretty/Mini_R_0603.kicad_mod": "8a69fd538ee10ea412e2b5cc1c3d63f4834a12c5d1ad45443697d3f3eb65a5b5",
+      "lib/fenolite.kicad_sym": "7faa6cc4d206c0370ead0b23ad9910064a5c23943eff39c3cd446d4aafa8bc32",
+      "sym-lib-table": "c2dc154da17cded945ae64a8745e52396faa7240ef905976564d7d296716d4e4"
+    }
+  },
+  "blink_2layer@altium": {
+    "exit": 0,
+    "files": {
+      ".fenolite/altium-generated/blink.SchDoc": "9707faf2c4ccf508e1c57256de9dfcdda838a42c2165e99c23c489133d19aca4",
+      ".fenolite/board.json": "c5eda4a1cdb0bf5a03f747d3e17c6609e64a7a63f6d8a1c6a0b4762c001af202",
+      ".fenolite/circuit.json": "b65a512b111fb99b619e4622bd5cb7f4fb5d9107ced2d6a9425a6e178e01ee7f",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "blink.OutJob": "0a24a3b5d6eca281058a65aad86195bc159a7635756a409f8dae7954f894b436",
+      "blink.PcbDoc": "642ce93cdfd14136c421406e3ba261aab055fcdb437dff9cfc9fefebdd3e0a32",
+      "blink.PcbLib": "8fca33bda63bc3846e99478aa76f20e248026aefa0addd6e6e4ce9e9314c0082",
+      "blink.PrjPcb": "2c0fc10e49421372d5f65721d882751188c3eb42ee6b9fa5c43c7a45ba11b00c",
+      "blink.SchDoc": "9707faf2c4ccf508e1c57256de9dfcdda838a42c2165e99c23c489133d19aca4",
+      "blink.SchLib": "4f427227183102b479836e66d54a7a3cc0bae5794befc4d8a5a7e15362609517",
+      "fenolite-base.json": "34d8eccd3c3b53d8ec4d979452ec404698df61e5afe0518cf90984d339bf27bb"
+    }
+  },
+  "blink_routed@10": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "c7f00ebcba76d3ec5e349955fd611555f29bdb7a908c55c94753e2e3dfce770a",
+      ".fenolite/circuit.json": "705da4a0b455069c68bf620b8079af5b8becda9800ae71c1fe3633a77f2696a3",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "blink_routed.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+      "blink_routed.kicad_pcb": "db659fcc223d5ec56f7650dbdacfde1889bd6a6d16f94ccd78d6d31fd820a9a7",
+      "blink_routed.kicad_pro": "e7629061eae42d14156de7b0a34ae9f322292243458b3166697c0d8792fa84bb",
+      "blink_routed.kicad_sch": "fb790431d1a5ce7046b17c7db7fc8e2e5e0bccfac120def899fc61b7c9a9749f",
+      "fenolite-base.json": "9b9e954be113f09d52c87c6839295bb7eaf8f6d17159eaa20a484cc00bf74b83",
+      "fp-lib-table": "4f062e901cb3495d31f831532c4ba5978d07b5a1423e870db006f919ab92d001",
+      "lib/Mini.kicad_sym": "8e14639415bd075bb21ba9da28fee8817db1ce61b057b621328059ce980f335b",
+      "lib/Mini.pretty/Mini_LED_THT_3mm.kicad_mod": "c7b983f563898280b4c7a3d2647653a90e8688505e988dc9d23666748e9a7ee9",
+      "lib/Mini.pretty/Mini_QFP-32_7x7mm_P0.8mm.kicad_mod": "796c8dbd4386d3371970294120fe4a56e0766bb1731454ef9dbd89725cd61cf1",
+      "lib/Mini.pretty/Mini_R_0603.kicad_mod": "8a69fd538ee10ea412e2b5cc1c3d63f4834a12c5d1ad45443697d3f3eb65a5b5",
+      "lib/fenolite.kicad_sym": "90e16156f0ae4a207402043a2ab84224f12fa388ccc18d308512fbb8580b9caf",
+      "sym-lib-table": "2afe4f59fd648e9c32425bfe03b7be44eb266eee5b815e4527bd35bcdc980e12"
+    }
+  },
+  "blink_routed@9": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "a60130debc5afd3c178a83ed5b941e300ea15a8d2d707f9dbf0e1cdc9625b547",
+      ".fenolite/circuit.json": "705da4a0b455069c68bf620b8079af5b8becda9800ae71c1fe3633a77f2696a3",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "blink_routed.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+      "blink_routed.kicad_pcb": "e2de906207dcb0c083531cec53f02fc16077988a2051af5c25f98f9badc8ad06",
+      "blink_routed.kicad_pro": "495dda9da85ac0a955591a224a1dac80934042463dd7df513055736da75e4214",
+      "blink_routed.kicad_sch": "d741c33c879c7fb54941ebd66d52cd30d22ceae78f7991a1cc086be514bcab1e",
+      "fenolite-base.json": "9b9e954be113f09d52c87c6839295bb7eaf8f6d17159eaa20a484cc00bf74b83",
+      "fp-lib-table": "e4c69c740f1d92eda60fb1e81aa65b1606b492a1e691af1fdb0f2cf540eee2bc",
+      "lib/Mini.kicad_sym": "79138284b24670145d6eca2ad6863c5855de506ac405a5ba651130e8433b5f17",
+      "lib/Mini.pretty/Mini_LED_THT_3mm.kicad_mod": "c7b983f563898280b4c7a3d2647653a90e8688505e988dc9d23666748e9a7ee9",
+      "lib/Mini.pretty/Mini_QFP-32_7x7mm_P0.8mm.kicad_mod": "796c8dbd4386d3371970294120fe4a56e0766bb1731454ef9dbd89725cd61cf1",
+      "lib/Mini.pretty/Mini_R_0603.kicad_mod": "8a69fd538ee10ea412e2b5cc1c3d63f4834a12c5d1ad45443697d3f3eb65a5b5",
+      "lib/fenolite.kicad_sym": "7faa6cc4d206c0370ead0b23ad9910064a5c23943eff39c3cd446d4aafa8bc32",
+      "sym-lib-table": "c2dc154da17cded945ae64a8745e52396faa7240ef905976564d7d296716d4e4"
+    }
+  },
+  "blink_routed@altium": {
+    "exit": 0,
+    "files": {
+      ".fenolite/altium-generated/blink_routed.SchDoc": "c1c352438adcc9e0ff6ae003fb9123f5a83bf3e06f42de6f7f448da0b56b29a6",
+      ".fenolite/board.json": "e461b091e03652df7adee52a7e8070ab479270efb12fcf9b47ab0cf7866f2ceb",
+      ".fenolite/circuit.json": "b65a512b111fb99b619e4622bd5cb7f4fb5d9107ced2d6a9425a6e178e01ee7f",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "blink_routed.OutJob": "595be494ec0a3ce8edc084cd041d86b2fe4bab9cd94f05b5a7e557864f44f950",
+      "blink_routed.PcbDoc": "6691042bc82ef6250d4944f6b08ab8be16b8aeb83d39f0c6975d42cfc332333a",
+      "blink_routed.PcbLib": "640bbcdb207a1dd724d310963f135101f6fb7525b5b59d22516a23ecaa4955ce",
+      "blink_routed.PrjPcb": "99bcc6d91837bf0c0f55876e5be11ae444eca9c11c10bf8c6dbf56c110a8093d",
+      "blink_routed.SchDoc": "c1c352438adcc9e0ff6ae003fb9123f5a83bf3e06f42de6f7f448da0b56b29a6",
+      "blink_routed.SchLib": "2308a12fad9998dda03d2565d7c4bda512f8b5fa67ef0d3b4bdb3ad481fd0ebd",
+      "fenolite-base.json": "34d8eccd3c3b53d8ec4d979452ec404698df61e5afe0518cf90984d339bf27bb"
+    }
+  },
+  "blocks@10": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "f5e9325f93e10bc765b36f5d3fb3944d2d974d26d9e0b3bdff57a86cdf69f506",
+      ".fenolite/circuit.json": "e586eb81fa4d18ff1b4342c8af79895649ea7f38db8318c04bcd365269326bcf",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "blocks_demo.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+      "blocks_demo.kicad_pcb": "1d1eb18ef155c5c803b932ab0539d10c8245ae67885fdc64d2903efceb119900",
+      "blocks_demo.kicad_pro": "b0ba72d3c012c051d9511e128333495ca363a563a9f7ef25911225f27b02f28b",
+      "blocks_demo.kicad_sch": "8e77a54eb782ca06a0caedd3953d0f9adbca15e7292ea47bd3bd53225cec9f0e",
+      "fenolite-base.json": "8b8fa80193c10ebe8333a2800ee2711849363ec8d9912bc44770dd8171d2f89b",
+      "fp-lib-table": "2a361e9168bc7f7bf01661e5637a963867108d75c697a128d37b1def14b3a62e",
+      "lib/Fenolite.kicad_sym": "4ee8c65467ddadac9fd85049173740ac4d72a83f4477328ffc72be909ecec597",
+      "lib/Fenolite.pretty/Chip_0603.kicad_mod": "9435f867b76ed23f031fef449a187ef98a4741aff851f382fd9c931370cf94da",
+      "lib/Fenolite.pretty/Chip_0805.kicad_mod": "faad7c352b92ae2b60f227e0f15241f5a782dd31337e063ada73463d7741659f",
+      "lib/Fenolite.pretty/Header_1x2_P2.54.kicad_mod": "dc39c9d442d1b7207f34b75727638e12e4fd8b461a532e14958190acef5f4e26",
+      "lib/Fenolite.pretty/LED0603_Kingbright_APT1608SURCK.kicad_mod": "94693dbe01883b69d79b80f039e49d700bc2a32d8c0f9452b5f6ce1fc90b9790",
+      "sheets/ch0.kicad_sch": "c5a0a7baeba61d42d1a4fd051c73b8b5a06507b9da05a3237c783b676dbc6fb9",
+      "sheets/ch0.led.kicad_sch": "1d67de19271c879617b002d8c40250ec7506afc81efca529ffec54fc7fd312d8",
+      "sheets/ch1.kicad_sch": "2f666c4a0ce6a3b4006cff8b35e35e57fcb6800f5e752bae6f6d1f8579bc523e",
+      "sheets/ch1.led.kicad_sch": "7e182f33e99a84f04d5fe383f87ae5370462c210f549cd6bafee1b1e740b06fa",
+      "sym-lib-table": "e3893d2062cd3bf78ed9acc4c7ed908a020b3eb92ec8af6d2521cd8d839b242b"
+    }
+  },
+  "blocks@9": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "f1baf4aa363112c594ae8ccca8c6e772b5d498d7036f5a0e45b6b2ecc1418d46",
+      ".fenolite/circuit.json": "e586eb81fa4d18ff1b4342c8af79895649ea7f38db8318c04bcd365269326bcf",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "blocks_demo.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+      "blocks_demo.kicad_pcb": "7e571db4310577618dcf6569843931128bd1d7e0696807a650fa551a424bcf4d",
+      "blocks_demo.kicad_pro": "2f7d67abf4317f3f3ed66826dbf7baa1ebc2062f2d49467d7726040168eb7c2c",
+      "blocks_demo.kicad_sch": "8d400f4a36f260b4cf468896210ab43f7369792d8e438bfb7357b8505ced7f56",
+      "fenolite-base.json": "8b8fa80193c10ebe8333a2800ee2711849363ec8d9912bc44770dd8171d2f89b",
+      "fp-lib-table": "b16eea36e3370296e2c780e7b85115ed4f8f44bea2f76ec1f517c4b78dffb33c",
+      "lib/Fenolite.kicad_sym": "0ed8195783512d15f7e758e1bad7aab5e3f4daf4be27ecca71a5cda7121d6cc3",
+      "lib/Fenolite.pretty/Chip_0603.kicad_mod": "76d4337ce9a2a4dffa908537e8fcd8bae7e6435bfc5497ea1833b4a5309f4c84",
+      "lib/Fenolite.pretty/Chip_0805.kicad_mod": "c90ff1634efd3ee0dffbc08dc2f642d7974aaf104d1cde1e80d5d00eaed7cafc",
+      "lib/Fenolite.pretty/Header_1x2_P2.54.kicad_mod": "dc2a91f6c63c6ea61c7e9c4a54717c22941f749f268fa7ad2596e1ceab856df7",
+      "lib/Fenolite.pretty/LED0603_Kingbright_APT1608SURCK.kicad_mod": "cdaa2c60b4566eb0d6ae294ac5e009879bd34d60bbec18a4f05633aeb7066854",
+      "sheets/ch0.kicad_sch": "aed74ca77a5c945cf3636336c851a1a9363dbaae507eddfdb1b4c04af32e9510",
+      "sheets/ch0.led.kicad_sch": "475caa65fdcfc9be71efef52c8b1d12e752edd28af1bd37d426437452dafa4c0",
+      "sheets/ch1.kicad_sch": "384d567ed9c3b788f38ae95e8620182f8b12521d6b3138d8adba9474b5533acf",
+      "sheets/ch1.led.kicad_sch": "84384bca73f15ca6605d8e8604913483df4bc0cee533f93cf013156c062fdab1",
+      "sym-lib-table": "ddc56bd13cff94152ad483f860666efd4ab37b990e45aaf1da3944a97b24911f"
+    }
+  },
+  "blocks@altium": {
+    "exit": 0,
+    "files": {
+      ".fenolite/altium-generated/blocks_demo.SchDoc": "453a2ed490c802ff012759e1a56cb9120e89733a9d90d49cb2d1da32547cc711",
+      ".fenolite/board.json": "617de78aabc09508bcbf9d2fbd74c0fbbf1dcf8b399f8ef133104b1406a6d4d3",
+      ".fenolite/circuit.json": "582f7a3f7ae1497cdf7b5b7fe55450677041b48aa5afb8b0af933055b8a5aaa5",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "blocks_demo.OutJob": "955cbc96cb99bb3352c54a89e0b91a443509dd0462e22642b8b80d56e225c952",
+      "blocks_demo.PcbDoc": "cba5ede98a8463f27c8429bcccdeac83372acbe2811ecbce90e48490e0627bc6",
+      "blocks_demo.PcbLib": "c3211b5a5b4b4a8aeaf7ab61a3d75aa9b9b0c7c76d87e4313642b6ba0b924ddd",
+      "blocks_demo.PrjPcb": "3850f63e15d21420a8c2633cdae29cc0cf21f54f4c8d99e510ae4f4d6d2117b5",
+      "blocks_demo.SchDoc": "453a2ed490c802ff012759e1a56cb9120e89733a9d90d49cb2d1da32547cc711",
+      "blocks_demo.SchLib": "3fe957032ba52970d4a2c19c2e89d5e9b2234d8cfaf0c9c1a7c7b96f59c9b8d4",
+      "fenolite-base.json": "c7e63e956869d5d4804249e86b810d138632ec211116f14a5058ada88513ff5a"
+    }
+  },
+  "board_40parts@10": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "78b0ec8c173e0fce7e18ff46020439e8b427aa64c03ade6f232aecdb7c4e7a53",
+      ".fenolite/circuit.json": "027afaf6a68a3ca1ae2a3cb43c2bedeb042b43db0b74d4d0a4c91c33c950e0ad",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "9e79613da7a668c9347cf86548a547551dfc9b4d4b6dff75831f165f2fa97f5f",
+      "board_40parts.kicad_dru": "c11bff4771d8ef80746da417bf1b4a8ca87e1960c39eb9060f59427321089823",
+      "board_40parts.kicad_pcb": "3a7752b8c7704e41eba64e040e46aef4bdc81b594ddb1d003d55cd24e7751331",
+      "board_40parts.kicad_pro": "2a9aa8f56655659c4a570b5e8be9e1018609a22e0bb2cff0762ea506a06fff95",
+      "board_40parts.kicad_sch": "7d02c2378dbeea9f0b5406ebca8a7f621d8d0b961ddecce9a1255a6583d525d9",
+      "fenolite-base.json": "d95acb69a689273d0e32f7925cac5cfaf8867b7976ce665c56e3ee9e1bb72e1d",
+      "fp-lib-table": "4f062e901cb3495d31f831532c4ba5978d07b5a1423e870db006f919ab92d001",
+      "lib/Mini.kicad_sym": "8e14639415bd075bb21ba9da28fee8817db1ce61b057b621328059ce980f335b",
+      "lib/Mini.pretty/Mini_LED_THT_3mm.kicad_mod": "c7b983f563898280b4c7a3d2647653a90e8688505e988dc9d23666748e9a7ee9",
+      "lib/Mini.pretty/Mini_QFP-32_7x7mm_P0.8mm.kicad_mod": "796c8dbd4386d3371970294120fe4a56e0766bb1731454ef9dbd89725cd61cf1",
+      "lib/Mini.pretty/Mini_R_0603.kicad_mod": "8a69fd538ee10ea412e2b5cc1c3d63f4834a12c5d1ad45443697d3f3eb65a5b5",
+      "lib/fenolite.kicad_sym": "90e16156f0ae4a207402043a2ab84224f12fa388ccc18d308512fbb8580b9caf",
+      "sheets/bank1.kicad_sch": "9dbbe78933ac7f80a944d6860ee7000750afc8034ca10b64098a999cba7b126a",
+      "sheets/bank2.kicad_sch": "a4e8643838e754937d4ed69b5dae8ba2499d18707f4aa53477e07a83d635ddcb",
+      "sym-lib-table": "2afe4f59fd648e9c32425bfe03b7be44eb266eee5b815e4527bd35bcdc980e12"
+    }
+  },
+  "board_40parts@9": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "4bbd35aaf5971516f02555e0e07a7ac6bc7b06bc09f1dc2cb6e0e227ac658428",
+      ".fenolite/circuit.json": "027afaf6a68a3ca1ae2a3cb43c2bedeb042b43db0b74d4d0a4c91c33c950e0ad",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "9e79613da7a668c9347cf86548a547551dfc9b4d4b6dff75831f165f2fa97f5f",
+      "board_40parts.kicad_dru": "c11bff4771d8ef80746da417bf1b4a8ca87e1960c39eb9060f59427321089823",
+      "board_40parts.kicad_pcb": "92c175a106bcd1eb44909faee2af7ebc306971e55babf72f31bda1d766c329dd",
+      "board_40parts.kicad_pro": "58e3cc8dbc959c6dc6692fb6d13bd97a082135a77c0e20a5104db574155e376d",
+      "board_40parts.kicad_sch": "aafcef3ffda8383f8732299291078f9b1161654e0955c42fadcd6206db10bc37",
+      "fenolite-base.json": "d95acb69a689273d0e32f7925cac5cfaf8867b7976ce665c56e3ee9e1bb72e1d",
+      "fp-lib-table": "e4c69c740f1d92eda60fb1e81aa65b1606b492a1e691af1fdb0f2cf540eee2bc",
+      "lib/Mini.kicad_sym": "79138284b24670145d6eca2ad6863c5855de506ac405a5ba651130e8433b5f17",
+      "lib/Mini.pretty/Mini_LED_THT_3mm.kicad_mod": "c7b983f563898280b4c7a3d2647653a90e8688505e988dc9d23666748e9a7ee9",
+      "lib/Mini.pretty/Mini_QFP-32_7x7mm_P0.8mm.kicad_mod": "796c8dbd4386d3371970294120fe4a56e0766bb1731454ef9dbd89725cd61cf1",
+      "lib/Mini.pretty/Mini_R_0603.kicad_mod": "8a69fd538ee10ea412e2b5cc1c3d63f4834a12c5d1ad45443697d3f3eb65a5b5",
+      "lib/fenolite.kicad_sym": "7faa6cc4d206c0370ead0b23ad9910064a5c23943eff39c3cd446d4aafa8bc32",
+      "sheets/bank1.kicad_sch": "b3f9bcaab51c630b80e9cfb88ca146305e005ecd80d7b300f4a65160938be5f8",
+      "sheets/bank2.kicad_sch": "7ffee87573746c3334d5adfa62d1ff0eabb3106491d77739ec5ee5ee180dbe9e",
+      "sym-lib-table": "c2dc154da17cded945ae64a8745e52396faa7240ef905976564d7d296716d4e4"
+    }
+  },
+  "board_40parts@altium": {
+    "exit": 0,
+    "files": {
+      ".fenolite/altium-generated/board_40parts.SchDoc": "c5d27beaee5775e6a1699cdbe8d695effa42229362cb3f7803dc9289c2719db9",
+      ".fenolite/board.json": "51f43638aa8bf05f7afa02c6203e6ae7f2be23fb14f795f9fee08638df37c976",
+      ".fenolite/circuit.json": "73df891f0d2c8ac55dd80f1854b8d1d5015f7a995d86205e9c12043ebce4ef3e",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "9e79613da7a668c9347cf86548a547551dfc9b4d4b6dff75831f165f2fa97f5f",
+      "board_40parts.OutJob": "5c04889e18baa2dd594fb1bd0b03c67037dbd6cc07dc3636ab99fb252b5ee7a1",
+      "board_40parts.PcbDoc": "e2da3eade86bd5f78d3b4ad2368f21d4628739a27d10fc7a7cb70ce6f5d3ac5d",
+      "board_40parts.PcbLib": "aaf243cb5e87e424a8461de6dc7efe9cd84085df8d0b61fabea47d0e2df71815",
+      "board_40parts.PrjPcb": "35f82e3643978ff4508ffd0353505f54be4bc76a353070849d12eb7993b0dc88",
+      "board_40parts.SchDoc": "c5d27beaee5775e6a1699cdbe8d695effa42229362cb3f7803dc9289c2719db9",
+      "board_40parts.SchLib": "7255e297432631709ffa69335e0829f43e3222b626dda6f52110ef1b8dc9898c",
+      "fenolite-base.json": "dd7a28500936a79be10938ae3eee2582b0dc0b5a51bd855f69f33eb6e0183e29"
+    }
+  },
+  "board_coverage@10": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "25a69984e9bd766285cb199403c967432db119931cab225ea74f9397893817a9",
+      ".fenolite/circuit.json": "0964a3214e2adc446594f30406bc345351a93c1011a4b1168ce207880973ba36",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "coverage.kicad_dru": "10a6e4a39fe5cca8af476d9c43712754d8e3cd9e8071757a4f40565b8cc2b621",
+      "coverage.kicad_pcb": "cc81aa012996fef9c89256c4de1e6dbe6dcf8da489447b8f4d4188a420df2d11",
+      "coverage.kicad_pro": "a1fb97983c6162a5b40f829b2e272695a087aa93f16165858218653303fd580c",
+      "coverage.kicad_sch": "0ee1be5fa334d8acf5505b1475a60abe2cd4a478cfa67870c80d1228b56e7882",
+      "fenolite-base.json": "100095e8ee891b64adfc65b00d5d32675f48fa64353ca3426a153f4529246f02",
+      "fp-lib-table": "a20da948e2593cc95d38b1f8ff6a54f938768a461cae26488f09a646722d7303",
+      "lib/Local.pretty/Shaped_Pads.kicad_mod": "456d0a42dda73ac2d068f0d12ef2c2cf6ed74db70b42a104bb24e12bad1be11c",
+      "lib/Mini.kicad_sym": "8e14639415bd075bb21ba9da28fee8817db1ce61b057b621328059ce980f335b",
+      "lib/Mini.pretty/Mini_LED_THT_3mm.kicad_mod": "c7b983f563898280b4c7a3d2647653a90e8688505e988dc9d23666748e9a7ee9",
+      "lib/Mini.pretty/Mini_QFP-32_7x7mm_P0.8mm.kicad_mod": "796c8dbd4386d3371970294120fe4a56e0766bb1731454ef9dbd89725cd61cf1",
+      "lib/Mini.pretty/Mini_R_0603.kicad_mod": "8a69fd538ee10ea412e2b5cc1c3d63f4834a12c5d1ad45443697d3f3eb65a5b5",
+      "lib/fenolite.kicad_sym": "90e16156f0ae4a207402043a2ab84224f12fa388ccc18d308512fbb8580b9caf",
+      "sym-lib-table": "2afe4f59fd648e9c32425bfe03b7be44eb266eee5b815e4527bd35bcdc980e12"
+    }
+  },
+  "board_coverage@9": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "972e73d18f0784cec50714a31916042f5ad71b5df6eb196c83121f634e5b563b",
+      ".fenolite/circuit.json": "0964a3214e2adc446594f30406bc345351a93c1011a4b1168ce207880973ba36",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "coverage.kicad_dru": "10a6e4a39fe5cca8af476d9c43712754d8e3cd9e8071757a4f40565b8cc2b621",
+      "coverage.kicad_pcb": "37906a8775d661cd40d2e45d08f97a1779d8ce12040c47b4518ce23b490ab34e",
+      "coverage.kicad_pro": "e09057d835847fba1c5252639b243bb9fce26396337a39f15cda3bf98e9b3112",
+      "coverage.kicad_sch": "03f9157dfc73d6df3d58cb7f6f4351f64af06571597e7a94199f2004d7e0776b",
+      "fenolite-base.json": "100095e8ee891b64adfc65b00d5d32675f48fa64353ca3426a153f4529246f02",
+      "fp-lib-table": "c93dccc542f7b643cd6fcb6ac2d3dbd1c1c230f83b42f7a780948e8176e39dea",
+      "lib/Local.pretty/Shaped_Pads.kicad_mod": "135f1d23287dd9506087785831d585a14a58e7b9aa7a501e83da2a983f601a09",
+      "lib/Mini.kicad_sym": "79138284b24670145d6eca2ad6863c5855de506ac405a5ba651130e8433b5f17",
+      "lib/Mini.pretty/Mini_LED_THT_3mm.kicad_mod": "c7b983f563898280b4c7a3d2647653a90e8688505e988dc9d23666748e9a7ee9",
+      "lib/Mini.pretty/Mini_QFP-32_7x7mm_P0.8mm.kicad_mod": "796c8dbd4386d3371970294120fe4a56e0766bb1731454ef9dbd89725cd61cf1",
+      "lib/Mini.pretty/Mini_R_0603.kicad_mod": "8a69fd538ee10ea412e2b5cc1c3d63f4834a12c5d1ad45443697d3f3eb65a5b5",
+      "lib/fenolite.kicad_sym": "7faa6cc4d206c0370ead0b23ad9910064a5c23943eff39c3cd446d4aafa8bc32",
+      "sym-lib-table": "c2dc154da17cded945ae64a8745e52396faa7240ef905976564d7d296716d4e4"
+    }
+  },
+  "board_coverage@altium": {
+    "exit": 5,
+    "files": {}
+  },
+  "catalog@10": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "6c07de13e6ed4bbe796c0ef22dce734fc1174f59d1b578b67c006b8419194d80",
+      ".fenolite/circuit.json": "900983f4099d88f919ccd34dcacf1263a90b71c892a911eb2ee1392036be8621",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "catalog.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+      "catalog.kicad_pcb": "9a360f7fa57b413603c2d2f070ccda8c5ba81387393ca0a3e53d7e4eae3393bf",
+      "catalog.kicad_pro": "b2ac416a5247cd14420f81a96130814618c2a5ddda120bdd60818041a836492e",
+      "catalog.kicad_sch": "176b40cadc2f7b448e8bb23d133f159e41fd86b9bd82159ff0cee4b312578d86",
+      "fenolite-base.json": "3ad82c00524b200509b035e81b2a50eddf9d534705bfd5e33cbc649da06fd172",
+      "fp-lib-table": "2a361e9168bc7f7bf01661e5637a963867108d75c697a128d37b1def14b3a62e",
+      "lib/Fenolite.kicad_sym": "49a762026919308227d7e4cab34675b34091e2eda88b3b3414b29f80f31e45bf",
+      "lib/Fenolite.pretty/Chip_0603.kicad_mod": "9435f867b76ed23f031fef449a187ef98a4741aff851f382fd9c931370cf94da",
+      "lib/Fenolite.pretty/Chip_0805.kicad_mod": "faad7c352b92ae2b60f227e0f15241f5a782dd31337e063ada73463d7741659f",
+      "lib/Fenolite.pretty/Header_1x2_P2.54.kicad_mod": "dc39c9d442d1b7207f34b75727638e12e4fd8b461a532e14958190acef5f4e26",
+      "lib/Fenolite.pretty/LED0603_Kingbright_APT1608SURCK.kicad_mod": "94693dbe01883b69d79b80f039e49d700bc2a32d8c0f9452b5f6ce1fc90b9790",
+      "lib/Fenolite.pretty/SOT23_3.kicad_mod": "237554518a05024fc5dcfda637a369230a44dd2817d178096a7cfe7b109d4846",
+      "sym-lib-table": "e3893d2062cd3bf78ed9acc4c7ed908a020b3eb92ec8af6d2521cd8d839b242b"
+    }
+  },
+  "catalog@9": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "1cc9aa09617b99d7a9c39c6a58d33d8a5e64922ed37559a6ec2eb1f86db7a79e",
+      ".fenolite/circuit.json": "900983f4099d88f919ccd34dcacf1263a90b71c892a911eb2ee1392036be8621",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "catalog.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+      "catalog.kicad_pcb": "347b12c3db5c0a541d498efade4fa3c4c32e601782ba4f60d03cbbc0f1f84ac2",
+      "catalog.kicad_pro": "139dc01f76800745e555d9db0bd71e507c734a13bc06234539e1276b0d6db02d",
+      "catalog.kicad_sch": "3fd1fbf0d080e6a0e05f2eaf0a08935dcc5ed49d669a6e396dd60ef718ef27ed",
+      "fenolite-base.json": "3ad82c00524b200509b035e81b2a50eddf9d534705bfd5e33cbc649da06fd172",
+      "fp-lib-table": "b16eea36e3370296e2c780e7b85115ed4f8f44bea2f76ec1f517c4b78dffb33c",
+      "lib/Fenolite.kicad_sym": "f1bbd6207e124c66a5c09f8e213d3fe939ef775a7d60888ab2fabe843531f186",
+      "lib/Fenolite.pretty/Chip_0603.kicad_mod": "76d4337ce9a2a4dffa908537e8fcd8bae7e6435bfc5497ea1833b4a5309f4c84",
+      "lib/Fenolite.pretty/Chip_0805.kicad_mod": "c90ff1634efd3ee0dffbc08dc2f642d7974aaf104d1cde1e80d5d00eaed7cafc",
+      "lib/Fenolite.pretty/Header_1x2_P2.54.kicad_mod": "dc2a91f6c63c6ea61c7e9c4a54717c22941f749f268fa7ad2596e1ceab856df7",
+      "lib/Fenolite.pretty/LED0603_Kingbright_APT1608SURCK.kicad_mod": "cdaa2c60b4566eb0d6ae294ac5e009879bd34d60bbec18a4f05633aeb7066854",
+      "lib/Fenolite.pretty/SOT23_3.kicad_mod": "e0dea058551cc7b32d08294b51c33bcfb46ec3d8f1913cf88857bd6bb51149ca",
+      "sym-lib-table": "ddc56bd13cff94152ad483f860666efd4ab37b990e45aaf1da3944a97b24911f"
+    }
+  },
+  "catalog@altium": {
+    "exit": 0,
+    "files": {
+      ".fenolite/altium-generated/catalog.SchDoc": "27c941f82a57e6e8bc3d33a54340598dc5bcf0ef6543655e78ed8146dcd22294",
+      ".fenolite/board.json": "f8d2f87e0557422e4f1bdedce405a3a3d30f6376c4a963fedf6221cb99e7ccaa",
+      ".fenolite/circuit.json": "6d6fe36620ce7580e33315f3b02b650b0e0dddbbf983f8e1887ce89f6d2d6870",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "catalog.OutJob": "d1ffccb69374159dce7cde4b555470e15991da9dbe53e3e2344e298995e66ee8",
+      "catalog.PcbDoc": "a5e84e18a8a9465cfb4e8f3261bb517ed8c69d693742c6662f2751d366e3e91b",
+      "catalog.PcbLib": "119ed6f7c5b16e65044603d483fbf1a1074fc2e6746d34c1a9f204f1e40beb73",
+      "catalog.PrjPcb": "ac7bf7703d79f7b5b510ebd586bfe77769f03784d4f0afa7140bf03f18d2fa49",
+      "catalog.SchDoc": "27c941f82a57e6e8bc3d33a54340598dc5bcf0ef6543655e78ed8146dcd22294",
+      "catalog.SchLib": "4114c5027c620be074e6f359fea1917d7686a9c065e02d85f6fae415204d29bc",
+      "fenolite-base.json": "102e1ff97cf9ef5724e81c326cfbdfae505f40ac4e149b08077d637d745656e4"
+    }
+  },
+  "devices@10": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "7e081e28197fb34bb21dd5d6f53f950919e0cb378b9138346ace99b2ce2e9879",
+      ".fenolite/circuit.json": "6068423a751a5e069fed9e537c51f45377d2b2cda6adf1d3cac221cb398c3582",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "devices.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+      "devices.kicad_pcb": "4a1749feb9033fe2f9d87a536e8e92d5d298fbbdeb2d8336e34a7315f183af55",
+      "devices.kicad_pro": "f5d5dca533bdbf56e84f8bbb48f84b6cc2b3b1392caa1fe6dfa62168cbd30e7c",
+      "devices.kicad_sch": "fc4b7df0cc3d7c87d0dd9a1ed8bd3e359708dbe8a8b9836bc0b68a564bfe5c26",
+      "fenolite-base.json": "c77d9c8d02519f1d22e3b2d17ef2484c0e80f312ae17ffaeb4004dfc97e8b235",
+      "fp-lib-table": "d8021657d71adcdfb358ad33205c90643daa543a92cccb695c3a54b265746aee",
+      "lib/Example.kicad_sym": "1b90b39d4e0de76eaebc314269849b7aa926044592d2c1c1c3aca50cf3172f13",
+      "lib/Example.pretty/TestPad_D1.5.kicad_mod": "e28622d32e7c1fa495fc8cb259dd79e6cde9a560744db31e89ddeb9dd18eaf12",
+      "lib/Fenolite.kicad_sym": "378a14487e8f07d8b7f67b3048a5b19db7d7ae347c978f8bf8a665b1d4f9ef0e",
+      "lib/Fenolite.pretty/Chip_0603.kicad_mod": "9435f867b76ed23f031fef449a187ef98a4741aff851f382fd9c931370cf94da",
+      "lib/Fenolite.pretty/Chip_0805.kicad_mod": "faad7c352b92ae2b60f227e0f15241f5a782dd31337e063ada73463d7741659f",
+      "lib/Fenolite.pretty/Header_1x2_P2.54.kicad_mod": "dc39c9d442d1b7207f34b75727638e12e4fd8b461a532e14958190acef5f4e26",
+      "lib/Fenolite.pretty/LED0603_Kingbright_APT1608SURCK.kicad_mod": "94693dbe01883b69d79b80f039e49d700bc2a32d8c0f9452b5f6ce1fc90b9790",
+      "lib/Fenolite.pretty/SOT23_6_TI_DBV0006A.kicad_mod": "e28ec4ffc7c2614522d74d6b0859ea6307c4df5726a3727b65294053574834c8",
+      "sym-lib-table": "84dfec1bc323864401f875a402069dcf061fe7b88492bdc799d6eb75d9fa951f"
+    }
+  },
+  "devices@9": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "3bd60c053671b6b732cd4d081562dad98053ab3aa65f33679701cdc32a71233e",
+      ".fenolite/circuit.json": "6068423a751a5e069fed9e537c51f45377d2b2cda6adf1d3cac221cb398c3582",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "devices.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+      "devices.kicad_pcb": "c248fc1fb7cff28c4ad284952a7191d52efb187dccdb02c310996e429d7a8011",
+      "devices.kicad_pro": "4bf0fd925de6c04aac66a567cbfdccf6bf5a32bccf092cd7632e4c2faf73e155",
+      "devices.kicad_sch": "9936745d0cb647303248744ea826a73666920a7f80febbd76ab44661d62ec3e1",
+      "fenolite-base.json": "c77d9c8d02519f1d22e3b2d17ef2484c0e80f312ae17ffaeb4004dfc97e8b235",
+      "fp-lib-table": "13c811cd01bc13481ef30489697be5c9be508aa7fd5c3981d5f8a419e19ea74e",
+      "lib/Example.kicad_sym": "e5205eacfae79028705a8e7d19c428f9608f0a2d2252a2b44aeeac1a1b447067",
+      "lib/Example.pretty/TestPad_D1.5.kicad_mod": "416098572771229ebc070e897ad8dbf4d9501e972fe6261e665a00fb9d63cc45",
+      "lib/Fenolite.kicad_sym": "420d2789eb10d28950a240ca7c726728dbd24a4be7157233c00d46567acde819",
+      "lib/Fenolite.pretty/Chip_0603.kicad_mod": "76d4337ce9a2a4dffa908537e8fcd8bae7e6435bfc5497ea1833b4a5309f4c84",
+      "lib/Fenolite.pretty/Chip_0805.kicad_mod": "c90ff1634efd3ee0dffbc08dc2f642d7974aaf104d1cde1e80d5d00eaed7cafc",
+      "lib/Fenolite.pretty/Header_1x2_P2.54.kicad_mod": "dc2a91f6c63c6ea61c7e9c4a54717c22941f749f268fa7ad2596e1ceab856df7",
+      "lib/Fenolite.pretty/LED0603_Kingbright_APT1608SURCK.kicad_mod": "cdaa2c60b4566eb0d6ae294ac5e009879bd34d60bbec18a4f05633aeb7066854",
+      "lib/Fenolite.pretty/SOT23_6_TI_DBV0006A.kicad_mod": "24a7c9d8228b50ba27b49d98f2ebdd7dd74a6490565f3b080b6a287a8b7b2903",
+      "sym-lib-table": "1029b186c6a2b5d8a50341bb05c7a4fb34674b01b3996744e3135b255a093097"
+    }
+  },
+  "devices@altium": {
+    "exit": 0,
+    "files": {
+      ".fenolite/altium-generated/devices.SchDoc": "e928495ab94954ce8d3dbbdeb2813fe534ff7a5cfdba289ba4d1a1fb2a4eba17",
+      ".fenolite/board.json": "ce7de30d6223c87586fa1ffc146af4f374231c3d89ef3ac1909237d36259ec7d",
+      ".fenolite/circuit.json": "214a8cc619a0458f19132ff7f26224e329420f88d03fc85432954954de0261db",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "devices.OutJob": "963e0223d2e4da77013795355a23fa5c3eaeb61d881e696e98cfea88f6019c33",
+      "devices.PcbDoc": "0e9d25659eb5fde0560563d48d9f2fe08ff1dd580710378911c45d0cfab55da6",
+      "devices.PcbLib": "702b9b0c21093c4fdd9733e93c4598f5a06be362877e79f5bb2667d3de5d2865",
+      "devices.PrjPcb": "00e37a307afce37d75f4c4b5ddcbb4b89a3655affd55f5275281b653b8565b2f",
+      "devices.SchDoc": "e928495ab94954ce8d3dbbdeb2813fe534ff7a5cfdba289ba4d1a1fb2a4eba17",
+      "devices.SchLib": "4b0fbbe9b48da39d2b7eeb14384bb6a2f3a3bd63a64e139c71564908734dd875",
+      "fenolite-base.json": "65dbfde956cbb9e06034445a9e61d9b3ab2b8d00540da22e230643eeabb07014"
+    }
+  },
+  "drawn@10": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "6fc1df7cf3b0bb9b366fb9d0be2d44a417dadefbed169bb455c5efb435c60152",
+      ".fenolite/circuit.json": "93b004b8ebc8ee54acc99c28a7a5739d1fb825b658cf601c80d9c8084fed7111",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "drawn.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+      "drawn.kicad_pcb": "07b487565ad5839d94c591620f9f70425c268ec606a32fc7ef2c9034029c4a7b",
+      "drawn.kicad_pro": "b073072973c04bf5d2c77903a1e2d5d1abf5d1f36edffacb3ab9317ca7487c88",
+      "drawn.kicad_sch": "a9faa59f1d50a75864bcc17b2ffe63b98c7c4313242d78bd3af125f7b08c2fdb",
+      "fenolite-base.json": "f36adffd6d367c0d3092ddcee97759086264663aab9d0df9fc052bdf440ae214",
+      "fp-lib-table": "4f062e901cb3495d31f831532c4ba5978d07b5a1423e870db006f919ab92d001",
+      "lib/Mini.kicad_sym": "615d84923f161f5d2a333a7df384851b5c4f81de74a5853ca293c95b95531fa8",
+      "lib/Mini.pretty/Mini_QFP-32_7x7mm_P0.8mm.kicad_mod": "796c8dbd4386d3371970294120fe4a56e0766bb1731454ef9dbd89725cd61cf1",
+      "lib/Mini.pretty/Mini_R_0603.kicad_mod": "8a69fd538ee10ea412e2b5cc1c3d63f4834a12c5d1ad45443697d3f3eb65a5b5",
+      "sheets/child.kicad_sch": "9fc0332535e4d4dfdd129cede66f4b27450cea6b1e0bfe207b901b2cc10452cb",
+      "sym-lib-table": "4243a97bd65fef4990efef9abdcfebadfd6679e97a9f64515074bed7b4605ff9"
+    }
+  },
+  "drawn@9": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "2ba04a0caa08d20e4508c41898d58b70e92fbd09f394e5b87dad470f6ff47cbe",
+      ".fenolite/circuit.json": "93b004b8ebc8ee54acc99c28a7a5739d1fb825b658cf601c80d9c8084fed7111",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "drawn.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+      "drawn.kicad_pcb": "39076c03293ce561365fee1356a503d5be02ae32dcc078bd15689a6d1cd1a275",
+      "drawn.kicad_pro": "d55b6d93ce430eb461b3e03da7e7d33b69a90c945f5073e7becd1f6a89f7e29b",
+      "drawn.kicad_sch": "4c1eb5a5ee7fef6d1649271a6df73deaad786e6563274c509d878b58802c8fc9",
+      "fenolite-base.json": "f36adffd6d367c0d3092ddcee97759086264663aab9d0df9fc052bdf440ae214",
+      "fp-lib-table": "e4c69c740f1d92eda60fb1e81aa65b1606b492a1e691af1fdb0f2cf540eee2bc",
+      "lib/Mini.kicad_sym": "bd3d608a4e3f8b4eae2095f11e2f43d6aa4ba60b72b839e92d5863dc47e3697b",
+      "lib/Mini.pretty/Mini_QFP-32_7x7mm_P0.8mm.kicad_mod": "796c8dbd4386d3371970294120fe4a56e0766bb1731454ef9dbd89725cd61cf1",
+      "lib/Mini.pretty/Mini_R_0603.kicad_mod": "8a69fd538ee10ea412e2b5cc1c3d63f4834a12c5d1ad45443697d3f3eb65a5b5",
+      "sheets/child.kicad_sch": "a36134923d8026f8c1fc1be7f04430d9685bb6ac0a3a3d21d9a77e20281c5f49",
+      "sym-lib-table": "3d046811d8a722aff296f987928108858c0cd29eeb2a7aff7932f33631292f2c"
+    }
+  },
+  "drawn@altium": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "4f56150c51c7b6c81cb62511ccb67f2d439025ba771a4f8da88dc6f6a33d6d37",
+      ".fenolite/circuit.json": "55732e7e8e81f7015337a98491c8f63cfe4a83746fe7ff789569f931b23f63a0",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "drawn.OutJob": "4d4448c15751df8aab9fe5d33ceb82d128ea1f3fe88df4c5818534d068ba6589",
+      "drawn.PcbDoc": "293032551378538cd10069a472d6d67e6b8468ffd2661959ac71e31e53c7a6b9",
+      "drawn.PcbLib": "10221f23770ced2646b10fae9cabb1f1f5e92ce93dbe968b785dc03939ccbad6",
+      "drawn.PrjPcb": "e3746b4d99e82e2241686b80cd6165f102be7759f784cd9abe7ca4ef2f122a24",
+      "drawn.SchDoc": "a5bf4c2cb9dcee5111cc1d6626a11e086f16f923ddca566879f88be119cc9f57",
+      "drawn.SchLib": "d3c3cc2bd4581ca5e0f1f195408514a0944a1bbef0fda4e6257384081aabd7be",
+      "drawn_drawn_QMSFTVMJ.SchDoc": "f87604c335f427cfa1bffb909469a84edadf62600b1ca025c09d7e311ba18a6d",
+      "fenolite-base.json": "ac76ee740f6b9eb942bbc3c2adbdfad7845758346522a03f1c855575b0633a29"
+    }
+  },
+  "families@10": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "01d44f8d7fe737892e0f0f26418b0d525c031f916a655aa4a58505c41e466b05",
+      ".fenolite/circuit.json": "ac88298e52d5d24398c81a6e9dc0ee27f317dd45e6ff7c24a5ffa9d6ae1bcd64",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "families_demo.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+      "families_demo.kicad_pcb": "350447347c382343314ef86c1db61c208d0166ee868cef1fcd008aaa7b9d2fa5",
+      "families_demo.kicad_pro": "973df8ff674c717b9d759043e683ff48cee3d6fbc6488ad5a113aaf6537c7ce8",
+      "families_demo.kicad_sch": "6621aeba96500a2f6d2e4e40bb7e4a192fc9c146286793c18a2618c5f30114c5",
+      "fenolite-base.json": "dc643ffd75cba2634e85b5b368a4742df3c421cf560fc1f464da54749fc0cdb1",
+      "fp-lib-table": "2a361e9168bc7f7bf01661e5637a963867108d75c697a128d37b1def14b3a62e",
+      "lib/Fenolite.kicad_sym": "ef20305255d8c365d08630d58beffe2b4ca38f552c7b5be49439a0cccceb9062",
+      "lib/Fenolite.pretty/Chip_0603.kicad_mod": "9435f867b76ed23f031fef449a187ef98a4741aff851f382fd9c931370cf94da",
+      "lib/Fenolite.pretty/Chip_1206.kicad_mod": "54ced9d355366de743fcb470845de3ae56368c2e75ce74d00d583594a8007773",
+      "lib/Fenolite.pretty/Header_1x2_P2.54.kicad_mod": "dc39c9d442d1b7207f34b75727638e12e4fd8b461a532e14958190acef5f4e26",
+      "sym-lib-table": "e3893d2062cd3bf78ed9acc4c7ed908a020b3eb92ec8af6d2521cd8d839b242b"
+    }
+  },
+  "families@9": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "56921261774cd666759ea5c8be1b1238b14ce77d1845dfd9284a70c15ce5c4cf",
+      ".fenolite/circuit.json": "ac88298e52d5d24398c81a6e9dc0ee27f317dd45e6ff7c24a5ffa9d6ae1bcd64",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "families_demo.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+      "families_demo.kicad_pcb": "7e90c893f8c03ebfdbdcc950e0a73b0dcc03ec0c7cd1b17158fd958f73471a73",
+      "families_demo.kicad_pro": "90a68b62b7ff3e29e89fe3e158e6dd5707369251121469c48e18b5193416418b",
+      "families_demo.kicad_sch": "9f5bb8297a7a1c22e79ca6fa309fef95ba8f3532d95a304c25818114382a470a",
+      "fenolite-base.json": "dc643ffd75cba2634e85b5b368a4742df3c421cf560fc1f464da54749fc0cdb1",
+      "fp-lib-table": "b16eea36e3370296e2c780e7b85115ed4f8f44bea2f76ec1f517c4b78dffb33c",
+      "lib/Fenolite.kicad_sym": "025b590a172c34ad5d49f04daa10b0f08d70deb46bd0708640860f2aa914aff0",
+      "lib/Fenolite.pretty/Chip_0603.kicad_mod": "76d4337ce9a2a4dffa908537e8fcd8bae7e6435bfc5497ea1833b4a5309f4c84",
+      "lib/Fenolite.pretty/Chip_1206.kicad_mod": "2631fe45e0bb14e928528254337e09359af88fe091f8e7ac6fbf1680a58ef1a4",
+      "lib/Fenolite.pretty/Header_1x2_P2.54.kicad_mod": "dc2a91f6c63c6ea61c7e9c4a54717c22941f749f268fa7ad2596e1ceab856df7",
+      "sym-lib-table": "ddc56bd13cff94152ad483f860666efd4ab37b990e45aaf1da3944a97b24911f"
+    }
+  },
+  "families@altium": {
+    "exit": 0,
+    "files": {
+      ".fenolite/altium-generated/families_demo.SchDoc": "675143a78eb2087f7531bfbda93e01d2955b2cd779cde11ae79eb88d9f809a5b",
+      ".fenolite/board.json": "bc58302424557e5f6074c755f653f9f67d27519a06bc687e0bdee1d543d0adb6",
+      ".fenolite/circuit.json": "a5789dc84f026f54f4f34a9cf77396411c736940303bf01a9489454cbf8a3a2e",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "families_demo.OutJob": "844704e13e1230a391d09b2816ecb35455efc6576c2b3b0d118dee9d56368f1d",
+      "families_demo.PcbDoc": "4c9de5cb4c3dff34258f0a904e4380bcb86a38bf0b2e83a69ba021f391dd8bec",
+      "families_demo.PcbLib": "83cdb569b20bdb42ec51dcfad8a0a8f0de86f45317b80599de8a73f4d4bb604d",
+      "families_demo.PrjPcb": "7599c01fc541271076059e53949d0be291c00a704bd63f49c1507dae7a9552fc",
+      "families_demo.SchDoc": "675143a78eb2087f7531bfbda93e01d2955b2cd779cde11ae79eb88d9f809a5b",
+      "families_demo.SchLib": "a4b8862f93efd2b39734b258023e9ce040b20a19c86dd8c1cb32528f592bb5c9",
+      "fenolite-base.json": "04d5bdecdcee0f1af31b0777d449b66b3f37ec091b3372a567140f567ac5c1b1"
+    }
+  },
+  "generated@10": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "0e5b75d59df0b2dd4376f6860f72a774b98e07dc7407dd7154dd2fa8ec02cc50",
+      ".fenolite/circuit.json": "1bf54adb766570360193da4e96478497686c78d219f7ca9d033ebbb463c6f21f",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "fenolite-base.json": "04b50ba37357f47ba19aa4f14f17d4e0661cfbeb72530f23af0979222b80b1b9",
+      "fp-lib-table": "d17e55a439076a224f50b0615fe73e9d8c5575b7e11cf38cb7839c48990ac70d",
+      "generated.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+      "generated.kicad_pcb": "b0cb33d22ca5def3bd12d9f9acf7a38058969c318eaf2a40342a2c76cd019514",
+      "generated.kicad_pro": "fb9eea52cf2394ba1d7b52af282e0caebf8a358556f48c77b1007bf9d30dfd92",
+      "generated.kicad_sch": "69e03680238c236eb73ce72847b8ecf058ed5804d34a50eca0c124bb8aed0810",
+      "lib/Fenolite.kicad_sym": "84a859e3a7a79736cc912a1f76e578f5d6a1e6a137d647a1f559a68a7da95bf5",
+      "lib/Local.3dshapes/BGA12_B2x2.5_P0.5.step": "375ec76ab277f65f41157172efc83dd788866429681b595b2e0e6a99a379ccab",
+      "lib/Local.3dshapes/CHIP0603_B1.6x0.8.step": "7341f300dba6828e4c5cf7e192c852c8d5ace0e1c2bbc8d715dd26e62c912253",
+      "lib/Local.3dshapes/CONN3_XH_P2.5.step": "39d454105aeadc591cde1634be8c4d4a23891bc96ff9e51091c02b64607b0ce9",
+      "lib/Local.3dshapes/DIP8_B9.59x6.605_P2.54.step": "895dcea9e8cec8eebb1a36684b443ef8b6c0b7fa8d3f6493551eebd2604d3e86",
+      "lib/Local.3dshapes/HDR1x2_P2.54.step": "f795ba9b30e80d79862083f848ae5f7c64a6a6531a4ce294116a43620a6a9c13",
+      "lib/Local.3dshapes/QFN16_B3x3_P0.5_EP1.68x1.68.step": "336fa84542e9cec3a5b5f520839942d74a66694afac2c5c87f2f37a9b66923a1",
+      "lib/Local.3dshapes/SOD2_B2.65x1.55.step": "fbd722a02c7c1a1b662e374e75395f3b6bcb47dee0a432dca095169fd0b5e02d",
+      "lib/Local.3dshapes/SOIC8_B4.9x3.9_P1.27.step": "23ab42796d251e0eaaf7d9a35771746d5b0f8d4fb7cc1b5223b7d34708a87179",
+      "lib/Local.pretty/BGA12_B2x2.5_P0.5.kicad_mod": "a764d1971c71693a2a84e4fc4e35519968f06c3c3babc53890762147787ce37d",
+      "lib/Local.pretty/CHIP0603_B1.6x0.8.kicad_mod": "62b5056028c6c60d6e5141e49857a90287506eed24846763cd8c72688ff2acab",
+      "lib/Local.pretty/CONN3_XH_P2.5.kicad_mod": "f861082e116089393fb0f0c70bb220b2462dd5a08aa05b49709962d00bffcc24",
+      "lib/Local.pretty/DIP8_B9.59x6.605_P2.54.kicad_mod": "b13dcb8907bbaeb1f6a14133f57f89d4e39bcb5e28487ee5499fed9529376a6f",
+      "lib/Local.pretty/HDR1x2_P2.54.kicad_mod": "3f4afeba5dc2e9c376484febef929a5b1834c82641a1c8b327f8e2b676c7bca5",
+      "lib/Local.pretty/QFN16_B3x3_P0.5_EP1.68x1.68.kicad_mod": "200986f372922f786a71d436ab06e1e01e89047681e1d8ac6380557d0b555a2e",
+      "lib/Local.pretty/SOD2_B2.65x1.55.kicad_mod": "177adbc4c2c7baad3e1229d8385cd352938bfa614da627bbfd1a83267c3e4909",
+      "lib/Local.pretty/SOIC8_B4.9x3.9_P1.27.kicad_mod": "31537fe8e4090c17dbfcd9dd3533db65530763bfd3cdbf81329ac9cadf23fcd4",
+      "lib/Local.pretty/TO3_B10.2x4.2_P2.54.kicad_mod": "a8f991476b8a6eaa449e24d09c6bf5cdfc59d5a2e090b543f359412bc2fec520",
+      "sym-lib-table": "e3893d2062cd3bf78ed9acc4c7ed908a020b3eb92ec8af6d2521cd8d839b242b"
+    }
+  },
+  "generated@9": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "cac67faf56e19ee0eba439c5b1f5d33020a9b9728d4e6ed923db597adee1c259",
+      ".fenolite/circuit.json": "1bf54adb766570360193da4e96478497686c78d219f7ca9d033ebbb463c6f21f",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "fenolite-base.json": "04b50ba37357f47ba19aa4f14f17d4e0661cfbeb72530f23af0979222b80b1b9",
+      "fp-lib-table": "46c67b3e235de7ea709c51f52701b2eb00cd4927eb6bea2378475ca64116305c",
+      "generated.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+      "generated.kicad_pcb": "3cc29624ee8cdd721359f4521491da24f8f690cec428165d19af75915e916750",
+      "generated.kicad_pro": "ab3c91eced7ac239f9cd2fd1f11e3383e999e7435e4c7e90ca4db3875cfa8f00",
+      "generated.kicad_sch": "1b54f62f495cc5e5a3387b48d174ce9fd712ba1f31432ed6afcbb03d74261313",
+      "lib/Fenolite.kicad_sym": "f06c975b275555ebf93246d7622778bbe3130f98dd2d27baaa36b204c7312f48",
+      "lib/Local.3dshapes/BGA12_B2x2.5_P0.5.step": "375ec76ab277f65f41157172efc83dd788866429681b595b2e0e6a99a379ccab",
+      "lib/Local.3dshapes/CHIP0603_B1.6x0.8.step": "7341f300dba6828e4c5cf7e192c852c8d5ace0e1c2bbc8d715dd26e62c912253",
+      "lib/Local.3dshapes/CONN3_XH_P2.5.step": "39d454105aeadc591cde1634be8c4d4a23891bc96ff9e51091c02b64607b0ce9",
+      "lib/Local.3dshapes/DIP8_B9.59x6.605_P2.54.step": "895dcea9e8cec8eebb1a36684b443ef8b6c0b7fa8d3f6493551eebd2604d3e86",
+      "lib/Local.3dshapes/HDR1x2_P2.54.step": "f795ba9b30e80d79862083f848ae5f7c64a6a6531a4ce294116a43620a6a9c13",
+      "lib/Local.3dshapes/QFN16_B3x3_P0.5_EP1.68x1.68.step": "336fa84542e9cec3a5b5f520839942d74a66694afac2c5c87f2f37a9b66923a1",
+      "lib/Local.3dshapes/SOD2_B2.65x1.55.step": "fbd722a02c7c1a1b662e374e75395f3b6bcb47dee0a432dca095169fd0b5e02d",
+      "lib/Local.3dshapes/SOIC8_B4.9x3.9_P1.27.step": "23ab42796d251e0eaaf7d9a35771746d5b0f8d4fb7cc1b5223b7d34708a87179",
+      "lib/Local.pretty/BGA12_B2x2.5_P0.5.kicad_mod": "a3824085fc0b4f7260a54a9d23f2ec651418140edb34c83c4025e37521213b46",
+      "lib/Local.pretty/CHIP0603_B1.6x0.8.kicad_mod": "729e5244b888f74d8d16a5ef892b78aa2dbd9f5e25df44bcea9506ee7aecfbbd",
+      "lib/Local.pretty/CONN3_XH_P2.5.kicad_mod": "00b10127c688c9ee183c6bcc5b8d9d0e8d7eb50ff470e3ab3518e9f0b0744e48",
+      "lib/Local.pretty/DIP8_B9.59x6.605_P2.54.kicad_mod": "234a80972763b92eba700e7125ff4ddb417d6b2dc3cd1969d7ea6bce77e3c534",
+      "lib/Local.pretty/HDR1x2_P2.54.kicad_mod": "e34485d2425638b0759b4ef465e72839752f17ee08a5e8271d02b6e932a02d51",
+      "lib/Local.pretty/QFN16_B3x3_P0.5_EP1.68x1.68.kicad_mod": "c9513075184adde746851411d20045146e245db11c09b0be3273ac062e706dc8",
+      "lib/Local.pretty/SOD2_B2.65x1.55.kicad_mod": "2f3cffb9600c9866fef9e5d87bc3e06d00fa3acd1f82ab1399d22f26595a9745",
+      "lib/Local.pretty/SOIC8_B4.9x3.9_P1.27.kicad_mod": "d0b278ae8ab7cf16f2ad039b017ccf1d49c83b486b65b912de1cf851c4a91af4",
+      "lib/Local.pretty/TO3_B10.2x4.2_P2.54.kicad_mod": "8ff92c609231e2090c2576570f7e954f3ecccfda43db479d1e0ca46459905524",
+      "sym-lib-table": "ddc56bd13cff94152ad483f860666efd4ab37b990e45aaf1da3944a97b24911f"
+    }
+  },
+  "generated@altium": {
+    "exit": 0,
+    "files": {
+      ".fenolite/altium-generated/generated.SchDoc": "c49c6b851b6b64b53b8946e987fece6c8a7ed6289087d640b8048f60bf6714e3",
+      ".fenolite/board.json": "1092975016fd181a559f984e5100e486a1917c932bb9cf2509b22b920a7362f7",
+      ".fenolite/circuit.json": "29f29901d7b0b9a0a627adfcd92007ebd8edb23f9eb8b2cc0393a37e016398ab",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "fenolite-base.json": "ea7e2b63bce55f49524c776e344c90996b67052bb41dcf3efb4b9b35949c4c54",
+      "generated.OutJob": "40e5b35a5705aff7196e89fa3ba57da9b3f9f420f9aeeb676a43427120825f8c",
+      "generated.PcbDoc": "82cec13869a8184477ea53931c89379120d9b5f001cba1eaed7d7e363c92ba7c",
+      "generated.PcbLib": "46078cd6e137f87ad750698b01d022ec2585168bfcc9712fcdfe6bb82a8396d5",
+      "generated.PrjPcb": "20965c6aa7bba4dbea6b85889051bfc1d2159fa3d3608bf8162372d3e654f6ea",
+      "generated.SchDoc": "c49c6b851b6b64b53b8946e987fece6c8a7ed6289087d640b8048f60bf6714e3",
+      "generated.SchLib": "6eafe93ead83b1941aeb087bb9fa2245811fbc36bbb1e7ba364341a83c68fb8b"
+    }
+  },
+  "import_python@10": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "2f1bbf7ac41cae0d41c8b71edc6f416d7d6c9d92ed8669f75f4f5cb44aad7887",
+      ".fenolite/circuit.json": "08a49a084d3a38ce71e21485f28c636ab648e7e088cc7230b19c9755b8985bbd",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "fenolite-base.json": "f1b5fc489b9e9d13fda14f1b9b8d6f89bcf3bce8808eeae9374a43bdf4bc8c49",
+      "fp-lib-table": "4f062e901cb3495d31f831532c4ba5978d07b5a1423e870db006f919ab92d001",
+      "lib/Mini.kicad_sym": "e5f37ccbfa3c7ae1b64beaafbe45ae692839d3bfe03af585d176edc23ac41bd4",
+      "lib/Mini.pretty/Mini_LED_THT_3mm.kicad_mod": "08827eb0aa9be020d2b7eedbb11d7ad8fbaf258716857ce5eaf1a34b3805ed27",
+      "lib/Mini.pretty/Mini_R_0603.kicad_mod": "6ab4d2f19325058de2e8e887aa16bdd74ed4145035f7dd74eba7463bf648b91e",
+      "sheets/ch1.kicad_sch": "bf6db0cff8d35d2ce53128d92964e660258a48f1d56e2fbfb6ed12f3c84cbd35",
+      "sheets/ch2.kicad_sch": "14df25f4610331113eaee05893f63f43453fcbed4f7c1670d1a4ad605b90e0ee",
+      "sym-lib-table": "4243a97bd65fef4990efef9abdcfebadfd6679e97a9f64515074bed7b4605ff9",
+      "two_sheet.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+      "two_sheet.kicad_pcb": "968910a05a4e2bc43313b2fdda32dae0057534aed324f5ffe731cad7a78de0f3",
+      "two_sheet.kicad_pro": "c0c49764831dbbb9ab9a54a643153d4fb636b70e8113c56e328e1f431f78173f",
+      "two_sheet.kicad_sch": "8526067ddfa0d128c78ed139f9d6d05918c9f7f190d427a686dc9bcd19ccf39e"
+    }
+  },
+  "import_python@9": {
+    "exit": 7,
+    "files": {}
+  },
+  "import_python@altium": {
+    "exit": 7,
+    "files": {}
+  },
+  "library-devices@10": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "07e36e220ba6543656f8d93a96584d90587eb0dfabdbefc4f079e663618c01ca",
+      ".fenolite/circuit.json": "4b8cc003b0bf3050d44c53b35273e69917858df7072ee73df526fb73068797a6",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "fenolite-base.json": "a617fa790a8765a0d8c8a859da39096da54defc31ff07d4c0768201bdb30f57e",
+      "fp-lib-table": "244d3854b2881cbe52f28e08814309f9437da15680969acbe22bd46cdc0d5f7c",
+      "lib/FenoliteDevices.kicad_sym": "f0679445be31833c2e3cc2d8e6615a9f8123e17331490bd6ef793776d8fee04c",
+      "lib/FenoliteDevices.pretty/DemoTwoPad.kicad_mod": "c45233fb1c56c926666cc36b337f7e02a5bc87ac862c006032a379bdb7e92175",
+      "library_devices.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+      "library_devices.kicad_pcb": "1b330c57b69cde6b0e4d66ac96f299043f5444b15ba808e88155e7d8743ff369",
+      "library_devices.kicad_pro": "cf059f0c066e2d324c1a2c3efdb193cfa1bc58c93e0e12045535f019618bc24d",
+      "library_devices.kicad_sch": "26355926c3a5d9967b6eabb288f1960b1a68beb1482e6582d852023975b66878",
+      "sym-lib-table": "fcbccd69daebe444c671676a9dc1046d1f1e248613486604e7383e1cee9c700b"
+    }
+  },
+  "library-devices@9": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "c8177d77fc8f9dcc7a2c44cf2f4eea17dcbbc5f90f961350a02f4e5948e59214",
+      ".fenolite/circuit.json": "4b8cc003b0bf3050d44c53b35273e69917858df7072ee73df526fb73068797a6",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "fenolite-base.json": "a617fa790a8765a0d8c8a859da39096da54defc31ff07d4c0768201bdb30f57e",
+      "fp-lib-table": "4e3d14729c833b8b513d30bf9340efd3789a742c7b96aea9d4e253081f40a18a",
+      "lib/FenoliteDevices.kicad_sym": "9e7f40f1720190fd7db6bafd52982a9c81d72999ef4bda1611d4690949a6a20f",
+      "lib/FenoliteDevices.pretty/DemoTwoPad.kicad_mod": "c72584a849adc50e9046c825ef21d5b6423becb95fc479a83e68abe3ba0e1496",
+      "library_devices.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+      "library_devices.kicad_pcb": "9d9360a4ed759978887a22ea7a2e5198e629523b777805d478274b7c8ec001e8",
+      "library_devices.kicad_pro": "6082c2a4c794dc3003f6047430adedd18b5dac096037ef0217aa69b9e939af3f",
+      "library_devices.kicad_sch": "897b71bcfa6fddab62ef824bfce3094bd91d56453bd69f00cc4322c6834d1536",
+      "sym-lib-table": "e9bea83f1353ce26bf46770369bad99fff61f8f417413478d85b697b2debcdb4"
+    }
+  },
+  "library-devices@altium": {
+    "exit": 0,
+    "files": {
+      ".fenolite/altium-generated/library_devices.SchDoc": "ef8a165abaf9cc2f9b680ae1e51c2ad25ff1f25727cc2e02333090e15f8459cb",
+      ".fenolite/board.json": "9807d50e5d2eda145390ddf100889926bcfabde8a7f720629c5cba853571b49b",
+      ".fenolite/circuit.json": "4f089d8e46ed68db433f265aea97016bb8f354e14d045737b28a1b47b0337a4d",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "fenolite-base.json": "b5d782e7890d0c30c0504245a0f372b29ac6f66322336fba35ea7c633c88b8b3",
+      "library_devices.OutJob": "20f0afb16a5667b37144f1c0785bde29ba974df0c59ec4702c4c4a1261dbcd8b",
+      "library_devices.PcbDoc": "96f203109ef201175843baebf590db164e17bb72b071a581d5a88ec90aa9c71b",
+      "library_devices.PcbLib": "b5c40742ce9dc8e5f452e76eb60626c1d059fe4c1a7ca3536a4258fe03eefb8d",
+      "library_devices.PrjPcb": "24e1d718fc328897eec02c5361c41dbd9cc99a274e6d7eacd6cf5c6766de0820",
+      "library_devices.SchDoc": "ef8a165abaf9cc2f9b680ae1e51c2ad25ff1f25727cc2e02333090e15f8459cb",
+      "library_devices.SchLib": "fe0fb315fcdad390fdae2121e38a67036b7ca30051de20718108ec28c35997f7"
+    }
+  },
+  "library_import@10": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "e78f693cbb6fb454d70b1a0d925ee553f32a524170fb45be9e39f8d4e0482357",
+      ".fenolite/circuit.json": "d046c5c1b5253263d293c65ea89f756dacd7d6dbc7f4863468c1ebc922e0f0dc",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "fenolite-base.json": "6858c971828f0adae54004cdf99ee689584b2fdd37cdc307af9b5d1ae6d84f07",
+      "fp-lib-table": "2bfea8b92225de36a5a3fcbb6033419272a63f33b841cbf27f4865cb4fcb625f",
+      "lib/Imported.3dshapes/EXB6202.step": "fc986125b480ae9dd5195f737199d56c01b142c833e113dcf5b42706a5935652",
+      "lib/Imported.kicad_sym": "626d82327e9530ebb90b315f60f1cd749590d192d044b5ae67dbea3239c2f7dd",
+      "lib/Imported.pretty/EXB6202.kicad_mod": "2eb54e22df71a4a73f89719f1dc10a88cbdee4123d0295542716e449223669f3",
+      "library_import.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+      "library_import.kicad_pcb": "9b13308da4f15d54433f00f192f07b729c4fc15bd61fa82bc4dc0e7fd7da5608",
+      "library_import.kicad_pro": "147f30772e3423b2baf5bd7a65439bbd2709b601a100d9950a2ccd45a8626a02",
+      "library_import.kicad_sch": "8cd453f349a9ddfce3efacc3633092c874ccf9d39445c007ff86012b25f975eb",
+      "sym-lib-table": "2c921517037405722de4f44c4c5b717b112f4409754daaa89f65260e9999d662"
+    }
+  },
+  "library_import@9": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "05e450a804107faf769d591688b5c3987d4722a65407595b11f310bc209c9321",
+      ".fenolite/circuit.json": "d046c5c1b5253263d293c65ea89f756dacd7d6dbc7f4863468c1ebc922e0f0dc",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "fenolite-base.json": "6858c971828f0adae54004cdf99ee689584b2fdd37cdc307af9b5d1ae6d84f07",
+      "fp-lib-table": "8871f4d477342d2383431a4f1b0664c4e93125e0a79c61d80a7a8c6e62c6855e",
+      "lib/Imported.3dshapes/EXB6202.step": "fc986125b480ae9dd5195f737199d56c01b142c833e113dcf5b42706a5935652",
+      "lib/Imported.kicad_sym": "4f0742f4c6240845bc93831ea48da5d84f66288deb13d3d5f0cf6a75701b03b7",
+      "lib/Imported.pretty/EXB6202.kicad_mod": "8863a34879ed2a63174634fbe1688c8b3d6d5b626f88edc101b686b95731a64e",
+      "library_import.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+      "library_import.kicad_pcb": "b2f20da5b0cc0e484a20cda4648c71a05bd8bf202dc6c11d287961386cc7bca6",
+      "library_import.kicad_pro": "1df14707869dd9735a42dd093c769ab5239f53f37b2ad1913f1fddb0ead94639",
+      "library_import.kicad_sch": "efb840f77faa8a1524fcc0a9c80361a38e9048c4a1fae192a85c414ef4b8a38d",
+      "sym-lib-table": "985da533288690fde7133aae2cb09589c1eb9bce76aa5217af381a9812871a25"
+    }
+  },
+  "library_import@altium": {
+    "exit": 0,
+    "files": {
+      ".fenolite/altium-generated/library_import.SchDoc": "6f9f7db8f8a2bacde0dd90f3b1c51c59ef4ab33947eda7987a3a3f4ed0661487",
+      ".fenolite/board.json": "9356e3a63ed6ef5b5e8c30a80c9a1980057ac34d61c0f7d863c45646e6360634",
+      ".fenolite/circuit.json": "1f3dc9a26e0b91f349a0ff338a588f3e8249c2ae693ba560f1dc4b8a76393d27",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "fenolite-base.json": "6ad84ad8c1fc4577bcf1cfc469a3dffa1930dcd38eeb2153c26e1b10c8b0837f",
+      "library_import.OutJob": "7d950162cedfc55b83db900137b2882dd723139bb3711ae76326b3ef78c4e873",
+      "library_import.PcbDoc": "e55ae09bb2dbcbdeb734d0a045b8f1fa6c30e528b3746e05cc77f5ca18791aad",
+      "library_import.PcbLib": "d18be8cebe0afe802f9278b11a3d31350561bdd54957f72771af6277cbe35faf",
+      "library_import.PrjPcb": "267fbdd26ef4871fb6d8525d32b7102f7229cae03d5281bba0572788750cb5f3",
+      "library_import.SchDoc": "6f9f7db8f8a2bacde0dd90f3b1c51c59ef4ab33947eda7987a3a3f4ed0661487",
+      "library_import.SchLib": "82767b4c36314d56e150c144d3677f245069b49efd8f796a688cce351e6923a1"
+    }
+  },
+  "lock@10": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "c454ce735fc516862d852d0dbcaae188f9e8c1a9f2d8db30ffd392fa24ee219d",
+      ".fenolite/circuit.json": "d16c4e676c3d183221bcc46cd83a44d264b4adda80cf8cd1df62543ef29963db",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "fenolite-base.json": "4866aff164a4649f2c9b405e42acd4a38c9b91b7ddb02cb085a6a38056de8059",
+      "fp-lib-table": "2a361e9168bc7f7bf01661e5637a963867108d75c697a128d37b1def14b3a62e",
+      "lib/Fenolite.kicad_sym": "4b307a951f609c7f4821f73118c66d8c69a133d88399c938564b4aa932c7a10a",
+      "lib/Fenolite.pretty/Chip_0603.kicad_mod": "9435f867b76ed23f031fef449a187ef98a4741aff851f382fd9c931370cf94da",
+      "lib/Fenolite.pretty/Chip_0805.kicad_mod": "faad7c352b92ae2b60f227e0f15241f5a782dd31337e063ada73463d7741659f",
+      "lib/Fenolite.pretty/Header_1x2_P2.54.kicad_mod": "dc39c9d442d1b7207f34b75727638e12e4fd8b461a532e14958190acef5f4e26",
+      "lib/Fenolite.pretty/LED0603_Kingbright_APT1608SURCK.kicad_mod": "94693dbe01883b69d79b80f039e49d700bc2a32d8c0f9452b5f6ce1fc90b9790",
+      "lib/Fenolite.pretty/SOT223_3_Diodes.kicad_mod": "1c17b664cc03016617566f3a79fea8fefa04e3e3324b2af08541a1b4a2fe09a7",
+      "lock_demo.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+      "lock_demo.kicad_pcb": "034d2eff8518c368dabc8debeaa410a492096db406cd77d74bd51f734664d5e1",
+      "lock_demo.kicad_pro": "dc99b7dc279c8cc888384a3aab49a03c6e0bac90b3c56e37d9694d1934314b35",
+      "lock_demo.kicad_sch": "935b313e5684db0ee77d5db3ba3c2dc9bca7a0d1cadf29beec47bcc9e53688ce",
+      "sheets/led.kicad_sch": "0465fb85883e82de5ed38e572e472daedd27d8c8ea76fd942755f7ad83c60dfc",
+      "sheets/reg.kicad_sch": "d659fbaa8168ff01bdc93d90476d1f063a723ae167fbf19dc00e46f17d9717f4",
+      "sym-lib-table": "e3893d2062cd3bf78ed9acc4c7ed908a020b3eb92ec8af6d2521cd8d839b242b"
+    }
+  },
+  "lock@9": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "c6be8cb95bfbd861e27c302a382a042fd7bac1da7cca1941c880466b8ff9c291",
+      ".fenolite/circuit.json": "d16c4e676c3d183221bcc46cd83a44d264b4adda80cf8cd1df62543ef29963db",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "fenolite-base.json": "4866aff164a4649f2c9b405e42acd4a38c9b91b7ddb02cb085a6a38056de8059",
+      "fp-lib-table": "b16eea36e3370296e2c780e7b85115ed4f8f44bea2f76ec1f517c4b78dffb33c",
+      "lib/Fenolite.kicad_sym": "04a15a28f5c6513ebcc79198f818d1adcb97a510ec56aa5a5dec020de42937c2",
+      "lib/Fenolite.pretty/Chip_0603.kicad_mod": "76d4337ce9a2a4dffa908537e8fcd8bae7e6435bfc5497ea1833b4a5309f4c84",
+      "lib/Fenolite.pretty/Chip_0805.kicad_mod": "c90ff1634efd3ee0dffbc08dc2f642d7974aaf104d1cde1e80d5d00eaed7cafc",
+      "lib/Fenolite.pretty/Header_1x2_P2.54.kicad_mod": "dc2a91f6c63c6ea61c7e9c4a54717c22941f749f268fa7ad2596e1ceab856df7",
+      "lib/Fenolite.pretty/LED0603_Kingbright_APT1608SURCK.kicad_mod": "cdaa2c60b4566eb0d6ae294ac5e009879bd34d60bbec18a4f05633aeb7066854",
+      "lib/Fenolite.pretty/SOT223_3_Diodes.kicad_mod": "be1d1702898a7b8d3f220d9f2424ea8e6493f8fb58d06345aadeb0b1652a5520",
+      "lock_demo.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+      "lock_demo.kicad_pcb": "4e12171534720a2d6e6e547718ee8d299565fe44d4bb04cbebae64e2a596f304",
+      "lock_demo.kicad_pro": "cdf8561e3f4cdb14268a90fa7a01eff00d857b7fd8fe744429edd328a8c36cb4",
+      "lock_demo.kicad_sch": "82761aa96590fdf3c5abcf63b005f0d0017eb2fed28a450984f78244fb41728e",
+      "sheets/led.kicad_sch": "1850e3468a10fd94d0cc6870581e7975bf6d5fdd694787af45e46d6534eafb5f",
+      "sheets/reg.kicad_sch": "f0ddb37f7c8b23a469bb35bf099e31cba469f9712c90e47dea2db5e5dc09ac18",
+      "sym-lib-table": "ddc56bd13cff94152ad483f860666efd4ab37b990e45aaf1da3944a97b24911f"
+    }
+  },
+  "lock@altium": {
+    "exit": 0,
+    "files": {
+      ".fenolite/altium-generated/lock_demo.SchDoc": "b79cbceab8f52b849020771cbec69b1eda3715f1fa20d44399d3e0a2ad1700ed",
+      ".fenolite/board.json": "1e1a887bdb6a0337d72f00ab8c3d7b46aad0eb436842339786d965363894eb0c",
+      ".fenolite/circuit.json": "5c12c98abd4c2c7912d425b29d62bd1acd7f6ec26f4999ee2b80c68e81039927",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "fenolite-base.json": "4e39223476a16a05d1e0d92425d5285cb2af987892e3da24b442ba741891bcab",
+      "lock_demo.OutJob": "0e9b8297d8711708ca4b22cd2d3bb4de0479ac17ce376291104751833172e529",
+      "lock_demo.PcbDoc": "51146b4ee1484d5e378576e75807ee03a847f433b6000b5c526cee54bfc6ed40",
+      "lock_demo.PcbLib": "d0431eb467c778331ee022184ead437bdfba9b1d5e573c16061c54a0c944b6f1",
+      "lock_demo.PrjPcb": "abbcd49fb5831ade83e1940cd071f018c377f31e9ff19965b3a070f96be6d4f3",
+      "lock_demo.SchDoc": "b79cbceab8f52b849020771cbec69b1eda3715f1fa20d44399d3e0a2ad1700ed",
+      "lock_demo.SchLib": "0305cec2a8b82b038d212e5e84e1562a83b053f1988578cc025c9c197f44d429"
+    }
+  },
+  "picks@10": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "3f429e1aec1df39964404b734bdbddda773d4f066e1b0a42bb754c422a540ebc",
+      ".fenolite/circuit.json": "8a69a7f0581f841435c46aae2329d466a432272d4244b98c4c0f4b46fe707bd3",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "fenolite-base.json": "2d0be3b2057bf1d814cb3bba25aac2a2936af4832a984eed0fa5064cacb03dbf",
+      "fp-lib-table": "2a361e9168bc7f7bf01661e5637a963867108d75c697a128d37b1def14b3a62e",
+      "lib/Fenolite.kicad_sym": "cb1e2149ac20f68ec9b9c005324983a0fc63e60984d9f98ccc7f30adbad480e1",
+      "lib/Fenolite.pretty/Chip_0603.kicad_mod": "9435f867b76ed23f031fef449a187ef98a4741aff851f382fd9c931370cf94da",
+      "lib/Fenolite.pretty/Chip_0805.kicad_mod": "faad7c352b92ae2b60f227e0f15241f5a782dd31337e063ada73463d7741659f",
+      "lib/Fenolite.pretty/Header_1x2_P2.54.kicad_mod": "dc39c9d442d1b7207f34b75727638e12e4fd8b461a532e14958190acef5f4e26",
+      "lib/Fenolite.pretty/Header_1x4_P2.54.kicad_mod": "a74d893ace16e75f36c78428a1cbc08c3488b3f7bbb769057e521b6e80073f96",
+      "lib/Fenolite.pretty/LED0603_Kingbright_APT1608SURCK.kicad_mod": "94693dbe01883b69d79b80f039e49d700bc2a32d8c0f9452b5f6ce1fc90b9790",
+      "picks_demo.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+      "picks_demo.kicad_pcb": "285c74d12041fc6f3da65d2fac96e0413eab10bd5ca92cd6734d4298b56fcfda",
+      "picks_demo.kicad_pro": "05c5658264b0dea003bcc267345655d4c8a45a9e3cc181080895a5ef10d8c171",
+      "picks_demo.kicad_sch": "107076802c2dbace00792d2c26a05489699d2a0780e1c3a2a765fc4cb8edd3c6",
+      "sheets/buck1.kicad_sch": "a5e1b461015f0a003a2e2f620d3ef40135bbec802cdf803ac6f944d2d77ad200",
+      "sym-lib-table": "e3893d2062cd3bf78ed9acc4c7ed908a020b3eb92ec8af6d2521cd8d839b242b"
+    }
+  },
+  "picks@9": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "c52529929af7f4592ad0ab9230dfd93407c6cbd0d59023b4d2203b0abb877c60",
+      ".fenolite/circuit.json": "8a69a7f0581f841435c46aae2329d466a432272d4244b98c4c0f4b46fe707bd3",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "fenolite-base.json": "2d0be3b2057bf1d814cb3bba25aac2a2936af4832a984eed0fa5064cacb03dbf",
+      "fp-lib-table": "b16eea36e3370296e2c780e7b85115ed4f8f44bea2f76ec1f517c4b78dffb33c",
+      "lib/Fenolite.kicad_sym": "b8e3becc60e0be65f89b90d8940d318e7d202a85567793ebabaf2b521f0861e2",
+      "lib/Fenolite.pretty/Chip_0603.kicad_mod": "76d4337ce9a2a4dffa908537e8fcd8bae7e6435bfc5497ea1833b4a5309f4c84",
+      "lib/Fenolite.pretty/Chip_0805.kicad_mod": "c90ff1634efd3ee0dffbc08dc2f642d7974aaf104d1cde1e80d5d00eaed7cafc",
+      "lib/Fenolite.pretty/Header_1x2_P2.54.kicad_mod": "dc2a91f6c63c6ea61c7e9c4a54717c22941f749f268fa7ad2596e1ceab856df7",
+      "lib/Fenolite.pretty/Header_1x4_P2.54.kicad_mod": "a7a84ae4c7319afa125a97d5e10b8fac53695b01af7cb05dde1eb07e82fdf710",
+      "lib/Fenolite.pretty/LED0603_Kingbright_APT1608SURCK.kicad_mod": "cdaa2c60b4566eb0d6ae294ac5e009879bd34d60bbec18a4f05633aeb7066854",
+      "picks_demo.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+      "picks_demo.kicad_pcb": "edc43be549aecb40ed2fd6d4f5709d703e39bedeb82eb9fb227448452e40e050",
+      "picks_demo.kicad_pro": "d8f3b8ae8d6687f609d5224132a2c0af52133f4df174cfc4b5941758d971a607",
+      "picks_demo.kicad_sch": "9ee5491a82420154474eda3ba4a97124318005fb7b093581fd264b12bcc354c8",
+      "sheets/buck1.kicad_sch": "241b94dd31dc3c356158adddb8a064cc866cac2a1527466264aee10253bd982d",
+      "sym-lib-table": "ddc56bd13cff94152ad483f860666efd4ab37b990e45aaf1da3944a97b24911f"
+    }
+  },
+  "picks@altium": {
+    "exit": 0,
+    "files": {
+      ".fenolite/altium-generated/picks_demo.SchDoc": "6960715be214796d4279cb062ffb782a21d6599fd5295ea429f1d8bfd3815fef",
+      ".fenolite/board.json": "77cb339ea201a78704b802a719e6f204678c71872eb633eba4993716b85e41be",
+      ".fenolite/circuit.json": "d888fea71f3d58c94479141bd5e5ad96ce4316b0c0a58c1140a54aec3f66736e",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "fenolite-base.json": "7fdc3040059078e7a393dedae924010fd7cf983c0b42daf51d34a5adb79fe686",
+      "picks_demo.OutJob": "5860783abd0d0a3d9ddcb9861162b276a93a0639df5d63efd66c4d79b1c67068",
+      "picks_demo.PcbDoc": "09e8b438c5e776b8926f6b93f36a1c5dc869fb61aff9bcd56c44aff578708ac7",
+      "picks_demo.PcbLib": "9cdececc9ba34e719d6206fabf55123963b281317cbec8b420965c1ae039d865",
+      "picks_demo.PrjPcb": "d5180b7eab548f39d3d7825752443d64b5ef0a432e559439e3572507fc65153c",
+      "picks_demo.SchDoc": "6960715be214796d4279cb062ffb782a21d6599fd5295ea429f1d8bfd3815fef",
+      "picks_demo.SchLib": "69414ec1b1d844f1d79828957b482b867572075c64d39c96890bfd87705d7b71"
+    }
+  },
+  "pins@10": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "d388a23817aea8c99c10ae5d2915017bb8bfc82d7a853b6c9681d7b713962504",
+      ".fenolite/circuit.json": "dbc8ef510308e365d447e425436d438640545505f96e2fe0929f9ad168935217",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "fenolite-base.json": "e8ca55e482816aea13be77b91da122a807b82497699714ac4d023dc1888a13fe",
+      "fp-lib-table": "2a361e9168bc7f7bf01661e5637a963867108d75c697a128d37b1def14b3a62e",
+      "lib/Example.kicad_sym": "fbaf5ade30d3e36da5ef2ff04c26a0357c9d52a5ebe32f5fc1b168ebc62e4957",
+      "lib/Fenolite.kicad_sym": "92e17707b87bc982d3baa885bcd7f29a65b6d5c864dfa86ea7904def186fb863",
+      "lib/Fenolite.pretty/Chip_0603.kicad_mod": "9435f867b76ed23f031fef449a187ef98a4741aff851f382fd9c931370cf94da",
+      "lib/Fenolite.pretty/Header_1x2_P2.54.kicad_mod": "dc39c9d442d1b7207f34b75727638e12e4fd8b461a532e14958190acef5f4e26",
+      "lib/Fenolite.pretty/Header_1x3_P2.54.kicad_mod": "4ccdc7c8ed6fbb54e3ab1ebbf63bb9ec50c446edff8f4ee92be65e43679cd681",
+      "lib/Fenolite.pretty/LQFP32_P0.8.kicad_mod": "1ebea53f18571c93cb02c17326864677e699008044076384aa146b7696f21281",
+      "lib/Fenolite.pretty/SOT23_6_TI_DBV0006A.kicad_mod": "e28ec4ffc7c2614522d74d6b0859ea6307c4df5726a3727b65294053574834c8",
+      "pins.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+      "pins.kicad_pcb": "42c8e0828e85c9488b1d6811c4cbfc4673e1036a9671028b6fa3625dde6cee8c",
+      "pins.kicad_pro": "8513160727f265c994f1328732cc29474356c8c12ad1b869263615ad4d3f35c7",
+      "pins.kicad_sch": "a76a236c599259ae8fce7f2f7f95ec8fcbf0029c2854e5237fa22e9661167eaa",
+      "sym-lib-table": "84dfec1bc323864401f875a402069dcf061fe7b88492bdc799d6eb75d9fa951f"
+    }
+  },
+  "pins@9": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "0ed4e277c9ca839dbad63a9621e08104c387a37440a92e595bae470812938dee",
+      ".fenolite/circuit.json": "dbc8ef510308e365d447e425436d438640545505f96e2fe0929f9ad168935217",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "fenolite-base.json": "e8ca55e482816aea13be77b91da122a807b82497699714ac4d023dc1888a13fe",
+      "fp-lib-table": "b16eea36e3370296e2c780e7b85115ed4f8f44bea2f76ec1f517c4b78dffb33c",
+      "lib/Example.kicad_sym": "0dc39bdc5b9e590b6bfec8f4afce1f9cba8b1a164cd29ba7eccbafbcf660710a",
+      "lib/Fenolite.kicad_sym": "11dce5e693c75f05a474732d001ef1c4bc529fb1765888affd9c85c51096d400",
+      "lib/Fenolite.pretty/Chip_0603.kicad_mod": "76d4337ce9a2a4dffa908537e8fcd8bae7e6435bfc5497ea1833b4a5309f4c84",
+      "lib/Fenolite.pretty/Header_1x2_P2.54.kicad_mod": "dc2a91f6c63c6ea61c7e9c4a54717c22941f749f268fa7ad2596e1ceab856df7",
+      "lib/Fenolite.pretty/Header_1x3_P2.54.kicad_mod": "758be73404599d8b95dff4dc242a2379bd9890433db6b4fa0c6a01b152f16dcf",
+      "lib/Fenolite.pretty/LQFP32_P0.8.kicad_mod": "d0b9b138a3638730d47a9a4885f636d556051e260dd579c78e129b09ecc15fdf",
+      "lib/Fenolite.pretty/SOT23_6_TI_DBV0006A.kicad_mod": "24a7c9d8228b50ba27b49d98f2ebdd7dd74a6490565f3b080b6a287a8b7b2903",
+      "pins.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+      "pins.kicad_pcb": "8be2d4468ec685c419eb8989cb6ff513d05ae631feb5b6bf1e8ed6346239086b",
+      "pins.kicad_pro": "99f5da5bddc03a7cebbc6e4701a26caf306a2041dac79f20b6fd4231765c530d",
+      "pins.kicad_sch": "8b54da2d08fadd71a1f2826347d7e97d2f8144a06c855dab92c36f8df84a7fd5",
+      "sym-lib-table": "1029b186c6a2b5d8a50341bb05c7a4fb34674b01b3996744e3135b255a093097"
+    }
+  },
+  "pins@altium": {
+    "exit": 0,
+    "files": {
+      ".fenolite/altium-generated/pins.SchDoc": "96407171890d6d03cfc1ae04b5a330c1d8ff60190b2a62aa014517ef96da52de",
+      ".fenolite/board.json": "8f1d4168050d222e6c34adae2aff5fa62f29404d9d41c655220be0dde5858f30",
+      ".fenolite/circuit.json": "884e51ba48ac7ac244a22ca763484d149e72482070a4d19b29a5cfd3a84ac893",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "fenolite-base.json": "12239b7d4b2f840be2a5a144e39a95b69fc93ca513a27e6cbe1b682dbb083fc1",
+      "pins.OutJob": "b9e158ae6042ad7e38f788604dec3606fa9d83baedc720addf359d4def2e2400",
+      "pins.PcbDoc": "948637cb2c76cef52e87d0aa987fd20f1fb1fb65d6e4bcb3ffe30f281451fe3f",
+      "pins.PcbLib": "32741f3b167fe5200046048d631637c292cc758711870a06ea918227a53f8774",
+      "pins.PrjPcb": "5dad1243a6252808a903d6b11cfc6ae33419ec8edef708d8aab7af387bf4f214",
+      "pins.SchDoc": "96407171890d6d03cfc1ae04b5a330c1d8ff60190b2a62aa014517ef96da52de",
+      "pins.SchLib": "15e8feb16aabd35efa9ca5bc85cb4487a4d84c46b4fb829a56eee28700558d86"
+    }
+  },
+  "schematic_blocks@10": {
+    "exit": 3,
+    "files": {}
+  },
+  "schematic_blocks@9": {
+    "exit": 3,
+    "files": {}
+  },
+  "schematic_blocks@altium": {
+    "exit": 0,
+    "files": {
+      ".fenolite/altium-generated/signal_chain.SchDoc": "e6458650e631cbc54a3a6cd0e06d86f44f941d3323ee6f94c95ffbed2c19b929",
+      ".fenolite/board.json": "7488a19f819cbaec31ce479ebfa7d8a6a6d80eb1fab266129bd3f7157e38904d",
+      ".fenolite/circuit.json": "3f52e49ceff2ec8b3ba184366cf56b2131e416193db0c76aa503e26d27440257",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      ".fenolite/schematic-composition.json": "3a0fb0958353b8c5a40eb31fb1f34adb82c5fa4409f68f281eb7f2bd83b10136",
+      ".fenolite/schematic-preview/signal_chain.SchDoc.svg": "dfd4189cf18f8c27376ab78ee54ad3d14e2eb0e0713368180560588c191a7cab",
+      "Example.SchLib": "f47a18c29de35d74b30f3fe2b441a38cc3f9011a667dedc91df4341f0526e536",
+      "fenolite-base.json": "0a48750e60637ce1cd50e886e5c722db5688ca4bf1c3aaebdf1b3aa4bf7f5d9d",
+      "signal_chain.PrjPcb": "e7be166cd5d07e0578dacc29c76c4223ef25a2ac437cc0647c8391115c9fc4ca",
+      "signal_chain.SchDoc": "e6458650e631cbc54a3a6cd0e06d86f44f941d3323ee6f94c95ffbed2c19b929"
+    }
+  },
+  "symbols@10": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "4c16a5825b229de32b8357ffdd241e2cbc886628aaf440ff0b04c2ad691d20ca",
+      ".fenolite/circuit.json": "faa4c40bbdbc67ef3e8f8b00287b384342f9064d42578763325fae619dcfae22",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "fenolite-base.json": "3871d92e6f836c86dc937b1ead8490441702017c35e3f218f1aa333764c711d0",
+      "fp-lib-table": "2a361e9168bc7f7bf01661e5637a963867108d75c697a128d37b1def14b3a62e",
+      "lib/Example.kicad_sym": "43bed09cf17f26be866100aaa4b4ceeef6af82c95c18ef35616dd9eccf566e5e",
+      "lib/Fenolite.kicad_sym": "071af2bd8111b57fc1d42dfa084255003dd2431e644a99f22534c1f9b356f2b5",
+      "lib/Fenolite.pretty/Chip_0603.kicad_mod": "9435f867b76ed23f031fef449a187ef98a4741aff851f382fd9c931370cf94da",
+      "lib/Fenolite.pretty/Chip_0805.kicad_mod": "faad7c352b92ae2b60f227e0f15241f5a782dd31337e063ada73463d7741659f",
+      "lib/Fenolite.pretty/SOIC_8.kicad_mod": "3e1c207cfcf8dfb5c0a1bd6d0143193100b99684527d14308b1715c10efe57c4",
+      "sym-lib-table": "84dfec1bc323864401f875a402069dcf061fe7b88492bdc799d6eb75d9fa951f",
+      "symbols.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+      "symbols.kicad_pcb": "757321697fb615e0b7d6ecc69f5d65bd08cecc1d8802a8d6559977329184c101",
+      "symbols.kicad_pro": "dc69657ee830da0da930352d5b88c7600d9a30bc95fef52ecc4edb7f30c5b232",
+      "symbols.kicad_sch": "9730af1cc0fca699fbed6667ee9da9db0f22f5b8c72aa9b925e89facc9aded3e"
+    }
+  },
+  "symbols@9": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "d2a48dc83ec49bea1ebd79643bda5acfbc49b9e8cac27f8685ec05c9940a8cea",
+      ".fenolite/circuit.json": "faa4c40bbdbc67ef3e8f8b00287b384342f9064d42578763325fae619dcfae22",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "fenolite-base.json": "3871d92e6f836c86dc937b1ead8490441702017c35e3f218f1aa333764c711d0",
+      "fp-lib-table": "b16eea36e3370296e2c780e7b85115ed4f8f44bea2f76ec1f517c4b78dffb33c",
+      "lib/Example.kicad_sym": "1582ab8936e8cb24c725783f3b7faae4f0b356cfadc0d7a6ea251ff1f29f6acd",
+      "lib/Fenolite.kicad_sym": "3f9ee4ac281ac13b792c2dbda6b2f8b9a6590bfffecbc72da5b455582efd9eb3",
+      "lib/Fenolite.pretty/Chip_0603.kicad_mod": "76d4337ce9a2a4dffa908537e8fcd8bae7e6435bfc5497ea1833b4a5309f4c84",
+      "lib/Fenolite.pretty/Chip_0805.kicad_mod": "c90ff1634efd3ee0dffbc08dc2f642d7974aaf104d1cde1e80d5d00eaed7cafc",
+      "lib/Fenolite.pretty/SOIC_8.kicad_mod": "7af9e76e1ed06b02b99b4491f90966bdd4c567f0f3f50878b3f0fc432478a306",
+      "sym-lib-table": "1029b186c6a2b5d8a50341bb05c7a4fb34674b01b3996744e3135b255a093097",
+      "symbols.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+      "symbols.kicad_pcb": "4258f633150e64f980385d10b8956b482942348eb8a93e71831b9f8976df2b1b",
+      "symbols.kicad_pro": "3a45c221127c2b02ed201f20afc495d128a2107a94a3edb971f5ac591a61750a",
+      "symbols.kicad_sch": "fb41121ceedabc957764440b1c12345260f192ced8ba0bc419a156ef5ee9c41f"
+    }
+  },
+  "symbols@altium": {
+    "exit": 0,
+    "files": {
+      ".fenolite/altium-generated/symbols.SchDoc": "cd8f56eb7b065f1104157cb24c9d5bd67d09aa401d7e191cf559738d9abe5f82",
+      ".fenolite/board.json": "99dc60394758cf4e10b570fcf9a50fc4b61bba7c2568e87cfc89c0e05f194c11",
+      ".fenolite/circuit.json": "76105d773263f279ac4db27e09059780a550161735724f218e807a02cc29e137",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "fenolite-base.json": "e30c3a862cfce0b871f0f932fcdf20e5c790c041190ff0197ed69363df2d7ea2",
+      "symbols.OutJob": "83dcaa966b7fdb8b4200fd68147ea26da83828b1349e22d96900a9fcfbf6405a",
+      "symbols.PcbDoc": "da137213b9965eb7a049c9a6c7fdb36b68a6755ad754cb9ebe024e361abfa6c2",
+      "symbols.PcbLib": "235adf2de477b86f777935ad2dbf27abf32e84fe881ae548d0373d77ec4ac561",
+      "symbols.PrjPcb": "5bd31f229f76d227d683c862c954850279c68b0bf7211ffdd49309b7226e5b12",
+      "symbols.SchDoc": "cd8f56eb7b065f1104157cb24c9d5bd67d09aa401d7e191cf559738d9abe5f82",
+      "symbols.SchLib": "d5e1eba4b407828ab91e3d03721f53d43e77bf39b656c1df2207efb4015d1183"
+    }
+  },
+  "testing@10": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "cbe247fbe2f47fcb245a303a301f067fe717db184ba5c1160061aba1a72a56f6",
+      ".fenolite/circuit.json": "e5156272604356933ddc36127cb9fb50d5a531876683c657e0a79549c044e09b",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "design_tests.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+      "design_tests.kicad_pcb": "921c8620ed07f613580993604290c268bea0a19ad2dc1d9fa534ebd1e3c6c98a",
+      "design_tests.kicad_pro": "cb1ce984b3813077bd26dc257ec22d45c12b694da83f4d1bc7b5a6348573327f",
+      "design_tests.kicad_sch": "e5c2f9bb4a53d201fdce9c5c9e6e8b8647fdb04e82cab45d7ea0d42ab39e2291",
+      "fenolite-base.json": "a8d0c9c5f868df319ec2b833a2c27b6c9dc8043c3e080bb61e05bc14330497a1",
+      "fp-lib-table": "2a361e9168bc7f7bf01661e5637a963867108d75c697a128d37b1def14b3a62e",
+      "lib/Fenolite.kicad_sym": "7dea17d4500dcd1b29505b73bf183047e3932ca1cd5be804e06d5af6d0bb2d50",
+      "lib/Fenolite.pretty/Chip_0603.kicad_mod": "9435f867b76ed23f031fef449a187ef98a4741aff851f382fd9c931370cf94da",
+      "sym-lib-table": "e3893d2062cd3bf78ed9acc4c7ed908a020b3eb92ec8af6d2521cd8d839b242b"
+    }
+  },
+  "testing@9": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "93c08e5d87723591d12d68d8e6a1ce8e8608cb34cfba069f10a4d1f1855bd891",
+      ".fenolite/circuit.json": "e5156272604356933ddc36127cb9fb50d5a531876683c657e0a79549c044e09b",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "design_tests.kicad_dru": "edd74546c3a662048c2f81cace7014020026bf6586abc6b7333db7df5644bfc7",
+      "design_tests.kicad_pcb": "b5d5c299edc293b3345bf56173488f6e1c555a79b23667ca31fc0cf8268309e3",
+      "design_tests.kicad_pro": "54d4ab869565975899f8045a12b3fcac3cbc1dfe024665d82305e50b9596f00a",
+      "design_tests.kicad_sch": "ea2311eb3c97962d96d488eaf98a254c885ed0646d9bf4d6f0144f14189ccfbc",
+      "fenolite-base.json": "a8d0c9c5f868df319ec2b833a2c27b6c9dc8043c3e080bb61e05bc14330497a1",
+      "fp-lib-table": "b16eea36e3370296e2c780e7b85115ed4f8f44bea2f76ec1f517c4b78dffb33c",
+      "lib/Fenolite.kicad_sym": "7f52be2bc004669774b87ab2526cec85ca40ee9e4b573307848f17670bbfb049",
+      "lib/Fenolite.pretty/Chip_0603.kicad_mod": "76d4337ce9a2a4dffa908537e8fcd8bae7e6435bfc5497ea1833b4a5309f4c84",
+      "sym-lib-table": "ddc56bd13cff94152ad483f860666efd4ab37b990e45aaf1da3944a97b24911f"
+    }
+  },
+  "testing@altium": {
+    "exit": 0,
+    "files": {
+      ".fenolite/altium-generated/design_tests.SchDoc": "5b4a6e21748e4347318b793b3af946109e5782f808eb354be4e1e3bd29c3af77",
+      ".fenolite/board.json": "a95e34a412e90e9d939a46dca11681e826aeb1b77091759068fb86389c507a21",
+      ".fenolite/circuit.json": "22015f6877259e93ceca9a35eb1dd3e848d809025c2a6324eb6bec37564d1cb4",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
+      "design_tests.OutJob": "388efd9f415a18f917aefc8d81d2b2679683e2552f8187e303d83599e2f9ee32",
+      "design_tests.PcbDoc": "fe09803fef236917009fb1efed6a03427c0bb481011a16ca03034be2ed4b96cc",
+      "design_tests.PcbLib": "038eff3f743cd97ebe6f93e59169d70a9a6c424997cd1b0866e0b12c1a335e0f",
+      "design_tests.PrjPcb": "96320cb0f33e5cb259e22c5f714a6c4b7eb2f3aa864919a01d161810828842d1",
+      "design_tests.SchDoc": "5b4a6e21748e4347318b793b3af946109e5782f808eb354be4e1e3bd29c3af77",
+      "design_tests.SchLib": "a0ee16216cb896eaf71f1e2340c8b04351f696576ef24bbe375152779736ac3d",
+      "fenolite-base.json": "1388cf9e3f563267468fe1cee4fa372514930b0969e762e78d673f8f7cc07475"
+    }
+  },
+  "topologies@10": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "7a829999c4641ee022d201090d5ae3d7b10d2adcb57c480839ad35b764d051a8",
+      ".fenolite/circuit.json": "e955c148fb44e1d743d970716fc718a57d71136a179356ec34701558ea211b99",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "4db35b246996ff376bb29a2422c370760749e261532a275678324b9cbd8abc6c",
+      "fenolite-base.json": "6154f72d4f26ab45dc5d8d288697c67b67a9179d46b0d95ecdf604a3c14bac0d",
+      "fp-lib-table": "2a361e9168bc7f7bf01661e5637a963867108d75c697a128d37b1def14b3a62e",
+      "lib/Fenolite.kicad_sym": "61b05cd96ef5d112c8d90b5d362da6afbf21e68623a01e8ad83195b46e2c3d5f",
+      "lib/Fenolite.pretty/Chip_0402.kicad_mod": "34053a48e09e3ea1dd50560fdf3baa3bb358adf62ec07d35078577d962a46f1e",
+      "lib/Fenolite.pretty/Header_1x2_P2.54.kicad_mod": "dc39c9d442d1b7207f34b75727638e12e4fd8b461a532e14958190acef5f4e26",
+      "sym-lib-table": "e3893d2062cd3bf78ed9acc4c7ed908a020b3eb92ec8af6d2521cd8d839b242b",
+      "topologies.kicad_dru": "8644abb699894b35ad3e18e108418d7ad1b818c8d1a2bbebb2465aaa1405e053",
+      "topologies.kicad_pcb": "7f62941acf4ae93903a70432794189e97062107c0b2e4970a84d9b2374ef0498",
+      "topologies.kicad_pro": "3b9a68cc9a8bf85461188bfb518e45a0370f4107a23a233307a5bcb2e7a57a10",
+      "topologies.kicad_sch": "a02d8063c03b051d1160e51d9d50906ea7244479f9d037ae5b459fa87d1cfa4d"
+    }
+  },
+  "topologies@9": {
+    "exit": 0,
+    "files": {
+      ".fenolite/board.json": "ce88e782e36fc6503eb7e58aa24dea012b8285d1bc1a3bc15a7ebdf49da113f2",
+      ".fenolite/circuit.json": "e955c148fb44e1d743d970716fc718a57d71136a179356ec34701558ea211b99",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "4db35b246996ff376bb29a2422c370760749e261532a275678324b9cbd8abc6c",
+      "fenolite-base.json": "6154f72d4f26ab45dc5d8d288697c67b67a9179d46b0d95ecdf604a3c14bac0d",
+      "fp-lib-table": "b16eea36e3370296e2c780e7b85115ed4f8f44bea2f76ec1f517c4b78dffb33c",
+      "lib/Fenolite.kicad_sym": "9aaeb9d30f079760d7380f1ce3fa3617854270dd3b551058ca971feb9394ac49",
+      "lib/Fenolite.pretty/Chip_0402.kicad_mod": "048dd68fa3eed0d1a06447b7691f7bcb9add5acc5f29e8613d7cef7fad0a16f2",
+      "lib/Fenolite.pretty/Header_1x2_P2.54.kicad_mod": "dc2a91f6c63c6ea61c7e9c4a54717c22941f749f268fa7ad2596e1ceab856df7",
+      "sym-lib-table": "ddc56bd13cff94152ad483f860666efd4ab37b990e45aaf1da3944a97b24911f",
+      "topologies.kicad_dru": "8644abb699894b35ad3e18e108418d7ad1b818c8d1a2bbebb2465aaa1405e053",
+      "topologies.kicad_pcb": "36df4ef9d074a6af1dcd6b7b0c938ea69d049d01bd47115c9d5b920177c0a4cb",
+      "topologies.kicad_pro": "8e80f4c976bb0f941d6417950d4fa21ef309de161ea32711872043c6900aa0e0",
+      "topologies.kicad_sch": "967f5b1b33a9e2cd79083f0f4346bf55286e941c8b91ce63d6dcdad506183e54"
+    }
+  },
+  "topologies@altium": {
+    "exit": 0,
+    "files": {
+      ".fenolite/altium-generated/topologies.SchDoc": "4cfcf9d524677234bb9094ea88aaecc4c6b5a20285fd709d01d806046a04c7c3",
+      ".fenolite/board.json": "7825aa1d9d265bb0f9207df333608e56b9605404412bfb59a9f54905c581e47d",
+      ".fenolite/circuit.json": "b8adb49308d7570658a4155ac90573a8f222fb60e117cfe379a0a05e8ad0b205",
+      ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
+      ".fenolite/rules.json": "4db35b246996ff376bb29a2422c370760749e261532a275678324b9cbd8abc6c",
+      "fenolite-base.json": "faa0202e3f967e601b917e6a859feaed8f1434c0a74b8f781f1f557cc6439e67",
+      "topologies.OutJob": "4c4e79e1369167cac8d79cf7f55252207de04dfc7f58204aa78d198ebe405c9c",
+      "topologies.PcbDoc": "1fcddf0fa771dc0d79062543e32608a43309ee9fc770963205c45f1a5743f83e",
+      "topologies.PcbLib": "dc36524c2325c6045dde36793c1f90021b1d8cb5c6db83abbff26639a832ecee",
+      "topologies.PrjPcb": "240642a5f4eb29fd4476c706b977d0c3876a7e5692b4f7b3790ffb66355750d8",
+      "topologies.SchDoc": "4cfcf9d524677234bb9094ea88aaecc4c6b5a20285fd709d01d806046a04c7c3",
+      "topologies.SchLib": "ae3c476accc3f884add677e05723e3459adf50601e4dc7122038a71b8452ef77"
+    }
+  }
+}

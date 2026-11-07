@@ -53,6 +53,75 @@ def test_structural_hit(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> N
     assert "examples/x/notes.md:4:abs-user-path" in out
 
 
+@pytest.mark.parametrize("encoding", ["utf-8", "utf-16le", "cp1252"])
+@pytest.mark.parametrize("authority", ["example.invalid", "example.invalid:8443", "[::1]:8443"])
+@pytest.mark.parametrize("scheme", ["http", "https"])
+def test_web_path_is_not_a_local_path(encoding: str, authority: str, scheme: str) -> None:
+    local = f"{HOME}/alice/boards"
+    text = f"{scheme}://{authority}{local} see {local}"
+    hits = scan.scan_bytes("docs/reference.md", text.encode(encoding), scan.load_config())
+    expected = len(text[: text.rindex(local)].encode(encoding))
+    assert [(hit.pattern, hit.offset) for hit in hits] == [("abs-user-path", expected)]
+
+
+@pytest.mark.parametrize(
+    "prefix",
+    [
+        "",
+        "file://",
+        "file://localhost",
+        "C:",
+        "https://example.invalid/?path=",
+        "https://example.invalid/#path=",
+        "https://[invalid/",
+        "https://example.invalid:bad/",
+        "https:///",
+    ],
+)
+def test_non_web_path_components_still_report(prefix: str) -> None:
+    path = f"{USERS}/alice/boards"
+    hits = scan.scan_bytes("docs/reference.md", (prefix + path).encode(), scan.load_config())
+    assert any(hit.pattern == "abs-user-path" for hit in hits)
+
+
+def test_private_tokens_are_checked_inside_web_paths() -> None:
+    config = scan.load_config(environ={"FENOLITE_RESIDUE_TOKENS": "Zyxquorp"})
+    text = f"https://example.invalid{HOME}/alice/Zyxquorp/"
+    hits = scan.scan_bytes("docs/reference.md", text.encode(), config)
+    assert [hit.pattern for hit in hits] == ["private-token-1"]
+
+
+def test_known_blob_is_checked_even_when_its_only_path_is_a_url() -> None:
+    data = f"https://example.invalid{HOME}/alice/boards".encode()
+    config = scan.load_config()
+    config.blobs[hashlib.sha256(data).hexdigest()] = "authored-reference"
+    hits = scan.scan_bytes("docs/reference.md", data, config)
+    assert [hit.pattern for hit in hits] == ["known-blob"]
+
+
+def test_url_scope_preserves_other_structural_patterns() -> None:
+    revision = "v2" + "rQ"
+    text = f"https://example.invalid{HOME}/alice/{revision}/"
+    hits = scan.scan_bytes("docs/reference.md", text.encode(), scan.load_config())
+    assert [hit.pattern for hit in hits] == ["internal-rev"]
+
+
+def test_web_path_distinction_in_encoded_archive_and_history_label() -> None:
+    local = f"{HOME}/alice/boards"
+    text = f"https://example.invalid{local} see {local}"
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("reference.txt", text.encode("utf-16le"))
+    hits = scan.scan_bytes("abcdef012345:fixture.zip", buffer.getvalue(), scan.load_config())
+    assert [(hit.path, hit.offset, hit.pattern) for hit in hits] == [
+        (
+            "abcdef012345:fixture.zip!reference.txt",
+            len(text[: text.rindex(local)].encode("utf-16le")),
+            "abs-user-path",
+        )
+    ]
+
+
 def test_numeric_codes_only_in_data_paths(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     root = _tree(tmp_path / "t", {"src/a.py": b"N = 123456789\n", "examples/bom.csv": b"R1,123456789\n"})
     code, out = _run(capsys, root)
@@ -116,6 +185,23 @@ def test_waiver(tmp_path: Path) -> None:
     config.waivers.append(("examples/bom.csv", "numeric-code"))
     hits, count = scan.scan(tmp_path, config, [("examples/bom.csv", b"R1,123456789\n")])
     assert hits == [] and count == 1
+
+
+def test_part_s_viewport_waiver_remains_narrow() -> None:
+    path = "examples/kit/slots/clearance/slots.PcbLib"
+    data = (Path(__file__).resolve().parents[2] / path).read_bytes()
+    config = scan.load_config(environ={"FENOLITE_RESIDUE_TOKENS": TOKEN})
+    assert scan.scan_bytes(path, data, config) == []
+    hits = scan.scan_bytes(path.replace("slots.PcbLib", "other.PcbLib"), data, config)
+    assert [(hit.pattern, hit.offset) for hit in sorted(hits, key=lambda h: h.offset)] == [
+        ("numeric-code", offset) for offset in (78298, 78314, 78330, 78346)
+    ]
+    planted = data + f"\n{TOKEN} {USERS}/invented/board\n".encode()
+    config.blobs[hashlib.sha256(planted).hexdigest()] = "authored negative control"
+    patterns = {hit.pattern for hit in scan.scan_bytes(path, planted, config)}
+    assert "numeric-code" not in patterns
+    assert "known-blob" in patterns and "abs-user-path" in patterns
+    assert any(pattern.startswith("private-token-") for pattern in patterns)
 
 
 def test_exclusions(tmp_path: Path) -> None:

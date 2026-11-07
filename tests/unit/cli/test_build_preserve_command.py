@@ -262,8 +262,7 @@ def test_unknown_new_path_at_build_time(tmp_path: Path, monkeypatch: pytest.Monk
 REMOVE_R1 = (
     ('r1 = Part("R1", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="330")\n', ""),
     ("design.add(u1, r1, d1)", "design.add(u1, d1)"),
-    ("connect(led_drv, u1[1], r1[1])", "connect(led_drv, u1[1])"),
-    ("connect(led_a, r1[2], d1[2])", "connect(led_a, d1[2])"),
+    ("series(led_drv, r1, led_a, (d1.b, d1.a), gnd)", "series(led_a, (d1.b, d1.a), gnd)"),
     ("r1.place(mm(32), mm(9))\n", ""),
 )
 
@@ -329,7 +328,10 @@ def test_tracks_intact(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 def test_net_removed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     p = Project(tmp_path, monkeypatch)
     p.edit_board(edit_blink)
-    p.edit_script("connect(led_a, r1[2], d1[2])", "")
+    p.edit_script(
+        "series(led_drv, r1, led_a, (d1.b, d1.a), gnd)",
+        "connect(led_drv, r1[1])\nconnect(gnd, d1[1])",
+    )
     code, env, _ = p.build("--confirm")
     design = p.read()
     assert code == 0 and design.board is not None and not design.board.tracks and not design.board.vias
@@ -434,15 +436,19 @@ def test_a_cutout_across_the_edge_stops_the_build(tmp_path: Path, monkeypatch: p
 
 
 def test_a_hole_over_a_part(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Scenario "A hole over a part": the placement guard judges a hole by its courtyard."""
+    """Scenario "A hole over a part": the placement guard judges a hole by its courtyard. The drill lies
+    across both pads of ``R1``, which the copper guard reports as ``copper.hole-clearance`` since change
+    c0403 (KiCad's DRC reports ``hole_clearance``): the build runs in warn mode to reach the guard."""
     p = Project(tmp_path, monkeypatch)
     p.script.write_text(
         p.script.read_text(encoding="utf-8")
         + 'design.hole("H3", mm(32), mm(9), drill=mm(1), courtyard=mm(3))\n',
         encoding="utf-8",
     )
-    code, env, _ = p.build("--dry-run")
+    code, env, _ = p.build(*COPPER_WARN, "--dry-run")
     assert code == 0
+    drilled = sorted(i["where"] for i in env["issues"] if i["code"] == "copper.hole-clearance")  # type: ignore[union-attr, index]
+    assert drilled == ["R1-1, H3", "R1-2, H3"]
     found = [i for i in env["issues"] if i["code"] == "place.courtyard-overlap"]  # type: ignore[union-attr, index]
     assert len(found) == 1 and found[0]["severity"] == "warning"
     assert "H3" in found[0]["message"] and "R1" in found[0]["message"]
@@ -551,6 +557,7 @@ def test_envelope_over_an_existing_board(tmp_path: Path, monkeypatch: pytest.Mon
     assert set(preserved) == {  # type: ignore[arg-type]
         "board", "kept", "replaced", "added", "orphans", "board_only", "dropped", "fills", "aliases",
         "reader_infos", "fields", "pad_zones", "module_aliases", "net_aliases", "source", "board_items",
+        "edits",  # c0250
     }  # fmt: skip
     assert preserved["source"] == {"file": None, "used": [], "stale": [], "unknown": []}  # type: ignore[index]  # c0069
     assert preserved["module_aliases"] == {} and preserved["net_aliases"] == {}  # type: ignore[index]
@@ -665,9 +672,10 @@ def test_layers_added_in_kicad_and_the_script_left_alone(
 
 
 def test_table_that_fenolite_does_not_create(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Scenario "Table that Fenolite does not create": ten layers have no ``copper=`` to name."""
+    """Scenario "Table that Fenolite does not create": ten layers whose inner names skip ``In8.Cu`` have no
+    ``copper=`` to name (a table of ten layers ``In1.Cu`` to ``In8.Cu`` is a created count since c0277)."""
     p = _layers_project(tmp_path, monkeypatch, 8)
-    _add_layers(p, '(14 "In6.Cu" signal)', '(16 "In7.Cu" signal)', '(18 "In8.Cu" signal)')
+    _add_layers(p, '(14 "In6.Cu" signal)', '(16 "In7.Cu" signal)', '(20 "In9.Cu" signal)')
     before = p.files()
     code, env, _ = p.build("--confirm")
     found = _mismatch(env)

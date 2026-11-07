@@ -1,0 +1,158 @@
+{
+  "artifact_sha256": {
+    "bulk-integer-node-receipt.json": "6d10b8a1e304c34459d225fcee3af63a612e20f396ea5586cf8eaa17a5617744",
+    "case-0.json": "f5f39239060102d2a5779411cea3a5494825ce751a75e49786935dd1fa7e8777",
+    "case-1.json": "f5f39239060102d2a5779411cea3a5494825ce751a75e49786935dd1fa7e8777",
+    "case-2.json": "c4e55fea7d5df789e27617dffe27fc9e98e20010a3997c7ae49f48afde4e48f0",
+    "check_bulk_integer_nodes.py": "81b450a91fadf3b768fb3ca17dc051ff2ec83169f768a11a3e6764c0d2d70c79",
+    "counterfactual_certify.py.txt": "5a312b49a9ccb90bc93f4d7e9f62b9eead5d1fc1e83907848b7795c27ce156b3",
+    "independent-witness-0.json": "d0a01e8795c1906cbe2fe764367ee177b7b369ced7fffbba9a3be6ddb3702333",
+    "probe.log": "f3cbe07faa4aa5ef14371dce3219b2f460ca41fec321c4c889dcf46e9d677282",
+    "probe.py": "d510a7335bfe39204ddfae05769689037acea73b4919812d344e248f7d7efdb7",
+    "receipt.json": "355fb2d8bbdbf255c266af180283b3b26451459f7eabe4b68b3d1242eac38f34",
+    "verification-receipt.json": "939281b976bfe3bc60c5412009c2416dbaa610466f5117aa830efe45df79bce5",
+    "verification.log": "421f7c278ee18b8b1af01b90309ed4f981ee3172d56c0d40c0c6cc5cf502919b",
+    "verify.py": "8437b5a62c8f8215acfe024a79a07f55f01b39bd69652293de0a1d16cb115026"
+  },
+  "bulk_integer_guard": {
+    "rows": [
+      {
+        "case": 0,
+        "geometry_payload_sha256": "808c16ec63dc10fc24ae74f4b4cc7ae6f4bdf253647f44fef8e0d279e12c297e",
+        "integer_canonical_nodes_checked": 2323
+      },
+      {
+        "case": 1,
+        "geometry_payload_sha256": "d984b130bbadf7edab4f8f6e5cebe5ea3801e384a04d61ffe6117fd01df5b1c0",
+        "integer_canonical_nodes_checked": 394
+      },
+      {
+        "case": 2,
+        "geometry_payload_sha256": "490f7f1fd8abfd5354908861499059bdded09818ea2fafe7fdc3803866a2cdc4",
+        "integer_canonical_nodes_checked": 1606
+      },
+      {
+        "case": 4,
+        "geometry_payload_sha256": "5c45da23a4919993af238a8298a4a718e01385d5107fb4b0e1bc8b6d45dc4f11",
+        "integer_canonical_nodes_checked": 1922
+      },
+      {
+        "case": 6,
+        "geometry_payload_sha256": "ae29092c44f06a4139853807b125754541437293923363f3732f9b7fe7d12149",
+        "integer_canonical_nodes_checked": 165
+      },
+      {
+        "case": 7,
+        "geometry_payload_sha256": "f5b240850ab623d2c3fba01b1b6c6d250baf301e8461d74d4d988337ecaaab5c",
+        "integer_canonical_nodes_checked": 1389
+      },
+      {
+        "case": 10,
+        "geometry_payload_sha256": "1c91429e52e1a5d4c9a56b748081341b798bcc81f52b9fa022b4a1174aac6957",
+        "integer_canonical_nodes_checked": 2948
+      }
+    ],
+    "script_sha256": "81b450a91fadf3b768fb3ca17dc051ff2ec83169f768a11a3e6764c0d2d70c79",
+    "seconds": 5.150208042003214,
+    "status": "all-integer-canonical-nodes-retained"
+  },
+  "independent": {
+    "interval_gap_negative_rejected": true,
+    "rows": [
+      {
+        "case": 0,
+        "independently_checked_continuous_leaves": 57,
+        "lost_boundaries": 1,
+        "omitted_nodes": 0,
+        "protected_vertices": 18,
+        "raw_sha256": "f5f39239060102d2a5779411cea3a5494825ce751a75e49786935dd1fa7e8777",
+        "retained_loops": 1,
+        "test": "tests/unit/roles/test_copper_backends.py::test_same_copper_from_both_builds[buck_shunt-bad] (call)",
+        "witness_sha256": "d0a01e8795c1906cbe2fe764367ee177b7b369ced7fffbba9a3be6ddb3702333"
+      },
+      {
+        "case": 1,
+        "independently_checked_continuous_leaves": 57,
+        "lost_boundaries": 1,
+        "omitted_nodes": 0,
+        "protected_vertices": 18,
+        "raw_sha256": "f5f39239060102d2a5779411cea3a5494825ce751a75e49786935dd1fa7e8777",
+        "retained_loops": 1,
+        "test": "tests/unit/roles/test_copper_backends.py::test_same_copper_from_both_builds[buck_shunt-bad] (call)",
+        "verified_duplicate_of": 0,
+        "witness_sha256": "d0a01e8795c1906cbe2fe764367ee177b7b369ced7fffbba9a3be6ddb3702333"
+      },
+      {
+        "case": 2,
+        "independently_checked_continuous_leaves": 57,
+        "lost_boundaries": 1,
+        "omitted_nodes": 0,
+        "protected_vertices": 18,
+        "raw_sha256": "c4e55fea7d5df789e27617dffe27fc9e98e20010a3997c7ae49f48afde4e48f0",
+        "retained_loops": 1,
+        "test": "tests/unit/roles/test_proposal_reference.py::test_altium_readback[buck_shunt-bad] (call)",
+        "verified_duplicate_of": 0,
+        "witness_sha256": "d0a01e8795c1906cbe2fe764367ee177b7b369ced7fffbba9a3be6ddb3702333"
+      }
+    ],
+    "scope": "separately generated covers for the actual candidate bytes, not captured runtime intervals",
+    "script_sha256": "8437b5a62c8f8215acfe024a79a07f55f01b39bd69652293de0a1d16cb115026",
+    "seconds": 0.026049291976960376,
+    "source_commit": "aed720d9c7883ad63d402846fcad328003c2fe3b",
+    "status": "independent-replay-policy-source-topology-continuous-proof-passed"
+  },
+  "integer_node_negative_rejected": true,
+  "old_pointset_fast_gate_passed": false,
+  "pilot": {
+    "counterfactual_method_sha256": "5a312b49a9ccb90bc93f4d7e9f62b9eead5d1fc1e83907848b7795c27ce156b3",
+    "production_unchanged": true,
+    "pytest_exit": 0,
+    "records": [
+      {
+        "cleanup_loop": 0,
+        "file": "case-0.json",
+        "full_certificate": true,
+        "intervals": 57,
+        "losses": 1,
+        "omitted_count": 0,
+        "protected_vertices": 18,
+        "sha256": "f5f39239060102d2a5779411cea3a5494825ce751a75e49786935dd1fa7e8777",
+        "status": "continuous-proved",
+        "test": "tests/unit/roles/test_copper_backends.py::test_same_copper_from_both_builds[buck_shunt-bad] (call)",
+        "tol": 3175
+      },
+      {
+        "cleanup_loop": 0,
+        "file": "case-1.json",
+        "full_certificate": true,
+        "intervals": 57,
+        "losses": 1,
+        "omitted_count": 0,
+        "protected_vertices": 18,
+        "sha256": "f5f39239060102d2a5779411cea3a5494825ce751a75e49786935dd1fa7e8777",
+        "status": "continuous-proved",
+        "test": "tests/unit/roles/test_copper_backends.py::test_same_copper_from_both_builds[buck_shunt-bad] (call)",
+        "tol": 3175
+      },
+      {
+        "cleanup_loop": 0,
+        "file": "case-2.json",
+        "full_certificate": true,
+        "intervals": 57,
+        "losses": 1,
+        "omitted_count": 0,
+        "protected_vertices": 18,
+        "sha256": "c4e55fea7d5df789e27617dffe27fc9e98e20010a3997c7ae49f48afde4e48f0",
+        "status": "continuous-proved",
+        "test": "tests/unit/roles/test_proposal_reference.py::test_altium_readback[buck_shunt-bad] (call)",
+        "tol": 3175
+      }
+    ],
+    "scope": "external feasibility only; no production or full-gate promotion",
+    "script_sha256": "d510a7335bfe39204ddfae05769689037acea73b4919812d344e248f7d7efdb7",
+    "seconds": 58.15823212498799,
+    "source_commit": "aed720d9c7883ad63d402846fcad328003c2fe3b"
+  },
+  "production_port_pending": true,
+  "schema": "fenolite.reviewed-cleanup-continuous-proof.v0"
+}

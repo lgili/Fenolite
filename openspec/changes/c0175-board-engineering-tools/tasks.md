@@ -1,6 +1,19 @@
 ## 0. Entry check
 
-- [ ] 0.1 Read `openspec list` and the living specs this change touches (`specctra-dsn`, `cli-contract`, `routing`, `board-analyses`, `design-dsl`, `assembly-test-features`, `design-conversion`, `manufacturing-exports`, `kicad-oracle`). Write under this task, with the date: which open change holds a delta of "Routing rules in design files", "Route command budget and tiers" or "Analyze command" (regenerate the MODIFIED blocks from the living text if one was archived); the maintainer's answers to the three open questions of `design.md`; and which packages the maintainer splits into their own changes, with their ids. Proof: `openspec validate c0175-board-engineering-tools --strict --no-interactive`.
+- [x] 0.1 Read `openspec list` and the living specs this change touches (`specctra-dsn`, `cli-contract`, `routing`, `board-analyses`, `design-dsl`, `assembly-test-features`, `design-conversion`, `manufacturing-exports`, `kicad-oracle`). Write under this task, with the date: which open change holds a delta of "Routing rules in design files", "Route command budget and tiers" or "Analyze command" (regenerate the MODIFIED blocks from the living text if one was archived); the maintainer's answers to the three open questions of `design.md`; and which packages the maintainer splits into their own changes, with their ids. Proof: `openspec validate c0175-board-engineering-tools --strict --no-interactive`.
+
+Entry review — 2026-11-01, base `7ebbd86081bd200c7e8d979575a9453fff486314`.
+The living `specctra-dsn` has "Routing rules in design files" and living `cli-contract` has
+"Route command budget and tiers"; no active delta owns either name. The only active
+"Analyze command" delta is this change's `board-analyses` MODIFIED block, still based on the living
+requirement. No replacement MODIFIED block is needed. The three recommended decisions are adopted
+under this continuation's authorization and dated in `design.md`: separate `tidy`/`silk`, optional
+requirements-v0 keys, and lock patterns added only with registered public sources.
+Package owners remain the explicit splits recorded below: router c0197; ties c0198; crossings c0199;
+file safety c0201/c0207; practice/pour shapes c0204/c0213; native edits c0241; tidy/router
+c0208/c0214/c0228; reuse c0210/c0227; marks c0212/c0226/c0229; library c0223; copper c0224;
+release/readback/gates/renders c0203/c0209/c0225/c0211. Task 10.4 remains here, blocked by measured
+native edits and a named house library. No native outcome is inferred from the entry decisions.
 
 ## 1. Router input fidelity (package 1)
 
@@ -119,6 +132,17 @@ reported as losses, and `fenolite library` reads KiCad boards. This change no lo
 `design-conversion`. Task 10.4 stays here:
 
 - [ ] 10.4 Add body copy by pad fit, with one model-store entry per rotation (Altium, behind the gates of c0241), and a coverage report against a house library that the user names. Proof: `uv run pytest tests/unit/reuse/test_bodies.py tests/unit/catalog/test_coverage.py -q`.
+  - 2026-11-04: OPEN, its neutral half done. `fenolite.reuse.bodies.copy_bodies(reference, target)` copies the bodies and the 3D models of a placed footprint of the reference board onto each placed footprint of the target board that has none, when their pads fit (`pad_fit`: paired by number, at least two places, an unmirrored quarter-turn fit within 0.05 mm, by `reuse.fit.fit_rigid`); outlines and model offsets move with the fit and a model's Z turn gains its turn; a mirrored fit, other numbers or pitch, two fitting references that would give different bodies (`ambiguous`) and a model turned about X or Y under a turned fit (`tilted`) copy nothing; `BodyCopy.variants` lists, per model, the turns it was copied with, the rotation variants that one model-store entry per rotation needs. `fenolite.library.coverage` (in `library`, since `catalog` imports only `model`) reads a house library from the path the user gives (`.pretty` folders, `.kicad_mod` and `.PcbLib` files, under one folder) and reports each placed footprint as `same`, `renamed`, `differs` or `missing`, by name and by pads (number and place from their centroid on a 1 µm grid), naming the library by its last path part only. The proof passed: 11 passed (`test_bodies.py` 7, `test_coverage.py` 4). Not done, and why: the Altium half, writing one model-store entry per rotation into a document, waits on the edit gates of c0241 (tasks 1.2 and 4.2, maintainer runs) and on a kit measurement of how a body's rotation selects its model-store entry (one footprint with a STEP body placed at 0°, 90°, 180° and 270°, saved by Altium Designer, read entry by entry); no rule is guessed. No command is added: both are library calls, so no agent-guide line is needed. A run against a real house library needs the library the user names; nothing of one is in the repository.
+  - 2026-11-04, still OPEN (exact blocker of the Altium half): a kit measurement of how a body's rotation selects its Altium model-store entry (one footprint with a STEP body placed at 0°, 90°, 180° and 270°, saved by Altium Designer 24.5.2.23 and read entry by entry), and the edit gates of c0241 (its tasks 1.2 and 4.2). `BodyCopy.variants` already lists the turns each model needs.
+  - 2026-11-05, still OPEN; the kit measurement now exists (S-1604, Part Z case Z4, AD 24.5.2.23, agent run).
+    Four generic bodies placed one by one from `Box_2x1.step` at Z 0°, 90°, 180° and 270° save four `Models`
+    entries, one per body, each with its own `ID` and with `ROTZ` equal to its body's `MODEL.3D.ROTZ`. No
+    embed prompt appeared. Each body had its own Place command, so the run does not separate "rotation
+    selects the entry" from "each placement adds an entry". Whether that matters is cac-altium-code's call. The
+    edit gates of c0241 (tasks 1.2 and 4.2) still block the writer.
+  - 2026-11-05, still OPEN (exact blocker of the Altium half): the rotation measurement is now case Z4 of Part Z (`docs/evidence/altium-pcb.md`, built with c0387's kit at `bea3b3b7`: four bodies of the authored `Box_2x1.step` on `U1` at 0°, 90°, 180° and 270°; `test_part_z.py -k saved` reads the `Models` entries of the saved file). The kit went to the altium-rounds-2 session on 2026-11-05. The c0241 session operations hold no operation that adds a body or a `Models` entry (`backends/altium/edit/ops.py`: delete, move, rotate, flip, set_property, clone), so the write needs a new operation whose form Z4 measures, and c0241's gates stay open in c0389 (tasks 4.1 and 4.2: `remap_layer` and `set_rule` failed, J33 not run). The coverage report against a named house library is done as a library call (`library.coverage.library_coverage`); no run against a real house library is made until the user names one.
+  - 2026-11-05, still OPEN (exact blocker of the Altium half): the rotation measurement is now case Z4 of Part Z (`docs/evidence/altium-pcb.md`, built with c0387's kit at `bea3b3b7`: four bodies of the authored `Box_2x1.step` on `U1` at 0°, 90°, 180° and 270°; `test_part_z.py -k saved` reads the `Models` entries of the saved file). The kit went to the altium-rounds-2 session on 2026-11-05.
+  - 2026-11-05, Z4 saved (S-1651, agent run): one `Models` entry per placed body, each with its own GUID and its body's `ROTZ` (`pcb-bodies.md`, "Kit Part Z"); the run does not part a per-turn entry from a per-placement one, so the writer would emit one entry per body. Still OPEN (exact blocker): the edit gates of c0241 (c0389 tasks 4.1 and 4.2) are not run. The c0241 session operations hold no operation that adds a body or a `Models` entry (`backends/altium/edit/ops.py`: delete, move, rotate, flip, set_property, clone), so the write needs a new operation whose form Z4 measures, and c0241's gates stay open in c0389 (tasks 4.1 and 4.2: `remap_layer` and `set_rule` failed, J33 not run). The coverage report against a named house library is done as a library call (`library.coverage.library_coverage`); no run against a real house library is made until the user names one.
 
 ## 11. Generated copper (package 6)
 
@@ -156,7 +180,21 @@ crossing analysis), with the requirement "Region renders" of `manufacturing-expo
 
 ## 14. Closing
 
-- [ ] 14.1 Run the tests and the residue scan. Proof: `make check-fast`, then the CI jobs of the branch.
+- [x] 14.1 Run the tests and the residue scan. Proof: `make check-fast`, then the CI jobs of the branch.
+  - 2026-11-04, OPEN (exact blocker): waits on the CI jobs of the batch that carries task 10.4's commit; nothing to change in code.
+  - 2026-11-05 (coordinator, maintainer's delegation of 2026-11-04): `make check-fast` by the owners; CI 41968083051 on 5f46b8d7 (cac/lote-16): every required job green, including unit on five platforms, kicad-9, kicad-10 shards 0-3, routing 9/10, viewer, mcp, wheel, complete test coverage and ci-complete. Task 10.4 stays open (Altium rotation kit).
 - [x] 14.2 Update the evidence labels: the hypotheses of packages 1, 2 and 7 in `docs/hypotheses.md` (package 12's are c0241's), and the matrix. Proof: `uv run python tools/gen_evidence_matrix.py --check`; `uv run pytest tests/unit/test_hypotheses_register.py -q`.
   - 2026-10-28: package 1: `H-G-DSN-WIDTH-ALL` and `H-G-DSN-ONE-SIDED` stay `ORACLE-VERIFIED(freerouting 2.4.1)`, their proof moved from the local run to CI: both `routing` jobs passed `test_router_input_bench`, which asserts the criterion, in runs 40355527379 (`aaea7b4`) and 40703612332 (`01068dd`); `docs/evidence/routing.md` names the runs. Packages 2 and 7: `H-G-TIES`, `H-G-PRACTICE-*`, `H-G-SHAPE-*` and `H-G-POWER-SPLIT` stay `INFERRED`: only authored unit benches prove them, and no oracle or corpus test compares them with KiCad. Package 12 is not updated here: it moves to change c0241, which registers its rows. The matrix lists no `H-G-` row and is unchanged. Proof passed: `uv run python tools/gen_evidence_matrix.py --check` (exit 0), `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/verify/test_register.py -q -n 2` (53 passed).
-- [ ] 14.3 Add an entry to `CHANGELOG.md` under `## [Unreleased]` once the maintainer has opened the version after 0.5.0. Proof: `uv run pytest tests/unit -k "release_record or changelog" -q`.
+- [x] 14.3 Add an entry to `CHANGELOG.md` under `## [Unreleased]` once the maintainer has opened the version after 0.5.0. Proof: `uv run pytest tests/unit -k "release_record or changelog" -q`.
+
+## Continuation review — 2026-11-01
+
+Altium body copy still needs measured c0241 operations and a named house library. Full/CI gates are coordinated separately; no model-store rule is guessed.
+See `docs/evidence/altium-native-acceptance.md`, "Continuation inventory", for existing reports and exact remaining dependencies. No native, paid-agent or personal-review outcome is claimed.
+
+Closing documentation proof — 2026-11-01: strict validation passes the dated entry review (0.1). The version after 0.5.0 is already open; the Unreleased decision/dependency entry satisfies 14.3. Its exact `tests/unit -k "release_record or changelog"` proof passes: 167 passed, 1 optional SDK skip, 17466 deselected. The native body-copy dependency (10.4) and coordinating full/CI gate (14.1) remain open.
+
+Pending Altium observations may use the actual available Designer 24.5.2.23,
+by the maintainer's explicit2026-11-03 approval recorded in c0166. Historical
+26.5 observations remain unchanged; this version permission is not a personal
+project review, a missing implementation or a passing native outcome.

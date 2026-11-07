@@ -12,6 +12,7 @@ import io
 import json
 import os
 import random
+import re
 import signal
 import sys
 import time
@@ -21,9 +22,9 @@ from pathlib import Path
 from typing import Any, NoReturn, TextIO, cast
 
 from fenolite import __version__
-from fenolite.cli import plans
+from fenolite.cli import deprecation, plans
 from fenolite.cli import progress as progress_records
-from fenolite.cli.api import Command, Context, PlannedWrite, Result, discover
+from fenolite.cli.api import NO_CLAIM, Command, Context, PlannedWrite, Result, discover
 from fenolite.cli.errors import CliError, ErrorInfo, from_exception
 from fenolite.cli.exitcodes import ExitCode
 from fenolite.cli.output import (
@@ -35,6 +36,7 @@ from fenolite.cli.output import (
     OutputMode,
     Receipt,
     WrittenFile,
+    evidence_issues,
     make_receipt,
     page,
     parse_fields,
@@ -46,6 +48,7 @@ from fenolite.cli.output import (
     write_error,
 )
 from fenolite.core.errors import FenoliteError, Issue
+from fenolite.core.evidence import Level
 from fenolite.core.io import RecoveryError, WriteError, atomic_write_all, sha256_bytes
 from fenolite.core.state import state_dir
 
@@ -76,6 +79,11 @@ class _Parser(argparse.ArgumentParser):
 
     in_process: bool = False
 
+    def _get_values(self, action: argparse.Action, arg_strings: list[str]) -> Any:
+        values = super()._get_values(action, arg_strings)  # pyright: ignore[reportAttributeAccessIssue, reportUnknownVariableType, reportUnknownMemberType]
+        deprecation.record(self, action)
+        return values
+
     def error(self, message: str) -> NoReturn:
         raise CliError("FEN-2001", message, hint=f"run '{self.prog} --help'")
 
@@ -89,6 +97,20 @@ class _Parser(argparse.ArgumentParser):
                 "FEN-2001", IN_PROCESS_HELP, hint="call run('capabilities') or run('guide', 'start')"
             )
         super().exit(status, message)
+
+
+class _KicadTarget(argparse.Action):
+    """Retain whether the common target was supplied, independently of its default value."""
+
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Any,
+        option_string: str | None = None,
+    ) -> None:
+        setattr(namespace, self.dest, values)
+        namespace.kicad_target_explicit = True
 
 
 def _add_global_options(parser: argparse.ArgumentParser, *, top_level: bool) -> None:
@@ -115,9 +137,16 @@ def _add_global_options(parser: argparse.ArgumentParser, *, top_level: bool) -> 
     group.add_argument("--no-backup", action="store_true", default=False if top_level else default,
                        help="do not keep .bak copies of overwritten files")  # fmt: skip
     kicad = parser.add_argument_group("KiCad output")
-    kicad.add_argument("--kicad-version", type=int, choices=KICAD_TARGETS, dest="kicad_version",
-                       default=DEFAULT_KICAD_TARGET if top_level else default, metavar="{9,10}",
-                       help="KiCad major that written files target (default 10)")  # fmt: skip
+    kicad.add_argument(
+        "--kicad-version",
+        type=int,
+        action=_KicadTarget,
+        choices=KICAD_TARGETS,
+        dest="kicad_version",
+        default=DEFAULT_KICAD_TARGET if top_level else default,
+        metavar="{9,10}",
+        help="KiCad major that written files target (default 10)",
+    )
     kicad.add_argument("--allow-lossy", action="store_true", default=False if top_level else default,
                        help="drop content the target KiCad version cannot read, with a warning")  # fmt: skip
 
@@ -180,6 +209,7 @@ def _context(args: argparse.Namespace, mode: OutputMode, err: TextIO, cwd: Path,
         no_backup=bool(args.no_backup),
         cwd=cwd,
         kicad_target=int(args.kicad_version),
+        kicad_target_explicit=bool(getattr(args, "kicad_target_explicit", False)),
         allow_lossy=bool(args.allow_lossy),
         state=state_dir(),
         in_process=in_process,
@@ -208,18 +238,23 @@ class _Reply:
     envelope: Envelope | None = None
     error: ErrorInfo | None = None
     text: str | None = None
+    always: bool = False
+    """``Result.text_on_failure``."""
 
 
-def _emit(envelope: Envelope, ctx: Context, out: TextIO, text: str | None = None) -> None:
+def _emit(
+    envelope: Envelope, ctx: Context, out: TextIO, text: str | None = None, always: bool = False
+) -> None:
     """Print the envelope. ``text`` (``Result.text``) is used by text mode only."""
     _quiet(ctx)
-    out.write((render_json(envelope) if ctx.mode == "json" else render_text(envelope, text)) + "\n")
+    rendered = render_json(envelope) if ctx.mode == "json" else render_text(envelope, text, always=always)
+    out.write(rendered + "\n")
 
 
 def _print(reply: _Reply, ctx: Context, out: TextIO, err: TextIO) -> None:
     """Print a reply: the envelope on ``out``, then the error object on ``err``."""
     if reply.envelope is not None:
-        _emit(reply.envelope, ctx, out, reply.text)
+        _emit(reply.envelope, ctx, out, reply.text, reply.always)
     if reply.error is not None:
         write_error(reply.error, ctx.mode, err)
 
@@ -278,6 +313,24 @@ def _holder(result: dict[str, Any], path: str) -> tuple[dict[str, Any], str] | N
             return None
         node = cast(dict[str, Any], inner)
     return (node, parts[-1]) if isinstance(node.get(parts[-1]), list) else None
+
+
+def _shown_subjects(
+    rows: list[dict[str, Any]], original: tuple[Issue, ...], shown: tuple[Issue, ...], *, concise: bool
+) -> list[dict[str, Any]]:
+    """Keep subject indices relative to the actual visible issue list, including concise pages."""
+    grouped: dict[object, list[dict[str, Any]]] = {}
+    for row in rows:
+        source = original[cast(int, row["issue"])]
+        key = source.code if concise else id(source)
+        grouped.setdefault(key, []).extend(row["items"])
+    result: list[dict[str, Any]] = []
+    for k, issue in enumerate(shown):
+        items = grouped.get(issue.code if concise else id(issue), [])
+        distinct = {(item["kind"], item["id"], item["name"]): item for item in items}
+        if distinct:
+            result.append({"issue": k, "items": list(distinct.values())})
+    return result
 
 
 def _concise(issues: tuple[Issue, ...]) -> tuple[tuple[Issue, ...], list[dict[str, object]]]:
@@ -407,6 +460,21 @@ def _replay(command: Command, staged: plans.StagedPlan, args: Mapping[str, Any],
             f"the plan {staged.id} was made for another command line (the argument {first!r} differs)",
             "--plan",
         )
+    if command.name in ("build", "sync", "import"):
+        from fenolite.backends.kicad.symbol_contexts import check_paths
+        from fenolite.core.errors import FormatError
+
+        try:
+            check_paths(
+                [
+                    *(ctx.cwd / path for path, _ in staged.depends),
+                    *(ctx.cwd / str(row["path"]) for row in staged.writes),
+                ]
+            )
+        except FormatError as error:
+            raise _stale(
+                f"context paths changed after the plan {staged.id} was reviewed: {error}", "--plan"
+            ) from error
     for path, digest in staged.depends:
         if plans.digest_of(ctx.cwd / path) != digest:
             raise _stale(f"{_named(path)} changed after the plan {staged.id} was reviewed", _named(path))
@@ -426,7 +494,15 @@ def _replay(command: Command, staged: plans.StagedPlan, args: Mapping[str, Any],
     except (plans.DamagedPlan, KeyError, TypeError, ValueError) as exc:
         plans.remove(ctx.state, staged.id)
         raise _stale(f"the staged plan {staged.id} is damaged and was removed ({exc})", "--plan") from exc
-    return Result(result, issues, evidence, given, writes, write_on_error=write_on_error)
+    return Result(
+        result,
+        issues,
+        evidence,
+        given,
+        writes,
+        write_on_error=write_on_error,
+        fail_on_warning=bool(reply.get("fail_on_warning", False)),
+    )
 
 
 def _load(ctx: Context, plan: str) -> plans.StagedPlan | None:
@@ -461,11 +537,12 @@ def _stage(
             writes=[{k: v for k, v in row.items() if k != "overwrite"} for row in rows],
             payloads=[w.data for w in outcome.writes],
             reply={
-                "result": outcome.result,
+                "result": outcome.result if outcome.staged_result is None else outcome.staged_result,
                 "issues": outcome.issues,
                 "evidence": outcome.evidence,
                 "input": outcome.input,
                 "write_on_error": outcome.write_on_error,
+                "fail_on_warning": outcome.fail_on_warning,
             },
         )
     except plans.StageError as exc:
@@ -537,8 +614,36 @@ def _perform(command: Command, args: argparse.Namespace, ctx: Context, started: 
             outcome = command.run(args, ctx)
             if outcome.writes and not command.mutates:
                 raise RuntimeError(f"command {command.name!r} returned writes but is not declared mutating")
+        # A failed UNVERIFIED diagnostic can retain context without claiming a successful judgment.
+        # Successful results and every attempted write are checked before plans or files exist.
+        diagnostic_only = (
+            (not outcome.result or outcome.evidence.level is Level.UNVERIFIED)
+            and not outcome.writes
+            and any(i.severity == "error" for i in outcome.issues)
+        )
+        if not diagnostic_only:
+            unknown = (
+                command.name == "inspect"
+                and outcome.input is not None
+                and outcome.input.kind == "unknown"
+                and outcome.input.format_version is None
+            )
+            outcome = dataclasses.replace(
+                outcome,
+                issues=evidence_issues(
+                    command.name,
+                    outcome.evidence,
+                    outcome.issues,
+                    no_claim=(command.name in NO_CLAIM or command.name == "_echo" and command.hidden),
+                    unknown_detection=unknown,
+                    result=outcome.result,
+                ),
+            )
     except Exception as exc:  # library errors keep their code; any other exception is a bug (FEN-1001)
-        return _failed(command, exc, started, Result() if isinstance(exc, CliError) else None)
+        failed = Result() if isinstance(exc, CliError) else _refusal(exc)
+        return _failed(command, exc, started, _with_deprecations(failed, ctx))
+
+    outcome = _with_deprecations(outcome, ctx)
 
     n_errors = sum(1 for issue in outcome.issues if issue.severity == "error")
     # a command that reports an error plans, stages and writes nothing, `place --force` excepted
@@ -568,6 +673,10 @@ def _perform(command: Command, args: argparse.Namespace, ctx: Context, started: 
         shown, result["issues_summary"] = _concise(shown)
     if limit is not None:
         result, shown = _paged(command, result, shown, limit, args.cursor)
+    if command.name == "check" and "subjects" in result and (args.format == "concise" or limit is not None):
+        result["subjects"] = _shown_subjects(
+            result["subjects"], outcome.issues, shown, concise=args.format == "concise"
+        )
     written = dict(result)  # what a confirmed write replies: no plan
     if writes:
         result["plan"] = _shown(rows)
@@ -629,13 +738,39 @@ def _perform(command: Command, args: argparse.Namespace, ctx: Context, started: 
         if outcome.written is not None:
             outcome.written()
 
-    if code is ExitCode.OK and n_errors:
+    n_failures = n_errors
+    if command.name == "library" and getattr(args, "fail_on", "error") == "warning":
+        n_failures += sum(
+            1 for issue in outcome.issues if issue.severity == "warning" and issue.code != "cli.deprecated"
+        )
+    if code is ExitCode.OK and n_failures:
         code = ExitCode.FINDINGS
-        error = CliError("FEN-5001", f"{n_errors} finding(s) of severity error", where=command.name).info()
+        detail = (
+            f"{n_errors} finding(s) of severity error"
+            if n_failures == n_errors
+            else f"{n_failures} finding(s) at the failure threshold"
+        )
+        error = CliError("FEN-5001", detail, where=command.name).info()
+    elif code is ExitCode.OK and outcome.fail_on_warning:
+        n_warnings = sum(
+            1 for issue in outcome.issues if issue.severity == "warning" and issue.code != "cli.deprecated"
+        )
+        if n_warnings:
+            code = ExitCode.FINDINGS
+            error = CliError(
+                "FEN-5001", f"{n_warnings} finding(s) of severity warning", where=command.name
+            ).info()
 
     ok = code is ExitCode.OK
     envelope = _envelope(command, shown_outcome, result, ok=ok, receipt=receipt, started=started)
-    return _Reply(int(code), envelope, error, outcome.text)
+    return _Reply(int(code), envelope, error, outcome.text, outcome.text_on_failure)
+
+
+def _with_deprecations(outcome: Result, ctx: Context) -> Result:
+    # A staged result already carries its reviewed notices. Current use must not duplicate them.
+    present = {issue.where for issue in outcome.issues if issue.code == "cli.deprecated"}
+    additional = tuple(issue for issue in ctx.deprecations if issue.where not in present)
+    return dataclasses.replace(outcome, issues=(*outcome.issues, *additional)) if additional else outcome
 
 
 def _recovery_path(path: Path, cwd: Path) -> str:
@@ -690,11 +825,32 @@ def _failure(exc: BaseException) -> CliError:
     return CliError("FEN-1003", where="fenolite")  # Interrupted, or a Ctrl+C where no handler is installed
 
 
+def _route_replay_arguments(argv: Sequence[str]) -> list[str]:
+    """Keep legacy bare --replay before PATH unambiguous when adding optional bundle IDs."""
+    words = list(argv)
+    takes_value = {"--fields", "--limit", "--cursor", "--format", "--seed", "--timestamp", "--kicad-version"}
+    command = 0
+    while command < len(words) and words[command].startswith("-"):
+        flag, equals, _ = words[command].partition("=")
+        command += 2 if flag in takes_value and not equals else 1
+    if command < len(words) and words[command] == "route":
+        for i in range(command + 1, len(words)):
+            if words[i] == "--":
+                break
+            if words[i] == "--replay" and (
+                i + 1 == len(words)
+                or (words[i + 1] != "all" and re.fullmatch(r"[bc]-[0-9a-f]{16}", words[i + 1]) is None)
+            ):
+                words[i] = "--replay=all"
+
+    return words
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Run ``fenolite`` with ``argv`` (defaults to ``sys.argv[1:]``) and return the exit code. Every
     non-zero exit leaves one error object on stderr and no traceback."""
     started = time.perf_counter()
-    raw = list(sys.argv[1:] if argv is None else argv)
+    raw = _route_replay_arguments(sys.argv[1:] if argv is None else argv)
     out, err = sys.stdout, sys.stderr
     mode = resolve_mode(force_json="--json" in raw, force_text="--text" in raw, stream=out)
     ctx: Context | None = None
@@ -713,6 +869,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 parser.print_help(out)
                 return int(ExitCode.OK)
             ctx = _context(args, mode, err, Path.cwd())
+            ctx = dataclasses.replace(ctx, deprecations=deprecation.notices(parser, commands[args.command]))
             reply = _dispatch(commands[args.command], args, ctx, started)
             _print(reply, ctx, out, err)
             return reply.code
@@ -738,7 +895,8 @@ def invoke(argv: Sequence[str], *, cwd: Path) -> tuple[int, dict[str, Any] | Non
     try:
         try:
             commands = discover()
-            args = build_parser(commands, in_process=True).parse_args(list(argv))
+            parser = build_parser(commands, in_process=True)
+            args = parser.parse_args(_route_replay_arguments(argv))
             if args.text:
                 raise CliError(
                     "FEN-2001", "--text: fenolite.api.run returns the JSON envelope", where="--text"
@@ -746,6 +904,7 @@ def invoke(argv: Sequence[str], *, cwd: Path) -> tuple[int, dict[str, Any] | Non
             if args.command is None:
                 raise CliError("FEN-2001", "no command was named", where="fenolite")
             ctx = _context(args, "json", io.StringIO(), cwd, in_process=True)
+            ctx = dataclasses.replace(ctx, deprecations=deprecation.notices(parser, commands[args.command]))
             reply = _dispatch(commands[args.command], args, ctx, started)
             envelope = None if reply.envelope is None else json.loads(render_json(reply.envelope))
             error = None if reply.error is None else to_jsonable(reply.error)

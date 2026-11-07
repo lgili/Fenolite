@@ -1,0 +1,142 @@
+{
+  "version": 1,
+  "date": "2026-11-03",
+  "scope": "Literal read-only native coverage reconciliation; no new CAD/runtime/CI/grad/evidence claim",
+  "source_commits_not_interchangeable": [
+    "615c2814",
+    "b5f6c84ade0cd74690874143bc1de96605279522"
+  ],
+  "rows": [
+    {
+      "criterion": "2.2 formal classicK1\u2013K9",
+      "status": "historically complete",
+      "measured": "Committed immutable run462b38ba:32pass/0fail/0pending, source-kit SHAaf3c911e\u2026; publication derivative87c930fa retained separately.",
+      "proof": "docs/evidence/altium-kit/2026-10-13-462b38ba.json",
+      "remaining_or_reconciliation": "Do not request all classic32steps again as if never executed. New samples/changed input hashes require separate scope/freshness judgement."
+    },
+    {
+      "criterion": "2.1 PartT",
+      "status": "partial existing coverage",
+      "measured": "Full Stack placement, SCHEMATICT2 and exact68component ECO inspection already exist; source-specific repour/DRC reports must be reconciled.",
+      "proof": "docs/evidence/altium-native-acceptance.md",
+      "remaining_or_reconciliation": "See c0160 reconciliation; all3case\u00d7T1\u2013T6 completion still unproved, no aggregation across input versions."
+    },
+    {
+      "criterion": "3.1 A3/A5/A6",
+      "status": "historical measured coverage",
+      "measured": "All8components and6nets/19pin memberships compile/save; no-UID form generates8distinctIDs. LF-only open/save loses8components; separate CRLF copy passes.",
+      "proof": "docs/evidence/altium-native-acceptance.md",
+      "remaining_or_reconciliation": "Keep LF failure visible. Remaining sheet appearance/A4U2Properties cannot be replaced by another fixture/API census."
+    },
+    {
+      "criterion": "3.1 B1empty-PCB ECO",
+      "status": "strong kit overlap; mapping needed",
+      "measured": "K3 actually validates/executes12changes into an owned empty PCB, yielding4components/14pads/4nets and0invalid changes; native project save is also recorded.",
+      "proof": "docs/evidence/altium-native-acceptance.md",
+      "remaining_or_reconciliation": "Reconcile this existing generic authored ECO with B1record fields/project-added-key notes before requesting another empty-board ECO. B2value-edit rebuild is distinct."
+    },
+    {
+      "criterion": "3.1 B3library update",
+      "status": "partially covered",
+      "measured": "K9full replacement executes7valid replacements with0notfound and preserved netlist after the model repair.",
+      "proof": "docs/altium-kit.md",
+      "remaining_or_reconciliation": "The kit explicitly excludes selected-attributes update/graphical-attributes-off behaviour; that remains unmatched, as does B2."
+    },
+    {
+      "criterion": "3.1 L1/L2metadata/L3/L6",
+      "status": "historical measured coverage",
+      "measured": "Native library save/census covers10symbols/35pins, multipart/common/hidden pins and saved footprint models; exact source/saved hashes retained.",
+      "proof": "docs/evidence/altium-native-acceptance.md",
+      "remaining_or_reconciliation": "Do not repeat census/save; Pin Editor appearance and case-specific L4/L5project/library updates remain distinct."
+    },
+    {
+      "criterion": "3.1 N2/N3compile",
+      "status": "historical measured coverage",
+      "measured": "MarkedU1pins2/4/8suppressed, unmarkedU1-3floating error retained for binary andASCII.",
+      "proof": "docs/evidence/altium-native-acceptance.md",
+      "remaining_or_reconciliation": "Directives appearance/mode (N3also repeats N1) is not supplied by compile or acceptance_v03."
+    },
+    {
+      "criterion": "3.1 H3/H4",
+      "status": "historically complete",
+      "measured": "S0734 repaired source compiles0errors/0warnings; all9nets/25memberships exact, two childHarness files unchanged and no new topHarness.",
+      "proof": "docs/evidence/altium-native-acceptance.md",
+      "remaining_or_reconciliation": "Do not classify H3/H4 as missing native work."
+    },
+    {
+      "criterion": "3.2 D1long name/C1/C2/C7/X8.6",
+      "status": "historical measured coverage",
+      "measured": "Long name/twopads saved; C1track/arc/via values exact, C2fourlayer dielectric values measured, C7native11tracks/7vias, X8.6native3plain/3shape bodies/nonzero checksums counted.",
+      "proof": "docs/evidence/altium-native-acceptance.md",
+      "remaining_or_reconciliation": "Remaining D1library-panel/graphics and case-specific D2/D3 details, C6direct plane connectivity and9long-via bytes are separate. Six-signal-layer S1308 cannot stand in for C6internal-plane connectivity."
+    },
+    {
+      "criterion": "3.2 C8",
+      "status": "historically complete",
+      "measured": "Native saved none/top/bottom/both tenting and actual top/bottom Gerber apertures pass after manual-cache repair.",
+      "proof": "docs/evidence/altium-native-acceptance.md",
+      "remaining_or_reconciliation": "No need to rerun C8 merely because an older inventory says pending; failed calibration preserved."
+    },
+    {
+      "criterion": "3.3 R1\u2013R4",
+      "status": "historically complete",
+      "measured": "Archived c0083: corrected named-wire connection, empty-PCB transfer, annotation reload and format/style matrix match11memberships/5nets; earlier errors preserved.",
+      "proof": "openspec/changes/archive/2026-10-14-c0083-altium-repeated-sheets/tasks.md",
+      "remaining_or_reconciliation": "Do not repeat R1\u2013R4. R5remote4958647d keeps its3errors/6warnings and integration/availability question separate; aggregate3.3not promoted here."
+    },
+    {
+      "criterion": "3.4 OutJob/template/project reader",
+      "status": "partial / unmatched",
+      "measured": "Classic K7actual23outputs and K8Flat/B/owner/date PDF are real. They are not O6custom border/logo/font/colors or all5Net Identifier Scope values/RULencoding exports.",
+      "proof": "docs/evidence/altium-native-acceptance.md",
+      "remaining_or_reconciliation": "Only the unmatched source-specific border/template/scope/RUL criteria remain; retain the older valid Wreport."
+    },
+    {
+      "criterion": "3.5 c0125M1\u2013M3+c0130C1\u2013C2",
+      "status": "historically complete requested experiments",
+      "measured": "S0744two-layer matrices use3actual4mil<5mil findings and1via-track3.7mil<4mil finding; via-via3.7mil passes3.5mil. Exact source/saved/report digests, selected rule and pair kinds retained.",
+      "proof": "docs/evidence/altium-clearance-2026-10-14.json",
+      "remaining_or_reconciliation": "Do not request new matrix runs. Broader4layer/all-object-kind hypotheses remainINFERRED but are not extra criteria of these completed2experiments."
+    },
+    {
+      "criterion": "3.5 optional D1\u2013D3planted DRC",
+      "status": "strong kit overlap; source mapping needed",
+      "measured": "Classic K4/K6report1VIN/LED_Aclearance and0shorts after repour, plus retained width/unrouted/antenna counts. Original optional c0088PartD requests these categories on PartUrules.",
+      "proof": "docs/altium-kit.md",
+      "remaining_or_reconciliation": "First reconcile existing Kit/PartUcase hashes and D3judged-category inventory; do not call all optional DRC unexecuted or use sparse acceptance_v03no-short DRC as that sample."
+    },
+    {
+      "criterion": "3.6 ViewerV2/N4/C5",
+      "status": "request/report work complete; rendering BLOCKED, not passed",
+      "measured": "Three authored uploads each remained Processing the Design after five minutes on2026-10-13; separate native-saved control after two minutes. No rendered acceptance.",
+      "proof": "docs/evidence/altium-native-acceptance.md",
+      "remaining_or_reconciliation": "Task3.6 execution/report obligation satisfied by the actual dated requests. The three Viewer rendering criteria and INFERRED hypotheses remain pending; no new upload, access-denial cause, writer defect or rendered pass claimed."
+    },
+    {
+      "criterion": "3.1\u20133.6 aggregates",
+      "status": "open, scope-specific",
+      "measured": "Several subtasks are proven, several require existing-receipt mapping, and genuinely unmatched UI/changed-source/R5/Viewer outcomes remain.",
+      "proof": "openspec/changes/c0166-altium-native-acceptance/tasks.md",
+      "remaining_or_reconciliation": "Keep whole unchecked aggregate rows unchanged; no fresh classic kit or promotion assumed."
+    }
+  ],
+  "source_proof_sha256": {
+    "docs/evidence/altium-kit/2026-10-13-462b38ba.json": "b8efc7ba8a774ec9d3724048aba34a51b2a421bcecb7bc32fc94d3b233c8d177",
+    "docs/evidence/altium-native-acceptance.md": "8c6a62210f3023b5f29940402f46a46d494bc7d51f466467aabcadd496234b5d",
+    "docs/altium-kit.md": "310a9a36f721642433e4a3db372727fa2fac8e3f51fd0aba9b5e59f056b31b9a",
+    "openspec/changes/archive/2026-10-14-c0083-altium-repeated-sheets/tasks.md": "d0bd628e3e5756eb119070a28e94426b4bd33e35ee1b965ec663922f26902977",
+    "docs/evidence/altium-clearance-2026-10-14.json": "f0793ff7bd93fc84eab7833cffbcaf2df10234be511c805ba6c6a6e96d5f68c8",
+    "openspec/changes/c0166-altium-native-acceptance/tasks.md": "8abfe32ec0f05cbfec63b543a6e5a6d923b05a122b053a97ce9925fa726dd497"
+  },
+  "unchecked_tasks_changed": false,
+  "criteria_source_base_commit": "b1e9349a1de97a2597eae3eb788c3308fb745983",
+  "viewer_request_followup": {
+    "task": "3.6a",
+    "rendering_outcome": "BLOCKED",
+    "rendered_acceptance": false,
+    "new_native_uploads": 0,
+    "recording_date": "2026-11-03",
+    "observed_date": "2026-10-13",
+    "prior_audit_json_sha256": "6c8cd894121afcc16dcc49b0a4b8c409f170e696457ce35835a3dcfa1503930d"
+  }
+}

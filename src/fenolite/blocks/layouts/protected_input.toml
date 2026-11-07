@@ -1,0 +1,52 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite; captured block-local placement and copper.
+schema = "fenolite.block-layout.v0"
+block = "Fenolite:protected_input"
+block_version = "1.0.0"
+parts_digest = "sha256:9b2b4d82c68e1f8b92a6ec29ed46dcdbc44a1f12fbfa68ad3f873ab02463469f"
+nets_digest = "sha256:c994147a33df452c0a161dba9662159c472c25480fae4a123568d601f9156c4f"
+licence = "Apache-2.0"
+evidence = "INFERRED"
+
+[parts."r"]
+at = ["4mm", "0mm"]
+rotation = "0deg"
+side = "top"
+footprint = "Fenolite:Chip_0603"
+
+[parts."tvs"]
+at = ["0mm", "0mm"]
+rotation = "180deg"
+side = "top"
+footprint = "Fenolite:SOD323_Diodes"
+
+[[tracks]]
+net = "port:EXT"
+layer = "F.Cu"
+width = "0.25mm"
+start = ["1.055mm", "0mm"]
+end = ["3.2mm", "0mm"]
+pads = ["r.1", "tvs.1"]
+
+[[tracks]]
+net = "port:GND"
+layer = "F.Cu"
+width = "0.25mm"
+start = ["-1.055mm", "0mm"]
+end = ["-1.055mm", "-1mm"]
+pads = ["tvs.2"]
+
+[[vias]]
+net = "port:GND"
+at = ["-1.055mm", "-1mm"]
+size = "0.6mm"
+drill = "0.3mm"
+layers = ["F.Cu", "B.Cu"]
+
+[[zones]]
+net = "port:GND"
+layers = ["B.Cu"]
+outline = [["-2mm", "-2mm"], ["0mm", "-2mm"], ["0mm", "0mm"], ["-2mm", "0mm"]]
+name = "local_return"
+priority = 0
+settings = { clearance = "0.5mm", min_thickness = "0.25mm", connection = "solid", thermal_gap = "0.5mm", thermal_spoke_width = "0.5mm", island_removal = "always", min_island_area = "10000000000000nm2", smoothing = "none", smoothing_radius = "0mm", fill_mode = "solid", hatch = { thickness = "1mm", gap = "1.5mm", orientation = "0deg", smoothing_level = 0, smoothing_value = "0.1", border = "hatch_thickness", min_hole_area = "0.15" } }

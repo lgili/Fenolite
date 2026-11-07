@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.library-metadata.v1",
+  "title": "LibraryMetadataFile",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "fenolite.library-metadata.v1"
+    },
+    "name": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "requires": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "name"
+  ]
+}

@@ -16,6 +16,7 @@ import dataclasses
 import re
 from collections.abc import Callable, Mapping, Sequence
 from types import MappingProxyType
+from typing import cast
 
 from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad.layers import is_canonical
@@ -24,7 +25,17 @@ from fenolite.core.errors import Issue, Severity
 from fenolite.core.ids import derived_id
 from fenolite.core.units import Nm, format_length, parse_length
 from fenolite.model.base import Modeled, Slot
-from fenolite.model.rules import Rule, RuleKind, RuleSeverity, Selector, SelectorOp
+from fenolite.model.rules import (
+    NO_NET,
+    Rule,
+    RuleKind,
+    RuleSet,
+    RuleSeverity,
+    Selector,
+    SelectorOp,
+    hole_interval,
+    hole_value,
+)
 
 KIND_MAP: Mapping[RuleKind, str] = MappingProxyType(
     {
@@ -41,6 +52,8 @@ KIND_MAP: Mapping[RuleKind, str] = MappingProxyType(
         "silk_clearance": "silk_clearance",
         "creepage": "creepage",
         "no_tracks": "disallow",
+        "short": "",
+        "antenna": "",
         "diff_pair_gap": "diff_pair_gap",
         "diff_pair_uncoupled": "diff_pair_uncoupled",
         "skew": "skew",
@@ -50,7 +63,8 @@ KIND_MAP: Mapping[RuleKind, str] = MappingProxyType(
 )
 """Model kind → written constraint type; ``via_drill`` adds the conjunct ``A.Type == 'Via'``,
 ``no_tracks`` is written ``disallow track`` (``DISALLOW_ITEM``), and ``diff_pair_skew`` adds the list of
-``KIND_FLAGS`` after its limits."""
+``KIND_FLAGS`` after its limits. ``short`` and ``antenna`` (change c0465) have no constraint type of their own
+(S-2242): the empty text, which no rule read back holds."""
 DISALLOW_ITEM = "track"
 """The one item type of a ``disallow`` constraint that is modelled (rules.md, "Track layer rules";
 ``H-K-DRU-NOTRACKS``). Every other ``disallow`` rule stays opaque."""
@@ -73,6 +87,8 @@ LIMITS: Mapping[RuleKind, frozenset[str]] = MappingProxyType(
         "silk_clearance": frozenset({"min"}),
         "creepage": frozenset({"min"}),
         "no_tracks": frozenset(),
+        "short": frozenset(),
+        "antenna": frozenset({"max"}),
         "diff_pair_gap": frozenset({"min", "opt", "max"}),
         "diff_pair_uncoupled": frozenset({"max"}),
         "skew": frozenset({"opt", "max"}),
@@ -84,7 +100,7 @@ LIMITS: Mapping[RuleKind, frozenset[str]] = MappingProxyType(
 ``no_tracks`` takes no limit at all (``NO_LIMIT_KINDS``). For the five pair and length kinds KiCad's DRC
 checks ``min`` and ``max`` and never ``opt``, which is written for its interactive tools
 (``H-K-DRU-PAIR``)."""
-NO_LIMIT_KINDS: frozenset[RuleKind] = frozenset({"no_tracks"})
+NO_LIMIT_KINDS: frozenset[RuleKind] = frozenset({"no_tracks", "short"})
 """The kinds whose rule holds no limit; every other kind needs one."""
 LAYER_KINDS: frozenset[RuleKind] = frozenset({"no_tracks"})
 """The kinds whose rule needs at least one layer (one rule is written per layer)."""
@@ -102,7 +118,7 @@ class KindGrammar:
     glob: bool = True
 
 
-_LEAVES = frozenset({"net", "netclass", "ref", "item_kind", "area", "diff_pair"})
+_LEAVES = frozenset({"net", "netclass", "ref", "item_kind", "area", "diff_pair", "zone", "hole", "pad_type"})
 _PAIR_LEAVES = frozenset({"diff_pair", "net", "netclass"})
 KIND_SELECTORS: Mapping[RuleKind, KindGrammar] = MappingProxyType(
     {
@@ -119,6 +135,8 @@ KIND_SELECTORS: Mapping[RuleKind, KindGrammar] = MappingProxyType(
         "silk_clearance": KindGrammar(frozenset()),
         "creepage": KindGrammar(frozenset({"net", "netclass"}), side_b=True),
         "no_tracks": KindGrammar(frozenset({"net", "netclass"}), layers=True),
+        "short": KindGrammar(frozenset({"net", "netclass"}), side_b=True),
+        "antenna": KindGrammar(frozenset({"net", "netclass"})),
         "diff_pair_gap": KindGrammar(_PAIR_LEAVES, layers=True),
         "diff_pair_uncoupled": KindGrammar(_PAIR_LEAVES),
         "skew": KindGrammar(_PAIR_LEAVES),
@@ -130,13 +148,18 @@ KIND_SELECTORS: Mapping[RuleKind, KindGrammar] = MappingProxyType(
 so its ``ref`` is written ``A.Reference == '…'`` (``H-K-DRU-COURTYARD``); a silkscreen rule is board-wide,
 because KiCad also applies it between a footprint's silkscreen and its own neighbours' courtyards. ``area``
 (``S.intersectsArea('…')``, ``H-K-AREA-COND``) is a leaf of the first nine kinds only. The pair and length
-kinds read nets, not pads or item types, and only the pair gap was measured with a layer clause."""
+kinds read nets, not pads or item types, and only the pair gap was measured with a layer clause. The
+allowance kinds of change c0465 select nets: ``short`` a pair of sides, ``antenna`` one."""
 REFERENCE_KINDS: frozenset[RuleKind] = frozenset({"courtyard_clearance"})
 """The kinds whose ``ref`` leaf is the footprint itself (``Reference``), not a member of it."""
 ITEM_TYPES: Mapping[str, str] = MappingProxyType(
     {"track": "Track", "via": "Via", "pad": "Pad", "zone": "Zone"}
 )
 """``item_kind`` values → KiCad ``Type`` names."""
+PAD_TYPE_NAMES: Mapping[str, str] = MappingProxyType(
+    {"smd": "SMD", "th": "Through-hole", "npth": "NPTH, mechanical"}
+)
+"""``pad_type`` values → KiCad ``Pad_Type`` names (S-2213; change c0462). ``Edge connector`` has no leaf."""
 SELECTOR_KEYS = (
     "net",
     "netclass",
@@ -151,13 +174,23 @@ SELECTOR_KEYS = (
     "selector_b",
     "layer_clause",
 )
+LEAF_KEYS_C0462 = ("zone", "hole", "pad_type")
+"""The leaves of change c0462 (S-2213): written as below, and in ``SELECTOR_SUPPORT`` for exactly the majors
+whose ``dru-cond-<key>`` probe is recorded ``present``; on any other major a rule that uses one is a reported
+loss."""
 _BOTH = frozenset({9, 10})
 _ONLY_10 = frozenset({10})
-SELECTOR_SUPPORT: Mapping[str, frozenset[int]] = MappingProxyType(dict.fromkeys(SELECTOR_KEYS, _BOTH))
+_SUPPORT: dict[str, frozenset[int]] = {
+    **dict.fromkeys(SELECTOR_KEYS, _BOTH),
+    **dict.fromkeys(LEAF_KEYS_C0462, _BOTH),
+}
+SELECTOR_SUPPORT: Mapping[str, frozenset[int]] = MappingProxyType(_SUPPORT)
 """Each key → the KiCad majors on which its ``dru-cond-<key>`` probe recorded ``present``
-(``docs/evidence/kicad/probes/9.0.9.json`` and ``10.0.6.json``). Every key holds on both majors: ``area``
-(``dru-cond-area``, ``H-K-AREA-COND``) and ``diff_pair`` (``dru-cond-diff_pair``, ``H-K-DRU-PAIRSEL``) since
-their probes were recorded ``present`` on 9.0.9 on 2026-10-08."""
+(``docs/evidence/kicad/probes/9.0.9.json`` and ``10.0.6.json``). Every key of ``SELECTOR_KEYS`` holds on both
+majors: ``area`` (``dru-cond-area``, ``H-K-AREA-COND``) and ``diff_pair`` (``dru-cond-diff_pair``,
+``H-K-DRU-PAIRSEL``) since their probes were recorded ``present`` on 9.0.9 on 2026-10-08. The leaves of
+``LEAF_KEYS_C0462`` hold on both majors: their probes are recorded ``present`` on 10.0.6 and on 9.0.9 (change
+c0462, task 3.2; ``H-K-DRU-LEAF-C0462``)."""
 KIND_SUPPORT: Mapping[RuleKind, frozenset[int]] = MappingProxyType(
     {
         "clearance": _BOTH,
@@ -173,6 +206,8 @@ KIND_SUPPORT: Mapping[RuleKind, frozenset[int]] = MappingProxyType(
         "silk_clearance": _BOTH,
         "creepage": _ONLY_10,
         "no_tracks": _BOTH,
+        "short": frozenset(),
+        "antenna": frozenset(),
         "diff_pair_gap": _BOTH,
         "diff_pair_uncoupled": _BOTH,
         "skew": _BOTH,
@@ -186,8 +221,45 @@ KIND_SUPPORT: Mapping[RuleKind, frozenset[int]] = MappingProxyType(
 for 10 only. ``no_tracks`` (change c0107) follows its own probe ``dru-kind-no_tracks`` (``H-K-DRU-NOTRACKS``),
 recorded ``present`` on 10.0.6 and, on 2026-10-08, on 9.0.9, so it holds both majors. The five pair and
 length kinds hold the majors whose ``dru-kind-<kind>`` probe is recorded ``present`` (``H-K-DRU-PAIR``):
-10.0.6 and, since 2026-10-08, 9.0.9. A modelled rule of a kind outside its entry gives
-``rules.kind-unchecked``."""
+10.0.6 and, since 2026-10-08, 9.0.9. KiCad has no rule for a short between two nets or for the length of a
+dangling track (S-2242), so ``short`` and ``antenna`` (change c0465) hold no major: their defaults and a
+board-wide allowance are written by ``lower_rules`` as design D6 of c0465 says. A ``clearance`` rule with a
+negative ``min`` silences the short of its two nets on both majors (probe ``dru-short-allow``), and their
+clearance check with it (``dru-short-allow-clearance`` ``absent``, ``H-K-SHORT-ALLOW``), so it is no
+lowering of a net-pair allowance. A modelled rule of a kind
+outside its entry gives ``rules.kind-unchecked``."""
+SHORTING_CODE = "kicad.drc.shorting-items"
+"""The finding code of KiCad's check of a short, whose project severity is ``shorting_items``."""
+
+
+def board_short(rules: RuleSet | None) -> Rule | None:
+    """The ``short`` rule that KiCad writes exactly as the project severity ``shorting_items`` (design D6 of
+    change c0465): the rule set's only ``short`` rule, of severity ``ignore`` or ``warning``, whose two sides
+    are ``all`` and which names no layer, when ``RuleSet.severities`` gives ``shorting_items`` no other
+    level. ``None`` otherwise."""
+    if rules is None:
+        return None
+    shorts = [rule for rule in rules.rules if rule.kind == "short"]
+    if len(shorts) != 1:
+        return None
+    (rule,) = shorts
+    sides = (rule.selector_a.op, rule.selector_b.op if rule.selector_b is not None else "")
+    if rule.severity == "error" or sides != ("all", "all") or rule.layers:
+        return None
+    if rules.severities.get(SHORTING_CODE, rule.severity) != rule.severity:
+        return None
+    return rule
+
+
+def written_as_nothing(rule: Rule, rules: RuleSet | None) -> bool:
+    """Whether ``rule`` writes no custom rule and is no loss (design D6 of change c0465): a ``short`` rule of
+    severity ``error`` and an ``antenna`` rule of ``max`` 0 are KiCad's default, and ``board_short`` is
+    written into the project file."""
+    if rule.kind == "short":
+        return rule.severity == "error" or board_short(rules) is rule
+    return rule.kind == "antenna" and rule.max == 0
+
+
 KIND_UNCHECKED_CODE = "rules.kind-unchecked"
 RULE_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
     {
@@ -197,6 +269,7 @@ RULE_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         KIND_UNCHECKED_CODE: "error",
         "rules.dropped-for-target": "warning",
         "rules.kept-opaque": "info",
+        "rules.topology-not-lowered": "info",
     }
 )
 VALUE_UNITS = ("mm", "mil", "in")
@@ -209,8 +282,20 @@ CLAUSE_ORDER = ("name", "layer", "condition", "constraint", "severity")
 """Where a clause the slots lack is inserted (the manuals' syntax summary; INFERRED, order has no meaning)."""
 
 _VALUE = re.compile(r"^([+-]?(?:\d+(?:\.\d*)?|\.\d+))(mm|mil|in)$")
-_LEAF_PROPS = {"net": "NetName", "netclass": "NetClass", "item_kind": "Type"}
+_LEAF_PROPS = {
+    "net": "NetName",
+    "netclass": "NetClass",
+    "item_kind": "Type",
+    "zone": "Name",
+    "pad_type": "Pad_Type",
+}
 _PROP_OPS = {prop: op for op, prop in _LEAF_PROPS.items()}
+_PAD_TYPE_KINDS = {name: kind for kind, name in PAD_TYPE_NAMES.items()}
+_HOLE_PROPS = {"via": "Hole", "pad": "Hole_Size_X"}
+"""The hole of a via is its ``Hole``, of a pad its ``Hole_Size_X`` (S-2213): ``hole lo..hi`` is written
+``((S.Type == 'Via' && S.Hole >= lo && S.Hole <= hi) || (S.Type == 'Pad' && S.Hole_Size_X >= lo && …))``,
+an open lower bound as ``> 0mm``, since a pad without a hole has the size 0 and the neutral leaf never
+selects it."""
 _CALL_OPS: Mapping[str, SelectorOp] = MappingProxyType(
     {"memberOfFootprint": "ref", "intersectsArea": "area", "inDiffPair": "diff_pair"}
 )
@@ -258,6 +343,12 @@ def _term(selector: Selector, side: str, target: int, rule: Rule, issues: list[I
         return ""
 
     op = selector.op
+    if selector == NO_NET:  # change c0409: an item without a net has the empty net name (``H-K-DRU-NONET``)
+        if "net" not in KIND_SELECTORS[rule.kind].leaves:
+            return refuse(f"a {rule.kind} rule takes no net selector, so no select.no_net()")
+        if not _supported("net", target):
+            return refuse(f"select.no_net() is not proved for KiCad {target}")
+        return f"{side}.NetName == ''"
     if op in ("and", "or"):
         if not _supported(op, target):
             return refuse(f"'{op}' is not proved for KiCad {target}")
@@ -296,7 +387,23 @@ def _term(selector: Selector, side: str, target: int, rule: Rule, issues: list[I
         if value not in ITEM_TYPES:
             return refuse(f"item kind {value!r} is not one of {', '.join(ITEM_TYPES)}")
         value = ITEM_TYPES[value]
+    if op == "pad_type":
+        value = PAD_TYPE_NAMES[value]
+    if op == "hole":
+        return hole_condition(side, value)
     return f"{side}.{_LEAF_PROPS[op]} == '{value}'"
+
+
+def hole_condition(side: str, value: str) -> str:
+    """The condition of the leaf ``hole value`` on ``side`` (``_HOLE_PROPS``)."""
+    lo, hi = hole_interval(value)
+    parts: list[str] = []
+    for kind, prop in _HOLE_PROPS.items():
+        bounds = [f"{side}.{prop} >= {format_value(lo)}" if lo is not None else f"{side}.{prop} > 0mm"]
+        if hi is not None:
+            bounds.append(f"{side}.{prop} <= {format_value(hi)}")
+        parts.append(f"({side}.Type == '{ITEM_TYPES[kind]}' && {' && '.join(bounds)})")
+    return f"({parts[0]} || {parts[1]})"
 
 
 def condition_text(rule: Rule, *, target: int) -> tuple[str | None, tuple[Issue, ...]]:
@@ -329,7 +436,8 @@ def condition_text(rule: Rule, *, target: int) -> tuple[str | None, tuple[Issue,
 # --- conditions: text → model ---------------------------------------------------------------------
 
 _TOKEN = re.compile(
-    r"\s*(?:(?P<op>&&|\|\||==|!|\(|\))|(?P<str>'[^']*')|(?P<leaf>[AB]\.[A-Za-z]+)|(?P<bad>\S))"
+    r"\s*(?:(?P<op>&&|\|\||==|>=|<=|>|!|\(|\))|(?P<str>'[^']*')|(?P<leaf>[AB]\.[A-Za-z_]+)"
+    r"|(?P<num>[0-9]+(?:\.[0-9]+)?(?:mm|mil|in))|(?P<bad>\S))"
 )
 
 
@@ -389,6 +497,12 @@ class _Parse:
             self.take(")")
             return found
         side, prop = self.take(kind="leaf").split(".", 1)
+        if prop in _HOLE_PROPS.values():
+            token = self.peek()
+            if token is None or token[1] not in (">=", "<=", ">"):
+                raise ValueError(f"{prop} takes >=, <= or >")
+            symbol = self.take()
+            return ("cmp", (side, prop, symbol, parse_value(self.take(kind="num"))))
         if prop in _CALL_OPS:
             self.take("(")
             value = self.take(kind="str")[1:-1]
@@ -405,9 +519,67 @@ class _Parse:
             if value not in _TYPE_KINDS:
                 raise ValueError(f"type {value!r} is outside the closed grammar")
             value = _TYPE_KINDS[value]
+        if op == "pad_type":
+            if value not in _PAD_TYPE_KINDS:
+                raise ValueError(f"pad type {value!r} is outside the closed grammar")
+            value = _PAD_TYPE_KINDS[value]
+        if not value and op == "net":  # change c0409: the empty net name is an item without a net
+            return ("leaf", (side, NO_NET))
         if not value:
             raise ValueError("empty value")
         return ("leaf", (side, Selector(op, value)))  # type: ignore[arg-type]
+
+
+def _hole_branch(tree: _Tree) -> tuple[str, str, Nm | None, Nm | None] | None:
+    """``(side, kind, lo, hi)`` of one branch of a written hole condition, or ``None``."""
+    op, payload = tree
+    if op != "and":
+        return None
+    items = cast(list[_Tree], payload)
+    if len(items) not in (2, 3) or items[0][0] != "leaf":
+        return None
+    side, first = cast(tuple[str, Selector], items[0][1])
+    if first.op != "item_kind" or first.value not in _HOLE_PROPS:
+        return None
+    lo: Nm | None = None
+    hi: Nm | None = None
+    for index, item in enumerate(items[1:]):
+        if item[0] != "cmp":
+            return None
+        cside, prop, symbol, nm = cast(tuple[str, str, str, Nm], item[1])
+        if cside != side or prop != _HOLE_PROPS[first.value]:
+            return None
+        if index == 0 and symbol == ">" and nm == 0:
+            continue
+        if index == 0 and symbol == ">=" and nm > 0:
+            lo = nm
+        elif index == 1 and symbol == "<=":
+            hi = nm
+        else:
+            return None
+    return side, first.value, lo, hi
+
+
+def _holes(tree: _Tree) -> _Tree:
+    """``tree`` with each written hole condition (``hole_condition``) read as the leaf ``hole``;
+    ``ValueError`` for a comparison outside one."""
+    op, payload = tree
+    if op == "cmp":
+        raise ValueError("a hole comparison stands outside the written hole condition")
+    if op == "leaf":
+        return tree
+    items = cast(list[_Tree], payload)
+    if op == "or" and len(items) == 2:
+        branches = [_hole_branch(item) for item in items]
+        if all(branches):
+            (side_a, kind_a, lo_a, hi_a), (side_b, kind_b, lo_b, hi_b) = cast(
+                list[tuple[str, str, Nm | None, Nm | None]], branches
+            )
+            if (side_a, kind_a, kind_b) == (side_b, "via", "pad") and (lo_a, hi_a) == (lo_b, hi_b):
+                if lo_a is None and hi_a is None:
+                    raise ValueError("a hole condition without a bound")
+                return ("leaf", (side_a, Selector("hole", hole_value(lo_a, hi_a))))
+    return (op, [_holes(item) for item in items])
 
 
 def _side(tree: _Tree) -> set[str]:
@@ -454,6 +626,7 @@ def parse_condition(text: str, *, reference: bool = False) -> tuple[Selector, Se
         tree = parser.expr()
         if parser.peek() is not None:
             return None
+        tree = _holes(tree)
     except ValueError:
         return None
     conjuncts: list[_Tree] = tree[1] if tree[0] == "and" else [tree]  # type: ignore[assignment]
@@ -677,6 +850,8 @@ def _outside_kind(
     for leaf in (*_leaves(selector_a), *_leaves(selector_b)):
         if leaf.op not in grammar.leaves:
             return f"the selector '{leaf.op}' is not taken by {kind}"
+        if leaf.op in LEAF_KEYS_C0462 and not SELECTOR_SUPPORT.get(leaf.op):
+            return f"the selector '{leaf.op}' has no probe recorded present, so the rule stays as written"
         if "*" in leaf.value and not grammar.glob:
             return f"a glob is not taken by {kind}"
     return None
@@ -684,7 +859,7 @@ def _outside_kind(
 
 def normal_form(rule: Rule) -> Rule:
     """What lifting gives back: ``via_drill`` as ``hole_size`` on vias, flattened selectors, no
-    ``all`` B side."""
+    ``all`` B side (a ``short`` rule keeps its B side, which it needs: change c0465)."""
     selector_a = _flatten(rule.selector_a)
     kind: RuleKind = rule.kind
     if kind == "via_drill":
@@ -693,7 +868,7 @@ def normal_form(rule: Rule) -> Rule:
         selector_a = via if selector_a.op == "all" else _flatten(Selector("and", items=(via, selector_a)))
     selector_b = rule.selector_b
     if selector_b is not None:
-        selector_b = None if selector_b.op == "all" else _flatten(selector_b)
+        selector_b = None if selector_b.op == "all" and kind != "short" else _flatten(selector_b)
     return dataclasses.replace(rule, kind=kind, selector_a=selector_a, selector_b=selector_b)
 
 
@@ -714,6 +889,9 @@ __all__ = [
     "KIND_MAP",
     "KIND_SELECTORS",
     "KIND_SUPPORT",
+    "SHORTING_CODE",
+    "board_short",
+    "written_as_nothing",
     "KIND_UNCHECKED_CODE",
     "LIMITS",
     "LIMIT_ORDER",

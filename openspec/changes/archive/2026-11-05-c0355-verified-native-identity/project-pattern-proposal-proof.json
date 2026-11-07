@@ -1,0 +1,15 @@
+{
+  "all_other_json_values_unchanged": true,
+  "candidate_project_sha256_in_memory": "6db0a99a1d614ac6624bad04ca6da7f37a046ef7bbbbbf7808346bdedca21350",
+  "external_diff_sha256": "31961d8af97c6d6916fa1477ba248dbe2e2269529904daf27d9849e88525eb60",
+  "external_packet": "royal-pattern-context-proposal-v1",
+  "external_plan_sha256": "a8d2396e8ee8bd4efcb66e1c4b70750302200f21bc1b248bf9ef5e4b096b4a8f",
+  "native_run_performed": false,
+  "only_changed_value": "/net_settings/netclass_patterns",
+  "outside_value_span_bytes_unchanged": true,
+  "runtime_or_acceptance_change": false,
+  "source_board_sha256": "535dbe212f43a8bab12b23277e176a94ac9694177258af2981c0e7b08e4b7252",
+  "source_or_candidate_cad_written": false,
+  "source_project_sha256": "a25ffa7ff829d5eaff27b29724b57821ce2ee7fd39ae367b9ea078d290e37690",
+  "status": "PROPOSAL ONLY; task0.5 pending review/execution"
+}

@@ -32,14 +32,19 @@ A board that a backend read is drawn in a browser without KiCad or Altium: the s
 - **THEN** "Source Documents" holds its schematic and its board, the board is viewable, and the schematic is listed as not viewable
 
 ### Requirement: Viewer page
-`src/fenolite/view/page.html` SHALL be one HTML file with inline styles and scripts and no external URL, that draws a scene in 2D (canvas) and 3D (WebGL), with the project tree in a left panel, the layer tabs along the bottom (current layer, visibility, single-layer mode, layer sets), Top and Bottom views, net and component highlight, search, measurement, overlays and notes; and `fenolite.view.export.page(tree, scenes)` SHALL embed a tree and its scenes into it.
-- The page MUST read a scene either embedded (export) or from the server routes of "Live server".
-- Texts MUST be drawn with Fenolite's own single-stroke font.
+`fenolite.view.export.template()` SHALL give one HTML file with inline styles and scripts and no external URL, assembled from the committed bundles of `src/fenolite/view/static/`, drawing a scene in 2D and 3D with the project tree at the left, the inspector and Layers panel docked at the right, Top and Bottom views, highlight, search, measurement and overlays; `page(tree, scenes)` SHALL embed a tree and its scenes.
+- It MUST read a scene embedded (export) or from "Live server".
+- Texts MUST use Fenolite's single-stroke font.
 
 #### Scenario: Standalone page round-trips
 - **GIVEN** the tree and the scene of `two_layer.kicad_pcb`
 - **WHEN** `uv run pytest tests/unit/view/test_page.py` exports the page and reads the embedded JSON back
 - **THEN** the JSON equals the scene, and the page holds no `http://` or `https://` URL
+
+#### Scenario: The served page is the assembled page
+- **GIVEN** the committed shell, `viewer.js` and `viewer.css`
+- **WHEN** `uv run pytest tests/unit/view/test_viewer_bundle.py -k assembled` builds `page(live=True)`
+- **THEN** the page holds the CSS bundle inside its `<style>` element and the JS bundle inside its last `<script>` element, and no placeholder of the shell is left
 
 ### Requirement: Live server
 `fenolite.view.server.serve(live, port)` SHALL serve the page, `/project.json`, `/scene/<id>.json` and `/version/<id>` on the loopback address only, and a watcher SHALL rebuild a document's scene when the file changed and then kept its size and time for one more check.
@@ -131,12 +136,18 @@ A live document SHALL assign a new generation when rebuilding starts. A backgrou
 
 ### Requirement: Context-aware viewer shortcuts
 
-Viewer shortcuts SHALL NOT run while an input, select, textarea or editable descendant has focus, during composition, after default prevention, or with Ctrl, Meta or Alt pressed. Existing plain and Shift shortcuts SHALL continue to work outside those contexts.
+Viewer shortcuts SHALL NOT run while an input, select, textarea or editable descendant has focus, during composition, after default prevention, or with Ctrl, Meta or Alt pressed. Existing plain and Shift shortcuts SHALL continue to work outside those contexts. The one exception SHALL be `Ctrl+K`, or `Cmd+K` on macOS, which SHALL open the command palette also from a focused field, but not during composition or after default prevention.
 
 #### Scenario: Selecting a highlight mode
 
 - **WHEN** M is pressed with the highlight select focused
 - **THEN** the viewer does not enter Measure, and an ordinary M outside form controls still toggles Measure
+
+#### Scenario: The palette chord in a text field
+
+- **GIVEN** the search field is focused
+- **WHEN** `Ctrl+K` is pressed outside composition
+- **THEN** the command palette opens, and a plain `K` typed in the field is text, not a shortcut
 
 ### Requirement: Review in narrow windows
 
@@ -251,3 +262,355 @@ The viewer SHALL display explicit not-run, passed, failed and limited states for
 - **WHEN** review is opened with native controls by keyboard or on a narrow viewport
 - **THEN** the panel can be navigated, filtered and closed, and Locate makes the drawing available
 - **AND** ordinary document selection remains consistent with asynchronous navigation guards
+
+### Requirement: Viewer sources
+The page's code SHALL be TypeScript modules under `viewer/src`, type-checked by the TypeScript compiler, with Preact used only for UI panels and the canvas and WebGL renderers written by hand. The linked script MUST keep each module's top-level names as page globals, and the build MUST fail on a type error or on a top-level name that two modules declare.
+
+#### Scenario: A name declared twice fails the build
+- **GIVEN** a module of `viewer/src` that declares a top-level `function draw()` beside the board renderer's
+- **WHEN** `uv run python tools/build_viewer.py --check` runs
+- **THEN** it exits non-zero, names `draw` and both modules, and writes nothing
+
+#### Scenario: Panels render through Preact
+- **GIVEN** the committed `viewer.js`
+- **WHEN** `uv run pytest tests/unit/view/test_viewer_bundle.py -k preact` reads it
+- **THEN** the Preact vendor chunk assigns the global `preact` and the Messages, Changes, Findings and Navigator panels call `preact.render`
+
+### Requirement: Committed viewer bundle
+The wheel SHALL carry the built bundle, so installing Fenolite needs no Node. The build MUST give the same bytes on every run; `tools/build_viewer.py --check` SHALL fail when the committed files differ from a fresh build, and a unit test SHALL fail, without Node, when the recorded digests of the sources or of the outputs do not match the files.
+
+#### Scenario: A stale bundle fails without Node
+- **GIVEN** a file of `viewer/src` edited after the last build
+- **WHEN** `uv run pytest tests/unit/view/test_viewer_bundle.py -k manifest` runs on a machine without Node
+- **THEN** the test fails and says to run `make viewer`
+
+#### Scenario: The viewer job rebuilds
+- **GIVEN** the `viewer` job of `.github/workflows/ci.yml` with Node 22
+- **WHEN** it runs `uv run python tools/build_viewer.py --check` before the visual tests
+- **THEN** the step passes only when a fresh build equals the committed `page.html`, `viewer.js`, `viewer.css` and `manifest.json`
+
+#### Scenario: The wheel holds the bundle and no sources
+- **WHEN** `uv build` builds the wheel and its file list is read
+- **THEN** it holds `fenolite/view/static/viewer.js`, `viewer.css`, `page.html` and `manifest.json`, and no file of `viewer/`
+
+### Requirement: Interface tokens and themes
+The page SHALL style its interface from CSS custom properties for spacing, type sizes, radii, surface, text, accent, focus and severity colours, with a dark and a light set. Without a stored choice it SHALL follow `prefers-color-scheme`; a choice SHALL be kept in `localStorage`. Text tokens MUST reach a contrast of 4.5:1 on their surfaces. A document's own colours MUST NOT change with the theme.
+
+#### Scenario: Tokens and contrast
+- **WHEN** `uv run pytest tests/unit/view/test_page.py -k tokens` parses the page's token blocks
+- **THEN** every token is defined in both themes, each text and surface pair reaches 4.5:1, and no chrome rule outside the token blocks holds a colour literal
+
+#### Scenario: The light shell keeps the board's colours
+- **GIVEN** the exported page of `two_layer.kicad_pcb`
+- **WHEN** `uv run pytest tests/visual/test_shell.py -k theme` switches to the light theme and reloads
+- **THEN** the toolbar uses the light surface, the canvas background still equals the scene's theme background, and the choice survives the reload
+
+### Requirement: Grouped toolbar
+The toolbar SHALL group its controls as View (2D/3D, Fit, Top/Bottom), Tools (Measure with point and edge modes, Mark, units) and Share (Copy link, Export with SVG and Print and its scale). Each control MUST have an inline SVG icon, an accessible name and a tooltip naming its shortcut. No two controls of the toolbar MAY share a label, and a control that does not apply to the current view MUST be hidden.
+
+#### Scenario: No duplicate labels
+- **GIVEN** the exported page of `two_layer.kicad_pcb` at 1440 by 900 pixels
+- **WHEN** `uv run pytest tests/visual/test_shell.py -k toolbar` reads the toolbar
+- **THEN** it holds the three groups in order, every button has an icon and an accessible name, no label occurs twice, and the print scale is reached from the Export menu
+
+### Requirement: Command palette
+`Ctrl+K`, or `Cmd+K` on macOS, SHALL open a command palette that searches the shell's commands and the parts, nets and documents of the open project, and runs or opens the chosen entry with the keyboard. The toolbar, the palette and the shortcut sheet MUST be built from one command registry, so a command reachable in one is reachable in all.
+
+#### Scenario: Jump to a part from a text field
+- **GIVEN** the exported page of `two_layer.kicad_pcb` with the filter field focused
+- **WHEN** `uv run pytest tests/visual/test_shell.py -k palette` presses `Ctrl+K`, types `r1` and presses Enter
+- **THEN** the palette closes, `R1` is selected and framed, and focus returns to the page
+
+#### Scenario: Ranking under Node
+- **WHEN** `uv run pytest tests/unit/view/test_page.py -k palette_match` runs `paletteMatch` under Node on authored entries
+- **THEN** prefix matches rank before word-start matches, those before other subsequence matches, and a query of `>` lists commands only
+
+### Requirement: Side bar sections
+Each side bar section SHALL be a disclosure with its title and a count, its open state remembered in `localStorage`. Components SHALL sort by reference in natural order, value or footprint, and Nets by name, pad count or routed length. Finding groups with a count of 0 SHALL be listed together under one collapsed line that names how many there are.
+
+#### Scenario: Zero groups fold but remain
+- **GIVEN** the exported page of `two_layer.kicad_pcb` with its review findings
+- **WHEN** `uv run pytest tests/visual/test_shell.py -k sections` reads the Findings section and opens its zero line
+- **THEN** only groups with items are listed at first, the zero line names the others, and opening it lists each with its count of 0
+
+### Requirement: Status bar and document details
+The status bar SHALL show the cursor position in the page unit, the grid when drawn, the unit, the zoom, the current layer, the selection and the live state, and SHALL NOT show the file's digest. An "About this document" popover SHALL show the file name and path, size, full SHA-256 with a copy control, backend, evidence level and, when live, the scene version.
+
+#### Scenario: The digest moves to the popover
+- **GIVEN** the exported page of `two_layer.kicad_pcb`
+- **WHEN** `uv run pytest tests/visual/test_shell.py -k about` reads the status bar, then opens the popover
+- **THEN** the status bar holds no hexadecimal digest, and the popover holds the 64 hexadecimal digits of the scene's `meta.sha256` and its evidence level
+
+### Requirement: Loading, empty and error states
+While a document loads the page SHALL show its name and a progress indicator; a list with no entries SHALL say why it is empty; a failed read SHALL show its error with a Retry control bound to the current navigation; a project without a viewable document SHALL say so and name the kinds that open.
+
+#### Scenario: A failed read can be retried
+- **GIVEN** the exported page with a stubbed scene request that fails once
+- **WHEN** `uv run pytest tests/visual/test_shell.py -k retry` opens the document and presses Retry
+- **THEN** the error card names the failure, and after Retry the scene is displayed under the same navigation
+
+### Requirement: Docked inspector
+The page SHALL show the selection's properties in a dock beside the drawing, never over it, in sections by kind: Part, Pad, Track, Arc, Via, Zone, Net, Keep-out and Finding. Each value MUST show in the page unit, follow a unit change and have a copy control; "Copy all" MUST copy every row as text. A value the scene does not hold MUST be left out. Sheets, libraries and drawings MUST use the same dock.
+
+#### Scenario: A pad's size, copied
+- **GIVEN** the exported page of `two_layer.kicad_pcb`
+- **WHEN** `uv run pytest tests/visual/test_inspector.py -k pad` clicks pad 1 of `R1`, copies its size, presses `Q` and reads the dock
+- **THEN** the dock holds a Pad and a Part section, the clipboard holds the size in millimetres as displayed, the size then reads in mil, and nothing of the dock overlaps the canvas
+
+#### Scenario: Missing values are left out
+- **WHEN** `uv run pytest tests/unit/view/test_page.py -k inspector` renders an authored inspector model under Node with a pad that has no drill
+- **THEN** the rendered rows hold no drill row and each row has a copy control
+
+### Requirement: Inspector actions
+The inspector SHALL offer actions on the selection: Zoom to, Highlight net, Select part, Find similar, Show in schematic or Show on board, and Open finding. An action that cannot apply MUST be hidden. Each action MUST also be reachable from the command palette, and a cross-probe MUST keep the guards of "Current browser navigation owns the view".
+
+#### Scenario: Show in schematic
+- **GIVEN** the exported page of `tests/data/altium/blink/blink.PrjPcb` with its board open
+- **WHEN** `uv run pytest tests/visual/test_inspector.py -k cross_probe` selects a part and runs Show in schematic
+- **THEN** the sheet holding the part opens with that part selected
+
+### Requirement: Net emphasis
+While a net or part is selected, its items SHALL be drawn in their own layer colours at full opacity and outlined in the emphasis colour, and every other item SHALL be drawn at the opacity of the highlight mode. Zone fills of a selected net MUST be outlined and drawn lighter, so its tracks and pads stay visible over the pour. The selected items MUST NOT be lightened towards white.
+
+#### Scenario: A ground net stands out
+- **GIVEN** the exported page of `two_layer.kicad_pcb`
+- **WHEN** `uv run pytest tests/visual/test_inspector.py -k emphasis` selects net `GND` and samples pixels
+- **THEN** a pixel of a `GND` track equals its layer colour, and a pixel of a track of another net is darker than before the selection
+
+### Requirement: Layers panel
+On boards and footprints the page SHALL list the layers in a panel grouped as copper, mask and paste, silkscreen, mechanical and fabrication, and view layers. Each row MUST show the swatch, the full name, visibility, opacity and whether it is current, and the layer sets MUST be presets. `Shift+S`, `+` and `-` MUST keep their effect, and sheet tabs MUST stay in the bottom bar.
+
+#### Scenario: Long names are not cut
+- **GIVEN** the exported page of `tests/data/altium/blink/blink.PcbDoc` at 1440 by 900 pixels
+- **WHEN** `uv run pytest tests/visual/test_layers.py -k names` reads the Layers panel
+- **THEN** every row shows its layer's full name, `Board Outline` included, the panel has no horizontal overflow, and the bottom bar lists no layer
+
+#### Scenario: Opacity and shortcuts
+- **WHEN** the test sets `F.Cu` to 30 % opacity, then presses `Shift+S` and `+`
+- **THEN** the drawing of `F.Cu` changes, only the current layer is shown, and the next visible layer becomes current
+
+### Requirement: 3D view controls
+In 3D the page SHALL hide the controls that act only in 2D, show a view cube whose faces and corners set the camera, light the scene with an ambient and two directional lights, and draw a body without a model in Fenolite's body colour with a lighter top face. Bodies with a model MUST keep the model's colours.
+
+#### Scenario: The view cube
+- **GIVEN** the exported page of `two_layer.kicad_pcb`
+- **WHEN** `uv run pytest tests/visual/test_3d.py` switches to 3D and clicks the cube's Front face
+- **THEN** Measure, Mark and the Layers panel are hidden, the camera shows the front view, and the page reports no error
+
+### Requirement: Inspector in narrow windows
+At viewport widths of 760 CSS pixels or below the dock SHALL become a bottom sheet of at most 60 % of the viewport height that a selection opens and `Esc` or its close control dismisses, and the canvas SHALL keep the viewport width.
+
+#### Scenario: A 390-pixel window
+- **WHEN** `uv run pytest tests/visual/test_inspector.py -k narrow` opens the page at 390 pixels, selects a pad and presses `Esc`
+- **THEN** the sheet opens below the canvas within 60 % of the height, the canvas keeps the full width, and `Esc` closes the sheet
+
+### Requirement: Run read-only commands from the page
+A live server given a runner SHALL accept `POST /run` with a command name, a document id of the tree and options, start one job and answer its id; `GET /run/<job>` SHALL report its state, progress and, when done, the reply; `GET /runs` SHALL say which commands and options the page may offer. A second run while one runs MUST be refused with 409 and the running job's id.
+
+#### Scenario: A check run from the page
+- **GIVEN** a live server over a copy of `two_layer.kicad_pcb` with the real runner
+- **WHEN** `uv run pytest tests/unit/view/test_server.py -k run_check` posts `check` with stages `model.validate` and `copper.clearance` and polls the job
+- **THEN** the job ends `done` with exit 0 or 5, and its review holds those two stages with their evidence
+
+#### Scenario: One run at a time
+- **GIVEN** a live server whose fake runner blocks
+- **WHEN** a second run is posted
+- **THEN** the answer is 409 and names the running job
+
+### Requirement: Allowed run commands
+A run SHALL be one of `check`, `analyze`, `ready` and `equivalent`, on the tree's file of the given document, with only the options of its allow-list checked by type and choice. A command line, a path, an unknown option, `check --exclude` or `--reason`, or a document outside the project MUST be refused with 400, and the command MUST run as `fenolite <command> --json` in a child process in the project folder.
+
+#### Scenario: Refused requests
+- **WHEN** `uv run pytest tests/unit/view/test_runs.py` validates `tidy`, `check` with `exclude`, `analyze` with an unknown kind, an option holding a path and a document id listed as not present
+- **THEN** each is refused with its reason, and `check` with stage `drc.kicad` on the board is accepted
+
+### Requirement: Run request guard
+`POST /run` and `POST /run/<job>/cancel` SHALL be accepted only with this server's `Host`, a same-server `Origin` when one is sent, the header `X-Fenolite-Run: 1`, a JSON type and a body of at most 16 KiB; any other request MUST be refused with 403 or 413 and start nothing.
+
+#### Scenario: A request from another origin
+- **WHEN** `uv run pytest tests/unit/view/test_server.py -k run_guard` posts a run with another `Origin`, then without the header, then with a 17 KiB body
+- **THEN** the answers are 403, 403 and 413, and the fake runner was never called
+
+### Requirement: Run progress and cancel
+A running job SHALL report its progress records and elapsed time, and `POST /run/<job>/cancel` SHALL stop its child process and end the job `cancelled`. A job that passes the run timeout MUST end `timeout`. The page MUST show the running command, its progress and a Cancel control, and say that a cancelled or timed-out run changed nothing.
+
+#### Scenario: Cancel a blocked run
+- **GIVEN** a live server whose fake runner blocks until cancelled
+- **WHEN** `uv run pytest tests/unit/view/test_server.py -k run_cancel` posts a run, then cancels it
+- **THEN** the job ends `cancelled`, the review of the document is unchanged, and a new run is accepted
+
+### Requirement: Run results in the review
+A finished `check` run SHALL replace, stage by stage, the stages of the same name in the document's session reply, and the page SHALL redraw the review cards and the Messages markers from it. `analyze` results SHALL appear as finding groups, and `ready` and `equivalent` findings SHALL be listed with Locate. Each stage MUST keep its own input hash, evidence and limits.
+
+#### Scenario: Stages merged by name
+- **GIVEN** a session reply with stages `model.validate` and `copper.clearance`, and a new reply with `copper.clearance` only, on another input hash
+- **WHEN** `uv run pytest tests/unit/view/test_project_review.py -k merge` merges them
+- **THEN** `copper.clearance` and its findings come from the new reply, `model.validate` stays, and its card is Limited for the changed revision
+
+#### Scenario: A failed DRC card from a run
+- **GIVEN** the exported page served with stubbed run routes whose reply holds one DRC error at a point
+- **WHEN** `uv run pytest tests/visual/test_run.py -k drc` runs DRC from its card
+- **THEN** the card reads Failed with the stage's evidence, and one marker is drawn at the point
+
+### Requirement: Runs only on request in a live server
+The page SHALL start a run only on a user's action, never on opening a document or on a save. Run controls SHALL appear only in a page served with a runner; an exported page and a page served with `--no-run` MUST show none and keep the recorded results.
+
+#### Scenario: An exported page
+- **GIVEN** the exported page of `two_layer.kicad_pcb`
+- **WHEN** `uv run pytest tests/visual/test_run.py -k export` opens the project review
+- **THEN** no Run control is shown, and no request to `/run` or `/runs` is made
+
+### Requirement: Configurable layer order
+The board or footprint viewer SHALL let the user reorder all available layers through accessible controls and Alt+Up/Down, apply or cancel the draft, and restore Default viewer order. Applied order SHALL govern both the visible layer list and layer stepping. It SHALL preserve native names, stable layer IDs, source and scene data, geometry, draw order, current layer, visibility, opacity and other selections. The preference SHALL be scoped to document identity and source hash in this browser; unavailable storage SHALL fall back to this page session. Invalid preferences SHALL not remove, duplicate or introduce layers. The feature SHALL NOT infer a universal Altium order or invent unavailable native layers.
+
+#### Scenario: Apply and cancel an accessible order
+- **GIVEN** a board with available layers, a selected current layer and some hidden layers
+- **WHEN** the user opens Order layers, selects a layer and uses Move up/down or Alt+Up/Down
+- **THEN** the draft changes without changing the applied list, visibility or selection; Apply updates the list and layer stepping, while Cancel or Escape discards the draft and returns focus
+
+#### Scenario: Restore the viewer order
+- **GIVEN** an applied custom order
+- **WHEN** the user chooses Reset to default and Apply
+- **THEN** the viewer restores its original deterministic layer ordering and clears the saved preference, preserving current layer, visibility, opacity and selections
+
+#### Scenario: A preference belongs to its document
+- **GIVEN** a custom order applied to a document with a source hash
+- **WHEN** the page reloads, opens a different document/hash, or cannot access localStorage
+- **THEN** reload of the same document/hash restores the saved order; another identity uses its own default; unavailable storage keeps a choice for this page session without failing
+
+#### Scenario: An invalid saved order
+- **GIVEN** stored IDs containing unknown values or duplicates, a malformed value, or a changed set of available layer IDs
+- **WHEN** the viewer reads its preference
+- **THEN** it preserves every available layer exactly once, ignores unknown IDs and duplicates, and appends new IDs in default order; malformed preferences use the default
+
+### Requirement: Route proposals on a board
+`fenolite.view.proposals.overlay(reply, scene)` SHALL turn a `route --propose` reply into `scene.proposals` (`fenolite.view_proposals.v0`): per proposal its id, kind, net, subject, box, reason and alternatives; per candidate its id, source, polylines and via points per layer in scene units and its facts unchanged; the locked decisions as `locked` entries. A value the reply does not hold MUST be left out, and no score MAY be added.
+
+#### Scenario: The buck's proposals joined to its scene
+- **GIVEN** the buck role-copper variant after phase 2 and its `route --propose` reply
+- **WHEN** `uv run pytest tests/unit/view/test_proposals.py -k joined` joins the reply to the scene
+- **THEN** the `fanout:GND:C3-2` proposal is boxed around `C3-2`, each candidate's via lies at its reply position in scene units, every facts object equals the reply's, and no key named `score`, `rank` or `recommended` exists
+
+### Requirement: Accept and reject from a served page
+A live server with `--allow-actions` SHALL accept the run `proposals` (no option) and the actions `route-accept` (`candidates`: candidate ids of the session's proposal data) and `route-reject` (`candidates`: candidate or proposal ids, `reason`), planned as `route PATH --router octilinear --accept …` and `--reject … --reason …` through c0303's plan, confirm and undo. Any other id MUST be refused with 400.
+
+#### Scenario: Accept a candidate from the page
+- **GIVEN** a live server with `--allow-actions` over a copy of the buck role-copper variant and its proposal data
+- **WHEN** `uv run pytest tests/unit/view/test_actions.py -k route_accept` plans `route-accept` with a candidate id of the data, then with `c-0000000000000000`
+- **THEN** the first gives the words `route --router octilinear --accept=<id> -- <board>` and a plan, and the second is refused with 400 naming the id
+
+### Requirement: Writing actions are opt-in
+A live server SHALL accept writing actions only when started with actions allowed; otherwise every action route MUST answer 403 and `GET /actions` MUST say why. The page SHALL show writing controls only when `GET /actions` reports them enabled, and an exported page MUST show none.
+
+#### Scenario: Actions not allowed
+- **GIVEN** a live server over a copy of `two_layer.kicad_pcb` started without actions
+- **WHEN** `uv run pytest tests/unit/view/test_server.py -k actions_off` posts a guarded `silk` plan
+- **THEN** the answer is 403, the runner was never called, and `GET /actions` reports `enabled` false with its reason
+
+### Requirement: Plan review before a write
+An action SHALL first run its command's dry run and report the plan: the files with their sizes and digests, the issues and the evidence. When the plan replaces the open board, the server SHALL compare the scene of the staged bytes with the current scene, and the page SHALL draw that comparison on the board. A plan with an error finding MUST NOT be confirmable.
+
+#### Scenario: A designator plan previewed
+- **GIVEN** a live server with actions allowed over a copy of `two_layer.kicad_pcb`
+- **WHEN** `uv run pytest tests/unit/cli/test_view_actions.py -k silk_plan` plans `silk` with designators
+- **THEN** the job holds a plan of one write of the board with its digests, the preview lists the moved designators, and the board file is unchanged
+
+### Requirement: Confirm by plan
+Confirm SHALL write only a plan that this server planned in this session for the same action and document, by running the command with `--confirm --plan ID`. Every write of the plan MUST lie under the project root. A target or input that changed since the review MUST give `FEN-4002`, and the page MUST offer a new review.
+
+#### Scenario: The file changed after the review
+- **GIVEN** a `silk` plan of a copy of `two_layer.kicad_pcb`, and the file then rewritten with one track less
+- **WHEN** `uv run pytest tests/unit/cli/test_view_actions.py -k changed` confirms the plan
+- **THEN** the job ends with exit 4 and `FEN-4002`, and the file keeps the rewritten bytes
+
+### Requirement: Receipt and undo
+A confirmed action SHALL return its receipt, which the page SHALL show before it reloads the document. Undo SHALL plan `restore` on a receipt of the session and write it only on Confirm; backups MUST always be kept.
+
+#### Scenario: Write and undo
+- **GIVEN** a live server with actions allowed over a copy of `two_layer.kicad_pcb`
+- **WHEN** `uv run pytest tests/unit/cli/test_view_actions.py -k undo` plans and confirms `silk`, then plans and confirms the undo of its receipt
+- **THEN** the first receipt names the board and its backup, and after the undo the board's SHA-256 equals the original
+
+### Requirement: Allowed actions
+Actions SHALL use fixed templates for `fill`, `tidy`, `silk`, `testpoints`, `waive`, `move`, `shift`, `turn`, `export`, `bom`, `roles`, `route-accept`, `route-reject` or `take`. Unknown words/options/refs, invalid lengths/reasons, path escapes and `--no-backup` MUST give 400. Only a bound conflict take MAY use its validated authoring root; other actions MUST stay under the served project root. Altium documents MUST NOT be written.
+
+#### Scenario: Refused actions
+- **WHEN** `uv run pytest tests/unit/view/test_actions.py` validates an `export` to `../out`, a `move` of an unknown reference, a `waive` whose reason holds a line break and a `silk` of an Altium board
+- **THEN** each is refused with its reason, and `move` of `R1` by lengths in mm gives the words of `place --move`
+
+### Requirement: Action request guard
+Action routes SHALL apply the run request guard with the header `X-Fenolite-Action: 1` and SHALL require the session token that `GET /actions` returns to a guarded request; a request without them MUST be refused with 403. An action and a run MUST NOT run at the same time.
+
+#### Scenario: A request without the token
+- **GIVEN** a live server with actions allowed
+- **WHEN** `uv run pytest tests/unit/view/test_server.py -k action_guard` posts a plan without the token, then with a wrong one, then while a run is in progress
+- **THEN** the answers are 403, 403 and 409, and nothing was planned
+
+### Requirement: Role data on a board
+`fenolite.view.roles.overlay(reply, scene)` SHALL turn a `roles --check` reply into `scene.roles` (`fenolite.view_roles.v0`): the reply's role rows unchanged with their state and net index, the groups with their pad points and loop measures, the role findings placed on the scene, and counts. A value the reply does not hold MUST be left out.
+
+#### Scenario: The bad buck joined to its scene
+- **GIVEN** the `bad` variant of `buck_shunt` built in `tmp_path`
+- **WHEN** `uv run pytest tests/unit/view/test_roles.py -k joined` joins its `roles --check` reply to its scene
+- **THEN** every role row equals the reply's, `hot_SW` has six points and its area, and `roles.kelvin-outer` is placed at pad `R12-1`
+
+### Requirement: Net roles panel
+A board with role data SHALL show a Net roles section in the side bar: a legend with the colour, glyph, name and count of each role kind, a row per role net with glyph, net, kind, current, confidence and state, and a row per group. A net row MUST highlight its net; a group row MUST frame its pads.
+
+#### Scenario: The panel of the bad buck
+- **WHEN** `uv run pytest tests/visual/test_roles.py -k panel` opens the `bad` buck exported with `--roles run`
+- **THEN** the legend lists the kinds of the reply with their counts, `SW` reads `switch_node`, and a click on `hot_SW` frames its pads
+
+### Requirement: Role overlays
+The Layers panel SHALL offer, for a board with role data, toggles for role colours (role copper tinted by role, `signal` untinted), loops (hot and gate loops hatched through their pads with their area) and Kelvin pairs (dashed sense lines). Colour MUST NOT be the only cue: each role has a glyph and each overlay its own hatch or dash.
+
+#### Scenario: Overlays drawn and hidden
+- **WHEN** `uv run pytest tests/visual/test_roles.py -k overlays` screenshots the `bad` buck, then turns each toggle off
+- **THEN** the loops, sense lines and tint are drawn first and absent after, and the screenshot matches its reference
+
+### Requirement: Role findings in the viewer
+The Net roles section SHALL list the role findings by code with a marker on the board, and a selected finding SHALL open in the inspector. `check_overlay` MUST give `roles.*` codes the stage `roles.rules` and place a `where` that names a group or `group:pad` when the scene has role data.
+
+#### Scenario: A Kelvin finding located
+- **WHEN** `uv run pytest tests/unit/view/test_check_overlay.py -k roles` places a `check` reply with `roles.kelvin-outer` at `kelvin_R12:R12-1` and `roles.loop-area` at `hot_SW` on a scene, with those groups as aliases
+- **THEN** both have stage `roles.rules`, the first is at the centre of `R12-1` and the second boxes the loop's pads
+
+### Requirement: Role section of the inspector
+The inspector model of a board net with a role SHALL hold, after its Net section, a Role section with the kind, state, rule, confidence, evidence pads, current, working voltage, sensitivity and the groups holding the net, leaving out what the reply does not hold.
+
+#### Scenario: The role of a gate net
+- **WHEN** `uv run pytest tests/unit/view/test_page.py -k role_section` builds the Role section of an inferred gate row under Node
+- **THEN** it lists kind `gate`, state `inferred`, rule `GD-1`, its two pads and its gate loop, and no current row
+
+### Requirement: Roles from a served page
+A live server SHALL accept the run `roles` (no option) as `fenolite roles --check` on the board, and with `--allow-actions` the action `roles` with `nets` and `groups` that the session's role data shows as inferred, planned as `roles --accept … --accept-group …` on the board. Any other name MUST be refused with 400.
+
+#### Scenario: Confirm a role from the page
+- **GIVEN** a live server with `--allow-actions` over a copy of the `bad` buck and its role data
+- **WHEN** `uv run pytest tests/unit/view/test_actions.py -k roles` plans `roles` with net `SW`, then with net `NOPE`
+- **THEN** the first gives `roles --accept=SW -- <board>`, and the second is refused naming `NOPE`
+
+### Requirement: Inspectable alternatives
+The viewer SHALL draw candidate tracks, vias, endpoints, layers and facts distinctly from committed copper. It SHALL keep unresolved subjects visible and MUST NOT rank, recommend or preselect acceptance.
+
+#### Scenario: Inspectable alternatives contract
+- **GIVEN** a subject has two alternatives and one missing measurement
+- **WHEN** the proposal panel opens
+- **THEN** both geometries are inspectable and the missing fact reads unknown
+
+### Requirement: Reviewed viewer writes
+Served acceptance SHALL preview and confirm the existing reviewed plan, reject stale inputs and apply coupled bundles atomically. Static exports MUST provide no project-writing action.
+
+#### Scenario: Reviewed viewer writes contract
+- **GIVEN** a board changes after an acceptance preview
+- **WHEN** the user confirms that plan
+- **THEN** the write is refused and the prior project is preserved
+
+### Requirement: Safe accessible rendering
+Proposal controls SHALL support keyboard inspection and escaped untrusted text. Unknown candidate families SHALL degrade to generic inspection without arbitrary action dispatch.
+
+#### Scenario: Safe accessible rendering contract
+- **GIVEN** a tool reason contains HTML and the source family is unfamiliar
+- **WHEN** the scene is opened
+- **THEN** text is displayed safely and geometry remains inspectable
+

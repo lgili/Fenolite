@@ -16,7 +16,7 @@ reads no file, runs no tool and uses no floating-point number.
 ## The public API and the reply
 
 `fenolite.api.equivalent(a, b, *, level=None, tolerances=None, frame=None, ignore_refs=(), profile=None,
-against=None, kicad_cli=None, timeout=300.0)` is the comparison as a library call (change c0158). `a` and
+against=None, kicad_cli=None, timeout=300.0, strict=False, presentation=None)` is the comparison as a library call (change c0158). `a` and
 `b` are paths of any side the command reads, or `Design` values; `b` is `None` exactly when `against` is
 `"kicad-import"`. It reads the sides as the command does, runs `compare_designs` at the highest level both
 sides hold unless `level` says otherwise, and returns an `EquivalenceResult`: `report`, the sides `a` and
@@ -24,6 +24,14 @@ sides hold unless `level` says otherwise, and returns an `EquivalenceResult`: `r
 `issues` in the command's order and the `evidence`. `to_json()` is exactly the command's `result`, and the
 command is a thin caller of the function.
 
+- Explicit `level="S"` runs only the schematic comparison. Raw `.kicad_sch` files, KiCad projects and
+  built projects with written sheets are read from actual geometry and embedded definitions without a
+  netlist export. Symbols without PCB footprints and repeated native sheet instances remain included.
+  The result has the same keys with `level: "S"` and one level named `schematic`; integer/default result
+  bytes stay unchanged. A model without actual sheets is not a schematic side.
+- S compares actual sheet coordinates. `strict`, `ignore_refs` and the PCB import triangle are refused
+  for S; a scoped profile can exclude particular S differences with its normal recorded reason. A
+  junction-item exclusion does not exclude a changed pin group (`drawn-net`). Evidence stays INFERRED.
 - `tolerances` is a `Tolerances`, or a mapping of the fields to set (`{"length_nm": 1}`) over the values
   of the profile, else 0; `frame` `None` is the profile's frame, else `absolute` (`relative` for the
   triangle).
@@ -72,13 +80,25 @@ whose copper it does not care about passes `--level 4`.
 | 2 | `netlist` | the net of every `REF-PIN`, as a partition of the elements into nets |
 | 3 | `footprints` | per component, the footprint name and every pad, in the footprint's own frame |
 | 4 | `placement` | per footprint, the side, the position and the rotation |
-| 5 | `routing` | per net, which pads the copper joins, the vias per pair of copper layers and the routed length per copper layer |
+| 5 | `routing` | per net, which pads the copper joins, the vias per pair of copper layers and the routed length per copper layer; with `--strict`, every track, arc and via item by item |
+| 6 | `rules` | net classes and their members, custom rules, the board-wide rule set, the stack-up and the layer table |
+| 7 | `geometry` | the outline, zones by outline (never the fill), rule areas, board graphics, texts, holes and dimensions, and the graphics, texts and fields of each footprint |
+| 8 | `presentation` | each board layer (and each schematic sheet of `verify-source`) rendered by the viewer's scene builder and compared as pixels |
+| S | `schematic` | two drawn schematics item by item, and their drawn connectivity |
 
-Levels 6 to 8 of the roadmap (rules, geometry, presentation) are not built.
+Levels 6 to 8 and S are delivered by change c0278. `--level 6` and `--level 7` need a footprint on both
+sides; they run level 5 when both sides hold copper. `--level 8` runs the levels 1 to 7 and renders both
+boards. `compare_designs` runs the levels 1 to 7; level 8 lives in `fenolite.view.fidelity` (it needs the
+scene builders) and level S in `compare_drawn`. Both `fenolite verify-source` and explicit
+`fenolite equivalent --level S` use actual extracted native sheets and resolved pin connectivity. `fenolite verify-source` runs every level on a script and its original (`docs/fidelity.md`).
 
-- **Components are paired by reference.** Model ids differ between backends. A reference that a side
-  holds more than once, or an empty reference, cannot be paired: it gives one `ref-ambiguous` difference
-  and takes no further part. `--ignore-ref GLOB` leaves such references out.
+- **Components are paired by reference.** Model ids differ between backends. A reference that both sides
+  hold equally often, more than once or empty, whose holders each have one footprint, is paired in
+  placement order (side, then x, y, rotation and footprint name): the holders become `REF#1`, `REF#2`, … on
+  both sides, so footprints that share a reference (stitching vias, logos) are compared one by one
+  (change c0277). Any other reference that a side holds more than once, or an empty one, cannot be
+  paired: it gives one `ref-ambiguous` difference and takes no further part. `--ignore-ref GLOB` leaves
+  such references out, and a reference it matches is not paired.
 - **Each fault is reported once.** A component reported as missing or ambiguous at level 1 is not
   compared at the later levels, and a component placed on one side only is reported at level 3 and not at
   level 4.
@@ -87,11 +107,17 @@ Levels 6 to 8 of the roadmap (rules, geometry, presentation) are not built.
   A renamed net is counted in `summary.renamed` and is no difference. Pads on no net form one class. A
   side with footprints gives the pads of its board; a side without gives the pins of its circuit.
   `summary.sources` says which. A pad without a number is not an element; `summary.unnumbered` counts
-  them.
+  them. Pads of one number on several nets (or on a net and on no net) are one element with several
+  labels; it agrees when its labels map to the other side's through the nets of the other pins (c0425).
 - **Level 3 does not see placement.** `Pad.position` and `Pad.rotation` are relative to the footprint, so
   a moved, turned or flipped footprint with unchanged pads is equal at level 3. Pads are paired by
   number; several pads of one number are sorted by `(x, y)` and paired in that order. Per-layer pad
   stacks, mask and paste, custom outlines, graphics, attributes and 3D models are not compared.
+- **Holes.** `pad-drill` compares the width of each hole: the shorter of `Pad.drill` and
+  `Padstack.hole_length` for a slot (change c0407). `pad-slot` compares a slot's length and axis, read by its
+  extents as KiCad's oval is (change c0416). The length is the longer number. The axis lies along it, in the
+  footprint's frame (`Pad.rotation + Padstack.hole_rotation`, plus a quarter turn when `Pad.drill` is the
+  longer number), modulo a half turn. A slot whose two numbers are equal is a round hole.
 
 ## Level 5: routing
 
@@ -139,7 +165,7 @@ For each paired net with copper, in this order:
 |---|---|---|---|
 | `route-unjudged` | info (notice) | a side holds a zone without a fill on the net and more than one piece | the net is left |
 | `route-missing` | error | one side has copper on the net (a track, an arc, a via or a fill) and the other has none | the net is left |
-| `route-connectivity` | error | the pad sets of the pieces, as multisets: the same pads are joined on both sides | the net is left |
+| `route-connectivity` | error | the pad sets of the pieces, as multisets: the same pads are joined on both sides; a pad that only one side holds counts on that side when copper reaches it (c0444) | the net is left |
 | `route-vias` | error | per pad set, the via counts per pair of copper spans | |
 | `route-length` | error | per pad set, the routed length per copper span, within the tolerance | |
 | `route-stub` | warning (notice) | the pieces without a pad (stubs, lone vias): their number and their total length | |
@@ -151,8 +177,123 @@ and the first three pads of the set, then `+n` for the rest (`VIN:C1-1,C2-1,U1-3
 sets that only that side holds, separated by ` | `.
 
 The rule above is one table, `DEFAULT_RULE` in `routing.py`. It is the default definition of level 5
-(`docs/roadmap.md`, open decision 25): a stricter mode that matches copper item by item would be a second
-table beside it.
+(`docs/roadmap.md`, open decision 25). The strict rule is a second table beside it.
+
+### Strict level 5
+
+`--strict` (`compare_designs(..., strict=True)`) runs the rule of `strict.py` after the routing rule; its
+differences follow those of the routing rule. Tracks, arcs and vias are matched as multisets of keys: a
+track by its copper span and its two ends as an unordered pair, an arc by its span, its ends in sorted
+order and its mid, a via by its position. Equal keys match first; then each unmatched item of side `a`, in
+key order, takes the first unmatched item of side `b` whose every coordinate lies within the length
+tolerance. Matched pairs compare the width (`track-width`, `arc-width`), the diameter, drill and span with
+type of a via (`via-size`, `via-drill`, `via-span`), the net (`*-net`: two nets that level 2 pairs are the
+same, an unpaired net compares by name) and the lock (`copper-locked`, a notice: a lock is editor state).
+`where` is `<net name>:<kind>:<span>:<points>`, points `x,y` joined by `-` in key order, for example
+`GND:via:top-bottom:20000000,25000000`. A track cut into two segments is a difference on purpose: a
+conversion must write the segments the original holds; the non-strict rule compares connectivity and
+length only.
+
+## Level 6: rules
+
+Net classes match by name and their members compare as sets of net names; custom rules match by name; the
+fields of the rule set other than its rules compare as one entity (`where` `ruleset`); stack-up layers
+match by name in order (a repeated name, a dielectric of several sheets, is `<name>#<n>`), and a change of
+order is one `stackup-missing` at `stackup`; the finish and the other stack-up fields are at `stackup`;
+board layers match by kind and ordinal (`where` `<kind>:<ordinal>`). The fields of an entity are those of
+its dataclass walked to the leaves, without `id`, `native_ids`, `ext` and `provenance`, so ids never
+matter; `field` is the dotted path (`selector_a.value`, `settings.clearance`). Integers compare with the
+length tolerance, points and sizes per coordinate, texts and booleans exactly.
+
+## Level 7: exact geometry
+
+Geometry is normalised in integer arithmetic before matching (`shapes.py`): a closed ring starts at its
+smallest point in `(x, y)` order and runs counter-clockwise by the sign of its doubled area, each edge
+keeping its arc mid; a segment's ends are an unordered pair; an arc keeps its mid with its ends in sorted
+order; a circle is its centre and squared radius; a rectangle is its four-point ring. Outline rings,
+cut-outs and slots, board graphics, holes and dimensions match as multisets by their whole key and give
+`<kind>-missing`. Zones match by net name, layers and outline and then compare their name, priority and
+every field of their settings (`zone-field`); fills, the fill state and the lock are never compared
+(`H-K-FID-ZONE-OUTLINE`). Rule areas match by layers and outline (`keepout-field`). A drawing of a
+keep-out layer matches as the rule area of each ring it covers; two such drawings also compare their
+`form`, `stroke` for a track, an arc or a circle and `area` for a filled shape, so a keep-out line written
+back as a region is a `keepout-field` difference (change c0442). Texts match by layer and
+text and compare position, size, thickness, rotation and justification (`text-field`). For each footprint
+pair of level 3, its graphics and texts are compared in the footprint's frame, and its fields match by name
+(`field-pose` at `<REF>:<field name>`, for example `R1:Reference` with field `position`).
+Only the typed text/footprint-field `rotation` paths use the existing cyclic angle
+metric:0/360deg and-90/270deg are equal at zero tolerance;90/0 and180/0 differ.
+Angular tolerance applies to orientation, never length tolerance. This comparison
+does not rewrite model/JSON values or fold absent/None/false/zero presence;
+generic leaves and noncyclic sweeps/ranges retain their existing semantics. `where` is
+`board:<layer>:<points or text>`, `board:outline:<ring>` or `<REF>:<layer>:<points>`.
+
+## Pairing across representations
+
+One design held by two backends states some things in two forms (change c0421, `pairing.py`). Each rule
+below pairs two forms only when they describe the same thing exactly or within the length tolerance, and
+every other difference of the pair is still compared; each has an authored negative case in
+`tests/unit/checks/equivalence/test_c0421_pairing.py`.
+
+| Rule | Always | Only with `across` |
+|---|---|---|
+| Rules (level 6) | a rule named `fenolite_<p>_<slug>` that matches nothing by identity pairs with the rule of that kind, priority `p` and slugged name; name and priority are not compared | |
+| Layers (6 and 7) | a layer pairs with the other side's layer whose user name is its name (`layer_aliases`; `User.<n>` named `Mech.<k>`), and level 7 compares the items of both under one name; a passed keep-out layer is not `layer-missing` | a non-copper layer one side declares and does not use (pads count on copper) is not missing; mechanical and user are one kind; only the copper order is compared |
+| Declared limits (6) | a rule on one side only marked `kept_record=1` (a record the other format cannot hold, kept by the conversion, c0424) is listed under `excluded` as `declared-limit`, not `rule-missing` | |
+| Stack-up (6) | | a silkscreen, paste or mask layer is compared only when both stack-ups state that kind; names match without letter case |
+| Net classes (6) | | a class on one side only without nets, and a field one side leaves unset, are not differences |
+| Keep-out drawings (7) | a graphic on a passed keep-out layer is the rule area of its outline (filled) or its band (stroke, `geometry.bands`) on every copper layer, stating `no_tracks`, `no_vias`, `no_pads` and `no_copper_pour` | |
+| `Edge.Cuts` (7) | lines and arcs left unmatched that close a ring end to end match polygons and rectangles of the other side as rings | |
+| Mounting holes (1 to 7) | a board-only footprint without reference holding one NPTH pad is a board hole when the other side holds that unplated hole (position, drill, slot) | |
+| Fields (7) | | a hidden field on one side only, or one the other side's component holds as a parameter of that name (and value), is not `field-pose` |
+| Footprint names (3) | two names are the same when they are equal once each is written as a KiCad library entry (`core.libnames.library_name`: a character other than a word character, `.`, `-` or a space becomes `_`), as the Altium to KiCad conversion names its derived library (change c0435): `R/0603` is `R_0603` | |
+| Straight arcs (strict 5) | an arc left unmatched whose ends are a track's and whose mid lies within the length tolerance of the chord is that track, compared by the track rule | |
+
+`equivalent` passes `across` for sides of two backends without the triangle, and completes each side first
+(`api/_cross_backend.py`): a KiCad side gets its project's net classes, its `.kicad_dru` rules and its
+footprint graphics and texts; an Altium side gets the arc-vertex zone outlines and the zone connection and
+clearance its rules govern, as `convert` writes them, and names its keep-out layer. Two sides of one backend
+are compared as read, and the native project context (c0352) runs only between two KiCad sides.
+
+## Level 8: presentation
+
+Both sides are drawn by the viewer's scene builders, the board with its zones by outline only
+(`fenolite.view.fidelity.board_scene`), and rasterised per layer onto one grid whose origin and size are the
+union of both sides' bounds (default pitch 50 µm, `--render-pitch-um`; 127 µm for a sheet). A pixel is inked
+when its centre lies in a primitive: polygons even-odd with exact rational edge crossings, strokes as
+capsules with round ends, discs, rings, arcs flattened by the geometry kernel, a text as the box of its
+glyphs. A pixel differs when it is inked on one side and no pixel within one pixel of it is inked on the
+other. A layer whose differing pixels times a million exceed `--pixel-ppm` (default 1000, the 0.1 % of the
+viewer's screenshot tests) times its inked pixels gives `render-pixels` at `<layer>:<x0>,<y0>-<x1>,<y1>`, the
+box of the largest connected differing region in nanometres; `a` and `b` are the pixels of each side over
+the inked pixels. A layer drawn by one side only gives `render-missing`. The level's summary names the first
+changes that the visual diff (`fenolite view NEW --compare OLD`) finds, so the moved primitive is named.
+Level 8 is `INFERRED`: one renderer draws both sides (`H-K-FID-PLOT-AGREE`).
+
+## Level S: schematic
+
+`compare_drawn(a, b, *, tolerances, pins_a, pins_b)` (`fenolite.checks.equivalence.drawn`) compares two drawn
+schematics (`docs/drawn-schematic.md`), each with the pin points of its drawn items. Sheet instances match
+by their key path (`/` for the root, `/a/b` below it); the sheets of a matched pair are compared once, at
+the first instance in page order where they meet. Symbols match by component path and unit; wires and
+buses become their maximal collinear segments first, so a wire split differently, or cut at a junction, is
+the same drawing; every other item matches as a multiset by kind, position and attributes (a label's kind,
+text, angle and shape; a sheet reference's name, size and pins), an opaque item by the SHA-256 of its
+fragment. An item of the same kind and position whose attributes differ gives `item-field` naming the
+attribute (`label.local.text`); the paper and title block of a sheet give `item-field` at `<path>:sheet`.
+`where` is the instance path followed by `:` and the symbol (`<component>:<unit>`) or the item kind and its
+first point in nanometres (`junction@127000000,57150000`). Both drawings are then resolved and the first pin
+of both, in sorted order, whose group of common pins differs gives one `drawn-net` at `<component>-<pin>`.
+Lengths match within `--tolerance-nm` per coordinate and angles within `--tolerance-udeg`. A field pose that
+one side leaves to the target gives `symbol-field` with an empty side.
+
+Typed fonts are compared attribute by attribute (`font.size`, `thickness`, `bold`, `italic`, `face`),
+including symbol/power fields, labels, sheet pins and sheet-name/file fields. Symbol differences use
+`fields.<name>.font.<attribute>`; other items use `item-field` with their located attribute. Explicit
+label/pin centring differs from the legacy role-selected anchor. Native extraction first normalizes
+the effective default spellings established for that target; the backend-independent comparison
+does not guess native defaults or change canonical `None`/false/zero presence. No absent style adds
+a new difference attribute. Sheet-property poses are observable too; their texts stay code-owned.
 
 ## Kinds of difference
 
@@ -169,6 +310,7 @@ level are sorted by `where`, then kind.
 | 1 | `ref-ambiguous` | `ref` | a reference that a side holds more than once, or an empty reference; `a` and `b` are the two counts |
 | 1 | `value` | `value` | the values differ |
 | 1 | `dnp` | `dnp` | the do-not-populate flags differ |
+| 1 | `bom-only` | `bom_only` | typed off-board BOM membership differs |
 | 2 | `pin-missing` | `pin` | a `REF-PIN` of a common component that only one side holds |
 | 2 | `net` | `net` | a `REF-PIN` whose net block differs; `a` and `b` are the net names |
 | 3 | `footprint-missing` | `footprint` | a common component that is placed on one side only |
@@ -178,9 +320,12 @@ level are sorted by `where`, then kind.
 | 3 | `pad-shape` | `shape` | the shapes differ |
 | 3 | `pad-size` | `size` | the sizes differ beyond the tolerance |
 | 3 | `pad-drill` | `drill` | the drills differ beyond the tolerance, or only one pad has a drill |
+| 3 | `pad-slot` | `slot` | the slot holes differ in length or axis beyond the tolerances, or only one pad has a slot; `a` and `b` are `<length>@<axis>`, the axis in the footprint's frame modulo a half turn along the longer side |
 | 3 | `pad-position` | `position` | the positions in the footprint differ beyond the tolerance |
 | 3 | `pad-rotation` | `rotation` | the rotations relative to the footprint differ beyond the tolerance |
 | 3 | `pad-copper` | `layers` | the copper spans differ |
+| 3 | `net-tie-copper` | `copper` | a footprint that is a net tie on a side holds a piece of copper (a segment, a region or an arc on a copper layer, in the footprint's frame, by role `top`, `inner<k>` or `bottom`) that the other side does not hold within the tolerance; `a` or `b` is `""` (change c0431). The copper is the footprint's graphics and the primitives of its custom pads without a number or a net, which is how KiCad's importer holds a copper region of a component (`docs/formats/altium/pcb-read.md`) |
+| 3 | `pad-mask` | `mask_margin` | the solder-mask expansions differ beyond the tolerance (change c0440): the pad's own margin; on a side read from Altium, its manual expansion, `none` for mode 0, and for a pad that follows the rules the expansion of the kept `SolderMaskExpansion` record that governs it, as the conversion chooses it (change c0462; `rules` when none selects it, and no statement when a record whose scope cannot be judged without the document comes first). A KiCad pad without its own margin follows the board's setting, which the model does not hold: it agrees with any value |
 | 4 | `side` | `side` | top on one side of the comparison, bottom on the other |
 | 4 | `position` | `position` | the positions differ beyond the tolerance, in the chosen frame |
 | 4 | `rotation` | `rotation` | the rotations differ beyond the tolerance |
@@ -190,10 +335,56 @@ level are sorted by `where`, then kind.
 | 5 | `route-length` | `length` | for one pad set, a routed length per copper span differs beyond the tolerance |
 | 5 | `route-stub` | `stubs` | the pieces without a pad differ in number or in total length (a notice: a warning) |
 | 5 | `route-unjudged` | `zones` | the net's connectivity depends on a zone without a fill (a notice: an info) |
+| 5 | `track-missing` | `track` | strict: a track that only one side holds |
+| 5 | `track-width` | `width` | strict: matched tracks of different widths |
+| 5 | `track-net` | `net` | strict: matched tracks on nets of different names |
+| 5 | `arc-missing` | `arc` | strict: an arc that only one side holds |
+| 5 | `arc-width` | `width` | strict: matched arcs of different widths |
+| 5 | `arc-net` | `net` | strict: matched arcs on nets of different names |
+| 5 | `via-missing` | `via` | strict: a via that only one side holds |
+| 5 | `via-size` | `diameter` | strict: matched vias of different diameters |
+| 5 | `via-drill` | `drill` | strict: matched vias of different drills |
+| 5 | `via-span` | `layers` | strict: matched vias of different copper spans or types |
+| 5 | `via-net` | `net` | strict: matched vias on nets of different names |
+| 5 | `copper-locked` | `locked` | strict: matched items whose lock differs (a notice: a warning) |
+| 5 | `copper-no-net` | `copper` | a piece of copper without a net (a track, an arc, or a graphic on a copper layer, a footprint's own left out) that one side holds and no piece of the other matches within the tolerance, located at `(no net):<span>`: copper that shorts what it touches, such as a polygon cut-out written as copper (change c0439). A KiCad graphic's net is read from its KiCad slot first |
+| 6 | `netclass-missing` | `name` | a net class that only one side holds |
+| 6 | `netclass-field` | the field | a field of a net class differs |
+| 6 | `netclass-members` | `nets` | the nets assigned to a net class differ |
+| 6 | `rule-missing` | `name` | a custom rule that only one side holds |
+| 6 | `rule-field` | the field | a field of a custom rule differs |
+| 6 | `ruleset-field` | the field | a board-wide rule or minimum differs |
+| 6 | `stackup-missing` | `layer` | a stack-up layer that only one side holds, or out of order |
+| 6 | `stackup-field` | the field | a field of a stack-up layer, or the finish, differs |
+| 6 | `layer-missing` | `layer` | a board layer of one name that only one side holds (`where` `<kind>:<name>`) |
+| 6 | `layer-field` | the field | a layer of one name has another `kind`, or the common layers stand in another `order` (c0281) |
+| 7 | `outline-missing` | `ring` | an outline ring, cut-out or slot that only one side holds |
+| 7 | `zone-missing` | `zone` | a zone outline that only one side holds |
+| 7 | `zone-field` | the field | a field of matched zones differs (never the fill) |
+| 7 | `keepout-missing` | `keepout` | a rule area that only one side holds |
+| 7 | `keepout-field` | the field | a field of matched rule areas differs |
+| 7 | `graphic-missing` | `graphic` | a board or footprint graphic that only one side holds |
+| 7 | `graphic-field` | the field | matched graphics (layer, kind, geometry, fill) differ in `width` (c0281) |
+| 7 | `text-missing` | `text` | a board or footprint text that only one side holds |
+| 7 | `text-field` | the field | a field of matched texts differs |
+| 7 | `field-pose` | the field | a field of a footprint field (reference, value, user field) differs |
+| 7 | `hole-missing` | `hole` | a board hole that only one side holds |
+| 7 | `dimension-missing` | `dimension` | a dimension that only one side holds |
+| 7 | `opaque-count` | the item kind | the opaque root items of one kind (teardrops, groups…) differ in count; added by `verify-source` (c0281) |
+| 8 | `render-missing` | `layer` | a layer or sheet that only one side renders |
+| 8 | `render-pixels` | `pixels` | a layer or sheet whose rendered masks differ beyond the pixel tolerance |
+| S | `sheet-missing` | `sheet` | a sheet instance that only one side holds |
+| S | `symbol-missing` | `symbol` | a symbol unit that only one side draws |
+| S | `symbol-pose` | the field | the position, rotation or mirror of a matched symbol differs |
+| S | `symbol-field` | the field | the pose or effective font of a field of a matched symbol differs |
+| S | `item-missing` | the item kind | a wire, bus, bus entry, junction, no-connect flag, label, power symbol, sheet reference, sheet pin or opaque item that only one side holds |
+| S | `item-field` | the field | an attribute of a matched item (label, power symbol, junction, bus entry, sheet reference and its pins) or the paper or title block of a sheet differs |
+| S | `drawn-net` | `net` | the drawn connectivity differs (a `REF-PIN` in another group) |
 
 The issue code of a difference is `equiv.<kind>`, except `net`, which carries
 `netlist.assignment-differs`, the code of the assignment comparison. Every kind is an error, except the
-two notices of level 5: `route-stub` is a warning and `route-unjudged` an info.
+notices of level 5: `route-stub` and `copper-locked` are warnings and `route-unjudged` an info. A field
+written "the field" is the dotted path of the field that differs, and "the item kind" the kind of the item.
 
 ## Tolerances and normalisation
 
@@ -297,3 +488,9 @@ What the label means: `evidence.oracle` is `kicad-cli`, and a result without dif
 independent readers of one file agree at that level. It says nothing about Altium Designer, and both
 readers could share a mistake. The measured results per public document, the rules and what remains
 undecided are in `docs/evidence/equivalence-triangle.md`.
+
+### Native project context at level6 (c0352)
+
+When both native sides have supported, already traced project+board inputs, path-based API/CLI and verify-source append exact comparison of the five supported project hard floors, seven represented netclass length fields and effective class memberships bound by complete numbered-pad partitions. Native raw net spelling and patterns are resolved against the original raw names; no slash guesses match aliases. Same-number same-net duplicate physical pads collapse only in electrical sets.
+
+The `native_project_rules` summary/proof names judged keys/counts, absent-both fields as unjudged, source/generated majors and read-set hashes. It does not certify all project JSON or actual custom DRU semantics. Existing canonical differences remain visible. Missing/inexact/malformed supported floors, duplicate classes, multiple-class aggregation, unbound/ambiguous identity or stale traced bytes refuse complete native-context comparison. Pure canonical Design-vs-Design has no independent hard-floor field and is unchanged.

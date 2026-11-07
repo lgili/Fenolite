@@ -5,10 +5,11 @@
 It is one of the five samples of the Altium verification kit (``docs/altium-kit.md``). ``kit_model`` puts
 the copper into the model, in millimetres from the upper-left corner of the 50 mm by 30 mm outline:
 
-- ``LED_DRV`` from pin 2 of ``U1`` round the controller to pad 1 of ``R1``, and ``LED_A`` from pad 2 of
-  ``R1`` to pad 2 of ``D1``, both 0.25 mm wide on the top layer;
-- ``VIN`` from pin 1 of ``J1`` to pin 1 of ``U1``, 0.6 mm wide; ``GND`` from pad 1 of ``D1`` to a via,
-  0.6 mm wide, and one ``GND`` polygon on the bottom layer, 1 mm inside the outline;
+- ``LED_DRV`` from pin 2 of ``U1`` between the controller's two rows of pins to pad 1 of ``R1``, and
+  ``LED_A`` from pad 2 of ``R1`` to pad 2 of ``D1``, both 0.25 mm wide on the top layer;
+- ``VIN`` from pin 1 of ``J1`` below and round the controller to pin 1 of ``U1``, 0.6 mm wide; ``GND``
+  from pad 1 of ``D1`` to a via, 0.6 mm wide, and one ``GND`` polygon on the bottom layer, 1 mm inside
+  the outline;
 - planted violation 1: one ``VIN`` stub that is 0.5 mm wide, below the 0.6 mm minimum of the width rule
   of the net class ``PWR``;
 - planted violation 2: one ``VIN`` via and one ``LED_A`` via whose edges are 0.6 mm apart, inside the
@@ -78,14 +79,16 @@ def _id(prefix, key):
 
 SIGNAL, POWER, NARROW = 250_000, 600_000, 500_000
 TRACKS = (
-    ("t1", "LED_DRV", (16.19, 16.27), (12.0, 16.27), SIGNAL),
-    ("t2", "LED_DRV", (12.0, 16.27), (12.0, 6.0), SIGNAL),
-    ("t3", "LED_DRV", (12.0, 6.0), (33.2, 6.0), SIGNAL),
+    ("t1", "LED_DRV", (16.19, 13.73), (20.0, 13.73), SIGNAL),
+    ("t2", "LED_DRV", (20.0, 13.73), (20.0, 6.0), SIGNAL),
+    ("t3", "LED_DRV", (20.0, 6.0), (33.2, 6.0), SIGNAL),
     ("t4", "LED_DRV", (33.2, 6.0), (33.2, 9.0), SIGNAL),
     ("t5", "LED_A", (34.8, 9.0), (42.825, 9.0), SIGNAL),
     ("t6", "LED_A", (42.825, 9.0), (42.825, 20.0), SIGNAL),
     ("t7", "VIN", (6.0, 16.27), (6.0, 18.81), POWER),
-    ("t8", "VIN", (6.0, 18.81), (16.19, 18.81), POWER),
+    ("t8", "VIN", (6.0, 18.81), (12.0, 18.81), POWER),
+    ("t10", "VIN", (12.0, 18.81), (12.0, 11.19), POWER),
+    ("t11", "VIN", (12.0, 11.19), (16.19, 11.19), POWER),
     ("t9", "GND", (41.175, 20.0), (41.175, 24.0), POWER),
     ("stub", "VIN", (6.0, 16.27), (2.5, 16.27), NARROW),
 )

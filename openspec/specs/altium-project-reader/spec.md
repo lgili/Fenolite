@@ -236,6 +236,7 @@ Read the text files of an Altium project (the project file, output jobs, rule fi
 | `InNetClass('v')` | `netclass v` |
 | `InComponent('v')` | `ref v` |
 | `IsTrack`, `IsVia`, `IsPad` | `item_kind track`, `via`, `pad` |
+| `InPolygon`, `InPoly` | `item_kind zone` |
 | `x And y And …`, `x && y && …` | `and(x, y, …)` |
 | `x Or y Or …`, `x \|\| y \|\| …` | `or(x, y, …)` |
 | `Not x` | `not(x)` |
@@ -243,12 +244,18 @@ Read the text files of an Altium project (the project file, output jobs, rule fi
 
 - Spaces around tokens MUST be ignored. A value `v` MUST be non-empty and MUST NOT hold `'`, `*`, `?`, `[` or `]`, because a neutral leaf value is a glob.
 - One parenthesis level MUST hold one kind of operator: an expression that mixes `And`, `Or` and `Not` without parentheses is refused, because no permitted source states the precedence. `Not` MUST be followed by a leaf or a parenthesised expression and MUST be the whole of its level.
+- `InPolygon` (alias `InPoly`) is the attribute check that Altium names for the copper of a polygon pour in a clearance rule (S-1702, change c0412). It takes no argument; `InNamedPolygon('…')` and `InPolygonClass('…')` stay outside the grammar.
 - `All` below the top level, `OnLayer` and every other layer function, every other function or field comparison, and any text left over MUST be refused. A scope MUST never be approximated.
 
 #### Scenario: Class and item kind
 - **GIVEN** `InNetClass('HV') And (Not IsVia)`
 - **WHEN** `parse_scope` is called
 - **THEN** it returns `and(netclass HV, not(item_kind via))`
+
+#### Scenario: Pour copper
+- **GIVEN** `InPolygon And (Not InNetClass('HV'))` and `InPoly`
+- **WHEN** `parse_scope` is called on each
+- **THEN** it returns `and(item_kind zone, not(netclass HV))` and `item_kind zone`
 
 #### Scenario: Mixed operators without parentheses
 - **GIVEN** `InNet('A') Or InNet('B') And IsTrack`
@@ -597,3 +604,43 @@ A `Clearance` record whose `OBJECTCLEARANCES` holds clearances that differ from 
 - **GIVEN** a PCB document with the record of "One cell" and an entry for a track against text
 - **WHEN** `uv run pytest tests/unit/backends/altium/adapter/test_rules.py -k cell_rules` imports it
 - **THEN** the cell rule has a native id and a bag of its own, the clearance in force between two vias is 88 900 nm from `Clearance/via-via`, and between a via and a track 101 600 nm from `Clearance`
+
+### Requirement: Operators in any letter case
+`parse_scope` SHALL read a query operator written in any letter case (`and`, `AND`, `or`, `OR`, `not`,
+`NOT`) as `And`, `Or` or `Not`. The reading is `INFERRED` (`H-A-RD-PRJ-SCOPE-CASE`): no public source
+states Altium's letter-case rule.
+
+#### Scenario: A lower-case Or
+- **WHEN** the scope is `IsVia or IsTrack`
+- **THEN** the selector is `or(item_kind via, item_kind track)`
+
+### Requirement: Net scope of a rule on one object
+A Width, Routing Via Style, Hole Size or Minimum Annular Ring record SHALL map with `NETSCOPE` `AnyNet` or
+`DifferentNets` (`H-A-RD-PRJ-NETSCOPE-ONE`, `INFERRED`); any other value, and a Clearance whose
+`NETSCOPE` is not `DifferentNets`, SHALL stay unmapped with the reason `net-scope`.
+
+#### Scenario: A Width rule of DifferentNets
+- **WHEN** a Width record holds `NETSCOPE=DifferentNets`
+- **THEN** it maps to a `track_width` rule
+
+#### Scenario: A Clearance of AnyNet
+- **WHEN** a Clearance record holds `NETSCOPE=AnyNet`
+- **THEN** it is unmapped with the reason `net-scope`
+
+### Requirement: Rule kinds of change c0424 onto the neutral model
+`read.rules.RULE_KIND_MAP` SHALL map the following Altium kinds onto model kinds that the KiCad target writes. Their keys come from the public rule file and PCB documents of the corpus (S-0297, S-1838).
+- `SilkToSilkClearance` MUST map onto `silk_clearance`, with `min` taken from `SILKTOSILKCLEARANCE`.
+- `ComponentClearance` MUST map onto `courtyard_clearance`, with `min` taken from `GAP`. `VERTICALGAP`, `COLLISIONCHECKMODE` and `SHOWDISTANCES` MUST be allowed and unused.
+- `DiffPairsRouting` MUST map onto `diff_pair_gap`, with `min`, `opt` and `max` taken from `MINLIMIT`, `MOSTFREQGAP` and `MAXLIMIT`, and onto `diff_pair_uncoupled`, with `max` taken from `MAXUNCOUPLEDLENGTH`.
+  - The per-layer width keys (`<LAYER>_MINWIDTH`, `_MAXWIDTH`, `_PREFWIDTH`) and `IMPEDANCEPROFILEDRIVEN`, `IMPEDANCEPROFILEID` and `IMPEDANCEPROFILEVALUE` MUST be allowed and unused.
+  - Its selector MUST name the pairs: `diff_pair *` for the scope `All`, otherwise `and` of `diff_pair *` and the scope's selector.
+- `RoutingLayers` MUST map, when the caller gives the copper layers, onto one `no_tracks` rule. Its layers MUST be every copper layer of the board whose key `<NAME>_V5` is `FALSE`. The name of a layer's key MUST be `TOP LAYER`, `MID LAYER <n>` or `BOTTOM LAYER` by its Altium layer id.
+  - A record that disallows no layer of the board MUST map onto no rule. It MUST count as mapped.
+  - Without copper layers the record MUST be refused with the reason `no-layer`.
+- `HoleToHoleClearance` MUST map with `ALLOWSTACKEDMICROVIAS` `FALSE` or `TRUE`.
+
+#### Scenario: One record of each new kind
+- **GIVEN** authored records of Silk To Silk Clearance, Component Clearance, Differential Pairs Routing, Routing Layers that disallow `MID LAYER 1` on a four-layer board, and Hole To Hole Clearance with stacked micro vias allowed
+- **WHEN** `uv run pytest tests/unit/backends/altium/read/test_rule_kinds_c0424.py` maps them with the board's copper layers
+- **THEN** the rules are one `silk_clearance`, one `courtyard_clearance`, one `diff_pair_gap` with three limits, one `diff_pair_uncoupled`, one `no_tracks` on `In1.Cu`, and one `hole_to_hole`, with no unmapped record
+

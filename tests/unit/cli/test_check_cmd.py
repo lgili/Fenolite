@@ -385,9 +385,11 @@ def test_default_stages_leave_rt2_out(monkeypatch: pytest.MonkeyPatch, tmp_path:
     assert _only_the_fixture_short(code, env), env["issues"]
     assert [s["name"] for s in env["result"]["stages"]] == [
         "model.validate",
+        "circuit.rules",
         "erc.kicad",
         "copper.clearance",
         "length.rules",
+        "topology.rules",
         "placement.rules",
         "roles.rules",
         "zone.fill",
@@ -396,6 +398,9 @@ def test_default_stages_leave_rt2_out(monkeypatch: pytest.MonkeyPatch, tmp_path:
         "netlist.assignment_compare",
         "roundtrip",
     ]
+    topology = next(stage for stage in env["result"]["stages"] if stage["name"] == "topology.rules")
+    assert topology["reason"] == "no-topology"
+
     assert _stages(env)["parity"]["reason"] == "no-schematic"
     assert _stages(env)["copper.clearance"]["status"] == "errors"
     compare = _stages(env)["netlist.assignment_compare"]
@@ -404,6 +409,61 @@ def test_default_stages_leave_rt2_out(monkeypatch: pytest.MonkeyPatch, tmp_path:
         {"a": "board", "b": "export", "common": 4, "only_a": 0, "only_b": 0, "differences": 0}
     ]
     assert _stages(env)["drc.kicad"]["summary"]["violations_judged"] is True
+
+
+def test_explain_rules_without_subprocess(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from dataclasses import replace
+
+    from _topologybench import bench, ident
+
+    from fenolite.backends.kicad.layers import created_layers
+    from fenolite.backends.kicad.triad import write_triad
+    from fenolite.model.circuit import NetClass
+    from fenolite.model.rules import Rule, RuleSet, Selector
+
+    design = bench()
+    design = replace(design, board=replace(design.board, layers=created_layers(4)))
+    cls = NetClass(id=ident("cls", "HS"), name="HS")
+    design = replace(
+        design,
+        circuit=replace(
+            design.circuit, netclasses=(cls,), nets=(replace(design.circuit.nets[0], netclass_id=cls.id),)
+        ),
+        rules=RuleSet(
+            id=ident("rst", "explain"),
+            rules=(
+                Rule(
+                    id=ident("rul", "net"),
+                    name="net rule",
+                    kind="track_width",
+                    selector_a=Selector("net", "CLK"),
+                    min=250_000,
+                    priority=3,
+                ),
+                Rule(
+                    id=ident("rul", "class"),
+                    name="class rule",
+                    kind="track_width",
+                    selector_a=Selector("netclass", "HS"),
+                    min=300_000,
+                    priority=1,
+                ),
+            ),
+        ),
+    )
+    folder = tmp_path / "project"
+    folder.mkdir()
+    for name, text in write_triad(design, name="rules").items():
+        (folder / name).write_text(text)
+    _no_subprocess(monkeypatch)
+    code, env, _, _ = run(
+        monkeypatch, tmp_path, "check", str(folder), "--stages", "model.validate", "--explain-rules"
+    )
+    assert code == 0, env
+    row = next(row for row in env["result"]["rules"] if row["subject"] == "CLK")
+    assert row["kind"] == "track_width" and row["rank"] == 2
+    assert "class_rule" in row["governing"]["name"] and "net_rule" in row["overrides"][0]["name"]
+    assert len([issue for issue in env["issues"] if issue["code"] == "rules.shadowed"]) == 1
 
 
 def test_rt2_selected(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -478,7 +538,13 @@ def test_waiver_native_project_has_none(monkeypatch: pytest.MonkeyPatch, tmp_pat
     ``.fenolite/`` model, so no finding of it is waived."""
     board = _copy(tmp_path)
     code, env, _, _ = run(monkeypatch, tmp_path, "check", str(board), "--stages", "copper.clearance")
-    assert env["result"]["waivers"] == {"declared": 0, "matched": {}, "unmatched": [], "unjudged": {}}
+    assert env["result"]["waivers"] == {
+        "declared": 0,
+        "matched": {},
+        "unmatched": [],
+        "expired": [],
+        "unjudged": {},
+    }
     shorts = [i for i in env["issues"] if i["code"] == "copper.short"]
     assert code == 5 and shorts and all(i["severity"] == "error" for i in shorts)
     assert "waivers" not in _stages(env)["copper.clearance"]["summary"]  # type: ignore[operator]

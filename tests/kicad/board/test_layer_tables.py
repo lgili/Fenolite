@@ -1,11 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""Created layer tables of 2, 4, 6 and 8 copper layers on the running ``kicad-cli`` (capability
-kicad-oracle, "Created layer tables are probed on both majors"; hypothesis H-K-PCB-LAYERS; change c0100).
+"""Created layer tables of every even count of copper layers from 2 to 32 on the running ``kicad-cli``
+(capability kicad-oracle, "Created layer tables are probed on both majors"; hypothesis H-K-PCB-LAYERS;
+change c0100, counts 10 to 32 since change c0277).
 
 The created test board gets the table of n copper layers and is loaded (``pcb drc``), exported (one
 Gerber per copper layer) and, on 10.0, re-saved (``pcb upgrade --force``). The table of 3 is the negative
-control. ``test_same_table`` is hermetic: the probes judge the table that the writer creates.
+control; the table of one copper layer records its outcome (H-K-PCB-ONE-COPPER). ``test_same_table`` is
+hermetic: the probes judge the table that the writer creates.
 """
 
 from __future__ import annotations
@@ -34,7 +36,7 @@ def test_odd_table_is_the_rule_for_three() -> None:
     """The negative control is what the row rule gives for three layers, which Fenolite refuses to create."""
     names = [row[1] for row in lt.rows(lt.ODD) if row[1].endswith(".Cu")]
     assert names == ["F.Cu", "In1.Cu", "B.Cu"] and lt.rows(lt.ODD)[1] == (4, "In1.Cu", "signal", None)
-    with pytest.raises(ValueError, match="2, 4, 6 or 8"):
+    with pytest.raises(ValueError, match="an even count from 2 to 32"):
         created_layers(lt.ODD)
 
 
@@ -73,3 +75,16 @@ def test_odd_table_is_refused(target: int) -> None:
     result = lt.table_run(lt.ODD, target)
     assert not result.loaded and result.gerbers == ()
     assert run(f"pcb-layers-odd-t{target}") == "reject"
+
+
+@pytest.mark.needs_kicad
+@pytest.mark.parametrize("target", TARGETS)
+def test_one_copper_table(target: int) -> None:
+    """H-K-PCB-ONE-COPPER (change c0277): KiCad 9.0.9 and 10.0.6 refuse a table whose only copper row is
+    ``F.Cu`` ("1 is not a valid layer count"), so 1 is not a count of ``CREATED_COPPER_COUNTS``."""
+    from _probes import run
+
+    result = lt.table_run(lt.ONE, target)
+    print(f"n=1 t{target}: loaded {result.loaded}")
+    assert not result.loaded and 1 not in CREATED_COPPER_COUNTS
+    assert run(f"pcb-layers-1-t{target}") == "reject"

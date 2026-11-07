@@ -62,6 +62,9 @@ def set_field(
     thickness: Nm | None = None,
     justify: tuple[FieldJustifyH, FieldJustifyV] | None = None,
     mirrored: bool | None = None,
+    bold: bool | None = None,
+    italic: bool | None = None,
+    face: str | None = None,
 ) -> FootprintInstance:
     """A copy of ``fp`` whose field ``name`` takes every given value; ``anchor`` and ``angle`` are board-frame
     values. An unknown name raises ``KeyError``.
@@ -87,6 +90,9 @@ def set_field(
         changes["h_justify"], changes["v_justify"] = justify
     if mirrored is not None:
         changes["mirrored"] = mirrored
+    for key, value in (("bold", bold), ("italic", italic), ("face", face)):  # the font of change c0277
+        if value is not None:
+            changes[key] = value
     new = dataclasses.replace(field, **changes)  # type: ignore[arg-type]
     if new == field:
         return fp

@@ -13,14 +13,19 @@ objects on it cut the plane and are no copper, so the import leaves them out and
 
 from __future__ import annotations
 
+import dataclasses
+import struct
 from collections import Counter
 from collections.abc import Iterable, Mapping
 from types import MappingProxyType
+from typing import TypeVar, cast
 
 from fenolite.backends.altium.adapter import units
 from fenolite.backends.altium.adapter.codes import issue
 from fenolite.backends.altium.adapter.ids import Ids, bag
-from fenolite.backends.altium.read.pcbstack import LAYER_NAMES, BoardRecord
+from fenolite.backends.altium.read.pcb import PcbDocument
+from fenolite.backends.altium.read.pcbprims import ArcRecord, FillRecord, Primitive, TextRecord, TrackRecord
+from fenolite.backends.altium.read.pcbstack import LAYER_NAMES, BoardRecord, long_layer_id
 from fenolite.backends.altium.read.rules import CopperLayer, CopperLayers
 from fenolite.core.errors import Issue
 from fenolite.core.provenance import Provenance
@@ -32,6 +37,17 @@ FIRST_PLANE, LAST_PLANE = 39, 54
 EDGE = "Edge.Cuts"
 EDGE_ORDINAL = 100
 ORDINAL_OFFSET = 100
+MECHANICAL_16 = 72
+LONG_MECHANICAL = 0x0102_0000
+"""Mechanical n has the long layer id ``LONG_MECHANICAL + n`` (``pcb-library.md``, "Long layer ids")."""
+LONG_MECHANICAL_NUMBERS = range(17, 33)
+"""The mechanical layers that no layer byte names: a track, an arc or a fill on one holds the byte of
+Mechanical 16 and the layer's long id (``pcb-records.md``, "Long forms"), and Altium shows it on the layer
+of its long id (S-1588). The import names such a layer by its long id (change c0450, task 4.4)."""
+LONG_ORDINAL = 200
+"""The ordinal of Mechanical n (17 … 32) is ``LONG_ORDINAL + n``: after every layer of a layer byte."""
+_LONG_AT: dict[type, int] = {TrackRecord: 41, ArcRecord: 52, FillRecord: 42}
+"""The offset of the long layer id in the long form of a track, an arc and a fill (``pcb-records.md``)."""
 
 
 def _table() -> dict[int, tuple[str, LayerKind]]:
@@ -47,7 +63,64 @@ def _table() -> dict[int, tuple[str, LayerKind]]:
         73: ("Altium.DrillDrawing", "user"),
     }
     table.update({56 + n: (f"Mech.{n}", "mechanical") for n in range(1, 17)})
+    table.update({LONG_MECHANICAL + n: (f"Mech.{n}", "mechanical") for n in LONG_MECHANICAL_NUMBERS})
     return table
+
+
+TEXT_LONG_AT = 226
+"""The offset of the long layer id in the first subrecord of a text of 232 or 252 bytes (change c0450, task
+4.5; ``pcb-records.md``, "Text")."""
+
+
+def text_first(item: TextRecord) -> bytes:
+    """The first subrecord of a text record; empty for a record too short to hold one."""
+    if len(item.raw) < 5:
+        return b""
+    (length,) = struct.unpack_from("<I", item.raw, 1)
+    return item.raw[5 : 5 + length]
+
+
+def long_mechanical(item: Primitive) -> int | None:
+    """The long id of Mechanical 17 to 32 that a track, an arc or a fill of the long form names with the
+    layer byte of Mechanical 16; ``None`` for any other record."""
+    if isinstance(item, TextRecord) and item.prefix.layer == MECHANICAL_16:
+        # a text holds it at 226 of its first subrecord, when that is long enough (task 4.5)
+        body, at = text_first(item), TEXT_LONG_AT
+    elif not isinstance(item, TrackRecord | ArcRecord | FillRecord) or item.prefix.layer != MECHANICAL_16:
+        return None
+    else:
+        body, at = item.raw[5:], _LONG_AT[type(item)]
+    if len(body) < at + 4:
+        return None
+    (long,) = struct.unpack_from("<I", body, at)
+    kind, number = long_layer_id(long)
+    return long if kind == "mechanical" and number in LONG_MECHANICAL_NUMBERS else None
+
+
+_P = TypeVar("_P", bound=Primitive)
+
+
+def _relayered(items: tuple[_P, ...]) -> tuple[_P, ...]:
+    out: list[_P] = []
+    for item in items:
+        long = long_mechanical(item)
+        if long is not None and isinstance(item, TrackRecord | ArcRecord | FillRecord | TextRecord):
+            moved = dataclasses.replace(item, prefix=dataclasses.replace(item.prefix, layer=long))
+            out.append(cast(_P, moved))
+        else:
+            out.append(item)
+    return tuple(out)
+
+
+def with_long_mechanical(doc: PcbDocument) -> PcbDocument:
+    """``doc`` whose tracks, arcs and fills on Mechanical 17 to 32 (``long_mechanical``) have that layer's
+    long id as their layer, so that the import names the layer as Altium shows it (change c0450, task 4.4);
+    ``doc`` itself when none is."""
+    tracks, arcs, fills = _relayered(doc.tracks), _relayered(doc.arcs), _relayered(doc.fills)
+    texts = _relayered(doc.texts)  # task 4.5: a text by the long id at 226
+    if (tracks, arcs, fills, texts) == (doc.tracks, doc.arcs, doc.fills, doc.texts):
+        return doc
+    return dataclasses.replace(doc, tracks=tracks, arcs=arcs, fills=fills, texts=texts)
 
 
 LAYERS: Mapping[int, tuple[str, LayerKind]] = MappingProxyType(_table())
@@ -120,7 +193,7 @@ class LayerMap:
         neutral name, and whether it is an internal signal layer (an id between top and bottom)."""
         return CopperLayers(
             tuple(
-                CopperLayer(self.altium_name(layer), self.copper[layer], TOP < layer < BOTTOM)
+                CopperLayer(self.altium_name(layer), self.copper[layer], TOP < layer < BOTTOM, layer)
                 for layer in self.chain
             )
         )
@@ -155,12 +228,25 @@ class LayerMap:
         return LAYERS[layer_id][1] if layer_id in LAYERS else "user"
 
     def altium_name(self, layer_id: int) -> str:
-        """The name the board record gives the layer, else the default name of the id, else ``""``."""
+        """The name the board record gives the layer, else the default name of the id, else ``""``. The
+        name of Mechanical 17 to 32 is the ``LAYERV7_<i>NAME`` whose ``LAYERID`` is its long id."""
+        if layer_id - LONG_MECHANICAL in LONG_MECHANICAL_NUMBERS:
+            return self._later_name(layer_id)
         if self.record is not None:
             for layer in self.record.layers:
                 if layer.id == layer_id:
                     return layer.name
         return LAYER_NAMES.get(layer_id, "")
+
+    def _later_name(self, long: int) -> str:
+        default = f"Mechanical {long - LONG_MECHANICAL}"
+        if self.record is None:
+            return default
+        record = self.record.record
+        for index in range(len(LONG_MECHANICAL_NUMBERS) + 1):
+            if record.get(f"LAYERV7_{index}LAYERID") == str(long):
+                return record.get(f"LAYERV7_{index}NAME") or default
+        return default
 
     def entities(self, ids: Ids, provenance: Provenance | None) -> tuple[Layer, ...]:
         """The ``Layer`` entities: every copper layer of the chain, ``Edge.Cuts``, and every other layer
@@ -194,7 +280,9 @@ class LayerMap:
         make(EDGE, "edge", EDGE_ORDINAL, [])
         for layer in sorted(self.used - set(self.copper) - {MULTI}):
             pairs = [("layer_id", str(layer)), ("altium_name", self.altium_name(layer))]
-            make(self.peek(layer), self.kind(layer), layer + ORDINAL_OFFSET, pairs)
+            later = layer - LONG_MECHANICAL in LONG_MECHANICAL_NUMBERS
+            ordinal = LONG_ORDINAL + layer - LONG_MECHANICAL if later else layer + ORDINAL_OFFSET
+            make(self.peek(layer), self.kind(layer), ordinal, pairs)
         return tuple(out)
 
 
@@ -208,7 +296,7 @@ def copper_layers_of(layers: Iterable[Layer]) -> CopperLayers | None:
         ident = pairs.get("layer_id", "")
         if "altium_name" not in pairs or not (ident.isascii() and ident.isdigit()):
             return None
-        found.append(CopperLayer(pairs["altium_name"], layer.name, TOP < int(ident) < BOTTOM))
+        found.append(CopperLayer(pairs["altium_name"], layer.name, TOP < int(ident) < BOTTOM, int(ident)))
     return CopperLayers(tuple(found))
 
 
@@ -291,4 +379,16 @@ def stackup(
     return Stackup(id=ident, native_ids=native, provenance=provenance, layers=tuple(entries))
 
 
-__all__ = ["EDGE", "LAYERS", "MULTI", "LayerMap", "copper_name", "stackup"]
+__all__ = [
+    "EDGE",
+    "LAYERS",
+    "LONG_MECHANICAL",
+    "MULTI",
+    "LayerMap",
+    "copper_name",
+    "TEXT_LONG_AT",
+    "long_mechanical",
+    "text_first",
+    "stackup",
+    "with_long_mechanical",
+]

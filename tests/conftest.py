@@ -33,6 +33,9 @@ from _resources import (  # noqa: E402  (imported after the sys.path setup above
 
 pytest_plugins = ["pytester"]
 
+# Authored block self-test payload, executed explicitly by the block runner (c0322).
+collect_ignore = ["data/blocks/lib/tests/test_divider.py"]
+
 if sys.platform == "win32":
     # The test helpers write their fixtures with ``Path.write_text`` and the code under test reads bytes.
     # Windows would write CR LF where the fixtures mean LF, so a helper's text keeps its own line ends.
@@ -155,6 +158,23 @@ def _state_folder_of_the_test(tmp_path_factory: pytest.TempPathFactory) -> Itera
     name = "FENOLITE_STATE_DIR"
     before = os.environ.get(name)
     os.environ[name] = str(tmp_path_factory.getbasetemp() / "fenolite-state" / str(next(_STATE_FOLDERS)))
+    yield
+    if before is None:
+        os.environ.pop(name, None)
+    else:
+        os.environ[name] = before
+
+
+_LIBRARY_FOLDERS = itertools.count()
+
+
+@pytest.fixture(autouse=True)
+def _library_cache_of_the_test(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
+    """No test reads or fills the user's library cache: ``FENOLITE_LIBRARY_DIR`` names a folder of the test,
+    outside its ``tmp_path`` (change c0279, ``fenolite get``). One folder per test."""
+    name = "FENOLITE_LIBRARY_DIR"
+    before = os.environ.get(name)
+    os.environ[name] = str(tmp_path_factory.getbasetemp() / "fenolite-library" / str(next(_LIBRARY_FOLDERS)))
     yield
     if before is None:
         os.environ.pop(name, None)

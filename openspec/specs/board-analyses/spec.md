@@ -2,9 +2,7 @@
 
 ## Purpose
 Compute engineering measures on a board with `fenolite analyze`: the current capacity of tracks, arcs and vias from a published fit within its stated range, and clearance and creepage distances on a layer, on the board surface and across the board edge, judged against requirement tables that the user supplies. Fenolite ships no requirement values.
-
 ## Requirements
-
 ### Requirement: Analysis package and report
 `fenolite.analysis` SHALL hold the analyses of a board on the neutral model. It MUST import only the standard library, `core`, `model`, `geometry` and `backends.base` (`package-layering`, "Allowed import edges"), and its functions MUST be pure: they read no file, run no subprocess and write nothing.
 - `fenolite.analysis.report.AnalysisReport` MUST be a frozen dataclass with `rows` (a tuple of `CurrentRow` or `DistanceRow` records), `issues` (a tuple of `Issue`), `summary` (a mapping of counts) and `evidence` (`Evidence`).
@@ -127,19 +125,16 @@ Compute engineering measures on a board with `fenolite analyze`: the current cap
 - **THEN** the first gives three cut-outs (the lone slot, the merged L, the rounded cut-out) and `band == DEFAULT_TOL + 1`; the second gives `source == "none"` and `problem == "overlap-needs-geo"`
 
 ### Requirement: Copper of a net as thick shapes
-`fenolite.analysis.copper.net_copper(design, *, pads, arc_tol=ARC_TOL_NM) -> NetCopper` SHALL turn the copper of the board into `Thick` shapes (`geometry-kernel`, "Thick shapes") per net and per copper layer, with the shapes that `copper-check` defines in "Copper items and their shapes": tracks, arcs as polylines with their band, vias on every layer of their span, pads from the `PadCopper` entries of c0028's `BoardPad` records, and zone fills. `fenolite.analysis` MUST NOT import `fenolite.checks`.
-- Each shape MUST keep its item: `kind`, `where` (`REF-PIN` for a pad, `provenance.locator` otherwise), `entity_id` and its band (`arc_tol + 1` for an arc, else 0).
-- Items that cannot be shaped, and every pad of a kind other than `np_thru_hole` when `pads` is `None`, MUST be counted per kind in `NetCopper.unsupported`; each analysis that uses the record MUST report one `analysis.item-unsupported` warning per kind with the count.
-- Copper without a net MUST be left out.
+`fenolite.analysis.copper.net_copper` SHALL group copper `Thick` shapes by net and layer. Tracks, vias, pads and fills use the copper check's shapes. Arcs remain polylines at `arc_tol`, with band `arc_tol + 1`; their underlying arc and width MUST match the check's exact arc. Keep kind, locator and entity id, count unsupported items by kind and omit netless copper. `fenolite.analysis` MUST NOT import `fenolite.checks`.
 
 #### Scenario: Shapes equal the copper check's
-- **GIVEN** generated boards with tracks, arcs, vias, fills and fake `BoardPad` records
-- **WHEN** `uv run pytest tests/unit/analysis/test_copper.py -k same_shapes` compares the shapes of `net_copper` with the copper items of `fenolite.checks.copper`
-- **THEN** per layer and net, the two sets of `Thick` shapes are equal
+- **GIVEN** generated boards with tracks, arcs, vias, fills and authored pad records
+- **WHEN** `uv run pytest tests/unit/analysis/test_copper.py -k same_shapes` compares both builders
+- **THEN** non-arc shapes match exactly and analysis arcs match polygonisations of the check's exact arcs, retaining their widths and declared bands
 
 #### Scenario: Layering holds
 - **WHEN** `uv run pytest tests/unit/test_import_graph.py` runs
-- **THEN** it passes, and no module of `fenolite.analysis` imports `fenolite.checks`
+- **THEN** analysis imports no checks module
 
 ### Requirement: Measures
 A distance SHALL be reported as the frozen record `Measure(low, high, layer, points, items, bounded=False)`: `low` and `high` are integers in nanometres with `low ≤ d ≤ high`, `d` being the distance as this capability defines it; `layer` names the layer, or the two faces joined by `/`; `points` are the points of the path in order, rounded to integers; `items` are the `where` of the two copper items.
@@ -244,7 +239,21 @@ For two nets with copper on opposite outer faces, `analyze_distances` SHALL repo
 - **THEN** `clearance is None`, `creepage is None`, and one `analysis.input-missing` warning names `board thickness`
 
 ### Requirement: Requirement tables supplied by the user
-`fenolite.analysis.requirements.load_requirements(text, *, file="") -> Requirements` SHALL parse a TOML document (`tomllib`) whose top-level key `schema` equals `fenolite.requirements.v0` and which holds any of the arrays `current`, `distance`, `step` and `path`. Every number MUST be a TOML integer; a float, an unknown key, a missing key or another `schema` MUST raise `FormatError` naming the file and the key.
+`fenolite.analysis.requirements.load_requirements(text, *, file="") -> Requirements` SHALL parse a TOML document (`tomllib`) whose top-level key `schema` equals `fenolite.requirements.v0` and which holds any of the arrays `current`, `distance`, `step`, `path`, `decoupling`, `body_copper`, `neck` and `loop`.
+
+**Numbers.** Every quantity MUST be given in one of two forms:
+- the raw key, whose name carries the unit, with a TOML integer: `clearance_nm`, `creepage_nm`, `embedded_nm`, `insulation_nm`, `groove_nm`, `max_distance_nm`, `min_width_nm`, `max_area_nm2`, `milliamps`, `temp_rise_mk`, `millivolts`, `up_to_mv`, `drop_mv`;
+- or its unit key, with a TOML string that holds a number and a unit: `clearance`, `creepage`, `embedded`, `insulation`, `groove`, `max_distance`, `min_width` (lengths), `max_area` (`mm2`), `current` (amperes), `temp_rise` (kelvin), `voltage`, `up_to` and `drop` (volts).
+
+A unit value MUST be parsed exactly: an electrical value or a temperature difference by `fenolite.core.quantities` (c0248's exact quantity parser), a length or an area by `fenolite.core.units`. It MUST be a whole number of the raw key's unit. Each of the following MUST raise `FormatError` naming the file and the key:
+- a float;
+- a unit string that is malformed, has no unit, has the wrong unit or is not a whole number of the raw unit;
+- both forms of one quantity in a row;
+- an unknown key, a missing key or another `schema`.
+
+Every row MAY hold `source`, a non-empty string that names where the user's number comes from. It is shown as the basis of the row's limits and changes no value.
+
+**Rows.**
 - A selector is a table with exactly one of the keys `net` and `netclass`, whose value is a glob matched as `model.rules.Selector` matches it. A net without a class has the class `Default`.
 - `[[current]]`: a selector under `select`, `milliamps` and `temp_rise_mk`. The governing row of a net MUST be the matching row with the largest `milliamps`.
 - `[[distance]]`: selectors `a` and `b`; either any of `clearance_nm`, `creepage_nm`, `embedded_nm` and `insulation_nm`, or `millivolts`; and optionally `groove_nm`, the groove width of "Creepage grooves". A row matches a pair of different nets when `a` matches one and `b` the other, in either order. When several rows match a pair, the largest value of each quantity governs, `groove_nm` included.
@@ -252,6 +261,8 @@ For two nets with copper on opposite outer faces, `analyze_distances` SHALL repo
 - `[[path]]`: `from` and `to`, each a non-empty array of pad names `REF-PIN` (split at the last `-`, both parts non-empty), `milliamps` and `temp_rise_mk`, and optionally `drop_mv`: the current the copper between the two sets of pads must carry, the temperature rise the user accepts and the largest voltage drop ("Power path current", "Power path voltage drop"). A pad name of another form MUST raise `FormatError` naming the key.
 - A row whose selectors match no net of the design MUST give one `analysis.requirement-unmatched` warning.
 - `embedded_nm` MUST be judged against the gaps on inner layers, `clearance_nm` against `clearance`, `creepage_nm` against `creepage` and `insulation_nm` against `insulation`.
+
+**Unit keys.** In the rows above, a raw key MAY be replaced by its unit key with the same meaning. The loaded `Requirements` MUST be equal whichever form the file uses.
 
 #### Scenario: Step lookup without interpolation
 - **GIVEN** steps `up_to_mv = 50_000` with `creepage_nm = 1_000_000` and `up_to_mv = 300_000` with `creepage_nm = 3_000_000`, and a distance row with `millivolts = 230_000`
@@ -277,6 +288,20 @@ For two nets with copper on opposite outer faces, `analyze_distances` SHALL repo
 - **GIVEN** two distance rows that match the pair `HV`, `LV`, one with `insulation_nm = 400_000` and `groove_nm = 1_000_000`, the other with `millivolts = 230_000`, and a step `up_to_mv = 300_000` with `insulation_nm = 200_000`
 - **WHEN** `uv run pytest tests/unit/analysis/test_requirements.py -k insulation` resolves the pair
 - **THEN** the insulation requirement is 0.4 mm and the groove width is 1 mm
+
+#### Scenario: Unit keys equal raw keys
+- **GIVEN** one document with `clearance = "1.2mm"`, `current = "2A"`, `temp_rise = "10K"` and `drop = "50mV"` in its rows, and a second with `clearance_nm = 1200000`, `milliamps = 2000`, `temp_rise_mk = 10000` and `drop_mv = 50` in the same rows
+- **WHEN** `uv run pytest tests/unit/analysis/test_requirements.py -k units` loads both
+- **THEN** the two `Requirements` are equal
+
+#### Scenario: Unit errors
+- **WHEN** documents with `clearance = "1.2"`, `clearance = "1.2A"`, `clearance = "0.0001nm"`, and both `clearance = "1.2mm"` and `clearance_nm = 1200000` in one `[[distance]]` row are loaded
+- **THEN** each raises `FormatError` naming `distance[0].clearance`
+
+#### Scenario: Source text
+- **GIVEN** a `[[distance]]` row with `source = "project insulation decision"`
+- **WHEN** it is loaded
+- **THEN** the row keeps the text, and a row with `source = ""` raises `FormatError` naming `distance[0].source`
 
 ### Requirement: No shipped requirement values
 Fenolite SHALL ship no requirement value: no table from voltage to distance, no pollution degree, material group or altitude factor, no default temperature rise, copper thickness, plating thickness or board thickness, and no default current. `src/fenolite/analysis/` MUST hold no data file, and the only numeric constants of the capacity fit MUST be those of the table "Capacity fit". Example requirement files in tests and docs MUST be authored for Fenolite with round illustrative numbers, and MUST say so in a comment. The one exception is the role profile of `net-roles` (`fenolite.roles.profile`), which lives outside `src/fenolite/analysis/`, serves only `fenolite roles --check` and the stage `roles.rules`, and is never read by `fenolite analyze`; a row that `fenolite.roles` derives from it and passes to an analysis function MUST NOT give an `analysis.*` finding.
@@ -1221,3 +1246,50 @@ The table of analysis issue codes SHALL hold `analysis.neck-narrow` and `analysi
 #### Scenario: Pour shape codes in the table
 - **WHEN** `uv run pytest tests/unit/analysis/test_findings.py -k shape_codes` runs
 - **THEN** each code has the one severity `error`
+
+### Requirement: Impedance estimates
+`fenolite.analysis.impedance` SHALL estimate the quasi-static impedance of single-ended lines with closed forms from public sources, under the rules of "Analysis package and report" (pure functions, `decimal`, no `float`).
+
+#### Scenario: Detailed contract for impedance estimates
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
+`fenolite.analysis.impedance` SHALL estimate the quasi-static impedance of single-ended lines with closed forms from public sources, under the rules of "Analysis package and report" (pure functions, `decimal`, no `float`).
+- `microstrip_mohm(width, height, thickness, epsilon_r) -> int` MUST compute the one-formula microstrip form of 1977 with its thickness correction, as the source S-0641 states it, with `Z_VACUUM_OHM = Decimal("376.730313412")` (S-0643).
+- `stripline_mohm(width, spacing, thickness, epsilon_r) -> int` MUST compute the thick-strip form for a strip centred between two planes `spacing` apart, as the source S-0642 states it; `stripline_in_range(…)` MUST be true only inside the condition under which S-0642 claims its accuracy.
+- `offset_stripline_mohm(width, below, above, thickness, epsilon_r) -> int` MUST combine the centred lines of spacings `2·below + thickness` and `2·above + thickness` in parallel, `2·Z₁·Z₂ / (Z₁ + Z₂)`, as S-0642 describes.
+- Lengths MUST be `int`s of nanometres above 0, `thickness` below `height` or `spacing`, and `epsilon_r` the decimal text of a number of at least 1; anything else MUST raise `ValueError`. Results MUST be computed in a local context of 40 digits and returned in milliohms, rounded half to even.
+- `dielectric_between(stackup, layer, reference) -> Dielectric | None` MUST take the entries of c0101's `Stackup.between(upper, lower)` for the two copper layers in stack order, and give the summed thickness of its dielectric entries, their permittivity combined in series (`h / Σ(hᵢ / εᵢ)`) as decimal text, whether their permittivities differ, and whether a copper entry lies between; a layer absent from the stack-up or a dielectric entry without `epsilon_r` MUST give `None`.
+- `estimate(stackup, layers, geometry) -> Estimate` MUST use the microstrip form for one reference on an outer copper layer and the stripline form for two references on an inner layer (the centred form when the two heights are equal). `Estimate` MUST hold `mohm`, `form`, `in_range`, `heights`, `epsilon_r`, `mixed` and `reason`; for a differential geometry, any other structure or a missing input, `mohm` MUST be `None` and `reason` MUST name the cause (`differential`, `structure`, `stackup`). `solve_width(target_mohm, …)` MUST return the multiple of 1 µm whose estimate is nearest the target, the lower width on a tie.
+- `analysis.impedance.EVIDENCE` MUST be `Evidence(Level.INFERRED, hypotheses=("H-G-AN-ZMS", "H-G-AN-ZSL"))`; `fenolite.analysis.EVIDENCE` is unchanged. No default thickness, height, permittivity or impedance MUST exist ("No shipped requirement values").
+
+#### Scenario: Microstrip of the bench
+- **WHEN** `uv run pytest tests/unit/analysis/test_impedance.py -k microstrip` calls `microstrip_mohm(350_000, 200_000, 35_000, "4.3")`
+- **THEN** the result is within 1 mΩ of the same form computed in the test with `math` (about 50 763 mΩ)
+
+#### Scenario: Stripline against the exact thin strip
+- **GIVEN** widths from 0.1 to 2 times the spacing and a thickness of 10⁻⁶ of the spacing
+- **WHEN** `stripline_mohm` is compared with the exact zero-thickness value `30π/√εr · K(k)/K(k′)`, `k = sech(π·w / (2·spacing))`, computed in the test
+- **THEN** every pair differs by less than 1 %
+
+#### Scenario: Offset form at equal heights
+- **WHEN** `offset_stripline_mohm(150_000, 182_500, 182_500, 35_000, "4.3")` and `stripline_mohm(150_000, 400_000, 35_000, "4.3")` are computed
+- **THEN** they are equal
+
+#### Scenario: No estimate for a pair
+- **GIVEN** a differential geometry on `F.Cu` over `In1.Cu`
+- **WHEN** `estimate` is called
+- **THEN** it returns an `Estimate` whose `mohm` is `None` and whose `reason` is `differential`
+
+### Requirement: Impedance formula sources are recorded
+`docs/analyses.md` SHALL hold the table "Impedance formulas" with one row per named constant of `fenolite.analysis.impedance` (`Z_VACUUM_OHM` and each number of the two forms): its name, value, unit, a source id registered in `docs/evidence/sources.md`, the label `INFERRED` and a hypothesis id.
+
+#### Scenario: Detailed contract for impedance formula sources are recorded
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
+`docs/analyses.md` SHALL hold the table "Impedance formulas" with one row per named constant of `fenolite.analysis.impedance` (`Z_VACUUM_OHM` and each number of the two forms): its name, value, unit, a source id registered in `docs/evidence/sources.md`, the label `INFERRED` and a hypothesis id. The page MUST state, in Fenolite's own words, each form's claimed accuracy and range, and what the forms leave out: solder mask, etch angle, frequency, loss and copper roughness. `src/fenolite/analysis/PROVENANCE.md` MUST hold a row per source (S-0641, S-0642, S-0643), facts only: each form is re-derived and written in Fenolite's own code, and no text of a source is copied.
+
+#### Scenario: Table equals the code
+- **WHEN** `uv run pytest tests/unit/analysis/test_facts_page.py -k impedance` parses the table "Impedance formulas"
+- **THEN** every named constant of `fenolite.analysis.impedance` has exactly one row with an equal value, a registered source id, the label `INFERRED` and a registered hypothesis id

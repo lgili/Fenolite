@@ -5,7 +5,12 @@ change c0223). The boards are the authored two-layer board of the test data and 
 
 from __future__ import annotations
 
+import hashlib
+import importlib
+import json
 from pathlib import Path
+
+import pytest
 
 from fenolite.backends.kicad.mod import read_footprint
 from fenolite.library import derive_library, drift
@@ -31,6 +36,54 @@ def with_second_resistor(text: str, *, moved: bool) -> str:
     if moved:
         copy = copy.replace("(at 0.8 0 90)", "(at 0.9 0 90)")
     return text[:end] + copy + text[end:]
+
+
+def variant_stress_board() -> str:
+    """Authored stress data: twelve distinct pad positions and one duplicate."""
+    text = board_text()
+    start = text.index('\t(footprint "Fenolite_Test:R_0603"')
+    end = text.index('\t(footprint "Fenolite_Test:LED_THT_3mm"')
+    template = text[start:end]
+    copies = []
+    for index in range(13):
+        variant = index if index < 12 else 0
+        tenth = 8 + variant
+        instance = template.replace('"R1"', f'"R{index + 1}"')
+        instance = instance.replace("(at 20 15 90)", f"(at {40 + index * 2} 15 90)")
+        instance = instance.replace("(at 0.8 0 90)", f"(at {tenth // 10}.{tenth % 10} 0 90)")
+        instance = instance.replace(
+            "d75df7ee-5c1f-4a9f-9213-5cb13ccc38b7",
+            f"d75df7ee-5c1f-4a9f-9213-{index + 1:012d}",
+        )
+        copies.append(instance)
+    return text[:start] + "".join(copies) + text[end:]
+
+
+STRESS_BYTES = {
+    9: "1e5d91a092ab75f0cd4db48a33c8cf7ecb0d720117945d865f15a89b4377ce7c",
+    10: "e23be78c97ccb30b5478cd638fbcd0c46181dcbe366d2d6bbb7780edfbd3e916",
+}
+
+
+@pytest.mark.parametrize("target", [9, 10])
+def test_many_variants_have_bounded_signature_work(target: int, monkeypatch: pytest.MonkeyPatch) -> None:
+    module = importlib.import_module("fenolite.library.derive")
+    original = module._signature
+    calls = 0
+
+    def signature(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+        nonlocal calls
+        calls += 1
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(module, "_signature", signature)
+    derived = derive_library(variant_stress_board(), library="authored", target=target)
+    assert len(derived.footprints) == 13
+    assert next(fp.refs for fp in derived.footprints if fp.name == "R_0603") == ("R1", "R13")
+    assert [item.code for item in derived.issues] == ["library.instances-differ"] * 11
+    digest = hashlib.sha256(json.dumps(derived.files(), sort_keys=True).encode()).hexdigest()
+    assert digest == STRESS_BYTES[target]
+    assert calls <= 14, "comparison work must be bounded by the fourteen source instances"
 
 
 def test_footprints_in_their_own_frame() -> None:
@@ -61,6 +114,46 @@ def test_two_instances_that_differ() -> None:
     assert resistor.refs == ("R1", "R9") and same.issues == ()
 
 
+def test_a_variant_name_the_board_already_holds() -> None:
+    """Change c0425: when the board has its own footprint named ``R_0603_2``, the variant of ``R_0603`` is
+    ``R_0603_3``, so no two footprints of the library share a name."""
+    text = with_second_resistor(board_text(), moved=True)
+    text = text.replace('(footprint "Fenolite_Test:LED_THT_3mm"', '(footprint "Fenolite_Test:R_0603_2"')
+    derived = derive_library(text, library="lib", target=10)
+    names = [fp.name for fp in derived.footprints]
+    assert names == ["R_0603", "R_0603_2", "R_0603_3"]
+    variant = next(fp for fp in derived.footprints if fp.name == "R_0603_3")
+    assert (variant.source, variant.refs) == ("R_0603", ("R9",))
+    assert next(fp for fp in derived.footprints if fp.name == "R_0603_2").source == "R_0603_2"
+
+
+def with_named_variant(text: str) -> str:
+    """The board with ``R9`` (``R1`` with pad 2 moved by 0.1 mm) and ``R5``, a footprint of its own named
+    ``R_0603_2`` whose pad 2 is moved by -0.1 mm: the name a variant of ``R_0603`` would take."""
+    text = with_second_resistor(text, moved=True)
+    start = text.index('\t(footprint "Fenolite_Test:R_0603"')
+    end = text.index("\t(footprint ", start + 1)
+    copy = text[start:end].replace('"Fenolite_Test:R_0603"', '"Fenolite_Test:R_0603_2"')
+    copy = copy.replace('"R1"', '"R5"').replace("(at 20 15 90)", "(at 30 25 90)")
+    copy = copy.replace("d75df7ee-5c1f-4a9f-9213-5cb13ccc38b7", "d75df7ee-5c1f-4a9f-9213-5cb13ccc38b5")
+    copy = copy.replace("(at 0.8 0 90)", "(at 0.7 0 90)")
+    return text[:end] + copy + text[end:]
+
+
+def test_a_variant_takes_no_name_of_another_footprint() -> None:
+    """Scenario "A variant name that the board already holds" (change c0426): the variant of ``R_0603`` is
+    ``R_0603_3``, so the board's own ``R_0603_2`` keeps its file and its pads."""
+    derived = derive_library(with_named_variant(board_text()), library="lib", target=10)
+    names = [fp.name for fp in derived.footprints]
+    assert names == ["LED_THT_3mm", "R_0603", "R_0603_2", "R_0603_3"]
+    by_name = {fp.name: fp for fp in derived.footprints}
+    assert by_name["R_0603_2"].refs == ("R5",) and by_name["R_0603_3"].refs == ("R9",)
+    second = {pad.number: pad.position.x for pad in by_name["R_0603_2"].definition.pads}
+    third = {pad.number: pad.position.x for pad in by_name["R_0603_3"].definition.pads}
+    assert second["2"] == 700_000 and third["2"] == 900_000
+    assert len(derived.files()) == len(names)
+
+
 def test_drift_of_a_library(tmp_path: Path) -> None:
     """Scenario "Silkscreen edited on the board": the library's footprint holds a silkscreen line that the
     board's instance lacks; a footprint the library lacks is ``missing``."""
@@ -76,3 +169,62 @@ def test_drift_of_a_library(tmp_path: Path) -> None:
     path.write_text(edited, encoding="utf-8")
     assert len(read_footprint(path).graphics_on("F.SilkS")) == 1
     assert drift(derived, folder) == (("R_0603", ("silkscreen",)),)
+
+
+def test_a_zero_board_angle_is_turned_back() -> None:
+    """A pad whose board angle is 0 is written without an angle; in a footprint at 90° its angle in the
+    footprint's frame is 270° (change c0275: ``local_footprint`` read no angle as none to turn back)."""
+    text = board_text()
+    start = text.index('\t(footprint "Fenolite_Test:R_0603"')
+    end = text.index('\t(footprint "Fenolite_Test:LED_THT_3mm"')
+    turned = text[start:end].replace("(at 0.8 0 90)", "(at 0.8 0)")
+    derived = derive_library(text[:start] + turned + text[end:], library="lib", target=10)
+    (resistor,) = [fp for fp in derived.footprints if fp.name == "R_0603"]
+    pads = {pad.number: pad.rotation for pad in resistor.definition.pads}
+    assert pads["2"] % 360_000_000 == 270_000_000 and pads["1"] == 0
+
+
+def _bottom_board(tmp_path: Path, rotation: int) -> tuple[str, str]:
+    """The authored board with R1 replaced by its derived footprint, edited to hold a Reference at 90° and
+    pad 1 at 90°, placed on the bottom side at ``rotation``; and that edited library text."""
+    from fenolite.backends.kicad.embed import placed_tree
+    from fenolite.backends.kicad.pcb import read_board
+    from fenolite.backends.kicad.sexpr import dumps
+    from fenolite.core.coords import Point
+
+    text = board_text()
+    derived = derive_library(text, library="lib", target=10)
+    (resistor,) = [fp for fp in derived.footprints if fp.name == "R_0603"]
+    library = resistor.text.replace("(at 0 -1.43 0)", "(at 0 -1.43 90)").replace(
+        "(at -0.8 0)", "(at -0.8 0 90)"
+    )
+    path = tmp_path / "R_0603.kicad_mod"
+    path.write_text(library, encoding="utf-8")
+    defn = read_footprint(path)
+    design = read_board(text)
+    (component,) = [c for c in design.circuit.components if c.ref == "R1"]
+    tree = placed_tree(
+        defn,
+        component=component,
+        at=Point(20_000_000, 15_000_000),
+        rotation=rotation,
+        side="bottom",
+        key="R1",
+    )
+    start = text.index('\t(footprint "Fenolite_Test:R_0603"')
+    end = text.index('\t(footprint "Fenolite_Test:LED_THT_3mm"')
+    return text[:start] + "\t" + dumps(tree) + "\n" + text[end:], library
+
+
+def test_bottom_angles_turn_back(tmp_path: Path) -> None:
+    """Scenario "Reference at 270° on the bottom" (change c0281, issue 6 of the board library's report): a
+    bottom footprint whose Reference and pad stand at 90° in the library is stored at ``θ − 90°``, and the
+    derive brings the library angles back."""
+    for rotation in (0, 90_000_000, 180_000_000):
+        board, library = _bottom_board(tmp_path, rotation)
+        assert '(layer "B.Cu")' in board
+        derived = derive_library(board, library="lib", target=10)
+        (resistor,) = [fp for fp in derived.footprints if fp.name.startswith("R_0603")]
+        pads = {pad.number: pad.rotation % 360_000_000 for pad in resistor.definition.pads}
+        assert pads == {"1": 90_000_000, "2": 0}, rotation
+        assert "(at 0 -1.43 90)" in resistor.text, (rotation, resistor.text[:400])

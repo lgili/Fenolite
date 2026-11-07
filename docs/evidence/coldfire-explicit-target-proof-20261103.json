@@ -1,0 +1,49 @@
+{
+  "accepted": [],
+  "ci_release_complete": false,
+  "confirmation_sha256": "22a0931c06efc82d4d45e96b78ba18b08628aba8233b5c4e97a859dc0415cd68",
+  "core_commit": "cd9ead5c5d3875cc9463302494d2e59de6823668",
+  "differences": [],
+  "generated_import_provenance_sha256": "2911fe72cc6ac08df370c2db888eb925d1a37934a61aa468933fb119036fa8e9",
+  "import_target": 10,
+  "levels": {
+    "1": "equal",
+    "2": "equal",
+    "3": "equal",
+    "4": "equal",
+    "5": "equal",
+    "6": "equal",
+    "7": "equal",
+    "8": "equal",
+    "S": "equal"
+  },
+  "proof_sha256": "6bbba81cfca682d1c3154638c0227cf0e49e60948f2fcb224e0717e527812a37",
+  "public_pin_claimed": false,
+  "retained_refusals": [
+    "Historical/default import source-major9 preserves too-new-project refusal.",
+    "Pre-fix explicit10 import refused because the target option was ignored.",
+    "Default verify-source targets original9 and correctly refuses the preserved10-only sidecar; explicit --target10 is required."
+  ],
+  "source_verification": {
+    "files": {
+      "in_out_conn.kicad_sch": "b406e5f8d1903f7d094c1109020a1912a1473c08ffbc0c64640742850f7f7809",
+      "kit-dev-coldfire-xilinx_5213.kicad_pcb": "392cf6bf4b9b62beb435f965ccd7671a46decb17f947b74bfde482acd2132a5e",
+      "kit-dev-coldfire-xilinx_5213.kicad_pro": "d6ca906944730a3eae31ba3d9240c6966424b0d80ba76e80710e39d7b23c4637",
+      "kit-dev-coldfire-xilinx_5213.kicad_sch": "a1109092165ecec0d677142294330258c8990247e804f260d7682fda82602214",
+      "xilinx.kicad_sch": "3750dc3866cce42d96220c39dde5c7c88589207810487581047a71d541b1fb5b"
+    },
+    "public_upstream": {
+      "archive_sha256": null,
+      "commit": "97acc80c223d75520c03fc44cab63cd9a3202c42",
+      "licence_files": [
+        "LICENSE.CC-BY-SA-4.0"
+      ],
+      "path": "demos/kit-dev-coldfire-xilinx_5213",
+      "retrieved": "2026-10-31",
+      "source_location": "https://gitlab.com/kicad/code/kicad/-/tree/97acc80c223d75520c03fc44cab63cd9a3202c42/demos/kit-dev-coldfire-xilinx_5213",
+      "spdx_expression": "CC-BY-SA-4.0",
+      "url": "https://gitlab.com/kicad/code/kicad"
+    }
+  },
+  "verify_target": 10
+}

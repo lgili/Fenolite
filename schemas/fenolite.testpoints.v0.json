@@ -1,0 +1,597 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.result.testpoints.v0",
+  "title": "TestpointsResult",
+  "type": "object",
+  "properties": {
+    "plan": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolPlan"
+      }
+    },
+    "plan_id": {
+      "type": "string"
+    },
+    "issues_summary": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolIssueSummary"
+      }
+    },
+    "recovery": {
+      "$ref": "#/$defs/ProtocolRecovery"
+    },
+    "page": {
+      "$ref": "#/$defs/ProtocolPage"
+    },
+    "place": {
+      "$ref": "#/$defs/ProbePlacement"
+    },
+    "counts": {
+      "$ref": "#/$defs/TestpointsCounts"
+    },
+    "coverage": {
+      "$ref": "#/$defs/TestpointsCoverage"
+    },
+    "fiducials": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TestpointsFiducialsItem"
+      }
+    },
+    "holes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TestpointsHolesItem"
+      }
+    },
+    "origin": {
+      "type": "string"
+    },
+    "side": {
+      "type": "string"
+    },
+    "template": {
+      "type": "string"
+    },
+    "test_points": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TestpointsTestPointsItem"
+      }
+    },
+    "units": {
+      "type": "string"
+    },
+    "y_axis": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "CoverageCounts": {
+      "type": "object",
+      "properties": {
+        "eligible": {
+          "type": "integer"
+        },
+        "covered": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "eligible",
+        "covered"
+      ]
+    },
+    "DrcDifference": {
+      "type": "object",
+      "properties": {
+        "tool_version": {
+          "type": "string"
+        },
+        "before": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "original DRC counts indexed by violation kind"
+        },
+        "after": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "new DRC counts indexed by violation kind"
+        },
+        "new": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "tool_version",
+        "before",
+        "after",
+        "new"
+      ]
+    },
+    "ProbePlacement": {
+      "type": "object",
+      "properties": {
+        "side": {
+          "type": "string"
+        },
+        "grid": {
+          "type": "integer"
+        },
+        "reach": {
+          "type": "integer"
+        },
+        "size": {
+          "type": "integer"
+        },
+        "min_pitch": {
+          "type": "integer"
+        },
+        "clearance": {
+          "type": "integer"
+        },
+        "edge_clearance": {
+          "type": "integer"
+        },
+        "nets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "before": {
+          "$ref": "#/$defs/CoverageCounts"
+        },
+        "after": {
+          "$ref": "#/$defs/CoverageCounts"
+        },
+        "probes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProbeSummary"
+          }
+        },
+        "unplaced": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/UnplacedProbe"
+          }
+        },
+        "drc": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DrcDifference"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "side",
+        "grid",
+        "reach",
+        "size",
+        "min_pitch",
+        "clearance",
+        "edge_clearance",
+        "nets",
+        "before",
+        "after",
+        "probes",
+        "unplaced",
+        "drc"
+      ]
+    },
+    "ProbeSummary": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string"
+        },
+        "net": {
+          "type": "string"
+        },
+        "position": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "anchor": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "track_length": {
+          "type": "integer"
+        },
+        "track_width": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "ref",
+        "net",
+        "position",
+        "anchor",
+        "track_length",
+        "track_width"
+      ]
+    },
+    "ProtocolIssueSummary": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "by_severity": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "counts indexed by severity"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "count",
+        "by_severity"
+      ]
+    },
+    "ProtocolPage": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "next": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "limit",
+        "offset",
+        "total",
+        "next"
+      ]
+    },
+    "ProtocolPlan": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "overwrite": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "kind",
+        "bytes",
+        "sha256",
+        "overwrite"
+      ]
+    },
+    "ProtocolRecovery": {
+      "type": "object",
+      "properties": {
+        "failed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "preserved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "failed",
+        "preserved"
+      ]
+    },
+    "TestpointsCounts": {
+      "type": "object",
+      "properties": {
+        "fiducials_bottom": {
+          "type": "integer"
+        },
+        "fiducials_top": {
+          "type": "integer"
+        },
+        "holes": {
+          "type": "integer"
+        },
+        "test_points": {
+          "type": "integer"
+        },
+        "tooling_holes": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "fiducials_bottom",
+        "fiducials_top",
+        "holes",
+        "test_points",
+        "tooling_holes"
+      ]
+    },
+    "TestpointsCoverage": {
+      "type": "object",
+      "properties": {
+        "covered": {
+          "type": "integer"
+        },
+        "eligible": {
+          "type": "integer"
+        },
+        "uncovered": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "covered",
+        "eligible",
+        "uncovered"
+      ]
+    },
+    "TestpointsFiducialsItem": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "position": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "ref": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string"
+        },
+        "side": {
+          "type": "string"
+        },
+        "size": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "position",
+        "ref",
+        "scope",
+        "side",
+        "size"
+      ]
+    },
+    "TestpointsHolesItem": {
+      "type": "object",
+      "properties": {
+        "drill": {
+          "type": "integer"
+        },
+        "length": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "path": {
+          "type": "string"
+        },
+        "position": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "ref": {
+          "type": "string"
+        },
+        "tooling": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "drill",
+        "length",
+        "path",
+        "position",
+        "ref",
+        "tooling"
+      ]
+    },
+    "TestpointsTestPointsItem": {
+      "type": "object",
+      "properties": {
+        "access": {
+          "type": "string"
+        },
+        "drill": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "net": {
+          "type": "string"
+        },
+        "pad": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "position": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "ref": {
+          "type": "string"
+        },
+        "shape": {
+          "type": "string"
+        },
+        "side": {
+          "type": "string"
+        },
+        "size": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "access",
+        "drill",
+        "net",
+        "pad",
+        "path",
+        "position",
+        "ref",
+        "shape",
+        "side",
+        "size"
+      ]
+    },
+    "UnplacedProbe": {
+      "type": "object",
+      "properties": {
+        "net": {
+          "type": "string"
+        },
+        "site": {
+          "anyOf": [
+            {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                }
+              ],
+              "items": false,
+              "minItems": 2,
+              "maxItems": 2
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "blocker": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "net",
+        "site",
+        "blocker"
+      ]
+    }
+  }
+}

@@ -1,0 +1,145 @@
+{
+  "analytic_witness_area": [
+    312299999,
+    2020000
+  ],
+  "artifact_sha256": {
+    "audit-receipt.json": "c2dade23d11722586e5bad42dea813899035ecee8a0ce124b365ca3caa1dac25",
+    "audit_quantization_contract.py": "1ac341f7ce2a73168f3d0253c053d18ce109f3d44b1e0045f66153dfaff6b8c0",
+    "authored-witness.json": "2480ad272ad7a765af123187df98a70887d38983028ca0cef1eaf64f066fe8bb"
+  },
+  "audit_only": true,
+  "authored_counterexample": {
+    "audit_only": true,
+    "boundary_error_proof": "equal-parameter endpoint interpolation plus exact projected/normalized polyline point-set equality; both directions",
+    "contact_points": 0,
+    "geometric_cleanup_sha256": "b59d0e13f8f0f03ae3cd998448c49ed6d849c0451d313e6b5d4ec1acaf5d24fa",
+    "holes": 0,
+    "local_sign_changes_sha256": "b3d2f087e55dca1de8babfc4c3c72bb4922bf04312d5949c27b8e6269b5b3f2f",
+    "local_turn_sign_changes": 1,
+    "name": "nine-edge-sign-counterexample",
+    "old_strict_experiment_passed": false,
+    "output_sha256": "f609b076755e0245d807469ed79acbcccc165db5af8cb976fa5bac07503ad399",
+    "polygon_count": 1,
+    "projection": {
+      "canonical_nodes": 5,
+      "integer_coordinates_fixed": true,
+      "maximum_axis_error": [
+        9,
+        101
+      ],
+      "maximum_squared_euclidean_error": [
+        81,
+        10201
+      ],
+      "squared_euclidean_limit": [
+        1,
+        2
+      ]
+    },
+    "protected_nonzero_source_vertices": 3,
+    "resources": {
+      "peak_memory_bytes": 39387136,
+      "rational_max_bits": {
+        "area": 29,
+        "local": 8
+      },
+      "seconds": 0.0002936249948106706,
+      "seed_visits": 0,
+      "stage_seconds": {
+        "start": 0.0002937499957624823
+      }
+    },
+    "retained_loops": 1,
+    "round_point_calls": 5,
+    "seconds": 0.00029370898846536875,
+    "status": "contract-certificate-passed",
+    "strict_program_passed": false,
+    "whole_face_losses": 0
+  },
+  "contract_files_sha256": {
+    "openspec/changes/c0215-altium-repour/specs/geometry-boolean-backends/spec.md": "300b2adbe9eb006a282e605e233239647397ec92b825b2178bda7a99f64c9d6f",
+    "openspec/changes/c0328-deterministic-boolean-realization/contract-audit.md": "c62f2f438de04ba0c07f9dc724a589cede7e1acdde9587cc9f237347bed147f1",
+    "openspec/specs/geometry-boolean-backends/spec.md": "11715e9f3840c2f90dd53e8952ea4389c59218366becfc21ca3e29353088d528",
+    "openspec/specs/geometry-kernel/spec.md": "cd96eb8dd4de12870f0d41c2e078cae6234772a44e629a9c35b3101bc7f42301"
+  },
+  "controls": {
+    "cases": 84,
+    "old_strict_positive_cases_still_pass": true,
+    "order_direction_start_output_equal": true,
+    "same_scale_subdivision_output_equal": true,
+    "translated_back_output_equal": true
+  },
+  "index_script_sha256": "28952b214d7aa31a72118e42a445ced5666d583b02f8ca94ea4df8f86f3f4b37",
+  "negative_controls": {
+    "missing_protected_vertex": "protected original vertex missing",
+    "over_bound_displacement": "quantization displacement exceeds contract",
+    "whole_ring_orientation": "whole-ring orientation inverted",
+    "zero_area_backtrack_cleanup_loss": "geometric cleanup equality fails"
+  },
+  "old_source_refutation_sha256": "42f5e59d3dc944b3e3d3dad39cc5105c4543deb89b9a0e9b7eae8e1dbb48f383",
+  "old_strict_experiment_passed": false,
+  "production_approved": false,
+  "production_changed": false,
+  "runtime_files_sha256": {
+    "src/fenolite/backends/altium/pour.py": "c63c42f1bfb80d6b2cb227f579c45e0fd7e8befa46caaec1fe88d3f0968f20cb",
+    "src/fenolite/core/units.py": "1b7c1d9a161208421c9e6f02dee0e30ef2a86b047fc69afd7def05e400e2d9d6",
+    "src/fenolite/geometry/polygon.py": "a8eb8cf74cd65db5bdc87bd54b48836a1df9c9984976eb51baaf552db9f87153",
+    "src/fenolite/geometry/predicates.py": "204c0f2ab165d8011e036da06d7d6e148b837c5848e820338dede0e9753ebd19"
+  },
+  "schema": "fenolite.quantization-contract-audit.v0",
+  "script_sha256": "1ac341f7ce2a73168f3d0253c053d18ce109f3d44b1e0045f66153dfaff6b8c0",
+  "seconds": 0.8853352910082322,
+  "source": {
+    "audit_only": true,
+    "boundary_error_proof": "equal-parameter endpoint interpolation plus exact projected/normalized polyline point-set equality; both directions",
+    "contact_points": 0,
+    "geometric_cleanup_sha256": "fc0276810a2efdaac747d2adf09efea257a69b744ed0c8a56eddd6720276df64",
+    "holes": 10,
+    "local_sign_changes_sha256": "bc3af7332475f1dffebec9122eaae5acb4452ca65c9d48d83a768ee0f0f8b77d",
+    "local_turn_sign_changes": 17,
+    "name": "cached-source176",
+    "old_strict_experiment_passed": false,
+    "output_sha256": "923aaa891d6ade45f20cae028ca7fb7894cf6780cc6459bc9b72e494e3e8af17",
+    "polygon_count": 1,
+    "projection": {
+      "canonical_nodes": 5822,
+      "integer_coordinates_fixed": true,
+      "maximum_axis_error": [
+        1474,
+        3029
+      ],
+      "maximum_squared_euclidean_error": [
+        4345352,
+        9174841
+      ],
+      "squared_euclidean_limit": [
+        1,
+        2
+      ]
+    },
+    "protected_nonzero_source_vertices": 3601,
+    "resources": {
+      "peak_memory_bytes": 56164352,
+      "rational_max_bits": {
+        "area": 350,
+        "local": 77
+      },
+      "seconds": 0.40452733301208355,
+      "seed_visits": 46296,
+      "stage_seconds": {
+        "start": 0.404527708014939
+      }
+    },
+    "retained_loops": 11,
+    "round_point_calls": 5822,
+    "seconds": 0.4045271660143044,
+    "status": "contract-certificate-passed",
+    "whole_face_losses": 430
+  },
+  "source_candidates_sha256": "04065a7726a1b0efcf7b3adea730c627e49616227ee2739c7074d5ce265e1923",
+  "source_commit": "7da6157d12d97f083f070cd4b3b744027af00df9",
+  "source_operands_sha256": "e9dc5cb64238a2d1a56801f3dffe468275bd524ab7f147f1f624e65ffc8f0000",
+  "status": "contract-certificates-passed",
+  "strict_script_sha256": "1273679f8535b2b3f5744f150b12f9f40d5318d07665ae0aacbade87fd98f47f"
+}

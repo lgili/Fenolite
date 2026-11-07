@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import dataclasses
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 from types import MappingProxyType
@@ -37,6 +37,7 @@ from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.cutouts import cutout_items
 from fenolite.backends.altium.docboard import Dielectric, StackSpec
 from fenolite.backends.altium.lower import (
+    copper_shape_problem,
     keepout_footprints_info,
     stack_unfit_reason,
     stack_unheld,
@@ -69,6 +70,7 @@ from fenolite.model.design import Design
 COPPER_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
     {
         "altium.copper-stack": "error",
+        "altium.stack-signal-limit": "error",
         "altium.copper-layer": "error",
         "altium.via-unsupported": "warning",
         "altium.copper-invalid": "error",
@@ -94,6 +96,8 @@ STACK_HINT = (
     "make design.board(..., copper=…) equal to the board's copper layer count, "
     "or give the board its copper layers"
 )
+SIGNAL_LIMIT_HINT = "declare planes= for the layers beyond 16 signal layers, or build for KiCad"
+"""The hint of ``altium.stack-signal-limit`` (change c0277)."""
 KINDS: tuple[str, ...] = (
     "footprint",
     "pad",
@@ -194,12 +198,14 @@ def layer_names(count: int) -> tuple[str, ...]:
     return ("F.Cu", *(f"In{index}.Cu" for index in range(1, count - 1)), "B.Cu")
 
 
-def board_layers(design: Design, copper: int) -> tuple[tuple[str, ...], list[Issue]]:
+def board_layers(design: Design, copper: int, planes: int = 0) -> tuple[tuple[str, ...], list[Issue]]:
     """The copper layers of the document: the copper layers of ``design.board.layers`` when it holds any,
     else those of the script's count ``copper``. A count that differs from ``copper``, or a repeated
-    layer, gives ``altium.copper-stack``. A stack that ``pcbrecords.stack_problem`` refuses (an odd count,
-    more than 32 layers) gives one ``altium.not-lowered`` with ``where`` ``stackup`` and the default
-    stack of the two outer layers: no partial stack is written (change c0085)."""
+    layer, gives ``altium.copper-stack``. More than 16 signal layers (the count minus the ``planes``
+    declared) or more than 16 planes give ``altium.stack-signal-limit`` (error; change c0277). Another
+    stack that ``pcbrecords.stack_problem`` refuses (an odd count, more than 32 layers) gives one
+    ``altium.not-lowered`` with ``where`` ``stackup`` and the default stack of the two outer layers: no
+    partial stack is written (change c0085)."""
     board = design.board
     named = tuple(layer.name for layer in board.layers if layer.kind == "copper") if board is not None else ()
     if named and len(set(named)) != len(named):
@@ -209,7 +215,18 @@ def board_layers(design: Design, copper: int) -> tuple[tuple[str, ...], list[Iss
         held = f"{len(named)} copper layers ({', '.join(named)})"
         message = f"the board holds {held}, the build asks for {copper}"
         return named, [issue("altium.copper-stack", message, "stack", STACK_HINT)]
-    problem = pcbrecords.stack_problem(len(named) or copper, 0)
+    count = len(named) or copper
+    signal = count - planes
+    if (
+        count % 2 == 0
+        and 2 <= count <= pcbrecords.MAX_COPPER
+        and (signal > pcbrecords.MAX_SIGNAL or planes > pcbrecords.MAX_PLANES)
+    ):
+        what = f"{signal} signal layers" if signal > pcbrecords.MAX_SIGNAL else f"{planes} internal planes"
+        message = f"a stack of {count} copper layers has {what}; an Altium document holds at most 16"
+        found = issue("altium.stack-signal-limit", message, "stackup", SIGNAL_LIMIT_HINT)
+        return named or layer_names(copper), [found]
+    problem = pcbrecords.stack_problem(count, min(planes, max(count - 2, 0)))
     if problem is None:
         return named or layer_names(copper), []
     outer = (named[0], named[-1]) if len(named) > 1 else layer_names(2)
@@ -576,6 +593,9 @@ BOARD_KINDS: tuple[tuple[str, str], ...] = (
     ("graphics", "graphics"),
     ("holes", "holes"),
     ("dimensions", "dimensions"),
+    ("images", "images"),  # change c0277
+    ("groups", "groups"),
+    ("verbatim", "verbatim items"),
 )
 """Board fields that only the PCB document holds, and what a message calls them."""
 BOARD_WHERES: tuple[str, ...] = tuple(name for name, _what in BOARD_KINDS)
@@ -611,16 +631,28 @@ class LoweredItems:
     counts: Mapping[str, tuple[int, int]] = dataclasses.field(default_factory=lambda: MappingProxyType({}))
 
 
-def lower_items(board: Board | None, layers: Sequence[str], issues: list[Issue]) -> LoweredItems:
+def lower_items(
+    board: Board | None,
+    layers: Sequence[str],
+    issues: list[Issue],
+    *,
+    net_names: Mapping[str, str] | None = None,
+    planes: Collection[str] = (),
+) -> LoweredItems:
     """The texts, graphics, keep-outs and holes of ``board`` that ``pcbdoc`` writes (change c0085,
     "Complete board in an Altium build"); ``layers`` are the copper layers of the document. An item that
     has no record gives one ``altium.not-lowered`` with ``where`` ``<kind>/<id>`` and its reason, and is
     left out. A graphic on ``Edge.Cuts`` is the outline, which the document writes from ``Board.outline``:
     it counts as written and is not passed on. A keep-out's ``no_footprints`` has no bit in the record: the
     keep-out is written with its other restrictions and one issue names the one that is lost. Component
-    bodies are not decided here: ``lower_bodies`` places them on the components of the document."""
+    bodies are not decided here: ``lower_bodies`` places them on the components of the document. A graphic
+    on a signal layer of ``layers`` (not one of ``planes``) is copper of its net (change c0412): it is
+    passed on with the net's name from ``net_names`` in ``net_id``; one that has no copper record is named
+    with ``where`` ``copper-shape/<id>``."""
     if board is None:
         return LoweredItems()
+    names = net_names or {}
+    signal = tuple(name for name in layers if name not in planes)
     counts: dict[str, tuple[int, int]] = {}
     texts: list[Text] = []
     for text in board.texts:
@@ -638,11 +670,56 @@ def lower_items(board: Board | None, layers: Sequence[str], issues: list[Issue])
         else:
             issues.append(_kept("text", text.id, f"board text {text.text[:24]!r} is not written: {problem}"))
     counts["text"] = (len(texts), len(board.texts) - len(texts))
+    for group in board.groups:  # change c0277: the document has no group record
+        label = group.name or group.id
+        message = f"the group {label!r} is not written: the document has no group record"
+        issues.append(_kept("group", group.id, message))
+    # change c0277: settings of the KiCad board that the document has no field for
+    held = {
+        "teardrops": sum(1 for via in board.vias if via.teardrop is not None)
+        + sum(1 for fp in board.footprints for pad in fp.pads if pad.teardrop is not None),
+        "overrides": sum(1 for fp in board.footprints if fp.overrides is not None),
+        "fonts": sum(
+            1
+            for fp in board.footprints
+            for found in fp.fields
+            if found.bold is not None or found.italic is not None or found.face is not None
+        ),
+        "models": sum(1 for fp in board.footprints if fp.models),
+    }
+    what = {
+        "teardrops": "pads and vias with teardrop settings",
+        "overrides": "footprints with footprint-level overrides",
+        "fonts": "footprint fields with a font of the script",
+        "models": "footprints with 3D models named by the script",
+    }
+    for kind, count in held.items():
+        if count:
+            message = (
+                f"{count} {what[kind]}: the document has no field for them, they are kept in the model only"
+            )
+            issues.append(Issue("altium.not-lowered", "info", message, where=kind))
+    for image in board.images:  # change c0277: the writer has no picture record
+        message = f"the image on {image.layer} is not written: the document writer has no picture record"
+        issues.append(Issue("altium.image-skipped", "warning", message, where=image.id))
+    for item in board.verbatim:  # change c0277: KiCad text has no Altium record
+        message = f"the verbatim item {item.key!r} is KiCad text and is not written"
+        issues.append(Issue("altium.verbatim-skipped", "warning", message, where=f"verbatim/{item.key}"))
     graphics: list[Graphic] = []
     outline = 0
     for graphic in board.graphics:
         if graphic.layer == EDGE_LAYER:
             outline += 1
+            continue
+        if graphic.layer.endswith(".Cu") or graphic.layer in layers:
+            problem = copper_shape_problem(graphic, layers, planes, names)
+            if problem is None:
+                problem = pcbdoc.graphic_problem(graphic, copper=signal)
+            if problem is None:
+                graphics.append(dataclasses.replace(graphic, net_id=names.get(graphic.net_id or "")))
+            else:
+                message = f"the copper {graphic.kind} on {graphic.layer} is not written: {problem}"
+                issues.append(_kept("copper-shape", graphic.id, message))
             continue
         problem = pcbdoc.graphic_problem(graphic)
         if problem is None:
@@ -907,7 +984,7 @@ def lower_copper(
     a net whose name the design does not hold gives one ``altium.copper-net-missing`` per net name.
     ``document`` is the document's file name, named by the infos about unpoured polygons and zones left to
     a plane."""
-    layers, issues = board_layers(design, copper)
+    layers, issues = board_layers(design, copper, len(planes or {}))
     held = source.design if source is not None else design
     board = held.board
     if design.board is None or board is None or any(found.severity == "error" for found in issues):
@@ -947,7 +1024,13 @@ def lower_copper(
     stack, stack_issues = stack_values(design, layers, on_planes)
     issues += stack_issues
     classes = net_classes(design, issues)
-    items = lower_items(design.board, layers, issues)
+    items = lower_items(
+        design.board,
+        layers,
+        issues,
+        net_names={net.id: net.name for net in design.circuit.nets},
+        planes=tuple(on_planes),
+    )
     counts = {
         "track": (len(tracks), len(board.tracks) - len(tracks)),
         "arc": (len(arcs), len(board.arcs) - len(arcs)),

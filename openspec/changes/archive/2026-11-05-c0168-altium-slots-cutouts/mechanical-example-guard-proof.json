@@ -1,0 +1,110 @@
+{
+  "version": 1,
+  "scope": "c0168 local task5.1g test-corpus repair only",
+  "date": "2026-11-04",
+  "base": "79e5467ec7d1507d4114fb83f3c39a369f7b7724",
+  "failed_fast20": {
+    "source": "91f4fb3894ab57dc791cf7a7fd779d5044d8fcba",
+    "exit": 2,
+    "outcome": "2failed/22601passed/52skipped",
+    "failed_nodes": [
+      "test_the_lowering_writes_the_former_documents[flat]",
+      "test_the_lowering_writes_the_former_documents[modules]"
+    ],
+    "cause": "new valid component-free mechanical example reached the former corpus positive-component assumption",
+    "log_sha256": "a115dcf019f44641b3fd42677b56b4e37947c1f99a05fbdb2c1a39259709f566",
+    "receipt_sha256": "0883c7f6818caff240c53f81f0b81853667d21d03475342fed268776cde112ab",
+    "failed_log_unchanged": true
+  },
+  "focused_GREEN": "143passed in443.42s",
+  "both_complete_mode_census": {
+    "flat": {
+      "all_scripts_visited": 79,
+      "successful_comparisons": 49,
+      "prior_populated_successful_comparisons": 48,
+      "new_mechanical_comparison": 1,
+      "historical_pinned_pairs_passed": [
+        "altium_hier_board/design.py",
+        "blink_2layer/design.py",
+        "blink_routed/design.py",
+        "board_40parts/design.py",
+        "kit/board6/design.py",
+        "kit/flat/design.py",
+        "kit/libs/design.py",
+        "kit/routed/design.py"
+      ]
+    },
+    "modules": {
+      "all_scripts_visited": 79,
+      "successful_comparisons": 49,
+      "prior_populated_successful_comparisons": 48,
+      "new_mechanical_comparison": 1,
+      "historical_pinned_pairs_passed": [
+        "altium_hier_board/design.py",
+        "blink_2layer/design.py",
+        "blink_routed/design.py",
+        "board_40parts/design.py",
+        "kit/board6/design.py",
+        "kit/flat/design.py",
+        "kit/libs/design.py",
+        "kit/routed/design.py"
+      ]
+    }
+  },
+  "new_geometry_negative_controls": 13,
+  "first_helper_failure": "13setup errors: expected local rather than existing100mm-offset model coordinates; retained, corrected only the authored expected frame, no production/source geometry change",
+  "exact_cutout_reference": {
+    "path": "examples/kit/slots/regions/slots.PcbDoc",
+    "sha256": "be65d4b9884e1949abd162f64033f54b92167bf1cea5af535031d691467910f0",
+    "source": "already pinned Fenolite-authored historical writer input, never native-saved",
+    "comparison": "all vertices, literal order and ring multiplicities in exact stored Altium units using existing Frame/rec.to_units; no tolerance, ring normalization, UUID/netcode change or new golden"
+  },
+  "all_four_holes_complete_geometry_asserted": true,
+  "all_old_assertion_ASTs_preserved": true,
+  "positive_component_assertion_literal_preserved_for_every_other_script": true,
+  "all16_FORMER_DOCUMENTS_pairs_unchanged_and_passed": true,
+  "SCRIPTS_discovery_unchanged_no_skip_or_exclusion": true,
+  "production_and_example_sources_unchanged": true,
+  "all11_CAD_bytes_unchanged": {
+    "examples/kit/slots/clearance/slots.SchLib": "14f88c47b5bf89aa45c1b4be879232bb89bef86e3898346e0042907965e6c160",
+    "examples/kit/slots/clearance/slots.SchDoc": "0976b57d969fb5be103ee57761d13f123d3cf99643c83c86c96ef73c916efdb8",
+    "examples/kit/slots/clearance/slots.PrjPcb": "c1e0bb980352ed7bd7d01a1a584106883f7dc0f42db05dfbf3b49f7d59c320c1",
+    "examples/kit/slots/clearance/slots.PcbLib": "0cb1c97ecb3821808275b54ecd986cedf21acdb0ed4f4f6ee4546201f61eeb11",
+    "examples/kit/slots/clearance/slots.PcbDoc": "822d31cf5ee269e44b573db595388c0532008523ff4d0d93d103c7a528a8ec3e",
+    "examples/kit/slots/regions/slots.SchDoc": "3d49003f302035874a7933695bf20a3187c9f298bcd5be4c8bdf92ed9cccd2b3",
+    "examples/kit/slots/regions/slots.PrjPcb": "e7d693f497c3345351e319d0b0c80cc9454443f30b5053ba27e5a57912b51bc5",
+    "examples/kit/slots/regions/slots.PcbDoc": "be65d4b9884e1949abd162f64033f54b92167bf1cea5af535031d691467910f0",
+    "examples/kit/slots/gate-off/slots.SchDoc": "3d49003f302035874a7933695bf20a3187c9f298bcd5be4c8bdf92ed9cccd2b3",
+    "examples/kit/slots/gate-off/slots.PrjPcb": "e7d693f497c3345351e319d0b0c80cc9454443f30b5053ba27e5a57912b51bc5",
+    "examples/kit/slots/gate-off/slots.PcbDoc": "c798ec4604bddbd28674bdd7fde5a41fdf6440b8ed4c298bc984b005ecb95554"
+  },
+  "proof_logs_sha256": {
+    "focused-combined.log": "6dbfce82cb02b48b396c947d8e456b127d81980d68d40fbfce691b424ea508a0",
+    "focused-geometry-controls.log": "d381ddae6f76b89ab0afd9b1b2d973ae701a22dc20e99ce6efda292239946aec",
+    "focused-geometry-controls-correct-frame.log": "2871d060c92d624d75af98a774e5d1a38fdef8d0a4631846a077f7ed71aae231",
+    "source-preservation-guards.json": "a9eae88bbbfb1099668ed8c355bb91a477ada1fbb3495156d6fc23f919f122e0",
+    "global-consumers-readonly-audit.json": "f7e7f466e3632e5005cd5c3cd6b8465ed0fa54ea6ae73390e171cf7f1738009e",
+    "ruff.log": "ce04ce92b16073000b77c97a42c00b98b96305692d9d5ed4dcfa5a9ca9ea62d6",
+    "strict.log": "ed4b8bfd3e000f0110aeee49c957c766706f5f9886658722f048151932ef5a79",
+    "private-final.log": "80dbe6018c0ce238fec9c85bdd1fdadb921b8cbb8c5825cbbbe029267d940e46"
+  },
+  "source_bindings_sha256": {
+    "tests/unit/backends/altium/test_lower_build_spec.py": "6a342b8eab0551a88192db230102264d8d65d28f932b1cea43d02d4683d06c58",
+    "tests/unit/model/test_migrate.py": "c99acc4ea0ff5faaacc6247f0b3192116037c17159d18c44ab1455c1dfeb1d10",
+    "examples/kit/slots/design.py": "4078be3d1221f5c87adb4d3b4e8139f85b18e05bd9d375ceda0c6459f111aa3a",
+    "openspec/changes/c0168-altium-slots-cutouts/design.md": "7f98d6989fc8c0b4186bcc5587424f9d5e13cba175c5c21bf18dd8522c3803d7",
+    "openspec/changes/c0168-altium-slots-cutouts/tasks.md": "11857c49aac8d3771a4c312fc01715405a28fef0ec25b0ca0b0a81aec12f2d2a"
+  },
+  "formal_record_created": false,
+  "H_A_SLOT_KIT": "INFERRED",
+  "aggregate5_2_completed": false,
+  "new_native_full_fast_CI_push_for_this_repair": 0,
+  "strict_OpenSpec": "passed",
+  "ruff": "check and format passed",
+  "private_scan": {
+    "gate": "on",
+    "hits": 0,
+    "staged_files": 5,
+    "exit_code": 0
+  }
+}

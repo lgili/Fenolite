@@ -45,8 +45,11 @@ def enabled_mechanical(used_layers: Collection[int] = ()) -> tuple[int, ...]:
     """The numbers of the enabled mechanical layers of a board record whose primitives lie on
     ``used_layers`` (numbered layers 1 … 74): ``ENABLED_MECHANICAL`` and each of Mechanical 1 to 12 (the
     layers 57 to 68) that is used (change c0126; ``pcb-document.md``, "Mechanical layers in use"). A
-    document that uses none of the twelve gives ``ENABLED_MECHANICAL``, and so the bytes of before."""
+    document that uses none of the twelve gives ``ENABLED_MECHANICAL``, and so the bytes of before. A used
+    layer of Mechanical 17 to 32 (its long id, ``pcbrecords.mechanical_id``) is enabled too (change c0450,
+    task 4.4)."""
     used = {layer - 56 for layer in used_layers if 57 <= layer <= 68}
+    used |= {layer - _MECHANICAL for layer in used_layers if rec.is_long_mechanical(layer)}
     return tuple(sorted({*ENABLED_MECHANICAL, *used}))
 
 
@@ -116,6 +119,8 @@ DielectricKind = Literal["unspecified", "core", "prepreg"]
 DIELECTRIC_TYPES: dict[str, str] = {"unspecified": "0", "core": "1", "prepreg": "2"}
 """``DIELTYPE`` of a dielectric kind (``pcb-copper.md``, "Layer stack")."""
 NO_NET = "(No Net)"
+MULTIPLE_NETS = "(Multiple Nets)"
+"""``PLANE<k>NETNAME`` of a plane split between nets by its ``Split Plane`` polygons (change c0466)."""
 PLANE_COUNT = 16
 
 
@@ -168,12 +173,15 @@ class StackSpec:
     drill_pairs: tuple[tuple[int, int], ...] = ()
     """The drill pairs besides the pair of the outer layers (change c0085): the two copper ids of each
     span of a blind or buried via, the upper layer first, in stack order and without repeats."""
+    pullbacks: tuple[int, ...] = ()
+    """The pull-back of each plane of ``copper`` in plane order, nanometres (change c0466); a plane past
+    the end of the tuple has ``PULLBACK``."""
 
     def __post_init__(self) -> None:
         if not valid_stack(self.copper):
             raise ValueError(
                 f"the copper layers {self.copper!r} are not a stack that is written: the top layer 1, "
-                "then each inner layer as Mid-Layer k (k + 1) at position k or as the next internal plane "
+                "then each inner layer as a Mid-Layer of rising id (2 to 31) or as the next internal plane "
                 "from 39, then the bottom layer 32, an even count with at most 16 signal layers"
             )
         for low, high in self.drill_pairs:
@@ -207,6 +215,8 @@ class StackSpec:
             raise ValueError(f"{missing} has no net: the stack needs one plane net per plane")
         if len(self.plane_nets) > len(planes):
             raise ValueError(f"the stack has {len(planes)} plane(s) and {len(self.plane_nets)} plane nets")
+        if len(self.pullbacks) > len(planes) or any(p < 0 for p in self.pullbacks):
+            raise ValueError(f"the stack has {len(planes)} plane(s) and {len(self.pullbacks)} pull-backs")
         for name in self.plane_nets:
             problem = text_problem(name)
             if problem is not None:
@@ -235,17 +245,21 @@ class StackSpec:
 
 
 def valid_stack(copper: tuple[int, ...]) -> bool:
-    """Whether ``copper`` is a stack ``pcbrecords.copper_stack`` gives: 1, the inner ids, 32."""
+    """Whether ``copper`` is a stack ``pcbrecords.copper_stack`` gives: 1, the inner ids, 32. The inner
+    signal layers rise within 2 … 31 (Mid-Layer k at position k, or the ids of a source, change c0466)."""
     if len(copper) < 2 or copper[0] != rec.TOP_LAYER or copper[-1] != rec.BOTTOM_LAYER:
         return False
     planes = [layer for layer in copper[1:-1] if layer >= rec.FIRST_PLANE]
     if rec.stack_problem(len(copper), len(planes)) is not None:
         return False
     plane = rec.FIRST_PLANE
-    for position, layer in enumerate(copper[1:-1], start=1):
+    signal = rec.TOP_LAYER
+    for layer in copper[1:-1]:
         if layer == plane:
             plane += 1
-        elif layer != position + 1:
+        elif signal < layer < rec.BOTTOM_LAYER:
+            signal = layer
+        else:
             return False
     return True
 
@@ -388,7 +402,10 @@ def _bool(value: bool) -> str:
 
 
 def long_id(layer: int) -> int:
-    """The long layer id of a numbered layer 1 … 82 (``pcb-library.md``, "Long layer ids")."""
+    """The long layer id of a numbered layer 1 … 82 (``pcb-library.md``, "Long layer ids"); the long id of
+    Mechanical 17 to 32 (``pcbrecords.mechanical_id``) is its own."""
+    if rec.is_long_mechanical(layer):
+        return layer
     if layer == 32:
         return _BOTTOM
     if 1 <= layer <= 31:
@@ -477,6 +494,7 @@ def _layer_fields(
     used: Collection[int],
     substack: str | None = None,
     stack: StackSpec | None = None,
+    mechanical: Collection[int] | None = None,
 ) -> list[Field]:
     """The keys of one layer of a ``V9`` list (``sep`` ``_``) or of the ``_V8`` list (``sep`` empty). With
     ``substack`` (a document's sub-stack GUID) a layer of the physical stack first gets its two sub-stack
@@ -496,12 +514,20 @@ def _layer_fields(
         placement = "1" if low == 1 else "2" if long == _BOTTOM else "1" if long in physical else "0"
         fields += [*_copper_thickness(spec, long), ("COMPONENTPLACEMENT", placement)]
     elif group == _PLANE:
-        fields += [*_copper_thickness(spec, long), ("PULLBACKDISTANCE", PULLBACK)]
+        pullback = PULLBACK
+        if long in [long_id(plane) for plane in spec.planes[: len(spec.pullbacks)]]:
+            index = [long_id(plane) for plane in spec.planes].index(long)
+            pullback = rec.mil_text(rec.to_units(spec.pullbacks[index]))
+        fields += [*_copper_thickness(spec, long), ("PULLBACKDISTANCE", pullback)]
     elif group == _DIELECTRIC:
         fields += spec.dielectrics[low - 1].fields()
     elif group == _MECHANICAL:
-        # Mechanical 1 to 12 are enabled when a primitive lies on them (change c0126)
-        fields.append(("MECHENABLED", _bool(low in ENABLED_MECHANICAL or (low <= 12 and long in used))))
+        # Mechanical 1 to 12 are enabled when a primitive lies on them (change c0126); ``mechanical`` names
+        # the enabled ones when a conversion carried the source's flags (change c0464)
+        # and Mechanical 17 to 32 when a primitive lies on them (change c0450, task 4.4)
+        default = low in ENABLED_MECHANICAL or (low not in range(13, 17) and long in used)
+        enabled = low in mechanical if mechanical is not None else default
+        fields.append(("MECHENABLED", _bool(enabled)))
     elif low in (10, 11):
         fields += [*_RESIST, ("COVERLAY_EXPANSION", "0mil")]
     out = [(f"{prefix}{sep}{key}", value) for key, value in fields]
@@ -537,25 +563,30 @@ def _substack(prefix: str, sep: str, substack: str) -> list[Field]:
 
 
 def stack_fields(
-    used_layers: Collection[int] = (), substack: str | None = None, stack: StackSpec | None = None
+    used_layers: Collection[int] = (),
+    substack: str | None = None,
+    stack: StackSpec | None = None,
+    mechanical: Collection[int] | None = None,
 ) -> list[Field]:
     """The layer stack in its ``V9`` and ``_V8`` generations and the keys that close it: the master stack,
     the physical stack, the cache list, the ``_V8`` list, the top and bottom dielectric and the style keys.
     ``used_layers`` are numbered layers (1 … 74); ``substack`` is a document's sub-stack GUID, which adds
-    the sub-stack keys (a library has none); ``stack`` is the copper stack (``None``: two layers)."""
+    the sub-stack keys (a library has none); ``stack`` is the copper stack (``None``: two layers).
+    ``mechanical`` (change c0464) are the numbers of the enabled mechanical layers when they are not those
+    ``used_layers`` give (``enabled_mechanical``)."""
     used = {long_id(layer) for layer in used_layers}
     out = _master("V9_MASTERSTACK", "_")
     if substack is not None:
         out += _substack("V9_SUBSTACK0", "_", substack)
     for index, long in enumerate(_stack_ids(stack)):
-        out += _layer_fields(f"V9_STACK_LAYER{index}", "_", long, used, substack, stack)
+        out += _layer_fields(f"V9_STACK_LAYER{index}", "_", long, used, substack, stack, mechanical)
     for index, long in enumerate(_cache_ids(stack)):
-        out += _layer_fields(f"V9_CACHE_LAYER{index}", "_", long, used, substack, stack)
+        out += _layer_fields(f"V9_CACHE_LAYER{index}", "_", long, used, substack, stack, mechanical)
     out += _master("LAYERMASTERSTACK_V8", "")
     if substack is not None:
         out += _substack("LAYERSUBSTACK_V8_0", "", substack)
     for index, long in enumerate(_v8_ids(stack)):
-        out += _layer_fields(f"LAYER_V8_{index}", "", long, used, substack, stack)
+        out += _layer_fields(f"LAYER_V8_{index}", "", long, used, substack, stack, mechanical)
     for side in ("TOP", "BOTTOM"):
         out += [(f"{side}{key.removeprefix('DIEL')}", value) for key, value in _RESIST]
     out += [("LAYERSTACKSTYLE", "0"), ("SHOWTOPDIELECTRIC", "FALSE"), ("SHOWBOTTOMDIELECTRIC", "FALSE")]
@@ -640,7 +671,7 @@ def _legacy_layers(
             ("NAME", f"Mechanical {number}"),
             ("PREV", str(_MISC)),
             ("NEXT", str(_MISC)),
-            ("MECHENABLED", "FALSE"),
+            ("MECHENABLED", _bool(number in mechanical)),
             *_COPPER,
             *_CORE,
         )
@@ -653,10 +684,23 @@ def _layer_sets(stack: StackSpec | None = None, enabled: Sequence[int] = ENABLED
     mids = [f"MidLayer{layer - 1}" for layer in inner if layer < rec.FIRST_PLANE]
     planes = [f"InternalPlane{layer - rec.FIRST_PLANE + 1}" for layer in inner if layer >= rec.FIRST_PLANE]
     mechanical = [f"Mechanical{n}" for n in enabled]
+    first = [f"Mechanical{n}" for n in enabled if n <= 16]
+    later = [f"Mechanical{n}" for n in enabled if n > 16]  # after the drill drawing (change c0450, task 4.4)
     top = ["MultiLayer", "TopPaste", "TopOverlay", "TopSolder"]
     bottom = ["BottomSolder", "BottomOverlay", "BottomPaste", "DrillGuide", "KeepOutLayer"]
     low, rest = bottom[:3], bottom[3:]
-    all_layers = [*top, "TopLayer", *mids, "BottomLayer", *low, *planes, *rest, *mechanical, "DrillDrawing"]
+    all_layers = [
+        *top,
+        "TopLayer",
+        *mids,
+        "BottomLayer",
+        *low,
+        *planes,
+        *rest,
+        *first,
+        "DrillDrawing",
+        *later,
+    ]
     sets: tuple[tuple[str, list[str], str], ...] = (
         ("&All Layers", all_layers, "TOP"),
         ("&Signal Layers", ["MultiLayer", "TopLayer", *mids, "BottomLayer"], "TOP"),
@@ -780,6 +824,7 @@ __all__ = [
     "DATE",
     "DIELECTRIC_TYPES",
     "Dielectric",
+    "MULTIPLE_NETS",
     "NO_NET",
     "STACKS",
     "StackSpec",

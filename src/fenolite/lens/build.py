@@ -13,15 +13,18 @@ from __future__ import annotations
 
 import dataclasses
 import fnmatch
+import functools
 import hashlib
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
 from typing import Literal, Protocol, TypeGuard, cast
 
+from fenolite.backends import step as step_mod
 from fenolite.backends.kicad import (
+    boardcarrier,
     boarditems,
     dru,
     embed,
@@ -41,10 +44,12 @@ from fenolite.backends.kicad import (
     wks,
 )
 from fenolite.backends.kicad import copper as copper_mod
+from fenolite.backends.kicad import drawn as drawn_mod
 from fenolite.backends.kicad import generate as generate_mod
 from fenolite.backends.kicad import lengths as lengths_mod
 from fenolite.backends.kicad import meander as meander_mod
 from fenolite.backends.kicad import stackup as stacklib
+from fenolite.backends.kicad import verbatim as verbatimlib
 from fenolite.backends.kicad import via_protection as vialib
 from fenolite.backends.kicad.copper import CopperIntentLike, is_copper_uuid, resolve_copper
 from fenolite.backends.kicad.embed import (
@@ -54,6 +59,7 @@ from fenolite.backends.kicad.embed import (
     place_footprint,
     uuid_locators,
     with_property,
+    with_property_value,
 )
 from fenolite.backends.kicad.layers import created_layers, with_plane_types
 from fenolite.backends.kicad.liberrors import LibraryError
@@ -66,29 +72,49 @@ from fenolite.backends.kicad.outline import (
     outline_box,
     outline_case,
 )
-from fenolite.backends.kicad.pcb import WRITE_EVIDENCE, read_board, write_board
+from fenolite.backends.kicad.pcb import STORED_KEY, WRITE_EVIDENCE, read_board, write_board
+from fenolite.backends.kicad.pro_template import ProjectResource, validate_resources
 from fenolite.backends.kicad.schgen import GeneratedSchematic
 from fenolite.backends.kicad.schlayout import SymbolPlacement
 from fenolite.backends.kicad.sexpr import parse_bytes
+from fenolite.backends.kicad.symbol_contexts import Contexts, check_written
 from fenolite.backends.kicad.triad import write_triad
 from fenolite.backends.kicad.zones import PadZoneRequestLike, apply_pad_connections, keep_pad_connections
-from fenolite.core.coords import Point
-from fenolite.core.errors import FenoliteError, Issue, Severity
+from fenolite.core.coords import Point, Size
+from fenolite.core.errors import FenoliteError, FormatError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
+from fenolite.core.schema_ids import accepts_schema
 from fenolite.core.units import Nm, Udeg
+from fenolite.lens import edits as edits_mod
 from fenolite.lens import preserve
 from fenolite.lens.fields import FieldRequestLike, apply_requests, merge_fields
 from fenolite.lens.moved import identity_map
+from fenolite.lens.pins import PIN_ISSUE_CODES
 from fenolite.lens.preserve import PRESERVE_ISSUE_CODES, Prepared
-from fenolite.model import canonical, pairs
-from fenolite.model.board import ComponentBody, FootprintInstance, Pad, Side, ViaProtection
-from fenolite.model.circuit import Component, Interface, Net, NetClass, Pin, PinRef
+from fenolite.lens.rolecopper import RoleCopperPlanner, apply_plan
+from fenolite.model import canonical, drawn_connect, pairs
+from fenolite.model.base import ExtBag
+from fenolite.model.board import (
+    ComponentBody,
+    FootprintInstance,
+    FootprintOverrides,
+    Image,
+    Layer,
+    ModelRef,
+    Pad,
+    Side,
+    Via,
+    ViaProtection,
+)
+from fenolite.model.circuit import Circuit, Component, Interface, Net, NetClass, Pin, PinRef
 from fenolite.model.design import Design
-from fenolite.model.library import FootprintDef, SymbolDef
+from fenolite.model.drawn import DrawnSchematic
+from fenolite.model.library import DeviceDef, FootprintDef, SymbolDef, flatten_symbol
 from fenolite.model.presentation import DrawingSheet
-from fenolite.model.rules import ImpedanceTarget, Rule, RuleSubject, Selector, TraceGeometry
+from fenolite.model.rules import ImpedanceTarget, Rule, RuleSubject, Selector, TeardropRule, TraceGeometry
 from fenolite.model.schematic import SchematicSheet
+from fenolite.schematic.block_sheets import SheetGroup
 
 RECORD_FILE = ".fenolite/build.json"
 SHEET_SUFFIX = ".kicad_wks"
@@ -103,13 +129,16 @@ LAYOUT_HINT = (
 )
 BUILD_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
     {
+        "build.bom-only": "error",
         "build.unknown-pin": "error",
+        "build.device-mismatch": "error",
         "build.pin-on-two-nets": "error",
         "build.pin-without-pad": "error",
         "build.pin-pad-map-invalid": "error",
         "build.no-connect-on-net": "error",
         "build.no-footprint": "error",
         "build.no-board": "error",
+        "build.unattached": "warning",
         "build.name-case-collision": "error",
         "build.layout-exists": "error",
         "build.property-reserved": "error",
@@ -118,6 +147,8 @@ BUILD_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "build.vendor-unsafe-name": "error",
         "build.schematic-netlist-differs": "error",
         "build.area-unknown": "error",
+        "build.not-two-terminal": "error",
+        "build.must-connect-unconnected": "error",
         "build.pin-ambiguous": "warning",
         "build.unused-pin-without-pad": "warning",
         "build.library-too-new": "warning",
@@ -126,26 +157,72 @@ BUILD_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "build.diff-pair-gap-shadowed": "warning",
         "build.i2c-pullup-missing": "warning",
         "build.pad-map-default": "warning",
+        "build.port-unused": "warning",  # c0251: blocks
+        "build.block-net-escape": "warning",
+        # c0252: the circuit rules, which cmd_build runs on the model it builds (checks.circuit)
+        "circuit.rail-voltage": "error",
+        "circuit.rail-current": "error",
+        "circuit.rail-sources": "error",
+        "circuit.rail-unset": "warning",
+        "circuit.logic-level": "error",
+        "circuit.logic-unknown": "warning",
+        "circuit.bus-pullup": "warning",
+        "circuit.requires-missing": "warning",
+        "circuit.port-split": "warning",
         "layout.unplaced": "warning",
         "build.pad-without-pin": "info",
+        "device.edited": "info",
+        "device.overrides-builtin": "info",
         "build.global-library": "info",
         "build.field-added": "info",
         "build.interface-not-lowered": "info",
         "build.plane-zone-missing": "warning",
+        "build.teardrops-overlap": "info",  # c0277
+        "build.image-missing": "error",  # c0277
+        "build.pad-unknown": "error",
+        "build.image-format": "error",
         "build.impedance-layer": "error",
         "build.impedance-shadowed": "warning",
         "build.impedance-class-width": "warning",
         "build.impedance-gap-clearance": "warning",
         "build.impedance-stackup": "warning",
         "build.impedance-rules-only": "info",
+        # the design lock (c0249; the same table as fenolite.dsl.lock.LOCK_CODES)
+        "lock.ref-released": "warning",
+        "lock.ref-taken": "warning",
+        "lock.ref-moved": "info",
+        "lock.ref-explicit": "info",
+        "lock.ref-prefix-changed": "info",
+        "lock.design-renamed": "info",
+        "lock.changed": "error",
+        "lock.block-version": "error",  # c0268: the [blocks] section
+        "lock.block-replaced": "info",
+        "lock.block-released": "info",
+        "block.deprecated": "warning",
+        # the pin solve (c0257; the same table as fenolite.lens.pins.PIN_ISSUE_CODES)
+        **PIN_ISSUE_CODES,
         **{code: severity for code, severity in schgen.ISSUE_CODES.items() if code.startswith("build.")},
         **PRESERVE_ISSUE_CODES,
+        **edits_mod.EDIT_ISSUE_CODES,
+        # the drawn schematic (c0276; the table of fenolite.model.drawn_connect.ISSUE_CODES)
+        **drawn_connect.ISSUE_CODES,
+        # verbatim items (c0277; the table of fenolite.backends.kicad.verbatim.ISSUE_CODES)
+        **verbatimlib.ISSUE_CODES,
     }
 )
 BUILD_EVIDENCE = Evidence(
     Level.INFERRED,
     hypotheses=("H-K-BUILD-TRIAD", "H-K-BUILD-CLASS", "H-K-BUILD-LIBTABLE", "H-K-BUILD-PATHPROP"),
 )
+DEVICE_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-BUILD-DEVICE",))
+"""Joins the envelope when a part placed from a device is built (change c0248). The envelope is not lowered
+to a device's own label: each device's label is reported beside it in ``result.devices``."""
+DEVICE_PROPERTY = "fenolite.device"
+DEVICE_SHA256_PROPERTY = "fenolite.device.sha256"
+DEVICE_PROPERTIES: tuple[str, ...] = (DEVICE_PROPERTY, DEVICE_SHA256_PROPERTY)
+"""The reserved properties that name a built component's device, written as ``fenolite.path`` is."""
+DeviceCheck = Callable[[DeviceDef, SymbolDef, FootprintDef], Sequence[Issue]]
+"""``fenolite.catalog.devices.check_device``, given by the caller: the lens does not import the catalog."""
 AUTHORING_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-DSL-FOOTPRINT",))
 """The blink is proved by the build oracle; arbitrary designs reach forms the oracle has not run."""
 PROPERTY_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-VENDOR-PROPS", "H-K-VENDOR-DUPNAME"))
@@ -254,7 +331,7 @@ class _Part:
     component: Component
     path: str
     symbol: SymbolDef
-    footprint: FootprintDef
+    footprint: FootprintDef | None
     location: Location | None
     parents: tuple[SymbolDef, ...] = ()
     """The symbols ``symbol`` extends, as their library holds them (the schematic embeds a flat copy)."""
@@ -262,8 +339,21 @@ class _Part:
     """The origin of the row that resolved the symbol, or ``authored``."""
 
 
+def _user_name(layer: Layer) -> str:
+    """The user name a script gives a user layer: the ``user_name`` pair of its ``kicad`` bag."""
+    bag = layer.ext.get("kicad")
+    return dict(bag.payload).get("user_name", "") if bag is not None else ""
+
+
 def _path(component: Component) -> str:
     return component.properties.get(PATH_PROPERTY, component.ref)
+
+
+def _flat(symbol: SymbolDef, authored: Mapping[str, SymbolDef]) -> SymbolDef:
+    """An authored symbol, a derived one flattened onto its base of the same library (change c0261)."""
+    if not symbol.extends:
+        return symbol
+    return flatten_symbol(symbol, [s for s in authored.values() if s.library == symbol.library])
 
 
 def _resolve(
@@ -272,6 +362,7 @@ def _resolve(
     issues: list[Issue],
     authored: Mapping[str, FootprintDef] = MappingProxyType({}),
     authored_symbols: Mapping[str, SymbolDef] = MappingProxyType({}),
+    empty_values: frozenset[str] = frozenset(),
 ) -> tuple[list[_Part], dict[str, str]]:
     errors: list[LibraryError] = []
     libraries: dict[str, str] = {}
@@ -280,7 +371,7 @@ def _resolve(
         parents: tuple[SymbolDef, ...] = ()
         try:
             if component.lib_symbol_ref in authored_symbols:
-                symbol = authored_symbols[component.lib_symbol_ref]
+                symbol = _flat(authored_symbols[component.lib_symbol_ref], authored_symbols)
                 libraries[component.lib_symbol_ref] = "authored"
             else:
                 chain = resolver.symbol_chain(component.lib_symbol_ref)
@@ -291,7 +382,23 @@ def _resolve(
         except LibraryError as error:
             errors.append(error)
             continue
-        fp_ref = component.lib_footprint_ref or symbol.properties.get("Footprint", "")
+        if component.bom_only:
+            if symbol.pins or symbol.power:
+                issues.append(
+                    issue(
+                        "build.bom-only",
+                        f"{component.ref}: a BOM-only symbol must be pinless and non-power",
+                        _path(component),
+                    )
+                )
+                continue
+            origin = libraries[component.lib_symbol_ref]
+            found.append(_Part(component, _path(component), symbol, None, None, parents, origin))
+            continue
+        native_ref = component.lib_footprint_ref
+        if not component.footprint_definition_ref:
+            native_ref = native_ref or symbol.properties.get("Footprint", "")
+        fp_ref = component.footprint_definition_ref or native_ref
         if not fp_ref:
             issues.append(
                 issue(
@@ -313,8 +420,11 @@ def _resolve(
                 errors.append(error)
                 continue
             libraries[fp_ref] = location.origin
-        value = component.value or symbol.properties.get("Value", "")
-        component = dataclasses.replace(component, lib_footprint_ref=fp_ref, value=value)
+        # a board-only part has no symbol on the sheet: its value is its own, empty included (change c0277);
+        # so is a part given ``value=""`` (change c0364, ``empty_values``)
+        own = component.board_only or component.id in empty_values
+        value = component.value if own else component.value or symbol.properties.get("Value", "")
+        component = dataclasses.replace(component, lib_footprint_ref=native_ref, value=value)
         origin = libraries[component.lib_symbol_ref]
         found.append(_Part(component, _path(component), symbol, footprint, location, parents, origin))
     if errors:
@@ -336,9 +446,18 @@ def _pins(symbol: SymbolDef, path: str) -> list[Pin]:
     return list(pins.values())
 
 
-def _targets(designator: str, pins: list[Pin], ref: str, issues: list[Issue]) -> list[str]:
-    """The pin numbers a designator names: itself when it is a pin number (the number wins over a name,
-    with ``build.pin-ambiguous``), else every pin of that name; none gives ``build.unknown-pin``."""
+def _targets(
+    designator: str,
+    pins: list[Pin],
+    ref: str,
+    issues: list[Issue],
+    functions: Mapping[str, tuple[str, ...]] | None = None,
+) -> list[str]:
+    """The pin numbers a designator names: on a device part a function first gives every symbol pin of
+    the function (change c0248); then itself when it is a pin number (the number wins over a name, with
+    ``build.pin-ambiguous``), else every pin of that name; none gives ``build.unknown-pin``."""
+    if functions and designator in functions:
+        return list(functions[designator])
     if designator in [p.number for p in pins]:
         if any(p.name == designator and p.number != designator for p in pins):
             issues.append(
@@ -357,10 +476,88 @@ def _targets(designator: str, pins: list[Pin], ref: str, issues: list[Issue]) ->
     return targets
 
 
+def _topology_pins(
+    design: Design,
+    functions: Mapping[str, Mapping[str, tuple[str, ...]]],
+    issues: list[Issue],
+) -> Design:
+    """Resolve topology names with the same symbol/device pin semantics as circuit connections."""
+    components = design.circuit.components
+    if design.rules is not None and design.rules.topologies:
+        names: dict[str, str] = {}
+        for topology in design.rules.topologies:
+            for name in topology.nodes:
+                component = next(
+                    (
+                        part
+                        for part in sorted(components, key=lambda part: -len(part.ref))
+                        if name.startswith(part.ref + "-")
+                    ),
+                    None,
+                )
+                if component is None:
+                    continue
+                designator = name[len(component.ref) + 1 :]
+                targets = _targets(
+                    designator, list(component.pins), component.ref, issues, functions.get(component.id)
+                )
+                if len(targets) == 1:
+                    names[name] = f"{component.ref}-{targets[0]}"
+                elif len(targets) > 1:
+                    issues.append(
+                        issue(
+                            "build.unknown-pin",
+                            f"topology {topology.name}: {name} names several pins; give one pin number",
+                            name,
+                        )
+                    )
+        for topology in design.rules.topologies:
+            resolved = tuple(names.get(name, name) for name in topology.nodes)
+            if len(set(resolved)) != len(resolved):
+                issues.append(
+                    issue(
+                        "build.unknown-pin",
+                        f"topology {topology.name}: two nodes resolve to one pin; use distinct pin numbers",
+                        topology.name,
+                    )
+                )
+                return design
+        design = dataclasses.replace(
+            design,
+            rules=dataclasses.replace(
+                design.rules,
+                topologies=tuple(
+                    dataclasses.replace(
+                        topology,
+                        nodes=tuple(names.get(name, name) for name in topology.nodes),
+                        edges=tuple(
+                            dataclasses.replace(
+                                edge, a=names.get(edge.a, edge.a), b=names.get(edge.b, edge.b)
+                            )
+                            for edge in topology.edges
+                        ),
+                        constraints=tuple(
+                            dataclasses.replace(
+                                constraint, ends=tuple(names.get(name, name) for name in constraint.ends)
+                            )
+                            for constraint in topology.constraints
+                        ),
+                    )
+                    for topology in design.rules.topologies
+                ),
+            ),
+        )
+    return design
+
+
 def _resolve_pins(
-    design: Design, parts: list[_Part], issues: list[Issue]
+    design: Design,
+    parts: list[_Part],
+    issues: list[Issue],
+    functions: Mapping[str, Mapping[str, tuple[str, ...]]] = MappingProxyType({}),
 ) -> tuple[dict[str, list[Pin]], dict[str, dict[str, str]]]:
-    """Pins per component id, and the net id of each connected pin number per component id."""
+    """Pins per component id, and the net id of each connected pin number per component id; ``functions``
+    holds the device functions (name → symbol pins) of each device part by component id."""
     pins = {p.component.id: _pins(p.symbol, p.path) for p in parts}
     refs = {p.component.id: p.component.ref for p in parts}
     on_net: dict[str, dict[str, str]] = {cid: {} for cid in pins}
@@ -369,7 +566,10 @@ def _resolve_pins(
             if member.component_id not in pins:
                 continue
             ref = refs[member.component_id]
-            for number in _targets(member.pin, pins[member.component_id], ref, issues):
+            found = _targets(
+                member.pin, pins[member.component_id], ref, issues, functions.get(member.component_id)
+            )
+            for number in found:
                 current = on_net[member.component_id].get(number)
                 if current is not None and current != net.id:
                     issues.append(issue("build.pin-on-two-nets", f"{ref} pin {number} is on two nets", ref))
@@ -384,6 +584,7 @@ def _resolve_marks(
     pins: Mapping[str, list[Pin]],
     on_net: Mapping[str, Mapping[str, str]],
     issues: list[Issue],
+    functions: Mapping[str, Mapping[str, tuple[str, ...]]] = MappingProxyType({}),
 ) -> tuple[PinRef, ...]:
     """The no-connect marks of ``design`` as pin numbers, in ``PinRef`` order without duplicates. A mark
     is resolved like a net member; a marked pin that a net lists gives ``build.no-connect-on-net`` and is
@@ -396,7 +597,9 @@ def _resolve_marks(
             marks.add(mark)
             continue
         ref = refs[mark.component_id]
-        for number in _targets(mark.pin, pins[mark.component_id], ref, issues):
+        for number in _targets(
+            mark.pin, pins[mark.component_id], ref, issues, functions.get(mark.component_id)
+        ):
             net_id = on_net[mark.component_id].get(number)
             if net_id is not None:
                 issues.append(
@@ -410,6 +613,112 @@ def _resolve_marks(
                 continue
             marks.add(PinRef(mark.component_id, number))
     return tuple(sorted(marks))
+
+
+def must_connect_pins(component: Component, device: DeviceDef | None = None) -> frozenset[str]:
+    """The pin numbers of ``component`` (its pins resolved) that an unused-pin request never marks: every
+    ``power_in`` pin, and the symbol pins of the functions that ``device``, the catalog device the part
+    comes from, marks ``must_connect`` (changes c0247, Decision 6, and c0248)."""
+    power = {pin.number for pin in component.pins if pin.etype == "power_in"}
+    flagged: set[str] = (
+        {number for pin in device.pins if pin.must_connect for number in pin.pins} if device else set()
+    )
+    return frozenset(power | flagged)
+
+
+def _pin_order(number: str) -> tuple[int, int, str]:
+    """Pin-number order: decimal numbers by value first, then the others in code-point order."""
+    return (0, int(number), number) if number.isascii() and number.isdigit() else (1, 0, number)
+
+
+def unused_pin_marks(
+    component: Component,
+    connected: Collection[str],
+    marked: Collection[str],
+    kept: Collection[str],
+    where: str,
+    device: DeviceDef | None = None,
+) -> tuple[list[PinRef], list[Issue]]:
+    """The marks of an unused-pin request on ``component`` (its pins resolved), in pin-number order: every
+    pin that is not ``connected``, not ``marked``, not ``kept`` and not of type ``no_connect``. Such a pin
+    that is must-connect gives ``build.must-connect-unconnected`` instead (``docs/dsl.md``, "Connection
+    helpers"; change c0247), and so is a pin that ``device`` marks ``must_connect`` (change c0248). Both
+    targets resolve requests through this function."""
+    must = must_connect_pins(component, device)
+    marks: list[PinRef] = []
+    issues: list[Issue] = []
+    for pin in sorted(component.pins, key=lambda p: _pin_order(p.number)):
+        if pin.number in connected or pin.number in marked or pin.number in kept or pin.etype == "no_connect":
+            continue
+        if pin.number in must:
+            label = f" ({pin.name})" if pin.name and pin.name != "~" else ""
+            issues.append(
+                issue(
+                    "build.must-connect-unconnected",
+                    f"{component.ref} pin {pin.number}{label} must be connected and is open; "
+                    "unused_no_connect() does not mark it",
+                    where,
+                    "connect it, or list it in keep=",
+                )
+            )
+            continue
+        marks.append(PinRef(component.id, pin.number))
+    return marks, issues
+
+
+def two_terminal_issue(component: Component, where: str) -> Issue | None:
+    """``build.not-two-terminal`` for a part used through its ends whose symbol (its pins resolved) has
+    other than two pins, else ``None`` (change c0247)."""
+    count = len(component.pins)
+    if count == 2:
+        return None
+    return issue(
+        "build.not-two-terminal",
+        f"{component.ref} is used through its ends a and b or a connection helper, "
+        f"but its symbol has {count} pins, not 2",
+        where,
+        "connect its pins by number, such as part[1]",
+    )
+
+
+def _resolve_requests(
+    parts: list[_Part],
+    pins: Mapping[str, list[Pin]],
+    on_net: Mapping[str, Mapping[str, str]],
+    marks: tuple[PinRef, ...],
+    unused: Mapping[str, Sequence[str]],
+    two_terminal: Sequence[str],
+    issues: list[Issue],
+    *,
+    functions: Mapping[str, Mapping[str, tuple[str, ...]]] | None = None,
+    devices: Mapping[str, DeviceDef] | None = None,
+) -> tuple[PinRef, ...]:
+    """``marks`` with the marks of the unused-pin requests (component path → ``keep`` designators), after
+    the two-pin check of the parts of ``two_terminal``; a path the build does not hold is ignored. A part
+    placed from a device (``functions`` and ``devices``, by component id; change c0248) keeps its pins by
+    function and keeps open the pins its device marks ``must_connect``."""
+    by_path = {p.path: p for p in parts}
+    for path in sorted(two_terminal):
+        part = by_path.get(path)
+        if part is not None:
+            component = dataclasses.replace(part.component, pins=tuple(pins[part.component.id]))
+            found = two_terminal_issue(component, path)
+            if found is not None:
+                issues.append(found)
+    added = set(marks)
+    for path, keep in sorted(unused.items()):
+        part = by_path.get(path)
+        if part is None:
+            continue
+        cid = part.component.id
+        component = dataclasses.replace(part.component, pins=tuple(pins[cid]))
+        own = (functions or {}).get(cid)
+        kept = {n for designator in keep for n in _targets(designator, pins[cid], component.ref, issues, own)}
+        marked = {m.pin for m in marks if m.component_id == cid}
+        new, found = unused_pin_marks(component, on_net[cid], marked, kept, path, (devices or {}).get(cid))
+        added.update(new)
+        issues += found
+    return tuple(sorted(added))
 
 
 def _case_collisions(design: Design, issues: list[Issue]) -> None:
@@ -434,7 +743,12 @@ def _case_collisions(design: Design, issues: list[Issue]) -> None:
 def _user_properties(part: _Part, issues: list[Issue]) -> list[tuple[str, str]]:
     """The user properties to append to ``part``'s footprint, in code-point order, after the checks of
     "User properties on built footprints"; a property equal to a library property is not appended."""
-    user = {k: v for k, v in part.component.properties.items() if k != PATH_PROPERTY}
+    assert part.footprint is not None  # only the physical placement loop asks for footprint properties
+    user = {
+        k: v
+        for k, v in part.component.properties.items()
+        if k != PATH_PROPERTY and k not in DEVICE_PROPERTIES
+    }
     library = {name.casefold(): (name, value) for name, value in part.footprint.properties.items()}
     folded: dict[str, str] = {}
     out: list[tuple[str, str]] = []
@@ -633,8 +947,8 @@ def interface_checks(
     that no rule selects, ``build.diff-pair-name`` for a pair whose names KiCad does not pair,
     ``build.diff-pair-gap-shadowed`` for a pair KiCad would report at its class gap, and
     ``build.i2c-pullup-missing`` for an I2C line without a two-pin part to the ``hv`` net of a ``power``
-    interface. ``pins`` and ``on_net`` are those of ``_resolve_pins``; ``layers`` are the copper layers of
-    the board. Nothing is changed."""
+    interface or of a ``power`` port (change c0252). ``pins`` and ``on_net`` are those of ``_resolve_pins``;
+    ``layers`` are the copper layers of the board. Nothing is changed."""
     found: list[Issue] = []
     nets = {net.id: net for net in design.circuit.nets}
     names = {net.id: net.name for net in design.circuit.nets}
@@ -645,6 +959,7 @@ def interface_checks(
         for leaf in (*_leaves(rule.selector_a, "diff_pair"), *_leaves(rule.selector_b, "diff_pair"))
     ]
     supplies = {i.members["hv"] for i in design.circuit.interfaces if i.kind == "power" and "hv" in i.members}
+    supplies |= {p.members["hv"] for p in design.circuit.ports if p.kind == "power" and "hv" in p.members}
     for itf in design.circuit.interfaces:
         if itf.kind in pairs.PAIR_ROLES:
             words = PAIR_WORDS[itf.kind]
@@ -685,10 +1000,86 @@ def interface_checks(
                     issue(
                         "build.i2c-pullup-missing",
                         f"I2C interface {itf.name}: the line {line} (net {names.get(net_id, net_id)}) has no "
-                        "pull-up to the hv net of a power interface",
+                        "pull-up to the hv net of a power interface or power port",
                         itf.name,
                         "add a resistor from the line to the supply, or ignore this when the pull-up is on "
                         "another board; a pull-up of more than two pins is not recognised",
+                    )
+                )
+    return found
+
+
+def _inside(path: str, block: str) -> bool:
+    """Whether ``path`` (a component, module or net path) is owned by the block ``block``, directly or
+    through nested modules."""
+    return path.startswith(f"{block}/")
+
+
+def block_checks(design: Design) -> list[Issue]:
+    """What a build says about the blocks of ``design`` (change c0251), from the model alone:
+    ``build.port-unused`` for a port that is not optional when no net of its members holds a pin, a
+    port, an interface or a script-named net outside its block, and ``build.block-net-escape`` for a
+    script-named net that holds pins inside and outside a block that no port of the block binds it to. A
+    net is port-named when its name is the path of a port member it holds (``<owner>/<port>`` or
+    ``<owner>/<port>.<member>``); every other net is script-named. Nothing is changed."""
+    circuit = design.circuit
+    blocks = {m.id: m.path for m in circuit.modules if m.block}
+    if not blocks:
+        return []
+    paths = {c.id: _path(c) for c in circuit.components}
+    nets = {net.id: net for net in circuit.nets}
+    ports_on: dict[str, list[tuple[str, str]]] = {}
+    """Net id → (owner path, port path of the member) of each port member on it."""
+    port_named: set[str] = set()
+    for port in circuit.ports:
+        owner = blocks.get(port.owner) or paths.get(port.owner, "")
+        for member, net_id in port.members.items():
+            label = f"{owner}/{port.name}" if len(port.members) == 1 else f"{owner}/{port.name}.{member}"
+            ports_on.setdefault(net_id, []).append((owner, label))
+            if net_id in nets and nets[net_id].name == label:
+                port_named.add(net_id)
+    in_interfaces = {net_id for itf in circuit.interfaces for net_id in itf.members.values()}
+    found: list[Issue] = []
+    for port in sorted(circuit.ports, key=lambda p: (blocks.get(p.owner, ""), p.name)):
+        block = blocks.get(port.owner)
+        if block is None or port.optional:
+            continue
+        wired = False
+        for net_id in port.members.values():
+            net = nets.get(net_id)
+            if net is None:
+                continue
+            pins_out = any(not _inside(paths.get(m.component_id, ""), block) for m in net.members)
+            ports_out = any(
+                owner != block and not _inside(owner, block) for owner, _ in ports_on.get(net_id, ())
+            )
+            named_out = net_id not in port_named and not _inside(net.name, block)
+            if pins_out or ports_out or named_out or net_id in in_interfaces:
+                wired = True
+                break
+        if not wired:
+            found.append(
+                issue(
+                    "build.port-unused",
+                    f"block {block}: the port {port.name} is wired to nothing outside the block",
+                    f"{block}/{port.name}",
+                    "connect a net to the port, or declare it with optional=True",
+                )
+            )
+    for block in sorted(blocks.values()):
+        bound = {net_id for net_id, owners in ports_on.items() if any(owner == block for owner, _ in owners)}
+        for net in sorted(circuit.nets, key=lambda n: n.name):
+            if net.id in port_named or net.id in bound or not net.members:
+                continue
+            inner = [_inside(paths.get(m.component_id, ""), block) for m in net.members]
+            if any(inner) and not all(inner):
+                found.append(
+                    issue(
+                        "build.block-net-escape",
+                        f"block {block}: the net {net.name} joins pins inside and outside the block without "
+                        "passing through a port of the block",
+                        f"{block}:{net.name}",
+                        "declare a port",
                     )
                 )
     return found
@@ -920,6 +1311,160 @@ def height_body(path: str, height: Nm) -> ComponentBody:
     )
 
 
+MODEL_PREFIX = "${KIPRJMOD}/lib/"
+"""The start of a model path that a build writes from the footprint's bodies (change c0260, decision 13)."""
+
+
+def generated_model(definition: FootprintDef) -> str | None:
+    """The project path of the STEP model that a build writes for ``definition``: its model
+    ``${KIPRJMOD}/lib/<library>.3dshapes/<name>.step`` when it has bodies (a generated ``drawing >= 1``
+    footprint), else ``None``, so a footprint without such a path gets no model."""
+    expected = f"{MODEL_PREFIX}{definition.library}.3dshapes/{definition.name}.step"
+    if not definition.bodies or expected not in definition.models:
+        return None
+    return expected.removeprefix("${KIPRJMOD}/")
+
+
+def placed_bodies(path: str, definition: FootprintDef) -> tuple[ComponentBody, ...]:
+    """The bodies of ``definition`` for the part at ``path`` (change c0260): in the footprint frame, as a
+    placed footprint holds them, with ids derived from the part, so two parts of one footprint keep
+    distinct ids. A KiCad build keeps them in ``.fenolite/`` only."""
+    return tuple(
+        dataclasses.replace(body, id=derived_id("bdy", DSL_BACKEND, f"{path}:{body.id}"))
+        for body in definition.bodies
+    )
+
+
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+"""The first eight bytes of every PNG file (S-0001 names PNG as the format of a board image)."""
+
+
+@dataclass(frozen=True)
+class ImageSource:
+    """One image a script declares (change c0277): its key, the file the build reads, its place on the board
+    (the board frame), its layer and its scale."""
+
+    key: str
+    path: Path
+    position: Point
+    layer: str
+    scale: str
+
+
+def board_images(design: Design, sources: Sequence[ImageSource]) -> tuple[Design, list[Issue]]:
+    """``design`` with one ``Image`` per source whose file the build reads (change c0277): a file that is
+    not there gives ``build.image-missing`` and one that is not a PNG ``build.image-format`` (errors). The
+    id is ``derived_id("img", "dsl", "image:<key>")``; the data is the base64 text of the file."""
+    import base64
+
+    board = design.board
+    if board is None or not sources:
+        return design, []
+    issues: list[Issue] = []
+    images: list[Image] = []
+    for source in sources:
+        try:
+            data = source.path.read_bytes()
+        except OSError:
+            message = f"image {source.key!r}: the file {source.path.name} is not there"
+            issues.append(
+                issue("build.image-missing", message, source.key, "give a PNG file beside the script")
+            )
+            continue
+        if not data.startswith(PNG_SIGNATURE):
+            message = f"image {source.key!r}: {source.path.name} is not a PNG file"
+            issues.append(issue("build.image-format", message, source.key, "convert the picture to PNG"))
+            continue
+        images.append(
+            Image(
+                id=derived_id("img", "dsl", f"image:{source.key}"),
+                position=source.position,
+                layer=source.layer,
+                data=base64.b64encode(data).decode("ascii"),
+                scale=source.scale,
+            )
+        )
+    return dataclasses.replace(
+        design, board=dataclasses.replace(board, images=(*board.images, *images))
+    ), issues
+
+
+def edit_pads(
+    footprint: FootprintInstance,
+    edits: Sequence[tuple[str, Mapping[str, object]]],
+    where: str,
+    issues: list[Issue],
+) -> FootprintInstance:
+    """``footprint`` with each edit applied to every pad of its number (``Part.edit_pad``; change c0277): a
+    number the footprint does not hold is ``build.pad-unknown`` (error)."""
+    pads = list(footprint.pads)
+    for number, values in edits:
+        if not any(pad.number == number for pad in pads):
+            message = f"{where}: the footprint {footprint.lib_ref} has no pad {number!r} to edit"
+            issues.append(issue("build.pad-unknown", message, where, "name a pad number of the footprint"))
+            continue
+        change: dict[str, object] = {}
+        for key, value in values.items():
+            if key == "at":
+                change["position"] = Point(*value)  # type: ignore[misc]
+            elif key == "size":
+                change["size"] = Size(*value)  # type: ignore[misc]
+            else:
+                change[key] = value
+        pads = [dataclasses.replace(pad, **change) if pad.number == number else pad for pad in pads]  # type: ignore[arg-type]
+    return dataclasses.replace(footprint, pads=tuple(pads))
+
+
+def apply_teardrops(design: Design, rules: Sequence[TeardropRule], issues: list[Issue]) -> Design:
+    """``design`` with the settings of ``rules`` on every pad and via each selects (change c0277): a pad is
+    the subject ``pad`` of its net, the net's class (``Default`` without one) and its part's reference, a via
+    the subject ``via`` of its net and class. The later rule wins, and the pads and vias two rules select
+    are counted in one ``build.teardrops-overlap`` (info). A via with settings of its own keeps them."""
+    board = design.board
+    if board is None or not rules:
+        return design
+    classes = {netclass.id: netclass.name for netclass in design.circuit.netclasses}
+    nets = {net.id: net for net in design.circuit.nets}
+    refs = {component.id: component.ref for component in design.circuit.components}
+
+    def subject(kind: str, net_id: str | None, ref: str | None = None) -> RuleSubject:
+        net = nets.get(net_id) if net_id is not None else None
+        if net is None:
+            return RuleSubject(kind, ref=ref)
+        cls = classes.get(net.netclass_id or "", "Default")
+        return RuleSubject(kind, net=net.name, netclass=cls, ref=ref)
+
+    overlap = 0
+
+    def chosen(kind: str, found: RuleSubject) -> TeardropRule | None:
+        nonlocal overlap
+        matched = [
+            rule
+            for rule in rules
+            if (rule.pads if kind == "pad" else rule.vias) and rule.selector.matches(found)
+        ]
+        overlap += len(matched) > 1
+        return matched[-1] if matched else None
+
+    footprints: list[FootprintInstance] = []
+    for footprint in board.footprints:
+        pads: list[Pad] = []
+        for pad in footprint.pads:
+            rule = chosen("pad", subject("pad", pad.net_id, refs.get(footprint.component_id)))
+            pads.append(dataclasses.replace(pad, teardrop=rule.settings) if rule is not None else pad)
+        footprints.append(dataclasses.replace(footprint, pads=tuple(pads)))
+    vias: list[Via] = []
+    for via in board.vias:
+        rule = chosen("via", subject("via", via.net_id)) if via.teardrop is None else None
+        vias.append(dataclasses.replace(via, teardrop=rule.settings) if rule is not None else via)
+    if overlap:
+        message = f"{overlap} pad(s) or via(s) match more than one teardrops() call; the later call applies"
+        issues.append(issue("build.teardrops-overlap", message, "teardrops"))
+    return dataclasses.replace(
+        design, board=dataclasses.replace(board, footprints=tuple(footprints), vias=tuple(vias))
+    )
+
+
 def build_design(
     design: Design,
     placements: Mapping[str, PlacementRequest],
@@ -933,24 +1478,55 @@ def build_design(
     record: Mapping[str, str] | None = None,
     prepared: Prepared | None = None,
     copper_intents: Sequence[CopperIntentLike] = (),
+    protected_copper: frozenset[str] = frozenset(),
     meanders: Sequence[MeanderIntentLike] = (),
     generated_copper: Sequence[generate_mod.GeneratedLike] = (),
+    role_copper: object | None = None,
+    role_planner: RoleCopperPlanner | None = None,
     fields: Mapping[str, Sequence[FieldRequestLike]] = MappingProxyType({}),
     pad_zones: Mapping[str, Sequence[PadZoneRequestLike]] = MappingProxyType({}),
     authored_footprints: Mapping[str, FootprintDef] = MappingProxyType({}),
     authored_symbols: Mapping[str, SymbolDef] = MappingProxyType({}),
     source_sha256: str | None = None,
+    source_file: str = "placements.toml",
     drawing_sheet: DrawingSheet | None = None,
     schematic: Literal["write", "skip"] = "write",
     symbol_placements: Mapping[str, SymbolPlacement] | None = None,
-    schematic_layout: Literal["readable", "grid"] = "readable",
+    schematic_layout: Literal["readable", "grid", "wired"] = "wired",
     lock_stackup: bool = False,
     lock_via_protection: bool = False,
     planes: Mapping[str, str] | None = None,
+    teardrops: Sequence[TeardropRule] = (),
+    models: Mapping[str, Sequence[ModelRef]] = MappingProxyType({}),
+    overrides: Mapping[str, FootprintOverrides] = MappingProxyType({}),
+    pad_edits: Mapping[str, Sequence[tuple[str, Mapping[str, object]]]] = MappingProxyType({}),
     lock_outline: bool = False,
     heights: Mapping[str, Nm] | None = None,
+    unused: Mapping[str, Sequence[str]] | None = None,
+    two_terminal: Sequence[str] = (),
+    write_base: bool = False,
+    devices: Mapping[str, DeviceDef] = MappingProxyType({}),
+    device_check: DeviceCheck | None = None,
+    layout_record: Mapping[str, object] | None = None,
+    drawn: DrawnSchematic | None = None,
+    drawn_file: str = "schematic.toml",
+    context_symbols: Contexts | None = None,
+    schematic_groups: Mapping[str, Sequence[SheetGroup]] | None = None,
+    project_template: str | None = None,
+    project_resources: Sequence[ProjectResource] = (),
+    preserve_project_minimums: bool = False,
+    empty_values: frozenset[str] = frozenset(),
 ) -> BuildOutput:
     """Every file of the built project as bytes, or no file when an issue is an error.
+
+    ``empty_values`` holds the ids of components whose part was given ``value=""``
+    (``fenolite.dsl.convert.empty_value_ids``, change c0364): their value stays empty instead of taking
+    the Value of the symbol.
+
+    ``write_base`` adds the base record ``fenolite-base.json`` (change c0250, ``docs/lens.md``, "The base
+    record"): for each written part its code values (``prepared.codes``, else the script's values and the
+    requests of ``placements``) and the values the written board holds. It is hashed into
+    ``.fenolite/build.json`` like every other file.
 
     The outline of the model is judged first (``outline.check_outline``): rings that cross or touch stop
     the build. ``lock_outline`` is ``board(..., locked=True)`` of the script: with an existing board, the
@@ -970,7 +1546,8 @@ def build_design(
     is set (``docs/lens.md``, "Via protection across rebuilds"). A default of covering, plugging, capping
     or filling that vias take from the board only gives ``kicad.via.protection-not-exported``.
 
-    ``source_sha256`` is the hash of the ``placements.toml`` that was read, recorded in
+    ``source_sha256`` is the hash of the ``source_file`` (``edits.toml`` or ``placements.toml``) that was
+    read, recorded in
     ``.fenolite/build.json`` so a later check can tell that the layout's source changed.
     ``drawing_sheet`` is the sheet that the script names (``design.sheet(drawing_sheet=…)``), read by the
     caller: it is written as ``<name>.kicad_wks``, the file the project names as its frame.
@@ -986,6 +1563,11 @@ def build_design(
     ``keepout_ring``, ``barrier``, ``body_keepout``, ``fanout_zone`` and ``stitch_pieces``), resolved after
     the meanders by ``generate.resolve_generated`` into locked zones, rule areas, tracks and vias; an error
     of a record is an error of the build (``docs/copper.md``, "Generated copper").
+    ``role_copper`` is the record of ``design.role_copper()`` (change c0243): after the generated copper,
+    ``role_planner`` (``fenolite.roles.copper.run`` with the stored roles bound, given by the build command:
+    the lens imports no ``roles``) plans the copper of the confirmed and declared roles and applies it with
+    ``lens.rolecopper.apply_plan``; its issues join the build's, and its ``roles.copper-worse`` stops the
+    write (``docs/roles.md``, "Role copper").
     ``fields`` maps a component path to the field placement requests of its part, applied to the placed or
     staged footprint (``docs/dsl.md``, "Field placement"); a footprint without the field raises
     ``FormatError``.
@@ -995,12 +1577,32 @@ def build_design(
     ``schematic`` is ``"write"`` (the project gets ``<name>.kicad_sch``, its symbol libraries and
     ``sym-lib-table``, and the board follows the sheet: ``docs/schematic.md``) or ``"skip"``;
     ``symbol_placements`` fixes symbol origins on the sheet (``lens.schplacements``).
-    ``schematic_layout`` is ``"readable"`` (a sheet per module under ``sheets/``, and 2-pin parts beside
-    the IC pins they connect to) or ``"grid"`` (the one flat sheet of v0.2a).
+    ``schematic_layout`` is ``"wired"`` (the default: a sheet per module, wires, power symbols and one label
+    per drawn group, change c0406), ``"readable"`` (a sheet per module under ``sheets/``, and 2-pin parts
+    beside the IC pins they connect to) or ``"grid"`` (the one flat sheet of v0.2a).
     ``heights`` maps a component path to the height its script states (``Part(height=…)``, change c0140):
     the footprint of that path gets one extruded body of that height (``height_body``), after the bodies
     of its definition. No KiCad file holds a body; ``.fenolite/board.json`` keeps it, also through a
     rebuild. A path that names no footprint is ignored.
+    ``unused`` maps a component path to the ``keep`` designators of its ``unused_no_connect()`` request
+    (``dsl.convert.unused_marks``) and ``two_terminal`` lists the paths of parts used through their ends
+    (``dsl.convert.two_terminal``): after the explicit marks, each request marks the part's open pins
+    (``unused_pin_marks``), and a part of ``two_terminal`` whose symbol has other than two pins gives
+    ``build.not-two-terminal`` (change c0247).
+    ``devices`` maps a component path to the device its part was placed from (change c0248,
+    ``docs/devices.md``): a designator that is a function of the device names every symbol pin of the
+    function, a non-empty ``datasheet`` becomes the ``Datasheet`` field of the footprint and of the symbol,
+    the device's ``unused_pads`` give no ``build.pad-without-pin``, and ``device_check`` (the catalog's
+    ``check_device``) compares each device once with the symbol and footprint it resolved: a disagreement
+    is ``build.device-mismatch`` and the build writes nothing.
+    ``layout_record`` is the placement in code of the build (change c0255: the resolved block poses and the
+    digest of the resolved placements), kept under ``layout`` in ``.fenolite/build.json`` so the next build
+    can move a block whose pose changed.
+    ``drawn`` is the drawn schematic of ``design.load_schematic()``, read from ``drawn_file`` by the caller
+    (change c0276): the sheets come from it (``backends.kicad.drawn.lower_drawn``) instead of the generator,
+    and the guard reads back the sheet texts it plans and compares their nets with the circuit
+    (``drawn_netlist_issues``); ``symbol_placements`` is then not used, and ``schematic_layout`` draws only
+    the ``generated`` sheets of the drawing (change c0406).
     """
     if vendor not in VENDOR_MODES:  # pyright: ignore[reportUnnecessaryContains]
         raise ValueError(f"unknown vendoring policy {vendor!r}; use one of: {', '.join(VENDOR_MODES)}")
@@ -1010,12 +1612,39 @@ def build_design(
         raise ValueError(
             f"unknown schematic layout {schematic_layout!r}; use one of: {', '.join(schgen.LAYOUTS)}"
         )
+    if preserve_project_minimums and project_template is None:
+        raise ValueError("preserving native project floors requires a declared project template")
+    if project_template is not None:
+        validate_resources(project_template, project_resources, managed_frame=drawing_sheet is not None)
+    elif project_resources:
+        raise ValueError("native worksheet resources require a declared project template")
+    effective_project = (
+        project_template
+        if project_template is not None
+        else (prepared.existing.project if prepared is not None else None)
+    )
     issues: list[Issue] = [*prepared.issues] if prepared is not None else []
-    parts, libraries = _resolve(design, resolver, issues, authored_footprints, authored_symbols)
+    parts, libraries = _resolve(
+        design, resolver, issues, authored_footprints, authored_symbols, empty_values=empty_values
+    )
     plan = _vendor_plan(parts, vendor, issues)
-    pins, on_net = _resolve_pins(design, parts, issues)
-    marks = _resolve_marks(design, parts, pins, on_net, issues)
+    device_of = {p.component.id: devices[p.path] for p in parts if p.path in devices}
+    functions = {cid: {pin.function: pin.pins for pin in device.pins} for cid, device in device_of.items()}
+    if device_check is not None:
+        checked: set[str] = set()
+        for found in parts:
+            device = device_of.get(found.component.id)
+            if device is not None and device.id not in checked:
+                checked.add(device.id)  # one report per device
+                if found.footprint is not None:
+                    issues += device_check(device, found.symbol, found.footprint)
+    pins, on_net = _resolve_pins(design, parts, issues, functions)
+    marks = _resolve_marks(design, parts, pins, on_net, issues, functions)
+    marks = _resolve_requests(
+        parts, pins, on_net, marks, unused or {}, two_terminal, issues, functions=functions, devices=device_of
+    )
     _case_collisions(design, issues)
+    issues += block_checks(design)
     issues += interface_checks(
         design,
         pins,
@@ -1026,21 +1655,41 @@ def build_design(
     board = design.board
     if board is None or board.outline is None:
         issues.append(issue("build.no-board", "the design has no board(); nothing can be placed", "board"))
-        return _refused(design, issues, libraries)
+        return _refused(design, issues, libraries, prepared)
     issues += check_outline(design)
     if any(found.code == "kicad.outline.invalid" for found in issues):
-        return _refused(design, issues, libraries)
+        return _refused(design, issues, libraries, prepared)
+    # the user layers a script declares (design.user_layers, change c0277) follow the created table
+    declared = [layer for layer in board.layers if layer.name.startswith("User.")]
+    user_names = {layer.name: _user_name(layer) for layer in declared if _user_name(layer)}
     layers = tuple(
         dataclasses.replace(layer, id=derived_id("lay", DSL_BACKEND, f"layer:{layer.name}"))
-        for layer in created_layers(copper)
+        for layer in created_layers(copper, len(declared), user_names)
     )
+    # Explicit DSL technical rows use the existing model table; default/user-only tables stay unchanged.
+    technical = {
+        layer.name for layer in board.layers if layer.kind != "copper" and not layer.name.startswith("User.")
+    }
+    if technical:
+        layers = tuple(
+            dataclasses.replace(layer, ordinal=ordinal)
+            for ordinal, layer in enumerate(
+                layer
+                for layer in layers
+                if layer.kind == "copper" or layer.name.startswith("User.") or layer.name in technical
+            )
+        )
     copper_names = tuple(layer.name for layer in layers if layer.kind == "copper")
     cursor, top = _staging(design)
+    after = preserve.staging_after(placements)
+    if after is not None:
+        cursor = max(cursor, after)  # the strategy groups staged as one box come first (change c0255)
     components: list[Component] = []
     footprints: list[FootprintInstance] = []
     placed: list[str] = []
     staged: list[str] = []
     bottom = False
+    bottom_evidence: list[Evidence] = []
     written_properties = False
     alias_matches = (
         {m.path for m in prepared.match.matches.values() if m.key == "alias"}
@@ -1049,7 +1698,21 @@ def build_design(
     )
     identities: dict[str, Mapping[str, str]] = {}
     lacking: set[str] = set()
+    models_by_id: dict[str, tuple[ModelRef, ...]] = {}
+    overrides_by_id: dict[str, FootprintOverrides] = {}
+    edits_by_id: dict[str, tuple[str, tuple[tuple[str, Mapping[str, object]], ...]]] = {}
     for part in parts:
+        if part.footprint is None:
+            if part.path in placements or part.path in fields or part.path in pad_zones:
+                issues.append(
+                    issue(
+                        "build.bom-only",
+                        f"{part.component.ref}: a BOM-only component has no physical geometry",
+                        part.path,
+                    )
+                )
+            components.append(part.component)
+            continue
         missing = [name for name in MANDATORY_FIELDS if name not in part.footprint.properties]
         if missing and part.footprint.lib_id not in lacking:
             # a library footprint of another origin: ``place_footprint`` adds the fields (c0077)
@@ -1065,6 +1728,13 @@ def build_design(
             )
         extended = with_property(part.footprint, name=PATH_PROPERTY, value=part.path)
         user_locators: list[str] = []
+        device = device_of.get(part.component.id)
+        if device is not None:
+            for prop_name in DEVICE_PROPERTIES:
+                extended = with_property(extended, name=prop_name, value=part.component.properties[prop_name])
+                user_locators.append(f"/footprint/property:{prop_name}")
+            if device.datasheet:
+                extended = with_property_value(extended, name="Datasheet", value=device.datasheet)
         for prop_name, prop_value in _user_properties(part, issues):
             extended = with_property(extended, name=prop_name, value=prop_value)
             user_locators.append(f"/footprint/property:{prop_name}")
@@ -1110,9 +1780,31 @@ def build_design(
                 key=part.path,
                 copper=copper_names,
             )
-            placed.append(part.path)
+            if preserve.is_staged(request):
+                staged.append(part.path)
+                issues.append(
+                    issue(
+                        "layout.unplaced",
+                        f"{part.component.ref} was staged beside the outline with its block",
+                        part.path,
+                    )
+                )
+            else:
+                placed.append(part.path)
             bottom = bottom or request.side == "bottom"
+            if request.side == "bottom":
+                bottom_evidence.append(embed.flip_evidence(part.footprint))
         instance = apply_requests(instance, fields.get(part.path, ()))
+        if part.footprint.bodies:
+            instance = dataclasses.replace(
+                instance, bodies=(*instance.bodies, *placed_bodies(part.path, part.footprint))
+            )
+        if part.path in models:
+            models_by_id[part.component.id] = tuple(models[part.path])  # the part's 3D models (c0277)
+        if part.path in overrides:
+            overrides_by_id[part.component.id] = overrides[part.path]
+        if part.path in pad_edits:
+            edits_by_id[part.component.id] = (part.path, tuple(pad_edits[part.path]))
         stated = (heights or {}).get(part.path)
         if stated is not None:
             instance = dataclasses.replace(
@@ -1130,6 +1822,7 @@ def build_design(
                 part,
                 issues,
                 part.component.pin_pads(),
+                device.unused_pads if device is not None else (),
             ),
         )
         components.append(component)
@@ -1155,6 +1848,7 @@ def build_design(
         ),
         board=dataclasses.replace(board, layers=layers, footprints=tuple(footprints)),
     )
+    built = _topology_pins(built, functions, issues)
     # the rule areas and drawings of the script get their marked uuids before copper resolves (c0103)
     built = boarditems.mark_items(built)
     board_items = {
@@ -1162,18 +1856,30 @@ def build_design(
         "texts": len(board.texts),
         "graphics": len(board.graphics),
         "dimensions": len(board.dimensions),
+        "images": len(board.images),
     }
     copper_counts = {"intents": len(copper_intents), "tracks": 0, "arcs": 0, "vias": 0}
     if copper_intents:
         assert built.board is not None
         held = prepared.board if prepared is not None else None
-        project_text = prepared.existing.project if prepared is not None else None
+        project_text = effective_project
+        if project_template is not None:
+            project_text = pro.update_project(
+                project_template,
+                built,
+                target=target,
+                allow_lossy=allow_lossy,
+                issues=issues,
+                preserve_minimums=preserve_project_minimums,
+            )
         project_data = (
             pro.read_project_text(project_text) if project_text is not None else pro.template(target)
         )
         built = resolve_copper(
             built,
             copper_intents,
+            protected=protected_copper
+            | (prepared.protected_copper if prepared is not None else frozenset[str]()),
             unplaced=staged,
             issues=issues,
             # a rebuild keeps the rule areas and the edge of the existing board: stitch vias avoid those;
@@ -1201,7 +1907,16 @@ def build_design(
     if generated_copper:
         assert built.board is not None
         held = prepared.board if prepared is not None else None
-        project_text = prepared.existing.project if prepared is not None else None
+        project_text = effective_project
+        if project_template is not None:
+            project_text = pro.update_project(
+                project_template,
+                built,
+                target=target,
+                allow_lossy=allow_lossy,
+                issues=issues,
+                preserve_minimums=preserve_project_minimums,
+            )
         project_data = (
             pro.read_project_text(project_text) if project_text is not None else pro.template(target)
         )
@@ -1229,7 +1944,42 @@ def build_design(
                 )
             },
         }  # fmt: skip
+    role_summary: dict[str, object] | None = None
+    role_evidence: Evidence | None = None
+    if role_copper is not None and role_planner is not None and built.board is not None:
+        held = prepared.board if prepared is not None else None
+        project_text = effective_project
+        if project_template is not None:
+            project_text = pro.update_project(
+                project_template,
+                built,
+                target=target,
+                allow_lossy=allow_lossy,
+                issues=issues,
+                preserve_minimums=preserve_project_minimums,
+            )
+        project_data = (
+            pro.read_project_text(project_text) if project_text is not None else pro.template(target)
+        )
+        apply = functools.partial(
+            apply_plan,
+            unplaced=staged,
+            keepouts=[
+                area
+                for area in (held.board.keepouts if held is not None and held.board is not None else ())
+                if not boarditems.is_item_uuid(area.native_ids.get("kicad", ""))
+            ],
+            outline=_kept_outline(held, built, lock_outline),
+            edge_floor=pro.project_minimums(project_data).get("min_copper_edge_clearance", 0),
+        )
+        outcome = role_planner(built, frame.board_pads(built), role_copper, apply)
+        built = outcome.design
+        issues += outcome.issues
+        role_summary = dict(outcome.summary)
+        role_evidence = outcome.evidence
     existing = prepared.existing if prepared is not None else preserve.ExistingProject()
+    if project_template is not None:
+        existing = dataclasses.replace(existing, project=project_template)
     board_read = prepared is not None and prepared.board is not None
     preserved: dict[str, object] = {}
     target_design = built
@@ -1248,6 +1998,30 @@ def build_design(
         preserved["fields"] = decided.summary
         target_design, preserved["pad_zones"] = _keep_pad_zones(
             decided.design, cast(Sequence[str], merged.summary.get("kept", ())), pad_zones, issues
+        )
+    if teardrops:
+        target_design = apply_teardrops(target_design, teardrops, issues)
+    if (overrides_by_id or edits_by_id) and target_design.board is not None:
+        edited: list[FootprintInstance] = []
+        for fp in target_design.board.footprints:
+            if fp.component_id in overrides_by_id:
+                fp = dataclasses.replace(fp, overrides=overrides_by_id[fp.component_id])
+            if fp.component_id in edits_by_id:
+                path, edits = edits_by_id[fp.component_id]
+                fp = edit_pads(fp, edits, path, issues)
+            edited.append(fp)
+        target_design = dataclasses.replace(
+            target_design, board=dataclasses.replace(target_design.board, footprints=tuple(edited))
+        )
+    if models_by_id and target_design.board is not None:
+        with_models = tuple(
+            dataclasses.replace(fp, models=models_by_id[fp.component_id])
+            if fp.component_id in models_by_id
+            else fp
+            for fp in target_design.board.footprints
+        )
+        target_design = dataclasses.replace(
+            target_design, board=dataclasses.replace(target_design.board, footprints=with_models)
         )
     stack_source: stacklib.StackupSource | None = None
     if target_design.board is not None:
@@ -1280,11 +2054,19 @@ def build_design(
         unexported = vialib.not_exported(target_design)
         if unexported is not None:
             issues.append(unexported)
-    if planes and target_design.board is not None:
+    carried_planes = (
+        boardcarrier.plane_rows(
+            [item.text for item in target_design.board.verbatim if item.component_id is None]
+        )
+        if target_design.board is not None
+        else ()
+    )  # change c0466: the rows of the Altium planes a script carries (flow A)
+    if (planes or carried_planes) and target_design.board is not None:
         # after the merge: the table may be the existing board's, whose other types are kept
         held_copper = {layer.name for layer in target_design.board.layers if layer.kind == "copper"}
         typed = with_plane_types(
-            target_design.board.layers, tuple(name for name in planes if name in held_copper)
+            target_design.board.layers,
+            tuple(dict.fromkeys(name for name in (*(planes or {}), *carried_planes) if name in held_copper)),
         )
         if typed != target_design.board.layers:
             target_design = dataclasses.replace(
@@ -1301,15 +2083,48 @@ def build_design(
             )
         )
     issues += impedance_checks(target_design, target=target)
+    if target_design.board is not None and target_design.board.verbatim:
+        issues += verbatimlib.check(target_design.board, {net.name for net in target_design.circuit.nets})
     issues += list(target_design.validate())
     if any(i.severity == "error" for i in issues):
-        return _refused(built, issues, libraries)
+        return _refused(built, issues, libraries, prepared)
     generated: GeneratedSchematic | None = None
     symbol_files: dict[str, list[symembed.EmbeddedSymbol]] = {}
-    if schematic == "write":
+    drawn_texts: dict[str, str] | None = None
+    # a board-only part has no symbol on the sheet, as KiCad's board_only footprints (change c0277)
+    sheet_parts = [part for part in parts if not part.component.board_only]
+    if schematic == "write" and drawn is not None:
+        drawing_symbols = _drawing_symbols(drawn, resolver, authored_symbols)
+        generated = drawn_mod.lower_drawn(
+            drawn,
+            target_design,
+            sheet_parts,
+            name=name,
+            target=target,
+            vendor=vendor,
+            allow_lossy=allow_lossy,
+            power_symbols=drawing_symbols,
+            opaque_symbols=drawing_symbols,
+            symbol_overrides=drawing_symbols,
+            context_symbols=context_symbols,
+            groups=schematic_groups,
+            layout=schematic_layout,
+        )
+        issues += generated.issues
+        symbol_files = _symbol_libraries(generated, authored_symbols, target, allow_lossy, issues)
+        if any(i.severity == "error" for i in issues):
+            return _refused(built, issues, libraries)
+        drawn_texts, found, spellings = drawn_netlist_issues(
+            target_design, generated, name, target, allow_lossy, contextual=context_symbols is not None
+        )
+        issues += found
+        if any(i.severity == "error" for i in issues):
+            return _refused(built, issues, libraries)
+        target_design = lower_for_schematic(target_design, generated, spellings)
+    elif schematic == "write":
         generated = schgen.generate_schematic(
             target_design,
-            parts,
+            sheet_parts,
             name=name,
             target=target,
             placements=symbol_placements,
@@ -1317,21 +2132,29 @@ def build_design(
             allow_lossy=allow_lossy,
             layout=schematic_layout,
             other_libraries=sorted({definition.library for definition in authored_symbols.values()}),
+            groups=schematic_groups,
         )
         issues += generated.issues
         symbol_files = _symbol_libraries(generated, authored_symbols, target, allow_lossy, issues)
         if any(i.severity == "error" for i in issues):
-            return _refused(built, issues, libraries)
+            return _refused(built, issues, libraries, prepared)
         differs = schematic_netlist_issue(target_design, generated, name)
         if differs is not None:
             issues.append(differs)
-            return _refused(built, issues, libraries)
+            return _refused(built, issues, libraries, prepared)
         target_design = lower_for_schematic(target_design, generated)
+    from fenolite.lens.native_project_context import before_write as before_project_write
+    from fenolite.lens.native_rule_context import before_write
+
+    target_design, native_project_policy = before_project_write(target_design, name, target)
+    declared_native_rules = before_write(target_design, name, target)
     texts = write_triad(
         target_design,
         name=name,
         target=target,
         existing_project=existing.project,
+        preserve_minimums=preserve_project_minimums,
+        _native_context=native_project_policy,
         renamed_nets=tuple(prepared.net_aliases.values()) if prepared is not None else (),
         # the drawing sheet of design.sheet() frames the schematic the build writes, too (c0074)
         schematic=schematic == "write",
@@ -1339,7 +2162,17 @@ def build_design(
         issues=issues,
     )
     pcb_name, pro_name, dru_name = (f"{name}.kicad_pcb", f"{name}.kicad_pro", f"{name}.kicad_dru")
-    if existing.rules is not None:
+    if project_template is not None:
+        project_data = pro.read_project_text(texts[pro_name])
+        project_data["meta"]["filename"] = pro_name
+        texts[pro_name] = pro.write_project_text(project_data)
+    if declared_native_rules is not None:
+        if existing.rules is not None and existing.rules.encode("utf-8") != declared_native_rules:
+            raise FormatError(
+                "existing custom rules differ from the declared native rule input", file=dru_name
+            )
+        texts[dru_name] = declared_native_rules.decode("utf-8")
+    elif existing.rules is not None:
         texts[dru_name] = preserve.merge_rules(
             texts[dru_name],
             existing.rules,
@@ -1349,8 +2182,9 @@ def build_design(
             issues=issues,
         )
     if prepared is not None and prepared.board is not None:
+        copper_before = prepared.copper_observation or prepared.board
         stale, fill_issues = preserve.drop_stale_fills(
-            prepared.board,
+            copper_before,
             target_design,
             existing=existing,
             project=texts[pro_name],
@@ -1361,7 +2195,7 @@ def build_design(
             issues += fill_issues
             written = write_board(stale, target=target, allow_lossy=allow_lossy)
             texts[pcb_name] = written.text
-        preserved["fills"] = preserve.fill_counts(prepared.board, stale)
+        preserved["fills"] = preserve.fill_counts(copper_before, stale)
     files: dict[str, bytes] = {n: t.encode("utf-8") for n, t in texts.items()}
     if drawing_sheet is not None:
         written_sheet = wks.write_drawing_sheet(drawing_sheet, target=target, allow_lossy=allow_lossy)
@@ -1372,18 +2206,27 @@ def build_design(
         built, readback, preserve.match_footprints(built, readback), lock_outline=lock_outline
     ).design
     vendored = _vendor(plan, target, files, record, issues)
-    authored_ids = {part.footprint.lib_id for part in parts if part.location is None}
+    _vendor_models(plan, resolver, files)
+    authored_ids = {
+        part.footprint.lib_id for part in parts if part.location is None and part.footprint is not None
+    }
     for lib_id in sorted(authored_ids):
         definition = authored_footprints[lib_id]
         path = f"lib/{definition.library}.pretty/{definition.name}.kicad_mod"
         files[path] = mod.write_footprint(definition, target=target, allow_lossy=allow_lossy).encode("utf-8")
         vendored.append((definition.library, f"{definition.name}.kicad_mod"))
+        model = generated_model(definition)
+        if model is not None:
+            files[model] = step_mod.write_bodies(definition.name, definition.bodies)
     vendored.sort()
     rows = tuple(
         LibRow(nick, "KiCad", f"${{KIPRJMOD}}/lib/{nick}.pretty") for nick in sorted({n for n, _ in vendored})
     )
     files["fp-lib-table"] = write_lib_table(LibTable("footprint", rows), target=target).encode("utf-8")
-    if generated is not None:
+    if generated is not None and drawn_texts is not None:
+        for path, text in drawn_texts.items():
+            files[path] = text.encode("utf-8")
+    elif generated is not None:
         written = sch.write_schematic(generated.sheet, target=target, allow_lossy=allow_lossy)
         issues += written.issues
         files[f"{name}.kicad_sch"] = written.text.encode("utf-8")
@@ -1391,6 +2234,14 @@ def build_design(
             written = sch.write_schematic(child, target=target, allow_lossy=allow_lossy)
             issues += [found for found in written.issues if found not in issues]
             files[path] = written.text.encode("utf-8")
+    if generated is not None:
+        files[pro_name] = pro.bind_schematic_identity(
+            files[pro_name].decode("utf-8"),
+            root_file=f"{name}.kicad_sch",
+            schematics={
+                path: value.decode("utf-8") for path, value in files.items() if path.endswith(".kicad_sch")
+            },
+        ).encode("utf-8")
         issues += stale_sheets(record, files)
         for nickname, found in sorted(symbol_files.items()):
             path = f"lib/{nickname}.kicad_sym"
@@ -1430,12 +2281,39 @@ def build_design(
         files["sym-lib-table"] = write_lib_table(
             LibTable("symbol", tuple(symbol_rows)), target=target
         ).encode("utf-8")
+    from fenolite.lens.native_rule_context import after_write
+
+    after_write(files[pcb_name], files[pro_name], name, target)
+    from fenolite.lens import native_fill_cache
+
+    files[pcb_name], fill_cache = native_fill_cache.after_write(
+        files[pcb_name], files[pro_name], files.get(dru_name), target
+    )
+    if fill_cache["status"] != "absent":
+        preserved["native_fill_cache"] = fill_cache
+    if write_base:
+        codes = prepared.codes if prepared is not None and prepared.codes is not None else None
+        files[edits_mod.BASE_FILE] = edits_mod.write_base(
+            edits_mod.base_record(
+                codes if codes is not None else script_codes(design, placements),
+                written_values(layout),
+                target="kicad",
+            )
+        ).encode("utf-8")
+    for resource in project_resources:
+        if resource.name in files:
+            raise FormatError("native worksheet output collides with a generated file", file=resource.name)
+        files[resource.name] = resource.data
     record = {path: hashlib.sha256(data).hexdigest() for path, data in sorted(files.items())}
     for file_name, text in canonical.dump_texts(layout).items():
         files[f"{CACHE_DIR}/{file_name}"] = text.encode("utf-8")
     recorded: dict[str, object] = {"design": name, "files": record, "schema": RECORD_SCHEMA, "target": target}
     if source_sha256 is not None:
-        recorded["source"] = {"placements.toml": source_sha256}
+        recorded["source"] = {source_file: source_sha256}
+    if layout_record is not None:
+        recorded["layout"] = dict(layout_record)
+    if drawn_texts is not None:
+        recorded["schematic"] = {"source": "drawn", "file": drawn_file}
     files[RECORD_FILE] = (
         json.dumps(
             recorded,
@@ -1453,10 +2331,16 @@ def build_design(
         pro.EVIDENCE,
         lowering.EVIDENCE,
     ]
+    if declared_native_rules is not None:
+        from fenolite.backends.kicad.native_rule_profile import EVIDENCE as NATIVE_RULE_CONTEXT_EVIDENCE
+
+        evidence_items.append(NATIVE_RULE_CONTEXT_EVIDENCE)
     if authored_ids:
         evidence_items.append(mod.AUTHORING_EVIDENCE)
+    if device_of:
+        evidence_items.append(DEVICE_EVIDENCE)
     if bottom:
-        evidence_items.append(embed.EVIDENCE)
+        evidence_items.extend(bottom_evidence)
     if written_properties:
         evidence_items.append(PROPERTY_EVIDENCE)
     if any(location.origin != "project" for location in plan.values()):
@@ -1467,6 +2351,8 @@ def build_design(
         evidence_items.append(dru.EVIDENCE)
     if copper_intents:
         evidence_items += [copper_mod.EVIDENCE, frame.EVIDENCE]
+    if role_evidence is not None:
+        evidence_items += [role_evidence, generate_mod.EVIDENCE]
     if any(board_items.values()):
         evidence_items.append(boarditems.EVIDENCE)  # the script declares rule areas or drawings
     if meanders:
@@ -1480,7 +2366,9 @@ def build_design(
         via.protection != ViaProtection() for via in (built.board.vias if built.board is not None else ())
     ):
         evidence_items.append(vialib.EVIDENCE)  # the script states a via protection
-    if generated is not None:
+    if generated is not None and drawn_texts is not None:
+        evidence_items += [drawn_mod.EVIDENCE, sch.WRITE_EVIDENCE]
+    elif generated is not None:
         evidence_items += [schgen.EVIDENCE, sch.WRITE_EVIDENCE]
         # a design with a pin bonded to several pads rests on what KiCad does with stacked pins (c0123);
         # a design of one pad per pin adds nothing, so its envelope is the one it was
@@ -1520,14 +2408,21 @@ def build_design(
             "labels": sum(len(sheet.labels) for sheet in _sheets(generated)),
             "no_connects": sum(len(sheet.no_connects) for sheet in _sheets(generated)),
             "wires": sum(len(sheet.wires) for sheet in _sheets(generated)),
+            "junctions": sum(len(sheet.junctions) for sheet in _sheets(generated)),
             "satellites": generated.satellites,
             "power_flags": generated.power_flags,
+            "power_symbols": generated.power_symbols,
+            "layout": schematic_layout if drawn is None else "drawn",
             "libraries": [f"lib/{nick}.kicad_sym" for nick in sorted(symbol_files)],
             "unconnected_pads": len(generated.pad_nets),
+            "source": "generated" if drawn is None else "drawn",
+            "drawn": None if drawn is None else {"file": drawn_file, **drawn_mod.drawn_counts(drawn)},
         },
     }
     if generated_counts:
         summary["generated"] = generated_counts
+    if role_summary is not None:
+        summary["role_copper"] = role_summary
     return BuildOutput(
         built,
         dict(sorted(files.items())),
@@ -1537,6 +2432,48 @@ def build_design(
         layout,
         generated,
     )
+
+
+def script_codes(
+    design: Design, placements: Mapping[str, PlacementRequest]
+) -> dict[str, dict[str, edits_mod.Value | None]]:
+    """The code side of each part without an edit: its request and its value and footprint."""
+    codes: dict[str, dict[str, edits_mod.Value | None]] = {}
+    for component in design.circuit.components:
+        path = component.properties.get(PATH_PROPERTY)
+        if path is None:
+            continue
+        request = placements.get(path)
+        codes[path] = {
+            "position": (request.at.x, request.at.y) if request is not None else None,
+            "rotation": (request.rotation, request.side) if request is not None else None,
+            **edits_mod.code_texts(component),
+        }
+    return codes
+
+
+def written_values(layout: Design) -> dict[str, dict[str, edits_mod.Value]]:
+    """Component path → the merged properties that ``layout``, the written board read back, holds."""
+    components = {c.id: c for c in layout.circuit.components}
+    written: dict[str, dict[str, edits_mod.Value]] = {}
+    for fp in layout.board.footprints if layout.board is not None else ():
+        component = components.get(fp.component_id)
+        path = component.properties.get(PATH_PROPERTY) if component is not None else None
+        if component is None or path is None or path in written:
+            continue
+        written[path] = {
+            "position": (fp.position.x, fp.position.y),
+            "rotation": (fp.rotation, fp.side),
+            "value": component.value,
+            "footprint": fp.lib_ref,
+            "reference": component.ref,
+            **{
+                f"{edits_mod.USER_PREFIX}{name}": text
+                for name, text in component.properties.items()
+                if not name.startswith(edits_mod.RESERVED_PREFIXES)
+            },
+        }
+    return written
 
 
 def _sheets(generated: GeneratedSchematic) -> tuple[SchematicSheet, ...]:
@@ -1625,7 +2562,9 @@ def board_read(prepared: Prepared | None) -> TypeGuard[Prepared]:
 def _preserved(prepared: Prepared | None, merged: Mapping[str, object]) -> dict[str, object]:
     """``result.preserved`` (``layout-lens``, "Layout preservation evidence")."""
     zero = {"tracks": 0, "arcs": 0, "vias": 0, "zones": 0}
+    carried = {"native_fill_cache": merged["native_fill_cache"]} if "native_fill_cache" in merged else {}
     return {
+        **carried,
         "board": prepared is not None and prepared.board is not None,
         "kept": merged.get("kept", []),
         "replaced": merged.get("replaced", []),
@@ -1637,6 +2576,7 @@ def _preserved(prepared: Prepared | None, merged: Mapping[str, object]) -> dict[
         "fields": merged.get("fields", {"kept": [], "forced": [], "carried": []}),
         "pad_zones": merged.get("pad_zones", {"kept": [], "forced": []}),
         "board_items": merged.get("board_items", {"regenerated": 0, "stale": 0}),
+        "edits": edits_mod.edits_summary(prepared.decisions if prepared is not None else ()),
         "aliases": dict(prepared.aliases) if prepared is not None else {},
         "module_aliases": dict(prepared.module_aliases) if board_read(prepared) else {},
         "net_aliases": dict(prepared.net_aliases) if board_read(prepared) else {},
@@ -1644,7 +2584,9 @@ def _preserved(prepared: Prepared | None, merged: Mapping[str, object]) -> dict[
     }
 
 
-def _refused(design: Design, issues: list[Issue], libraries: Mapping[str, str]) -> BuildOutput:
+def _refused(
+    design: Design, issues: list[Issue], libraries: Mapping[str, str], prepared: Prepared | None = None
+) -> BuildOutput:
     summary: dict[str, object] = {
         "components": len(design.circuit.components),
         "nets": len(design.circuit.nets),
@@ -1652,7 +2594,11 @@ def _refused(design: Design, issues: list[Issue], libraries: Mapping[str, str]) 
         "staged": [],
         "vendored": [],
         "libraries": dict(libraries),
-        "preserved": _preserved(None, {}),
+        "preserved": {
+            **_preserved(None, {}),
+            # the conflicts that refused the build, for the viewer and for --take (change c0250)
+            "edits": edits_mod.edits_summary(prepared.decisions if prepared is not None else ()),
+        },
         "stackup": None,
         "schematic": None,
     }
@@ -1708,10 +2654,18 @@ def _symbol_libraries(
                 )
             )
             continue
-        if all(found.lib_id != definition.lib_id for found in held):
-            held.append(
-                symembed.embed_symbol(definition, target=target, allow_lossy=allow_lossy, issues=issues)
+        same = [index for index, found in enumerate(held) if found.lib_id == definition.lib_id]
+        if same and definition.extends and held[same[0]].authored is not None:
+            # the sheet embeds a derived symbol flat; its library keeps it as written (change c0261)
+            held[same[0]] = dataclasses.replace(held[same[0]], authored=definition)
+        if not same:
+            embedded = symembed.embed_symbol(
+                _flat(definition, authored), target=target, allow_lossy=allow_lossy, issues=issues
             )
+            if definition.extends and embedded.authored is not None:
+                # the library keeps the derived symbol as written; the sheet embeds it flat (change c0261)
+                embedded = dataclasses.replace(embedded, authored=definition)
+            held.append(embedded)
     folded: dict[str, str] = {}
     for nickname in sorted(libraries):
         if (
@@ -1819,21 +2773,178 @@ def schematic_netlist_issue(design: Design, generated: GeneratedSchematic, name:
     )
 
 
-def lower_for_schematic(design: Design, generated: GeneratedSchematic) -> Design:
+def _drawing_symbols(
+    drawn: DrawnSchematic, resolver: LibraryResolver, authored: Mapping[str, SymbolDef]
+) -> dict[str, drawn_mod.PowerSymbol]:
+    """Power, unit overrides and opaque symbols, resolved like parts; lowering reports missing ones."""
+    found: dict[str, drawn_mod.PowerSymbol] = {}
+    for sheet in drawn.sheets:
+        ids = [power.symbol for power in sheet.powers]
+        ids += [symbol.symbol for symbol in sheet.symbols if symbol.symbol]
+        ids += [
+            native.lib_name or native.lib_ref
+            for item in sheet.opaques
+            if (native := drawn_mod.opaque_symbol(item)) is not None
+        ]
+        for lib_id in ids:
+            if lib_id in found:
+                continue
+            library, _, symbol_name = lib_id.partition(":")
+            if symbol_name == symembed.FLAG_NAME and library.casefold() == symembed.FLAG_LIBRARY:
+                continue
+            if lib_id in authored:
+                found[lib_id] = drawn_mod.PowerSymbol(authored[lib_id], (), "authored")
+                continue
+            try:
+                chain = resolver.symbol_chain(lib_id)
+                origin = resolver.locate(lib_id, "symbol").origin
+            except LibraryError:
+                continue
+            found[lib_id] = drawn_mod.PowerSymbol(sym.resolve_extends(chain)[0], tuple(chain[1:]), origin)
+    return found
+
+
+def drawn_netlist_issues(
+    design: Design,
+    generated: GeneratedSchematic,
+    name: str,
+    target: int,
+    allow_lossy: bool,
+    *,
+    contextual: bool = False,
+) -> tuple[dict[str, str], list[Issue], dict[str, str]]:
+    """The sheet texts of a drawn schematic, the guard's issues (capability design-dsl, "Drawn schematic
+    build guard"; change c0276) and the stored names of ``sheet_spellings`` (change c0408).
+
+    The texts the build would write are read back with ``sch.read_schematic``, extracted and resolved
+    (``backends.kicad.drawn.resolve_sheets``), without any tool, and the nets are compared with the circuit
+    of ``design`` (``drawn_connect.compare``): a connectivity difference gives
+    ``build.schematic-netlist-differs`` naming the first ``REF-PIN``. The resolver's warnings (dangling
+    wire ends, unconnected labels, bus members no label carries) and its errors (unmatched sheet pins) are
+    returned too, and so are the warnings of the comparison (net names)."""
+    issues: list[Issue] = []
+    texts: dict[str, str] = {}
+    written = sch.write_schematic(generated.sheet, target=target, allow_lossy=allow_lossy)
+    if contextual:
+        check_written(generated.sheet, written.text, target=target)
+    issues += written.issues
+    root_file = f"{name}.kicad_sch"
+    texts[root_file] = written.text
+    for path, child in generated.children.items():
+        written = sch.write_schematic(child, target=target, allow_lossy=allow_lossy)
+        if contextual:
+            check_written(child, written.text, target=target)
+        issues += [found for found in written.issues if found not in issues]
+        texts[path] = written.text
+    root = sch.read_schematic(texts[root_file], file=root_file, issues=[])
+    children = {
+        path: sch.read_schematic(text, file=path, issues=[])
+        for path, text in texts.items()
+        if path != root_file
+    }
+    resolved, netlist, found = drawn_mod.resolve_sheets(
+        root, children, circuit=design.circuit, name=name, root_file=root_file
+    )
+    issues += [i for i in found if i.code.startswith("drawn.")]
+    for compared in drawn_connect.compare(netlist, design.circuit):
+        if compared.code == "drawn.netlist-differs":
+            detail = compared.message.removeprefix("the drawing does not mean the code: ")
+            issues.append(
+                issue(
+                    GUARD_CODE,
+                    f"the drawn schematic as written does not mean the circuit: {detail}; nothing is written",
+                    compared.where,
+                    "redraw schematic.toml so that it means the code, or change the code; a lowering "
+                    "defect is "
+                    "a Fenolite bug: report it with the script",
+                )
+            )
+        else:
+            issues.append(compared)
+    return texts, issues, sheet_spellings(resolved, netlist, design.circuit)
+
+
+def sheet_spellings(
+    drawn: DrawnSchematic, netlist: drawn_connect.DrawnNetlist, circuit: Circuit
+) -> dict[str, str]:
+    """Net id to the name KiCad gives that net of a drawn schematic, where it differs from
+    ``netnames.stored_name`` (capability kicad-file-backend, "Net names in KiCad's stored form"; change
+    c0408).
+
+    KiCad names the net of a local or hierarchical label with the path of the sheet's names before the
+    text, keeping the slashes of the path and writing a slash of the text ``{slash}``
+    (``H-K-SCH-SLASH``): ``/pic_programmer/VPP_ON``. A circuit net is respelled when the drawing has a net
+    of exactly its pins whose name is the circuit net's name and comes from one sheet prefix and one label
+    text; a net named by a global label or power symbol, a net KiCad may name otherwise, a sheet name with a
+    ``/`` or ``{`` and a net whose stored name the board already keeps are left as they are."""
+    found, _ = drawn_connect.instances(drawn)
+    prefixes = {
+        "/" + "".join(f"{part}/" for part in instance.names)
+        for instance in found
+        if not any("/" in part or "{" in part for part in instance.names)
+    }
+    components = {c.id: c for c in circuit.components}
+    drawn_pins = set(netlist.pins)
+    by_members: dict[frozenset[tuple[str, str]], Net] = {}
+    for net in circuit.nets:
+        members: set[tuple[str, str]] = set()
+        for member in net.members:
+            component = components.get(member.component_id)
+            if component is None:
+                continue
+            path = drawn_connect.component_path(component)
+            members.update((path, pad) for pad in component.pads_of(member.pin) if (path, pad) in drawn_pins)
+        if members:
+            by_members[frozenset(members)] = net
+    spellings: dict[str, str] = {}
+    for drawn_net in netlist.nets:
+        net = by_members.get(frozenset(drawn_net.members))
+        if net is None or net.name != drawn_net.name or drawn_net.name in drawn_net.labels:
+            continue
+        bag = net.ext.get("kicad")
+        if bag is not None and any(key == STORED_KEY for key, _ in bag.payload):
+            continue
+        split = [
+            (prefix, text)
+            for text in drawn_net.labels
+            for prefix in prefixes
+            if prefix + text == drawn_net.name
+        ]
+        if len(split) != 1:
+            continue
+        prefix, text = split[0]
+        spelling = prefix + netnames.stored_name(text)
+        if spelling != netnames.stored_name(net.name):
+            spellings[net.id] = spelling
+    return spellings
+
+
+def _respelled(net: Net, spelling: str) -> Net:
+    """``net`` with ``spelling`` kept as its stored name in its ``kicad`` bag."""
+    bag = net.ext.get("kicad") or ExtBag()
+    payload = (*((k, v) for k, v in bag.payload if k != STORED_KEY), (STORED_KEY, spelling))
+    return dataclasses.replace(net, ext={**net.ext, "kicad": ExtBag(bag.min_version, payload)})
+
+
+def lower_for_schematic(
+    design: Design, generated: GeneratedSchematic, spellings: Mapping[str, str] | None = None
+) -> Design:
     """The design that is written beside a generated schematic, so that KiCad's parity test and its
     "Update PCB from Schematic" find the board in agreement with the sheet (``docs/schematic.md``).
 
     Each pad of an unconnected pin gets a net of the name KiCad derives for that pin, and each component
     gets the path of its symbol: ``/<symbol uuid>`` on the root sheet, and the uuids of the sheet
-    references from the top down before it on a child sheet (``H-K-SCH-HIER-PATH``). Nothing else
-    changes; the stored layout and the model never hold these
+    references from the top down before it on a child sheet (``H-K-SCH-HIER-PATH``). A net of
+    ``spellings`` (``sheet_spellings``) keeps the name KiCad gives it as its stored name (change c0408).
+    Nothing else changes; the stored layout and the model never hold these
     nets. Applying the function twice gives the result of applying it once.
     """
     board = design.board
     if board is None:
         return design
     paths = {c.id: _path(c) for c in design.circuit.components}
-    nets = list(design.circuit.nets)
+    given = spellings or {}
+    nets = [_respelled(net, given[net.id]) if net.id in given else net for net in design.circuit.nets]
     known = {net.id for net in nets}
     footprints: list[FootprintInstance] = []
     for fp in board.footprints:
@@ -1875,6 +2986,7 @@ def _pad_nets(
     part: _Part,
     issues: list[Issue],
     pin_pads: Mapping[str, tuple[str, ...]],
+    unused: Sequence[str] = (),
 ) -> tuple[Pad, ...]:
     """``pads`` with the net of the pin that names each: ``pin_pads`` is ``Component.pin_pads()``, the pads
     of each mapped pin (several for a pin bonded to several pads, change c0123); a pin outside it names
@@ -1912,7 +3024,7 @@ def _pad_nets(
             assigned[pad] = pin
     net_by_pad = {pad: on_net[pin] for pin, targets in resolved.items() if pin in on_net for pad in targets}
     for number in sorted(pad_numbers - numbers):
-        if number not in assigned:
+        if number not in assigned and number not in unused:
             issues.append(
                 issue("build.pad-without-pin", f"{ref} pad {number} has no pin mapped to it", part.path)
             )
@@ -2011,6 +3123,33 @@ def _vendor(
     return sorted(vendored)
 
 
+PROJECT_MODEL = ("${KIPRJMOD}/", "${KIPRJMOD}\\")
+"""The starts of a model path of the project folder: the only model paths whose files a build copies (change
+c0458)."""
+
+
+def _vendor_models(plan: Mapping[str, Location], resolver: LibraryResolver, files: dict[str, bytes]) -> None:
+    """Copy, byte for byte, each model file that a vendored footprint names as ``${KIPRJMOD}/<rel>`` and the
+    design script's folder holds, to ``<rel>`` in the built project (change c0458): KiCad reads such a path
+    from the board's folder (``docs/formats/kicad/libraries.md``, "3D models"), so without the copy the built
+    board shows none of them. A path under another variable (an official library's model) is never copied, a
+    path that climbs out of the folder is not either, and a file the build already writes is kept."""
+    for location in sorted(plan.values(), key=lambda found: str(found.item_path)):
+        try:
+            models = resolver.footprint(location.lib_id).models
+        except FenoliteError:
+            continue
+        for path in models:
+            if not path.startswith(PROJECT_MODEL):
+                continue
+            found = resolver.locate_model(path)
+            if found is None or found.source != "project" or found.rel is None:
+                continue
+            if found.rel in files or found.rel.split("/", 1)[0] == ".fenolite":
+                continue
+            files[found.rel] = found.file.read_bytes()
+
+
 # --- edited outputs -------------------------------------------------------------------------------
 
 
@@ -2024,7 +3163,7 @@ def read_record(out_dir: Path) -> Mapping[str, str] | None:
         return None
     record = cast(dict[str, object], data)
     files = record.get("files")
-    if record.get("schema") != RECORD_SCHEMA or not isinstance(files, dict):
+    if not accepts_schema(record.get("schema"), RECORD_SCHEMA) or not isinstance(files, dict):
         return None
     return {str(k): v for k, v in cast(dict[object, object], files).items() if isinstance(v, str)}
 
@@ -2055,8 +3194,13 @@ def check_existing(
 
 
 __all__ = [
+    "DEVICE_EVIDENCE",
+    "DEVICE_PROPERTIES",
     "BUILD_EVIDENCE",
     "BUILD_ISSUE_CODES",
+    "must_connect_pins",
+    "two_terminal_issue",
+    "unused_pin_marks",
     "impedance_checks",
     "PROPERTY_EVIDENCE",
     "RECORD_FILE",
@@ -2076,6 +3220,7 @@ __all__ = [
     "check_existing",
     "lower_for_schematic",
     "schematic_netlist_issue",
+    "sheet_spellings",
     "stale_sheets",
     "read_record",
 ]

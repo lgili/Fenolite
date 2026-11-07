@@ -161,7 +161,7 @@ def test_lengths_carry_units_and_no_float_is_made() -> None:
 
 
 def test_schema_tables_and_toml() -> None:
-    for text in ("", 'schema = "fenolite.drawing-spec.v1"\n'):
+    for text in ("", 'schema = "fenolite.drawing-spec.v2"\n'):
         with pytest.raises(SpecError) as caught:
             read_spec(text)
         assert caught.value.problems[0][0] == "schema"

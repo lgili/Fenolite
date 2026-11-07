@@ -1,0 +1,74 @@
+{
+  "schema": "fenolite.c0168.explicit-negative-gate-proof.v1",
+  "base_commit": "f7fc669fafafd2123dc2fdf3b7388f9f89bd281b",
+  "retained_red": {
+    "command": "make check-fast PYTEST_MAX_WORKERS=4",
+    "exit": 2,
+    "failed": 4,
+    "passed": 22512,
+    "skipped": 52,
+    "log_sha256": "3616f32b2d5bab3beb6644a96efcaaf7c2a122b15426f48461bbd02567982feb",
+    "interrupted": false,
+    "rerun_here": false
+  },
+  "focused_green": {
+    "command": [
+      "uv",
+      "run",
+      "pytest",
+      "tests/unit/convert/test_convert_slots.py",
+      "tests/unit/checks/test_rta2_slots.py",
+      "tests/unit/lens/test_altium_slots.py::test_native_accepted_default_writes_the_regions",
+      "-q"
+    ],
+    "exit": 0,
+    "seconds": 5.5050744590116665,
+    "log_sha256": "55f3193655e8f1540fde5b51a8021d3e4fd08a63715e5de12f68756a1e52a67e"
+  },
+  "invariants": {
+    "source_base": "f7fc669fafafd2123dc2fdf3b7388f9f89bd281b",
+    "assertions": [
+      {
+        "path": "tests/unit/convert/test_convert_slots.py",
+        "assertions_unchanged": 65,
+        "only_added_false_setup_for": [
+          "test_altium_fixture_with_the_gate_off",
+          "test_altium_board_ring_arcs_as_today",
+          "test_verify_rings_that_the_report_explains"
+        ],
+        "remainder_ast_identical": true,
+        "before_sha256": "7249f286d23e3e4f93dde0460461785d1d2d35c8d776952d6e5284a3777645f3",
+        "after_sha256": "a3df38c9cd5b05b9d517c22c3619fab98ed14ae2ec5a9b16d2e99b9165ee141c"
+      },
+      {
+        "path": "tests/unit/checks/test_rta2_slots.py",
+        "assertions_unchanged": 11,
+        "only_added_false_setup_for": [
+          "test_a_moved_hole_is_one_finding"
+        ],
+        "remainder_ast_identical": true,
+        "before_sha256": "0903ec9aa2d9dc762efd57559ac1190d1d3227dfd4ed364a4334b595b961caa6",
+        "after_sha256": "3989d4a370d4f9f7e360eacbeb60614b14013b7f94348021026b394c768a8039"
+      }
+    ],
+    "unchanged_specific_files": [
+      "src/fenolite/backends/altium/pcbdoc.py",
+      "src/fenolite/backends/altium/backend.py",
+      "src/fenolite/backends/altium/cutouts.py",
+      "tests/_altium_slotcases.py",
+      "tests/unit/lens/test_altium_slots.py"
+    ],
+    "all_runtime_and_fixture_paths_unchanged": true,
+    "expected_counts_and_holds_unchanged": true
+  },
+  "nominal_tool_observations": {
+    "ruff_check": "All checks passed!",
+    "ruff_format_check": "2 files already formatted",
+    "openspec_strict": "Change c0168-altium-slots-cutouts is valid"
+  },
+  "production_edited": false,
+  "helper_edited": false,
+  "native_full_fast_gui_ci_run": false,
+  "push": false,
+  "global_validation_claimed_passed": false
+}

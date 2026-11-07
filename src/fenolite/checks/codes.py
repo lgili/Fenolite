@@ -8,7 +8,8 @@ are not in this table. Codes of an oracle start with its name, written ``<oracle
 (``checks.drc_json.type_code``; "Findings stage issue codes").
 The ``copper.*`` codes are those of the copper check (``checks.copper``; "Copper stage issue codes"), which
 the build's copper guard emits too; change c0169 adds the copper-to-edge clearance and the two findings of
-drilled holes.
+drilled holes, and change c0403 the copper narrower than its governing ``track_width`` rule
+(``checks.widths``), which the build's copper guard reports.
 The last six codes are those of the document check (``checks.documents``; "Document check issue codes",
 change c0044): the input of a backend whose project is a set of documents.
 The row ``<oracle>.erc.<type>`` stands for every ERC finding code of an oracle (``checks.erc_json``), and
@@ -25,8 +26,13 @@ check itself never gives.
 The ``placement.*`` codes are those of the placement rules (``checks.placement``; "Placement stage issue
 codes", change c0113, and "Height limit issue codes", change c0140); ``place`` and the placement guard of
 ``build`` report them at most as warnings.
+The ``drawn.*`` codes are those of the drawn schematic stage ``schematic.drawn`` (``checks.drawn``; "Drawn
+schematic stage issue codes", change c0276), the table of ``fenolite.model.drawn_connect``.
 The ``length.*`` codes are those of the length rules stage (``checks.length``; "Length stage issue codes",
 change c0106); the governing rule sets the severity of a finding.
+The ``circuit.*`` codes are those of the stage ``circuit.rules`` (``checks.circuit``; change c0252), which the
+build reports too; each of them also allows ``info``, the severity of a finding a waiver accepted, and
+``check.waiver-expired`` reports a circuit waiver whose digest no longer matches its row (change c0274).
 """
 
 from __future__ import annotations
@@ -36,6 +42,7 @@ from collections.abc import Mapping
 from types import MappingProxyType
 
 from fenolite.core.errors import Issue, Severity
+from fenolite.model.drawn_connect import ISSUE_CODES as DRAWN_ISSUE_CODES
 
 ORACLE = "<oracle>"
 FINDING = f"{ORACLE}.drc.<type>"
@@ -68,16 +75,19 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "erc.lite.power-undriven": ("warning",),
         "erc.lite.floating-pin": ("warning",),
         "render.failed": ("warning",),
-        "copper.short": ("error", "info"),
+        "copper.short": ("error", "info", "warning"),
         "copper.clearance": ("error", "warning", "info"),
         "copper.zone-overlap": ("warning", "info"),
         "copper.keepout": ("error",),
         "copper.rules-incomplete": ("warning",),
         "copper.item-unsupported": ("warning",),
         "copper.clearance-unset": ("info",),
+        "copper.text-unchecked": ("info",),
         "copper.edge-clearance": ("error", "warning"),
         "copper.hole-in-cutout": ("error",),
         "copper.hole-overlap": ("warning",),
+        "copper.hole-clearance": ("error", "warning"),
+        "copper.track-width": ("error", "warning"),
         "zone.unfilled": ("warning",),
         "zone.fill-stale": ("warning",),
         "zone.fill-unchecked": ("info",),
@@ -98,6 +108,8 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "parity.oracle-differs": ("warning",),
         "parity.pad-without-pin": ("info",),
         "check.waiver-unmatched": ("warning",),
+        "check.allowance-unresolved": ("info",),
+        "check.waiver-expired": ("warning",),  # change c0274: a circuit waiver whose digest changed
         "check.exclusion-stale": ("warning",),
         "check.exclusion-unmatched": ("error",),
         "check.exclusion-ambiguous": ("error",),
@@ -111,6 +123,43 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "length.out-of-range": ("error", "warning"),
         "length.skew-out-of-range": ("error", "warning"),
         "length.input-missing": ("warning",),
+        "topology.delay-out-of-range": ("error", "warning"),
+        "topology.skew-out-of-range": ("error", "warning"),
+        "topology.loss-over-budget": ("error", "warning"),
+        "topology.stub-too-long": ("error", "warning"),
+        "topology.order": ("error", "warning"),
+        "topology.bridge-missing": ("error",),
+        "topology.input-missing": ("warning",),
+        "topology.path-through-zone": ("warning",),
+        "topology.unrouted": ("info",),
+        "rules.shadowed": ("info",),
+        "rules.topology-not-lowered": ("info",),
+        # the drawn schematic stage (c0276): the codes of fenolite.model.drawn_connect.ISSUE_CODES
+        **{code: (severity,) for code, severity in DRAWN_ISSUE_CODES.items()},
+        "circuit.rail-voltage": ("error", "info"),
+        "circuit.rail-current": ("error", "info"),
+        "circuit.rail-sources": ("error", "info"),
+        "circuit.rail-unset": ("warning", "info"),
+        "circuit.logic-level": ("error", "info"),
+        "circuit.logic-unknown": ("warning", "info"),
+        "circuit.bus-pullup": ("warning", "info"),
+        "circuit.pullup-parallel": ("warning", "info"),
+        "circuit.requires-missing": ("warning", "info"),
+        "circuit.port-split": ("warning", "info"),
+        # change c0253: the contracts of the stage circuit.rules
+        "circuit.rating-voltage": ("error", "info"),
+        "circuit.rating-current": ("error", "info"),
+        "circuit.rating-power": ("error", "info"),
+        "circuit.rating-temperature": ("error", "info"),
+        "circuit.operating-range": ("error", "info"),
+        "circuit.expect-failed": ("error", "info"),
+        "circuit.expect-unsure": ("warning", "info"),
+        "circuit.expect-unknown": ("warning", "info"),
+        "circuit.value-conflict": ("warning", "info"),
+        "circuit.device-changed": ("warning", "info"),
+        "circuit.value-unknown": ("info", "warning"),
+        "circuit.rating-missing": ("info", "warning"),
+        "circuit.policy-missing": ("info",),
     }
 )
 

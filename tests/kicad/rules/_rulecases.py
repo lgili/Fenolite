@@ -64,6 +64,8 @@ CONDITION_KEYS = (
     "glob",
     "diff_pair",
 )
+LEAF_KEYS_C0462 = ("zone", "hole", "pad_type")
+"""The leaves of change c0462 (S-2213): probed and recorded, outside ``CONDITION_KEYS`` until present."""
 
 
 @dataclass(frozen=True)
@@ -92,7 +94,7 @@ def supported(*keys: str) -> Iterator[None]:
     saved = rulemap.SELECTOR_SUPPORT
     table = {k: frozenset(v) for k, v in saved.items()}
     for key in keys:
-        table[key] = table[key] | {major()}
+        table[key] = table.get(key, frozenset()) | {major()}
     rulemap.SELECTOR_SUPPORT = MappingProxyType(table)
     try:
         yield
@@ -278,6 +280,20 @@ def condition(key: str) -> tuple[Result, ...]:
         made.pair("probe", "DPX_P", "DPX_N")
         made.pair("control", "DPC_A", "DPC_B")
         return (run(made.build(), lowered(rule(a=Selector("diff_pair", "DPX_")), keys=("diff_pair",))),)
+    if key == "zone":  # change c0462: the probe zone is named 'probe', the control zone 'control'
+        made.fill_track("probe", "ZN1", "ZN2")
+        made.fill_track("control", "ZN3", "ZN4")
+        return (run(made.build(), lowered(rule(a=Selector("zone", "probe")), keys=("zone",))),)
+    if key == "pad_type":  # change c0462: SMD pads against through-hole pads
+        made.pad_track("probe", "R1", "PT1", "PT2", target=major())
+        made.tht_track("control", "D1", "PT3", "PT4", target=major())
+        return (run(made.build(), lowered(rule(a=Selector("pad_type", "smd")), keys=("pad_type",))),)
+    if key == "hole":  # change c0462: a 0.4 mm via and through-hole pads against a 0.3 mm via and SMD pads
+        made.via_track("probe", "HL1", "HL2", drill=400_000)
+        made.tht_track("probe_pad", "D2", "HL3", "HL4", target=major())
+        made.via_track("control", "HL5", "HL6")
+        made.pad_track("control_smd", "R2", "HL7", "HL8", target=major())
+        return (run(made.build(), lowered(rule(a=Selector("hole", "350000..")), keys=("hole",))),)
     if key == "case":
         made.pair("probe", "LC1", "LC2")
         made.pair("control", "LC3", "LC4")
@@ -293,6 +309,11 @@ def condition_probe(key: str) -> str:
         hit, miss = runs
         return judged(runs, hit.between("probe") and not miss.between("probe"))
     (only,) = runs
+    if key == "hole":
+        found = only.between("probe", None) and only.between("probe_pad", None)
+        return judged(
+            runs, found and not only.between("control", None) and not only.between("control_smd", None)
+        )
     return judged(runs, only.between("probe", None) and not only.between("control", None))
 
 
@@ -334,12 +355,13 @@ def dru_probes() -> dict[str, tuple[object, tuple[int, ...]]]:
         probes[f"dru-dialect-{name}"] = (lambda name=name: loaded(dialect(name)), both)
     for kind in KINDS:
         probes[f"dru-kind-{kind}"] = (lambda kind=kind: kind_probe(kind), both)
-    for key in (*CONDITION_KEYS, "case"):
+    for key in (*CONDITION_KEYS, "case", *LEAF_KEYS_C0462):
         probes[f"dru-cond-{key}"] = (lambda key=key: condition_probe(key), both)
     return probes
 
 
 __all__ = [
+    "LEAF_KEYS_C0462",
     "CONDITION_KEYS",
     "IGNORED_TYPES",
     "KINDS",

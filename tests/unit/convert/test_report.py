@@ -5,8 +5,11 @@
 
 from __future__ import annotations
 
+import dataclasses
+
 import pytest
 from _convert import read_as, two_layer, with_pads
+from _gensheets import BLINK
 
 from fenolite.backends.altium import lower
 from fenolite.convert import DIRECTIONS, convert_project
@@ -18,8 +21,11 @@ from fenolite.convert.report import (
     SOURCE,
     ConversionReport,
     Explainer,
+    Reason,
+    ReportRow,
     merge,
 )
+from fenolite.convert.sources import read_source
 
 
 def test_kinds_are_closed() -> None:
@@ -77,17 +83,17 @@ def test_merge_adds_counts_and_joins_reasons() -> None:
 
 
 def test_reasons_are_counted_apart(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Scenario "Reasons are counted apart" (amended by change c0160): one custom pad and two pads without
-    a number give the row ``pad`` with ``lost`` 1 (the custom shape) and ``changed`` 2 (the two pads
-    written as free pads), each under its own reason."""
-    design, _, _ = with_pads(two_layer(), {"shape": "custom"}, {"number": ""}, {"number": ""})
+    """Scenario "Reasons are counted apart" (amended by changes c0160 and c0433): one custom pad and two
+    connector pads give the row ``pad`` with ``lost`` 1 (the custom shape) and ``changed`` 2 (the two pads
+    written as surface pads without openings), each under its own reason."""
+    design, _, _ = with_pads(two_layer(), {"shape": "custom"}, {"kind": "connect"}, {"kind": "connect"})
     read_as(monkeypatch, design)
     conversion = convert_project("two_layer.kicad_pcb", to="altium", allow_lossy=True)
     pad = conversion.report.row("pad")
     assert pad is not None and pad.lost == 1 and pad.changed == 2
     by_outcome = {reason.outcome: reason for reason in pad.reasons}
     assert by_outcome["lost"].count == 1 and "custom" in by_outcome["lost"].reason
-    assert by_outcome["changed"].count == 2 and "empty" in by_outcome["changed"].reason
+    assert by_outcome["changed"].count == 2 and "connector" in by_outcome["changed"].reason
 
 
 def test_explainer_locates_lost_pads(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -101,3 +107,42 @@ def test_explainer_locates_lost_pads(monkeypatch: pytest.MonkeyPatch) -> None:
     assert explainer.explain("position", ref, "0,0", "1,1") is None
     assert explainer.explain("ref-ambiguous", "X", "2", "2") == SOURCE
     assert explainer.explain("ref-ambiguous", "X", "1", "2") is None
+
+
+def test_lost_schematic_explains_a_designator_used_twice() -> None:
+    """Change c0425: when the schematic is lost for duplicate designators, a reference that the source
+    circuit holds twice (the public Altium blink with a second ``R1``, made in memory) explains its
+    ``ref-ambiguous``; a reference held once does not, and without the lost row nothing is explained."""
+    design = read_source(BLINK).design
+    first = next(c for c in design.circuit.components if c.ref == "R1")
+    twin = dataclasses.replace(first, id=f"{first.id}-twin")
+    circuit = dataclasses.replace(design.circuit, components=(*design.circuit.components, twin))
+    design = dataclasses.replace(design, circuit=circuit)
+    lost = ConversionReport.of(
+        source={"schematic": 1},
+        lost={"schematic": {"the imported circuit has duplicate designators": ("s",)}},
+    )
+    explainer = Explainer(design, lost)
+    assert explainer.explain("ref-ambiguous", "R1", "2", "1") == "schematic"
+    assert explainer.explain("ref-ambiguous", "R1", "2", "0") == "schematic"
+    assert explainer.explain("ref-ambiguous", "D1", "1", "2") is None
+    kept = Explainer(design, ConversionReport.of(source={"schematic": 1}))
+    assert kept.explain("ref-ambiguous", "R1", "2", "1") is None
+
+
+def test_kept_items_are_not_losses() -> None:
+    """Scenario "Kept items are not losses" (capability design-conversion, "Conversion report"; change
+    c0424)."""
+    report = ConversionReport.of(
+        source={"rule": 2}, kept={"rule": {"KiCad has no routing topology rule": ["rul-1"]}}
+    )
+    row = report.row("rule")
+    assert row is not None
+    assert (row.source, row.written, row.changed, row.lost, row.kept) == (2, 1, 0, 0, 1)
+    assert [r.outcome for r in row.reasons] == ["kept"]
+    assert not report.lossy and report.refused == ()
+    assert row.to_json()["kept"] == 1
+    plain = ConversionReport.of(source={"rule": 1}).row("rule")
+    assert plain is not None and "kept" not in plain.to_json()
+    twice = (Reason(row.reasons[0].reason, "kept", ("rul-1", "rul-1")),)
+    assert merge(report, report).row("rule") == ReportRow("rule", 4, 2, 0, 0, twice, 2)

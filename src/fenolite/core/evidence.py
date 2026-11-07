@@ -8,6 +8,7 @@ tool; it never promotes an operation to "verified" in the release matrix.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Protocol
@@ -39,6 +40,27 @@ def min_level(*levels: Level) -> Level:
     if not levels:
         raise ValueError("min_level() needs at least one level")
     return min(levels, key=strength)
+
+
+def parse_level(text: str) -> Level:
+    """Parse the existing evidence grammar, including optional scopes, without loading a register."""
+    body = text
+    scoped = re.fullmatch(r"(.+?) \(([^()]+)\)", text)
+    if scoped is not None and scoped[2].strip():
+        body = scoped[1]
+    try:
+        return Level(body)
+    except ValueError:
+        match = re.fullmatch(r"(ORACLE-VERIFIED|ALTIUM-VERIFIED)\(([^()]+)\)", body)
+        if match is not None and match[2].strip():
+            if match[1] == "ORACLE-VERIFIED":
+                return Level.ORACLE_VERIFIED
+            qualifier = match[2].split(";", 1)[0].strip()
+            if qualifier == "kit":
+                return Level.ALTIUM_VERIFIED_KIT
+            if qualifier == "author-report":
+                return Level.ALTIUM_VERIFIED_AUTHOR_REPORT
+    raise ValueError(f"not an evidence label: {text!r}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,4 +118,12 @@ class GraduationRun:
     committed: bool = False
 
 
-__all__ = ["Evidence", "GraduationHypothesis", "GraduationRun", "Level", "min_level", "strength"]
+__all__ = [
+    "Evidence",
+    "GraduationHypothesis",
+    "GraduationRun",
+    "Level",
+    "min_level",
+    "parse_level",
+    "strength",
+]

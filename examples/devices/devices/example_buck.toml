@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite as an example; an illustrative device, not a real product.
+schema = "fenolite.device.v1"
+id = "Example:BUCK_6V_2A"
+version = "1.0.0"
+summary = "6 V 2 A step-down regulator (illustrative)"
+licence = "CC0-1.0"
+evidence = "UNVERIFIED"
+manufacturer = "Example Semi"
+mpn = "EXB6202"
+datasheet = "https://example.invalid/exb6202.pdf"
+symbol = "Example:Buck_6pin"
+footprint = "Fenolite:SOT23_6_TI_DBV0006A"
+ref_prefix = "U"
+ground = "GND"
+
+[pins]
+BST = "1"
+GND = "2"
+FB  = { pins = ["3"], voltage = { abs_max = "6.5V" } }
+EN  = { pins = ["4"], voltage = { abs_max = "6.5V" }, input_high_min = "1.2V", input_low_max = "0.4V", must_connect = true }
+VIN = { pins = ["5"], voltage = { operating = { min = "2.7V", max = "6V" }, abs_max = "6.5V" } }
+SW  = "6"
+
+[[limits]]
+between = ["BST", "SW"]
+voltage = { abs_max = "6V" }
+
+[ratings]
+current = { abs_max = "2.5A", operating = "2A" }
+temperature = { operating = { min = "-40degC", max = "125degC" } }
+
+[[part]]
+mpn = "EXB6202DR"
+packing = "reel 3000"
+lifecycle = "active"

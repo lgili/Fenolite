@@ -119,6 +119,23 @@ def add_bus(folder: Path) -> None:
         board=replace(source.board, holes=(), footprints=(*source.board.footprints, footprint)),
     )
     canonical.dump_dir(models["kicad"], folder / "kicad" / ".fenolite")
+    # A Routing Via Style record holds a preferred hole, which a KiCad via_drill rule cannot hold. The
+    # Altium model states its own (the 0.3 mm drill of the vias); since change c0434 no record is
+    # synthesized from net-class defaults to stand in for it.
+    rules = models["altium"].rules
+    if rules is None:
+        raise ValueError("acceptance model has no rules")
+    models["altium"] = replace(
+        models["altium"],
+        rules=replace(
+            rules,
+            rules=tuple(
+                replace(rule, opt=300_000) if rule.kind == "via_drill" and rule.opt is None else rule
+                for rule in rules.rules
+            ),
+        ),
+    )
+    canonical.dump_dir(models["altium"], folder / "altium" / ".fenolite")
     board = pcb.write_board(models["kicad"], target=10)
     (folder / "kicad" / f"{NAME}.kicad_pcb").write_text(board.text, encoding="utf-8", newline="\n")
     findings = []
@@ -143,6 +160,11 @@ def add_bus(folder: Path) -> None:
         (folder / "altium" / name).write_bytes(data)
 
 
+AFTER_V03 = frozenset({"short", "antenna"})
+"""Exact rule kinds added after the v0.3 written scope (change c0465), which the acceptance project does not
+author (capability altium-build, "Scope of the acceptance project")."""
+
+
 def inventory(folder: Path) -> dict[str, bool]:
     path = folder / "altium" / f"{NAME}.PrjPcb"
     backend = registry.for_path(path)
@@ -151,7 +173,8 @@ def inventory(folder: Path) -> dict[str, bool]:
     model = backend.read(path).design
     authored = canonical.load_dir(folder / "altium" / ".fenolite")
     board = model.board
-    exact = {row.neutral for row in rulemap.TABLE if row.exact}
+    # the v0.3 written scope: `short` and `antenna`, exact since change c0465, are outside it
+    exact = {row.neutral for row in rulemap.TABLE if row.exact} - AFTER_V03
     kicad = pcb.read_board(folder / "kicad" / f"{NAME}.kicad_pcb")
     # since change c0168 the Altium import gives a free pad whose copper is its hole as a board hole
     native_holes = sorted(

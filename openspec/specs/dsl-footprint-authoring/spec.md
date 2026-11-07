@@ -156,7 +156,7 @@ The footprint DSL SHALL support a slot whose drill width is `drill`, whose overa
 - `definition` MUST raise `DslError` when a number of a group names no pad of the footprint, or when a number is in two groups; it MUST carry the groups in `FootprintDef.net_ties`, in call order, each in the order of its numbers.
 - The KiCad footprint writer MUST emit one `(net_tie_pad_groups "<group>" …)` child right after `attr`, one string per group, its numbers joined with `", "`, as KiCad's own library writes it (S-0018, S-0042). A definition without groups MUST emit no such child, so an authored footprint written before this change keeps its bytes.
 - The board that `build` writes MUST carry the child in the placed footprint, and KiCad 9.0.9 and 10.0.6 MUST load it and honour the group (`kicad-oracle`, "Net-tie facts are probed").
-- The Altium build MUST NOT drop a group silently: it writes the pads and their copper as for any footprint, writes no net-tie mark, and reports the footprints that have groups in one `altium.not-lowered` info whose `where` is the kind `net-tie` (`backends.altium.lower`). The kind MUST NOT be in `LOSS_KINDS`: the pads are written, so the issue is an `info` and a write without `allow_lossy` is not refused. Its copper guard judges the tied pads; a `copper.short` waiver accepts them (`design-dsl`, "Waivers in the copper guard").
+- The Altium build MUST NOT drop a group silently. It writes the pads and their copper as for any footprint, and writes the component as a net tie: `COMPONENTKIND` 4 in its record (change c0420, N1; `H-A-PCBX-NETTIE`), from which the import reads the group back. Altium marks the whole component, so the footprints whose groups are not one group of every distinct pad number are reported in one `altium.not-lowered` info whose `where` is the kind `net-tie` (`backends.altium.lower.net_tie_differs`). The kind MUST NOT be in `LOSS_KINDS`: the pads are written, so the issue is an `info` and a write without `allow_lossy` is not refused. Its copper guard judges the tied pads; a `copper.short` waiver accepts them (`design-dsl`, "Waivers in the copper guard").
 
 #### Scenario: Emitted form
 - **GIVEN** a footprint with pads `1` and `2`, a copper line between them on `F.Cu`, and `fp.net_tie("1", "2")`
@@ -175,4 +175,34 @@ The footprint DSL SHALL support a slot whose drill width is `drill`, whose overa
 #### Scenario: A net tie in an Altium build
 - **GIVEN** a design that places as `NT1` an authored footprint with two pads `1` and `2` 0.5 mm apart and `fp.net_tie("1", "2")`, its pads on nets `A` and `B`
 - **WHEN** `uv run pytest tests/unit/cli -k "altium and net_tie"` builds it with `--target altium --dry-run --json`
-- **THEN** the exit code is 0, the planned `.PcbLib` and `.PcbDoc` hold both pads, and `issues` holds one `altium.not-lowered` info whose `where` is `net-tie` and whose message counts one footprint
+- **THEN** the exit code is 0, the planned `.PcbLib` and `.PcbDoc` hold both pads, and `issues` holds no `altium.not-lowered` info whose `where` is `net-tie`
+- **AND** with `--confirm` the written component record of `NT1` holds `COMPONENTKIND` 4, and reading the document gives `NT1` the group `("1", "2")`
+
+### Requirement: Shaped pads in authored footprints
+`Footprint.pad` SHALL accept `shape="trapezoid"` with `delta`, `chamfer` (parts per million, 0 to 500 000) with `corners` on `rect` and `roundrect`, `radius_ratio` on `roundrect`, and `shape="custom"` with `anchor` (`circle` or `rect`) and `primitives` built by `footprint.poly`, `segment`, `circle` and `arc` in pad coordinates. Each value outside these rules MUST raise `DslError` naming the argument.
+
+#### Scenario: Four shaped pads
+- **GIVEN** an authored footprint with one trapezoid, one chamfered rectangle, one rounded rectangle and one custom pad
+- **WHEN** it is serialised and read back with `read_footprint`
+- **THEN** each pad has its shape, `trapezoid_delta`, `chamfer_ratio` and `chamfer_corners`, `corner_ratio`, or `anchor_shape` and primitives as declared, and two serialisations are byte-identical
+
+#### Scenario: Refused shape values
+- **WHEN** `fp.pad("1", …, shape="trapezoid")` without `delta`, `fp.pad("2", …, chamfer=600_000, corners=("top_left",))` and `fp.pad("3", …, shape="custom", primitives=())` are called
+- **THEN** each raises `DslError` naming `delta`, `chamfer` and `primitives`
+
+#### Scenario: Footprints without the arguments
+- **WHEN** every authored footprint of the examples is serialised before and after this change
+- **THEN** the bytes are equal
+
+### Requirement: Generated footprints in a script
+`fenolite.dsl.Footprint.from_package(text, *, library="Local", positions=None)` SHALL parse one `fenolite.package.v0` record given as text and return a sealed `Footprint` holding the generated definition, bodies and model path included. Adding a pad or graphic to it MUST raise `DslError`. An error finding MUST raise `DslError` naming its code; the DSL itself MUST read no file.
+
+#### Scenario: A generated footprint is registered
+- **GIVEN** a script that reads `packages/soic8.toml` with `Path.read_text()` and calls `design.add_footprint(Footprint.from_package(text))`
+- **WHEN** `uv run pytest tests/unit/dsl/test_footprint_from_package.py -k register` builds it
+- **THEN** `Local:SOIC8_B4.9x3.9_P1.27` is registered with 8 pads and its bodies, and `.pad("9", ...)` on it raises `DslError`
+
+#### Scenario: Error finding in a script
+- **WHEN** `Footprint.from_package` is given a record whose span lies inside its body
+- **THEN** `DslError` is raised naming `package.dimensions-inconsistent`
+

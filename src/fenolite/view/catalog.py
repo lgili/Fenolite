@@ -152,6 +152,13 @@ def _items(entries: Sequence[CatalogItem], kind: str) -> list[dict[str, Any]]:
     return items
 
 
+def catalog_scene(definition: SymbolDef | FootprintDef) -> dict[str, Any]:
+    """The viewer scene of one definition, as the catalog page draws it (the library gallery's images,
+    change c0405)."""
+    entry = CatalogItem(definition.lib_id, "Gallery", definition.description, "INFERRED", (), definition)
+    return _items([entry], entry.kind)[0]["scene"]
+
+
 def catalog_page(entries: Sequence[CatalogItem]) -> str:
     """A deterministic standalone page of selected definitions; empty selections are rejected."""
     if not entries:
@@ -202,4 +209,4 @@ def catalog_page(entries: Sequence[CatalogItem]) -> str:
     return export.page(tree, scenes, open_id=documents[0]["id"])
 
 
-__all__ = ["CatalogItem", "catalog_page"]
+__all__ = ["CatalogItem", "catalog_page", "catalog_scene"]

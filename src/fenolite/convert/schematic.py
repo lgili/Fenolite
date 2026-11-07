@@ -9,12 +9,14 @@ KiCad exporter when the source exceeds that grammar; this module never runs a to
 from __future__ import annotations
 
 import dataclasses
+from collections.abc import Mapping
 from pathlib import Path, PurePosixPath
 
 from fenolite.backends.altium import project
 from fenolite.backends.altium.altsym import AltiumSymbol, from_symbol_def
 from fenolite.backends.kicad import parity_inputs
 from fenolite.backends.kicad.netlist import NO_CONNECT_SUFFIX
+from fenolite.convert.direction import TargetLimitError
 from fenolite.convert.sources import SourceError, SourceProject
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
@@ -31,10 +33,21 @@ def root_schematic(source: SourceProject) -> Path | None:
     return path if path.is_file() else None
 
 
+def _shape(definition: SymbolDef) -> object:
+    """What two embedded symbols of one source link must share to be written as one (change c0451): their
+    pins by number, name and type, as ``lower.schematic_design`` compares a link's components. The KiCad
+    schematic of an Altium conversion is generated, so one source symbol gives each component its own
+    symbol whose pins may lie in another order; the schematic is generated again on the way back."""
+    return tuple(sorted((p.number, p.name, p.etype) for p in definition.pins if p.body_style in (0, 1)))
+
+
 def inputs(
-    source: SourceProject, design: Design
+    source: SourceProject, design: Design, links: Mapping[str, str] | None = None
 ) -> tuple[Design | None, dict[str, AltiumSymbol], tuple[str, ...]]:
-    """The separate schematic design and symbols; board geometry and board nets stay with the board."""
+    """The separate schematic design and symbols; board geometry and board nets stay with the board.
+    ``links`` (reference → symbol link; change c0451) names the source symbol of a component of an Altium
+    conversion: the component takes that link when every component of the link gives the same symbol,
+    else its own ``PART_<ref>``."""
     root = root_schematic(source)
     if root is None:
         return None, {}, ()
@@ -118,6 +131,13 @@ def inputs(
     changed: list[str] = []
     parts: list[Component] = []
     symbols: dict[str, AltiumSymbol] = {}
+    shapes: dict[str, set[object]] = {}
+    for component in circuit.components:
+        held = symbols_by_ref.get(component.ref)
+        source_link = (links or {}).get(component.ref, "")
+        if held is not None and source_link:
+            shapes.setdefault(source_link, set()).add(_shape(held[1]))
+    clashing = {link for link, found in shapes.items() if len(found) > 1}
     for component in circuit.components:
         held = symbols_by_ref.get(component.ref)
         if held is None:
@@ -126,6 +146,9 @@ def inputs(
         # One definition per component avoids collisions between different embedded bodies of one lib id.
         symbol_name = f"PART_{component.ref}"
         link = f"{design.header.name}.SchLib:{symbol_name}"
+        source_link = (links or {}).get(component.ref, "")
+        if source_link and source_link not in clashing:
+            link, symbol_name = source_link, source_link.rpartition(":")[2]
         ident = ids[component.id]
         pins = tuple(
             Pin(
@@ -156,7 +179,16 @@ def inputs(
                 dnp=instance.dnp or component.dnp,
             )
         )
-        symbols[link] = from_symbol_def(definition, lib_ref=symbol_name, footprint=None, bodies="graphics")
+        try:
+            symbols[link] = from_symbol_def(
+                definition, lib_ref=symbol_name, footprint=None, bodies="graphics"
+            )
+        except ValueError as error:  # an off-grid pin: the SchLib holds pins on the 10-mil grid only
+            raise TargetLimitError(
+                f"the schematic of {root.name} cannot be written: {error}",
+                hint="Altium library pins lie on the 10-mil grid; move the pin onto it in KiCad "
+                "(KiCad's 50-mil grid is on it); nothing was converted",
+            ) from None
     nets = tuple(
         dataclasses.replace(n, members=tuple(PinRef(ids[m.component_id], m.pin) for m in n.members))
         for n in circuit.nets

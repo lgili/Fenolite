@@ -20,29 +20,39 @@ from __future__ import annotations
 
 import dataclasses
 import re
-from collections.abc import Mapping, Sequence
+from collections import Counter
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
+from fractions import Fraction
 from types import MappingProxyType
 from typing import cast
 
 import fenolite.backends.altium.connectstyle as connectstyle
+import fenolite.backends.altium.fills as fills
+import fenolite.backends.altium.keepout_lines as keepout_lines
 import fenolite.backends.altium.pcbdoc as pcbdoc
 import fenolite.backends.altium.pcblib as pcblib
 import fenolite.backends.altium.pcbrecords as rec
 import fenolite.backends.altium.project as project
 import fenolite.backends.altium.rulemap as rulemap
+import fenolite.backends.altium.unions as unions
+from fenolite.backends.altium.adapter.arcring import ArcPolygon
 from fenolite.backends.altium.altsym import AltiumSymbol
 from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.cfb import CompoundTooLarge, name_key
 from fenolite.backends.altium.cutouts import cutout_items, unwritten_reason
 from fenolite.backends.altium.docboard import Dielectric, StackSpec
+from fenolite.backends.altium.libboard import MULTIPLE_NETS
 from fenolite.backends.altium.pour import BackendUnavailable, PourMode
+from fenolite.backends.altium.read.rooms import is_room_area
 from fenolite.backends.altium.schlib import storage_name
 from fenolite.core.coords import Point
 from fenolite.core.errors import FenoliteError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
+from fenolite.core.libnames import FREE_PAD_PREFIX
+from fenolite.geometry.rings import zone_ring
 from fenolite.geometry.transform import FULL_TURN, Transform
 from fenolite.model.board import (
     PPM_PER_PERCENT,
@@ -55,6 +65,7 @@ from fenolite.model.board import (
     Keepout,
     Layer,
     Outline,
+    OutlineArc,
     Pad,
     Stackup,
     Text,
@@ -64,6 +75,7 @@ from fenolite.model.board import (
 )
 from fenolite.model.circuit import Component, Net, Pin, PinRef
 from fenolite.model.design import Design
+from fenolite.model.holes import HOLE_LIBRARY
 from fenolite.model.library import FootprintDef
 
 EVIDENCE = Evidence(
@@ -109,13 +121,16 @@ MORE_KINDS: tuple[str, ...] = (
     "footprint-copper",
     "footprint-text",
     "net-tie",
+    "model",
     "severity",
     "dnp",
     "pin-net",
     "schematic-text",
+    "project-curve-error",
 )
 """What a write of a model accounts for besides ``KINDS``: a net or a net class whose name no record
-holds, a filled shape on a copper layer (the model holds it as a graphic), the poured copper of a zone (a
+holds, a shape on a copper layer without a copper record (on a plane, a filled circle, or refused;
+change c0412), the poured copper of a zone (a
 polygon is written unpoured), the layers on which a via has no pad shape (the via is written with a pad on
 every layer; change c0132), an internal plane, the stack-up values, a part of the outline, and the
 schematic. Of the circuit (change c0083): a module (the generated schematic is one sheet), and the channel
@@ -125,26 +140,34 @@ component that has no footprint model in the generated schematic, and ``pin-pads
 holds what the model's map cannot say (the key ``pin_pads``: a record without a pad, or with a pad that
 another pin holds). Of the items of a footprint instance (change c0126): ``footprint-graphic`` is a graphic
 on a layer without a layer in the document, or one that no record holds; ``footprint-copper`` a graphic on a
-copper layer, which is not written; ``footprint-text`` a text or a field that the text record cannot hold.
-``AltiumInputs.written`` counts the written graphics and texts under the first and the third key. ``dnp``
+copper layer, which is not written unless the footprint is a net tie (change c0431); ``footprint-text`` a
+text or a field that the text record cannot hold. ``AltiumInputs.written`` counts the written graphics, the
+written net-tie copper and the texts under the three keys. ``dnp``
 (change c0159) is a component whose do-not-populate flag is set: the documents hold no fitted flag outside
-variants, so the part is written as fitted."""
+variants, so the part is written as fitted. ``model`` (change c0449) is a 3D model of a footprint that the
+caller gives (``pcbdoc.FootprintModel``): written as a body that names an embedded model, or not."""
 DNP_KIND = "dnp"
+MODEL_KIND = "model"
 DNP_REASON = "the Altium documents hold no fitted flag outside variants"
+ZONE_ARCS_EDITED = (
+    "the outline arcs of its source polygon are written as chords: the zone's outline is no longer their ring"
+)
+"""A zone whose source polygon's arcs a conversion carried through KiCad (change c0463, task 1.3) but whose
+outline was edited there: written as the outline's chords, counted ``changed``."""
 CONNECT_REASON = "a connector pad is written as a surface pad with no paste and no mask opening"
 """The reason a pad of kind ``connect`` is counted changed under ``pad`` (change c0160): the record has no
 such kind, so it is a surface pad whose two mask openings the writer removes."""
-FREE_PAD_REASON = "the pad number is empty, so it is written as a free pad at its board position"
-"""The reason a pad without a number is counted changed under ``pad`` (change c0160): Altium leaves a
-designator empty for a free pad only, so it leaves its footprint and the document holds it as a free pad."""
 NET_TIE_KIND = "net-tie"
-"""A footprint with net-tie groups (change c0114): its pads are written, without a mark that ties them,
-because how Altium marks a net tie is no registered format fact. Not in ``LOSS_KINDS``: nothing of the
-board that is made is lost."""
+"""A footprint with net-tie groups (change c0114): written as a component of the kind Net Tie (change c0420,
+N1; ``pcbdoc.PlacedComponent.net_tie``). Altium marks the whole component, so groups that are not one
+group of every pad number are counted changed. Not in ``LOSS_KINDS``."""
 SEVERITY_KIND = "severity"
 """A check severity of ``RuleSet.severities`` (change c0114): KiCad data, and no rule kind, so the rule
 table has no row for it and none is written. Not in ``LOSS_KINDS``."""
-NET_TIE_REASON = "the pads are written, without a mark that ties them: a net-tie group is KiCad data"
+NET_TIE_REASON = (
+    "the component is written as a net tie, which ties all its pads: Altium marks the whole component, not "
+    "groups of pads"
+)
 
 
 def severity_reason(codes: Sequence[str]) -> str:
@@ -168,6 +191,7 @@ LOSS_KINDS: frozenset[str] = frozenset(
         "copper-shape",
         "plane",
         "footprint-copper",
+        "project-curve-error",
     }
 )
 """The kinds whose loss changes the board that is made: a write refuses them without ``allow_lossy``."""
@@ -192,10 +216,13 @@ ARC_TOLERANCE = 2
 """How far, in nanometres per axis, a point of a kept arc record may lie from the point of the model and
 the record still be written (change c0127): the length tolerance of the written scope
 (``roundtrip.RT_A2_SCOPE``). An untouched arc gives its points exactly."""
-MECHANICAL_LAYERS: Mapping[str, int] = MappingProxyType({f"Mech.{n}": 56 + n for n in range(1, 17)})
-"""The names the import gives the mechanical layers 1 to 16 (``adapter.layers``) and their Altium ids
+MECHANICAL_LAYERS: Mapping[str, int] = MappingProxyType(
+    {f"Mech.{n}": rec.mechanical_id(n) for n in range(1, 33)}
+)
+"""The names the import gives the mechanical layers 1 to 32 (``adapter.layers``) and their Altium ids
 (``pcb-records.md``, "Layer ids"): the layers of the items of a board that was read from an Altium
-document, beside ``pcbrecords.BOARD_LAYER_MAP`` (change c0126)."""
+document, beside ``pcbrecords.BOARD_LAYER_MAP`` (change c0126). Mechanical 17 to 32 have their long ids
+(``pcbrecords.mechanical_id``; change c0450, task 4.4)."""
 KICAD_MECHANICAL: Mapping[str, int] = MappingProxyType(
     {
         **{f"User.{n}": 56 + n for n in range(1, 9)},
@@ -210,6 +237,55 @@ KICAD_MECHANICAL: Mapping[str, int] = MappingProxyType(
     }
 )
 """Closed KiCad drawing-layer map of conversion c0160; unsupported layers remain losses."""
+_MECH_NAME = re.compile(r"(?:Mech\.|Mechanical )([1-9][0-9]?)")
+
+
+def named_mechanical(board: Board) -> dict[str, int]:
+    """The user layers of a KiCad board whose KiCad user name is ``Mech.<n>`` or ``Mechanical <n>`` (n from
+    1 to 32), each with Mechanical n's id (changes c0412, c0464; ``pcbrecords.mechanical_id``, the long id
+    above 16, change c0450 task 4.4). The first spelling is the name Fenolite's
+    Altium import gives a mechanical layer (``MECHANICAL_LAYERS``); the second is the name an Altium board
+    record gives it."""
+    named: dict[str, int] = {}
+    for layer in board.layers:
+        if not layer.name.startswith("User."):
+            continue
+        bag = layer.ext.get("kicad")
+        user_name = dict(bag.payload).get("user_name") if bag is not None else None
+        found = _MECH_NAME.fullmatch(user_name or "")
+        if found is not None and 1 <= int(found.group(1)) <= 32:
+            named[layer.name] = rec.mechanical_id(int(found.group(1)))
+    return named
+
+
+DRILL_ROWS: Mapping[str, int] = MappingProxyType({"Altium.DrillGuide": 55, "Altium.DrillDrawing": 73})
+"""The KiCad user names a conversion gives Altium's drill guide and drill drawing layers (change c0428,
+``convert.altium_to_kicad.DRILL_LAYERS``), with those layers' ids."""
+
+
+def drill_rows(board: Board) -> dict[str, int]:
+    """The user layers of a KiCad board whose KiCad user name is one of ``DRILL_ROWS``, each with that
+    layer's id (change c0464): a drawing a conversion put there goes back to its drill layer, not to the
+    mechanical layer of its KiCad row."""
+    found: dict[str, int] = {}
+    for layer in board.layers:
+        bag = layer.ext.get("kicad") if layer.name.startswith("User.") else None
+        ident = DRILL_ROWS.get(dict(bag.payload).get("user_name", "")) if bag is not None else None
+        if ident is not None:
+            found[layer.name] = ident
+    return found
+
+
+def kicad_mechanical(board: Board) -> dict[str, int]:
+    """The drawing-layer map of a KiCad board (change c0412): ``KICAD_MECHANICAL``, except that a layer of
+    ``named_mechanical`` is on its mechanical layer and one of ``drill_rows`` on its drill layer (change
+    c0464). Named layers come last, so the document names their mechanical layer after them; a layer the
+    fixed map puts on the same mechanical layer stays there."""
+    named = {**drill_rows(board), **named_mechanical(board)}
+    fixed = {name: ident for name, ident in KICAD_MECHANICAL.items() if name not in named}
+    return {**fixed, **named}
+
+
 DEFINITION_LAYERS: frozenset[str] = frozenset(
     name for name, ident in rec.LAYER_MAP.items() if ident in rec.FLIP_PAIRS and not name.endswith(".Cu")
 )
@@ -222,16 +298,51 @@ _FP_NATIVE = re.compile(r"fp:([A-Z]{8})")
 _SIDE = re.compile(r"^([FB])(\.|&)")
 
 
+def curve_error_issue(board: Board | None) -> Issue | None:
+    """The explicit target loss of the project curve setting; no Altium equivalent is claimed."""
+    if board is None or board.max_curve_error is None:
+        return None
+    return Issue(
+        NOT_LOWERED,
+        "info",
+        f"max_curve_error={board.max_curve_error} nm is not lowered to an Altium project setting",
+        where="project-curve-error",
+    )
+
+
 class LossyWriteError(FenoliteError):
     """A write of a model would leave out items of ``LOSS_KINDS`` and ``allow_lossy`` was not given;
-    ``issues`` holds one ``altium.not-lowered`` per kind."""
+    ``issues`` holds one ``altium.not-lowered`` per kind: those of ``LOSS_KINDS``, then those of the other
+    kinds that ``allow_lossy`` would leave out with them (``also``, change c0434), so a consent covers every
+    loss it was shown."""
 
     cli_code = "FEN-7001"
 
-    def __init__(self, issues: Sequence[Issue]) -> None:
-        self.issues = tuple(issues)
-        kinds = ", ".join(found.where for found in self.issues)
-        super().__init__(f"the Altium documents would not hold every item of the model ({kinds})")
+    def __init__(self, issues: Sequence[Issue], also: Sequence[Issue] = ()) -> None:
+        self.issues = (*issues, *also)
+        kinds = ", ".join(found.where for found in issues)
+        more = (
+            f"; --allow-lossy also leaves out items of {', '.join(found.where for found in also)}"
+            if also
+            else ""
+        )
+        super().__init__(f"the Altium documents would not hold every item of the model ({kinds}){more}")
+
+
+def refuse_bom_only(design: Design) -> None:
+    """No Altium writer currently preserves typed off-board purchasing symbols (c0334)."""
+    found = [
+        Issue(
+            "altium.not-lowered",
+            "error",
+            f"{component.ref}: BOM-only schematic items are not supported by the Altium writer",
+            where=component.path or component.ref,
+        )
+        for component in design.circuit.components
+        if component.bom_only
+    ]
+    if found:
+        raise LossyWriteError(found)
 
 
 @dataclass(frozen=True, slots=True)
@@ -404,6 +515,15 @@ def _connect_styles(board: Board) -> tuple[tuple[tuple[str, str], ...], ...]:
     return tuple(connectstyle.connect_fields(str(text)) for key, text in payload if key == "polygon_connect")
 
 
+def _kept_rules(board: Board) -> tuple[tuple[int, tuple[tuple[str, str], ...]], ...]:
+    """The kept rule records of a board that was read (its ``kept_rule`` pairs, change c0424)."""
+    from fenolite.backends.altium.adapter.rules import KEPT_RULE, kept_fields  # noqa: PLC0415
+
+    bag = board.ext.get(BACKEND)
+    payload = bag.payload if bag is not None else ()
+    return tuple(kept_fields(str(text)) for key, text in payload if key == KEPT_RULE)
+
+
 def pairs_of(entity: object) -> dict[str, str]:
     """The pairs of the ``altium`` bag of a model entity (the last value of a repeated key)."""
     bag = getattr(entity, "ext", {}).get(BACKEND)
@@ -447,6 +567,34 @@ def kept_arc(entity: object, points: Sequence[Point], frame: pcbdoc.Frame) -> re
         if abs(at.x - read.x) > ARC_TOLERANCE or abs(at.y + read.y) > ARC_TOLERANCE:
             return None
     return rec.ArcGeometry(cx, cy, radius, start, end)
+
+
+def _copper_names(
+    board: Board, ids: Mapping[str, int], planes: Collection[str], carried: Mapping[str, CarriedPlane]
+) -> dict[int, str]:
+    """The names of the written copper layers by id (``PcbDocSpec.copper_names``): a carried plane's name
+    (change c0466), and for a signal row its KiCad user name (S-2254), which a conversion of an Altium
+    design gives a row whose Altium name the writer would not write. A name that a record cannot hold,
+    that names another layer of Altium's (``pcbrecords.LAYER_NAMES``) or that two layers take is left out:
+    the layer keeps Altium's."""
+    users: dict[str, str] = {}
+    for layer in board.layers:
+        bag = layer.ext.get("kicad")
+        name = dict(bag.payload).get("user_name") if bag is not None else None
+        if name and layer.name in ids:
+            users[layer.name] = name
+    names: dict[int, str] = {}
+    for row, ident in ids.items():
+        if row in planes:
+            plane = carried.get(row)
+            name = plane.name if plane is not None else None
+        else:
+            name = users.get(row)
+        if name and name != rec.LAYER_NAMES[ident] and _field_ok(name):
+            names[ident] = name
+    taken = Counter(names.values())
+    others = {name for ident, name in rec.LAYER_NAMES.items() if ident not in names}
+    return {ident: name for ident, name in names.items() if taken[name] == 1 and name not in others}
 
 
 def _field_ok(text: str) -> bool:
@@ -554,10 +702,32 @@ def stack_unheld_reason(unheld: Sequence[str]) -> str:
     return f"the document has no key for {', '.join(unheld)}; the copper and dielectric values are written"
 
 
+PLANE_PULLBACK = 508_000
+"""20 mil, ``libboard.PULLBACK``: the pull-back of a plane that carries none (change c0466)."""
+
+
+FRAME_ANCHORED = (
+    "the carried frame would put the board at a negative document coordinate; it is anchored at its corner"
+)
+"""The reason of the ``outline`` change of a carried frame the writer does not keep (change c0467)."""
+
+
+@dataclass(frozen=True, slots=True)
+class CarriedPlane:
+    """An internal plane a conversion carried through KiCad (change c0466, ``convert.altium_planes``): its
+    pull-back in nanometres, its ``Split Plane`` polygons (each a net name and its ring in the frame of the
+    design) and the name it is written with (``None``: Altium's ``Internal Plane <k>``)."""
+
+    pullback: int
+    splits: tuple[tuple[str, tuple[Point, ...]], ...] = ()
+    name: str | None = None
+
+
 def _stack(
-    board: Board, nets: frozenset[str], account: _Account
+    board: Board, nets: frozenset[str], account: _Account, split: Collection[str] = ()
 ) -> tuple[tuple[str, ...], StackSpec, frozenset[str]]:
-    """The copper layers of the document, top to bottom, their stack, and the layers that are planes."""
+    """The copper layers of the document, top to bottom, their stack, and the layers that are planes. A
+    layer of ``split`` (change c0466: its plane has carried splits) may be a ``(Multiple Nets)`` plane."""
     copper: list[Layer] = [layer for layer in board.layers if layer.kind == "copper"]
     names = tuple(dict.fromkeys(layer.name for layer in copper)) or ("F.Cu", "B.Cu")
     planes: dict[str, str] = {}
@@ -565,7 +735,8 @@ def _stack(
         net = pairs_of(layer).get("plane_net")
         if net is None:
             continue
-        if layer.name in (names[0], names[-1]) or net not in nets:
+        multiple = net == MULTIPLE_NETS and layer.name in split
+        if layer.name in (names[0], names[-1]) or (net not in nets and not multiple):
             account.skip("plane", layer.id, f"the plane {layer.name} is on an outer layer or on no net")
         else:
             planes[layer.name] = net
@@ -579,7 +750,7 @@ def _stack(
     if problem is not None:
         account.skip("stackup", board.id, f"{problem}; the stack of {names[0]} and {names[-1]} is written")
         names = (names[0], names[-1]) if len(names) > 1 else ("F.Cu", "B.Cu")
-    ids = rec.copper_stack(names, tuple(planes))
+    ids = rec.copper_stack(names, tuple(planes), _signal_ids(copper))
     plane_nets = tuple(planes[name] for name in names if name in planes)
     found = None
     if board.stackup is not None and problem is None:
@@ -590,6 +761,19 @@ def _stack(
         elif stack_unheld(board.stackup):
             account.skip("stackup", board.stackup.id, stack_unheld_reason(stack_unheld(board.stackup)))
     return names, found or StackSpec.default(ids, plane_nets), frozenset(planes)
+
+
+def _signal_ids(copper: Sequence[Layer]) -> dict[str, int]:
+    """The Altium ids of the copper layers that hold a signal layer's id (2 … 31) in their ``altium`` bag:
+    a board read from Altium, or one a conversion carried through KiCad (change c0466,
+    ``convert.altium_planes``)."""
+    found: dict[str, int] = {}
+    for layer in copper:
+        bag = layer.ext.get(BACKEND)
+        ident = dict(bag.payload).get("layer_id", "") if bag is not None else ""
+        if ident.isdecimal() and 2 <= int(ident) <= 31:
+            found[layer.name] = int(ident)
+    return found
 
 
 def _built_stack(board: Board, options: LowerOptions) -> tuple[tuple[str, ...], StackSpec, frozenset[str]]:
@@ -608,49 +792,50 @@ def _built_stack(board: Board, options: LowerOptions) -> tuple[tuple[str, ...], 
 
 # --- outline --------------------------------------------------------------------------------------------
 
-OUTLINE_ARC = "an arc of the outline is written as two straight edges"
+
+Ring = tuple[tuple[Point, ...], frozenset[int]]
+"""An outline ring and the indices of its points that start an arc through the next point (change c0441)."""
 
 
-def _ring_of(graphics: Sequence[Graphic], account: _Account) -> tuple[Point, ...]:
+def _ring_of(graphics: Sequence[Graphic], account: _Account) -> Ring:
     """One closed ring from the graphics of the outline: a rectangle or a polygon alone, else lines and
-    arcs chained by their end points (an arc gives its start, middle and end). Empty when none closes."""
+    arcs chained by their end points (an arc gives its start, middle and end, and its start is an arc
+    start of the ring, change c0441). Empty when none closes."""
     segments: list[tuple[Point, Point, tuple[Point, ...], Graphic]] = []
     for graphic in graphics:
         points = graphic.points
         if graphic.kind == "rect" and len(points) == 2:
             s, e = points
-            return (s, Point(e.x, s.y), e, Point(s.x, e.y))
+            return (s, Point(e.x, s.y), e, Point(s.x, e.y)), frozenset()
         if graphic.kind == "polygon" and len(_open(points)) >= 3:
-            return _open(points)
+            return _open(points), frozenset()
         if graphic.kind == "line" and len(points) == 2 and points[0] != points[1]:
             segments.append((points[0], points[1], (), graphic))
         elif graphic.kind == "arc" and len(points) == 3:
             segments.append((points[0], points[2], (points[1],), graphic))
     if not segments:
-        return ()
+        return (), frozenset()
     first = segments[0]
     ring: list[Point] = [first[0], *first[2]]
     used = {0}
-    arcs = [first[3]] if first[2] else []
+    starts: set[int] = {0} if first[2] else set()
     current = first[1]
     while current != ring[0]:
-        for index, (a, b, mids, graphic) in enumerate(segments):
+        for index, (a, b, mids, _graphic) in enumerate(segments):
             if index in used or current not in (a, b):
                 continue
             used.add(index)
+            if mids:
+                starts.add(len(ring))
             ring += [current, *(mids if current == a else reversed(mids))]
             current = b if current == a else a
-            if mids:
-                arcs.append(graphic)
             break
         else:
-            return ()
-    for graphic in arcs:
-        account.skip("outline", graphic.id, OUTLINE_ARC)
+            return (), frozenset()
     for index, segment in enumerate(segments):
         if index not in used:
             account.skip("outline", segment[3].id, "an edge outside the first ring of the outline")
-    return tuple(ring) if len(ring) >= 3 else ()
+    return (tuple(ring), frozenset(starts)) if len(ring) >= 3 else ((), frozenset())
 
 
 def _extent(board: Board) -> tuple[Point, ...]:
@@ -668,6 +853,55 @@ def _extent(board: Board) -> tuple[Point, ...]:
     return (Point(x0, y0), Point(x1, y0), Point(x1, y1), Point(x0, y1))
 
 
+ARC_STRAIGHT = "an arc whose three points lie on one line is written as the straight track it draws"
+"""The reason an arc is counted changed under ``arc`` when its middle point lies on the segment from its
+start to its end (change c0435): Altium's arc record holds a centre and a radius, which such an arc has
+not, so it is the track from start to end, of the same width, layer, net and lock."""
+
+
+def straight_arc(arc: Arc) -> Track | None:
+    """The track ``arc`` draws when its three points lie on one line with the middle point between the
+    ends (change c0435), in the arc's union (change c0460); ``None`` for any other arc."""
+    a, m, b = arc.start, arc.mid, arc.end
+    if a == b or (m.x - a.x) * (b.y - a.y) != (m.y - a.y) * (b.x - a.x):
+        return None
+    if not (min(a.x, b.x) <= m.x <= max(a.x, b.x) and min(a.y, b.y) <= m.y <= max(a.y, b.y)):
+        return None
+    track = Track(
+        id=arc.id, provenance=arc.provenance, start=a, end=b, width=arc.width, layer=arc.layer,
+        net_id=arc.net_id, locked=arc.locked,
+    )  # fmt: skip
+    index = unions.union_of(arc)
+    return unions.with_union(track, index) if index else track
+
+
+HOLE_FOOTPRINT_REASON = "a generated hole footprint is written as the free hole it stands for"
+"""The reason a footprint is counted changed under ``footprint`` when it is a generated hole footprint
+(``generated_hole``, change c0435): a conversion to KiCad writes a free hole as such a footprint, and
+written back as a component it would come back as a component without a reference beside its hole."""
+
+
+def generated_hole(fp: FootprintInstance, ref: str) -> bool:
+    """Whether ``fp`` is a footprint of the generated hole library (``model.holes.HOLE_LIBRARY``) holding
+    one unplated pad and no reference: the form a free hole takes in a KiCad conversion (change c0435)."""
+    return (
+        not ref
+        and fp.lib_ref.partition(":")[0] == HOLE_LIBRARY
+        and len(fp.pads) == 1
+        and fp.pads[0].kind == "np_thru_hole"
+    )
+
+
+FREE_PAD_REASON = "a footprint the Altium to KiCad conversion made for a free pad is written as that free pad"
+"""The reason a footprint ``converted_free_pad`` names is counted changed (change c0447)."""
+
+
+def converted_free_pad(fp: FootprintInstance, ref: str) -> bool:
+    """Whether ``fp`` is the footprint an Altium to KiCad conversion makes for a free pad: no reference,
+    one pad, and a link whose item name starts with ``libnames.FREE_PAD_PREFIX`` (change c0447)."""
+    return not ref and len(fp.pads) == 1 and fp.lib_ref.rpartition(":")[2].startswith(FREE_PAD_PREFIX)
+
+
 CUTOUT_MERGED = "merged"
 """The reason a written cut-out region is counted changed under ``cutout`` when it is the union of
 overlapping inner rings (change c0170): one region stands for the group."""
@@ -677,15 +911,59 @@ CUTOUT_POLYGONISED = "arcs polygonised"
 ``cutouts.CUTOUT_TOL`` of them."""
 
 
-def _cutouts(outline: Outline | None, account: _Account) -> tuple[tuple[Point, ...], ...]:
+CUTOUT_MATCH = 10
+"""How far, in nanometres, a vertex of a board cut-out ring may lie from the placed vertex of a footprint's
+cut-out to be that cut-out (change c0443): placing a footprint rounds each vertex."""
+
+
+def footprint_cutout_rings(board: Board) -> tuple[tuple[Point, ...], ...]:
+    """The board-frame rings of the footprints' cut-outs that ``_footprint_items`` writes as cut-outs of
+    their components (change c0443): each closed ``Edge.Cuts`` outline of a footprint, placed as the
+    document places the instance's own graphics, without a mirror."""
+    rings: list[tuple[Point, ...]] = []
+    for fp in board.footprints:
+        place = Transform.placement(fp.position, fp.rotation)
+        for graphic in fp.graphics:
+            if graphic.layer != EDGE_LAYER or footprint_cutout_problem(graphic) is not None:
+                continue
+            points = graphic.points
+            if graphic.kind == "rect":
+                (a, b) = points
+                points = (a, Point(b.x, a.y), b, Point(a.x, b.y))
+            rings.append(tuple(place.apply(p) for p in _ring_points(points)))
+    return tuple(rings)
+
+
+def _same_ring(ring: Sequence[Point], other: Sequence[Point]) -> bool:
+    """Whether two rings hold the same vertices within ``CUTOUT_MATCH``, in any order and direction."""
+    one, two = _ring_points(tuple(ring)), _ring_points(tuple(other))
+    if len(one) != len(two):
+        return False
+    near = CUTOUT_MATCH
+    return all(any(abs(a.x - b.x) <= near and abs(a.y - b.y) <= near for b in two) for a in one) and all(
+        any(abs(a.x - b.x) <= near and abs(a.y - b.y) <= near for b in one) for a in two
+    )
+
+
+def _cutouts(
+    outline: Outline | None, account: _Account, owned: Sequence[tuple[Point, ...]] = ()
+) -> tuple[tuple[Point, ...], ...]:
     """The board cut-out regions of the document (change c0168): every item of ``cutouts.cutout_items``
     when ``pcbdoc.CUTOUT_REGIONS`` is true and it can be written, polygonised; every other item is
     counted under ``cutout`` by its reason (``cutouts.unwritten_reason``), its id the ``where`` of the
     build's report. A
     written item is counted changed with ``CUTOUT_MERGED`` when it unites a group, with
-    ``CUTOUT_POLYGONISED`` when its ring holds an arc, and written otherwise (change c0170)."""
+    ``CUTOUT_POLYGONISED`` when its ring holds an arc, and written otherwise (change c0170). An item of one
+    ring that is one of ``owned`` (``footprint_cutout_rings``) is the cut-out of a component, written with
+    the component and counted as its graphic: it is neither written here nor counted (change c0443)."""
     rings: list[tuple[Point, ...]] = []
     for item in cutout_items(outline):
+        if (
+            len(item.names) == 1
+            and not any(item.ring.mids)
+            and any(_same_ring(item.ring.points, ring) for ring in owned)
+        ):
+            continue
         reason = unwritten_reason(item, gate=pcbdoc.CUTOUT_REGIONS)
         if reason is not None:
             account.skip("cutout", item.where, reason)
@@ -700,47 +978,50 @@ def _cutouts(outline: Outline | None, account: _Account) -> tuple[tuple[Point, .
     return tuple(rings)
 
 
-def _edge_ring(board: Board, edges: Outline, account: _Account) -> tuple[Point, ...]:
-    """The board ring of ``edges`` (change c0170): its vertices with the mid of each arc between its ends,
-    so an arc is written as two straight edges, as ``_ring_of`` writes it, and counted so under ``outline``
-    by the id of the edge graphic whose mid it is (else ``<board id>:edge:<k>``). Empty when the ring does
-    not close."""
-    ring = tuple(edges.points)
-    mids = {arc.edge: arc.mid for arc in edges.arcs if arc.ring == 0}
-    by_mid = {
-        g.points[1]: g.id
-        for g in board.graphics
-        if g.layer == EDGE_LAYER and g.kind == "arc" and len(g.points) == 3
-    }
-    points: list[Point] = []
-    for k, point in enumerate(ring):
-        points.append(point)
+def _arc_ring(points: Sequence[Point], arcs: Sequence[OutlineArc]) -> Ring:
+    """Ring 0 of an outline with the mid of each of its arcs between the arc's ends, and the indices of the
+    arc starts (change c0441): the board record writes each as an arc vertex, and a polygon user of the
+    outline sees two straight edges."""
+    mids = {arc.edge: arc.mid for arc in arcs if arc.ring == 0}
+    out: list[Point] = []
+    starts: set[int] = set()
+    for k, point in enumerate(points):
+        out.append(point)
         mid = mids.get(k)
         if mid is not None:
-            points.append(mid)
-            account.skip("outline", by_mid.get(mid, f"{board.id}:edge:{k}"), OUTLINE_ARC)
-    return tuple(points) if len(points) >= 3 else ()
+            starts.add(len(out) - 1)
+            out.append(mid)
+    return (tuple(out), frozenset(starts)) if len(out) >= 3 else ((), frozenset())
 
 
-def _outline(board: Board, account: _Account, edges: Outline | None = None) -> tuple[Point, ...]:
+def _edge_ring(board: Board, edges: Outline, account: _Account) -> Ring:
+    """The board ring of ``edges`` (change c0170): its vertices with the mid of each arc between its ends,
+    each arc written as an arc vertex (change c0441; before, as two straight edges). Empty when the ring
+    does not close."""
+    del board, account
+    return _arc_ring(tuple(edges.points), edges.arcs)
+
+
+def _outline(board: Board, account: _Account, edges: Outline | None = None) -> Ring:
     """The outline of the document: ``Board.outline``, else the board ring of ``edges`` (the edges of a
     read board as an outline, change c0170), else the ring of the ``Edge.Cuts`` graphics, else the box of
     the board's items (reported)."""
     if board.outline is not None and len(_open(board.outline.points)) >= 3:
-        return _open(board.outline.points)  # its cut-outs and slots are ``_cutouts`` (change c0168)
+        # its cut-outs and slots are ``_cutouts`` (change c0168); its arcs are arc vertices (c0441)
+        return _arc_ring(_open(board.outline.points), board.outline.arcs)
     if board.outline is None and edges is not None:
-        ring = _edge_ring(board, edges, account)
-        if ring:
-            return ring  # its inner rings are ``_cutouts`` (change c0170)
-    ring = _ring_of([g for g in board.graphics if g.layer == EDGE_LAYER], account)
-    if ring:
-        return ring
+        found = _edge_ring(board, edges, account)
+        if found[0]:
+            return found  # its inner rings are ``_cutouts`` (change c0170)
+    found = _ring_of([g for g in board.graphics if g.layer == EDGE_LAYER], account)
+    if found[0]:
+        return found
     box = _extent(board)
     if box:
         account.skip(
             "outline", board.id, "the board holds no closed outline; the box of its items is written"
         )
-    return box
+    return box, frozenset()
 
 
 # --- footprints -----------------------------------------------------------------------------------------
@@ -820,6 +1101,122 @@ def _library_graphic(graphic: Graphic, *, bottom: bool) -> Graphic:
     )
 
 
+def _library_keepout(area: Keepout, *, bottom: bool) -> Keepout:
+    """An instance's rule area as ``pcbdoc.place_component`` takes it (change c0411): as on the top side,
+    as ``_library_graphic`` gives a graphic; the writer mirrors it back and swaps its layers."""
+    if not bottom:
+        return area
+    return dataclasses.replace(
+        area,
+        outline=tuple(Point(p.x, -p.y) for p in area.outline),
+        layers=tuple(_other_side(n) for n in area.layers),
+    )
+
+
+ROOM_REASON = (
+    "the rule area of an Altium room is written as the room's Room Definition record, which the board keeps "
+    "as it was read (change c0462), not as a keep-out region"
+)
+KEEPOUT_LAYER_REASON = (
+    "the layer(s) {layers} of the rule area of a footprint are no copper layer: an Altium keep-out lies on "
+    "a signal layer or the Keep-Out layer and restricts copper only (vias, tracks, copper, SMD and TH pads)"
+)
+"""The reason a footprint's rule area on a layer other than copper is counted under ``keep-out``: written
+on its copper layers (changed), or not written when it names none (lost)."""
+
+
+def net_tie_differs(net_ties: Sequence[Sequence[str]], pads: Sequence[Pad]) -> bool:
+    """Whether net-tie groups say more than a component of the kind Net Tie (change c0420, N1): anything but
+    one group of every distinct pad number, since Altium marks the whole component and not groups of pads."""
+    numbers = {pad.number for pad in pads if pad.number}
+    return bool(net_ties) and (len(net_ties) != 1 or set(net_ties[0]) != numbers)
+
+
+def _account_net_tie(fp: FootprintInstance, account: _Account) -> None:
+    """Count ``fp``'s net-tie groups changed under ``net-tie`` when ``net_tie_differs``."""
+    if net_tie_differs(fp.net_ties, fp.pads):
+        account.change(NET_TIE_KIND, fp.id, NET_TIE_REASON)
+
+
+def _written_keepouts(fp: FootprintInstance, copper: Sequence[str], account: _Account) -> tuple[Keepout, ...]:
+    """The rule areas of ``fp`` as the document and the derived library write them (change c0411), in the
+    top-side form of ``_library_keepout``. An Altium keep-out is a primitive of a copper layer or of the
+    Keep-Out layer whose restrictions are copper objects (``pcb-records.md``, "Regions and keep-outs";
+    S-1711), so an area keeps only its layers that are copper layers of the board (``copper``, every one
+    ending in ``.Cu`` when it is empty):
+
+    - an area on every copper layer of the board is on ``*.Cu``, one region of the Keep-Out layer in both
+      files (a KiCad footprint's zone names the copper layers of KiCad's stack, not only the board's);
+    - a copper layer the board lacks holds nothing on that board and is left out;
+    - a layer that is no copper layer (a courtyard, say) is counted changed under ``keep-out`` when the
+      area keeps a copper layer, else the area is counted lost;
+    - an area the record cannot hold (``pcblib.footprint_keepout_problem``) is counted lost.
+
+    Each area written is counted written under ``keep-out``."""
+    board = set(copper)
+    out: list[Keepout] = []
+    for area in fp.keepouts:
+        top = _library_keepout(area, bottom=fp.side == "bottom")
+        on_board = [
+            n for n in top.layers if n == pcblib.ALL_COPPER or (n in board if board else n.endswith(".Cu"))
+        ]
+        other = [n for n in top.layers if n != pcblib.ALL_COPPER and not n.endswith(".Cu") and n not in board]
+        if not on_board:
+            account.skip("keep-out", area.id, KEEPOUT_LAYER_REASON.format(layers=", ".join(other) or "-"))
+            continue
+        layers = tuple(on_board)
+        if board and (pcblib.ALL_COPPER in layers or board <= set(layers)):
+            layers = (pcblib.ALL_COPPER,)
+        top = dataclasses.replace(top, layers=layers)
+        problem = pcblib.footprint_keepout_problem(top, copper)
+        if problem is not None:
+            account.skip("keep-out", area.id, problem)
+            continue
+        if other:
+            account.change("keep-out", area.id, KEEPOUT_LAYER_REASON.format(layers=", ".join(other)))
+        out.append(top)
+        account.wrote("keep-out")
+    return tuple(out)
+
+
+FOOTPRINT_COPPER_REASON = (
+    "a graphic of a footprint on a copper layer has no record written: it would be copper"
+)
+"""Why a copper graphic of a footprint without net-tie groups is not written."""
+
+
+def net_tie_copper_problem(
+    fp: FootprintInstance, graphic: Graphic, copper_ids: Mapping[str, int], *, arc_known: bool = False
+) -> str | None:
+    """Why the copper graphic ``graphic`` of ``fp`` is not written as a component item (change c0431), or
+    ``None``: ``fp`` has no net-tie groups, its layer is no signal layer of ``copper_ids``, or no record
+    holds it (``pcbdoc.graphic_problem``)."""
+    if not fp.net_ties:
+        return FOOTPRINT_COPPER_REASON
+    layer = copper_ids.get(graphic.layer)
+    if layer is None:
+        return f"the layer {graphic.layer} of a net-tie graphic is not a copper layer of the written stack"
+    if layer >= rec.FIRST_PLANE:
+        return f"the layer {graphic.layer} of a net-tie graphic is a plane, which holds no track"
+    problem = pcbdoc.graphic_problem(graphic, arc_known=arc_known, copper=(graphic.layer,))
+    return None if problem is None else f"a net-tie graphic: {problem}"
+
+
+def netted_copper_problem(
+    graphic: Graphic, copper_ids: Mapping[str, int], *, arc_known: bool = False
+) -> str | None:
+    """Why the copper graphic ``graphic`` of a footprint, which holds a net of the written board, is not
+    written as a component item of that net (change c0454), or ``None``: its layer is no signal layer of
+    ``copper_ids``, or no record holds it (``pcbdoc.graphic_problem``)."""
+    layer = copper_ids.get(graphic.layer)
+    if layer is None:
+        return f"the layer {graphic.layer} of a footprint's copper is not a copper layer of the written stack"
+    if layer >= rec.FIRST_PLANE:
+        return f"the layer {graphic.layer} of a footprint's copper is a plane, which holds no track"
+    problem = pcbdoc.graphic_problem(graphic, arc_known=arc_known, copper=(graphic.layer,))
+    return None if problem is None else f"a footprint's copper: {problem}"
+
+
 @dataclass(frozen=True, slots=True)
 class _Items:
     """What ``_footprint_items`` gives the placed component of one instance."""
@@ -832,12 +1229,111 @@ class _Items:
     comment: pcbdoc.TextPlace | None = None
 
 
+KEEPOUT_STROKE_IDS: Mapping[str, int] = MappingProxyType({keepout_lines.LAYER: keepout_lines.LAYER_ID})
+"""The layer of the strokes that marked rule areas give back (change c0442): the Keep-Out layer."""
+
+
+def _stroke_layer(graphic: Graphic, flagged: int | None, copper_ids: Mapping[str, int]) -> int | None:
+    """The Altium id of the layer of a stroke that a marked rule area gives: the Keep-Out layer for a plain
+    stroke (change c0442), the signal layer of the area for a keep-out stroke (``flagged`` its restriction
+    byte, change c0450); ``None`` when the document has no such signal layer."""
+    if flagged is None:
+        return keepout_lines.LAYER_ID
+    layer = copper_ids.get(graphic.layer)
+    return layer if layer is not None and layer < rec.FIRST_PLANE else None
+
+
+def _keepout_strokes(
+    fp: FootprintInstance,
+    frame: pcbdoc.Frame,
+    account: _Account,
+    copper_ids: Mapping[str, int] | None = None,
+) -> tuple[tuple[pcbdoc.ComponentGraphic, ...], FootprintInstance]:
+    """The strokes that the marked rule areas of ``fp`` carry (``keepout_lines``), as tracks and arcs of the
+    component in the form the source drew: on the Keep-Out layer without the keep-out flag (change c0442),
+    or with the flag and the restriction byte on the area's signal layer of ``copper_ids`` (change c0450);
+    and ``fp`` with its other rule areas. Each marked area is counted written under ``keep-out``; one whose
+    stroke no record holds is counted lost there."""
+    graphics, others, _ = keepout_lines.strokes(fp.keepouts)
+    if not graphics:
+        return (), fp
+    flags = keepout_lines.flags(fp.keepouts)
+    to_board = Transform.placement(fp.position, fp.rotation)
+    items: list[pcbdoc.ComponentGraphic] = []
+    for graphic in graphics:
+        kept = None
+        if graphic.kind == "arc":
+            kept = kept_arc(graphic, tuple(to_board.apply(p) for p in graphic.points), frame)
+        flagged = flags.get(graphic.id)
+        layer = _stroke_layer(graphic, flagged, copper_ids or {})
+        if layer is None:
+            problem: str | None = (
+                f"the layer {graphic.layer} of a keep-out stroke is no signal layer of the document"
+            )
+        else:
+            ids = KEEPOUT_STROKE_IDS if flagged is None else {graphic.layer: layer}
+            problem = pcbdoc.graphic_problem(graphic, arc_known=kept is not None, layers=ids)
+        if problem is None and layer is not None:
+            items.append(pcbdoc.ComponentGraphic(graphic, layer, kept, keepout=flagged))
+        else:
+            _refuse_stroke(fp.keepouts, graphic, problem or "", account)
+    stroked = [area for area in fp.keepouts if area not in others]
+    _count_strokes(stroked, [item.graphic for item in items], account)
+    return tuple(items), dataclasses.replace(fp, keepouts=others)
+
+
+def _refuse_stroke(areas: Sequence[Keepout], graphic: Graphic, problem: str, account: _Account) -> None:
+    """Count lost under ``keep-out`` the marked areas of ``areas`` whose stroke ``graphic`` no record holds:
+    its own area, and the second ring of a circle."""
+    name = next(area.name for area in areas if area.id == graphic.id)
+    for area in areas:
+        if area.name in (name, name + "/2"):
+            account.skip("keep-out", area.id, problem)
+
+
+def _count_strokes(areas: Sequence[Keepout], strokes: Collection[Graphic], account: _Account) -> None:
+    """Count written under ``keep-out`` each marked area of ``areas`` that gave one of ``strokes`` (the
+    stroke has the id of the area whose name carries it; the second ring of a circle follows its first). A
+    marked area whose stroke was refused was counted lost with it; its second ring is counted lost too."""
+    given = {graphic.id for graphic in strokes}
+    first = {area.name: area.id for area in areas if (one := keepout_lines.parse(area.name)) and not one[3]}
+    count = 0
+    for area in areas:
+        found = keepout_lines.parse(area.name)
+        if found is None:
+            continue
+        owner = first.get(area.name.removesuffix("/2")) if found[3] else area.id
+        if owner in given:
+            count += 1
+    account.wrote("keep-out", count)
+
+
+def footprint_cutout_problem(graphic: Graphic) -> str | None:
+    """Why a graphic of a footprint on ``Edge.Cuts`` is no board cut-out of its component (change c0443), or
+    ``None``: a cut-out is a closed outline, a polygon of three vertices or more or a rectangle with an area,
+    which the document writes as one region with ``ISBOARDCUTOUT=TRUE`` (``pcb-records.md``, "Board
+    cut-outs"). A line, an arc or a circle of a footprint's edge is not written."""
+    if graphic.kind == "polygon" and len(_ring_points(graphic.points)) >= 3:
+        return None
+    if graphic.kind == "rect" and len(graphic.points) == 2:
+        (a, b) = graphic.points
+        if a.x != b.x and a.y != b.y:
+            return None
+    return f"a {graphic.kind} of a footprint's Edge.Cuts is no closed outline: no board cut-out is written"
+
+
+def _ring_points(points: Sequence[Point]) -> tuple[Point, ...]:
+    return tuple(points[:-1]) if len(points) > 1 and points[0] == points[-1] else tuple(points)
+
+
 def _footprint_items(
     fp: FootprintInstance,
     layers: Mapping[str, int],
     copper: Sequence[str],
     frame: pcbdoc.Frame,
     account: _Account,
+    copper_ids: Mapping[str, int] | None = None,
+    net_names: Mapping[str, str] | None = None,
 ) -> _Items:
     """The graphics, the fields ``Reference`` and ``Value`` and the texts of ``fp`` as the document writes
     them (capability altium-pcb-writer, "Footprint items of a written component"; change c0126).
@@ -850,20 +1346,52 @@ def _footprint_items(
     rectangle or polygon as a region, a polygon outline as tracks. An ``arc`` that still says its kept
     record is written from it (``kept_arc``). A graphic on a copper layer is not written and counted under
     ``footprint-copper``; one without a layer in the document, or that no record holds, under
-    ``footprint-graphic``; a text or a field that the text record cannot hold under ``footprint-text``."""
+    ``footprint-graphic``; a text or a field that the text record cannot hold under ``footprint-text``.
+
+    A footprint with net-tie groups (change c0431) keeps its copper: a graphic on a signal layer of
+    ``copper_ids`` (the Altium id of each copper layer of the written stack) is a component item on that
+    layer, without a net, as KiCad holds it; Altium's DRC ignores the shorts inside a Net Tie component
+    (S-1900). Only a graphic on a plane, or one that ``pcbdoc.graphic_problem`` refuses, stays counted
+    under ``footprint-copper``. A copper graphic of any other footprint whose ``net_id`` names a net of the
+    written board (``net_names``, net id to name) is a component item of that net on its signal layer
+    (change c0454; ``netted_copper_problem``), as the source document held it. A copper fill of no net that
+    an Altium fill record gave (``fills.is_fill``, ``fills.read_fill``) is a component fill of no net on its
+    signal layer (change c0450), as the source held it."""
     bottom = fp.side == "bottom"
     to_board = Transform.placement(fp.position, fp.rotation)
     graphics: list[Graphic] = []
     arcs: dict[str, rec.ArcGeometry] = {}
     items: list[pcbdoc.ComponentGraphic] = []
     for graphic in fp.graphics:
-        if graphic.layer.endswith(".Cu") or graphic.layer in copper:
-            reason = "a graphic of a footprint on a copper layer has no record written: it would be copper"
-            account.skip("footprint-copper", graphic.id, reason)
+        if graphic.layer == EDGE_LAYER:
+            problem = footprint_cutout_problem(graphic)
+            if problem is None:
+                items.append(pcbdoc.ComponentGraphic(graphic, rec.BOARD_CUTOUT_LAYER, cutout=True))
+                account.wrote("footprint-graphic")
+            else:
+                account.skip("footprint-graphic", graphic.id, problem)
             continue
         kept = None
         if graphic.kind == "arc":
             kept = kept_arc(graphic, tuple(to_board.apply(p) for p in graphic.points), frame)
+        if graphic.layer.endswith(".Cu") or graphic.layer in copper:
+            net = (net_names or {}).get(graphic.net_id or "") if not fp.net_ties else None
+            if net is not None:
+                reason = netted_copper_problem(graphic, copper_ids or {}, arc_known=kept is not None)
+            elif not fp.net_ties and (fills.is_fill(graphic) or fills.read_fill(graphic)):
+                # a fill of no net that a component held, as Altium writes it (change c0450, row -04's J1)
+                reason = netted_copper_problem(graphic, copper_ids or {}, arc_known=kept is not None)
+            else:
+                reason = net_tie_copper_problem(fp, graphic, copper_ids or {}, arc_known=kept is not None)
+            if reason is None:
+                layer = (copper_ids or {})[graphic.layer]
+                items.append(
+                    pcbdoc.ComponentGraphic(graphic, layer, kept, net=net, fill=fills.is_fill(graphic))
+                )
+                account.wrote("footprint-copper")
+            else:
+                account.skip("footprint-copper", graphic.id, reason)
+            continue
         drawn = not graphic.filled and graphic.kind in ("line", "rect", "circle", "arc")
         if drawn and graphic.layer in DEFINITION_LAYERS:
             top = _library_graphic(graphic, bottom=bottom)
@@ -880,9 +1408,8 @@ def _footprint_items(
             continue
         problem = pcbdoc.graphic_problem(graphic, arc_known=kept is not None, layers=layers)
         if problem is None:
-            items.append(
-                pcbdoc.ComponentGraphic(graphic, pcbdoc.board_layer(graphic.layer, layers) or 0, kept)
-            )
+            layer = pcbdoc.board_layer(graphic.layer, layers) or 0
+            items.append(pcbdoc.ComponentGraphic(graphic, layer, kept, fill=fills.is_fill(graphic)))
             account.wrote("footprint-graphic")
         else:
             account.skip("footprint-graphic", graphic.id, problem)
@@ -905,7 +1432,11 @@ def _footprint_items(
             return None
         mirrored = item.mirrored if isinstance(item, FootprintField) else layer in rec.BOTTOM_SIDE
         shown = item.visible if isinstance(item, FootprintField) else True
-        return pcbdoc.TextPlace(item.position, layer, height, stroke, item.rotation, shown, mirrored)
+        font = pcbdoc.text_font(item)  # change c0460
+        tail = pcbdoc.text_tail_of(item)  # change c0450, task 4.5
+        return pcbdoc.TextPlace(
+            item.position, layer, height, stroke, item.rotation, shown, mirrored, font, tail
+        )
 
     places: dict[str, pcbdoc.TextPlace | None] = {}
     for field in fp.fields:
@@ -987,6 +1518,8 @@ def _footprints(
     layer_ids: Mapping[str, int] | None = None,
     copper: Sequence[str] = (),
     options: LowerOptions | None = None,
+    copper_ids: Mapping[str, int] | None = None,
+    models: Mapping[str, Sequence[pcbdoc.FootprintModel]] | None = None,
 ) -> tuple[list[pcbdoc.PlacedComponent], list[pcbdoc.FreePad]]:
     """The components and the free pads of the document. With ``bodies`` ``extruded`` (change c0121) the
     bodies of a written footprint that have a record are appended to ``placed_bodies``, placed in
@@ -994,9 +1527,13 @@ def _footprints(
     pattern, the library names, the link, the comment and the sheet of a component are the build's."""
     components = {component.id: component for component in design.circuit.components}
 
+    found_models = models or {}
+
     def skip_bodies(fp: FootprintInstance, reason: str) -> None:
         for body in fp.bodies:
             account.skip_body(body.id, reason)
+        for model in found_models.get(fp.id, ()):
+            account.skip(MODEL_KIND, model.ident, model.reason or reason)
 
     links = unique_links(design)
     placed: list[pcbdoc.PlacedComponent] = []
@@ -1004,7 +1541,9 @@ def _footprints(
     for fp in board.footprints:
         component = components.get(fp.component_id)
         ref = component.ref if component is not None else ""
-        if not ref and not fp.lib_ref and len(fp.pads) == 1:
+        generated = generated_hole(fp, ref)
+        converted = converted_free_pad(fp, ref)
+        if not ref and (not fp.lib_ref or generated or converted) and len(fp.pads) == 1:
             pad = fp.pads[0]
             extras = _extras(pad, ratios)
             problem = _pad_problem(pad, extras, unnamed=True)
@@ -1019,6 +1558,10 @@ def _footprints(
             free.append(pcbdoc.FreePad(moved, extras, net_names.get(pad.net_id or "")))
             account.wrote("footprint")
             account.wrote("pad")
+            if generated:
+                account.change("footprint", fp.id, HOLE_FOOTPRINT_REASON)
+            elif converted:
+                account.change("footprint", fp.id, FREE_PAD_REASON)
             skip_bodies(fp, "a free pad is no component, and a body is written with a component")
             continue
         if not _field_ok(ref):
@@ -1036,15 +1579,6 @@ def _footprints(
             problem = _pad_problem(pad, extras)
             if problem is not None:
                 account.skip("pad", pad.id, problem)
-                continue
-            if not pad.number:
-                # Altium leaves a designator empty for a free pad only (change c0160): the pad leaves its
-                # footprint, and the document writes it as a free pad at its board position.
-                at = Transform.placement(fp.position, fp.rotation).apply(pad.position)
-                rotation = (fp.rotation + pad.rotation) % FULL_TURN
-                moved = dataclasses.replace(pad, position=at, rotation=rotation, net_id=None)
-                free.append(pcbdoc.FreePad(moved, extras, net_names.get(pad.net_id or "")))
-                account.change("pad", pad.id, FREE_PAD_REASON)
                 continue
             if pad.kind == "connect":
                 account.change("pad", pad.id, CONNECT_REASON)
@@ -1065,8 +1599,18 @@ def _footprints(
         own = _Items()
         if frame is not None and (fp.graphics or fp.texts or fp.fields):
             ids = {**rec.BOARD_LAYER_MAP, **(layer_ids or {})}
-            own = _footprint_items(fp, ids, copper, frame, account)
-        defn = FootprintDef(id=fp.id, name=pattern or "FOOTPRINT", pads=tuple(pads), graphics=own.graphics)
+            own = _footprint_items(fp, ids, copper, frame, account, copper_ids, net_names)
+        areas = fp
+        if frame is not None:
+            strokes, areas = _keepout_strokes(fp, frame, account, copper_ids)
+            own = dataclasses.replace(own, items=(*own.items, *strokes))
+        defn = FootprintDef(
+            id=fp.id,
+            name=pattern or "FOOTPRINT",
+            pads=tuple(pads),
+            graphics=own.graphics,
+            keepouts=_written_keepouts(areas, copper, account),
+        )
         native = _FP_NATIVE.fullmatch(fp.native_ids.get(BACKEND, ""))
         placed.append(
             pcbdoc.PlacedComponent(
@@ -1089,8 +1633,12 @@ def _footprints(
                 arc_records=own.arcs,
                 items=own.items,
                 texts=own.texts,
+                net_tie=bool(fp.net_ties),
+                union=unions.union_of(fp),  # change c0460
             )
         )
+        if fp.net_ties:
+            _account_net_tie(fp, account)
         account.wrote("footprint")
         account.wrote("pad", len(pads))
         for body in fp.bodies:
@@ -1110,7 +1658,56 @@ def _footprints(
             else:
                 placed_bodies.append(found)
                 account.wrote("body")
+        for model in found_models.get(fp.id, ()):
+            if bodies == "off" and model.model is not None:
+                account.skip(MODEL_KIND, model.ident, pcbdoc.BODIES_OFF)
+                continue
+            _place_model(model, len(placed) - 1, bottom, frame, placed_bodies, account)
     return placed, free
+
+
+MODEL_UNPLACED = "the document has no frame for bodies"
+
+
+def _place_model(
+    model: pcbdoc.FootprintModel,
+    component: int,
+    bottom: bool,
+    frame: pcbdoc.Frame | None,
+    placed_bodies: list[pcbdoc.PlacedBody] | None,
+    account: _Account,
+) -> None:
+    """A model of a written footprint as a body that names it (change c0449), on its source body's layer
+    (``FootprintModel.layer``, change c0464) or else on Mechanical 13 or 14 by the footprint's side, or
+    counted under ``model`` with its reason. Without ``--altium-bodies extruded`` the caller counts a model
+    lost with the reason of the bodies, and the document is the one of before."""
+    if model.model is None or frame is None or placed_bodies is None:
+        account.skip(MODEL_KIND, model.ident, model.reason or MODEL_UNPLACED)
+        return
+    if len(pcbdoc.body_vertices(model.outline, frame)) < 3:
+        account.skip(MODEL_KIND, model.ident, pcbdoc.BODY_NO_OUTLINE)
+        return
+    if rec.to_units(model.height) <= rec.to_units(model.standoff):
+        account.skip(MODEL_KIND, model.ident, "the model has no height above the face it stands on")
+        return
+    placed_bodies.append(
+        pcbdoc.PlacedBody(
+            component=component,
+            layer=model.layer if model.layer in rec.BODY_LAYERS else rec.body_layer("", bottom=bottom),
+            outline=model.outline,
+            height=model.height,
+            standoff=model.standoff,
+            bottom=bottom,
+            model_id=pcbdoc.record_id(model.model),
+            body_id=model.ident,
+            model=model.model,
+            checksum=model.checksum,
+        )
+    )
+    if model.changed:
+        account.change(MODEL_KIND, model.ident, model.changed)
+    else:
+        account.wrote(MODEL_KIND)
 
 
 # --- copper and free items ------------------------------------------------------------------------------
@@ -1125,6 +1722,8 @@ def _copper(
     account: _Account,
     *,
     full_drill: bool = False,
+    polygon_arcs: Mapping[str, ArcPolygon] | None = None,
+    matched: dict[str, ArcPolygon] | None = None,
 ) -> tuple[list[Track], list[Arc], list[Via], list[Zone], dict[str, rec.ArcGeometry]]:
     signal = [name for name in layers if name not in planes]
     records: dict[str, rec.ArcGeometry] = {}
@@ -1149,6 +1748,7 @@ def _copper(
         else:
             tracks.append(dataclasses.replace(track, net_id=named(track.net_id)))
     arcs: list[Arc] = []
+    straights: list[Track] = []
     for arc in board.arcs:
         problem = layer_problem(arc.layer)
         if problem is None and arc.width <= 0:
@@ -1162,6 +1762,11 @@ def _copper(
                     rec.arc_from_points(*(frame(p) for p in (arc.start, arc.mid, arc.end)))
                 except ValueError as error:
                     problem = str(error)
+                    straight = straight_arc(arc)
+                    if straight is not None:  # change c0435
+                        account.change("arc", arc.id, ARC_STRAIGHT)
+                        straights.append(dataclasses.replace(straight, net_id=named(arc.net_id)))
+                        continue
         if problem is not None:
             account.skip("arc", arc.id, problem)
         else:
@@ -1197,7 +1802,11 @@ def _copper(
                 )
     zones: list[Zone] = []
     for zone in board.zones:
-        outline = _open(zone.outline)
+        bends = [(arc.edge, arc.mid) for arc in zone.arcs if arc.ring == 0]
+        outline = _open(zone_ring(zone.outline, bends))
+        if bends:
+            # a region holds no arc: an arc edge is written as segments (change c0277)
+            account.change("zone", zone.id, "an arc edge of its outline is written as segments")
         kept = tuple(layer for layer in zone.layers if layer in signal)
         problem = None
         if len(outline) < 3:
@@ -1209,6 +1818,12 @@ def _copper(
         if problem is not None:
             account.skip("zone", zone.id, problem)
             continue
+        carried = (polygon_arcs or {}).get(zone.id)
+        if carried is not None:  # change c0463, task 1.3: the source's arcs while the outline is their ring
+            if not bends and carried.matches(outline) is not None and matched is not None:
+                matched[zone.id] = carried
+            else:
+                account.change("zone", zone.id, ZONE_ARCS_EDITED)
         if zone.fills:
             account.skip("zone-fill", zone.id, "a polygon is written unpoured; Altium fills it on a repour")
         name = zone.name if text_problem(zone.name) is None else ""
@@ -1218,7 +1833,8 @@ def _copper(
             )
         )
     account.wrote("track", len(tracks))
-    account.wrote("arc", len(arcs))
+    account.wrote("arc", len(arcs) + len(straights))
+    tracks += straights
     account.wrote("via", len(vias))
     account.wrote("zone", len(zones))
     return tracks, arcs, vias, zones, records
@@ -1231,7 +1847,15 @@ def _items(
     records: dict[str, rec.ArcGeometry],
     account: _Account,
     layer_ids: Mapping[str, int] | None = None,
+    planes: frozenset[str] = frozenset(),
+    net_names: Mapping[str, str] | None = None,
 ) -> tuple[list[Text], list[Graphic], list[Keepout], list[Hole]]:
+    """The free texts, graphics, keep-outs and holes of ``board`` that the document writes. A graphic on a
+    signal layer of ``layers`` is copper (change c0412): it is kept with the name of its net from
+    ``net_names`` in ``net_id``, as the tracks are; one on a plane, on a copper layer outside the stack,
+    on a net that no record names, or that ``pcbdoc.graphic_problem`` refuses is a ``copper-shape`` loss."""
+    signal = tuple(name for name in layers if name not in planes)
+    names = net_names or {}
     texts: list[Text] = []
     for text in board.texts:
         problem = pcbdoc.text_problem_of(text)
@@ -1249,10 +1873,18 @@ def _items(
         if graphic.layer == EDGE_LAYER:
             outline += 1
             continue
-        if graphic.layer.endswith(".Cu"):
-            account.skip("copper-shape", graphic.id, "a shape on a copper layer has no record written")
-            continue
         kept = kept_arc(graphic, graphic.points, frame) if graphic.kind == "arc" else None
+        if graphic.layer.endswith(".Cu") or graphic.layer in layers:
+            problem = copper_shape_problem(graphic, layers, planes, names)
+            if problem is None:
+                problem = pcbdoc.graphic_problem(graphic, arc_known=kept is not None, copper=signal)
+            if problem is not None:
+                account.skip("copper-shape", graphic.id, problem)
+                continue
+            graphics.append(dataclasses.replace(graphic, net_id=names.get(graphic.net_id or "")))
+            if kept is not None:
+                records[graphic.id] = kept
+            continue
         problem = pcbdoc.graphic_problem(graphic, arc_known=kept is not None, layers=layer_ids)
         if problem is None:
             graphics.append(graphic)
@@ -1261,7 +1893,35 @@ def _items(
         else:
             account.skip("graphic", graphic.id, problem)
     keepouts: list[Keepout] = []
-    for keepout in board.keepouts:
+    strokes, areas, _ = keepout_lines.strokes(board.keepouts)
+    flags = keepout_lines.flags(board.keepouts)
+    written: list[Graphic] = []
+    for graphic in strokes:
+        kept = kept_arc(graphic, graphic.points, frame) if graphic.kind == "arc" else None
+        if graphic.id in flags:  # a keep-out stroke of a signal layer (change c0450)
+            problem = (
+                None
+                if graphic.layer in signal
+                else (f"the layer {graphic.layer} of a keep-out stroke is no signal layer of the document")
+            )
+            problem = problem or pcbdoc.graphic_problem(graphic, arc_known=kept is not None, copper=signal)
+        else:
+            problem = pcbdoc.graphic_problem(graphic, arc_known=kept is not None, layers=KEEPOUT_STROKE_IDS)
+        if problem is None:
+            graphics.append(graphic)
+            written.append(graphic)
+            if kept is not None:
+                records[graphic.id] = kept
+        else:
+            _refuse_stroke(board.keepouts, graphic, problem, account)
+    _count_strokes([area for area in board.keepouts if area not in areas], written, account)
+    stroked = len(written)
+    for keepout in areas:
+        if is_room_area(keepout):
+            # a room read from an Altium document (change c0462): its record is a kept record of the board,
+            # written back as it was read; the area itself is no keep-out region
+            account.change("keep-out", keepout.id, ROOM_REASON)
+            continue
         problem = pcbdoc.keepout_problem(keepout, layers)
         if problem is None:
             keepouts.append(keepout)
@@ -1276,10 +1936,25 @@ def _items(
     for dimension in board.dimensions:
         account.skip("dimension", dimension.id, "the document has no dimension record")
     account.wrote("text", len(texts))
-    account.wrote("graphic", len(graphics) + outline)
+    account.wrote("graphic", len(graphics) - stroked + outline)
     account.wrote("keep-out", len(keepouts))
     account.wrote("hole", len(holes))
     return texts, graphics, keepouts, holes
+
+
+def copper_shape_problem(
+    graphic: Graphic, layers: Sequence[str], planes: Collection[str], net_names: Mapping[str, str]
+) -> str | None:
+    """Why a graphic on a copper layer has no copper record (change c0412), or ``None``: its layer is an
+    internal plane, which holds no primitive, or no copper layer of the written stack, or its net is one
+    that no net record names."""
+    if graphic.layer in planes:
+        return f"{graphic.layer} is an internal plane, which holds no primitive"
+    if graphic.layer not in layers:
+        return f"{graphic.layer} is not a copper layer of the written stack"
+    if graphic.net_id is not None and graphic.net_id not in net_names:
+        return f"its net {graphic.net_id} has no net record in the document"
+    return None
 
 
 def _classes(design: Design, nets: frozenset[str], account: _Account) -> tuple[pcbdoc.NetClassSpec, ...]:
@@ -1303,6 +1978,46 @@ def _classes(design: Design, nets: frozenset[str], account: _Account) -> tuple[p
             )
         )
     return tuple(found)
+
+
+CLASS_KINDS_BUILT = frozenset({"Clearance", "Width", "RoutingVias"})
+"""The kinds of the net class rules of change c0038 that a build writes."""
+CLASS_VALUES_CHANGED = (
+    "not every value is written as a rule: a write of a model writes no class track width or via size, "
+    "which KiCad does not check, and no class clearance that a clearance rule on every object overrides "
+    "(change c0434)"
+)
+"""The reason of a net class some of whose values a write of a model does not write as rules."""
+
+
+def _model_class_kinds(records: Sequence[rulemap.LoweredRule]) -> frozenset[str]:
+    """The kinds of the net class rules of change c0038 that a write of a model writes (change c0434):
+    Clearance alone, as KiCad checks a class's clearance and not its track width or via size; none when a
+    Clearance record of the design applies to every object, which overrides every class clearance as an
+    unconditioned rule does in KiCad."""
+    every = any(
+        r.kind == "Clearance" and r.scope1 == rulemap.ALL_SCOPE and r.scope2 == rulemap.ALL_SCOPE
+        for r in records
+    )
+    return frozenset() if every else frozenset({"Clearance"})
+
+
+def _class_values_changed(
+    design: Design, classes: Sequence[pcbdoc.NetClassSpec], kinds: frozenset[str], account: _Account
+) -> None:
+    """Count ``changed`` each written net class that holds a value that a write of a model leaves out (the
+    kinds outside ``kinds``; change c0434)."""
+    left = {
+        spec.name
+        for spec in classes
+        if spec.track_width is not None
+        or spec.via_diameter is not None
+        or spec.via_drill is not None
+        or (spec.clearance is not None and "Clearance" not in kinds)
+    }
+    for item in sorted(design.circuit.netclasses, key=lambda c: c.name):
+        if item.name in left:
+            account.change("netclass", item.id, CLASS_VALUES_CHANGED)
 
 
 # --- the schematic's design -----------------------------------------------------------------------------
@@ -1453,8 +2168,13 @@ def from_design(
     options: LowerOptions | None = None,
     corner_ratios: Mapping[str, Decimal] | None = None,
     rewrite: bool = False,
+    full_drill: bool = False,
     bodies: str = "off",
     edges: Outline | None = None,
+    models: Mapping[str, Sequence[pcbdoc.FootprintModel]] | None = None,
+    polygon_arcs: Mapping[str, ArcPolygon] | None = None,
+    planes: Mapping[str, CarriedPlane] | None = None,
+    frame_origin: Point | None = None,
 ) -> AltiumInputs:
     """The inputs of the PCB and schematic writers from ``design`` alone, or with ``options`` those of a
     build (change c0126, ``LowerOptions``). ``corner_ratios`` maps a pad id
@@ -1466,6 +2186,9 @@ def from_design(
     document and that the write gives the document back: a via whose drill equals its diameter, which a
     saved document can hold and a build refuses, is then written as it was read. It is not inferred from
     the design, and ``ValueError`` refuses it for a board that was not read from an Altium document.
+    ``full_drill`` (change c0441) writes such a via without the rest of a rewrite: a conversion sets it,
+    since the via it converts may come from a saved Altium document (``H-A-PCBX-VIA-FULL``); a build never
+    does.
 
     ``bodies`` (change c0121) is ``off`` (the default) or ``extruded``; another value raises ``ValueError``.
     With ``extruded`` the extruded component bodies of the footprint instances that have an outline and a
@@ -1488,6 +2211,9 @@ def from_design(
     account = _Account()
     name = options.name if options is not None else design_name(design)
     board = design.board
+    curve_loss = curve_error_issue(board)
+    if curve_loss is not None and board is not None:
+        account.skip(curve_loss.where, board.id, curve_loss.message)
     if rewrite and board is not None and BACKEND not in board.native_ids:
         raise ValueError(
             "rewrite=True is for the reading of an Altium document; this board was not read from one"
@@ -1496,23 +2222,33 @@ def from_design(
         raise ValueError("rewrite=True is for the reading of an Altium document, not for a build")
     spec: pcbdoc.PcbDocSpec | None = None
     if board is not None:
+        arc_starts: frozenset[int] = frozenset()
         if options is not None and board.outline is not None:
-            outline = tuple(board.outline.points)
+            # a build's outline as given, its arcs as arc vertices as a conversion writes them (c0448)
+            outline, arc_starts = _arc_ring(_open(board.outline.points), board.outline.arcs)
         else:
-            if edges is not None and (board.outline is not None or not _edge_ring(board, edges, _Account())):
+            if edges is not None and (
+                board.outline is not None or not _edge_ring(board, edges, _Account())[0]
+            ):
                 edges = None  # a model outline, or edges whose board ring does not close: as before c0170
-            outline = _outline(board, account, edges)
+            outline, arc_starts = _outline(board, account, edges)
         if len(outline) >= 3:
             spec = _document(
                 design,
                 board,
                 outline,
+                arc_starts,
                 corner_ratios or {},
                 account,
                 rewrite=rewrite,
+                full_drill=full_drill or rewrite,
                 bodies=body_mode,
                 options=options,
                 edges=edges,
+                models=models,
+                polygon_arcs=polygon_arcs,
+                carried_planes=planes,
+                frame_origin=frame_origin,
             )
     schematic = schematic_design(design, name, account)
     modelled = {component.id: component.lib_footprint_ref for component in schematic.circuit.components}
@@ -1569,13 +2305,19 @@ def _document(
     design: Design,
     board: Board,
     outline: tuple[Point, ...],
+    outline_arcs: frozenset[int],
     ratios: Mapping[str, Decimal],
     account: _Account,
     *,
     rewrite: bool = False,
+    full_drill: bool = False,
     bodies: pcbdoc.BodyMode = "off",
     options: LowerOptions | None = None,
     edges: Outline | None = None,
+    models: Mapping[str, Sequence[pcbdoc.FootprintModel]] | None = None,
+    polygon_arcs: Mapping[str, ArcPolygon] | None = None,
+    carried_planes: Mapping[str, CarriedPlane] | None = None,
+    frame_origin: Point | None = None,
 ) -> pcbdoc.PcbDocSpec:
     net_names: dict[str, str] = {}
     for net in design.circuit.nets:
@@ -1584,13 +2326,37 @@ def _document(
         else:
             account.skip("net", net.id, f"no net record holds the name {net.name!r}, or two nets share it")
     nets = frozenset(net_names.values())
+    carried_planes = carried_planes or {}
     if options is not None:
         layers, stack, planes = _built_stack(board, options)
     else:
-        layers, stack, planes = _stack(board, nets, account)
+        layers, stack, planes = _stack(
+            board, nets, account, {n for n, p in carried_planes.items() if p.splits}
+        )
+    plane_ids = dict(zip(layers, stack.copper, strict=True))
+    if options is None and carried_planes and planes:  # change c0466: the carried pull-backs
+        order = [name for name in layers if name in planes]
+        pullbacks = tuple(
+            carried_planes[n].pullback if n in carried_planes else PLANE_PULLBACK for n in order
+        )
+        stack = dataclasses.replace(stack, pullbacks=pullbacks)
     read = BACKEND in board.native_ids
-    frame = pcbdoc.Frame.document() if read else pcbdoc.Frame.of(outline)
-    origin: Point | None = None
+    document = pcbdoc.Frame.document()
+    if read or options is not None:  # change c0467: a carried frame is a conversion's, of a KiCad board
+        frame_origin = None
+    if frame_origin is not None and not all(document(p).x >= 0 and document(p).y >= 0 for p in outline):
+        account.change("outline", board.id, FRAME_ANCHORED)
+        frame_origin = None
+    if read or frame_origin is not None:
+        frame = document
+    elif options is None and all(_on_units(p.x) and _on_units(p.y) for p in outline):
+        # a conversion of a board whose outline lies on whole document units, as one that came from a PCB
+        # document does: the board moves by whole units, so its shape is kept (c0441). Any other board is
+        # anchored at its corner as a build anchors it, so a build and a write of one design agree (lote-27)
+        frame = pcbdoc.Frame.on_units(outline)
+    else:
+        frame = pcbdoc.Frame.of(outline)
+    origin: Point | None = frame_origin if not read else None
     if read:
         origin = Point(0, 0)
         texts = pairs_of(board).get("origin", "").split(",")
@@ -1604,12 +2370,8 @@ def _document(
     # a board that was read names its mechanical layers Mech.<n>: the document holds them (change c0126)
     layer_ids: Mapping[str, int] = MappingProxyType(
         {
-            **(MECHANICAL_LAYERS if read else KICAD_MECHANICAL if options is None else {}),
-            **(
-                dict(zip(layers, rec.copper_stack(layers, tuple(planes)), strict=True))
-                if options is None
-                else {}
-            ),
+            **(MECHANICAL_LAYERS if read else kicad_mechanical(board) if options is None else {}),
+            **(dict(zip(layers, stack.copper, strict=True)) if options is None else {}),
         }
     )
     components, free_pads = _footprints(
@@ -1624,16 +2386,29 @@ def _document(
         layer_ids=layer_ids,
         copper=layers,
         options=options,
+        copper_ids=dict(zip(layers, stack.copper, strict=True)),
+        models=models,
     )
+    matched: dict[str, ArcPolygon] = {}
     tracks, arcs, vias, zones, arc_records = _copper(
-        board, layers, planes, net_names, frame, account, full_drill=rewrite
+        board,
+        layers,
+        planes,
+        net_names,
+        frame,
+        account,
+        full_drill=full_drill,
+        polygon_arcs=polygon_arcs,
+        matched=matched,
     )
-    texts_, graphics, keepouts, holes = _items(board, layers, frame, arc_records, account, layer_ids)
-    cutouts = _cutouts(board.outline if board.outline is not None else edges, account)
+    stroke_flags = keepout_lines.flags(board.keepouts)
+    texts_, graphics, keepouts, holes = _items(
+        board, layers, frame, arc_records, account, layer_ids, planes=planes, net_names=net_names
+    )
+    cutouts = _cutouts(
+        board.outline if board.outline is not None else edges, account, footprint_cutout_rings(board)
+    )
     lowered = rulemap.lower(design.rules.rules if design.rules is not None else ())
-    for footprint in board.footprints:
-        if footprint.net_ties:
-            account.skip(NET_TIE_KIND, footprint.id, NET_TIE_REASON)
     codes = sorted(design.rules.severities) if design.rules is not None else []
     for code in codes:
         account.skip(SEVERITY_KIND, code, severity_reason(codes))
@@ -1644,18 +2419,26 @@ def _document(
     if options is not None:
         # a build names every net of its circuit, in the circuit's order (change c0126)
         names = tuple(net.name for net in design.circuit.nets)
+    classes = _classes(design, nets, account)
+    class_kinds = CLASS_KINDS_BUILT
+    if options is None:  # a write of a model writes only its own rules (change c0434)
+        class_kinds = _model_class_kinds(lowered.records)
+        _class_values_changed(design, classes, class_kinds, account)
     return pcbdoc.PcbDocSpec(
         outline,
         tuple(components),
         names,
+        outline_arcs=outline_arcs,
         copper_layers=layers,
         stack=stack,
         tracks=tuple(tracks),
         arcs=tuple(arcs),
         vias=tuple(vias),
         via_protection=board.via_protection,  # the default of the tenting flags (c0112)
+        via_mask=board.mask_margin if options is None else None,  # the vias' mask of a model (c0445)
         zones=tuple(zones),
-        net_classes=_classes(design, nets, account),
+        net_classes=classes,
+        class_kinds=class_kinds,
         texts=tuple(texts_),
         graphics=tuple(graphics),
         keepouts=tuple(keepouts),
@@ -1665,11 +2448,24 @@ def _document(
         frame=None if options is not None else frame,
         origin=origin,
         free_pads=tuple(free_pads),
-        layer_ids=layer_ids,
+        layer_ids={**layer_ids, **KEEPOUT_STROKE_IDS},
+        named_layers=frozenset(named_mechanical(board).values())
+        if not read and options is None
+        else frozenset(),
         arc_records=MappingProxyType(arc_records),
-        allow_full_drill=rewrite,
+        polygon_arcs=MappingProxyType(matched),
+        plane_splits=MappingProxyType(
+            {plane_ids[n]: p.splits for n, p in carried_planes.items() if n in planes and p.splits}
+        ),
+        copper_names=MappingProxyType(_copper_names(board, plane_ids, planes, carried_planes)),
+        fill_ids=frozenset(g.id for g in graphics if fills.is_fill(g)),
+        keepout_strokes=MappingProxyType(
+            {g.id: byte for g in graphics if (byte := stroke_flags.get(g.id)) is not None}
+        ),
+        allow_full_drill=full_drill,
         bodies=tuple(placed_bodies),
         connect_styles=_connect_styles(board) if read else (),
+        kept_rules=_kept_rules(board) if read else (),
         body_form=options.body_form if options is not None and placed_bodies else "saved",
     )
 
@@ -1680,6 +2476,7 @@ def write_design(
     allow_lossy: bool = False,
     corner_ratios: Mapping[str, Decimal] | None = None,
     rewrite: bool = False,
+    full_drill: bool = False,
     bodies: str = "off",
     derive_library: bool = False,
     schematic: Design | None = None,
@@ -1687,22 +2484,67 @@ def write_design(
     sheets: project.SheetMode = project.DEFAULT_SHEETS,
     edges: Outline | None = None,
     pour: PourMode | None = None,
+    source_rules: Sequence[tuple[int, tuple[tuple[str, str], ...]]] = (),
+    parameters: Sequence[tuple[str, str]] = (),
+    models: Mapping[str, Sequence[pcbdoc.FootprintModel]] | None = None,
+    storages: Mapping[str, tuple[bytes, bytes]] | None = None,
+    polygon_arcs: Mapping[str, ArcPolygon] | None = None,
+    planes: Mapping[str, CarriedPlane] | None = None,
+    frame_origin: Point | None = None,
 ) -> ProjectWrite:
-    """The files of an Altium project written from ``design`` alone: ``<name>.PcbDoc`` when the design
-    holds a board with an outline or an item, and ``<name>.SchDoc`` with its libraries and
-    ``<name>.PrjPcb`` when the schematic writer takes the circuit (otherwise one ``altium.not-lowered``
-    with ``where`` ``schematic`` says why). Without ``allow_lossy``, ``LossyWriteError`` when an item of
-    ``LOSS_KINDS`` would be left out. Two calls on equal designs give equal bytes. ``rewrite`` is that of
-    ``from_design``: the write of the reading of an Altium document. ``bodies`` is that of ``from_design``
-    too: ``extruded`` writes the extruded component bodies (change c0121), and so is ``edges`` (change
-    c0170): the edge of a read board as an outline. ``pour`` is the pour mode of the PCB document (change
-    c0215): ``None`` is ``computed``, which writes the outline with one ``altium.pour-unavailable`` warning
-    without the ``geo`` extra; an explicit ``computed`` raises ``BackendUnavailable`` then; a rewrite
-    (``rewrite``) pours every polygon again."""
+    """The files of an Altium project written from ``design`` alone: ``<name>.PcbDoc`` when the design holds a
+    board with an outline or an item, and ``<name>.SchDoc`` with its libraries and ``<name>.PrjPcb`` when the
+    schematic writer takes the circuit (otherwise one ``altium.not-lowered`` with ``where`` ``schematic`` says
+    why). Without ``allow_lossy``, ``LossyWriteError`` when an item of ``LOSS_KINDS`` would be left out. Two
+    calls on equal designs give equal bytes. ``rewrite`` is that of ``from_design``: the write of the reading
+    of an Altium document; so is ``full_drill``. ``bodies`` is that of ``from_design`` too: ``extruded``
+    writes the extruded component bodies (change c0121), and so is ``edges`` (change c0170): the edge of a
+    read board as an outline. ``pour`` is the pour mode of the PCB document (change c0215): ``None`` is
+    ``computed``, which writes the outline with one ``altium.pour-unavailable`` warning without the ``geo``
+    extra; an explicit ``computed`` raises ``BackendUnavailable`` then; a rewrite (``rewrite``) pours every
+    polygon again. ``source_rules`` (change c0434) are the rule records of the Altium document a conversion
+    started from, each its kind number and its keys from ``RULEKIND`` on: the document holds them as they
+    are, then only the rules of ``design`` that none of them gave (``PcbDocSpec.source_rules``).
+    ``parameters`` are written as the project file's ``[Parameter<n>]`` entries (change c0451: the text
+    variables of a converted KiCad project).
+    ``models`` (change c0449) maps a footprint instance id to its 3D models, which the
+    conversion found beside the source: each is written as a body that names an embedded model, or counted
+    under ``model`` with its reason.
+    ``storages`` are the storages a conversion carried through KiCad (change c0450,
+    ``pcbdoc.PcbDocSpec.kept_storages``). ``polygon_arcs`` maps a zone id to the arc vertices of its source
+    polygon record, which a conversion carried through KiCad (change c0463, task 1.3): written back while
+    the zone's outline is still their ring, else the outline's chords as a ``changed`` zone. ``planes`` maps
+    a copper layer to the internal plane a conversion carried through KiCad (change c0466,
+    ``CarriedPlane``): its splits, pull-back and name. ``frame_origin`` is the origin a conversion carried
+    through KiCad (change c0467, ``convert.altium_frame``), in the document's frame: a board that was not
+    read from a PCB document is then written where its coordinates are, Y negated, with that origin; when
+    that would put a point of the outline at a negative coordinate, it is anchored at its corner and one
+    ``outline`` change says so (``FRAME_ANCHORED``)."""
+    refuse_bom_only(design)
+    if schematic is not None:
+        refuse_bom_only(schematic)
     issues: list[Issue] = []
     inputs = from_design(
-        design, issues=issues, corner_ratios=corner_ratios, rewrite=rewrite, bodies=bodies, edges=edges
+        design,
+        issues=issues,
+        corner_ratios=corner_ratios,
+        rewrite=rewrite,
+        full_drill=full_drill,
+        bodies=bodies,
+        edges=edges,
+        models=models,
+        polygon_arcs=polygon_arcs,
+        planes=planes,
+        frame_origin=frame_origin,
     )
+    if source_rules and inputs.pcb is not None:  # the source's own rule records (change c0434)
+        inputs = dataclasses.replace(
+            inputs, pcb=dataclasses.replace(inputs.pcb, source_rules=tuple(source_rules))
+        )
+    if storages and inputs.pcb is not None:
+        inputs = dataclasses.replace(
+            inputs, pcb=dataclasses.replace(inputs.pcb, kept_storages=dict(storages))
+        )
     if schematic is not None:
         inputs = dataclasses.replace(inputs, schematic=schematic_design(schematic, inputs.name))
         if inputs.pcb is not None and sheets == "modules":
@@ -1719,9 +2561,20 @@ def write_design(
     library: tuple[pcblib.LibFootprint, ...] = ()
     if derive_library:
         inputs, library = derived_library(design, inputs)
+    # change c0451: a footprint of a source library goes to that library's file, the others to <name>.PcbLib
+    homes = {c.footprint.defn.id: c.footprint_library for c in inputs.pcb.components} if inputs.pcb else {}
+    by_file: dict[str, list[pcblib.LibFootprint]] = {}
+    for found_footprint in library:
+        home = homes.get(found_footprint.defn.id, "")
+        by_file.setdefault(home if home and derive_library else f"{inputs.name}.PcbLib", []).append(
+            found_footprint
+        )
+    library = tuple(by_file.pop(f"{inputs.name}.PcbLib", ()))
+    extra_libraries = {file: tuple(found) for file, found in by_file.items()}
     lost = [found for found in issues if found.where in LOSS_KINDS]
     if lost and not allow_lossy:
-        raise LossyWriteError(lost)
+        also = [found for found in issues if found.code == NOT_LOWERED and found.where not in LOSS_KINDS]
+        raise LossyWriteError(lost, also)
     name = inputs.name
     files: dict[str, bytes] = {}
     mode: PourMode = pour or "computed"
@@ -1737,6 +2590,7 @@ def write_design(
                     issues=issues,
                     pcb=inputs.pcb,
                     footprints=library,
+                    extra_footprints=extra_libraries,
                     symbols=symbols,
                     sheets=sheets,
                     extra_modules=tuple(m.path for m in schematic.circuit.modules)
@@ -1745,6 +2599,7 @@ def write_design(
                     read_circuit=True,
                     pour=mode,
                     pour_results=results,
+                    title_parameters=parameters,
                 )
             )
         except CompoundTooLarge:
@@ -1775,6 +2630,9 @@ def write_design(
         files[f"{name}.PcbLib"] = pcblib.write_pcblib(
             library, filename=f"{name}.PcbLib", disambiguate_storages=True
         )
+    for file, found_footprints in extra_libraries.items():
+        if file not in files:
+            files[file] = pcblib.write_pcblib(found_footprints, filename=file, disambiguate_storages=True)
     return ProjectWrite(MappingProxyType(dict(sorted(files.items()))), tuple(issues), inputs, found, mode)
 
 
@@ -1794,23 +2652,34 @@ def _shape(value: object) -> object:
 def derived_library(
     design: Design, inputs: AltiumInputs
 ) -> tuple[AltiumInputs, tuple[pcblib.LibFootprint, ...]]:
-    """One library definition per pattern, chosen by reference order; board instances retain their edits."""
+    """One library definition per pattern and library file, chosen by reference order; board instances
+    retain their edits. A footprint whose link names an Altium library (``project.is_altium_footprint``: the
+    link a conversion gave back from the source, change c0451) goes to that library file, every other one
+    to ``<name>.PcbLib``; each component links the file of its footprint."""
     if inputs.pcb is None or design.board is None:
         return inputs, ()
     footprints = {fp.id: fp for fp in design.board.footprints}
-    library: dict[str, pcblib.LibFootprint] = {}
-    shapes: dict[str, object] = {}
+    own = f"{inputs.name}.PcbLib"
+
+    def file_of(fp: FootprintInstance) -> str:
+        return fp.lib_ref.partition(":")[0] if project.is_altium_footprint(fp.lib_ref) else own
+
+    library: dict[tuple[str, str], pcblib.LibFootprint] = {}
+    shapes: dict[tuple[str, str], object] = {}
+    files: dict[str, str] = {}
     changed: list[str] = []
     for placed in sorted(inputs.pcb.components, key=lambda c: (c.ref, c.unique_id)):
         fp = footprints.get(placed.footprint.defn.id)
         if fp is None:
             continue
-        pattern = placed.footprint.defn.name
+        files[placed.ref] = file_of(fp)
+        pattern = (files[placed.ref], placed.footprint.defn.name)
         bottom = fp.side == "bottom"
         shape = _shape(
             (
                 tuple(_library_pad(p, bottom=bottom) for p in fp.pads),
                 tuple(_library_graphic(g, bottom=bottom) for g in fp.graphics),
+                tuple(_library_keepout(k, bottom=bottom) for k in fp.keepouts),
             )
         )
         if pattern in library:
@@ -1828,7 +2697,7 @@ def derived_library(
             )
             for item in placed.items
         )
-        empty = pcblib.LibFootprint(FootprintDef(id=fp.id, name=pattern))
+        empty = pcblib.LibFootprint(FootprintDef(id=fp.id, name=pattern[1]))
         local = dataclasses.replace(
             placed, footprint=empty, at=Point(0, 0), rotation=0, side="top", items=items, arc_records={}
         )
@@ -1861,6 +2730,7 @@ def derived_library(
                         height=place.height,
                         stroke=place.stroke,
                         rotation=mirror.apply_angle(place.rotation),
+                        font=place.font,
                     ),
                 )
             )
@@ -1887,7 +2757,7 @@ def derived_library(
     linked = tuple(
         dataclasses.replace(
             c,
-            footprint_library=f"{inputs.name}.PcbLib",
+            footprint_library=files.get(c.ref, own),
             component_library=project.schlib_name(part.lib_symbol_ref, design=inputs.name),
             lib_reference=part.lib_symbol_ref.rpartition(":")[2],
         )
@@ -1899,7 +2769,7 @@ def derived_library(
     circuit = dataclasses.replace(
         inputs.schematic.circuit,
         components=tuple(
-            dataclasses.replace(c, lib_footprint_ref=f"{inputs.name}.PcbLib:{refs[c.ref]}")
+            dataclasses.replace(c, lib_footprint_ref=f"{files.get(c.ref, own)}:{refs[c.ref]}")
             if c.ref in refs
             else c
             for c in inputs.schematic.circuit.components
@@ -2116,7 +2986,10 @@ def moved(board: Board, dx: int, dy: int) -> Board:
     outline = board.outline
     if outline is not None:
         outline = dataclasses.replace(
-            outline, points=ring(outline.points), cutouts=tuple(ring(cut) for cut in outline.cutouts)
+            outline,
+            points=ring(outline.points),
+            cutouts=tuple(ring(cut) for cut in outline.cutouts),
+            arcs=tuple(dataclasses.replace(arc, mid=at(arc.mid)) for arc in outline.arcs),  # c0441
         )
     return dataclasses.replace(
         board,
@@ -2140,6 +3013,12 @@ def moved(board: Board, dx: int, dy: int) -> Board:
         graphics=tuple(dataclasses.replace(g, points=ring(g.points)) for g in board.graphics),
         holes=tuple(dataclasses.replace(h, position=at(h.position)) for h in board.holes),
     )
+
+
+def _on_units(nm: int) -> bool:
+    """Whether ``nm`` is a whole number of document units rounded to the nanometre, as a length read from a
+    PCB document is (``pcbrecords.to_units``; lote-27)."""
+    return round(Fraction(rec.to_units(nm) * 127, 50)) == nm
 
 
 def in_frame_of(model: Design, reading: Design) -> Design:
@@ -2214,15 +3093,20 @@ __all__ = [
     "LOSS_KINDS",
     "MECHANICAL_LAYERS",
     "KICAD_MECHANICAL",
+    "kicad_mechanical",
+    "named_mechanical",
     "MORE_KINDS",
     "DNP_KIND",
     "DNP_REASON",
+    "FREE_PAD_REASON",
     "NET_TIE_KIND",
     "NET_TIE_REASON",
     "SEVERITY_KIND",
     "NOT_LOWERED",
     "PLACEMENT_RULE_KIND",
     "AltiumInputs",
+    "converted_free_pad",
+    "copper_shape_problem",
     "LossyWriteError",
     "LowerOptions",
     "ProjectWrite",
@@ -2232,6 +3116,7 @@ __all__ = [
     "in_frame_of",
     "kept_arc",
     "moved",
+    "net_tie_differs",
     "pairs_of",
     "schematic_design",
     "stack_from_stackup",

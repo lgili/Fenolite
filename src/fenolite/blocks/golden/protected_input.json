@@ -1,0 +1,405 @@
+{
+  "block": "Fenolite:protected_input",
+  "circuit": {
+    "components": [
+      {
+        "id": "cmp_e0631821-5fa3-5c14-aac6-f9885369c27d",
+        "lib_footprint_ref": "Fenolite:SOD323_Diodes",
+        "lib_symbol_ref": "Fenolite:Diode",
+        "pin_pad_map": [
+          [
+            "1",
+            "1"
+          ],
+          [
+            "2",
+            "2"
+          ]
+        ],
+        "pins": [
+          {
+            "id": "pin_116b119e-9529-58fa-a2b0-c4db90fc2977",
+            "name": "A",
+            "number": "1"
+          },
+          {
+            "id": "pin_f572c018-ba5d-5472-96c3-0b86809eafb6",
+            "name": "K",
+            "number": "2"
+          }
+        ],
+        "properties": {
+          "Illustrative": "All numbers are authored examples; no real device is represented",
+          "Reference": "D1",
+          "Value": "ILLUSTRATIVE",
+          "fenolite.device": "Example:IllustrativeTVS",
+          "fenolite.device.sha256": "ae206929b5bc9f875a655ff0cf29f4692b29fb61ba063ed875c5fb8f1c930aa1",
+          "fenolite.path": "dut/tvs"
+        },
+        "ref": "D1",
+        "value": "ILLUSTRATIVE"
+      },
+      {
+        "id": "cmp_6104712d-0a99-58ee-b224-51801209f2d1",
+        "lib_footprint_ref": "Fenolite:Header_1x3_P2.54",
+        "lib_symbol_ref": "Fenolite:Connector_3",
+        "pins": [
+          {
+            "id": "pin_0896bc0e-8dc6-5f47-85ad-0f1a6fcbd408",
+            "name": "Passive",
+            "number": "1"
+          },
+          {
+            "id": "pin_81bc8905-1251-5c29-90c3-a384127a5fc7",
+            "name": "Passive",
+            "number": "3"
+          },
+          {
+            "id": "pin_b1c4d44c-aa96-528e-90f8-57264044338f",
+            "name": "Passive",
+            "number": "2"
+          }
+        ],
+        "properties": {
+          "Reference": "J1",
+          "Value": "Connector_3",
+          "fenolite.path": "J1"
+        },
+        "ref": "J1",
+        "value": "Connector_3"
+      },
+      {
+        "id": "cmp_d16f29bd-39aa-59df-bbd3-6baa0424e9b2",
+        "lib_footprint_ref": "Fenolite:Chip_0603",
+        "lib_symbol_ref": "Fenolite:Resistor",
+        "pin_pad_map": [
+          [
+            "1",
+            "1"
+          ],
+          [
+            "2",
+            "2"
+          ]
+        ],
+        "pins": [
+          {
+            "id": "pin_fafb0eb4-5103-5f6d-aa02-b8d6a6de843d",
+            "name": "A",
+            "number": "1"
+          },
+          {
+            "id": "pin_c6a1ae9d-6a44-5419-b9a7-1096f8e9c331",
+            "name": "B",
+            "number": "2"
+          }
+        ],
+        "properties": {
+          "Reference": "R1",
+          "Value": "1k5",
+          "fenolite.device": "Fenolite:R_0603_E96_1pct@1k5",
+          "fenolite.device.sha256": "9e3d1d59e95dfa5d3135bd7cbdc944316ec57ee72ad6c4554fe1e3230c2244ef",
+          "fenolite.path": "dut/r"
+        },
+        "ref": "R1",
+        "value": "1k5",
+        "value_range": {
+          "high": {
+            "e": 0,
+            "m": 1515
+          },
+          "low": {
+            "e": 0,
+            "m": 1485
+          },
+          "nominal": {
+            "e": 2,
+            "m": 15
+          },
+          "unit": "ohm"
+        }
+      }
+    ],
+    "modules": [
+      {
+        "block": "Fenolite:protected_input",
+        "block_version": "1.0.0",
+        "component_ids": [
+          "cmp_d16f29bd-39aa-59df-bbd3-6baa0424e9b2",
+          "cmp_e0631821-5fa3-5c14-aac6-f9885369c27d"
+        ],
+        "id": "mod_3d99db9e-935d-58fc-b9f2-d51e263fb9f1",
+        "params": [
+          {
+            "name": "abs_max",
+            "text": "3.6V",
+            "type": "quantity"
+          },
+          {
+            "name": "clamp",
+            "text": "0V..9.2V",
+            "type": "range"
+          },
+          {
+            "name": "hold",
+            "text": "3.6V",
+            "type": "quantity"
+          },
+          {
+            "name": "inject_max",
+            "text": "5mA",
+            "type": "quantity"
+          },
+          {
+            "name": "protection",
+            "text": "Example:IllustrativeTVS",
+            "type": "str"
+          },
+          {
+            "name": "r_series",
+            "text": "1.5kΩ",
+            "type": "quantity"
+          },
+          {
+            "name": "signal",
+            "text": "0V..5V",
+            "type": "range"
+          }
+        ],
+        "path": "dut"
+      }
+    ],
+    "nets": [
+      {
+        "id": "net_3837de75-a749-54e5-ac54-629da8e5530b",
+        "members": [
+          {
+            "component_id": "cmp_6104712d-0a99-58ee-b224-51801209f2d1",
+            "pin": "1"
+          },
+          {
+            "component_id": "cmp_d16f29bd-39aa-59df-bbd3-6baa0424e9b2",
+            "pin": "1"
+          },
+          {
+            "component_id": "cmp_e0631821-5fa3-5c14-aac6-f9885369c27d",
+            "pin": "1"
+          }
+        ],
+        "name": "dut/EXT"
+      },
+      {
+        "id": "net_4ff0f8a7-657b-569c-b55b-ef3a08034f99",
+        "members": [
+          {
+            "component_id": "cmp_6104712d-0a99-58ee-b224-51801209f2d1",
+            "pin": "3"
+          },
+          {
+            "component_id": "cmp_e0631821-5fa3-5c14-aac6-f9885369c27d",
+            "pin": "2"
+          }
+        ],
+        "name": "dut/GND"
+      },
+      {
+        "id": "net_8956b3f7-106b-5808-830d-c708722a05dd",
+        "members": [
+          {
+            "component_id": "cmp_6104712d-0a99-58ee-b224-51801209f2d1",
+            "pin": "2"
+          },
+          {
+            "component_id": "cmp_d16f29bd-39aa-59df-bbd3-6baa0424e9b2",
+            "pin": "2"
+          }
+        ],
+        "name": "dut/INT"
+      }
+    ],
+    "ports": [
+      {
+        "direction": "in",
+        "id": "prt_f4abfbb1-e32a-5701-b5a9-10c2d70aafb3",
+        "kind": "net",
+        "members": {
+          "net": "net_3837de75-a749-54e5-ac54-629da8e5530b"
+        },
+        "name": "EXT",
+        "owner": "mod_3d99db9e-935d-58fc-b9f2-d51e263fb9f1"
+      },
+      {
+        "direction": "in",
+        "id": "prt_ff45f0a3-5f2a-5aee-8678-31dc48cfd533",
+        "kind": "ground",
+        "members": {
+          "gnd": "net_4ff0f8a7-657b-569c-b55b-ef3a08034f99"
+        },
+        "name": "GND",
+        "owner": "mod_3d99db9e-935d-58fc-b9f2-d51e263fb9f1"
+      },
+      {
+        "direction": "out",
+        "id": "prt_ebf5a2d5-85a7-52d1-ad3a-61cb874c3f45",
+        "kind": "net",
+        "members": {
+          "net": "net_8956b3f7-106b-5808-830d-c708722a05dd"
+        },
+        "name": "INT",
+        "owner": "mod_3d99db9e-935d-58fc-b9f2-d51e263fb9f1"
+      }
+    ]
+  },
+  "rules": {
+    "contracts": {
+      "expects": [
+        {
+          "id": "dut/expect#1",
+          "instance": "dut",
+          "origin": "fenolite.blocks.protect:68",
+          "reason": "protection working voltage covers the signal",
+          "test": {
+            "a": {
+              "component": "cmp_e0631821-5fa3-5c14-aac6-f9885369c27d",
+              "key": "voltage",
+              "limit": "operating",
+              "ref": "rating"
+            },
+            "b": {
+              "lit": {
+                "high": {
+                  "e": 0,
+                  "m": 5
+                },
+                "low": {
+                  "e": 0,
+                  "m": 0
+                },
+                "unit": "volt"
+              }
+            },
+            "op": "at_least"
+          }
+        },
+        {
+          "id": "dut/expect#2",
+          "instance": "dut",
+          "origin": "fenolite.blocks.protect:75",
+          "reason": "current into the downstream clamps limited",
+          "test": {
+            "a": {
+              "lit": {
+                "high": {
+                  "e": -3,
+                  "m": 5
+                },
+                "low": {
+                  "e": -3,
+                  "m": 5
+                },
+                "nominal": {
+                  "e": -3,
+                  "m": 5
+                },
+                "unit": "ampere"
+              }
+            },
+            "b": {
+              "a": {
+                "lit": {
+                  "high": {
+                    "e": -1,
+                    "m": 56
+                  },
+                  "low": {
+                    "e": -1,
+                    "m": -36
+                  },
+                  "unit": "volt"
+                }
+              },
+              "b": {
+                "component": "cmp_d16f29bd-39aa-59df-bbd3-6baa0424e9b2",
+                "ref": "value"
+              },
+              "op": "div"
+            },
+            "op": "at_least"
+          }
+        },
+        {
+          "id": "dut/expect#3",
+          "instance": "dut",
+          "origin": "fenolite.blocks.protect:78",
+          "reason": "downstream held voltage below absolute maximum",
+          "test": {
+            "a": {
+              "lit": {
+                "high": {
+                  "e": -1,
+                  "m": 36
+                },
+                "low": {
+                  "e": -1,
+                  "m": 36
+                },
+                "nominal": {
+                  "e": -1,
+                  "m": 36
+                },
+                "unit": "volt"
+              }
+            },
+            "b": {
+              "lit": {
+                "high": {
+                  "e": -1,
+                  "m": 36
+                },
+                "low": {
+                  "e": -1,
+                  "m": 36
+                },
+                "nominal": {
+                  "e": -1,
+                  "m": 36
+                },
+                "unit": "volt"
+              }
+            },
+            "op": "at_most"
+          }
+        }
+      ],
+      "rig": [
+        {
+          "kind": "supply",
+          "name": "bench",
+          "neg": "net_4ff0f8a7-657b-569c-b55b-ef3a08034f99",
+          "pos": "net_3837de75-a749-54e5-ac54-629da8e5530b",
+          "voltage": {
+            "high": {
+              "e": 0,
+              "m": 5
+            },
+            "low": {
+              "e": 0,
+              "m": 5
+            },
+            "nominal": {
+              "e": 0,
+              "m": 5
+            },
+            "unit": "volt"
+          }
+        }
+      ]
+    },
+    "id": "rst_79ddd1f3-309e-5f3a-b8e0-d09f3a2dcd3d"
+  },
+  "schema": "fenolite.block-golden.v0",
+  "seed": 0,
+  "timestamp": "2026-01-01T00:00:00Z",
+  "usage": "usage/protected_input.py",
+  "version": "1.0.0"
+}

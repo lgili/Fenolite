@@ -77,3 +77,28 @@ def test_cache_regenerated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> N
     assert {k: v for k, v in snapshot(out).items() if k.startswith(".fenolite/")} == before and len(
         before
     ) == 7
+
+
+LOCK_EXAMPLE = Path(__file__).resolve().parents[3] / "examples" / "lock"
+
+
+def lock_build(script: Path, out: Path, seed: int, tmp: Path) -> None:
+    env = {**os.environ, "PYTHONHASHSEED": str(seed), "KICAD_CONFIG_HOME": str(tmp / "kc")}
+    args = [sys.executable, "-m", "fenolite", "build", str(script), "--out", str(out), "--confirm", "--json"]
+    subprocess.run([*args, "--seed", str(seed)], check=True, capture_output=True, env=env)
+
+
+def test_lock_reproducible(tmp_path: Path) -> None:
+    """Scenario "Lock reproducible" (change c0249): two processes write byte-identical locks from copies
+    without one, and a third build of each copy leaves its script folder unchanged."""
+    locks = []
+    for seed in (1, 2):
+        folder = tmp_path / f"copy{seed}"
+        folder.mkdir()
+        shutil.copy(LOCK_EXAMPLE / "design.py", folder / "design.py")
+        lock_build(folder / "design.py", tmp_path / f"out{seed}", seed, tmp_path)
+        locks.append((folder / "design.lock").read_bytes())
+        before = snapshot(folder)
+        lock_build(folder / "design.py", tmp_path / f"out{seed}", seed, tmp_path)
+        assert snapshot(folder) == before and not (folder / "__pycache__").exists()
+    assert locks[0] == locks[1] == (LOCK_EXAMPLE / "design.lock").read_bytes()

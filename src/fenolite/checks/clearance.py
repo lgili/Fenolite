@@ -12,12 +12,13 @@ whether the board minimum also raises a rule's value. A backend fills the switch
 board is judged against (``backends.base.DesignRules``); this module imports no backend.
 
 ``ClearanceResolver.edge`` gives the copper-to-edge clearance of one item the same way (change c0169): the
-governing ``edge_clearance`` rule, else the board's edge minimum.
+governing ``edge_clearance`` rule, else the board's edge minimum. ``ClearanceResolver.hole`` gives the
+clearance between a drilled hole and the copper of another item (change c0403): the governing
+``hole_clearance`` rule, else the board's hole minimum.
 """
 
 from __future__ import annotations
 
-import dataclasses
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Literal
@@ -25,12 +26,16 @@ from typing import Literal
 from fenolite.core.units import Nm
 from fenolite.model.design import Design
 from fenolite.model.pairs import coupled_name, net_bases
-from fenolite.model.rules import LEAF_OPS, Rule, RuleSeverity, RuleSubject, Selector
+from fenolite.model.rules import Rule, RuleSeverity, RuleSubject, Selector
+from fenolite.model.selectors import fold_selector as _fold_selector
+from fenolite.model.selectors import fold_subject as _fold_subject
+from fenolite.model.selectors import selector_matches
 
-CopperKind = Literal["track", "arc", "via", "pad", "fill", "zone", "keepout", "edge", "hole"]
+CopperKind = Literal["track", "arc", "via", "pad", "fill", "zone", "keepout", "edge", "hole", "graphic"]
 """The kinds of copper items; a rule sees an arc as a ``track`` and a fill as a ``zone``. ``keepout`` names
 the area of a ``copper.keepout`` finding, ``edge`` the edge ring of a ``copper.edge-clearance`` or
-``copper.hole-in-cutout`` finding and ``hole`` a board hole (change c0169); no rule subject takes them."""
+``copper.hole-in-cutout`` finding and ``hole`` a board hole (change c0169); no rule subject takes them. A
+``graphic`` is a drawing on a copper layer (change c0277), which a rule sees as KiCad's ``Graphic``."""
 ITEM_KINDS: dict[str, str] = {
     "track": "track",
     "arc": "track",
@@ -38,6 +43,7 @@ ITEM_KINDS: dict[str, str] = {
     "pad": "pad",
     "fill": "zone",
     "zone": "zone",
+    "graphic": "graphic",
 }
 DEFAULT_CLASS = "Default"
 """The class of a net without one, when the design holds a class of this name."""
@@ -113,43 +119,6 @@ def rule_precedence(rules: Sequence[Rule]) -> tuple[Rule, ...]:
     return tuple(sorted(rules, key=lambda r: (r.priority != 0, -r.priority, r.name, r.id)))
 
 
-def _fold(text: str | None) -> str | None:
-    return None if text is None else text.casefold()
-
-
-def _fold_selector(selector: Selector) -> Selector:
-    """``selector`` with every leaf value case-folded: names compare without regard to letter case. An
-    ``area`` leaf is kept as written: KiCad compares area names with letter case (``H-K-AREA-COND``). A
-    ``diff_pair`` leaf keeps its value too, because KiCad compares a pair base with its letter case
-    (``H-K-DRU-PAIRSEL``)."""
-    if selector.op in ("area", "diff_pair"):
-        return selector
-    if selector.op in LEAF_OPS:
-        return dataclasses.replace(selector, value=selector.value.casefold())
-    if selector.items:
-        return dataclasses.replace(selector, items=tuple(_fold_selector(item) for item in selector.items))
-    return selector
-
-
-def _fold_subject(subject: RuleSubject) -> RuleSubject:
-    return RuleSubject(
-        item_kind=subject.item_kind.casefold(),
-        net=_fold(subject.net),
-        netclass=_fold(subject.netclass),
-        ref=_fold(subject.ref),
-        layer=_fold(subject.layer),
-        areas=subject.areas,
-        diff_pair=subject.diff_pair,
-    )
-
-
-def selector_matches(selector: Selector, subject: RuleSubject) -> bool:
-    """Whether ``selector`` selects ``subject``, names compared as the clearance rules compare them: without
-    regard to letter case, except an ``area`` leaf and a ``diff_pair`` leaf (``_fold_selector``). The
-    length stage (``checks.length``) matches its rules with it."""
-    return _fold_selector(selector).matches(_fold_subject(subject))
-
-
 @dataclass(frozen=True, slots=True)
 class _Candidate:
     rule: Rule
@@ -212,6 +181,7 @@ class ClearanceResolver:
         floor_over_rules: bool = False,
         min_edge_clearance: Nm | None = None,
         edge_floor_over_rules: bool = False,
+        min_hole_clearance: Nm | None = None,
     ) -> None:
         circuit = design.circuit
         classes = {netclass.id: netclass for netclass in circuit.netclasses}
@@ -251,6 +221,21 @@ class ClearanceResolver:
             edge_values.append(self._edge_floor)
         self.max_edge: Nm = max(edge_values, default=0)
         """The largest value ``edge`` can return for the design, or 0."""
+        self._hole_candidates = _candidates_of(rules, "hole_clearance")
+        """The ``hole_clearance`` rules with a ``min``, the governing one first (change c0403)."""
+        self._hole_floor: Nm | None = (
+            min_hole_clearance if min_hole_clearance is not None and min_hole_clearance > 0 else None
+        )
+        self._hole_memo: dict[tuple[RuleSubject, RuleSubject], Clearance] = {}
+        hole_values = [
+            c.rule.min
+            for c in self._hole_candidates
+            if c.rule.min is not None and c.rule.severity != "ignore"
+        ]
+        if self._hole_floor is not None:
+            hole_values.append(self._hole_floor)
+        self.max_hole: Nm = max(hole_values, default=0)
+        """The largest value ``hole`` can return for the design, or 0."""
         self._floor: Nm | None = min_clearance if min_clearance is not None and min_clearance > 0 else None
         self._rules_over_classes = rules_over_classes
         self._floor_over_rules = floor_over_rules
@@ -279,11 +264,15 @@ class ClearanceResolver:
         ref: str | None,
         layer: str,
         areas: frozenset[str] = frozenset(),
+        zone: str | None = None,
+        hole: Nm | None = None,
+        pad_type: str | None = None,
     ) -> RuleSubject:
         """The subject of a copper item of ``kind`` on ``layer``: its net name and class name, the
         component reference for a pad, and the names of the rule areas it lies in on that layer. An item
         without a net, or whose net has no class, is in the class named ``Default``. ``diff_pair`` is the
-        base of the net when the design holds its coupled net."""
+        base of the net when the design holds its coupled net. ``zone``, ``hole`` and ``pad_type`` are the
+        zone name of a fill, and the hole and pad type of a pad or via (change c0462)."""
         name, netclass = (
             self._nets.get(net_id, (None, DEFAULT_CLASS)) if net_id is not None else (None, DEFAULT_CLASS)
         )
@@ -295,6 +284,9 @@ class ClearanceResolver:
             layer=layer,
             areas=areas,
             diff_pair=self._bases.get(name) if name is not None else None,
+            zone=zone,
+            hole=hole,
+            pad_type=pad_type,
         )
 
     def _class_candidates(self, a: RuleSubject, b: RuleSubject) -> tuple[tuple[Nm, str], ...]:
@@ -400,6 +392,34 @@ class ClearanceResolver:
         if self._edge_floor_over_rules and floor is not None and floor > governing.min:
             found = Clearance(floor, "error", "floor")
         return found
+
+    def hole(self, hole: RuleSubject, copper: RuleSubject) -> Clearance:
+        """The clearance in force between a drilled hole and copper of another item (change c0403):
+        ``hole`` is the subject of the hole's item (its pad or via) and ``copper`` that of the copper, both
+        on the copper's layer. The governing ``hole_clearance`` rule that selects the pair (the last in
+        ``rule_precedence``, either side of a two-sided rule on either item), else the board minimum
+        ``min_hole_clearance`` (source ``floor``). A governing rule of severity ``ignore`` silences the
+        pair. A board-wide rule governs below the minimum on 9.0.x and 10.0.x (``H-K-PRO-MIN-RULE-3``), so
+        the minimum never raises a rule."""
+        key = (hole, copper)
+        cached = self._hole_memo.get(key)
+        if cached is None:
+            cached = self._hole(hole, copper)
+            self._hole_memo[key] = cached
+        return cached
+
+    def _hole(self, hole: RuleSubject, copper: RuleSubject) -> Clearance:
+        folded_hole, folded_copper = _fold_subject(hole), _fold_subject(copper)
+        governing = next(
+            (c.rule for c in self._hole_candidates if c.matches(folded_copper, folded_hole)), None
+        )
+        floor = self._hole_floor
+        if governing is None:
+            return UNSET if floor is None else Clearance(floor, "error", "floor")
+        if governing.severity == "ignore":
+            return Clearance(None, None, f"rule:{governing.name}")
+        assert governing.min is not None
+        return Clearance(governing.min, governing.severity, f"rule:{governing.name}")
 
     def explain_edge(self, subject: RuleSubject, ring: str) -> EdgeClearanceExplanation:
         """Explain ``edge(subject)`` for the ring named ``ring``: every matching ``edge_clearance`` rule in

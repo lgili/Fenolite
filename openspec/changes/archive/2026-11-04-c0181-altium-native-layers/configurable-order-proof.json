@@ -1,0 +1,163 @@
+{
+  "schema": "fenolite.c0181.configurable-layer-order-proof.v1",
+  "base_commit": "ad8cbf2e5d66c6a6b549244c948fef97dac263ea",
+  "maintainer_decision": "Permitir configurar a ordem das abas no visualizador",
+  "universal_altium_default_claimed": false,
+  "human_native_review_task_3_3_completed": false,
+  "implementation": {
+    "order_scope": "available layer list and visible layer stepping",
+    "storage_scope": "project/document identity + source SHA256; session-only fallback",
+    "source_scene_geometry_draw_selection_visibility_opacity_preserved": true,
+    "imported_native_preferences_or_empty_native_layers": false
+  },
+  "browser_focus": {
+    "command": [
+      "uv",
+      "run",
+      "pytest",
+      "tests/visual/test_layer_order.py",
+      "tests/visual/test_layers.py",
+      "-q",
+      "-ra"
+    ],
+    "exit": 0,
+    "seconds": 10.843767459038645,
+    "log_sha256": "bdc1d5c14cd59a1d36ca201a9a6edd39e12ad52fb2b34df8618d6724b979b781"
+  },
+  "python_focus": {
+    "check": "python-focused",
+    "command": [
+      "uv",
+      "run",
+      "pytest",
+      "tests/unit/view/test_altium_layers.py",
+      "tests/unit/view/test_viewer_bundle.py",
+      "tests/unit/view/test_page.py",
+      "tests/unit/agent/test_pages.py",
+      "-q",
+      "-ra"
+    ],
+    "exit": 0,
+    "seconds": 7.114005958021153,
+    "log_sha256": "ff881c0c9f132eaaf9ff9aff305ef4f1e2b5826af315359488e6e5fe56aa55bb"
+  },
+  "browser_tools": {
+    "playwright": "1.59.1",
+    "chromium": "Google Chrome for Testing 153.0.8010.12",
+    "profile": "fresh temporary isolated browser context per harness job; no personal browser profile"
+  },
+  "real_v6_preflight": {
+    "source_base": "ad8cbf2e5d66c6a6b549244c948fef97dac263ea",
+    "input_sha256": "97d3339c991840960aabf48fa72a3ad12010a6d1292cf3210c98d1f39498c64c",
+    "retained_scene_sha256": "eab31c9b830fc029cdf5730cd0b20e90ae40dc645e4591899746d1f1cc931823",
+    "available_layers": 14,
+    "native_empty_layers_added": false,
+    "new_CAD_native_or_geometry_run": false,
+    "viewer_manifest": {
+      "schema": "fenolite.viewer_build.v1",
+      "sources": "264790595e2e23c56c7111350aef298d16995e0e68dfe9985cc4c8ee23b0b61b",
+      "outputs": {
+        "page.html": "0393c510fb4bf23cd6cc14147897ebc799e53188cc7a4b1a42a95e0d4caa5dc0",
+        "viewer.css": "6b7c6c1582e404544cf43b08f3993db25bf4ed1c4ffa8e99cebf5b74c9269320",
+        "viewer.js": "ac453cbf5476dcaa2be199c07705346a1d3cfcd529c08914f937d7a488693d5c"
+      },
+      "tools": {
+        "esbuild": "0.28.2",
+        "preact": "10.29.8",
+        "typescript": "5.9.3"
+      }
+    },
+    "page_sha256": "c7049de2b7f2c031ff86490fc62556045a1b50164c5a70ec9242649530358e6a",
+    "native_input_unchanged": true,
+    "original_packet_rewritten": false
+  },
+  "real_v6_browser": {
+    "passed": true,
+    "native_CAD_geometry_runs": 0,
+    "source_input_sha256": "97d3339c991840960aabf48fa72a3ad12010a6d1292cf3210c98d1f39498c64c",
+    "available_layers": 14,
+    "empty_native_layers_added": false,
+    "personal_profile_used": false,
+    "original_packet_rewritten": false,
+    "native_acceptance_or_human_approval_claimed": false,
+    "errors": [],
+    "captures": [
+      {
+        "file": "before-default-viewer-order.png",
+        "sha256": "ad40502686759b0808755e801a1ecc2942d49f8b55f609b96fe7ac0da020f1da"
+      },
+      {
+        "file": "order-dialog-configured.png",
+        "sha256": "8329b065d255c74ba10dbf1879dd4cb3012ef1e1882bcb4c4a9aea780a2ac574"
+      },
+      {
+        "file": "after-configured-order.png",
+        "sha256": "497929e6bce86813ec34155b3e8a60d57015ccbe7269d709b38e19b9d5939cd0"
+      }
+    ],
+    "visibility_setup": "Show the existing Mechanical13 layer before the invariant snapshot; no layer added",
+    "escape_cancel_and_focus": true,
+    "applied_order": [
+      "F.Cu",
+      "B.Cu",
+      "Mech.13",
+      "Mech.14",
+      "Mech.15",
+      "Mech.16",
+      "F.SilkS",
+      "B.SilkS",
+      "F.Paste",
+      "F.Mask",
+      "B.Mask",
+      "Edge.Cuts",
+      "View.Drill",
+      "View.Outline"
+    ],
+    "real_alt_arrow_moves": 20,
+    "source_scene_geometry_selection_visibility_opacity_draw_and_pixels_unchanged": true,
+    "default_viewer_order": [
+      "F.Cu",
+      "B.Cu",
+      "F.SilkS",
+      "B.SilkS",
+      "F.Paste",
+      "F.Mask",
+      "B.Mask",
+      "Mech.13",
+      "Mech.14",
+      "Mech.15",
+      "Mech.16",
+      "Edge.Cuts",
+      "View.Drill",
+      "View.Outline"
+    ],
+    "keyboard_stepping_follows_custom_order": [
+      "B.Cu",
+      "Mech.13"
+    ],
+    "reload_persisted": true,
+    "reset_cancel_kept_custom": true,
+    "reset_restored_default_and_cleared_preference": true,
+    "original_input_unchanged_after_cleanup": true,
+    "finished_utc": "2026-11-04T01:27:19.270Z"
+  },
+  "real_v6_browser_receipt_sha256": "11bd9a1739eb73f492d750173e7d332f8c592c411fc88ff8b42e67b5d6bae2f2",
+  "authored_17_layer_case_is_separate": true,
+  "invariants": {
+    "python_execution_ast_unchanged_excluding_documentation_strings": true,
+    "backend_model_fixtures_and_expected_paths_unchanged": true,
+    "source_input_sha256": "97d3339c991840960aabf48fa72a3ad12010a6d1292cf3210c98d1f39498c64c"
+  },
+  "checks": {
+    "ruff": "passed",
+    "ruff_format": "passed",
+    "typescript_nominal_build": "passed",
+    "committed_viewer_bundle_check": "passed",
+    "agent_guide_generator_check": "passed",
+    "openspec_strict": "passed",
+    "private_staged_scan": "passed, private gate on",
+    "diff_check": "passed"
+  },
+  "no_full_fast_CAD_native_VM_CI_or_push": true,
+  "integration_or_release_pass_claimed": false
+}

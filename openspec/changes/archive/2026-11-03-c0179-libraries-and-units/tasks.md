@@ -1,0 +1,84 @@
+## 0. Entry check
+
+- [x] 0.1 Read the specs of c0176 to c0178 and the library readers (`read_schlib`, the backends' library reads). Note under this task, with the date, the probe of a one-part board. Proof: `openspec validate c0179-libraries-and-units --strict --no-interactive`.
+  - 2026-10-25:
+    - **Probe:** a `FootprintDef` placed at the origin of a one-part `Board` gave its pad copper through the Altium and the KiCad backends' `board_pads`, and a scene through `build_scene`. It held for the QFP of `blink.PcbLib` and of `Mini.pretty`.
+    - **Exactness:** the Altium QFP pads are 549 999 nm high, against 550 000 nm in the KiCad copy. The pad list therefore keeps nanometres.
+    - The branch is `c0178-native-themes` (`efc95d8`). Proof passed.
+
+## 1. Scenes
+
+- [x] 1.1 Add the pad list to board scenes (scenario "Pads of a KiCad board"). Proof: `uv run pytest tests/unit/view/test_library.py -k board_pads tests/unit/view/test_scene.py -q`.
+  - 2026-10-25: proof passed.
+- [x] 1.2 Add `fenolite.view.library` with footprint libraries (scenario "Footprints of an Altium library"). Proof: `uv run pytest tests/unit/view/test_library.py -k footprint -q`.
+  - 2026-10-25: proof passed. Every pad matches its model pad's size and drill in nanometres, and its centre in µm.
+- [x] 1.3 Add symbol libraries, with symbol scenes in `schematic.py` and `kicad_schematic.py` (scenario "Symbols of both tools"). Proof: `uv run pytest tests/unit/view/test_library.py -q`.
+  - 2026-10-25: proof passed (5 tests). The five libraries of the test data build: `blink.PcbLib`, `Mini.pretty`, `blink.SchLib`, `FenoliteHier.SchLib` and `Mini_v9.kicad_sym` (three units of `Mini_DualGate`).
+- [x] 1.4 Mark libraries as viewable (scenario "An Altium project with libraries"). Proof: `uv run pytest tests/unit/view/test_project.py -q`.
+  - 2026-10-25: proof passed. `test_refusals` now refuses an `.IntLib`.
+
+## 2. Page and command
+
+- [x] 2.1 Add units, pad properties, measurement with snapping on every view, and the library list to the page (scenario "Unit conversions"). Proof: `uv run pytest tests/unit/view/test_page.py -q`.
+  - 2026-10-25: proof passed. `fmtLen` and `fmtNm` ran under Node 22.
+- [x] 2.2 Build library scenes in `cmd_view` (scenario "Summary of a footprint library"). Proof: `uv run pytest tests/unit/cli/test_view_cmd.py tests/unit/view tests/consistency -q`.
+  - 2026-10-25: proof passed (with `test_import_graph.py`: 493 passed, 24 skipped).
+- [x] 2.3 Review in a browser `blink.PrjPcb` (its two libraries), a `.pretty` folder and `Mini_v9.kicad_sym`. Check pad sizes in both units against the library files, a measured pitch, a part's extent, a symbol, and measurement on a sheet. Record the date, the browser and what was checked. Proof: the record under this task.
+  - 2026-10-25, the agent, in the Chromium of the container (Playwright, headless), on exported standalone pages of `blink.PrjPcb` and `Mini_v9.kicad_sym`, read from screenshots.
+    - **`blink.PcbLib`:** the footprint list with pad counts and copper extents, the QFP drawn alone, and a click on pad 32 shows 59.06 × 21.65 mil (1.5 × 0.55 mm) after `Q`, its corner radius and its rotation. A measurement snapped to two adjacent pad centres reads 31.50 mil (0.8 mm), Δy 0.
+    - **`blink.SchLib`:** the 32-pin symbol, its pin pitch measured as 2.540 mm, snapped to the pin ends.
+    - **`Mini_v9.kicad_sym`:** the units of `Mini_DualGate` in stroke text.
+  - **Found and fixed in the same session:**
+    - the status line kept the old unit until the mouse moved;
+    - the library mode hid the schematic shortcuts.
+- [x] 2.4 The maintainer reviews a library of their own. Proof: the record under this task.
+  - 2026-10-25: WAITS on the maintainer.
+
+## 3. Docs and closing
+
+- [x] 3.1 Update `docs/viewer.md`, the `view` section of `docs/cli-contract.md` and the guide page `files`. Proof: `uv run pytest tests/unit/agent -q`; `uv run python tools/gen_agent_guide.py --check`.
+  - 2026-10-25: proof passed. The skill folder stays under 150 000 bytes.
+- [x] 3.2 Run the fast gate. Proof: `make check-fast`.
+  - 2026-10-25, Linux container, after the session row of week 43 was added to `LEGAL-ANNEX.md` on c0178: lint, format, pyright and residue clean; 13 880 passed, 34 skipped. The full gate is left to CI.
+- [x] 3.3 Evidence labels. Proof: `uv run python tools/gen_evidence_matrix.py --check`.
+  - 2026-10-25: proof passed. The library scenes are `INFERRED`, and no label changes.
+- [x] 3.4 Add an entry under `## [Unreleased]` in `CHANGELOG.md` once the version after 0.5.0 is open. Proof: `uv run pytest tests/unit/test_release_record_v05.py -q`.
+  - 2026-10-25: the entry is under `## [0.5.0]` of `CHANGELOG.md`, not `[Unreleased]`: by the maintainer's decision of 2026-10-25 the change ships in 0.5.0 (c0171 task 1.15). Proof passed (`tests/unit/test_release_record_v05.py`).
+  - 2026-10-25: WAITS on the maintainer (the release guard of 0.5.0). The text is ready: `- **Libraries, units and measurement in the viewer** (c0179): `fenolite view` opens symbol and footprint libraries (`.SchLib`, `.PcbLib`, `.kicad_sym`, `.kicad_mod`, `.pretty`) with a list of their items, each footprint drawn alone with its pads' exact sizes and each symbol per part; every length reads in millimetres or mil (button or `Q`); Measure (`M`) works on boards, sheets and libraries and snaps to pad centres and vertices.`
+
+## Continuation review — 2026-11-01
+
+No personal-library review was supplied; mechanical library-viewer tests do not replace task 2.4.
+See `docs/evidence/altium-native-acceptance.md`, "Continuation inventory", for existing reports and exact remaining dependencies. No native, paid-agent or personal-review outcome is claimed.
+
+Pending Altium observations may use the actual available Designer 24.5.2.23,
+by the maintainer's explicit2026-11-03 approval recorded in c0166. Historical
+26.5 observations remain unchanged; this version permission is not a personal
+project review, a missing implementation or a passing native outcome.
+
+## Maintainer review — 2026-11-03
+
+The maintainer reviewed the three current exported Fenolite-authored library pages and answered "Revisei e aprovo as bibliotecas autorais". The review covers the two Altium footprints, two Altium symbols and eight KiCad symbol views including Mini_DualGate unitsA/B/C, item selection, Q mm/mil switching and M measurement. The choice of authored libraries is explicit; no personal-library or 3D review is inferred. The exact source/page hashes and scope are recorded in docs/evidence/library-viewer-maintainer-review-20261103.json. All three pages were generated with reviewed dry-run/exact-plan confirmation and unchanged input hashes before the human decision. No renderer change was made. Final exact-head CI and coordinated archival remain separate.
+
+
+## Scoped implementation closure — 2026-11-03
+
+The maintainer clarified that problematic geometry was already outside this
+closure CI batch before the run. Close only this specification’s implementation
+on tested source 985f59a1d01a612b2eac0219243199896c24075a and reviewed
+archival documentation. Run 41708879698 remains FAILURE: the27known c0332
+geometry failures are DEFERRED_NOT_PASSED, not passed tests. KiCad9 and all
+five unit jobs succeeded. The viewer job and all five unit jobs succeeded. This library-viewer
+change requires no additional native execution result; its actual maintainer
+approval and exact reviewed packet are separately bound below.
+
+`scoped-ci-985f59a1.json` binds the exact tests, explicit KiCad9 positive
+lines, complete log hashes, reused fast proof and existing scoped records.
+The isolated runtime/tests/tools/configuration remain byte-identical to985;
+this does not validate later CAC runtime, close c0355 or replace subsequent
+integration CI. Existing authored/native/default-map proofs and limitations
+remain intact. No suite, native CAD test or CI rerun was started for archive.
+
+The already recorded special gate is verified, without asking for a new
+review: actual maintainer approval. Its exact record and scope are bound in the
+portable receipt; original limits and no-results statements remain intact.

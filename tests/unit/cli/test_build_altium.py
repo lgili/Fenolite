@@ -29,6 +29,7 @@ PLANNED = (
     "FenoliteSample.SchLib",
     *CACHE,
     ".fenolite/altium-generated/altium_sample.SchDoc",
+    "fenolite-base.json",  # c0250
 )
 
 
@@ -76,8 +77,9 @@ def test_dry_run_of_the_sample(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
         "design", "target", "out", "files", "components", "nets", "labels", "power_ports", "no_connects",
         "sheet", "kept", "schematic_format", "sheet_mode", "sheets", "ports", "sheet_entries", "harnesses",
         "schematic", "libraries", "symbols", "footprints", "pcb_document", "copper", "pcb", "copper_check",
-        "outjob",
-        "drawing_sheet", "rules", "experimental", "script_output", "plan", "plan_id",
+        "outjob", "draftsman",
+        "drawing_sheet", "rules", "experimental", "script_output", "picks", "generators", "lock", "pins",
+        "plan", "plan_id",
     ]  # fmt: skip
 
 
@@ -346,6 +348,7 @@ def test_modules_on_request(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> 
         "FenoliteHier.SchLib",
         *CACHE,
         *(f".fenolite/altium-generated/{name}" for name in HIER_SHEETS),
+        "fenolite-base.json",  # c0250
     ]
     assert files_under(out) == sorted(expected)
     record = json.loads((out / ".fenolite" / "build.json").read_text(encoding="utf-8"))
@@ -356,6 +359,7 @@ def test_modules_on_request(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> 
             "altium_hier.PrjPcb",
             "FenoliteHier.SchLib",
             *(f".fenolite/altium-generated/{name}" for name in HIER_SHEETS),
+            "fenolite-base.json",  # c0250
         ]
     )
     ascii_args = ("--out", str(tmp_path / "A"), *MODULES, "--altium-format", "ascii", "--dry-run")
@@ -421,6 +425,7 @@ def test_switching_the_mode_is_not_an_edit(monkeypatch: pytest.MonkeyPatch, tmp_
         "FenoliteHier.SchLib",
         "altium_hier.PrjPcb",
         "altium_hier.SchDoc",
+        "fenolite-base.json",  # c0250
     ]
 
 
@@ -658,18 +663,78 @@ def test_six_layers_with_a_plane_and_a_zone(monkeypatch: pytest.MonkeyPatch, tmp
     assert not [i for i in issues if i["severity"] == "error"]
 
 
-# --- net-tie groups and check severities: reported, not written (change c0114) --------------------
+# --- change c0277: the signal and plane limits (altium-build, "Signal and plane limits in an Altium build")
+
+
+def _twenty(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, planes: str, mode: str = "--dry-run"
+) -> tuple[int, dict[str, object], str]:
+    from _altium import blink_tree
+
+    monkeypatch.setenv("KICAD_CONFIG_HOME", str(tmp_path / "config"))
+    script = blink_tree(tmp_path / "tree") / "design.py"
+    lines = script.read_text(encoding="utf-8").splitlines()
+    nets = next(line for line in lines if line.startswith("vin, gnd, led_drv, led_a = "))
+    lines.remove(nets)
+    board = lines.index("design.board(mm(50), mm(30))")
+    lines[board] = nets + f"\ndesign.board(mm(50), mm(30), copper=20, planes={planes})"
+    script.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return run(monkeypatch, str(script), "--out", str(tmp_path / "B"), "--target", "altium", mode)
+
+
+def test_stack_twenty_layers_without_planes(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Twenty layers without planes"."""
+    code, env, _ = _twenty(monkeypatch, tmp_path, "None")
+    assert code == 5
+    issues = env["issues"]
+    assert isinstance(issues, list)
+    (found,) = [i for i in issues if i["code"] == "altium.stack-signal-limit"]
+    assert found["severity"] == "error" and "20 signal layers" in found["message"]
+    assert found["hint"] == "declare planes= for the layers beyond 16 signal layers, or build for KiCad"
+    result = env.get("result")
+    assert not (isinstance(result, dict) and result.get("plan"))
+    assert not (tmp_path / "B").exists()
+
+
+def test_stack_twenty_layers_with_four_planes(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Twenty layers with four planes"."""
+    planes = '{"In1.Cu": gnd, "In6.Cu": vin, "In12.Cu": gnd, "In18.Cu": vin}'
+    code, env, err = _twenty(monkeypatch, tmp_path, planes)
+    assert code == 0, err
+    result = env["result"]
+    assert isinstance(result, dict)
+    assert "blink.PcbDoc" in [Path(p["path"]).name for p in result["plan"]]
+    copper = result["copper"]
+    assert copper["layers"] == 20 and len(copper["planes"]) == 4
+    issues = env["issues"]
+    assert isinstance(issues, list)
+    assert not [i for i in issues if i["code"] == "altium.stack-signal-limit" or i["severity"] == "error"]
+    from _altium_board6 import read_document
+
+    code, _env, err = _twenty(monkeypatch, tmp_path / "w", planes, "--confirm")
+    assert code == 0, err
+    document = tmp_path / "w" / "B" / "blink.PcbDoc"
+    _doc, back = read_document(document.read_bytes(), document.name)
+    assert back.board is not None
+    names = [layer.name for layer in back.board.layers if layer.kind == "copper"]
+    assert names == ["F.Cu", *(f"In{k}.Cu" for k in range(1, 19)), "B.Cu"]
+
+
+# --- net-tie groups (changes c0114, c0420) and check severities ------------------------------------
 
 
 def test_net_tie_in_an_altium_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Scenario "A net tie in an Altium build" (dsl-footprint-authoring, "Net-tie groups in authored
-    footprints"): the pads are written, no mark ties them, and one info of the kind ``net-tie`` says so."""
+    footprints", as change c0420 modifies it): the component is written as a net tie (``COMPONENTKIND`` 4),
+    its one group of every pad number needs no ``net-tie`` info, and the import reads the group back. Before
+    c0420 no mark was written and one info said so."""
     from _altium_drc import DOCUMENT, build_altium, coded
     from _routed import Routed
     from _waivercases import NET_TIE, plant
 
     from fenolite.backends.altium.backend import AltiumBackend
     from fenolite.backends.altium.lower import LOSS_KINDS, NET_TIE_KIND
+    from fenolite.backends.altium.read.pcb import read_component_fields
 
     routed = Routed(tmp_path, monkeypatch, confirm=False)
     plant(routed, NET_TIE)
@@ -677,8 +742,7 @@ def test_net_tie_in_an_altium_build(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     assert code == 0, (env.get("issues"), err)
     planned = [Path(name).name for name in env["result"]["files"]]
     assert DOCUMENT in planned and any(name.endswith(".PcbLib") for name in planned)
-    (found,) = [i for i in coded(env, "altium.not-lowered") if i["where"] == NET_TIE_KIND]
-    assert found["severity"] == "info" and "1 footprint(s)" in found["message"] and "NT1" in found["message"]
+    assert not [i for i in coded(env, "altium.not-lowered") if i["where"] == NET_TIE_KIND]
     assert NET_TIE_KIND not in LOSS_KINDS
     assert not coded(env, "copper.short")  # the tied pads are 0.5 mm apart
     code, env, err = build_altium(routed, "--confirm")
@@ -688,7 +752,10 @@ def test_net_tie_in_an_altium_build(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     pads = [pad for pad in backend.board_pads(read.design) if pad.ref == "NT1"]
     assert sorted(pad.number for pad in pads) == ["1", "2"]
     assert read.design.board is not None
-    assert all(placed.net_ties == () for placed in read.design.board.footprints)  # the import reads none
+    records = [dict(r) for r in read_component_fields((routed.out / DOCUMENT).read_bytes())]
+    assert [r["COMPONENTKIND"] for r in records if "COMPONENTKIND" in r] == ["4"]
+    ties = {f.id: f.net_ties for f in read.design.board.footprints if f.net_ties}
+    assert list(ties.values()) == [(("1", "2"),)]
 
 
 def test_severities_in_an_altium_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -876,3 +943,76 @@ def test_height_limit_is_no_row_of_the_rule_table() -> None:
 
     assert [row.neutral for row in rulemap.TABLE] == list(get_args(RuleKind))
     assert not [row for row in rulemap.TABLE if "height" in row.neutral.casefold()]
+
+
+# --- change c0277: the coverage example in an Altium build ("Every item accounted for") ----------------
+
+
+def _coverage_variant(tmp_path: Path, keep_shaped: bool) -> Path:
+    """``examples/board_coverage`` copied with library tables that name the mini library by its path; without
+    ``keep_shaped`` the part ``J1`` of the shaped pads, which the PCB library writer cannot write, is gone."""
+    import shutil
+
+    root = Path(__file__).resolve().parents[3]
+    folder = tmp_path / "coverage"
+    shutil.copytree(root / "examples" / "board_coverage", folder)
+    libs = (root / "tests" / "data" / "libs").as_posix()
+    for table in ("fp-lib-table", "sym-lib-table"):
+        path = folder / table
+        path.write_text(
+            path.read_text(encoding="utf-8").replace("${KIPRJMOD}/../../tests/data/libs", libs), "utf-8"
+        )
+    script = folder / "design.py"
+    text = script.read_text(encoding="utf-8")
+    if not keep_shaped:
+        for old, new in (
+            ("design.add(u1, r1, d1, r2, j1)", "design.add(u1, r1, d1, r2)"),
+            ("connect(gnd, u1[10], d1[1], r2[2], j1[2])", "connect(gnd, u1[10], d1[1], r2[2])"),
+            ("connect(vin, j1[1])\n", ""),
+            ("j1.place(mm(25), mm(26))\n", ""),
+            ('j1.override(clearance=mm("0.15"), paste_ratio=-100_000)\n', ""),
+            ('j1.edit_pad("3", size=(mm("1.2"), mm("1.2")))\n', ""),
+        ):
+            assert old in text, old
+            text = text.replace(old, new)
+    script.write_text(text, encoding="utf-8")
+    return script
+
+
+def test_coverage_every_item_accounted_for(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Every item accounted for": the planned document, and one issue for each item it lacks."""
+    monkeypatch.setenv("KICAD_CONFIG_HOME", str(tmp_path / "config"))
+    script = _coverage_variant(tmp_path, keep_shaped=False)
+    code, env, err = run(
+        monkeypatch, str(script), "--out", str(tmp_path / "B"), "--target", "altium", "--dry-run"
+    )
+    assert code == 0, err
+    result = env["result"]
+    assert isinstance(result, dict)
+    assert "coverage.PcbDoc" in [Path(p["path"]).name for p in result["plan"]]
+    issues = env["issues"]
+    assert isinstance(issues, list)
+    named = [(i["code"], i.get("where", "")) for i in issues]
+    assert ("altium.image-skipped", next(w for c, w in named if c == "altium.image-skipped")) in named
+    assert sorted(w for c, w in named if c == "altium.verbatim-skipped") == [
+        "verbatim/art/target",
+        "verbatim/rule/edge",
+    ]
+    lowered = [w for c, w in named if c == "altium.not-lowered"]
+    assert sum(w.startswith("dimension/") for w in lowered) == 3
+    assert sum(w.startswith("group/") for w in lowered) == 1
+    assert {"fonts", "models", "teardrops"} <= set(lowered)
+
+
+def test_coverage_shaped_pads_are_named(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """The example itself: the PCB library writer has no form for the shaped pads of ``J1``, and says so."""
+    monkeypatch.setenv("KICAD_CONFIG_HOME", str(tmp_path / "config"))
+    script = _coverage_variant(tmp_path, keep_shaped=True)
+    _code, env, _err = run(
+        monkeypatch, str(script), "--out", str(tmp_path / "B"), "--target", "altium", "--dry-run"
+    )
+    issues = env["issues"]
+    assert isinstance(issues, list)
+    (found,) = [i for i in issues if i["code"] == "altium.footprint-unsupported"]
+    assert found["where"] == "Local:Shaped_Pads"
+    assert {"overrides", "pad-edits"} <= {i.get("where") for i in issues if i["code"] == "altium.not-lowered"}

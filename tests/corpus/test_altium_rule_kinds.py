@@ -35,12 +35,19 @@ pytestmark = pytest.mark.needs_corpus
 ROWS = manifest_items("altium-pcbdoc")
 NEW_KINDS = {"BoardOutlineClearance": 63, "HoleToHoleClearance": 52, "MinimumAnnularRing": 19, "HoleSize": 42}
 MAPPED = {
-    "altium-third-party-pcbdoc-04": {"edge_clearance": 1, "annular_width": 1},
-    "altium-third-party-pcbdoc-05": {"edge_clearance": 1, "annular_width": 1, "hole_to_hole": 1},
-    "altium-third-party-pcbdoc-06": {"edge_clearance": 1},
-    "altium-third-party-pcbdoc-07": {"edge_clearance": 1, "annular_width": 1},
+    "altium-third-party-pcbdoc-01": {"hole_to_hole": 1},
+    "altium-third-party-pcbdoc-02": {"hole_to_hole": 1},
+    "altium-third-party-pcbdoc-03": {"hole_to_hole": 1},
+    "altium-third-party-pcbdoc-04": {"edge_clearance": 2, "annular_width": 1, "hole_to_hole": 1},
+    "altium-third-party-pcbdoc-05": {"edge_clearance": 1, "annular_width": 2, "hole_to_hole": 1},
+    "altium-third-party-pcbdoc-06": {"edge_clearance": 1, "hole_to_hole": 1},
+    "altium-third-party-pcbdoc-07": {"edge_clearance": 3, "annular_width": 1, "hole_to_hole": 1},
 }
-"""Row → the rules of the three kinds of c0084 that its records give (census of 2026-10-06)."""
+"""Row → the rules of the three kinds of c0084 that its records give (census of 2026-10-06; change c0377
+added the edge clearance scoped `not InNet(...)` of the fourth row and the annular ring scoped `NOT IsVia`
+of the fifth, scopes in lower and upper case; change c0424 maps the Hole To Hole Clearance that allows
+stacked micro vias, one record in each row but the fifth, and keeps its record; change c0462 maps the edge
+clearance of the seventh row whose matrix holds entries for text alone, with a rule of 0 for text)."""
 C0084 = ("edge_clearance", "hole_to_hole", "annular_width")
 
 
@@ -103,22 +110,28 @@ CLEARANCE = {
     "altium-third-party-pcbdoc-03": (2, 1, {}),
     "altium-third-party-pcbdoc-04": (1, 0, {"scope": 1}),
     "altium-third-party-pcbdoc-05": (1, 0, {}),
-    "altium-third-party-pcbdoc-06": (0, 0, {"keys": 2}),
+    "altium-third-party-pcbdoc-06": (0, 0, {"matrix-kind": 1, "keys": 1}),
     "altium-third-party-pcbdoc-07": (2, 0, {"scope": 1}),
-    "altium-third-party-pcbdoc-08": (1, 0, {"scope": 3}),
+    "altium-third-party-pcbdoc-08": (3, 0, {"matrix-kind": 1}),
 }
 """Row → its Clearance records that map, that apply to nothing, and that stay unread by reason (census of
 2026-10-06; before change c0125 the third row had none mapped and three unread; before change c0130 the
-eighth had none mapped, with two matrices and two scopes unread)."""
+eighth had none mapped, with two matrices and two scopes unread; change c0377 maps two more of the
+eighth, whose scopes join `InNet` and `IsVia` with `or` and `AND`; change c0462 reads the matrix of the second
+row, whose surface and through-hole pads differ (the record stays unread: it leaves out the pads of one
+footprint), and refuses those of the sixth, where an arc and a track
+differ, and of the eighth, where a fill and a region do, which was refused for its scope before: the copper
+check sees each pair as one kind)."""
 CELL = {"CELLROWNAME": "All", "CELLROWTYPE": "0", "CELLCOLNAME": "All", "CELLCOLTYPE": "0"}
 CELLS: dict[str, list[tuple[int, int, int] | None]] = {
-    "altium-third-party-pcbdoc-02": [None],
+    "altium-third-party-pcbdoc-02": [(12, 18, 9)],
     "altium-third-party-pcbdoc-06": [None],
-    "altium-third-party-pcbdoc-08": [(1, 1, 0), (5, 7, 1)],
+    "altium-third-party-pcbdoc-08": [(1, 1, 0), None],
 }
-"""Row → for each of its Clearance matrices in record order: ``None`` when object kinds of one item kind
+"""Row → for each of its Clearance matrices in record order: ``None`` when object kinds of one neutral kind
 disagree, else the cell rules it gives, the entries a rule holds and the entries none holds (change
-c0130; census of 2026-10-07)."""
+c0130; census of 2026-10-07; change c0462 splits the pads of the second row and lifts the fills and
+regions, so the eighth row's second matrix is refused)."""
 
 
 @pytest.mark.parametrize("item", DOCUMENTS, ids=lambda item: item.id)
@@ -163,7 +176,7 @@ def test_clearance_forms(item: CorpusItem) -> None:
             found = read_matrix(matrix, generic)
             cells = CELLS[item.id].pop(0)
             if isinstance(found, str):
-                assert cells is None and "hold more than one value" in found, (item.id, index, found)
+                assert cells is None and "as one kind" in found, (item.id, index, found)
                 assert matrix_problem(matrix, generic) == found
             else:
                 assert cells == (len(found.cells), found.judged, len(found.unjudged)), (item.id, index)

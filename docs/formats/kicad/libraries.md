@@ -141,6 +141,7 @@ the writer appends one `model` child per placement after the footprint's other c
 | fact | source | label | hypothesis |
 |---|---|---|---|
 | The offset is in mm in the footprint's frame with Y up (the board's −Y) and Z up from the face; `rotate` Z turns the model clockwise seen from above. Measured with `kicad-cli pcb export vrml` 10.0.7: a footprint at (10, 20) of a 30 × 30 board with offset (1, 2, 3) and rotate (0, 0, 90) puts the model at (−4, −3) around the board centre (VRML's Y up), 3 mm above the top face, turned by −90° about Z. The writer therefore writes the model's −Y and the negated angles; the turns about X and Y are not measured. A VRML shape without an appearance is not exported With `kicad-cli` 9.0.9 the same export placed no model (CI job `kicad-9`, 2026-10-28), so the frame is measured on 10.0.x only. | S-0001, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.7; 2026-10-28; test_library_fidelity.py) | H-K-MODEL-PLACE |
+| The whole pose (change c0423): KiCad puts a model point `p` at `T(x, −y, face) · Rz(θ) · F · (Rz(−c) · Ry(−b) · Rx(−a) · p + o)`, `(a, b, c)` the `rotate` values and `o` the `offset` (Y up). The turn about X is applied first, then Y, then Z, each clockwise seen from its positive axis. The offset is added after the turns. `F` is the identity on the top and a half turn about X on the bottom, `(x, y, z) → (x, −y, −z)`. `θ` is the footprint's angle as written, counter-clockwise in a Y-up view, on either side. A model's Z is measured from the face where KiCad seats models: 0.085 mm beyond the 1.51 mm board body that the export writes for a 1.6 mm board, on each side. Measured with `kicad-cli pcb export stl --user-origin 0x0mm` on 28 authored probe boards. They cover both sides, angles 0° and 25°, offset (1, 2, 3) and seven `rotate` values. Every one of the model's six distinct vertices fits within 1 µm on 9.0.9 and 10.0.6, and the case turned about all three axes rules out the five other orders. The writer's negated angles therefore give `Rz(rz) · Ry(ry) · Rx(rx)` of `ModelPlacement`'s own counter-clockwise angles, the order of Altium's (`H-A-BODY-MODEL-PLACE`) | S-0001, S-1820 | KICAD-VERIFIED (9.0.x, 10.0.x; 2026-11-05; test_model_pose.py) | H-K-MODEL-POSE |
 
 ## Symbol libraries
 
@@ -443,6 +444,8 @@ row on the models of an install stays `INFERRED`: its test runs only where an in
 | A model that is not found gives the two lines `Could not add 3D model for <ref>.` and `File not found: <path as written>` on standard output for each footprint, a STEP without that body and exit 0 | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-MODELS |
 | With `--subst-models`, a `.wrl` path whose file is present gives the body of its `.step` sibling; with only the sibling present nothing is substituted and the model counts as not found; without the option a present `.wrl` exits 2 with the board alone | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-MODELS |
 | A STEP holds one `NEXT_ASSEMBLY_USAGE_OCCURRENCE` named after the reference for each footprint whose model was added | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-MODELS |
+| A built project reads `${KIPRJMOD}/<rel>` from its own folder, not from the folder of the design script: the board that `fenolite build` made from a design imported from Altium (the `<library>.3dshapes` folder beside the script) gave `Could not add 3D model` for 15 of its 15 models, and a STEP with the board alone, until the build copied the files (change c0458); then 0 of 15 | S-2170, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-11-06) | H-K-EXPORT-MODELS |
+| KiCad's 3D viewer of that built board is expected to miss the same models: `KIPRJMOD` names the folder of the open project, for every path that uses it; the GUI was not probed | S-0045 | INFERRED | H-K-EXPORT-MODELS |
 
 Fenolite's choices on top of these facts:
 
@@ -543,12 +546,35 @@ above.
   opaque child holding the token is removed, with the warning `kicad.footprint.dropped-too-new`. Any
   other error aborts. A definition read from a 10.0 file may be written for target 9 when every
   fragment passes.
+- **Rounded pads of an authored definition (c0260).** A definition without a slot list (the DSL, the
+  catalog, the footprint generators) gets the authored child order of `prepare_authored_definition`; a
+  `roundrect` pad with `Pad.corner_ratio` then gets `(roundrect_rratio R)` after `layers`, `R` the ratio
+  in parts per million written as an exact decimal (S-0001: a scaling factor between 0 and 1). A pad
+  without the field gets no child, so earlier authored definitions keep their bytes. Each path of `models`
+  of an authored definition is written as a `model` child with the identity placement (offset and rotation
+  0, scale 1; "Model placement" above), kept as an opaque child as a read `model` is; no authored
+  definition named a model before, so none changes. The footprints of
+  every generator record load in `fp export svg` and read back with equal pads after `fp upgrade
+  --force` on 10.0.6 for targets 9 and 10 (`tests/kicad/libs/test_generated_footprints.py`, 2026-10-30;
+  KiCad 9 in CI).
 - **Board footprints as definitions.** `mod.board_footprints(source)` reads every footprint of a board
   as a definition, with the board's version policy and locators `/kicad_pcb/footprint[i]/…`. The
   library is the lib_id text before its first colon (`""` without a colon). Board-only children (`at`,
   `path`, `sheetname`, `sheetfile`, the placement `uuid`, pad `net`, `pinfunction`, `pintype`) are
   opaque slots, and coordinates and angles are taken as stored. Two placements of one footprint give
   equal ids, so such definitions serve round trips and comparisons, not a `Library`.
+
+- **Import-only physical pad annotations (c0355).** Existing native pad slots retain
+  `pinfunction` and `pintype` verbatim. The importer restores those exact source children across its
+  known local-frame transformation before deriving explicit physical definitions; complete ordered
+  pad identities/cardinality bind every occurrence, including duplicate numbers. It never obtains
+  these children from deduplicated Component.Pin values. Existing full native definition signatures
+  separate different annotation presence/values into variants. Generic library extraction still
+  removes circuit annotations. S-1294 authored controls load on native9.0.9 and10.0.6; native10 save
+  retains the nonempty/unknown/passthrough values and explicit passive, but omits the independently
+  authored empty `pinfunction`. This native serialization observation does not remove that explicit
+  empty child from imported raw definitions or generated board output. Evidence: KICAD-VERIFIED
+  for the stated native observations only; no cache-filler equivalence follows.
 
 | code | severity | when |
 |---|---|---|

@@ -21,8 +21,10 @@ import pytest
 from _cliexamples import PLANS_NOTHING, PREPARED, folder_snapshot, prepare_example
 from _fakecli import EXAMPLE_NETLIST, fake_kicad_cli
 
+from fenolite.cli import api as cli_api
 from fenolite.cli.api import Command, Context, Result, discover, module_name_for
 from fenolite.cli.main import main
+from fenolite.cli.results import RESULTS, schema_id
 
 COMMANDS = discover()
 NAMES = sorted(COMMANDS)
@@ -30,11 +32,15 @@ SOURCE_WRITERS = frozenset({"sync"})
 """Mutating commands that write beside their input instead of under the working directory, so an example
 would write into the package folder: each runs the mutation protocol in its own tests, on a copy."""
 MUTATING = sorted(n for n, c in COMMANDS.items() if c.mutates and n not in SOURCE_WRITERS)
-ENVELOPE = _schema.load("fenolite.envelope.v0.json")
-ERROR = _schema.load("fenolite.error.v0.json")
 CapSys = pytest.CaptureFixture[str]
 EXAMPLE_TOOLS = frozenset({"kicad-cli"})
 """The external tools a command may name in ``example_tools``; the suites hold a fake for each."""
+
+
+@pytest.fixture(autouse=True)
+def strict_evidence_contract(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Every consistency example checks evidence before any plan or output write."""
+    monkeypatch.setenv("FENOLITE_CONTRACT_CHECK", "1")
 
 
 def unknown_tools(command: Command) -> list[str]:
@@ -67,14 +73,15 @@ def _invoke(capsys: CapSys, argv: list[str]) -> tuple[int, str, str]:
 def _assert_envelope(name: str, out: str) -> dict[str, Any]:
     assert out.endswith("\n") and out.count("\n") == 1, "stdout must be one JSON document plus newline"
     data = json.loads(out)
-    assert _schema.validate(data, ENVELOPE) == [], _schema.validate(data, ENVELOPE)
-    assert data["command"] == name and data["schema"] == f"fenolite.{name}.v0"
+    schema = _schema.load(f"fenolite.envelope.{cli_api.CONTRACT_VERSION}.json")
+    assert _schema.validate(data, schema) == [], _schema.validate(data, schema)
+    assert data["command"] == name and data["schema"] == f"fenolite.{name}.{cli_api.CONTRACT_VERSION}"
     return data
 
 
 def _assert_error(err: str, exit_code: int) -> dict[str, Any]:
     data = json.loads(err)
-    assert _schema.validate(data, ERROR) == []
+    assert _schema.validate(data, _schema.load(f"fenolite.error.{cli_api.CONTRACT_VERSION}.json")) == []
     assert int(data["code"][4]) == exit_code
     return data
 
@@ -101,21 +108,56 @@ def test_help(name: str, capsys: CapSys) -> None:
 
 
 @pytest.mark.parametrize("name", NAMES)
-def test_json_envelope(name: str, capsys: CapSys) -> None:
+@pytest.mark.parametrize("contract_version", ["v0", "v1"])
+def test_json_envelope(
+    name: str, capsys: CapSys, contract_version: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(cli_api, "CONTRACT_VERSION", contract_version)
     code, out, err = _invoke(capsys, [name, *COMMANDS[name].example_args, "--json"])
     assert code == 0, err
     data = _assert_envelope(name, out)
     assert data["ok"] is True and err == ""
 
 
+@pytest.mark.parametrize("contract_version", ["v0", "v1"])
+def test_active_error_schema(capsys: CapSys, contract_version: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(cli_api, "CONTRACT_VERSION", contract_version)
+    code, out, err = _invoke(capsys, ["_echo", "--issue", "error", "--json"])
+    assert code == 5
+    _assert_envelope("_echo", out)
+    _assert_error(err, code)
+
+
 def result_schema(name: str) -> dict[str, Any] | None:
     """The schema of the ``result`` of command ``name``, when ``schemas/fenolite.<name>.v0.json`` exists
     (capability design-equivalence, "Equivalent result schema"; change c0158)."""
-    path = _schema.SCHEMAS / f"fenolite.{name}.v0.json"
+    path = _schema.SCHEMAS / f"fenolite.{name}.{cli_api.CONTRACT_VERSION}.json"
     return _schema.load(path.name) if path.is_file() else None
 
 
 RESULT_SCHEMAS = sorted(name for name in NAMES if result_schema(name) is not None)
+
+
+def missing_result_schemas(commands: dict[str, Command]) -> list[str]:
+    return sorted(
+        name
+        for name, command in commands.items()
+        if not command.hidden and (name not in RESULTS or result_schema(name) is None)
+    )
+
+
+def test_every_visible_command_has_a_result_descriptor() -> None:
+    assert missing_result_schemas(COMMANDS) == [], "visible command lacks a result schema"
+
+
+def test_new_command_without_result_descriptor_is_named() -> None:
+    toy = dataclasses.replace(COMMANDS["_echo"], name="authored", help="Authored")
+    assert missing_result_schemas({"authored": toy}) == ["authored"]
+
+
+def test_missing_generated_result_file_is_named(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(_schema, "SCHEMAS", tmp_path)
+    assert missing_result_schemas({"bom": COMMANDS["bom"]}) == ["bom"]
 
 
 def test_equivalent_has_a_result_schema() -> None:
@@ -129,8 +171,8 @@ def test_result_validates(name: str, capsys: CapSys) -> None:
     assert code == 0, err
     data = _assert_envelope(name, out)
     schema = result_schema(name)
-    assert schema is not None and schema["$id"] == f"fenolite.{name}.v0"
-    assert _schema.validate(data["result"], schema) == []
+    assert schema is not None and schema["$id"] == schema_id(name, cli_api.CONTRACT_VERSION)
+    assert _schema.validate(data["result"], _schema.closed(schema)) == []
 
 
 @pytest.mark.parametrize("name", RESULT_SCHEMAS)
@@ -140,7 +182,7 @@ def test_result_schema_refuses_an_unknown_key(name: str, capsys: CapSys) -> None
     result = json.loads(out)["result"]
     schema = result_schema(name)
     assert schema is not None
-    problems = _schema.validate({**result, "extra": 1}, schema)
+    problems = _schema.validate({**result, "extra": 1}, _schema.closed(schema))
     assert problems and any("extra" in problem for problem in problems), problems
 
 

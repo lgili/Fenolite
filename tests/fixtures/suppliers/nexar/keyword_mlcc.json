@@ -1,0 +1,39 @@
+{
+  "_fixture": {
+    "SPDX-License-Identifier": "CC0-1.0",
+    "authored": "Authored for Fenolite; fictional names, values, tokens and links; no supplier response."
+  },
+  "data": {
+    "supSearch": {
+      "results": [
+        {
+          "part": {
+            "mpn": "EX03R104KAT",
+            "manufacturer": {
+              "name": "Example Passive"
+            },
+            "sellers": [
+              {
+                "company": {
+                  "name": "Example Seller"
+                },
+                "offers": [
+                  {
+                    "inventoryLevel": 12345,
+                    "prices": [
+                      {
+                        "quantity": 1,
+                        "price": 0.25,
+                        "currency": "USD"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "clean_after": true,
+  "command": "make check-fast PYTEST_MAX_WORKERS=4",
+  "driver_sha256": "d350075e33d34aca87c3b0af4884f376747fffdb0fbf5d52e9603802bba24a9e",
+  "exit": 2,
+  "head_unchanged": true,
+  "log_sha256": "0a7bd93fb7bb7987ba61aafac75ff91a454d2c653d0dc3a5b35144a9936e07db",
+  "schema": "fenolite.local-fast-gate.v0",
+  "seconds": 1529.7767786660115,
+  "source_commit": "b1e9349a1de97a2597eae3eb788c3308fb745983",
+  "pytest_failed": 7,
+  "pytest_passed": 22399,
+  "pytest_skipped": 52,
+  "pytest_seconds": 1427.65,
+  "outcome": "failed",
+  "remediation_commits": [
+    "250041e7",
+    "9ff58f57"
+  ],
+  "later_combined_fast": "fast15 on9ff58f57, still in progress; no success inferred"
+}

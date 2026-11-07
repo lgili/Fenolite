@@ -190,6 +190,39 @@ def test_altium_mechanical_layers() -> None:
     assert dict(result.board.layers[-1].ext["kicad"].payload)["user_name"] == "Mech.2"
 
 
+def test_altium_drill_layers_take_user_rows() -> None:
+    """Change c0428: drawings on the drill drawing and drill guide layers are written on user rows named
+    after them, after the mechanical layers, and none is a ``graphic`` loss."""
+    import dataclasses
+
+    from _convert import two_layer
+
+    from fenolite.convert.altium_to_kicad import Ledger, map_layers
+    from fenolite.core.coords import Point
+    from fenolite.model.board import Graphic
+
+    design = two_layer()
+    assert design.board is not None
+    graphics = tuple(
+        Graphic(
+            id=f"gra-{i}", kind="line", layer=layer, points=(Point(0, 0), Point(1000000, 0)), width=100000
+        )
+        for i, layer in enumerate(("Altium.DrillDrawing", "Mech.3", "Altium.DrillGuide"))
+    )
+    design = dataclasses.replace(design, board=dataclasses.replace(design.board, graphics=graphics))
+    ledger = Ledger()
+    result = map_layers(design, 10, ledger)
+    assert result.board is not None
+    assert [g.layer for g in result.board.graphics] == ["User.3", "User.1", "User.2"]
+    assert not ledger.lost.get("graphic")
+    names = {layer.name: dict(layer.ext["kicad"].payload).get("user_name") for layer in result.board.layers}
+    assert (names["User.1"], names["User.2"], names["User.3"]) == (
+        "Mech.3",
+        "Altium.DrillGuide",
+        "Altium.DrillDrawing",
+    )
+
+
 @pytest.mark.parametrize("count", (0, 1, 3, 5))
 def test_altium_odd_layers(count: int) -> None:
     from dataclasses import replace
@@ -212,11 +245,13 @@ def test_altium_odd_layers(count: int) -> None:
 
 
 def test_altium_keepout_closed_and_open() -> None:
+    """A closed outline of width 0 is one rule area; a line drawn with a width is the band it covers (change
+    c0407: it was a loss, "a keep-out line that encloses no area"); a line of width 0 covers no area."""
     import dataclasses
 
     from _convert import two_layer
 
-    from fenolite.convert.altium_to_kicad import Ledger, keepouts
+    from fenolite.convert.altium_to_kicad import KEEPOUT_AREA, KEEPOUT_BAND, KEEPOUT_NO_AREA, Ledger, keepouts
     from fenolite.core.coords import Point
     from fenolite.model.board import Graphic
 
@@ -236,15 +271,117 @@ def test_altium_keepout_closed_and_open() -> None:
         points=(Point(2000000, 0), Point(3000000, 0)),
         width=100000,
     )
-    design = dataclasses.replace(design, board=dataclasses.replace(design.board, graphics=(polygon, line)))
+    thin = dataclasses.replace(line, id="gra-thin", width=0)
+    graphics = (polygon, line, thin)
+    design = dataclasses.replace(design, board=dataclasses.replace(design.board, graphics=graphics))
     ledger = Ledger()
     result = keepouts(design, ledger)
     assert result.board is not None
-    area = result.board.keepouts[-1]
+    area, band = result.board.keepouts[-2:]
     assert area.outline == polygon.points
-    assert area.no_tracks and area.no_vias and area.no_copper_pour
+    assert area.no_tracks and area.no_vias and area.no_pads and area.no_copper_pour
+    ys = [p.y for p in band.outline]
+    xs = [p.x for p in band.outline]
+    assert (min(ys), max(ys), min(xs), max(xs)) == (-50000, 50000, 1950000, 3050000)
+    assert band.no_tracks and band.no_vias and band.no_pads and band.no_copper_pour  # pads: change c0410
     assert not result.board.graphics
-    assert ledger.lost["graphic"]["a keep-out line that encloses no area"] == [line.id]
+    assert ledger.changed["graphic"][KEEPOUT_AREA] == [polygon.id]
+    assert ledger.changed["graphic"][KEEPOUT_BAND] == [line.id]
+    assert ledger.lost["graphic"][KEEPOUT_NO_AREA] == [thin.id]
+
+
+def test_altium_keepout_restrictions_reach_the_rule_areas() -> None:
+    """Scenario "A keep-out forbids what its value forbids" (change c0420, N2 and N3): the rule area of a
+    keep-out of the Keep-Out layer forbids the kinds of its record's restrictions value alone (1 vias, 2
+    tracks, 4 poured copper, 8 with 16 pads); a drawing without a value forbids all four (change c0410)."""
+    import dataclasses
+
+    from _convert import two_layer
+
+    from fenolite.convert.altium_to_kicad import Ledger, keepouts
+    from fenolite.core.coords import Point
+    from fenolite.model.board import Graphic
+
+    design = two_layer()
+    assert design.board is not None
+    square = (Point(0, 0), Point(1000000, 0), Point(1000000, 1000000), Point(0, 1000000))
+
+    def drawn(ident: str) -> Graphic:
+        return Graphic(id=ident, kind="polygon", layer="Altium.KeepOut", points=square, width=0)
+
+    graphics = tuple(drawn(ident) for ident in ("gra-7", "gra-24", "gra-8", "gra-none"))
+    design = dataclasses.replace(design, board=dataclasses.replace(design.board, graphics=graphics))
+    result = keepouts(design, Ledger(), {"gra-7": 7, "gra-24": 24, "gra-8": 8})
+    assert result.board is not None
+    held = [(k.no_vias, k.no_tracks, k.no_copper_pour, k.no_pads) for k in result.board.keepouts[-4:]]
+    assert held == [
+        (True, True, True, False),
+        (False, False, False, True),
+        (False, False, False, False),
+        (True, True, True, True),
+    ]
+
+
+def test_altium_keepout_restrictions_are_read_from_the_source_records(tmp_path: Path) -> None:
+    """Change c0420, N2 and N3: ``keepout_restrictions`` reads the restrictions value of each keep-out of the
+    Keep-Out layer from its record in the source document, by the drawing's locator; the keep-out tracks of
+    the authored document hold 31, every restriction. A document whose bytes changed gives none."""
+    import hashlib
+
+    import _altium_keepouts as cases
+
+    from fenolite.backends.altium.adapter import import_board
+    from fenolite.backends.altium.read.pcb import read_pcbdoc
+    from fenolite.convert.altium_to_kicad import keepout_restrictions
+    from fenolite.convert.sources import SourceProject
+
+    data = cases.keepout_document()
+    path = tmp_path / "k.PcbDoc"
+    path.write_bytes(data)
+    design = import_board(read_pcbdoc(data), file="k.PcbDoc", sha256=hashlib.sha256(data).hexdigest())
+    source = SourceProject(
+        given=path, path=path, root=tmp_path, backend="altium", kind="pcbdoc", design=design
+    )
+    assert design.board is not None
+    drawn = [g.id for g in design.board.graphics if g.layer == "Altium.KeepOut"]
+    assert keepout_restrictions(source, design) == dict.fromkeys(drawn, 31) and len(drawn) == 4
+    path.write_bytes(data + b"\0")
+    assert keepout_restrictions(source, design) == {}
+
+
+def test_altium_keepout_track_ring_is_four_bands() -> None:
+    """B1 (change c0407): a closed ring of keep-out tracks on the Keep-Out layer keeps out the band of each
+    track, one rule area per track on every copper layer, as KiCad 10.0.6 imports it; the inside of the ring
+    stays free. The keep-out track and the polygon cut-out on Top are the adapter's rule areas."""
+    import hashlib
+
+    import _altium_keepouts as cases
+
+    from fenolite.backends.altium.adapter import import_board
+    from fenolite.backends.altium.read.pcb import read_pcbdoc
+    from fenolite.convert.altium_to_kicad import KEEPOUT_BAND, Ledger, keepouts
+    from fenolite.core.coords import Point
+    from fenolite.geometry import Location, point_in_ring
+
+    data = cases.keepout_document()
+    design = import_board(read_pcbdoc(data), file="k.PcbDoc", sha256=hashlib.sha256(data).hexdigest())
+    ledger = Ledger()
+    result = keepouts(design, ledger)
+    assert result.board is not None
+    adapter, bands = result.board.keepouts[:2], result.board.keepouts[2:]
+    assert sorted(k.layers for k in adapter) == [("F.Cu",), ("F.Cu",)]
+    assert len(bands) == 4 and all(k.layers == ("F.Cu", "B.Cu") for k in bands)
+    assert all(k.no_vias and k.no_tracks and k.no_copper_pour and k.no_pads for k in bands)
+    assert len(ledger.changed["graphic"][KEEPOUT_BAND]) == 4
+    mm = 1_000_000
+    for band in bands:
+        xs, ys = [p.x for p in band.outline], [p.y for p in band.outline]
+        spans = sorted((max(xs) - min(xs), max(ys) - min(ys)))
+        assert abs(spans[0] - cases.RING_WIDTH) <= 4 and abs(spans[1] - 11 * mm) <= 4
+    lo_x = min(p.x for k in bands for p in k.outline)
+    lo_y = min(p.y for k in bands for p in k.outline)
+    centre = Point(lo_x + 5 * mm + cases.RING_WIDTH // 2, lo_y + 5 * mm + cases.RING_WIDTH // 2)
+    assert all(point_in_ring(centre, k.outline) == Location.OUTSIDE for k in bands)
 
 
 def test_altium_zone_arc_outline() -> None:
@@ -267,7 +404,10 @@ def test_altium_zone_arc_outline() -> None:
     assert all(abs(p.x) <= radius and (p.x**2 + p.y**2) <= (radius + 1) ** 2 for p in ring)
 
 
-def test_altium_zone_without_outline_source_is_dropped() -> None:
+@pytest.mark.parametrize("points", [0, 1, 2])
+def test_altium_zone_without_outline_source_is_dropped(points: int) -> None:
+    """A zone of fewer than 3 points (none, or the 1 or 2 that a record of coinciding vertices gives, change
+    c0428) and no record is dropped, never written as it is."""
     import dataclasses
     from pathlib import Path
 
@@ -279,13 +419,44 @@ def test_altium_zone_without_outline_source_is_dropped() -> None:
 
     design = two_layer()
     assert design.board is not None
-    empty = Zone(id="zon-arc", outline=(), name="pour", layers=("F.Cu",))
+    from fenolite.core.coords import Point
+
+    outline = tuple(Point(k, k) for k in range(points))
+    empty = Zone(id="zon-arc", outline=outline, name="pour", layers=("F.Cu",))
     design = dataclasses.replace(design, board=dataclasses.replace(design.board, zones=(empty,)))
     source = SourceProject(Path("x.PcbDoc"), Path("x.PcbDoc"), Path("."), "altium", "altium_pcbdoc", design)
     ledger = Ledger()
     result = zone_outlines(source, design, ledger)
     assert result.board is not None and not result.board.zones
     assert ledger.lost["zone"][ZONE_NO_OUTLINE] == ["zon-arc"]
+
+
+def test_altium_zone_without_area_is_a_change(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A zone whose polygon record encloses no area pours no copper: it is left out as a ``changed`` zone,
+    not a loss, so the conversion needs no ``--allow-lossy`` for it (change c0428)."""
+    import dataclasses
+    from pathlib import Path
+
+    from _convert import two_layer
+
+    import fenolite.convert.altium_to_kicad as a2k
+    from fenolite.convert.sources import SourceProject
+    from fenolite.core.coords import Point
+    from fenolite.core.provenance import Provenance
+    from fenolite.model.board import Zone
+
+    design = two_layer()
+    assert design.board is not None
+    where = Provenance(backend="altium", file="x.PcbDoc", file_sha256="0" * 64, locator="Polygons6/Data#0")
+    flat = Zone(id="zon-flat", outline=(Point(1, 1),), name="pour", layers=("F.Cu",), provenance=where)
+    design = dataclasses.replace(design, board=dataclasses.replace(design.board, zones=(flat,)))
+    source = SourceProject(Path("x.PcbDoc"), Path("x.PcbDoc"), Path("."), "altium", "altium_pcbdoc", design)
+    monkeypatch.setattr(a2k, "_source_document", lambda *args: object())
+    monkeypatch.setattr(a2k, "polygon_outline", lambda document, locator: ((), a2k.ZONE_NO_AREA))
+    ledger = a2k.Ledger()
+    result = a2k.zone_outlines(source, design, ledger)
+    assert result.board is not None and not result.board.zones
+    assert ledger.changed["zone"][a2k.ZONE_NO_AREA] == ["zon-flat"] and not ledger.lost["zone"]
 
 
 @pytest.mark.parametrize("target", (9, 10))

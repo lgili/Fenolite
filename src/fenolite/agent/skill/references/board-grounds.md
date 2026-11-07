@@ -103,6 +103,9 @@ fenolite pads board R10 --json
 - **Stitch the planes of a domain** with vias along their edges and through their area, so that the two
   faces act as one.
 - **Do not stitch across domains.** A stitching via in the gap between two domains is a second tie.
+- **`role_copper(ground_layers=...)` pours a plane per ground layer** (`B.Cu` on 2 layers, `In1.Cu` on 4)
+  and stitches the planes at `stitch_pitch` (5 mm, at least two vias per overlap); pick a pitch from your
+  highest significant frequency, not from the default.
 
 ```fenolite-cmd
 fenolite analyze board.kicad_pcb --kinds returns --net CLK --net SPI_* --via-distance 1mm --json

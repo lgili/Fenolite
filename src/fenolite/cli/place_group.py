@@ -8,7 +8,8 @@ and a grid of shifts (change c0227; capability layout-reuse, "Group moves", "Cop
 The move is one ``geometry.Transform``: a turn about a point, or a shift. Each part's new placement is the
 move composed with its placement (``reuse.moved_placement``), so a part on the bottom turns the right way.
 The copper that moves is each joined group of a net, built without fills, that holds a pad of the group
-and no other pad, and each zone whose stored fill joins pads of the group only. Every moved pad is
+and no other pad, and each zone whose stored fill joins pads of the group only; the vias in its pads and
+the track ends on them are dragged with it (change c0432). Every moved pad is
 measured against the move of its old position, and the copper check with the project's rules compares the
 board before and after. ``cmd_place`` judges the layout with its legality check and plans the write.
 """
@@ -34,6 +35,7 @@ from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.trig import FULL_TURN, ONE, QUARTER_TURN
 from fenolite.core.units import Nm, Udeg, parse_angle, round_half_even_div
+from fenolite.geometry import Thick, thick_bbox, thick_touch
 from fenolite.geometry.transform import Transform
 from fenolite.model.board import Arc, Track, Via, Zone, ZoneFill
 from fenolite.model.design import Design
@@ -41,7 +43,7 @@ from fenolite.model.library import FootprintDef
 from fenolite.placement.codes import issue
 from fenolite.reuse import Placement, moved_placement
 from fenolite.tidy import fresh_clashes
-from fenolite.tidy.graph import groups, net_pieces
+from fenolite.tidy.graph import Piece, groups, net_pieces
 
 HYPOTHESIS = "H-G-GROUP-MOVE"
 """The register row that a group moved by composing one rigid transform with each part's placement keeps
@@ -194,6 +196,10 @@ def _moved_item(item: Copper, move: Transform) -> Copper:
     )
 
 
+moved_item = _moved_item
+"""The image of a track, arc, via or zone under a move (change c0255: a block moved in a build)."""
+
+
 def moving_copper(design: Design, pads: Sequence[BoardPad], members: Collection[str]) -> frozenset[str]:
     """The ids of the tracks, arcs, vias and zones that move with the footprints ``members``: each joined
     group of a net, without fills, that holds a pad of them and no other pad, and each zone whose stored
@@ -220,6 +226,70 @@ def moving_copper(design: Design, pads: Sequence[BoardPad], members: Collection[
                 elif not with_fills and piece.kind in ("track", "arc", "via"):
                     found.add(piece.ident)
     return frozenset(found)
+
+
+def _touches(shape: Thick, layer: str, pieces: Sequence[Piece]) -> bool:
+    box = thick_bbox(shape)
+    for piece in pieces:
+        for at, other in piece.shapes:
+            if at != layer:
+                continue
+            near = thick_bbox(other)
+            if box.x0 <= near.x1 and near.x0 <= box.x1 and box.y0 <= near.y1 and near.y0 <= box.y1:
+                if thick_touch(shape, other):
+                    return True
+    return False
+
+
+def dragged(
+    design: Design, pads: Sequence[BoardPad], members: Collection[str], whole: Collection[str]
+) -> tuple[frozenset[str], dict[str, tuple[bool, bool]]]:
+    """The copper dragged by the footprints ``members`` (change c0432), besides the items ``whole`` that
+    move whole: the vias whose copper touches a pad of a member and no pad of another part, and per track
+    whether its start and its end touch such a pad or such a via. A dragged end moves with the group; the
+    track's other end stays. Arcs are not dragged."""
+    board = design.board
+    if board is None:
+        return frozenset(), {}
+    owner = {record.pad_id: record.footprint_id for record in pads}
+    group = set(members)
+    tracks = {track.id: track for track in board.tracks}
+    shaped = net_pieces(design, pads)
+    vias: set[str] = set()
+    ends: dict[str, tuple[bool, bool]] = {}
+    for net, held in shaped.pieces.items():
+        if net in shaped.unsupported:
+            continue
+        ours = [p for p in held if p.kind == "pad" and owner.get(p.ident) in group]
+        if not ours:
+            continue
+        theirs = [p for p in held if p.kind == "pad" and owner.get(p.ident) not in group]
+        for piece in held:
+            if piece.kind != "via" or piece.ident in whole:
+                continue
+            if any(_touches(s, at, ours) for at, s in piece.shapes) and not any(
+                _touches(s, at, theirs) for at, s in piece.shapes
+            ):
+                vias.add(piece.ident)
+        anchors = [*ours, *(p for p in held if p.kind == "via" and p.ident in vias)]
+        for piece in held:
+            if piece.kind != "track" or piece.ident in whole:
+                continue
+            track = tracks[piece.ident]
+            start = _touches(Thick((track.start,), track.width), track.layer, anchors)
+            end = _touches(Thick((track.end,), track.width), track.layer, anchors)
+            if start or end:
+                ends[piece.ident] = (start, end)
+    return frozenset(vias), ends
+
+
+def _dragged_track(track: Track, move: Transform, ends: tuple[bool, bool]) -> Track:
+    start, end = ends
+    return dataclasses.replace(
+        track,
+        start=move.apply(track.start) if start else track.start,
+        end=move.apply(track.end) if end else track.end,
+    )
 
 
 def without(design: Design, items: Collection[str]) -> Design:
@@ -306,6 +376,7 @@ def plan_group(
         return plan
     assert design.board is not None
     copper = moving_copper(design, pads, members)
+    drag_vias, drag_ends = dragged(design, pads, members, copper)
     placed = design
     moved: list[str] = []
     footprints = {fp.id: fp for fp in design.board.footprints}
@@ -335,13 +406,23 @@ def plan_group(
     if moved:
         board = dataclasses.replace(
             board,
-            tracks=tuple(_moved_item(t, move) if t.id in copper else t for t in board.tracks),  # type: ignore[misc]
+            tracks=tuple(
+                _moved_item(t, move)  # type: ignore[misc]
+                if t.id in copper
+                else _dragged_track(t, move, drag_ends[t.id])
+                if t.id in drag_ends
+                else t
+                for t in board.tracks
+            ),
             arcs=tuple(_moved_item(a, move) if a.id in copper else a for a in board.arcs),  # type: ignore[misc]
-            vias=tuple(_moved_item(v, move) if v.id in copper else v for v in board.vias),  # type: ignore[misc]
+            vias=tuple(
+                _moved_item(v, move) if v.id in copper or v.id in drag_vias else v  # type: ignore[misc]
+                for v in board.vias
+            ),
             zones=tuple(_moved_item(z, move) if z.id in copper else z for z in board.zones),  # type: ignore[misc]
         )
         placed = dataclasses.replace(placed, board=board)
-        plan.copper = copper
+        plan.copper = copper | drag_vias | frozenset(drag_ends)
     plan.moved = tuple(moved)
     plan.design = placed
     after: dict[tuple[str, str], list[BoardPad]] = {}
@@ -495,6 +576,7 @@ __all__ = [
     "PAD_TOLERANCE",
     "GroupOptions",
     "GroupPlan",
+    "dragged",
     "given",
     "implied",
     "moving_copper",

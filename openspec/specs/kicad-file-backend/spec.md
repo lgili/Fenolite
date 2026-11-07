@@ -2,9 +2,7 @@
 
 ## Purpose
 Read KiCad board files into the neutral model without losing anything: typed reading of `.kicad_pcb` from KiCad 8.0 on with slots (modelled, projected and opaque children kept in place), the version policy, layers, nets in both forms, the pad frame, zones and rule areas, exact numbers, stable ids, a closed set of issue codes, a synthesised circuit, and the same-version rebuild (RT1). Facts and sources: `docs/formats/kicad/board.md`.
-
 ## Requirements
-
 ### Requirement: Board file reading
 `fenolite.backends.kicad.pcb.read_board(source, *, file="", issues=None)` SHALL accept an `os.PathLike` (a `.kicad_pcb` file), a `str` (file text) or a parsed `Node`, and SHALL return a `Design`.
 - `header.name` MUST be the file stem for a path and `""` otherwise.
@@ -471,7 +469,7 @@ For a created design, `write_board` SHALL emit exactly the root head set of c000
 - `(setup (pad_to_mask_clearance 0))`, with the node of "Stack-up written to boards" as the first child of `setup` when `Board.stackup` is set, and followed inside `setup`, after `pad_to_mask_clearance`, by the children of "Via protection defaults on boards" when `Board.via_protection` is not `None`;
 - for target 9 only, the net table.
 
-The content follows in `CANONICAL_ORDER`. `pcb.CREATED_ROOT_HEADS` MUST stay the head set of a created board without a title block; `pcb.CANONICAL_ORDER["kicad_pcb"]` MUST hold `title_block` right after `paper`, and `pcb.CANONICAL_ORDER["title_block"]` MUST be `("title", "date", "rev", "company", "comment")`. `fenolite.backends.kicad.layers.CREATED_COPPER_COUNTS` MUST be `(2, 4, 6, 8)`. For each of these counts, `fenolite.backends.kicad.layers.created_layers(copper)` MUST return the two-copper-layer set recorded in `docs/formats/kicad/board.md` with the rows of `layers.inner_rows(copper)` inserted right after `F.Cu`: one row `(2k + 2, "In<k>.Cu", signal)` without a user name for each inner layer k = 1 … copper − 2, in that order. The numbers are those of the 9.0 scheme (`F.Cu` 0, `B.Cu` 2, `In<k>.Cu` 2k + 2, `Edge.Cuts` 25), the rows are the same for targets 9 and 10 (`H-K-PCB-LAYERS`), and each layer's `kicad` bag holds the KiCad number, type and user name. Any other `copper` value, an odd count included, MUST raise `ValueError` naming the counts. `layers.created_count(names)` MUST return the count whose created table has exactly the copper layer names `names`, in table order, and `None` when no count of `CREATED_COPPER_COUNTS` has them. Every head and field name the writer can create MUST match a row of the token inventory, appear in c0007's skeleton, or be listed in `pcb.FLOOR_HEADS`: a closed tuple of names that the 8.0 board format already has, each recorded in `docs/formats/kicad/board.md` with its source and written by the created test board that the triad oracle loads on both majors. `FLOOR_HEADS` MUST include `title_block`, `title`, `date`, `rev`, `company` and `comment` (S-0001; S-0033 at tag 8.0.0), and `stackup`, `color`, `material`, `epsilon_r`, `loss_tangent`, `copper_finish` and `dielectric_constraints` (S-0021, S-0058); `type` is not listed, because the skeleton holds it already and `FLOOR_HEADS` is disjoint from the skeleton. `tests/_boards.py::created_board()` MUST set `SheetFrameRef("A4")`, a `TitleBlock` whose seven fields are non-empty, and, for every created copper count, a `Stackup` with a dielectric of two sheets, a colour, a material and both decimals, so the created test board writes them.
+The content follows in `CANONICAL_ORDER`. `pcb.CREATED_ROOT_HEADS` MUST stay the head set of a created board without a title block; `pcb.CANONICAL_ORDER["kicad_pcb"]` MUST hold `title_block` right after `paper`, and `pcb.CANONICAL_ORDER["title_block"]` MUST be `("title", "date", "rev", "company", "comment")`. `fenolite.backends.kicad.layers.CREATED_COPPER_COUNTS` MUST hold every even count from 2 to 32 (change c0277), and 1 exactly when `H-K-PCB-ONE-COPPER` records that both majors load a one-copper table; the table of 1 is the two-copper table without the `B.Cu` row. For each of these counts, `fenolite.backends.kicad.layers.created_layers(copper)` MUST return the two-copper-layer set recorded in `docs/formats/kicad/board.md` with the rows of `layers.inner_rows(copper)` inserted right after `F.Cu`: one row `(2k + 2, "In<k>.Cu", signal)` without a user name for each inner layer k = 1 … copper − 2, in that order. The numbers are those of the 9.0 scheme (`F.Cu` 0, `B.Cu` 2, `In<k>.Cu` 2k + 2, `Edge.Cuts` 25), the rows are the same for targets 9 and 10 (`H-K-PCB-LAYERS`), and each layer's `kicad` bag holds the KiCad number, type and user name. Any other `copper` value, an odd count included, MUST raise `ValueError` naming the counts. `layers.created_count(names)` MUST return the count whose created table has exactly the copper layer names `names`, in table order, and `None` when no count of `CREATED_COPPER_COUNTS` has them. Every head and field name the writer can create MUST match a row of the token inventory, appear in c0007's skeleton, or be listed in `pcb.FLOOR_HEADS`: a closed tuple of names that the 8.0 board format already has, each recorded in `docs/formats/kicad/board.md` with its source and written by the created test board that the triad oracle loads on both majors. `FLOOR_HEADS` MUST include `title_block`, `title`, `date`, `rev`, `company` and `comment` (S-0001; S-0033 at tag 8.0.0), and `stackup`, `color`, `material`, `epsilon_r`, `loss_tangent`, `copper_finish` and `dielectric_constraints` (S-0021, S-0058); `type` is not listed, because the skeleton holds it already and `FLOOR_HEADS` is disjoint from the skeleton. `tests/_boards.py::created_board()` MUST set `SheetFrameRef("A4")`, a `TitleBlock` whose seven fields are non-empty, and, for every created copper count, a `Stackup` with a dielectric of two sheets, a colour, a material and both decimals, so the created test board writes them.
 
 #### Scenario: Head set of a created 2-layer board
 - **GIVEN** a created design whose board has `created_layers(2)` and no content
@@ -492,8 +490,12 @@ The content follows in `CANONICAL_ORDER`. `pcb.CREATED_ROOT_HEADS` MUST stay the
 - **THEN** the copper layers of the first are `F.Cu`, `In1.Cu`, `In2.Cu`, `In3.Cu`, `In4.Cu` and `B.Cu` with KiCad numbers 0, 4, 6, 8, 10 and 2 and the type `signal`, the second adds `In5.Cu` (12) and `In6.Cu` (14) before `B.Cu`, every other row equals the row of `created_layers(2)`, and `created_count` of each table's copper names gives 6 and 8
 
 #### Scenario: Counts outside the table
-- **WHEN** `created_layers(c)` is called for `c` equal to 0, 3, 10 and `True`, and `created_count(("F.Cu", "In1.Cu", "B.Cu"))` is called
-- **THEN** each `created_layers` call raises `ValueError` naming 2, 4, 6 and 8, and `created_count` returns `None`
+- **WHEN** `created_layers(c)` is called for `c` equal to 0, 3, 34 and `True`, and `created_count(("F.Cu", "In1.Cu", "B.Cu"))` is called
+- **THEN** each `created_layers` call raises `ValueError` naming the even counts 2 to 32, and `created_count` returns `None`
+
+#### Scenario: Thirty-two copper layers
+- **WHEN** `created_layers(32)` is called
+- **THEN** the copper layers are `F.Cu` (0), `In1.Cu` (4) to `In30.Cu` (62) and `B.Cu` (2), each `In<k>.Cu` numbered 2k + 2 with the type `signal`, every other row equals the row of `created_layers(2)`, and `created_count` of its copper names gives 32
 
 #### Scenario: Created tokens are known
 - **WHEN** `uv run pytest tests/unit/backends/kicad/test_pcb_write.py -k created_tokens` runs
@@ -1873,7 +1875,8 @@ The shared footprint mapping (`_fpmap`) SHALL model a pad's `(zone_connect N)` a
 
 ### Requirement: Net names in KiCad's stored form
 `fenolite.backends.kicad.netnames` SHALL define `stored_name(name) -> str`, which replaces each `/` by `{slash}`, and `model_name(stored) -> str`, its inverse, and the board reader and writer SHALL use them so that a net name with a slash is stored as KiCad stores a literal slash (`H-K-SCH-SLASH`).
-- **Writing.** `write_board` MUST write a created net with `stored_name(net.name)`, in the net table and in every reference, for both targets. A net read from a file MUST be written with the spelling of its file, so a same-version rebuild stays tree-equal. `pcb.stored_net_name(net)` gives the written name: the stored spelling that the reader kept, else the name itself when the net's id is the one derived from `net:<name>` ("Identifiers of board items"), else `stored_name(net.name)`.
+- **Writing.** `write_board` MUST write a created net with `stored_name(net.name)`, in the net table and in every reference, for both targets. A net read from a file MUST be written with the spelling of its file, so a same-version rebuild stays tree-equal. `pcb.stored_net_name(net)` gives the written name: the stored spelling that the net's `kicad` bag keeps (the reader's, or the build's for a sheet-path net, below), else the name itself when the net's id is the one derived from `net:<name>` ("Identifiers of board items"), else `stored_name(net.name)`.
+- **Sheet-path nets of a drawn build.** A build with a drawn schematic MUST keep, as the `stored` pair of a circuit net's `kicad` bag, the name KiCad gives that net when the drawing has a net of exactly the circuit net's pins whose resolved name is the circuit net's name and splits into one sheet prefix (`/` and the sheet names from the root, each followed by `/`) and one local or hierarchical label text: the prefix with its raw slashes, then `stored_name(<text>)` (`/pic_programmer/VPP_ON`; `H-K-SCH-SLASH`, `H-K-DRAWN-NAMES`; change c0408). A net named by a global label or a power symbol, a split that is not unique, a sheet name holding `/` or `{`, and a net whose bag already keeps a `stored` pair are left as they are. `lens.build.sheet_spellings` computes the pairs from the sheets the build writes; the schematic generator is not involved.
 - **Reading.** `read_board` MUST give a net whose stored name holds `{slash}` the name `model_name(<stored name>)`, MUST keep its id derived from `net:<stored name>`, and MUST keep the stored spelling as the pair `stored` of the net's `kicad` extension bag. The id alone cannot give the spelling back: a net of a sub-sheet whose label text holds a slash is stored with both (`/cpu/A{slash}B`). A stored name without `{slash}` MUST be the net's name unchanged, a leading or inner `/` included: KiCad writes hierarchical net names with raw slashes.
 - **Collision.** When `model_name(<stored name>)` is already the name of another net of the board, the net MUST keep its stored spelling as its name, with one `kicad.board.net-name-collision` info naming both. The code joins the closed table of "Board read issue codes".
 - **Layout matching.** Layout preservation matches nets by model name (`layout-lens`, "Copper items follow their nets"), so copper on a net that an older build stored with a raw slash follows the design net of the same name, and the next write stores it with `{slash}`.
@@ -1907,6 +1910,11 @@ The shared footprint mapping (`_fpmap`) SHALL model a pad's `(zone_connect N)` a
 - **GIVEN** a confirmed blink variant with the net `mod/LED_A`, whose board text is then edited to store that net as `mod/LED_A` with one track on it
 - **WHEN** the build runs again with `--confirm`
 - **THEN** the written board stores the net as `mod{slash}LED_A` with the track on it, and `issues` holds no `layout.net-removed`
+
+#### Scenario: Sheet-path nets of a drawn hierarchy pass parity
+- **GIVEN** the authored drawn fixture `hier` with its nets `IN` and `FB` renamed `/child/IN` and `/child/FB` (named on the child sheet by a hierarchical and a local label) and a root part `J1` whose two pins are named `1` and `2` and are left open, built in the test
+- **WHEN** it is built for the running major and `pcb drc --schematic-parity` runs on the board against the written sheets
+- **THEN** the board holds `/child/IN`, `/child/FB`, `unconnected-(J1-Pad1)` and `unconnected-(J1-Pad2)`, no `{slash}child`, and the parity list is empty; the same board with `/child/FB` respelled `{slash}child{slash}FB` gives at least one `net_conflict`
 
 ### Requirement: ERC report reading
 `fenolite.backends.kicad.erc.read_erc_report(text, *, file="", major=None, issues=None) -> ErcReport` SHALL return an `ErcReport` (`backend-protocol`, "Neutral ERC report") for the JSON text that `kicad-cli sch erc --format json` writes.
@@ -2500,3 +2508,202 @@ A written project file SHALL carry the severities of `RuleSet.severities` (`desi
 - **GIVEN** a model board with one `Hole` of 3.2 mm
 - **WHEN** `write_board` runs
 - **THEN** it raises `LossyWriteError` with `kicad.board.free-hole` and that hint, and no `ValueError`
+
+### Requirement: Tuning profiles for impedance targets
+`fenolite.backends.kicad.tuning.apply_profile_keys(text, design, *, target, issues=None) -> str` SHALL write the impedance targets of the design ("Impedance targets in the rules model") into a project text as KiCad 10 tuning profiles, and `write_triad` SHALL call it after `pro.apply_sheet_keys`, with the same `issues` (an addition to "Generated projects are coherent").
+
+#### Scenario: Detailed contract for tuning profiles for impedance targets
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
+`fenolite.backends.kicad.tuning.apply_profile_keys(text, design, *, target, issues=None) -> str` SHALL write the impedance targets of the design ("Impedance targets in the rules model") into a project text as KiCad 10 tuning profiles, and `write_triad` SHALL call it after `pro.apply_sheet_keys`, with the same `issues` (an addition to "Generated projects are coherent"). For target 10, this requirement takes the key path `/tuning_profiles/tuning_profiles_impedance_geometric` with every path below it, and `/net_settings/classes/*/tuning_profile`, out of the template-value, added-path and keep rules of "Project files are synthesised and preserved".
+- For target 9, and for a design without targets, the text MUST be returned unchanged; the keys stay in `pro.TEN_ONLY_PATHS` ("Project files are gated by target").
+- `tuning.lower_profile(target)` MUST give the entry: `profile_name` the target's name; `type` `0` for `single` and `1` for `differential`; `target_impedance` a `JsonNumber` holding the exact text of `ohms`, or `0` when it is empty; `enable_time_domain_tuning` false; `layer_entries`, one object per layer in stack order with `signal_layer`, `top_reference_layer` (the upper of two references, else `""`), `bottom_reference_layer` (the only or the lower reference), `width` and `diff_pair_gap` as integers of nanometres (`0` for a `single` target) and `delay` `0`; `via_prop_delay` `0`; `via_overrides` empty. No other key MUST be written, and no number MUST come from a `float`.
+- An entry whose `profile_name` equals a target's name MUST be replaced in place; the other targets MUST be appended, sorted by name; every other entry MUST be kept in place, structurally equal and with its number spellings. No entry MUST be deleted. `tuning_profiles.meta` MUST be kept.
+- The class key `tuning_profile` of every class of a target MUST be set to the target's name. When it named another, non-empty profile, `issues` MUST get the warning `kicad.project.profile-reassigned` naming the class, the old name and the new one. The key of a class without a target MUST be kept.
+- `kicad.project.profile-reassigned` (warning) MUST be a row of `proerrors.ISSUE_CODES` (an addition to "Project issue codes").
+
+#### Scenario: Two targets synthesised for target 10
+- **GIVEN** a design with the single target `SE50` (rows `F.Cu` over `In1.Cu` and `B.Cu` over `In2.Cu`, 0.35 mm) and the differential target `USB90` (row `F.Cu` over `In1.Cu`, 0.2 mm, gap 0.15 mm, `ohms` `"90"`)
+- **WHEN** `write_triad(design, name="z", target=10)` runs
+- **THEN** `tuning_profiles_impedance_geometric` holds `SE50` then `USB90`, `USB90` has `type` 1, `target_impedance` written `90`, one entry with `width` 200000 and `diff_pair_gap` 150000, the classes `SE50` and `USB90` name their profiles, and every other key path equals the file written for the same design without targets
+
+#### Scenario: Target 9
+- **WHEN** the same design is written for target 9
+- **THEN** the project has no `tuning_profiles` key and no class key `tuning_profile`, and equals the file written without targets
+
+#### Scenario: Profiles of the user are kept
+- **GIVEN** a target-10 project whose profiles are `GUI_50` (named by class `RF`) and `SE50` (width 0.3 mm), and the design of the first scenario
+- **WHEN** `write_triad(…, existing_project=text, target=10)` runs
+- **THEN** `GUI_50` is kept in place, structurally equal with its number spellings, `SE50` is replaced with width 350000, `USB90` is appended, and the class `RF` still names `GUI_50`
+
+#### Scenario: Class key reassigned
+- **GIVEN** the same project with the class `SE50` naming `GUI_50`
+- **WHEN** it is updated with an `issues` list
+- **THEN** the class `SE50` names `SE50` and `issues` hold one `kicad.project.profile-reassigned` warning naming `SE50` and `GUI_50`
+
+### Requirement: Tuning profiles are read into impedance targets
+`read_project` SHALL also return the tuning profiles of the project in `ProjectInfo.profiles`, and `apply_project` SHALL set `RuleSet.impedance` from them (an addition to "Project files are read into the model").
+
+#### Scenario: Detailed contract for tuning profiles are read into impedance targets
+- **WHEN** this behavior is exercised
+- **THEN** the following detailed conditions MUST hold:
+
+`read_project` SHALL also return the tuning profiles of the project in `ProjectInfo.profiles`, and `apply_project` SHALL set `RuleSet.impedance` from them (an addition to "Project files are read into the model").
+- Each profile named by the class key of at least one class MUST become one `ImpedanceTarget` of those classes, in `classes` order, with an id derived from the profile name: `kind` from `type` (`0` single, `1` differential); `ohms` the exact decimal text of `target_impedance`, `""` for 0; `tolerance_percent` `""`; one `TraceGeometry` per entry, with the non-empty references in stack order, `width` and, for a differential profile, `gap`.
+- An entry that is not an object, lacks a key of the written form, has a width or gap that is not a whole number of nanometres, or names a layer that is not a copper layer of the board MUST be skipped with the info `kicad.project.unread-entry`; a profile left without an entry gives no target.
+- A profile that no class names, and a class key that names no profile, MUST give no target and no issue. The project text is not changed.
+
+#### Scenario: Written targets read back
+- **GIVEN** the files of "Two targets synthesised for target 10"
+- **WHEN** they are read with `read_board`, `read_project` and `apply_project`
+- **THEN** `RuleSet.impedance` holds `SE50` and `USB90` with the written kinds, classes, `ohms`, layers, references, widths and gap, and `tolerance_percent == ""`
+
+#### Scenario: Malformed entry skipped
+- **GIVEN** a project whose profile `SE50` has an entry with `"width": 350000.5`
+- **WHEN** it is applied with an `issues` list
+- **THEN** that entry is not a layer of the target, and `issues` hold one `kicad.project.unread-entry` info naming `SE50`
+
+### Requirement: Coverage items written to boards
+`write_board` SHALL write the items of change c0277 with the tokens recorded in `docs/formats/kicad/board.md` from the KiCad file-format documentation (S-0001): copper texts with `knockout`, graphics with a net, pad trapezoid deltas, chamfers, custom primitives and teardrops, via teardrops, groups, images, radial, leader and centre dimensions, zone arcs, footprint-level overrides, field fonts and model references.
+
+#### Scenario: Read back what was written
+- **GIVEN** the authored design `tests/_boards.py::coverage_board()` holding one of each item
+- **WHEN** it is written for targets 9 and 10 and read with `read_board`
+- **THEN** each modelled item reads back equal, and each item the reader keeps opaque is present once in the text with the written tokens
+
+### Requirement: Coverage tokens are gated by target
+Every token the coverage writer emits SHALL match a row of the token inventory with the majors that know it, and `check_emittable` SHALL refuse a token a target does not know: in modelled content with `LossyWriteError`, never dropped.
+
+#### Scenario: Created coverage tokens are known
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_pcb_write.py -k coverage_tokens` runs
+- **THEN** every head and field the coverage writer can create matches an inventory row, is in `FLOOR_HEADS`, or is in the skeleton
+
+### Requirement: Bottom chamfer corners follow the footprint mirror
+Bottom placement and library derivation SHALL mirror pad chamfer tokens by swapping `top_left` with `bottom_left` and `top_right` with `bottom_right`, preserving ratios and other pad fields. Chamfer tokens MUST NOT cause a flip-unsupported refusal. The mapping MUST be an involution under the existing local-Y mirror.
+
+#### Scenario: Authored corner subsets at rotated placements
+- **WHEN** an authored chamfered pad is placed on the bottom at 0, 30 and 90 degrees and derived back
+- **THEN** its stored corners mirror once and its derived corners and ratios equal the definition
+
+### Requirement: Chamfer flip evidence stays inferred until measured
+A build that places a chamfered definition on the bottom SHALL include inferred chamfer-flip evidence until its oracle is confirmed. Previously supported bottom definitions MUST retain their existing verified flip evidence, and a top placement MUST NOT add the chamfer-flip hypothesis.
+
+#### Scenario: Feature-specific build evidence
+- **WHEN** the same authored chamfered definition is built on either side
+- **THEN** only the bottom build adds the inferred chamfer hypothesis, while a plain bottom definition keeps its prior flip evidence
+
+### Requirement: Board holes as generated footprints in a conversion
+`fenolite.model.holes.hole_footprint(drill, *, length=None, pad=None, courtyard=None, plated=False)` SHALL build the `Fenolite_Holes` footprints that `design.hole` uses, and `fenolite.dsl.holes` SHALL re-export it with the same bytes. A conversion to KiCad SHALL replace each board `Hole` with a board-only footprint of that definition, placed at the hole and turned by its rotation, its library written beside the board.
+
+#### Scenario: Same footprint from a script and a conversion
+- **GIVEN** `design.hole("H1", mm(10), mm(10), drill=mm(1), length=mm(3))` and a model `Hole` of drill 1 mm and length 3 mm at the same place
+- **WHEN** `uv run pytest tests/unit/convert/test_convert_slots.py -k holes` builds the first and converts the second
+- **THEN** both boards hold the footprint `Fenolite_Holes:NPTH_Slot_1x3mm` at the same place with equal pads
+
+### Requirement: Generated outline stroke width
+The KiCad writer SHALL use `Outline.stroke_width` for every generated root line and arc, including lowered cut-outs and slots, or the existing 100000 nm default when absent. It MUST retain the existing geometry, deterministic identifiers and suppression of edges already drawn by footprints. Reading the result MUST preserve the written graphic widths.
+
+#### Scenario: Native line and arc
+- **GIVEN** an authored outline with a nondefault width and both line and arc edges
+- **WHEN** it is written for targets 9 and 10 and read back
+- **THEN** each root edge graphic has the chosen width and the footprint edges keep theirs
+
+### Requirement: Moved footprint field font preservation
+Re-placing a footprint on the same side SHALL retain its existing field `bold`, `italic` and `face` values beside the other placement/appearance fields. Native write/read MUST retain those values. A side change MUST keep the existing library-default policy. Default fields and native byte pins MUST remain unchanged.
+
+#### Scenario: Rotate a manually styled field
+- **GIVEN** an authored board with a manually styled reference field
+- **WHEN** the footprint rotates on the same side and is written and read
+- **THEN** its field position, visibility and font values survive, while a flip retains the existing definition policy
+
+### Requirement: Explicit physical root edges with a logical outline
+
+The writer SHALL accept Board.outline with explicit root edge lines, arcs or unfilled rectangles only when complete deterministic reconstruction from those root edges and the existing footprint edges exactly matches the logical outline's complete edge-text multiset. It SHALL then emit only the explicit root graphics and existing footprint graphics, preserving their geometry and multiplicity without emitting synthetic outline copies. An incomplete, ambiguous, branching or inconsistent reconstruction SHALL be refused. The importer SHALL keep a root Edge.Cuts `gr_rect` that owns the outline as an explicit rectangle, so the board keeps one `gr_rect` instead of four `gr_line`s.
+
+#### Scenario: Nanometre joins in a footprint notch
+
+- GIVEN explicit authored root lines/arcs closed by footprint edges whose adjacent endpoints differ by nanometres
+- WHEN their complete reconstructed outline exactly matches the logical outline and the board is written for target 9 or 10
+- THEN all original root and footprint graphics retain their exact geometry and there are no synthetic root duplicates
+
+#### Scenario: Nearby edges do not prove ownership
+
+- GIVEN an explicit root line one nanometre from an intentionally distinct footprint line
+- WHEN the writer considers the complete physical geometry
+- THEN it preserves the root line or refuses inconsistent geometry and never erases it through cluster coincidence
+
+#### Scenario: A rectangle outline stays a rectangle
+
+- GIVEN a board whose only Edge.Cuts item is one unfilled `gr_rect`
+- WHEN it is imported to Python and built for target 9 or 10
+- THEN the built board holds that one `gr_rect` with its corners and width, and no `gr_line` on Edge.Cuts
+
+### Requirement: Checked native project worksheet resources
+A digest-bound declared project SHALL preserve supported portable worksheet resources
+as exact transitive inputs and output bytes. Both native page-layout scopes SHALL
+remain independent. Every input SHALL be tracked in source provenance and reviewed
+plan dependencies. Unsafe, ambiguous, missing or unsupported resources SHALL refuse
+without output changes; ambient resource discovery SHALL NOT occur.
+
+#### Scenario: PCB-only worksheet survives import
+- **GIVEN** an authored project whose PCB frame names a worksheet and whose schematic frame is empty
+- **WHEN** its complete checked inputs are imported and rebuilt
+- **THEN** the worksheet bytes and PCB reference survive while the schematic reference stays empty
+
+#### Scenario: A reviewed resource changes
+- **WHEN** a worksheet changes after a dry-run plan
+- **THEN** confirmation refuses as stale and writes nothing
+
+#### Scenario: An explicit managed frame replaces native resources
+- **WHEN** design.sheet explicitly supplies the frame
+- **THEN** existing typed precedence remains authoritative without loading obsolete native references
+
+### Requirement: Panel boards written
+A KiCad panel board SHALL hold every item of each copy moved exactly, nets renamed `B<k>/<name>`, uuids derived from the copy ids, the frame and gap rings on `Edge.Cuts` instead of the copies' outlines, score lines on the user layer named `V-Score`, one `Fenolite_Panel:MouseBites_…` footprint per tab of `np_thru_hole` pads, and c0118's fiducial and tooling-hole footprints.
+
+#### Scenario: Panel board of the fixture
+- **GIVEN** `tests/data/panels/tabs.py` (2 × 4 copies of the fixture, tabs, rails with three fiducials and four tooling holes)
+- **WHEN** `uv run pytest tests/unit/panel/test_kicad.py -k fixture` writes and reads the panel board
+- **THEN** it holds 8 × the fixture's footprints plus the tab, fiducial and tooling footprints, every net name starts with `B1/` to `B8/`, and `edge_outline` gives one outer ring and the gap rings
+
+#### Scenario: The board loads in KiCad
+- **WHEN** `uv run pytest tests/kicad/panel/test_panel_board.py -k load` runs in the pinned 9.0.9 and 10.0.6 images
+- **THEN** each board loads, DRC gives no `invalid_outline`, no `unconnected_items` and no finding beyond the copies' own, and the NPTH file holds every mouse-bite and tooling hole
+
+#### Scenario: Panel rebuilds to the same bytes
+- **WHEN** the same panel script is written twice with the same `--seed` and `--timestamp`
+- **THEN** every file keeps its bytes
+
+### Requirement: Net-tie groups of a created footprint
+`write_board` SHALL write the `net_ties` of a footprint it creates whole (one without slots, such as a converted Altium footprint) as one `net_tie_pad_groups` child after `attr`, one string per group with its numbers joined by `", "`, instead of refusing them; the projection rules for a read footprint are unchanged (change c0420, N1).
+
+#### Scenario: A created net tie
+- **WHEN** `uv run pytest tests/kicad/convert/test_a2k_load.py -k net_tie -q` writes a converted footprint with the group `("1", "2")`
+- **THEN** the board holds `(net_tie_pad_groups "1, 2")` after the footprint's `attr`, and `read_board` gives the footprint that group
+
+### Requirement: Corner ratio of a created board pad
+The KiCad board writer SHALL write the `roundrect_rratio` of every created board pad of shape `roundrect`
+whose `Pad.corner_ratio` is set (change c0441), not only beside a chamfer: read back, the pad holds the same
+ratio. A pad read or embedded keeps its shape children in its slots, as before.
+
+#### Scenario: Rounded pads converted from Altium
+- **GIVEN** the authored Altium `routed` sample, whose rounded-rectangle pads have the corner ratio 0.25
+- **WHEN** `uv run pytest tests/unit/convert/test_round_trip_shape.py -k vias` converts it to KiCad and back
+- **THEN** every rounded-rectangle pad of the round trip has the corner ratio of its source, and no pad is
+  lost
+
+### Requirement: Board mask margin in a written board
+The KiCad board writer SHALL write `Board.mask_margin` as `(setup (pad_to_mask_clearance M))` of a board that it writes from the model. With the field `None` or 0 it SHALL write `0`, as before (S-2042; `H-K-VIAPROT-MASK`). A board read from a file keeps its own setup child.
+- KiCad opens an untented via by this value: the opening is the via's diameter plus twice the margin, a negative margin included. A `solder_mask_expansion` rule in the rules file does not change it (KiCad 10.0.6, S-2042).
+
+#### Scenario: A negative margin
+- **GIVEN** a model board with `mask_margin=-101_600`
+- **WHEN** `uv run pytest tests/unit/convert/test_via_mask_c0445.py -k kicad_board` writes it
+- **THEN** its setup holds `(pad_to_mask_clearance -0.1016)`
+
+#### Scenario: The opening KiCad plots
+- **GIVEN** the via bench with one untented via, written with `mask_margin` `None`, 50 000 and -101 600 nm, and once with a rules file whose `solder_mask_expansion` rule selects vias
+- **WHEN** `uv run pytest tests/kicad/vias/test_via_mask_margin_oracle.py` plots `F.Mask` with `kicad-cli pcb export gerbers` 10
+- **THEN** the via's flash is a circle of its diameter, its diameter plus 0.1 mm, and its diameter minus 0.2032 mm, and the rule leaves it at its diameter
+

@@ -18,7 +18,7 @@ from typing import Any, Literal, Protocol, runtime_checkable
 
 from fenolite.core.coords import Point
 from fenolite.core.errors import FormatError, Issue
-from fenolite.core.evidence import Evidence, GraduationHypothesis, GraduationRun, Level
+from fenolite.core.evidence import Evidence, GraduationHypothesis, GraduationRun, Level, strength
 from fenolite.core.units import Nm, Udeg
 from fenolite.model.board import PadKind, Side, ZoneFill
 from fenolite.model.design import Design
@@ -225,6 +225,25 @@ MATRIX_OPERATIONS = ("detect", "read", "write", "roundtrip_exact", "roundtrip_mo
 
 
 @dataclass(frozen=True, slots=True)
+class VersionEvidence:
+    """The declared scope of one format/tool version, with an existing test or recorded kit source."""
+
+    version: str
+    tool: str
+    level: Level
+    source: str
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "level", Level(self.level))
+        for name in ("version", "tool", "source"):
+            if not getattr(self, name).strip():
+                raise ValueError(f"version evidence needs {name}")
+
+    def to_json(self) -> dict[str, str]:
+        return {"version": self.version, "tool": self.tool, "level": self.level.value, "source": self.source}
+
+
+@dataclass(frozen=True, slots=True)
 class MatrixRow:
     """What one backend package does with one file kind, and how well each operation is verified.
 
@@ -245,9 +264,23 @@ class MatrixRow:
     roundtrip_exact: Evidence | None = None
     roundtrip_modified: Evidence | None = None
     experimental: tuple[str, ...] = ()
+    versions: Mapping[str, tuple[VersionEvidence, ...]] = field(
+        default_factory=lambda: dict[str, tuple[VersionEvidence, ...]]()
+    )
 
     def __post_init__(self) -> None:
         where = f"matrix row {self.backend}/{self.kind}"
+        scopes: dict[str, tuple[VersionEvidence, ...]] = {}
+        for operation, items in self.versions.items():
+            if operation not in MATRIX_OPERATIONS or getattr(self, operation) is None:
+                raise ValueError(f"{where}: versions names {operation!r}, whose cell is not set")
+            ordered = tuple(
+                sorted(items, key=lambda item: (item.version, item.tool, item.source, item.level))
+            )
+            if len(set(ordered)) != len(ordered):
+                raise ValueError(f"{where}: versions repeats a scope for {operation}")
+            scopes[operation] = ordered
+        object.__setattr__(self, "versions", MappingProxyType(scopes))
         if self.roundtrip_exact is not None and self.read is None:
             raise ValueError(f"{where}: roundtrip_exact needs read")
         if self.roundtrip_modified is not None and (self.read is None or self.write is None):
@@ -278,7 +311,25 @@ class MatrixRow:
             row[operation] = None if cell is None else cell.label()
         row["verified_by"] = list(self.verified_by())
         row["experimental"] = [o for o in MATRIX_OPERATIONS if o in self.experimental]
+        row["versions"] = {
+            operation: [scope.to_json() for scope in self.versions.get(operation, ())]
+            for operation, _ in self.cells()
+        }
         return row
+
+    def version_problems(self) -> tuple[str, ...]:
+        """Semantic scope rules, checked with the other live declaration rules by matrix.problems."""
+        problems: list[str] = []
+        for operation, cell in self.cells():
+            scopes = self.versions.get(operation, ())
+            if not scopes and strength(cell.level) > strength(Level.INFERRED):
+                problems.append(f"{operation} has no version but claims {cell.label()}")
+            for scope in scopes:
+                if strength(cell.level) > strength(scope.level):
+                    problems.append(
+                        f"{operation} claims {cell.label()} above version {scope.version} ({scope.level})"
+                    )
+        return tuple(problems)
 
 
 def graduated(
@@ -935,7 +986,11 @@ class BodyModel:
     from the face the footprint is on. ``rotation`` holds the angles about x, then y, then z, in a frame of
     the top face: x right, y the board frame's −y, z out of the top face. A model point ``p`` lies at
     ``T(position, face ± z) · F(side) · Rz · Ry · Rx · p``, ``F`` the identity on the top and a half turn
-    about x on the bottom, below the bottom face."""
+    about x on the bottom, below the bottom face.
+
+    ``ident`` and ``checksum`` are the ``ID`` and ``CHECKSUM`` texts of the model's record and
+    ``body_checksum`` the body's ``MODEL.CHECKSUM``, empty where the file holds none (change c0449: a
+    conversion that gives the same bytes back writes them again)."""
 
     locator: str
     name: str
@@ -943,6 +998,25 @@ class BodyModel:
     data: bytes = field(repr=False)
     position: Point
     z: Nm = 0
+    rotation: tuple[Udeg, Udeg, Udeg] = (0, 0, 0)
+    ident: str = ""
+    checksum: str = ""
+    body_checksum: str = ""
+
+
+BodyShape = Literal["extruded", "model", "cylinder", "sphere", "other"]
+
+
+@dataclass(frozen=True, slots=True)
+class BodyForm:
+    """The shape a board file gives one component body, which the model does not carry (change c0423).
+
+    ``locator`` is the provenance locator of the body; ``shape`` is ``extruded`` (a prism over its outline),
+    ``model`` (a 3D model names it), ``cylinder``, ``sphere`` or ``other``; ``rotation`` holds its turns
+    about x, y and z in µdeg, as ``BodyModel.rotation``."""
+
+    locator: str
+    shape: BodyShape
     rotation: tuple[Udeg, Udeg, Udeg] = (0, 0, 0)
 
 
@@ -969,7 +1043,9 @@ class DesignRules:
     the cells of the clearance matrices of those files (clearances per pair of object kinds): those that a
     rule of ``design`` holds, and those that none holds. ``min_edge_clearance`` is the board minimum of the
     copper-to-edge clearance, or ``None``, and ``edge_floor_over_rules`` says whether it also raises the
-    value of a governing ``edge_clearance`` rule (change c0169).
+    value of a governing ``edge_clearance`` rule (change c0169). ``min_hole_clearance`` is the board
+    minimum of the clearance between a drilled hole and copper of another item, or ``None`` (change c0403):
+    a governing ``hole_clearance`` rule replaces it, below and above.
     """
 
     design: Design
@@ -983,6 +1059,10 @@ class DesignRules:
     clearance_cells: tuple[int, int] = (0, 0)
     min_edge_clearance: Nm | None = None
     edge_floor_over_rules: bool = False
+    clearance_tolerance: Nm = 0
+    """How far below the value in force the tool still accepts a gap (change c0281): the copper check
+    reports a pair only when its gap is below ``value − clearance_tolerance``."""
+    min_hole_clearance: Nm | None = None
 
 
 @runtime_checkable
@@ -1302,6 +1382,15 @@ class ModelWriter(Protocol):
 
 
 @runtime_checkable
+class DocumentIntegrity(Protocol):
+    """A backend whose documents have index tables that a check reads without writing (change c0241, the
+    stage ``altium.integrity``). ``integrity_findings`` gives the findings of the PCB document at ``path``
+    and the evidence of its rules; the reader's ``FormatError`` is raised."""
+
+    def integrity_findings(self, path: Path) -> tuple[tuple[Issue, ...], Evidence]: ...
+
+
+@runtime_checkable
 class BodyComparer(Protocol):
     """A model writer that can write component bodies when asked (change c0121). ``body_differences``
     gives the differences of the kind ``body`` between ``model``, the model a build stored, and
@@ -1348,9 +1437,12 @@ __all__ = [
     "BoardFrame",
     "BoardPad",
     "BodyComparer",
+    "BodyForm",
     "BodyModel",
     "BodyModelSource",
+    "BodyShape",
     "CutoutComparer",
+    "DocumentIntegrity",
     "CanaryState",
     "CapabilityReport",
     "Change",
@@ -1427,6 +1519,7 @@ __all__ = [
     "Uncovered",
     "Validation",
     "Validator",
+    "VersionEvidence",
     "WriteResult",
     "ZoneFills",
 ]

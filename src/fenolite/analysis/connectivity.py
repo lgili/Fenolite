@@ -214,12 +214,11 @@ def _spanning(islands: Sequence[Sequence[LinkEnd]]) -> tuple[OpenConnection, ...
     return tuple(tree)
 
 
-def _islands(
+def _groups(
     shapes: Sequence[CopperShape], anchors: _Anchors, joins: Sequence[Collection[tuple[str, str, str]]] = ()
-) -> tuple[list[_Island], int]:
-    """The counted islands of one net (their pads and their ends, sorted) and the number of islands of
-    fills alone. Each set of ``joins`` names items, as ``(kind, entity_id, where)``, that an island of a
-    simulated pour joins."""
+) -> list[list[_Item]]:
+    """The items of one net grouped by the copper that joins them, in a stable order. Each set of ``joins``
+    names items, as ``(kind, entity_id, where)``, that an island of a simulated pour joins."""
     items = _items(shapes, anchors)
     parent = list(range(len(items)))
 
@@ -244,9 +243,18 @@ def _islands(
     groups: dict[int, list[_Item]] = defaultdict(list)
     for index, item in enumerate(items):
         groups[find(index)].append(item)
+    return list(groups.values())
+
+
+def _islands(
+    shapes: Sequence[CopperShape], anchors: _Anchors, joins: Sequence[Collection[tuple[str, str, str]]] = ()
+) -> tuple[list[_Island], int]:
+    """The counted islands of one net (their pads and their ends, sorted) and the number of islands of
+    fills alone. Each set of ``joins`` names items, as ``(kind, entity_id, where)``, that an island of a
+    simulated pour joins."""
     counted: list[_Island] = []
     fill_islands = 0
-    for members in groups.values():
+    for members in _groups(shapes, anchors, joins):
         if not any(item.kind in COUNTED for item in members):
             fill_islands += 1
             continue
@@ -341,6 +349,63 @@ def connectivity(
     return ConnectivityReport(tuple(sorted(rows, key=lambda row: row.name)), issues, evidence)
 
 
+@dataclass(frozen=True, slots=True)
+class NetIsland:
+    """One counted island of a net with what it is made of (change c0280): its pads (``REF-PIN``), its
+    anchors as the ends of ``OpenConnection`` spell them, its items as ``(kind, entity_id)`` (``fill`` for a
+    saved fill, whose entity id is its zone's), and the ids of the zones whose copper (saved fill or
+    simulated pour) belongs to it."""
+
+    pads: tuple[str, ...]
+    ends: tuple[LinkEnd, ...]
+    items: frozenset[tuple[str, str]]
+    zones: frozenset[str]
+
+    def holds(self, end: LinkEnd) -> bool:
+        """Whether ``end`` is one of the island's anchors."""
+        return any(_end_key(own) == _end_key(end) for own in self.ends)
+
+
+def net_islands(
+    design: Design,
+    *,
+    pads: Sequence[BoardPad] | None,
+    nets: Collection[str] | None = None,
+    pour: PourCopper | None = None,
+) -> dict[str, tuple[NetIsland, ...]]:
+    """The counted islands of each net, as ``connectivity`` counts them, with their items and zones (change
+    c0280, for the subjects of ``fenolite route --propose``)."""
+    copper = net_copper(design, pads=pads) if pour is None else pour.copper
+    anchors = _anchors(design, pads)
+    wanted = None if nets is None else set(nets)
+    zone_ids = {z.where: z.zone_id for z in pour.zones} if pour is not None else {}
+    found: dict[str, tuple[NetIsland, ...]] = {}
+    for name, shapes in copper.by_net.items():
+        if wanted is not None and name not in wanted:
+            continue
+        poured = [i for i in pour.islands if i.net == name] if pour is not None else []
+        rows: list[NetIsland] = []
+        for members in _groups(shapes, anchors, [i.joins for i in poured]):
+            if not any(item.kind in COUNTED for item in members):
+                continue
+            keys = {(item.kind, item.entity_id, item.where) for item in members}
+            zones = {item.entity_id for item in members if item.kind == "fill"}
+            for island in poured:
+                if island.joins & keys:
+                    zones.update(zone_ids.get(where, where) for where in island.zones)
+            rows.append(
+                NetIsland(
+                    tuple(sorted(item.where for item in members if item.kind == "pad")),
+                    tuple(sorted((end for item in members for end in _ends(item)), key=_end_key)),
+                    frozenset((item.kind, item.entity_id) for item in members),
+                    frozenset(zones),
+                )
+            )
+        rows.sort(key=lambda island: (island.pads, [_end_key(end) for end in island.ends]))
+        found[name] = tuple(rows)
+    return found
+
+
 __all__ = [
     "COUNTED",
     "EVIDENCE",
@@ -348,6 +413,8 @@ __all__ = [
     "ConnectivityReport",
     "LinkEnd",
     "NetConnectivity",
+    "NetIsland",
     "OpenConnection",
     "connectivity",
+    "net_islands",
 ]

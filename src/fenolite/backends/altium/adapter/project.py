@@ -29,6 +29,7 @@ from fenolite.core.errors import FormatError, Issue
 from fenolite.model.board import Board, FootprintInstance
 from fenolite.model.circuit import Circuit, Component, Net, PinRef
 from fenolite.model.design import Design
+from fenolite.model.presentation import PARAM_NAME, TitleBlock
 from fenolite.model.rules import Rule, RuleSet
 
 KIND = "altium_prjpcb"
@@ -66,10 +67,13 @@ class ProjectInput:
     file: str = ""
     sha256: str = "0" * 64
     extra_boards: int = 0
+    parameters: tuple[tuple[str, str], ...] = ()
+    """The project parameters, ``(name, value)`` in file order (change c0409, B10)."""
 
 
 def _retarget(board: Board, components: dict[str, str], nets: dict[str, str]) -> Board:
-    """``board`` with the component ids of its footprints and every net id replaced by the maps."""
+    """``board`` with the component ids of its footprints and every net id replaced by the maps: of pads,
+    tracks, arcs, vias, zones and copper graphics (a free fill or region on copper, change c0376)."""
 
     def net(value: str | None) -> str | None:
         return None if value is None else nets.get(value, value)
@@ -77,11 +81,13 @@ def _retarget(board: Board, components: dict[str, str], nets: dict[str, str]) ->
     footprints: list[FootprintInstance] = []
     for footprint in board.footprints:
         pads = tuple(dataclasses.replace(pad, net_id=net(pad.net_id)) for pad in footprint.pads)
+        graphics = tuple(dataclasses.replace(g, net_id=net(g.net_id)) for g in footprint.graphics)
         footprints.append(
             dataclasses.replace(
                 footprint,
                 component_id=components.get(footprint.component_id, footprint.component_id),
                 pads=pads,
+                graphics=graphics,
             )
         )
     return dataclasses.replace(
@@ -91,6 +97,7 @@ def _retarget(board: Board, components: dict[str, str], nets: dict[str, str]) ->
         arcs=tuple(dataclasses.replace(item, net_id=net(item.net_id)) for item in board.arcs),
         vias=tuple(dataclasses.replace(item, net_id=net(item.net_id)) for item in board.vias),
         zones=tuple(dataclasses.replace(item, net_id=net(item.net_id)) for item in board.zones),
+        graphics=tuple(dataclasses.replace(item, net_id=net(item.net_id)) for item in board.graphics),
     )
 
 
@@ -199,6 +206,9 @@ def link(circuit: Circuit, by_path: dict[str, str], repeated: set[str], parts: B
     pin_of_pad = {
         cid: {pad: pin for pin, pad in component.pin_pad_map} for cid, component in components.items()
     }
+    # change c0373: a pin that a sheet net holds keeps it; a PCB-only net does not take it too
+    sheet_net = {member: net.name for net in circuit.nets for member in net.members}
+    conflicts: list[str] = []
     for net in parts.nets:
         match = exact.get(net.name)
         if match is None and len(folded.get(net.name.casefold(), [])) == 1:
@@ -219,6 +229,11 @@ def link(circuit: Circuit, by_path: dict[str, str], repeated: set[str], parts: B
             if target in pins_of and pin not in pins_of[target]:
                 continue  # the sheets do not hold this pin; the pad keeps its net on the board
             ref = PinRef(target, pin)
+            held = sheet_net.get(ref)
+            if held is not None:
+                owner = components.get(target)
+                conflicts.append(f"{owner.ref if owner else target}-{pin}: sheets {held!r}, PCB {net.name!r}")
+                continue
             if ref not in members:
                 members.append(ref)
         extra_nets.append(dataclasses.replace(net, members=tuple(members)))
@@ -228,6 +243,16 @@ def link(circuit: Circuit, by_path: dict[str, str], repeated: set[str], parts: B
                 "altium.import.pcb-only-net",
                 f"{len(extra_nets)} net(s) of the PCB document are no net of the sheets; they are added to "
                 "the circuit",
+                parts.board.provenance.file if parts.board.provenance else "",
+            )
+        )
+    if conflicts:
+        shown = "; ".join(sorted(conflicts)[:5]) + ("; …" if len(conflicts) > 5 else "")
+        issues.append(
+            issue(
+                "altium.import.pcb-net-conflict",
+                f"{len(conflicts)} pin(s) are on a net of the sheets and on another net of the PCB document; "
+                f"the circuit keeps the sheets' net and the pad keeps its own on the board: {shown}",
                 parts.board.provenance.file if parts.board.provenance else "",
             )
         )
@@ -248,6 +273,39 @@ def _extra_rules(inputs: Sequence[RulesInput], ids: Ids, issues: list[Issue]) ->
         )
         rules += found.rules
     return tuple(rules)
+
+
+def _with_parameters(
+    board: Board, parameters: Sequence[tuple[str, str]], file: str, found: list[Issue]
+) -> Board:
+    """``board`` with the project parameters as text variables of its title block (change c0409, B10;
+    ``docs/formats/altium/project.md``, ``H-A-RD-PRJ-PARAM``). A parameter whose name is no variable name
+    (``[A-Za-z_][A-Za-z0-9_]*``) is left out with ``altium.import.unmapped``; a later parameter of one name
+    replaces an earlier one."""
+    params: dict[str, str] = {}
+    left: list[str] = []
+    for name, value in parameters:
+        if PARAM_NAME.fullmatch(name):
+            params[name] = value
+        else:
+            left.append(name)
+    if left:
+        listed = ", ".join(repr(name) for name in left)
+        message = f"project parameters without a text variable: {listed}"
+        found.append(issue("altium.import.unmapped", message, file, "a name is [A-Za-z_][A-Za-z0-9_]*"))
+    if not params:
+        return board
+    block = board.title_block or TitleBlock()
+    block = dataclasses.replace(block, params={**params, **block.params})
+    return dataclasses.replace(board, title_block=block)
+
+
+def with_parameters(
+    board: Board, parameters: Sequence[tuple[str, str]], file: str, found: list[Issue]
+) -> Board:
+    """``_with_parameters``: the parameters of the project that holds a board document converted alone
+    (change c0428) join the board as a project's do."""
+    return _with_parameters(board, parameters, file, found)
 
 
 def import_project(project: ProjectInput, *, issues: list[Issue] | None = None) -> Design:
@@ -290,9 +348,10 @@ def import_project(project: ProjectInput, *, issues: list[Issue] | None = None) 
     found.extend(parts.census.issues(board.file))
     circuit, linked = link(built.circuit, built.by_path, built.repeated, parts, found, built.unlinkable)
     rules = (*parts.rules.rules, *_extra_rules(project.rules, ids, found))
+    linked = _with_parameters(linked, project.parameters, project.file, found)
     return Design(
         header=head, circuit=circuit, board=linked, rules=dataclasses.replace(parts.rules, rules=rules)
     )
 
 
-__all__ = ["KIND", "BoardInput", "ProjectInput", "RulesInput", "import_project", "link"]
+__all__ = ["KIND", "BoardInput", "ProjectInput", "RulesInput", "import_project", "link", "with_parameters"]

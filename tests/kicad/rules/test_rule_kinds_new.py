@@ -55,6 +55,22 @@ def test_no_tracks_rule() -> None:
     assert run("dru-kind-no_tracks") == "present"
 
 
+def test_short_allowance() -> None:
+    """A ``clearance`` rule of negative ``min`` between two nets silences ``shorting_items`` for that pair and
+    for no other, and the clearance check of the pair with it (``H-K-SHORT-ALLOW``, change c0465 task 4.2):
+    so ``KIND_SUPPORT["short"]`` stays empty, and a net-pair allowance is ``rules.kind-unchecked``."""
+    plain, ruled = kc.short(False), kc.short(True)
+    for result in (plain, ruled):
+        rb.require_canary(result.report, result.bench)
+    for label in kc.SHORT_LABELS:
+        assert plain.between(label, kc.SHORT_TYPES), f"{label}: no shorting_items without the rule"
+    assert plain.between("short_near", kc.CLEARANCE_TYPES), "the near pair has no clearance violation"
+    assert not ruled.between("short_allow", kc.SHORT_TYPES)
+    assert ruled.between("short_control", kc.SHORT_TYPES)
+    assert not ruled.between("short_near", kc.CLEARANCE_TYPES)
+    assert run("dru-short-allow") == "present" and run("dru-short-allow-clearance") == "absent"
+
+
 def test_courtyard_selection() -> None:
     by_reference, by_member = kc.courtyard("reference"), kc.courtyard("member")
     for result in (by_reference, by_member):

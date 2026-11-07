@@ -89,7 +89,7 @@ def test_directory_layout_and_regeneration(tmp_path: Path) -> None:
     assert sorted(p.name for p in written) == sorted(
         ["meta.json", "circuit.json", "board.json", "rules.json", "manufacturing.json", "findings.json"]
     )
-    assert json.loads((tmp_path / "a" / "meta.json").read_text())["schema_version"] == "0"
+    assert json.loads((tmp_path / "a" / "meta.json").read_text())["schema_version"] == "1.1"
     dump_dir(load_dir(tmp_path / "a"), tmp_path / "b")
     for name in (p.name for p in written):
         assert (tmp_path / "a" / name).read_bytes() == (tmp_path / "b" / name).read_bytes()

@@ -12,13 +12,84 @@ from fenolite.core.ids import derived_id
 from fenolite.core.units import Nm
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.units import as_nm, as_udeg
-from fenolite.model.board import Graphic, Pad, PadFabProperty, Padstack
+from fenolite.model.board import (
+    CHAMFER_CORNERS,
+    MAX_CORNER_RATIO,
+    Graphic,
+    Pad,
+    PadFabProperty,
+    PadPrimitive,
+    Padstack,
+)
 from fenolite.model.library import FootprintDef, FootprintKind
 
 _IDENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.+-]*$")
 _FAB_PROPERTIES: tuple[str, ...] = get_args(PadFabProperty)
 _THROUGH_ONLY = ("castellated", "mechanical")
 """Marks that KiCad's DRC reports as ``padstack`` on a pad that is not ``thru_hole`` (``H-K-PAD-FABPROP``)."""
+
+
+def _pair(value: object, what: str) -> Point:
+    if not isinstance(value, tuple) or len(value) != 2:  # pyright: ignore[reportUnknownArgumentType]
+        raise DslError(f"{what} must be an (x, y) pair of lengths, not {value!r}")
+    return Point(as_nm(value[0], name=what), as_nm(value[1], name=what))  # pyright: ignore[reportUnknownArgumentType]
+
+
+def _stroke(width: object, what: str) -> Nm:
+    if width is None:
+        return 0
+    found = as_nm(width, name=f"{what}: width")
+    if found < 0:
+        raise DslError(f"{what}: width cannot be negative")
+    return found
+
+
+def poly(
+    points: tuple[tuple[object, object], ...], *, width: object = None, fill: bool = True
+) -> PadPrimitive:
+    """A polygon of a custom pad, its corners in the pad's frame (change c0277)."""
+    if not isinstance(points, tuple | list) or len(points) < 3:  # pyright: ignore[reportUnnecessaryIsInstance]
+        raise DslError("poly(): a polygon needs at least three points")
+    corners = tuple(_pair(p, "poly(): point") for p in points)
+    return PadPrimitive("poly", corners, _stroke(width, "poly()"), bool(fill))
+
+
+def segment(start: tuple[object, object], end: tuple[object, object], *, width: object) -> PadPrimitive:
+    """A line of a custom pad from ``start`` to ``end`` (change c0277); ``width`` is positive."""
+    stroke = _stroke(width, "segment()")
+    if stroke <= 0:
+        raise DslError("segment(): width must be positive")
+    return PadPrimitive("segment", (_pair(start, "segment(): start"), _pair(end, "segment(): end")), stroke)
+
+
+def circle(
+    center: tuple[object, object], radius: object, *, width: object = None, fill: bool = True
+) -> PadPrimitive:
+    """A circle of a custom pad (change c0277)."""
+    at = _pair(center, "circle(): center")
+    size = as_nm(radius, name="circle(): radius")
+    if size <= 0:
+        raise DslError("circle(): radius must be positive")
+    return PadPrimitive("circle", (at, Point(at.x + size, at.y)), _stroke(width, "circle()"), bool(fill))
+
+
+def arc(
+    start: tuple[object, object], mid: tuple[object, object], end: tuple[object, object], *, width: object
+) -> PadPrimitive:
+    """An arc of a custom pad through ``mid`` (change c0277); ``width`` is positive."""
+    stroke = _stroke(width, "arc()")
+    if stroke <= 0:
+        raise DslError("arc(): width must be positive")
+    points = (_pair(start, "arc(): start"), _pair(mid, "arc(): mid"), _pair(end, "arc(): end"))
+    return PadPrimitive("arc", points, stroke)
+
+
+def _ratio(value: object, name: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= MAX_CORNER_RATIO:
+        raise DslError(
+            f"{name} must be an int of parts per million from 0 to {MAX_CORNER_RATIO}, not {value!r}"
+        )
+    return value
 
 
 class Footprint:
@@ -43,6 +114,42 @@ class Footprint:
         self._pads: list[Pad] = []
         self._graphics: list[Graphic] = []
         self._net_ties: list[tuple[str, ...]] = []
+        self._sealed: FootprintDef | None = None
+
+    @classmethod
+    def from_package(cls, text: str, *, library: str = "Local", positions: int | None = None) -> Footprint:
+        """A sealed footprint generated from one ``fenolite.package.v0`` record given as ``text`` (change
+        c0260; ``docs/footprint-generators.md``): pads, courtyard, silkscreen, fabrication drawing, bodies
+        and, under ``drawing >= 1``, a STEP model path that ``fenolite build`` fills. ``positions`` picks one
+        position count of a connector series. The DSL reads no file: read the record with ``read_text()``.
+        An unreadable record or an error finding raises ``DslError`` naming its code; adding a pad, a graphic
+        or a net tie raises ``DslError``."""
+        # The one edge from the DSL to the catalog, inside this function (capability package-layering,
+        # "Generated footprints are imported lazily"; change c0260).
+        from fenolite.catalog.footprints import generate, read_package
+        from fenolite.core.errors import FormatError
+
+        if not isinstance(text, str):  # type: ignore[reportUnnecessaryIsInstance]
+            raise DslError("Footprint.from_package() takes the record's text; read it with Path.read_text()")
+        if not isinstance(library, str) or not _IDENT.fullmatch(library):  # type: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"unsafe footprint library name {library!r}")
+        try:
+            result = generate(read_package(text), positions=positions, library=library)
+        except FormatError as error:
+            raise DslError(f"FEN-3004: {error}") from None
+        if result.footprint is None:
+            errors = "; ".join(f"{i.code}: {i.message}" for i in result.issues if i.severity == "error")
+            raise DslError(f"package {result.name or '(series)'} is not drawn: {errors}")
+        defn = result.footprint
+        footprint = cls(library, defn.name, kind=defn.kind, description=defn.description)
+        footprint._sealed = defn
+        return footprint
+
+    def _check_open(self) -> None:
+        if self._sealed is not None:
+            raise DslError(
+                f"footprint {self.lib_id} is generated from a package record and cannot be changed"
+            )
 
     @property
     def lib_id(self) -> str:
@@ -64,11 +171,25 @@ class Footprint:
         rotation: object = 0,
         shared: bool = False,
         fab_property: str | None = None,
+        delta: tuple[object, object] | None = None,
+        chamfer: int | None = None,
+        corners: tuple[str, ...] = (),
+        radius_ratio: int | None = None,
+        anchor: str = "circle",
+        primitives: tuple[PadPrimitive, ...] = (),
     ) -> None:
         """Declare one pad. ``fab_property`` is its fabrication mark (``Pad.fab_property``): ``bga``,
         ``fiducial_global``, ``fiducial_local``, ``test_point``, ``heatsink``, ``castellated``,
         ``mechanical`` or ``press_fit``. The two that KiCad expects on a plated hole (``castellated``,
-        ``mechanical``) are refused on a pad that is not ``thru_hole``."""
+        ``mechanical``) are refused on a pad that is not ``thru_hole``.
+
+        Shaped pads (change c0277): ``shape="trapezoid"`` takes ``delta``, how much the opposite sides differ
+        along x or along y; ``chamfer`` (parts per million of the shorter side, 0 to 500 000) cuts the
+        ``corners`` of a ``rect`` or ``roundrect`` pad (a chamfered ``rect`` is KiCad's ``roundrect`` without
+        rounding); ``radius_ratio`` rounds a ``roundrect`` pad; ``shape="custom"`` takes an ``anchor``
+        (``circle`` or ``rect`` of ``size``) and ``primitives`` made by ``poly``, ``segment``, ``circle``
+        and ``arc`` of this module, in the pad's frame."""
+        self._check_open()
         pad_kind = kind or ("thru_hole" if self.kind == "through_hole" else "smd")
         if pad_kind not in ("smd", "thru_hole", "np_thru_hole"):
             raise DslError(f"unsupported authored pad kind {kind!r}")
@@ -86,8 +207,50 @@ class Footprint:
             raise DslError(f"footprint {self.lib_id}: pad {number!r} is declared twice")
         elif shared and not occurrences:
             raise DslError(f"footprint {self.lib_id}: shared pad {number!r} has no earlier pad")
-        if shape not in ("circle", "rect", "oval", "roundrect"):
+        if shape not in ("circle", "rect", "oval", "roundrect", "trapezoid", "custom"):
             raise DslError(f"unsupported authored pad shape {shape!r}")
+        trapezoid_delta: Point | None = None
+        if shape == "trapezoid":
+            if delta is None:
+                raise DslError(f"pad {number!r}: a trapezoid pad needs delta=(dx, dy)")
+            trapezoid_delta = _pair(delta, f"pad {number!r}: delta")
+            if (trapezoid_delta.x == 0) == (trapezoid_delta.y == 0):
+                raise DslError(f"pad {number!r}: delta changes the pad along x or along y, one of them 0")
+        elif delta is not None:
+            raise DslError(f"pad {number!r}: delta applies only to a trapezoid pad")
+        chamfer_ratio: int | None = None
+        chamfer_corners: tuple[str, ...] = ()
+        if chamfer is not None:
+            chamfer_ratio = _ratio(chamfer, f"pad {number!r}: chamfer")
+            if shape not in ("rect", "roundrect"):
+                raise DslError(f"pad {number!r}: chamfer applies to a rect or roundrect pad, not {shape!r}")
+            if (
+                not corners
+                or any(c not in CHAMFER_CORNERS for c in corners)
+                or len(set(corners)) != len(corners)
+            ):
+                raise DslError(f"pad {number!r}: corners must name some of {', '.join(CHAMFER_CORNERS)}")
+            chamfer_corners = tuple(c for c in CHAMFER_CORNERS if c in corners)
+        elif corners:
+            raise DslError(f"pad {number!r}: corners need chamfer=")
+        corner_ratio: int | None = None
+        if radius_ratio is not None:
+            corner_ratio = _ratio(radius_ratio, f"pad {number!r}: radius_ratio")
+            if shape != "roundrect":
+                raise DslError(f"pad {number!r}: radius_ratio applies only to a roundrect pad")
+        anchor_shape: str | None = None
+        if shape == "custom":
+            if anchor not in ("circle", "rect"):
+                raise DslError(f"pad {number!r}: anchor must be 'circle' or 'rect', not {anchor!r}")
+            shapes = cast("tuple[object, ...]", primitives)
+            if not shapes or not all(isinstance(p, PadPrimitive) for p in shapes):
+                made = "poly(), segment(), circle() or arc()"
+                raise DslError(f"pad {number!r}: primitives must be a non-empty tuple of {made}")
+            anchor_shape = anchor
+        elif primitives:
+            raise DslError(f"pad {number!r}: primitives apply only to a custom pad")
+        if chamfer_ratio is not None and shape == "rect":
+            shape, corner_ratio = "roundrect", 0  # KiCad's chamfered rectangle (S-0058)
         if fab_property is not None and fab_property not in _FAB_PROPERTIES:
             raise DslError(
                 f"unsupported fab_property {fab_property!r}; expected one of {', '.join(_FAB_PROPERTIES)}"
@@ -149,12 +312,19 @@ class Footprint:
                 ),
                 layers=layers or default_layers,
                 fab_property=cast("PadFabProperty | None", fab_property),
+                corner_ratio=corner_ratio,
+                trapezoid_delta=trapezoid_delta,
+                chamfer_ratio=chamfer_ratio,
+                chamfer_corners=chamfer_corners,  # type: ignore[arg-type]
+                anchor_shape=anchor_shape,  # type: ignore[arg-type]
+                primitives=tuple(primitives),
             )
         )
 
     def graphic(
         self, kind: str, *, layer: str, points: tuple[tuple[object, object], ...], width: object
     ) -> None:
+        self._check_open()
         if kind not in ("line", "rect", "circle", "polygon"):
             raise DslError(f"unsupported footprint graphic {kind!r}")
         if not isinstance(layer, str) or not layer:  # type: ignore[reportUnnecessaryIsInstance]
@@ -198,6 +368,7 @@ class Footprint:
         """Declare one net-tie group: pads of different nets that this footprint joins on purpose, through
         overlapping pads or a copper graphic (``docs/dsl.md``, "Net ties"). The copper check then does not
         judge two pads of the group against each other, as KiCad's DRC does not."""
+        self._check_open()
         if len(numbers) < 2:
             raise DslError(f"footprint {self.lib_id}: net_tie() needs at least two pad numbers")
         for number in numbers:
@@ -213,6 +384,8 @@ class Footprint:
     @property
     def definition(self) -> FootprintDef:
         """Immutable library definition used by builders and backend writers."""
+        if self._sealed is not None:
+            return self._sealed
         known = {pad.number for pad in self._pads}
         grouped: set[str] = set()
         for group in self._net_ties:

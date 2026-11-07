@@ -1,0 +1,33 @@
+{
+  "classes": 174,
+  "complete_plans_receipt_sha256": "9f81eac0c6e7395a3ce2acc9cbb772eaabf1de52cf50580a00bbdcefdca48c6b",
+  "fields": 1244,
+  "fixed_extension_keys": 40,
+  "inventory_sha256": "6bacc91998ac1df41a7f568ecd39c7a5c504c83b4583bc387105a8ec4a45bb11",
+  "model1_activated": false,
+  "schemas": {
+    "schemas/fenolite.artifacts.v0.json": "070827300faf99d3dc3cdfe5febb6eff44954275ff9781b5867570e341a1d483",
+    "schemas/fenolite.convert.v0.json": "da245824df6f0bfa97a62cf789c24e78c91f5796c3c40e379be93300a383a47b",
+    "schemas/fenolite.drawn-schematic.v0.json": "409b77b5eb7c7a6d83adb95a53e139bb35eab665245a00723ef4b7c35749ebfe",
+    "schemas/fenolite.envelope.v0.json": "e7c2349886963b39da8dc4b8a4905f06a479c397c1658683c7c5cd451d3c3179",
+    "schemas/fenolite.equivalent.v0.json": "fa6946051b371780cb10a8ee2868a0d91064c179e9c2d5e9d25f69bcec9076cb",
+    "schemas/fenolite.error.v0.json": "4ccca1753323192fd7a0c324a4b35b17e0dda1c1c567e924baa5015b4c4affb2",
+    "schemas/fenolite.import.v0.json": "e0604146a682cc177099606a882de51d56a6723245ed3a74ac8e85a210e996ee",
+    "schemas/fenolite.model.v0/board.json": "40d1b811b40b4d892884235494698f4b8a748f5c1ff58dc38873d42899758a72",
+    "schemas/fenolite.model.v0/circuit.json": "694702ed95be4dd3f670f6c8646958785339b66d0c7bf3122d696baf58d08b82",
+    "schemas/fenolite.model.v0/drawing_sheet.json": "4500bb23a2fce883051f62484f5eaf352a58285035281e51d964a9845ef33e42",
+    "schemas/fenolite.model.v0/findings.json": "3279e1641eca3defc462e40db3694068b7c3522c9390952d379b0b14cd915a8d",
+    "schemas/fenolite.model.v0/library.json": "3ac0fba9963522d4218c273d40b2c98f2214da48cae94afe04c1506d67dd65c7",
+    "schemas/fenolite.model.v0/manufacturing.json": "bc76a1d81fbb814d25589661b0e422e535858e1efb98a9cf46ccb44a9ab61625",
+    "schemas/fenolite.model.v0/meta.json": "1b04ab4e33d308f54713cce5db5abe12d555a17f670a3962ea693c58dbb48557",
+    "schemas/fenolite.model.v0/panel.json": "aaec6f35af4462d7c3ccdb2536a553b479a548dda0715e62848dbdc309ddc819",
+    "schemas/fenolite.model.v0/rules.json": "6fb55b35bbc68e9d521503d10be3f2ec3e0d0b969ed000bf70bc156465c17fab",
+    "schemas/fenolite.model.v0/schematic.json": "a050e795711f85a773670f320e578e010e394acf76523653ccdd35d67d005151",
+    "schemas/fenolite.placement-request.v0.json": "1412d64a0cdf261a06877812db30ab003e4b49ff22cbc3e59a0e82ec007c9b86",
+    "schemas/fenolite.review.v0.json": "755f54e5fb54cfba93017fb95e6ce8e5f46708e9dd2087ec247ab179c2447d7f",
+    "schemas/fenolite.verify-source.v0.json": "facf501e81b2db6a6ec6492a26608aecab21ffc3713a3f350f1679695e9df4f9"
+  },
+  "seconds": 4.25657324999338,
+  "source_commit": "8e42f61deea74b8fdc94e9a2375b12419b61d998",
+  "tool_sha256": "970f9f3fc2683aee675a7bffe45cd3375621c7fd823c038884fd19392e1a0ff0"
+}

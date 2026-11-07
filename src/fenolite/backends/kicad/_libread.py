@@ -200,8 +200,39 @@ class Context:
         return list(split(node, fields, positional=positional, min_version=rule))
 
 
+STROKE_FACE = "KiCad Font"
+"""The face name of KiCad's own stroke font (``board.md``, "Board texts and dimensions of a script"): a font
+that names it is no TrueType font (change c0460)."""
+
+
+def _font_flag(font: Node, name: str) -> bool:
+    """Whether ``font`` sets ``name``: ``(bold yes)`` or ``(bold)`` (KiCad 8 and later), or the bare symbol
+    ``bold`` of KiCad 6 and 7; ``(bold no)`` does not."""
+    for child in font.children:
+        if isinstance(child, Atom) and child.kind == AtomKind.SYMBOL and child.value == name:
+            return True
+        if isinstance(child, Node) and child.name == name:
+            atoms = child.atoms()
+            return not atoms or atoms[0].value == "yes"
+    return False
+
+
+def truetype_font(font: Node | None) -> tuple[str, bool, bool] | None:
+    """The face, bold and italic of a text whose ``font`` names a face (change c0460): a TrueType text of
+    KiCad. ``None`` for KiCad's stroke font (no ``face``, an empty one, or ``STROKE_FACE``), whose bold and
+    italic stay as read in the text's slots."""
+    if font is None:
+        return None
+    face = font.find("face")
+    atoms: tuple[Atom, ...] = face.atoms() if face is not None else ()
+    if not atoms or atoms[0].value in ("", STROKE_FACE):
+        return None
+    return atoms[0].value, _font_flag(font, "bold"), _font_flag(font, "italic")
+
+
 __all__ = [
     "LIB_KEPT_CODE",
+    "STROKE_FACE",
     "Context",
     "InexactValueError",
     "Loaded",
@@ -209,4 +240,5 @@ __all__ = [
     "child_locators",
     "leading_atoms",
     "load_source",
+    "truetype_font",
 ]

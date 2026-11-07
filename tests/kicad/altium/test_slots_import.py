@@ -111,3 +111,44 @@ def test_region_cut_outs_imported_as_edges() -> None:
     found = cases.imported_fixture()
     assert found.code == 0
     assert found.design.board is not None and not found.design.board.keepouts
+
+
+def test_slot_axes_as_kicad_upgrades_them() -> None:
+    """Change c0416: ``fp upgrade`` 10.0.6 of ``slot_library`` and Fenolite's import of it give the same
+    ``norm.slot_form`` (width, length, axis in the footprint's frame) for each of the four slots KiCad
+    encodes, though KiCad holds pads 2 and 6 the other way round (drill and length swapped, the hole turned
+    a quarter). KiCad loses the slots of pads 3 and 4, whose hole rotation is 30°: it reads no drill."""
+    if kicad_cli_major() == 9:
+        pytest.skip("Altium libraries are read by `fp upgrade` from 10.0 on only")
+    import hashlib
+
+    from fenolite.backends.altium.adapter.library import import_footprints
+    from fenolite.backends.altium.read.pcblib import read_pcblib
+    from fenolite.backends.kicad.mod import read_footprint
+    from fenolite.checks.equivalence import norm
+
+    data = cases.slot_library()
+    run = cases.runner().run(
+        ["fp", "upgrade", "-o", "out.pretty", "slots.PcbLib"], files={"slots.PcbLib": data}
+    )
+    assert run.ok, run.stdout + run.stderr
+    (name,) = [n for n in run.outputs if n.endswith(".kicad_mod")]
+    kicad = {pad.number: pad for pad in read_footprint(run.outputs[name].decode()).pads}
+    digest = hashlib.sha256(data).hexdigest()
+    library = import_footprints(
+        read_pcblib(data), name="slots", file="slots.PcbLib", sha256=digest, issues=[]
+    )
+    ours = {pad.number: pad for pad in library.footprints[0].pads}
+    assert [kicad[n].drill for n in ("3", "4")] == [None, None]
+    axes: list[int] = []
+    for number in ("1", "2", "5", "6"):
+        mine, theirs = norm.slot_form(ours[number]), norm.slot_form(kicad[number])
+        assert mine is not None and theirs is not None, number
+        assert all(abs(x - y) <= cases.TOLERANCE for x, y in zip(mine[:2], theirs[:2], strict=True)), number
+        assert mine[2] == theirs[2], number
+        axes.append(theirs[2])
+    assert axes == [0, 90_000_000, 135_000_000, 120_000_000]
+    for number in ("2", "6"):  # held the other way round: the raw fields differ, the slot does not
+        stack, read = ours[number].padstack, kicad[number].padstack
+        assert stack is not None and read is not None
+        assert (ours[number].drill, stack.hole_rotation) != (kicad[number].drill, read.hole_rotation)
