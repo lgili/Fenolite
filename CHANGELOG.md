@@ -6,6 +6,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Board properties on a KiCad 9 save** (c0450 task 4.3): KiCad 9.0.9's own save (`pcbnew.SaveBoard` in the pinned image) keeps the eleven `Fenolite.Altium.*` properties of the KiCad 9 leg of public row `-01` byte for byte (S-2280); `H-K-FENOLITE-PROPS` now holds on 9.0.x and 10.0.x.
+
 ## [0.7.0] - 2026-11-07
 
 ### Added

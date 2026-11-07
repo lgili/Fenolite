@@ -1128,6 +1128,7 @@ A conversion from Altium keeps the data the way back needs in root properties of
 |---|---|---|---|
 | A root `(property "NAME" "VALUE")` written after `setup` loads; `pcb upgrade --force` keeps it after `setup`, with its value, also a value of 80 kB | S-0020 | KICAD-VERIFIED (10.0.6) | H-K-FENOLITE-PROPS |
 | A 10.0.6 re-save writes the board properties sorted by name and keeps each value byte for byte, the four `Fenolite.Altium.*` storage properties of a conversion of public row `-01` among them (the largest 698 048 characters, a 2.3 MB board; change c0450) | S-2092 | KICAD-VERIFIED (10.0.6) | H-K-FENOLITE-PROPS |
+| A 9.0.9 save (`pcbnew.SaveBoard`, the editor's save code; 9.0's `kicad-cli` has no `pcb upgrade`) does the same: it writes the board properties after `setup`, sorted by name, and keeps each value byte for byte, the eleven `Fenolite.Altium.*` properties of the KiCad 9 leg of public row `-01` among them (the largest 698 048 characters; c0450 task 4.3) | S-2280 | KICAD-VERIFIED (9.0.9) | H-K-FENOLITE-PROPS |
 
 `with_carried` writes every `Fenolite.Altium.*` property in name order right after `setup` and changes no
 other byte; `carried` reads them back. Change c0434 writes `Fenolite.Altium.Rules6`

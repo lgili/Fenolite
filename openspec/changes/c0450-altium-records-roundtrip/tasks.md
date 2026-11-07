@@ -35,8 +35,12 @@
 - [ ] 4.2 altium-rounds-2 opens the round trip of row `-01` and of row `-08` in Altium Designer: fills,
   unions, fonts and component classes as in the source (kit request).
   Deferred to v0.8 (coordinator, 2026-11-07): not run before the cut of 0.7.0; the code ships.
-- [ ] 4.3 KiCad 9.0.9 keeps the board properties on a save (maintainer's run).
+- [x] 4.3 KiCad 9.0.9 keeps the board properties on a save (maintainer's run).
   Deferred to v0.8 (coordinator, 2026-11-07): not run before the cut of 0.7.0; the code ships.
+  Done 2026-11-07 at the coordinator's word (S-2280): 9.0's `kicad-cli` has no `pcb upgrade`, so the board code of
+  the pinned 9.0.9 image saved it (`pcbnew.LoadBoard`, `pcbnew.SaveBoard`). The KiCad 9 leg of row `-01`,
+  converted at `d721893cd`, keeps its eleven `Fenolite.Altium.*` properties byte for byte, after `setup` and
+  sorted by name. `H-K-FENOLITE-PROPS` is `KICAD-VERIFIED (9.0.x, 10.0.x)`.
 - [x] 4.4 Mechanical layers above 16 keep their long id: a track, an arc or a fill with the layer byte of
   Mechanical 16 and the long id of Mechanical 17 to 32 comes back from KiCad with that byte and long id, and
   the layer's `LAYERV7_<i>` name and flag come back (S-2282);
