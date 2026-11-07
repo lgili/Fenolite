@@ -63,3 +63,8 @@
 - [ ] 4.1 altium-rounds-2 opens the round trips of rows `-01` and `-04`: Altium lists the source's union
   and TrueType texts (S-2191). Row `-04` at 332b79837: unions and TrueType texts identical, stroke
   `FONTNAME` lost (task 1.4); row `-01` open. Row `-07` at 332b79837: 47 union members became 0 (task 2.4).
+  Row `-08` at bbe4c452b: TrueType texts 857 became 1081 and texts 1742 became 1917. No text changes font
+  type: the source holds 241 texts on long mechanical ids (239 TrueType on Mechanical 20, 2 on Mechanical
+  21) that Altium does not count, and the writer puts them on Mechanical 16, where it does (c0450, long
+  mechanical ids). The written document holds 1081 TrueType records against the source's 1096: 13 texts with
+  CR LF (task 2.5) and 2 footprint texts. Closes with c0450, not here.
