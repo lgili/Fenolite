@@ -250,6 +250,7 @@ A pad whose geometry differs per layer, whose hole is not round or whose copper 
 - `polygon` MUST be `keyhole_ring(outline, holes).ring` ("Keyhole ring of a polygon with holes" of `geometry-kernel`), `outline` and each hole being the region's vertices rounded by "Units and frame", without a repeated last vertex and without repeated neighbours. The copper of a fill is therefore the region's outline without its holes: a point inside a hole is outside the polygon under the non-zero and the even-odd rule, and a region without a hole gives its outline unchanged.
 - A hole that the ring does not hold is not in the model and MUST be counted as `region-holes`: one with fewer than three distinct points or without area, and one that lies outside its outline. The holes outside their outline MUST also give one `altium.import.zone-hole-outside` warning per import, located at `Regions6/Data`, whose message holds the count of such holes and the count of regions that hold them.
 - A polygon of another type (a split plane, a cutout), or on a layer outside the chain, is unmapped.
+- `settings` MUST project the record's island and neck keys (change c0446), every other setting staying at its default: `island_removal` is `never` when `REMOVEDEAD` is `FALSE`; otherwise `below_area` when `REMOVEISLANDSBYAREA` is `TRUE` and `AREATHRESHOLD` is a number, with `min_island_area` that number times 2.54² nm² rounded half to even; otherwise `always`. `min_thickness` is `NECKWIDTHTHRESHOLD` when `REMOVENECKS` is `TRUE` and the width is a positive length. A key that is absent or unreadable leaves its setting at the default. Altium's own thresholds, `below_area` with 2500 mil² (1 612 900 000 000 nm²) and a width of 5 mil, MUST give the default settings: they are the pair the writer gives a zone with the default settings, so either way round a default stays a default.
 
 #### Scenario: Unpoured zones of the routed sample
 - **GIVEN** the PCB document of `tests/data/altium/routed/`, whose two zones are written without poured copper
@@ -270,6 +271,11 @@ A pad whose geometry differs per layer, whose hole is not round or whose copper 
 - **GIVEN** a polygon with three regions: one with a hole that lies wholly outside its outline, one with such a hole and a hole inside its outline, and one with a hole of three equal points
 - **WHEN** it is imported
 - **THEN** the first and the third fill are their region's outline, the second holds its inner hole, one `altium.import.zone-hole-outside` warning located at `Regions6/Data` reports 2 holes of 2 regions, and `region-holes` counts 3
+
+#### Scenario: Island and neck settings of a saved polygon
+- **GIVEN** the polygons of "Thresholds from the zone settings" as written: Altium's own thresholds; `REMOVEISLANDSBYAREA=TRUE` with 0.1 mm² and `NECKWIDTHTHRESHOLD=3.937mil`; and `REMOVEDEAD=FALSE`
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_polygon_thresholds.py -k read` imports them
+- **THEN** the first zone has the default settings; the second `island_removal == "below_area"`, `min_island_area == 100_000_000_000` and `min_thickness == 100_000`; the third `never` with a minimum width of 0.25 mm
 
 ### Requirement: Outline, graphics and texts
 `import_board` SHALL map the board outline and the free primitives that are not copper connections.

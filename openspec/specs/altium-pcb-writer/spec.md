@@ -381,7 +381,7 @@ Each component record SHALL link to the schematic, and each pad SHALL carry its 
 - **THEN** the following detailed conditions MUST hold:
 
 `pcbdoc.write_pcbdoc` SHALL write each `model.board.Zone` of `PcbDocSpec.zones` as one `Polygons6` property record per zone layer, with or without poured copper by its pour mode ("Polygon pour modes"; S-0160, S-0172, S-0174, S-0175, S-0176, S-0195, S-0196, S-0833; `H-A-PCB-CU-REPOUR`).
-- A record MUST hold, in this order: the seven common keys with `LAYER` = the layer text; `PRIMITIVELOCK=TRUE`, `POLYGONTYPE=Polygon`, `POUROVER=TRUE`, `REMOVEDEAD=TRUE` (`FALSE` for a zone whose islands are never removed, change c0085), `GRIDSIZE=20mil`, `TRACKWIDTH=8mil`, `HATCHSTYLE=Solid`, `USEOCTAGONS=FALSE`, `MINPRIMLENGTH=3mil`; per vertex `KIND<k>=0`, `VX<k>`, `VY<k>`, `CX<k>`, `CY<k>`, `SA<k>`, `EA<k>`, `R<k>` as the board outline writes them, the first vertex repeated last; `SHELVED=FALSE`, `RESTORELAYER=UNKNOWN`, `RESTORENET` (empty), `REMOVEISLANDSBYAREA=TRUE`, `REMOVENECKS=TRUE`, `AREATHRESHOLD=250000000000.000000`, `ARCRESOLUTION=0.5mil`, `NECKWIDTHTHRESHOLD=5mil`, `POUROVERSTYLE=1`, `NAME`, `POURINDEX`, `IGNOREVIOLATIONS=FALSE`, `AUTONAME` (only when the name is generated), `OPTIMALVOIDROTATION` (`TRUE` with the pour mode `outline`, `FALSE` with `computed`, change c0215), and `NET` (the net's index; left out without a net).
+- A record MUST hold, in this order: the seven common keys with `LAYER` = the layer text; `PRIMITIVELOCK=TRUE`, `POLYGONTYPE=Polygon`, `POUROVER=TRUE`, `REMOVEDEAD=TRUE` (`FALSE` for a zone whose islands are never removed, change c0085), `GRIDSIZE=20mil`, `TRACKWIDTH=8mil`, `HATCHSTYLE=Solid`, `USEOCTAGONS=FALSE`, `MINPRIMLENGTH=3mil`; per vertex `KIND<k>=0`, `VX<k>`, `VY<k>`, `CX<k>`, `CY<k>`, `SA<k>`, `EA<k>`, `R<k>` as the board outline writes them, the first vertex repeated last; `SHELVED=FALSE`, `RESTORELAYER=UNKNOWN`, `RESTORENET` (empty), `REMOVEISLANDSBYAREA`, `REMOVENECKS=TRUE`, `AREATHRESHOLD`, `ARCRESOLUTION=0.5mil`, `NECKWIDTHTHRESHOLD` (change c0446: a zone whose `settings.island_removal` is `always` and whose `settings.min_thickness` is 0.25 mm, the default settings, keeps `REMOVEISLANDSBYAREA=TRUE`, `AREATHRESHOLD=250000000000.000000` and `NECKWIDTHTHRESHOLD=5mil`, the values the kit verified; any other zone gets `REMOVEISLANDSBYAREA=TRUE` only when `island_removal` is `below_area`, with `AREATHRESHOLD` its `min_island_area` in square file units, 0.0001 mil squared, six decimals rounded half to even, else `FALSE` with `250000000000.000000`, and `NECKWIDTHTHRESHOLD` its `min_thickness` as mil text), `POUROVERSTYLE=1`, `NAME`, `POURINDEX`, `IGNOREVIOLATIONS=FALSE`, `AUTONAME` (only when the name is generated), `OPTIMALVOIDROTATION` (`TRUE` with the pour mode `outline`, `FALSE` with `computed`, change c0215), and `NET` (the net's index; left out without a net).
 - `NAME` MUST be the character codes of the name in decimal, joined by commas. The name is `Zone.name`, or `<net name>_L<layer position, two digits from 01>_P<pour index, three digits>` when it is empty (`NONET` stands for a missing net), in upper case, with `AUTONAME=TRUE`.
 - `POURINDEX` MUST number the records from 0 in the order of falling `Zone.priority`, then net name, first outline point, zone id and stack position, so a zone of higher priority is poured first. `POURINDEX` MUST equal the record's position in `Polygons6`.
 - With the pour mode `outline`, `Regions6` and `ShapeBasedRegions6` MUST hold no region of a polygon (they hold the filled graphics, keep-outs and cut-outs only, and stay empty without them). `Zone.fills` MUST NOT be written in either mode: a computed pour comes from the document ("Poured regions"), never from the model.
@@ -400,6 +400,11 @@ Each component record SHALL link to the schematic, and each pad SHALL carry its 
 - **GIVEN** a zone whose `fills` hold a ring that differs from what the engine pours
 - **WHEN** the document is written with the pour mode `computed`
 - **THEN** the regions of the polygon are the engine's pieces, and no region holds the model's ring
+
+#### Scenario: Thresholds from the zone settings
+- **GIVEN** a zone with the default settings, a zone whose islands are removed below 0.1 mm² with a minimum width of 0.1 mm, and a zone whose islands are never removed
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_polygon_thresholds.py -k written` writes them
+- **THEN** the first record holds `REMOVEISLANDSBYAREA=TRUE`, `AREATHRESHOLD=250000000000.000000` and `NECKWIDTHTHRESHOLD=5mil`; the third `REMOVEDEAD=FALSE`, `REMOVEISLANDSBYAREA=FALSE` and `NECKWIDTHTHRESHOLD=9.8425mil`; the second holds `REMOVEISLANDSBYAREA=TRUE`, `AREATHRESHOLD=15500031000.062000` (Altium's own save of 0.1 mm² holds `15500031000.062008`, which reads as the same square nanometres) and `NECKWIDTHTHRESHOLD=3.937mil`; the board outline's polygon keeps `REMOVEISLANDSBYAREA=TRUE`, `AREATHRESHOLD=250000000000.000000` and `NECKWIDTHTHRESHOLD=5mil`
 
 ### Requirement: Net class records
 `pcbdoc.write_pcbdoc` SHALL write one `Classes6` property record per `pcbdoc.NetClassSpec` of `PcbDocSpec.net_classes`, in name order (S-0160, S-0161, S-0172, S-0174, S-0175, S-0176; `H-A-PCB-CU-CLASS`).
@@ -643,7 +648,7 @@ A hole of the board SHALL be written as a free pad record with a hole and no cop
 - **THEN** a free pad on Multi-Layer with hole shape 2, hole size 2 mm, slot length 12 mm and rotation 30° within the units' rounding is read, without name, net or component
 
 ### Requirement: Component bodies are reported
-The writer SHALL write a component body record for each `ComponentBody` of a footprint of the board that is extruded, has an outline and a height above its standoff, when bodies are asked for (`altium-build`, "Component bodies in an Altium build"), and each other `ComponentBody` SHALL give one `altium.not-lowered` with `where` `body/<id>` that names its height and its reason. No model file is embedded, and no body is written that the model does not hold.
+The writer SHALL write a component body record for each `ComponentBody` of a footprint of the board that is extruded, has an outline and a height above its standoff, when bodies are asked for (`altium-build`, "Component bodies in an Altium build"), and each other `ComponentBody` SHALL give one `altium.not-lowered` with `where` `body/<id>` that names its height and its reason. A model file is embedded only for a model that the caller gives with its data ("Embedded model bodies", change c0449), and no body is written that the model does not hold.
 - `pcbdoc.body_problem(body)` MUST return why a body has no record, or `None`: the kind `model` ("a body that names a 3D model needs the model's data, which the model does not hold"); an outline of fewer than three distinct points ("the body has no outline"); a standoff below the board surface, which no saved extruded body holds; and a height that is not above the standoff in the units of the record. The function reads `kind`, `outline`, `height` and `standoff` of the body as the model holds them and no other field. A body whose footprint is no component of the written document has the reason "its footprint is not written", and a body whose placed outline keeps fewer than three vertices in whole units has no outline: `pcbdoc.place_body` and the lowering decide these two.
 - Without the request (`bodies="off"`, which `fenolite build` gives only with `--altium-bodies off` since change c0155) every body MUST be reported, with the reason "component bodies are not written without --altium-bodies extruded" and the body's height, and no record is written: the document is the document of change c0085.
 - A written body MUST be one record of "Extruded component body records": the component is the body's footprint; the outline is the body's outline placed by the position and rotation that the document gives the footprint's component, without a mirror (the outline of a footprint instance is held as seen from the top, as its pads are); `STANDOFFHEIGHT` and `OVERALLHEIGHT` are `standoff` and `height`; `bottom` is the footprint's side; the identifier is `name`; `MODELID` is `body_model_id(body.id)`.
@@ -1227,4 +1232,82 @@ before.
 - **WHEN** `uv run pytest tests/unit/convert/test_round_trip_texts.py -n 0 -q -k links` converts it to Altium
 - **THEN** the written project holds `Lib_A.PcbLib` with `Mini_LED_THT_3mm` and `Sym_A.SchLib`, the project
   file lists both, and `D1` links them
+
+### Requirement: Embedded model bodies
+`pcbdoc.write_pcbdoc` SHALL write each `PlacedBody` of `PcbDocSpec.bodies` that carries a model (`PlacedBody.model`, change c0449) as a body record that names an embedded model, and SHALL write the models it names into the `Models` storage (`pcb-bodies.md`, "Written form of a model body"; S-0816, S-2080; `H-A-BODY-MODEL-PLACE`).
+- `Models/Data` MUST hold one record per distinct model data, in the order of first use: a 32-bit length and the property text `EMBED=TRUE|MODELSOURCE=Undefined|ID=<id>|ROTX=<x>|ROTY=<y>|ROTZ=<z>|DZ=<dz>|CHECKSUM=0|NAME=<name>` ending in a NUL, with the turns and the rise of the first body that names it (`DZ` as integer file units). `ID` MUST be `pcbrecords.model_id(data)`: a GUID in braces upper-case from the SHA-256 of `fenolite.altium.model:` and the hex SHA-256 of the data. `Models/Header` MUST be the record count as a 32-bit integer, and `Models/<n>` MUST be record `n`'s data deflated by `zlib` at level 6.
+- The body record MUST hold the 34 keys of a saved model body, in order: the first 21 keys of an extruded body, `MODELID` (the record's `ID`), `MODEL.CHECKSUM=0`, `MODEL.EMBED=TRUE`, `MODEL.NAME`, `MODEL.2D.X`, `MODEL.2D.Y`, `MODEL.2D.ROTATION=0.000`, `MODEL.3D.ROTX`, `MODEL.3D.ROTY`, `MODEL.3D.ROTZ`, `MODEL.3D.DZ`, `MODEL.MODELTYPE=1` and `MODEL.MODELSOURCE=Undefined`; `BODYCOLOR3D=8421504`; the turns as degrees in [0, 360) with three decimals; `STANDOFFHEIGHT` MAY be negative. Both body storages MUST hold it, as an extruded body's twin.
+- A spec without a model body MUST write `Models` with `Header` 0 and an empty `Data`, as before.
+- A model whose data is empty, a name that the record cannot hold (empty, or a character other than a letter, a digit, a space or one of `_.()+-`), or an overall height not above the standoff MUST raise `ValueError` naming the body.
+
+#### Scenario: One model named by two bodies
+- **GIVEN** a spec with two components whose bodies carry the same STEP data, the second turned by 90 degrees, and a third body that carries other data
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_model_bodies.py -k records` writes and reads the document
+- **THEN** `Models/Data` holds two records, `Models/Header` is 2, `Models/0` inflates to the first data, the three body records hold `MODEL.MODELTYPE=1` and the `MODELID` of their record, the first record holds the first body's `ROTZ`, and `ComponentBodies6` and `ShapeBasedComponentBodies6` hold three records each
+
+#### Scenario: No model, no entry
+- **WHEN** a spec without a model body is written
+- **THEN** `Models/Header` is 0, `Models/Data` is empty (`test_model_bodies.py -k records`), and the document's bytes equal those written before change c0449 (`uv run python tools/gen_altium_graduation.py --check`)
+
+### Requirement: Keep-out fills of a converted board
+
+The writer SHALL write a rule area named with the marker of a keep-out fill
+(`Altium.KeepOut/flag<r>/fill/<corners>`) as a fill record of its signal layer in the 50-byte form, with the
+keep-out flag and the restriction byte r at 46, of the area's component for an area of a footprint, when the
+area is still its fill's: one layer, what r forbids and no more, and the four corners, a rectangle, as its
+outline. Any other area SHALL stay a keep-out region.
+
+#### Scenario: A keep-out fill comes back as a fill
+
+- **GIVEN** a KiCad board converted from an Altium document with a keep-out fill of a component on the
+  bottom layer with the restriction byte 24
+- **WHEN** the board is converted to Altium
+- **THEN** the document holds one fill record of the component on the bottom layer with the keep-out flag
+  and the byte 24, and no keep-out region in its place
+
+#### Scenario: An edited keep-out fill stays an area
+
+- **GIVEN** the area of a keep-out fill edited to forbid vias too
+- **WHEN** the board is written as an Altium document
+- **THEN** the area is a keep-out region and no fill record is written for it
+
+### Requirement: Kept classes, xSignals and differential pairs
+
+Given carried storages (`PcbDocSpec.kept_storages`), the writer SHALL:
+- write the records of `Classes6.Kept` into `Classes6` after its own, leaving out a record whose kind and
+  casefolded name a written class holds;
+- write the records of `SignalClasses.Kept` after `All xSignals`;
+- write the `Board6.PinPairs` keys in `Board6` in place of `PINPAIRCOUNT=0`;
+- write the records of `DifferentialPairs6` into that storage.
+
+With `Classes6.Kept` given, the writer SHALL NOT write its own sheet component classes. It SHALL NOT write a
+net class without members whose name no rule scope names.
+
+#### Scenario: A class of another kind shares a net class's name
+
+- **GIVEN** a spec with the net class `CELL` and a kept kind-5 class `Cell`
+- **WHEN** the document is written
+- **THEN** `Classes6` holds both
+
+### Requirement: A carried origin keeps the document frame
+
+Given a document origin (`write_design(frame_origin=…)`), the Altium writer SHALL write a board that was
+not read from a PCB document in the document frame, each point at `(x, −y)`, and SHALL write `ORIGINX` and
+`ORIGINY` at that origin. When a point of the outline would lie at a negative coordinate, it SHALL anchor
+the board at its corner as without an origin and record a change of kind `outline`.
+
+#### Scenario: An origin above the corner
+
+- **GIVEN** a board read from KiCad whose outline's low corner is at (25.4 mm, −55.4 mm) in the frame of the
+  design, and the frame origin (25.4 mm, 26.162 mm) in the document's
+- **WHEN** it is written
+- **THEN** the outline's lowest vertex is at 1000 mil, 1000 mil, `ORIGINX` is 1000 mil and `ORIGINY`
+  1030 mil
+
+#### Scenario: A board below KiCad's X axis is anchored
+
+- **GIVEN** a board read from KiCad whose outline lies at positive KiCad Y, and a frame origin
+- **WHEN** it is written
+- **THEN** it is anchored at its corner, `ORIGINX` and `ORIGINY` are 1000 mil, and one `outline` change
+  holds the reason `FRAME_ANCHORED`
 

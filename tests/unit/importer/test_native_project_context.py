@@ -406,8 +406,8 @@ def test_project_context_tool_version_is_neutral_but_native_output_bound(tmp_pat
     code = imported(tmp_path, native_rules=True)
     before = build(tmp_path, code)
     assert before.exit_code == 0, before.error
-    monkeypatch.setattr(convert, "__version__", "0.7.0")
-    monkeypatch.setattr(canonical, "__version__", "0.7.0")
+    monkeypatch.setattr(convert, "__version__", "9.9.9")
+    monkeypatch.setattr(canonical, "__version__", "9.9.9")
     after = build(tmp_path, code)
     assert after.exit_code == 0, after.error
 

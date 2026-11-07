@@ -211,19 +211,24 @@ For each public PCB document of the corpus that the direction writes, the writte
 
 ### Requirement: Mask and paste of imported pads
 A pad read from an Altium document SHALL be given mask and paste layers by its kind when it is converted to KiCad: a surface pad its side's paste and mask layers, a plated or unplated through-hole pad both mask layers and no paste.
-- A manual expansion MUST become the pad's margin, an expansion of 0 included (change c0440: it MUST NOT be left to the board's setting); a rule expansion the margin of the first enabled rule of scope `All`.
+- A manual expansion MUST become the pad's margin, an expansion of 0 included (change c0440: it MUST NOT be left to the board's setting); a rule expansion the margin of the record that governs the pad (change c0462, design D6): the first enabled record of its kind, by priority, whose scope, read with the full grammar and the document, selects the pad. The pad's subject is its net, every net class of the document that holds the net, its component's designator, its one copper layer (a surface pad only), its hole and its pad type. A pad that no record selects gets none.
 - The modes and manual expansions MUST be read from each pad's Altium bag as the source holds it, before the conversion empties the bags of the target (change c0440).
-- A pad that a rule of another scope may govern MUST be a `pad-margin` loss; a rule selecting no pad (`IsVia`) is left out.
+- A pad before whose governing record comes a record that may select it and that the conversion cannot judge for it (a scope outside the grammar, a room, or a layer of a pad with a hole when the rest of the scope does not decide it) MUST be a `pad-margin` loss, and MUST take the governing record's expansion. A record whose scope selects no pad (`IsVia`) is not such a record.
 
 #### Scenario: Openings after conversion
 - **GIVEN** an imported design with a surface pad of manual mask expansion 2 mil, a plated through-hole pad and an unplated hole, all with the paste mode of a rule
 - **WHEN** `uv run pytest tests/unit/convert/test_pad_layers.py` prepares it for KiCad
 - **THEN** the surface pad holds `F.Cu`, `F.Paste` and `F.Mask` with a mask margin of 50 800 nm, the two holes hold both masks and no paste, and the written board loads in `kicad-cli`
 
-#### Scenario: A scoped rule is reported
-- **GIVEN** the same design whose document holds a `SolderMaskExpansion` rule of scope `All` and one of scope `IsPad` that comes first
-- **WHEN** it is prepared
-- **THEN** the rule-mode pads take the `All` rule's expansion and the ledger lists them under `pad-margin`
+#### Scenario: A scoped rule governs the pads it selects
+- **GIVEN** records of scope `InNetClass('Ground')` (1 mil), `InComponent('R1')` (2 mil) and `All` (4 mil), in that order, a net `GND` in the classes `Power` and `Ground`, and a paste record of scope `InNet('VCC') and OnLayer('Layer 1')`
+- **WHEN** `uv run pytest tests/unit/convert/test_expansion_scopes_c0462.py` reads the pads of the document
+- **THEN** the pad of `U1` on `GND` takes 1 mil, the pad of `U1` on `VCC` 4 mil and paste -1 mil, the through-hole pad of `R1` 2 mil, and no pad is listed under `pad-margin`
+
+#### Scenario: A record that cannot be judged is reported
+- **GIVEN** a record whose scope is outside the grammar before the record of scope `All`
+- **WHEN** a rule-mode pad is opened
+- **THEN** it takes the `All` record's expansion and the ledger lists it under `pad-margin`
 
 #### Scenario: A rule of vias is no pad's
 - **GIVEN** the same design whose `SolderMaskExpansion` rule of scope `IsVia` comes before the one of scope `All`
@@ -261,9 +266,7 @@ A pad read from an Altium document SHALL be given mask and paste layers by its k
 
 ### Requirement: Library made from a board
 `fenolite library BOARD --out LIB [--diff LIBRARY]` SHALL write each footprint of a KiCad board, brought back to its origin, rotation 0 and the top side, into the footprint library `LIB` (a `.pretty` folder), under the mutation protocol.
-- Instances of one name that differ MUST be written as `<name>_2` and so on, with `library.instances-differ` (warning).
-  A variant MUST NOT take the name of another footprint of the board, nor of another variant: when `<name>_<n>`
-  is taken, the next free number is used (change c0426), so no two footprints share one file.
+- Instances of one name that differ MUST be written as `<name>_2` and so on, with `library.instances-differ` (warning). A variant MUST take the next suffix that no footprint of the board and no earlier variant holds, so no two written footprints share a name (change c0425).
 - `--diff` MUST report per footprint the kinds that differ and write nothing.
 
 #### Scenario: Silkscreen edited on the board
@@ -276,10 +279,10 @@ A pad read from an Altium document SHALL be given mask and paste layers by its k
 - **WHEN** `fenolite library <board> --out lib.pretty --dry-run --json` runs
 - **THEN** the plan writes `R_0603.kicad_mod` and `R_0603_2.kicad_mod`, and the issues hold one `library.instances-differ`
 
-#### Scenario: A variant name that the board already holds
-- **GIVEN** an authored board with two `R_0603` instances that differ, and a third footprint of its own named `R_0603_2`
-- **WHEN** a library is made from it
-- **THEN** the variant of `R_0603` is `R_0603_3`, `R_0603_2` keeps its own pads, and each of the four footprints has its own file
+#### Scenario: A variant name the board already holds
+- **GIVEN** the authored two-layer board with a second `R_0603` instance whose pad is moved, and its LED footprint renamed `R_0603_2`
+- **WHEN** `uv run pytest tests/unit/library/test_derive.py -k already` derives the library
+- **THEN** the footprints are `R_0603`, `R_0603_2` (the board's own) and `R_0603_3` (the variant of `R_0603`)
 
 ### Requirement: Library command result
 The result of `fenolite library` (schema `fenolite.library.v0`) SHALL hold `board`, `library` and either `footprints` (one row per written footprint: `name`, `source` and `refs`) or, with `--diff`, `drift` (one row per footprint: `name` and `kinds`); that list is paged with `--limit`.
@@ -844,10 +847,15 @@ with a keep-out record, or from a filled shape, SHALL have no such name.
 
 ### Requirement: Mask of imported vias
 A design read from an Altium document SHALL be given, when it is converted to KiCad, `Board.mask_margin` from its untented vias (S-2041, S-2043):
-- Each via that is untented on a side MUST give how far its mask opening extends beyond its copper. In the manual state (2 at offset 66 of its record) that is its own expansion. Otherwise it is the value of the governing via rule: the first enabled `SolderMaskExpansion` record, by priority, of scope `IsVia` or `All`. A record whose scope selects no via is left out. With `SOLDERMASKFROMHOLE=TRUE` the value is measured from the hole: `(drill − diameter) / 2 + expansion`. A via without a value gives none.
-- The board MUST take the most frequent value, the smaller on a tie. Each via with another value MUST be counted `changed` under `via`. So MUST a via that takes the rule while an enabled record of another scope that may select vias comes first.
+- Each via that is untented on a side MUST give how far its mask opening extends beyond its copper. In the manual state (2 at offset 66 of its record) that is its own expansion. Otherwise it is the value of the record that governs the via (change c0462, design D6): the first enabled `SolderMaskExpansion` record, by priority, whose scope, read with the full grammar and the document, selects the via (its net, the net classes that hold it, its hole). With `SOLDERMASKFROMHOLE=TRUE` the value is measured from the hole: `(drill − diameter) / 2 + expansion`. A via without a value gives none.
+- The board MUST take the most frequent value, the smaller on a tie. Each via with another value MUST be counted `changed` under `via`. So MUST a via that takes the rule while an enabled record that the conversion cannot judge for it comes first.
 - With a margin other than 0, a pad that holds a mask layer and no margin of its own MUST get a margin of 0.
 - Converted to Altium, the board's `pad_to_mask_clearance` (0 when absent) MUST become `Board.mask_margin` of the written model.
+
+#### Scenario: A via record of one net
+- **GIVEN** records of scope `InNet('GND')` (2 mil), `IsVia` (1 mil from the hole) and `All` (4 mil), in that order
+- **WHEN** `uv run pytest tests/unit/convert/test_expansion_scopes_c0462.py -k via` reads them
+- **THEN** a via on `GND` takes 2 mil, a via on another net 1 mil from the hole, and a pad on another net 4 mil
 
 #### Scenario: A rule measured from the hole
 - **GIVEN** 20 mil vias with a 10 mil hole in the rule state, under a rule of scope `IsVia` of 1 mil from the hole that comes before one of scope `All` of 3 mil
@@ -896,4 +904,208 @@ item is the name the conversion derived from the source pattern; otherwise neith
 - **GIVEN** the KiCad project of that conversion with `D1` linked to another footprint
 - **WHEN** the same test converts it to Altium
 - **THEN** `D1` holds the conversion's own links, as before
+
+### Requirement: Designators used twice explained by a lost schematic
+When a conversion to KiCad loses the schematic because the imported circuit has duplicate designators, the `schematic` row SHALL explain, besides the components that only a schematic holds, the level 1 `ref-ambiguous` difference at each designator that the source circuit holds more than once (`Explains("schematic", ("component-missing", "ref-ambiguous"), "ref")`).
+
+#### Scenario: Designator used twice
+- **GIVEN** the public Altium blink's design with a second `R1`, made in memory, and a report whose `schematic` row is lost for duplicate designators
+- **WHEN** `uv run pytest tests/unit/convert/test_report.py -k twice` asks its `Explainer`
+- **THEN** the `ref-ambiguous` difference at `R1` (2 in the source, 1 or 0 written) is explained by `schematic`, one at `D1` (held once) is not, and without the lost row nothing is explained
+
+### Requirement: Models of a KiCad board in an Altium target
+The direction from KiCad to Altium SHALL embed each STEP model that a board footprint names and the source project holds, as a model body of that footprint's component ("Embedded model bodies" of `altium-pcb-writer`), and SHALL count every `model` child of a board footprint under the kind `model`: written, changed or lost (S-2080; `H-A-BODY-MODEL-PLACE`, `H-K-MODEL-POSE`).
+- A child is embedded when its path, with `${KIPRJMOD}` or `$(KIPRJMOD)` read as the source project's folder, or relative to that folder, names a file inside it whose bytes start with `ISO-10303-21;`, its scale is 1 on each axis, and `stepbox.model_box` bounds its geometry. Any other child MUST be one `model` loss with its reason: a file that is not found, a path under another variable or outside the project, a KiCad embedded file (`kicad-embed://`), a file that is no STEP text, a scale other than 1, or a STEP whose geometry the reader cannot bound. A child of a footprint that is not written MUST be lost with that reason. A hidden model MUST be written and counted changed ("Altium has no hidden model"). Without `--altium-bodies extruded` (`bodies="off"`) a child that would be embedded MUST be lost with the reason of the bodies, and `Models` stays empty.
+- The pose MUST be the inverse of "Model placement of imported footprints": `MODEL.2D.X/Y` the footprint's placement of the offset (its Y negated on the bottom side), `MODEL.3D.DZ` the offset's Z, and `MODEL.3D.ROTX/Y/Z` the turns of `Rz(−θ')·R`, where `R` is the child's rotation and `θ'` the footprint's rotation on the bottom side and its negation on the top.
+- The outline MUST be the rectangle of the placed model's box in the footprint frame, placed as the footprint's pads are, and `STANDOFFHEIGHT` and `OVERALLHEIGHT` its lowest and highest Z.
+- `stepbox.model_box(data)` MUST give the box, in nanometres in the model's frame, of the vertex points, the points of each circular or elliptic edge where a coordinate is extreme within the edge's span, and the control points of B-spline edges of the STEP text, each scaled by its context's length unit and moved into the root frame by the item-defined transformations of the representation relationships, the component of each relationship taken from the product structure (`H-G-STEP-BOX`); `None` for a text without such geometry.
+
+#### Scenario: A model goes to Altium and comes back
+- **GIVEN** the authored board `tests/data/kicad/convert/roundrect_roundtrip.kicad_pcb` with one footprint on the top turned by 90 degrees and one on the bottom, each naming `${KIPRJMOD}/m.3dshapes/box.step` (a box written by `backends.step` in the test) with an offset, a rise of 0.5 mm and a turn about Z
+- **WHEN** `uv run pytest tests/unit/convert/test_embedded_models.py -k roundtrip` converts it to Altium and the document back to KiCad
+- **THEN** the document holds one `Models` record whose stream inflates to the file's bytes and two model bodies whose outlines and heights are the placed box within 3 nm; the report's row `model` has `written` 2; and the KiCad board of the way back names a file with the same bytes at each footprint with the source's offset within 3 nm and the same turns
+
+#### Scenario: Models that cannot be embedded
+- **GIVEN** footprints that name a missing file, `${KICAD9_3DMODEL_DIR}/x.step`, a `.wrl` file beside the project, a scaled model and `kicad-embed://x.step`
+- **WHEN** `uv run pytest tests/unit/convert/test_embedded_models.py -k losses` converts the board to Altium
+- **THEN** the row `model` has `lost` 5, each with its own reason, `Models` is empty, and the conversion succeeds
+
+#### Scenario: Public rows keep their models
+- **GIVEN** the eight public PCB documents of the corpus manifest
+- **WHEN** each is converted to KiCad and back to Altium
+- **THEN** every model body of the source comes back as a model body whose model inflates to the same STEP text, at the same `MODEL.2D.X/Y` within 2.54 nm (after the board's offset), on the same side, with the same rotation and rise, and with an outline box and heights within the tolerance that `docs/formats/altium/pcb-bodies.md` records for the box reader (S-2081)
+
+### Requirement: Keep-out fills named through KiCad
+
+A conversion of an Altium design to KiCad SHALL name the rule area of each keep-out fill of copper of the
+board and of its footprints `Altium.KeepOut/flag<r>/fill/<x1>/<y1>/…/<x4>/<y4>`, r its restriction byte and
+the numbers its four corners in the frame of the area, when the area is still the fill's.
+
+#### Scenario: A keep-out fill names its rule area
+
+- **GIVEN** an Altium document with a keep-out fill of a component on the bottom layer
+- **WHEN** it is converted to KiCad
+- **THEN** the KiCad board holds one rule area of the footprint named `Altium.KeepOut/flag<r>/fill/…` with
+  the fill's restriction byte and corners
+
+### Requirement: Carried rule records matched by content
+The board property `Fenolite.Altium.Rules6` SHALL key each rule list a record gave by two SHA-256 keys (`rulecarrier.rule_keys`, schema `fenolite.altium-rules.v1`, change c0457): its content and its shape. Both are taken over the rule's children after its name, each in compact form, in sorted order, with a condition in the form `rulecarrier.condition_key` gives (schema `fenolite.altium-rules.v2`): its parsed selectors when KiCad's closed grammar reads it, else its text with runs of spaces made one and balanced outer parentheses taken off. A property of schema `fenolite.altium-rules.v1` MUST still be compared with the keys of that version. The shape also leaves out the values of each constraint's `min`, `opt` and `max`. A conversion back to Altium (`rulecarrier.match`) MUST keep a record when each of its lists is a distinct rule of the rules file of the same content, one of its own name first. A rule of the same content as a rule a kept record took MUST be taken too and not lowered. A property of schema `fenolite.altium-rules.v0` MUST still be read: a list then matches a rule printed under the record's name with the same text.
+
+#### Scenario: Rules written again under other names
+- **GIVEN** a KiCad board converted from an authored Altium document, whose rules file is written again with every rule renamed, in reverse order, and with other spaces in its conditions
+- **WHEN** `uv run pytest tests/unit/convert/test_rule_carrier_c0457.py -k names` converts it back without `--allow-lossy`
+- **THEN** every record comes back as the source holds it, and the `rule` row has no change and no loss
+
+#### Scenario: Conditions of one meaning
+- **GIVEN** `A.Type == 'Via' && A.NetClass == 'X'` with and without outer parentheses, with doubled spaces, and with each term in parentheses
+- **WHEN** `uv run pytest tests/unit/convert/test_rule_carrier_c0457.py -k meaning` keys them
+- **THEN** they share one key, and a condition of another class does not
+
+#### Scenario: A version 1 property
+- **GIVEN** the same board with a version 1 property
+- **WHEN** `uv run pytest tests/unit/convert/test_rule_carrier_c0457.py -k version_1` converts it back
+- **THEN** every record comes back as the source holds it
+
+#### Scenario: A version 0 property
+- **GIVEN** the same board with a version 0 property and one rule renamed
+- **WHEN** `uv run pytest tests/unit/convert/test_rule_carrier_c0457.py -k version_0` converts it back
+- **THEN** every record comes back as the source holds it
+
+### Requirement: Source rules edited in KiCad
+A record whose rule lists are all rules of the file under their own names, of the same shapes, with other limits, SHALL be written with the limits KiCad holds and with its own name, priority, scopes and enabled state (`rulemap.edited_fields`). A key whose value did not change keeps its text. Its rules count `changed` under `rule` with the reason `to_altium.LIMITS_EDITED`. The rules of any other record not kept that are still in the file MUST be lowered as rules of their kind and count `changed` with `to_altium.EDITED_LOWERED`. Only such a rule that no Altium record can hold MUST be a loss of reason `SOURCE_RULE_LOST`.
+
+#### Scenario: An edited limit
+- **GIVEN** the same board whose scoped clearance of 10 mil (0.254 mm) holds 0.26 mm in the rules file
+- **WHEN** `uv run pytest tests/unit/convert/test_rule_carrier_c0457.py -k limit` converts it back without `--allow-lossy`
+- **THEN** the record keeps its name, priority 2 and scope with `GAP` and `GENERICCLEARANCE` of `10.2362mil`, every other record comes back as read, and the `rule` row has one change and no loss
+
+#### Scenario: An added condition
+- **GIVEN** the same board whose unscoped clearance holds a condition on net `GND`
+- **WHEN** `uv run pytest tests/unit/convert/test_rule_carrier_c0457.py -k otherwise` converts it back
+- **THEN** a Clearance record `Clearance_net_GND` of scope `InNet('GND')` is written, the record `Board Gap` is not, and the `rule` row counts one change and no `SOURCE_RULE_LOST`
+
+#### Scenario: Flow A with one clearance edited
+- **GIVEN** the authored Altium document imported with `import --to python`, whose script holds `design.rules.minimum(...)`, one clearance edited in `design.py` and built with `build`, which writes the via rule's condition in parentheses
+- **WHEN** `uv run pytest tests/unit/convert/test_rule_carrier_c0457.py -k imported` converts the board to Altium without `--allow-lossy`
+- **THEN** `convert --to altium` exits 0, the edited record keeps its name and priority with the new gap, no other record changes, and the `rule` row counts one change (`LIMITS_EDITED`) and no loss
+
+### Requirement: Board minimums of an imported design
+A conversion back to Altium of a board that carries rule records SHALL NOT lower a rule that a build writes for `design.rules.minimum()` on the whole board (`rulecarrier.board_minimum`: named `fenolite_0_min_<constraint>`, without a condition or a layer, one constraint of that name holding a `min` alone) and that no record holds. When another rule of the file without a condition or a layer holds the same `min` of that constraint, the minimum MUST be taken without a report. Otherwise it MUST be a loss of reason `to_altium.BOARD_MINIMUM`, of the class `report`, which never needs `--allow-lossy`.
+
+#### Scenario: A minimum no rule holds
+- **GIVEN** the authored board with a rule `fenolite_0_min_via_diameter` of `min 0.3mm` added to its rules file
+- **WHEN** `uv run pytest tests/unit/convert/test_rule_carrier_c0457.py -k board_minimum` converts it back without `--allow-lossy`
+- **THEN** every record comes back as read, and the `rule` row loses one rule for `BOARD_MINIMUM`, class `report`
+
+### Requirement: The pour of the way back follows the source
+A document converted to KiCad and back to Altium with the computed pour SHALL pour what the computed pour of the source document pours. A Clearance record whose scope the pour does not read, carried back by the property, MUST refuse the polygons it could govern on the way back as it does in the source (`rule-scope`, then `depends-on-refused`), each reported `altium.zone-unpoured`, and the polygon itself MUST be written.
+
+#### Scenario: Public row -04
+- **GIVEN** public row `altium-third-party-pcbdoc-04`, whose source pour refuses its 9 polygons (4 `rule-scope`, 5 `depends-on-refused`) under a Clearance record of unread scope
+- **WHEN** `uv run pytest tests/corpus/test_altium_pour_c0457.py` converts it to KiCad and back with the computed pour
+- **THEN** the way back reports 9 `altium.zone-unpoured` and no `altium.zones-poured`, writes the 9 polygons, and loses no rule
+
+### Requirement: Model paths read as KiCad reads them
+The direction from KiCad to Altium SHALL find the file of a footprint's `model` child as KiCad finds it ("Models of a KiCad board in an Altium target", change c0449; `docs/formats/kicad/libraries.md`, "3D models"): `${KIPRJMOD}` or `$(KIPRJMOD)` is the folder of the source board, a relative path is read from that folder, an absolute path where it is, and a path that climbs out of the folder is followed (change c0458).
+- A path under a variable other than `KIPRJMOD`, and a KiCad embedded file, MUST keep their c0449 losses.
+- An absent file MUST be lost with the reason "the model file is not found in the project folder" when the path lies inside the folder, and "the model file is not found at its path" otherwise. A Windows drive path read on another system names no file.
+
+#### Scenario: Model paths outside the project
+- **GIVEN** a project folder and, beside it, a folder holding a STEP box
+- **WHEN** `uv run pytest tests/unit/convert/test_built_models.py -k paths` resolves the box's absolute path, `${KIPRJMOD}/../shared/box.step`, `$(KIPRJMOD)/../shared/box.step` and `../shared/box.step`
+- **THEN** each names the box; an absent file outside the folder gives "not found at its path", inside it "not found in the project folder"
+
+#### Scenario: A built design converted to Altium
+- **GIVEN** the build of "A built project keeps its own models" (capability design-dsl)
+- **WHEN** `uv run pytest tests/unit/convert/test_built_models.py -k copies` converts its board to Altium
+- **THEN** the row `model` has `written` 1, and the two official models are lost under their variable
+
+### Requirement: Frame-bound Altium storages are not carried
+
+A conversion of an Altium design to KiCad SHALL NOT carry the `BoardRegions` storage of the source PCB
+document, whose records hold the source's geometry in its frame and name its layer stack by id, nor its
+`CustomMaskShapes` storage, whose content no public source shows. It SHALL count each lost under
+`altium-storage` when it holds data, and a conversion back to Altium SHALL NOT write a
+`Fenolite.Altium.BoardRegions` or `Fenolite.Altium.CustomMaskShapes` board property that a KiCad board
+holds.
+
+#### Scenario: The board region stays behind
+
+- **GIVEN** an Altium document whose `BoardRegions` storage holds a record
+- **WHEN** it is converted to KiCad and the KiCad board back to Altium
+- **THEN** the KiCad board holds no `Fenolite.Altium.BoardRegions` property, the report counts
+  `BoardRegions` lost under `altium-storage`, and the written document does not hold the source's record
+
+#### Scenario: A custom mask shape stays behind
+
+- **GIVEN** an Altium document whose `CustomMaskShapes` storage holds a record
+- **WHEN** it is converted to KiCad and the KiCad board back to Altium
+- **THEN** the report counts `CustomMaskShapes` lost under `altium-storage` with a reason that says its
+  content is not known, and the written document does not hold the source's record
+
+### Requirement: Altium classes of every kind through KiCad
+
+A conversion of an Altium design to KiCad SHALL carry as board properties:
+- every record of `Classes6` that is no net class and no super class (`Classes6.Kept`);
+- the records of `SignalClasses` that are no super class (`SignalClasses.Kept`);
+- the `PINPAIR` keys of `Board6` (`Board6.PinPairs`);
+- `DifferentialPairs6`.
+
+The conversion back SHALL write each carried record as it was, its members unchanged. It SHALL leave out a
+class whose kind and name the writer wrote, and a differential pair whose two nets the written document
+does not hold. Each such pair SHALL be counted lost under `altium-storage`. A board property
+`Classes6.Component` of change c0450 SHALL read as `Classes6.Kept`.
+
+#### Scenario: Classes of every kind survive the round trip
+
+- **GIVEN** an Altium document that holds:
+  - a component class;
+  - a class of component classes (kind 5), one of whose members names nothing;
+  - a net class whose name differs from it in case alone;
+  - a class of differential pairs;
+  - an xSignal class and its xSignal;
+  - a differential pair of two nets of the board
+- **WHEN** it is converted to KiCad and back to Altium
+- **THEN** each of those records comes back byte for byte, and the xSignal keys stand in `Board6`
+- **AND** no `Default` net class and no sheet class of the writer stand beside them
+
+### Requirement: Internal planes on the way to KiCad
+
+A conversion of an Altium design to KiCad SHALL count each Split Plane polygon of an internal plane in the
+copper chain lost under `plane`, with a reason. It SHALL count the plane itself when the plane holds none.
+
+#### Scenario: A split plane is counted lost
+
+- **GIVEN** a four-layer Altium document whose second layer is a plane on `GND`, with its one Split Plane
+  polygon
+- **WHEN** it is converted to KiCad
+- **THEN** the report holds one `plane` loss, a refused kind
+
+### Requirement: The Altium frame travels through KiCad
+
+A conversion of an Altium design to KiCad SHALL write the source board's origin (`ORIGINX`, `ORIGINY`), in
+the frame of the design, and the low corner of the KiCad board's edge as a board property
+`Fenolite.Altium.Frame`. A conversion of a KiCad board that carries it back to Altium SHALL write the board
+at its KiCad coordinates, Y negated, with the origin at the carried origin moved by the translation of the
+edge's corner. When that would put a point of the outline at a negative coordinate, the conversion SHALL
+anchor the board at its corner, as before, and report the change under `outline`.
+
+#### Scenario: Row -04 comes back where it was
+
+- **GIVEN** the public row `altium-third-party-pcbdoc-04`, whose origin lies 29.528 mil above its
+  outline's low corner
+- **WHEN** it is converted to KiCad and the KiCad board back to Altium
+- **THEN** the written `ORIGINX`, `ORIGINY` and outline vertices equal the source's
+
+#### Scenario: Flow A keeps the frame
+
+- **GIVEN** the public row `altium-third-party-pcbdoc-04` imported with `import --to python` and built
+- **WHEN** the built board is converted to Altium
+- **THEN** the written origin, outline vertices and component positions equal the source's
+
+#### Scenario: A board moved in KiCad keeps its origin with it
+
+- **GIVEN** a converted board whose items KiCad moved by (10 mm, 5 mm)
+- **WHEN** it is converted back to Altium
+- **THEN** the written origin is the source's moved by (10 mm, −5 mm) in Altium's frame
 
