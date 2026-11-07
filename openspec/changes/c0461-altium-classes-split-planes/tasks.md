@@ -31,6 +31,10 @@
 
 - [x] 4.1 Rows in `pcb-records.md` and `pcb-copper.md`, the kit hazard in `altium-kit.md`, S-2200 to S-2204,
   and CHANGELOG.
-- [ ] 4.2 Kit: Altium opens the round trips of rows `-01`, `-04` and `-07` with their classes, xSignals and
+- [x] 4.2 Kit: Altium opens the round trips of rows `-01`, `-04` and `-07` with their classes, xSignals and
   differential pairs. It also checks whether Altium makes the super classes again (asked of
   altium-rounds-2).
+  - 2026-11-06 (altium-rounds-2, AD 24.5.2.23, agent run; round trips at 332b79837 and 60687e26d): the class
+    lists come back identical in name, kind and super flag. -01 42 = 42 (component 23 + 5 super, net 1 + 1,
+    xSignal 0 + 1, differential pair 0 + 1, one class of kind 5), -04 24 = 24, -07 26 = 26. Altium makes every
+    super class again on all three rows. The split planes of -01 come back as planes (Multiple Nets).
