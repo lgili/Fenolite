@@ -17,5 +17,9 @@
   copper of `L3`, `Q2` and `Q6` with the source's nets, and DRC finds no short on it (kit request).
   Done 2026-11-06 (S-2132): 4 regions with the source's owners and nets, 0 Short-Circuit, 0 Clearance, no
   connectivity message names that copper.
-- [ ] 2.3 KiCad 9.0.9 keeps `(net …)` on a footprint `fp_poly` on a save (maintainer's run).
+- [x] 2.3 KiCad 9.0.9 keeps `(net …)` on a footprint `fp_poly` on a save (maintainer's run).
   Deferred to v0.8 (coordinator, 2026-11-07): not run before the cut of 0.7.0; the code ships.
+  Done 2026-11-07 at the coordinator's word (S-2281): the board code of the pinned 9.0.9 image saved the KiCad 9
+  leg of row `-01`, converted at `d721893cd` (`pcbnew.SaveBoard`; 9.0's `kicad-cli` has no `pcb upgrade`). The
+  two `fp_poly` of `L3` and the `fp_rect` of `Q2` and `Q6` on `F.Cu` keep their uuid and `(net N)` after their
+  `layer`, each N naming the same net.
