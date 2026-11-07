@@ -13,6 +13,10 @@ deferred to v0.7; the [0.5 release record](release/v0.5.md) stays the record of 
 improvements follows; its scope is the maintainer's to decide (Open decisions, row 50). The native
 Draftsman writer and Embedded Board Arrays remain gated.
 
+**Status on 2026-11-06.** The maintainer approved releasing `0.7.0` once the CI of lote-29 passes (change
+c0469). The [0.7 release record](release/v0.7.md) gives what ships, what is pending on lote-29 and what is
+deferred; its verdict, the changelog cut and the version are still open.
+
 The dated decisions below preserve the planning history. Earlier “pending publication” and release-hold
 statements describe their stated dates, not the current release. Current milestone rows are updated below.
 
@@ -117,8 +121,8 @@ write part of v0.3, and “v0.2c” the complex-board part of v0.4.
 | 5. To 1.0 | v0.5a | v0.5 release c0171 | conversion, downgrade, public `equivalent`, slots, panels, Draftsman reading and the viewer | v0.5a: released as `0.5.0`, including viewer c0176–c0191; the earlier native release hold was superseded on 2026-10-25 |
 | 5. To 1.0 | v0.5b | c0195, c0196 | the MCP server, script editing and image replies | shipped in `0.6.0` |
 | 5. To 1.0 | v0.6 | release c0242; c0175 and c0197–c0214, c0223–c0229; c0195, c0196, c0215, c0221, c0232–c0241 | board engineering tools, MCP, computed Altium pours (experimental), release from a tag, reliability and review work, Altium edit-session measurements | released as `0.6.0` (c0242, the maintainer's decision of 2026-10-29); the verdict, the merge to `main` and the tag `v0.6.0` are his; his deferred tests go to v0.7 |
-| 5. To 1.0 | v0.7 | to be decided | improvements, scope to be decided by the maintainer | after `0.6.0`; the maintainer's deferred tests of `docs/release/v0.6.md` ("Deferred after v0.6") are its candidates |
-| 5. To 1.0 | v1.0 | c0216–c0220 | contract freeze: CLI, envelopes and schemas `v1`, model schema 1.0, conformance matrix, legal and history review | held by the maintainer's decision of 2026-10-29: proposed, not implemented (c0220 tasks 1.1 and 1.2, the history scan of the release and the nightly, are on `dev`) |
+| 5. To 1.0 | v0.7 | release c0469; c0243–c0467 and the changes of earlier releases closed since `0.6.0` | circuits as code, component, block and board libraries, the viewer, import fidelity, the router track, the Altium round trip through KiCad, the v1.0 machinery (contract still `v0`) | approved by the maintainer on 2026-11-06 once the CI of lote-29 passes; see [the release record](release/v0.7.md) (`docs/release/v0.7.md`); c0468 goes to the next lote |
+| 5. To 1.0 | v1.0 | c0216–c0220 | contract freeze: CLI, envelopes and schemas `v1`, model schema 1.0, conformance matrix, legal and history review | the tag held by the maintainer's decision of 2026-10-29; c0216–c0220 are implemented and archived (2026-11-04 and 2026-11-05) and ship their machinery in `0.7.0`, with the contract still `v0` until `1.0.0` |
 
 About 70 changes to 1.0 on this map before the cuts, and about 61 with the cuts the maintainer accepted
 on 2026-10-09 (see [Proposed cuts](#proposed-cuts-for-a-leaner-10)). Both counts were made before 2026-10-07 and do not
@@ -660,7 +664,7 @@ change at that point.
 | v0.5a | conversion between KiCad and the second backend, with a report of what is kept or lost; controlled KiCad downgrade (capability resolver); public `equivalent`. The next release, `0.5.0`, is v0.5a alone (Open decisions, row 38); the annealing placer moved after 1.0 (row 3) |
 | v0.5b | the MCP server: change c0195, `fenolite mcp`, implemented since 2026-10-26 (Open decisions, row 46) and shipped in `0.6.0` with c0196. The rest of the former v0.5b (multi-instance hierarchy, variants, layout reuse per module, schematic editing that keeps presentation) moved after 1.0 (row 3) |
 | v0.6 | released as `0.6.0` by the maintainer's decision of 2026-10-29 (change c0242, [below](#v06-release-060-decided-on-2026-10-29)): what `dev` implemented after `0.5.0`, among it the board engineering tools of c0175 and the poured copper of Altium documents of c0215 (row 48); the maintainer's tests deferred from `0.5.0` (decision of 2026-10-25; [below](#v06-the-maintainers-tests-of-v05)) that are still open move to v0.7. Matched-length and skew analysis moved to v0.4 (c0106), and equivalence levels 6–7, the emulated-evidence category, KiCad 11 IPC, SPICE and the ASCII inspection format moved after 1.0 (row 3) |
-| v0.7 | improvements after `0.6.0`, scope to be decided by the maintainer (row 50); the candidates are the tests he owes ("Deferred after v0.6" of `docs/release/v0.6.md`) |
+| v0.7 | release `0.7.0`, approved by the maintainer on 2026-11-06 once the CI of lote-29 passes (change c0469, record `docs/release/v0.7.md`): what `dev` and lote-29 implemented after `0.6.0` (c0243 to c0467) and the changes of earlier releases closed since, among them the v1.0 machinery of c0216 to c0220 with the contract still `v0`; c0468 goes to the next lote, and the Altium rounds still owed are c0389's. Earlier scope: improvements after `0.6.0` (row 50), the candidates being the tests he owed ("Deferred after v0.6" of `docs/release/v0.6.md`) |
 | v1.0 | held by the maintainer's decision of 2026-10-29 (row 50). freeze: CLI, envelope and schemas `v1`; model schema version 1.0 with migrators; published conformance matrix (format × version × operation × evidence); no `INFERRED` without a hypothesis, no `UNVERIFIED` outside `experimental`; `LEGAL.md` reviewed; residue scan green over the whole history |
 | after 1.0 | the annealing placer; multi-instance hierarchy; variants; layout reuse per module (KiCad groups); schematic editing that keeps presentation; equivalence levels 6–7; the emulated-evidence category; KiCad 11 IPC; SPICE; the ASCII inspection format (Open decisions, row 3) |
 
