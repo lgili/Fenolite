@@ -221,3 +221,5 @@ def test_the_default_keep_out_clearance_governs_only_keep_outs(monkeypatch: pyte
     keepout = rule_subject("F.Cu", "keepout", None, "Default")
     assert rules.clearance(gnd, vin, polygons=("GND_L01_P000",)) == _unit(mm(0.2))
     assert rules.clearance(gnd, keepout, polygons=("GND_L01_P000",)) == 10 * 25_400
+    _, result = _board(clearance(0.2)).pour()
+    assert result.polygons and all(polygon.poured for polygon in result.polygons)
