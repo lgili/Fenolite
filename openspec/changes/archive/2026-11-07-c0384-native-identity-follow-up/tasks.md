@@ -1,3 +1,5 @@
+> **Closed on 2026-11-07 by the maintainer's decision: the open tasks below will not be done.** The change is archived with them unticked; what it implemented stays, and no evidence label is raised for the tasks left open.
+
 ## 0. Carried findings
 
 - [x] 0.1 Record the first finding: the public RoyalBlue replay fails at level 7 with source 289/a562fa79

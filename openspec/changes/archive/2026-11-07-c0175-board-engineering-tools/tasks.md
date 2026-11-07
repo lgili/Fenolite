@@ -1,3 +1,5 @@
+> **Closed on 2026-11-07 by the maintainer's decision: the open tasks below will not be done.** The change is archived with them unticked; what it implemented stays, and no evidence label is raised for the tasks left open.
+
 ## 0. Entry check
 
 - [x] 0.1 Read `openspec list` and the living specs this change touches (`specctra-dsn`, `cli-contract`, `routing`, `board-analyses`, `design-dsl`, `assembly-test-features`, `design-conversion`, `manufacturing-exports`, `kicad-oracle`). Write under this task, with the date: which open change holds a delta of "Routing rules in design files", "Route command budget and tiers" or "Analyze command" (regenerate the MODIFIED blocks from the living text if one was archived); the maintainer's answers to the three open questions of `design.md`; and which packages the maintainer splits into their own changes, with their ids. Proof: `openspec validate c0175-board-engineering-tools --strict --no-interactive`.

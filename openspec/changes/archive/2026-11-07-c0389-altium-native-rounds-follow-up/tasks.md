@@ -1,3 +1,5 @@
+> **Closed on 2026-11-07 by the maintainer's decision: the open tasks below will not be done.** The change is archived with them unticked; what it implemented stays, and no evidence label is raised for the tasks left open.
+
 ## 0. Carried finding
 
 - [x] 0.1 Record the review of 2026-11-05: on the maintainer's delegation of 2026-11-04, a recorded Claude-agent run in Altium 24.5.2.23 satisfies a maintainer task only when its proof criteria pass as written. c0166 3.5 and c0180 2.4a passed and were ticked in their own changes; the tasks below did not and moved here unchanged in scope and gates. Proof: the 2026-11-05 notes under each source task; `openspec validate c0389-altium-native-rounds-follow-up --strict --no-interactive`.

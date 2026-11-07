@@ -8,6 +8,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Changed
 
+- **Closed without their open tasks** (maintainer's decision, 2026-11-07): c0175 (task 10.4, body copy by pad fit and the house-library coverage report), c0384 (tasks 0.4, 1.4 and 3.1 of the native identity follow-up) and c0389 (the Altium native rounds moved there from earlier changes, and the maintainer's reviews) are archived; those tasks will not be done. What the three changes implemented stays, and no evidence label is raised for the tasks left open.
 - **Footprint copper nets on a KiCad 9 save** (c0454 task 2.3): KiCad 9.0.9's own save (`pcbnew.SaveBoard` in the pinned image) keeps the `(net N)` of the four footprint copper graphics of the KiCad 9 leg of public row `-01`, each with the same net (S-2281).
 - **Board properties on a KiCad 9 save** (c0450 task 4.3): KiCad 9.0.9's own save (`pcbnew.SaveBoard` in the pinned image) keeps the eleven `Fenolite.Altium.*` properties of the KiCad 9 leg of public row `-01` byte for byte (S-2280); `H-K-FENOLITE-PROPS` now holds on 9.0.x and 10.0.x.
 
