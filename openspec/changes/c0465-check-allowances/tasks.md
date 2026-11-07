@@ -68,5 +68,11 @@ Rules for every task:
   - stubs of 40, 50 and 60 mil under a Net Antennae of 50 mil, and a stub that ends at a via joining nothing;
   - a short `AGND`–`DGND` under Short-Circuit `ALLOWED=TRUE`, and a short `VIN`–`DGND` under the default rule.
   Record which are reported, and set `H-A-RULE-ANTENNA` and `H-A-RULE-SHORT`. Proof: the agent's report.
-- [ ] 6.2 CHANGELOG, `gen_evidence_matrix`, `gen_cli_surface` and the other generators with `--check`;
+- [x] 6.2 CHANGELOG, `gen_evidence_matrix`, `gen_cli_surface` and the other generators with `--check`;
   `openspec validate c0465-check-allowances --strict`; each touched test file alone with `-n 0`.
+  Done 2026-11-06 on lote-29 23e429393: the 26 test files c0465 touched, the docs tests, `test_pages`,
+  `test_capabilities` and `test_manifest`, each alone with `-n 0`, pass; `tests/kicad/rules/test_rule_kinds_new.py`
+  passes on KiCad 10.0.6 (local) and 9.0.9 (pinned image). `rulemap.EVIDENCE` no longer names
+  `H-A-RULE-SHORT` and `H-A-RULE-ANTENNA`: they are `UNVERIFIED` until task 6.1, and a declared `INFERRED`
+  may not name a weaker row. `gen_licences --check` differs on this Mac only by packages that the lock
+  installs on Linux alone, which is not this change.

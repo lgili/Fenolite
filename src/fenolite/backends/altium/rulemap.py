@@ -29,7 +29,6 @@ from fenolite.model.rules import Rule, RuleKind, Selector
 EVIDENCE = Evidence(
     Level.INFERRED,
     hypotheses=(
-        "H-A-RULE-ANTENNA",
         "H-A-RULE-CLEARANCE-CELLS",
         "H-A-RULE-CLEARANCE-FORMS",
         "H-A-RULE-FILE",
@@ -37,7 +36,6 @@ EVIDENCE = Evidence(
         "H-A-RULE-PRIORITY",
         "H-A-RULE-READBACK",
         "H-A-RULE-SCOPE",
-        "H-A-RULE-SHORT",
     ),
 )
 

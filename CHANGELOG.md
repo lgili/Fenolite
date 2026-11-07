@@ -6,6 +6,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- The Altium writer's evidence no longer names `H-A-RULE-SHORT` and `H-A-RULE-ANTENNA` (c0465 task 6.2): both rows are `UNVERIFIED` until the kit of task 6.1, and a declared `INFERRED` may not name a weaker row. Task 6.2's checks pass on the lote-29 tip.
 - Tests: the coordinator approves c0462's extension key `layer_value` (a per-layer value of an Altium rule record) in the model review, and the reader's new rule rows (`H-A-RULE-MATRIX-NPTH` among them) are no claim of the Altium build.
 - Docs: the kit request S-2233 (c0464) and the open repeat and OutJob steps of c0389 name Altium Designer 24.5, which the maintainer accepts in place of 26 since 2026-11-06.
 - A per-layer Width or Differential Pairs Routing rule (c0462 task 4.1) no longer breaks the import of a board that holds one, nor a conversion back from KiCad (`FEN-1001`, `KeyError: 'layer_value'`, on public row `-01`): its bag key `layer_value` joins the closed table `EXT_KEYS`.

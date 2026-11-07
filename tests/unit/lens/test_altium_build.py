@@ -266,6 +266,9 @@ def test_evidence() -> None:
     viewer |= {"H-A-CONV-BOARD6"}  # the Board6 settings a conversion carries (c0464), never the build
     # what the import of a rule record reads and the build never writes (change c0462)
     viewer |= {"H-A-RULE-LAYER-VALUES", "H-A-RULE-MATCHED", "H-A-RULE-MATRIX-NPTH", "H-A-RULE-VIA-TEMPLATE"}
+    # change c0465: the writer writes Short-Circuit and Net Antennae records with the public keys (S-2243);
+    # what Altium's DRC makes of them is the kit of task 6.1, so the UNVERIFIED rows are no claim of the build
+    viewer |= {"H-A-RULE-ANTENNA", "H-A-RULE-SHORT"}
     rows = {r.id for r in register if r.id.startswith(stems)} - refuted - viewer
     # change c0173: the PCB document writer writes the flattened panel; the array rows that its kit has not
     # measured (H-A-PANEL-RECORD, H-A-PANEL-LAYERKIND) are no claim of the build yet
