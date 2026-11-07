@@ -340,10 +340,10 @@
       "src/fenolite/routing/roleroute.py"
     ],
     "areas": [
-      "src/fenolite/checks/clearance.py",
       "src/fenolite/checks/copper.py",
       "src/fenolite/checks/specificity.py",
-      "src/fenolite/model/rules.py"
+      "src/fenolite/model/rules.py",
+      "src/fenolite/model/selectors.py"
     ],
     "array": [
       "src/fenolite/cli/cmd_panel.py",
@@ -2309,7 +2309,8 @@
     ],
     "diff_pair": [
       "src/fenolite/checks/clearance.py",
-      "src/fenolite/model/rules.py"
+      "src/fenolite/model/rules.py",
+      "src/fenolite/model/selectors.py"
     ],
     "diff_pair_gap": [
       "src/fenolite/backends/kicad/pro.py",
@@ -4408,13 +4409,13 @@
       "src/fenolite/backends/kicad/fanout.py",
       "src/fenolite/backends/kicad/generate.py",
       "src/fenolite/backends/specctra/dsn.py",
-      "src/fenolite/checks/clearance.py",
       "src/fenolite/checks/copper.py",
       "src/fenolite/exports/drawing_tables.py",
       "src/fenolite/exports/readback.py",
       "src/fenolite/exports/testpoint_place.py",
       "src/fenolite/lens/altium.py",
       "src/fenolite/model/rules.py",
+      "src/fenolite/model/selectors.py",
       "src/fenolite/placement/constrained_legality.py",
       "src/fenolite/placement/constraints.py",
       "src/fenolite/placement/preview.py",
@@ -5280,10 +5281,10 @@
     "item_kind": [
       "src/fenolite/backends/altium/connectstyle.py",
       "src/fenolite/backends/altium/pour.py",
-      "src/fenolite/checks/clearance.py",
       "src/fenolite/checks/specificity.py",
       "src/fenolite/cli/_search_fields.py",
       "src/fenolite/model/rules.py",
+      "src/fenolite/model/selectors.py",
       "src/fenolite/routing/roleroute.py"
     ],
     "items": [
@@ -5674,6 +5675,7 @@
       "src/fenolite/model/pins.py",
       "src/fenolite/model/replicate.py",
       "src/fenolite/model/rules.py",
+      "src/fenolite/model/selectors.py",
       "src/fenolite/panel/altium.py",
       "src/fenolite/panel/build.py",
       "src/fenolite/panel/checks.py",
@@ -6547,6 +6549,7 @@
       "src/fenolite/backends/altium/read/rooms.py",
       "src/fenolite/backends/altium/read/scopedoc.py",
       "src/fenolite/backends/kicad/_fpmap.py",
+      "src/fenolite/backends/kicad/boardcarrier.py",
       "src/fenolite/backends/kicad/boarditems.py",
       "src/fenolite/backends/kicad/copper.py",
       "src/fenolite/backends/kicad/drawing.py",
@@ -6611,6 +6614,7 @@
       "src/fenolite/convert/altium_planes.py",
       "src/fenolite/convert/altium_to_kicad.py",
       "src/fenolite/convert/arrays.py",
+      "src/fenolite/convert/models.py",
       "src/fenolite/convert/openings.py",
       "src/fenolite/convert/report.py",
       "src/fenolite/convert/to_kicad.py",
@@ -6637,6 +6641,7 @@
       "src/fenolite/model/design.py",
       "src/fenolite/model/library.py",
       "src/fenolite/model/rules.py",
+      "src/fenolite/model/selectors.py",
       "src/fenolite/panel/altium.py",
       "src/fenolite/placement/constrained_legality.py",
       "src/fenolite/placement/preview.py",
@@ -8449,7 +8454,9 @@
       "src/fenolite/checks/copper.py",
       "src/fenolite/checks/waivers.py",
       "src/fenolite/cli/_script.py",
+      "src/fenolite/convert/altium_planes.py",
       "src/fenolite/convert/to_altium.py",
+      "src/fenolite/convert/to_kicad.py",
       "src/fenolite/lens/build.py",
       "src/fenolite/model/drawn.py",
       "src/fenolite/model/drawn_connect.py",
@@ -8606,6 +8613,7 @@
       "src/fenolite/model/drawn.py",
       "src/fenolite/model/drawn_connect.py",
       "src/fenolite/model/rules.py",
+      "src/fenolite/model/selectors.py",
       "src/fenolite/panel/kicad.py",
       "src/fenolite/reuse/blocklayout.py",
       "src/fenolite/roles/checks.py",
@@ -8788,6 +8796,7 @@
       "src/fenolite/dsl/design.py",
       "src/fenolite/lens/native_project_context.py",
       "src/fenolite/model/rules.py",
+      "src/fenolite/model/selectors.py",
       "src/fenolite/roles/copper.py",
       "src/fenolite/tidy/style.py"
     ],
@@ -9535,7 +9544,6 @@
       "src/fenolite/backends/kicad/rulemap.py",
       "src/fenolite/backends/specctra/dsn.py",
       "src/fenolite/checks/circuit/expect.py",
-      "src/fenolite/checks/clearance.py",
       "src/fenolite/checks/readiness.py",
       "src/fenolite/checks/widths.py",
       "src/fenolite/convert/altium_zones.py",
@@ -9547,6 +9555,7 @@
       "src/fenolite/importer/emit/design.py",
       "src/fenolite/lens/build.py",
       "src/fenolite/model/rules.py",
+      "src/fenolite/model/selectors.py",
       "src/fenolite/pick/match.py",
       "src/fenolite/pick/query.py",
       "src/fenolite/placement/legality.py",
@@ -9895,9 +9904,9 @@
     ],
     "pad_type": [
       "src/fenolite/backends/altium/pour.py",
-      "src/fenolite/checks/clearance.py",
       "src/fenolite/checks/copper.py",
-      "src/fenolite/model/rules.py"
+      "src/fenolite/model/rules.py",
+      "src/fenolite/model/selectors.py"
     ],
     "pads": [
       "src/fenolite/analysis/body_volumes.py",
@@ -11843,7 +11852,6 @@
       "src/fenolite/checks/circuit/ratings.py",
       "src/fenolite/checks/circuit/table.py",
       "src/fenolite/checks/circuit/values.py",
-      "src/fenolite/checks/clearance.py",
       "src/fenolite/checks/copper.py",
       "src/fenolite/checks/diff.py",
       "src/fenolite/checks/drc_json.py",
@@ -11924,6 +11932,7 @@
       "src/fenolite/model/drawn_connect.py",
       "src/fenolite/model/panel.py",
       "src/fenolite/model/rules.py",
+      "src/fenolite/model/selectors.py",
       "src/fenolite/panel/checks.py",
       "src/fenolite/panel/kicad.py",
       "src/fenolite/panel/layout.py",
@@ -13552,6 +13561,7 @@
       "src/fenolite/backends/altium/lower.py",
       "src/fenolite/backends/altium/outjob.py",
       "src/fenolite/backends/altium/pcbdoc.py",
+      "src/fenolite/backends/altium/pour.py",
       "src/fenolite/backends/altium/read/bomdoc.py",
       "src/fenolite/backends/altium/read/cfb.py",
       "src/fenolite/backends/altium/read/dwfdraw.py",
@@ -15352,6 +15362,7 @@
       "src/fenolite/model/canonical.py",
       "src/fenolite/model/drawn_connect.py",
       "src/fenolite/model/rules.py",
+      "src/fenolite/model/selectors.py",
       "src/fenolite/panel/kicad.py",
       "src/fenolite/panel/limits.py",
       "src/fenolite/pick/generators/__init__.py",
@@ -16625,11 +16636,11 @@
     "zone": [
       "src/fenolite/backends/altium/pour.py",
       "src/fenolite/backends/kicad/pcb.py",
-      "src/fenolite/checks/clearance.py",
       "src/fenolite/checks/copper.py",
       "src/fenolite/convert/to_kicad.py",
       "src/fenolite/lens/native_fill_cache.py",
       "src/fenolite/model/rules.py",
+      "src/fenolite/model/selectors.py",
       "src/fenolite/routing/roleroute.py"
     ],
     "zone_connection": [
@@ -30303,6 +30314,7 @@
       "readers": [
         "src/fenolite/backends/altium/adapter/layers.py",
         "src/fenolite/backends/altium/edit/ops.py",
+        "src/fenolite/backends/altium/lower.py",
         "src/fenolite/backends/altium/pour.py",
         "src/fenolite/convert/altium_to_kicad.py"
       ],
@@ -30738,6 +30750,7 @@
         "src/fenolite/model/drawn.py",
         "src/fenolite/model/drawn_connect.py",
         "src/fenolite/model/rules.py",
+        "src/fenolite/model/selectors.py",
         "src/fenolite/panel/kicad.py",
         "src/fenolite/reuse/blocklayout.py",
         "src/fenolite/roles/checks.py",

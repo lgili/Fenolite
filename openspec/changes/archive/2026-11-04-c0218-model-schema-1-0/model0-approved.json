@@ -7,7 +7,7 @@
   "reviewed_inventory_sha256": "3fc1755eab26b8e95f9fc1e233382d5c1ed7a7caa52c801b97e0f8aff5fa481e",
   "class_count": 174,
   "field_count": 1247,
-  "extension_key_count": 46,
+  "extension_key_count": 47,
   "classes": [
     {
       "class": "fenolite.model.base.Entity",
@@ -11112,6 +11112,12 @@
       "key": "stroke_font",
       "decision": "keep",
       "approved": "approved 2026-11-06, c0460, coordinator under maintainer delegation"
+    },
+    {
+      "backend": "altium",
+      "key": "text_tail",
+      "decision": "keep",
+      "approved": "approved 2026-11-07, c0450, coordinator under maintainer delegation"
     }
   ],
   "migration_helper_note": "The separately introduced Step has four internal migration helper fields. It is not an original model0 data entity; candidate inventory175/1251 retains every original174/1247 shape unchanged. No claim of user review of a different inventory."
