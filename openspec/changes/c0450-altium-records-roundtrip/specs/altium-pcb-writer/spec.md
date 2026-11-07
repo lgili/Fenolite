@@ -13,6 +13,14 @@ The writer SHALL write a filled rectangle, or a filled polygon of four corners t
 - **THEN** the document holds two fill records, one of them with the component's index, and no region in
   their place
 
+#### Scenario: A component's copper fill of no net comes back
+
+- **GIVEN** a footprint without net ties that holds a tagged fill of no net on a copper layer (row `-04`'s
+  J1 holds six on the Top Layer)
+- **WHEN** the board is converted to Altium
+- **THEN** each is a fill record of no net on that layer with the component's index, and a copper graphic
+  of no net that is not tagged stays refused
+
 ### Requirement: Keep-out strokes of a converted board
 
 The writer SHALL write a rule area named with the marker of a keep-out stroke (`Altium.KeepOut/flag<r>/…`)

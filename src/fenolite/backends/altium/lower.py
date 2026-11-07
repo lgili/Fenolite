@@ -1354,7 +1354,9 @@ def _footprint_items(
     (S-1900). Only a graphic on a plane, or one that ``pcbdoc.graphic_problem`` refuses, stays counted
     under ``footprint-copper``. A copper graphic of any other footprint whose ``net_id`` names a net of the
     written board (``net_names``, net id to name) is a component item of that net on its signal layer
-    (change c0454; ``netted_copper_problem``), as the source document held it."""
+    (change c0454; ``netted_copper_problem``), as the source document held it. A copper fill of no net that
+    an Altium fill record gave (``fills.is_fill``, ``fills.read_fill``) is a component fill of no net on its
+    signal layer (change c0450), as the source held it."""
     bottom = fp.side == "bottom"
     to_board = Transform.placement(fp.position, fp.rotation)
     graphics: list[Graphic] = []
@@ -1375,6 +1377,9 @@ def _footprint_items(
         if graphic.layer.endswith(".Cu") or graphic.layer in copper:
             net = (net_names or {}).get(graphic.net_id or "") if not fp.net_ties else None
             if net is not None:
+                reason = netted_copper_problem(graphic, copper_ids or {}, arc_known=kept is not None)
+            elif not fp.net_ties and (fills.is_fill(graphic) or fills.read_fill(graphic)):
+                # a fill of no net that a component held, as Altium writes it (change c0450, row -04's J1)
                 reason = netted_copper_problem(graphic, copper_ids or {}, arc_known=kept is not None)
             else:
                 reason = net_tie_copper_problem(fp, graphic, copper_ids or {}, arc_known=kept is not None)

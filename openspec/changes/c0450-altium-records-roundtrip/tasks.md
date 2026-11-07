@@ -6,6 +6,9 @@
   `uv run pytest tests/unit/backends/altium/test_fill_records.py -k record`.
 - [x] 1.2 The conversion tags the uuid of a fill, and the writer writes a tagged rectangle as a fill;
   `uv run pytest tests/unit/backends/altium/test_fill_records.py`.
+- [x] 1.3 A tagged copper fill of no net in a footprint without net ties is a component fill (VM at bbe4c452b:
+  row `-04`'s J1 lost its 6 Top Layer fills, which the writer refused as footprint copper); a Fenolite round
+  trip of `-04` now keeps 6 of 6. Proof: `uv run pytest tests/unit/backends/altium/test_fill_records.py -n 0`.
 
 ## 2. Storages
 

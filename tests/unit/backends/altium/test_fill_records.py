@@ -99,3 +99,22 @@ def test_marked_fills_are_written_as_fills() -> None:
     overlay = rec.LAYER_MAP["F.SilkS"]
     regions = [r for r in document.regions if isinstance(r, RegionRecord) and r.prefix.layer == overlay]
     assert len(regions) == 1 and regions[0].prefix.component is None
+
+
+def test_a_footprint_copper_fill_of_no_net_is_written() -> None:
+    """Scenario "A component's copper fill of no net comes back": a marked fill of no net on ``F.Cu`` in a
+    footprint without net ties is a component fill record of no net on the top layer (row ``-04``'s J1 held
+    six, which the writer refused as copper); an unmarked copper graphic of no net stays refused."""
+    design = _design()
+    assert design.board is not None
+    first, *rest = design.board.footprints
+    copper = dataclasses.replace(
+        _fill("gra-copper", Point(-MM, -3 * MM), Point(MM, -2 * MM), kind="rect"), layer="F.Cu"
+    )
+    plain = dataclasses.replace(copper, id="gra-plain-copper", native_ids={})
+    first = dataclasses.replace(first, graphics=(*first.graphics, copper, plain), net_ties=())
+    board = dataclasses.replace(design.board, footprints=(first, *rest))
+    written = lower.write_design(dataclasses.replace(design, board=board), allow_lossy=True)
+    document = read_pcbdoc(written.files[f"{design.header.name}.PcbDoc"])
+    found = [f for f in document.fills if isinstance(f, FillRecord) and f.prefix.layer == TOP]
+    assert [(f.prefix.component is not None, f.prefix.net) for f in found] == [(True, None)]
