@@ -82,11 +82,17 @@ Rules for every task:
   not open on it). The readings of `CompPinCount`, `InNet('No Net')` and `InDifferentialPairClass` follow the
   filter; the remaining differences are pinned in the test's `KNOWN` with their reasons. The proof passes for
   every measured row, `-08` with `FENOLITE_HEAVY=1`.
-- [ ] 5.2 Repin the censuses. Pour: no `rule-scope`, `rule-unmapped` or `connect-scope`. Conversion:
+- [x] 5.2 Repin the censuses. Pour: no `rule-scope` or `connect-scope`; `rule-unmapped` only for a record
+  refused with a reason the design names, pinned per row with its reason (coordinator, 2026-11-06). Conversion:
   record losses per kind. Proof: `FENOLITE_HEAVY=1 uv run pytest tests/corpus/test_altium_pour_census.py tests/corpus/test_convert_altium_census.py tests/corpus/test_convert_census.py -q -n 2`.
   Known item (2026-11-06): rows `-04` and `-07` now pour every polygon that has an outline, and every one of
   them fails M2 against the saved regions, 7 of 9 in `-04` and 1 of 4 in `-07` also M1. Pouring without the
   newly read Clearance rule turns no failure into a pass, and with it one polygon per row passes M1 that fails
   without it, so the failures are the pour's geometry, for change c0463; they are pinned, not fixed here.
-- [ ] 5.3 CHANGELOG, `gen_evidence_matrix`, `gen_cli_surface` and `gen_altium_graduation` checks;
+  Done 2026-11-06 on `cac/lote-29` 6bd959a9c: the three censuses pass as pinned (108 tests), so no pin moves.
+  No polygon is refused `rule-scope` or `connect-scope`; `-02` (6), `-06` (4) and `-08` (15) are refused
+  `rule-unmapped` for the records `POUR_UNREAD` lists (`keys` for `IGNOREPADTOPADCLEARANCEINFOOTPRINT=TRUE`,
+  `matrix-kind`), which the pour of change c0463 is to read itself. The conversion censuses record their
+  losses per kind as pinned.
+- [x] 5.3 CHANGELOG, `gen_evidence_matrix`, `gen_cli_surface` and `gen_altium_graduation` checks;
   `openspec validate --all --strict`. Proof: `make lint format types residue` and each `--check`.

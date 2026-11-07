@@ -232,7 +232,12 @@ Task 4.3 (S-2227) reads ``-02``: the pour reads a Clearance with the in-footprin
 flag were off (it pairs no pads), a polygon cut-out keeps no clearance, and a via without a pad joins a
 polygon of its net. All 12 polygons pour; the GND planes fail M1 (4.46 and 3.98) by a band along the
 board's edge that Altium pours and its one Clearance keeps free, and ``P002`` fails M2 against the saved
-pour only. On ``-06`` the pad-pair record maps, so one polygon is refused ``depends-on-refused`` instead."""
+pour only. On ``-06`` the pad-pair record maps, so one polygon is refused ``depends-on-refused`` instead.
+
+Task 5.2 (2026-11-06): on every row no polygon is refused ``rule-scope`` or ``connect-scope``. The polygons
+refused ``rule-unmapped`` (``-06``, ``-08``) are refused for records that the design names and ``map_rules``
+refuses: ``IGNOREPADTOPADCLEARANCEINFOOTPRINT=TRUE`` (``keys``) and the matrices of task 4.3 of c0462
+(``matrix-kind``), each listed in ``test_altium_rule_kinds_c0462.py::POUR_UNREAD``."""
 
 
 @pytest.mark.parametrize("item", DOCUMENTS, ids=lambda item: item.id)

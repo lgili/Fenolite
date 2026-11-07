@@ -152,4 +152,5 @@ The rest of the requirement:
 
 #### Scenario: No refusal of scope or keys in the pour census
 - **WHEN** `FENOLITE_HEAVY=1 uv run pytest tests/corpus/test_altium_pour_census.py -q -n 0` runs
-- **THEN** no polygon is refused with `rule-scope`, `rule-unmapped` or `connect-scope`
+- **THEN** no polygon is refused with `rule-scope` or `connect-scope`
+- **AND** a polygon refused with `rule-unmapped` is refused only for a record that `map_rules` refuses with a reason the design names (`keys` for `IGNOREPADTOPADCLEARANCEINFOOTPRINT=TRUE`, `matrix-kind`), and the census pins each such row with its reason

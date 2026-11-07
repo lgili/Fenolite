@@ -184,8 +184,10 @@ On the 8 public rows:
 - `map_rules` gives no `Unmapped` with the reasons `scope`, `keys` or `no-layer`, except the refusals D1
   to D5 name. Each such refusal is pinned by count in the census test, and each has a task-5 record that
   says why it is exact to refuse.
-- The pour census holds no `rule-scope`, `rule-unmapped` or `connect-scope`. The `depends-on-refused`
-  cascades that remain are c0463's.
+- The pour census holds no `rule-scope` or `connect-scope`, and `rule-unmapped` only for a record refused
+  with a reason this design names (`keys` for `IGNOREPADTOPADCLEARANCEINFOOTPRINT=TRUE`, `matrix-kind`),
+  pinned per row with its reason (coordinator, 2026-11-06). The `depends-on-refused` cascades that remain are
+  c0463's, and so is the pour's own reading of those records.
 - For each distinct mapped scope, the objects selected equal the objects Altium's filter selects
   (task 5.1, S-2214).
 

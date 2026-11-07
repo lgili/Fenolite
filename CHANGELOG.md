@@ -6,6 +6,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- c0462 tasks 5.2 and 5.3: the pour and conversion censuses pass as pinned on `cac/lote-29`. No polygon is refused for a rule scope or a connect scope. A polygon is refused `rule-unmapped` only for a record that the design names (`IGNOREPADTOPADCLEARANCEINFOOTPRINT=TRUE`, an object matrix refused `matrix-kind`), which `test_altium_rule_kinds_c0462.py` now checks per row; the scenario and task 5.2 say so (coordinator, 2026-11-06).
 - The KiCad rules writer writes the selector leaves `zone`, `hole` and `pad_type` for KiCad 9 too (c0462 task 3.2): their condition probes are recorded `present` on 9.0.9 (the pinned image), as on 10.0.6, so a rule that uses one is no longer a loss on 9. `H-K-DRU-LEAF-C0462` is `KICAD-VERIFIED (9.0.x, 10.0.x)`.
 - The Altium writer's evidence no longer names `H-A-RULE-SHORT` and `H-A-RULE-ANTENNA` (c0465 task 6.2): both rows are `UNVERIFIED` until the kit of task 6.1, and a declared `INFERRED` may not name a weaker row. Task 6.2's checks pass on the lote-29 tip.
 - Altium region members keep their union through flow A (c0460 task 2.4): `import --to python` maps board graphics to the uuids the build gives them, as it does copper and texts; public row `-01`'s union came back empty from flow A.

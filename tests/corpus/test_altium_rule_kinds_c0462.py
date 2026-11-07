@@ -204,3 +204,39 @@ def test_every_matrix_holds_its_cells(item: CorpusItem) -> None:
                 assert rule is not None and rule.min == cells.get(pair, gap), (item.id, pair)
     expected = {kind: n for (row, kind), n in MATRIX_REFUSED.items() if row == item.id}
     assert dict(refused) == expected, item.id
+
+
+# --- task 5.2: the records the pour cannot read are those the design names -----------------------------
+
+POUR_UNREAD = {
+    "altium-third-party-pcbdoc-02": Counter({"keys": 1}),
+    "altium-third-party-pcbdoc-06": Counter({"matrix-kind": 1, "keys": 1}),
+    "altium-third-party-pcbdoc-08": Counter({"matrix-kind": 1}),
+}
+"""Row → the unread Clearance records that can govern a polygon of the pour, by reason (the pour's own
+reading, ``pour.Clearances``). ``keys`` is ``IGNOREPADTOPADCLEARANCEINFOOTPRINT=TRUE`` alone; ``matrix-kind``
+the matrices of ``MATRIX_REFUSED``. These alone may refuse a polygon ``rule-unmapped`` in the pour census
+(scenario "No refusal of scope or keys in the pour census", as amended on 2026-11-06), until the pour reads
+them itself (change c0463)."""
+
+
+@pytest.mark.parametrize("item", ROWS, ids=lambda item: item.id)
+def test_the_pour_refuses_only_records_the_design_names(item: CorpusItem) -> None:
+    from fenolite.backends.altium.pour import read_pour
+    from fenolite.backends.altium.read.rules import NOT_APPLYING
+    from fenolite.backends.altium.read.scopedoc import scope_document
+
+    path = require(item)
+    reading = read_pour(path.read_bytes(), file=path.name)
+    board = reading.design.board
+    layers = copper_layers_of(board.layers) if board is not None else None
+    mapping = map_rules(
+        [record.fields for record in reading.document.rules],
+        origin="pour",
+        layers=layers,
+        document=scope_document(reading.document, layers),
+    )
+    unread = [u for u in mapping.unmapped if u.kind == "Clearance" and u.reason not in NOT_APPLYING]
+    assert Counter(u.reason for u in unread) == POUR_UNREAD.get(item.id, Counter())
+    keys = [u.detail for u in unread if u.reason == "keys"]
+    assert all(detail.startswith("IGNOREPADTOPADCLEARANCEINFOOTPRINT=TRUE ") for detail in keys), keys
