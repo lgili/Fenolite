@@ -103,6 +103,10 @@ Rules for every task:
 
 - [ ] 5.1 K6 round of `pour`, `pour4` and `pour-hatched` on Altium Designer 24.5. Proof: the kit report,
   recorded as S-2225.
+  Recorded 2026-11-07 as S-2225; the task stays open for v0.8. K6.1, K6.4 and K6.6 pass; K6.2 (the reference
+  holds no copper after Repour All), K6.3 (M1 and M2 on probe P6) and K6.5 (2 of 21 polygons with zero area)
+  fail; K6.7 to K6.12 are not measured (the forced repour hung, then the VM bridge timed out), so `pour4` and
+  `pour-hatched` are not run.
 - [ ] 5.2 The maintainer's board, flow B: 28 of 28 polygons poured, and Altium DRC with no Repour equal
   per rule to the DRC after Repour. The coordinator records the counts as S-2226. Proof: that record.
   State at the cutoff (2026-11-07): S-2226 records flow B at `b97c3908a` (0 of 28, all from Altium's default
@@ -115,5 +119,5 @@ Rules for every task:
   `gen_evidence_matrix --check` and `gen_altium_graduation --check` exit 0; `openspec validate --all
   --strict` 151 of 151). The evidence is not raised: `result.pcb.pour.evidence` stays `INFERRED` and
   `altium.zones-poured` keeps naming Repour All, since D6's conditions are not all met (the Repour oracle
-  fails M1 on 15 of 81 polygons, design D7; 5.1 and 5.2 are not recorded at the cutoff). Raising it is the
+  fails M1 on 15 of 81 polygons, design D7; 5.1 records 3 failures and 6 unmeasured steps in S-2225, 5.2 is not recorded at the cutoff). Raising it is the
   first step once K6 (S-2225) and flow B (S-2226) pass and D7 is resolved.
