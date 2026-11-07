@@ -38,10 +38,12 @@ BASELINE = {
     "altium-third-party-pcbdoc-03": {"Mech.1": 12, "Mech.13": 216, "Mech.15": 225},
     # change c0411: the region of -04's component on the Keep-Out layer with KEEPOUTRESTRICTIONS is a rule
     # area of its footprint on every copper layer, no longer a graphic of that layer
+    # change c0450 (task 4.4): the 56 tracks with the byte of Mechanical 16 and the long id of Mechanical 31
+    # lie on Mech.31, the layer Altium shows them on
     "altium-third-party-pcbdoc-04": {
         "Mech.1": 12,
         "Mech.15": 92,
-        "Mech.16": 56,
+        "Mech.31": 56,
         "Mech.2": 73,
         "Mech.7": 1,
     },
@@ -57,6 +59,8 @@ BASELINE = {
         "Mech.2": 1,
         "Mech.6": 1,
     },
+    # change c0450 (task 4.4): of the 116 on the byte of Mechanical 16, 16 tracks name Mechanical 31 and 44
+    # Mechanical 32 by their long ids
     "altium-third-party-pcbdoc-07": {
         "In1.Cu": 5,
         "In2.Cu": 3,
@@ -64,7 +68,9 @@ BASELINE = {
         "Mech.13": 8,
         "Mech.14": 1,
         "Mech.15": 36,
-        "Mech.16": 116,
+        "Mech.16": 56,
+        "Mech.31": 16,
+        "Mech.32": 44,
         "Mech.2": 21,
         "Mech.3": 41,
     },

@@ -32,3 +32,7 @@
 - [ ] 4.2 altium-rounds-2 opens the round trip of row `-01` and of row `-08` in Altium Designer: fills,
   unions, fonts and component classes as in the source (kit request).
 - [ ] 4.3 KiCad 9.0.9 keeps the board properties on a save (maintainer's run).
+- [x] 4.4 Mechanical layers above 16 keep their long id: a track, an arc or a fill with the layer byte of
+  Mechanical 16 and the long id of Mechanical 17 to 32 comes back from KiCad with that byte and long id, and
+  the layer's `LAYERV7_<i>` name and flag come back (S-2282);
+  `uv run pytest tests/unit/convert/test_long_mechanical_c0450.py -n 0`.

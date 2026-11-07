@@ -647,7 +647,9 @@ def board_text(
     if settings:
         lines = with_settings(lines, settings)
     names = {
-        f"Mechanical {layer - 56}": name for layer, name in (layer_names or {}).items() if 57 <= layer <= 72
+        f"Mechanical {number}": name
+        for layer, name in (layer_names or {}).items()
+        if (number := rec.mechanical_number(layer)) is not None  # 17 to 32 too (change c0450, task 4.4)
     }
     names |= {
         rec.LAYER_NAMES[layer]: name

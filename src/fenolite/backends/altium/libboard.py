@@ -45,8 +45,11 @@ def enabled_mechanical(used_layers: Collection[int] = ()) -> tuple[int, ...]:
     """The numbers of the enabled mechanical layers of a board record whose primitives lie on
     ``used_layers`` (numbered layers 1 … 74): ``ENABLED_MECHANICAL`` and each of Mechanical 1 to 12 (the
     layers 57 to 68) that is used (change c0126; ``pcb-document.md``, "Mechanical layers in use"). A
-    document that uses none of the twelve gives ``ENABLED_MECHANICAL``, and so the bytes of before."""
+    document that uses none of the twelve gives ``ENABLED_MECHANICAL``, and so the bytes of before. A used
+    layer of Mechanical 17 to 32 (its long id, ``pcbrecords.mechanical_id``) is enabled too (change c0450,
+    task 4.4)."""
     used = {layer - 56 for layer in used_layers if 57 <= layer <= 68}
+    used |= {layer - _MECHANICAL for layer in used_layers if rec.is_long_mechanical(layer)}
     return tuple(sorted({*ENABLED_MECHANICAL, *used}))
 
 
@@ -395,7 +398,10 @@ def _bool(value: bool) -> str:
 
 
 def long_id(layer: int) -> int:
-    """The long layer id of a numbered layer 1 … 82 (``pcb-library.md``, "Long layer ids")."""
+    """The long layer id of a numbered layer 1 … 82 (``pcb-library.md``, "Long layer ids"); the long id of
+    Mechanical 17 to 32 (``pcbrecords.mechanical_id``) is its own."""
+    if rec.is_long_mechanical(layer):
+        return layer
     if layer == 32:
         return _BOTTOM
     if 1 <= layer <= 31:
@@ -514,7 +520,8 @@ def _layer_fields(
     elif group == _MECHANICAL:
         # Mechanical 1 to 12 are enabled when a primitive lies on them (change c0126); ``mechanical`` names
         # the enabled ones when a conversion carried the source's flags (change c0464)
-        default = low in ENABLED_MECHANICAL or (low <= 12 and long in used)
+        # and Mechanical 17 to 32 when a primitive lies on them (change c0450, task 4.4)
+        default = low in ENABLED_MECHANICAL or (low not in range(13, 17) and long in used)
         enabled = low in mechanical if mechanical is not None else default
         fields.append(("MECHENABLED", _bool(enabled)))
     elif low in (10, 11):
@@ -660,7 +667,7 @@ def _legacy_layers(
             ("NAME", f"Mechanical {number}"),
             ("PREV", str(_MISC)),
             ("NEXT", str(_MISC)),
-            ("MECHENABLED", "FALSE"),
+            ("MECHENABLED", _bool(number in mechanical)),
             *_COPPER,
             *_CORE,
         )
@@ -673,10 +680,23 @@ def _layer_sets(stack: StackSpec | None = None, enabled: Sequence[int] = ENABLED
     mids = [f"MidLayer{layer - 1}" for layer in inner if layer < rec.FIRST_PLANE]
     planes = [f"InternalPlane{layer - rec.FIRST_PLANE + 1}" for layer in inner if layer >= rec.FIRST_PLANE]
     mechanical = [f"Mechanical{n}" for n in enabled]
+    first = [f"Mechanical{n}" for n in enabled if n <= 16]
+    later = [f"Mechanical{n}" for n in enabled if n > 16]  # after the drill drawing (change c0450, task 4.4)
     top = ["MultiLayer", "TopPaste", "TopOverlay", "TopSolder"]
     bottom = ["BottomSolder", "BottomOverlay", "BottomPaste", "DrillGuide", "KeepOutLayer"]
     low, rest = bottom[:3], bottom[3:]
-    all_layers = [*top, "TopLayer", *mids, "BottomLayer", *low, *planes, *rest, *mechanical, "DrillDrawing"]
+    all_layers = [
+        *top,
+        "TopLayer",
+        *mids,
+        "BottomLayer",
+        *low,
+        *planes,
+        *rest,
+        *first,
+        "DrillDrawing",
+        *later,
+    ]
     sets: tuple[tuple[str, list[str], str], ...] = (
         ("&All Layers", all_layers, "TOP"),
         ("&Signal Layers", ["MultiLayer", "TopLayer", *mids, "BottomLayer"], "TOP"),

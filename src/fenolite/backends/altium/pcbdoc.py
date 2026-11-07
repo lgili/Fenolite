@@ -2444,8 +2444,11 @@ def _wide_string(text: str) -> bytes:
 
 def record_layer(record: bytes) -> int:
     """The layer byte of a primitive record (the first byte of its common prefix); for a pad the prefix
-    opens the fifth subrecord. A via lies on Multi-Layer."""
+    opens the fifth subrecord. A via lies on Multi-Layer. A track, an arc or a fill on Mechanical 17 to 32
+    gives the long id that names its layer (``pcbrecords.long_mechanical_of``; change c0450, task 4.4)."""
     body = record[1:]
+    if (long := rec.long_mechanical_of(record[0], body[4:])) is not None:
+        return long
     if record[0] == rec.PAD:
         for _ in range(4):
             (length,) = struct.unpack_from("<I", body)
@@ -2740,8 +2743,36 @@ KEPT_SIGNAL_CLASSES = "SignalClasses.Kept"
 PIN_PAIRS = "Board6.PinPairs"
 SETTINGS = "Board6.Settings"
 """The kept storage of the source's ``Board6`` settings (change c0464, ``docboard.with_settings``)."""
-_MECHANICAL_NAME = re.compile(r"LAYER(5[7-9]|6[0-9]|7[0-2])NAME")
-_MECHANICAL_FLAG = re.compile(r"LAYER(5[7-9]|6[0-9]|7[0-2])MECHENABLED")
+_MECHANICAL_KEY = re.compile(r"LAYER(5[7-9]|6[0-9]|7[0-2])(NAME|MECHENABLED)")
+_LATER_KEY = re.compile(r"LAYERV7_(\d+)(LAYERID|NAME|MECHENABLED)")
+"""The keys of Mechanical 17 to 32 in ``Board6`` (``pcb-library.md``, "The board record"): ``LAYERV7_<i>``
+with the layer's long id under ``LAYERID`` (change c0450, task 4.4)."""
+
+
+def _mechanical_settings(settings: Sequence[Field]) -> tuple[dict[int, str], dict[int, bool]]:
+    """The names and the enabled flags of the mechanical layers among carried ``settings``, by the id the
+    writer gives the layer (``pcbrecords.mechanical_id``): ``LAYER57`` … ``LAYER72`` for Mechanical 1 to 16
+    (change c0464), and ``LAYERV7_<i>`` for the layer its ``LAYERID`` names among Mechanical 17 to 32
+    (change c0450, task 4.4)."""
+    names: dict[int, str] = {}
+    flags: dict[int, bool] = {}
+    later: dict[str, dict[str, str]] = {}
+    for key, value in settings:
+        if (match := _MECHANICAL_KEY.fullmatch(key)) is not None and match.group(2) == "NAME":
+            names[int(match.group(1))] = value
+        elif match is not None:
+            flags[int(match.group(1))] = value.upper() == "TRUE"
+        elif (match := _LATER_KEY.fullmatch(key)) is not None:
+            later.setdefault(match.group(1), {})[match.group(2)] = value
+    for fields in later.values():
+        long = fields.get("LAYERID", "")
+        if not (long.isascii() and long.isdigit() and rec.is_long_mechanical(int(long))):
+            continue
+        if "NAME" in fields:
+            names[int(long)] = fields["NAME"]
+        if "MECHENABLED" in fields:
+            flags[int(long)] = fields["MECHENABLED"].upper() == "TRUE"
+    return names, flags
 
 
 def _split_records(data: bytes) -> list[bytes]:
@@ -2775,11 +2806,7 @@ def _layer_names(spec: PcbDocSpec, used: Collection[int], settings: Sequence[Fie
     layer of ``used`` is it (no primitive of the written document lies on it: a body on a layer the writer
     chose does not make it the KiCad layer's)."""
     names = {ident: name for name, ident in spec.layer_ids.items() if not name.startswith("Mech.")}
-    for key, value in settings:
-        match = _MECHANICAL_NAME.fullmatch(key)
-        if match is None:
-            continue
-        ident = int(match.group(1))
+    for ident, value in _mechanical_settings(settings)[0].items():
         if ident in spec.named_layers or ident not in used:
             names[ident] = value
     return names
@@ -2789,16 +2816,13 @@ def _mechanical_enabled(used: Collection[int], settings: Sequence[Field]) -> tup
     """The numbers of the enabled mechanical layers when the carried ``settings`` hold the source's flags
     (change c0464): a layer that something of the written document lies on is enabled, as a build enables
     it (``enabled_mechanical``), and every other one takes the source's flag. ``None`` without flags."""
-    flags = {
-        int(match.group(1)) - 56: value.upper() == "TRUE"
-        for key, value in settings
-        if (match := _MECHANICAL_FLAG.fullmatch(key)) is not None
-    }
+    flags = _mechanical_settings(settings)[1]
     if not flags:
         return None
     enabled = set(enabled_mechanical(used))
-    for number, flag in flags.items():
-        if 56 + number not in used:
+    for ident, flag in flags.items():
+        number = rec.mechanical_number(ident)
+        if number is not None and ident not in used:
             (enabled.add if flag else enabled.discard)(number)
     return tuple(sorted(enabled))
 

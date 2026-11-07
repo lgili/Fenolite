@@ -216,10 +216,13 @@ ARC_TOLERANCE = 2
 """How far, in nanometres per axis, a point of a kept arc record may lie from the point of the model and
 the record still be written (change c0127): the length tolerance of the written scope
 (``roundtrip.RT_A2_SCOPE``). An untouched arc gives its points exactly."""
-MECHANICAL_LAYERS: Mapping[str, int] = MappingProxyType({f"Mech.{n}": 56 + n for n in range(1, 17)})
-"""The names the import gives the mechanical layers 1 to 16 (``adapter.layers``) and their Altium ids
+MECHANICAL_LAYERS: Mapping[str, int] = MappingProxyType(
+    {f"Mech.{n}": rec.mechanical_id(n) for n in range(1, 33)}
+)
+"""The names the import gives the mechanical layers 1 to 32 (``adapter.layers``) and their Altium ids
 (``pcb-records.md``, "Layer ids"): the layers of the items of a board that was read from an Altium
-document, beside ``pcbrecords.BOARD_LAYER_MAP`` (change c0126)."""
+document, beside ``pcbrecords.BOARD_LAYER_MAP`` (change c0126). Mechanical 17 to 32 have their long ids
+(``pcbrecords.mechanical_id``; change c0450, task 4.4)."""
 KICAD_MECHANICAL: Mapping[str, int] = MappingProxyType(
     {
         **{f"User.{n}": 56 + n for n in range(1, 9)},
@@ -239,7 +242,8 @@ _MECH_NAME = re.compile(r"(?:Mech\.|Mechanical )([1-9][0-9]?)")
 
 def named_mechanical(board: Board) -> dict[str, int]:
     """The user layers of a KiCad board whose KiCad user name is ``Mech.<n>`` or ``Mechanical <n>`` (n from
-    1 to 16), each with Mechanical n's id (changes c0412, c0464). The first spelling is the name Fenolite's
+    1 to 32), each with Mechanical n's id (changes c0412, c0464; ``pcbrecords.mechanical_id``, the long id
+    above 16, change c0450 task 4.4). The first spelling is the name Fenolite's
     Altium import gives a mechanical layer (``MECHANICAL_LAYERS``); the second is the name an Altium board
     record gives it."""
     named: dict[str, int] = {}
@@ -249,8 +253,8 @@ def named_mechanical(board: Board) -> dict[str, int]:
         bag = layer.ext.get("kicad")
         user_name = dict(bag.payload).get("user_name") if bag is not None else None
         found = _MECH_NAME.fullmatch(user_name or "")
-        if found is not None and 1 <= int(found.group(1)) <= 16:
-            named[layer.name] = 56 + int(found.group(1))
+        if found is not None and 1 <= int(found.group(1)) <= 32:
+            named[layer.name] = rec.mechanical_id(int(found.group(1)))
     return named
 
 

@@ -70,3 +70,23 @@ flip.
 Writing the circles of rows `-04` and `-08` showed that the second ring of a c0442 circle looked for its
 partner under the wrong name, so it stayed a keep-out region. The pairing now takes the first ring from the
 second; c0442's tests had counted that leftover region as the board's own rule area.
+
+## Mechanical layers above 16 (task 4.4)
+
+A layer byte names Mechanical 1 to 16 only (57 to 72). A track, an arc or a fill on Mechanical 17 to 32
+holds the byte of Mechanical 16 and the layer's long id (`pcb-records.md`, "Long forms"; S-1654), and Altium
+shows it on the layer of the long id (S-1588). The import named such an item by its byte, `Mech.16`, so the
+round trip wrote it back on Mechanical 16: 4 074 tracks, 116 arcs and 5 fills of row `-08`, 56 tracks of
+`-04` and 60 of `-07`.
+
+The adapter now gives such a record the long id as its layer before it maps the primitives, and names it
+`Mech.<n>`, with the Altium name of the `LAYERV7_<i>` entry whose `LAYERID` is that id. KiCad needs no
+carrier: the conversion gives every `Mech.<n>` a user row of that user name (up to 45 rows). On the way back
+`lower.named_mechanical` reads `Mech.<n>` up to 32 and gives n above 16 its long id
+(`pcbrecords.mechanical_id`). The writer takes a long id as a layer: the prefix holds the byte 72, a track or
+an arc is written in the long form (the union tail of c0460 with index 0), a fill holds the long id at 42,
+and `pcbdoc.record_layer` reads the long id back, so the board record enables the layer where it is used
+(`LAYERV7_<i>MECHENABLED`, the `V9` and `_V8` lists, the layer sets). `Board6.Settings` carries
+`LAYERV7_<i>LAYERID`, `NAME` and `MECHENABLED` beside the keys of Mechanical 1 to 16, and a slot of 17 to 32
+takes the source's name and flag as c0464's slots do. Texts and regions on these layers are not moved: the
+text form the writer writes holds no long id.

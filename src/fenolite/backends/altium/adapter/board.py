@@ -23,7 +23,7 @@ from fenolite.backends.altium.adapter.codes import Census, issue
 from fenolite.backends.altium.adapter.context import Context
 from fenolite.backends.altium.adapter.evidence import EVIDENCE
 from fenolite.backends.altium.adapter.ids import UNION_KEY, Exact, Ids, bag
-from fenolite.backends.altium.adapter.layers import MULTI, LayerMap, stackup
+from fenolite.backends.altium.adapter.layers import MULTI, LayerMap, stackup, with_long_mechanical
 from fenolite.backends.altium.adapter.pads import pad
 from fenolite.backends.altium.adapter.rules import connect_texts, import_rules
 from fenolite.backends.altium.read.bodies import BodyRecord, read_bodies
@@ -225,6 +225,7 @@ def _rooms(doc: PcbDocument, ctx: Context) -> None:
 def read_board(doc: PcbDocument, *, file: str, sha256: str, ids: Ids) -> BoardImport:
     """Map ``doc`` into its parts with the ids of ``ids`` (``import_board`` and ``import_project`` share
     this function)."""
+    doc = with_long_mechanical(doc)  # Mechanical 17 to 32 by their long ids (change c0450, task 4.4)
     layers = LayerMap.from_board(doc.board)
     ctx = Context(ids=ids, layers=layers, file=file, sha256=sha256)
     ctx.issues.extend(layers.issues)

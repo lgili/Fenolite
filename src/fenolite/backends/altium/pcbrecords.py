@@ -147,6 +147,60 @@ def _layer_names() -> dict[int, str]:
 
 LAYER_NAMES: Mapping[int, str] = MappingProxyType(_layer_names())
 """Altium layer id → its name, ids 1 to 74."""
+LONG_MECHANICAL = 0x0102_0000
+"""The group of the long ids of mechanical layers: ``LONG_MECHANICAL + n`` is Mechanical n
+(``pcb-library.md``, "Long layer ids")."""
+MECHANICAL_16 = 72
+"""The layer byte of Mechanical 16, which a track, an arc or a fill on Mechanical 17 to 32 holds: only its
+long layer id names its layer (``pcb-records.md``, "Long forms"; change c0450, task 4.4)."""
+LONG_MECHANICAL_NUMBERS = range(17, 33)
+"""The mechanical layers that no layer byte names (Mechanical 17 to 32)."""
+
+
+def mechanical_id(number: int) -> int:
+    """The id the writer gives Mechanical ``number`` (1 … 32): the layer byte ``56 + n`` up to 16, the long
+    layer id above (change c0450, task 4.4)."""
+    if 1 <= number <= 16:
+        return 56 + number
+    if number in LONG_MECHANICAL_NUMBERS:
+        return LONG_MECHANICAL + number
+    raise ValueError(f"Mechanical {number} is no mechanical layer (1 … 32)")
+
+
+def mechanical_number(layer: int) -> int | None:
+    """The number n of Mechanical n that the id ``layer`` names (``mechanical_id``), ``None`` for any other
+    layer."""
+    if 57 <= layer <= 72:
+        return layer - 56
+    if layer - LONG_MECHANICAL in LONG_MECHANICAL_NUMBERS:
+        return layer - LONG_MECHANICAL
+    return None
+
+
+def is_long_mechanical(layer: int) -> bool:
+    """Whether ``layer`` is the long id of Mechanical 17 to 32, which only a long form holds."""
+    return layer - LONG_MECHANICAL in LONG_MECHANICAL_NUMBERS
+
+
+def layer_byte(layer: int) -> int:
+    """The layer byte of a record on ``layer``: ``MECHANICAL_16`` for Mechanical 17 to 32, else ``layer``."""
+    return MECHANICAL_16 if is_long_mechanical(layer) else layer
+
+
+LONG_LAYER_AT: Mapping[int, int] = MappingProxyType({TRACK: 41, ARC: 52, FILL: 42})
+"""The offset of the 32-bit long layer id in the subrecord of the long form of a track (45 or 49 bytes), an
+arc (56 or 60) and a fill (50) (``pcb-records.md``, "Long forms of the eight public documents")."""
+
+
+def long_mechanical_of(kind: int, body: bytes) -> int | None:
+    """The long id of Mechanical 17 to 32 that the subrecord ``body`` of a record of type ``kind`` names with
+    the layer byte of Mechanical 16 (``pcb-records.md``, "Long forms"; S-1588: Altium shows the object on
+    that layer); ``None`` for a short form, another layer byte or another long id."""
+    at = LONG_LAYER_AT.get(kind)
+    if at is None or len(body) < at + 4 or body[0] != MECHANICAL_16:
+        return None
+    (long,) = struct.unpack_from("<I", body, at)
+    return long if is_long_mechanical(long) else None
 
 
 def stack_problem(count: int, planes: int) -> str | None:
@@ -304,7 +358,9 @@ def prefix(
     polygon: int = NO_INDEX,
 ) -> bytes:
     """The common 13 bytes: layer, the two flag bytes, net, polygon (none unless ``polygon``, change c0215),
-    component and ``FF FF FF FF``. ``locked`` clears bit 2 of the first flag byte."""
+    component and ``FF FF FF FF``. ``locked`` clears bit 2 of the first flag byte. Mechanical 17 to 32 (a
+    long id, ``mechanical_id``) gives the byte of Mechanical 16 (``layer_byte``)."""
+    layer = layer_byte(layer)
     if not 0 < layer < 256:
         raise ValueError(f"layer id {layer} is not one byte")
     flags = LOCKED_FLAGS if locked else FLAGS
@@ -448,11 +504,23 @@ def track_record(
     as every hatch track of S-2223 holds them. ``union``, ``(long layer id, union index)``, writes a union
     member (change c0460) in the 49-byte form with the index at 36 (S-2190)."""
     held = lock_written("track", locked)
+    union = _long_mechanical(layer, keepout, union)
     head = prefix(layer, net=net, component=component, locked=held, polygon=polygon)
     sub = 1 if polygon != NO_INDEX else 0
     body = _flagged(head, keepout) + struct.pack("<5iHB", *a, *b, width, sub, 0)
     assert len(body) == TRACK_SIZE
     return bytes((TRACK,)) + subrecord(body + long_tail(keepout, union, TRACK_UNION_AT))
+
+
+def _long_mechanical(
+    layer: int, keepout: tuple[int, int] | None, union: tuple[int, int] | None
+) -> tuple[int, int] | None:
+    """``union`` of a track or arc record, made ``(long id, 0)`` for a plain record on Mechanical 17 to 32:
+    such a record is written in the long form, the long layer id after the short form and the union index
+    and restriction byte 0, as the public rows hold it (change c0450, task 4.4)."""
+    if union is None and keepout is None and is_long_mechanical(layer):
+        return (layer, 0)
+    return union
 
 
 KEEPOUT_TAIL = 13
@@ -545,6 +613,7 @@ def arc_record(
     ``LOCK_WRITTEN``. ``keepout``, ``(long layer id, restriction byte)``, writes a keep-out arc (change
     c0450) in the 60-byte form (``keepout_tail``). ``union``, ``(long layer id, union index)``, writes a
     union member (change c0460) in the 60-byte form with the index at 48 (S-2190)."""
+    union = _long_mechanical(layer, keepout, union)
     head = prefix(layer, net=net, component=component, locked=lock_written("arc", locked))
     body = _flagged(head, keepout) + struct.pack(
         "<3iddiH", arc.cx, arc.cy, arc.radius, arc.start, arc.end, width, 0
@@ -816,6 +885,7 @@ V7_LAYERS: Mapping[int, str] = MappingProxyType(
         KEEPOUT_LAYER: "KEEPOUT",
         MULTI_LAYER: "MULTILAYER",
         **{56 + n: f"MECHANICAL{n}" for n in range(1, 17)},
+        **{LONG_MECHANICAL + n: f"MECHANICAL{n}" for n in LONG_MECHANICAL_NUMBERS},
     }
 )
 """``V7_LAYER`` of a region on a layer that is not copper."""
@@ -1347,6 +1417,15 @@ def embedded_board_array(
 
 
 __all__ = [
+    "LONG_LAYER_AT",
+    "LONG_MECHANICAL",
+    "LONG_MECHANICAL_NUMBERS",
+    "MECHANICAL_16",
+    "is_long_mechanical",
+    "layer_byte",
+    "long_mechanical_of",
+    "mechanical_id",
+    "mechanical_number",
     "ARRAY_VISIBLE_LAYERS",
     "embedded_board_array",
     "VIA_TENTED_BOTTOM",

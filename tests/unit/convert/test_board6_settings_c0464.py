@@ -143,7 +143,8 @@ def _flow_a(folder: Path, *, slots: bool = False) -> Path:
 
 def test_the_conversion_carries_the_settings(tmp_path: Path) -> None:
     """The conversion to KiCad carries ``Board6.Settings``: the settings in order, each run after its
-    anchor, no owned key, and the sixteen mechanical names last."""
+    anchor, no owned key, and the mechanical names last: the sixteen of Mechanical 1 to 16 and, since
+    c0450 task 4.4, the ``LAYERV7_<i>`` keys of Mechanical 17 to 32."""
     conversion = convert_project(read_source(_source(tmp_path)), to="kicad", allow_lossy=True)
     text = conversion.files[conversion.read_back].decode("utf-8")
     found = storages.unpacked(boardcarrier.carried(text)["Fenolite.Altium." + storages.SETTINGS])
@@ -154,10 +155,11 @@ def test_the_conversion_carries_the_settings(tmp_path: Path) -> None:
     assert ("DISPLAYUNIT", "0") in fields and ("GR0_DISPLAYUNIT", "0") in fields
     assert keys.index("HASHKEY00") == keys.index("HOLESHAPEHASHSIZE") + 1
     assert fields[keys.index("SITUSSTRATEGYNAME") - 1][0] == docboard.ANCHOR
-    mechanical = re.compile(r"LAYER\d+(?:NAME|MECHENABLED)")
+    mechanical = re.compile(r"LAYER\d+(?:NAME|MECHENABLED)|LAYERV7_\d+(?:LAYERID|NAME|MECHENABLED)")
     assert not [k for k in keys if docboard.OWNED_KEY.fullmatch(k) and not mechanical.fullmatch(k)]
     assert storages.mechanical_names(fields) == {56 + n: name for n, name in enumerate(NAMES, start=1)}
-    assert len([k for k in keys if k.endswith("MECHENABLED")]) == 16  # the flags of the empty slots
+    assert len([k for k in keys if re.fullmatch(r"LAYER\d+MECHENABLED", k)]) == 16  # flags of 1 to 16
+    assert len([k for k in keys if re.fullmatch(r"LAYERV7_\d+MECHENABLED", k)]) == 16  # 17 to 32
 
 
 def test_the_merge_keeps_the_writers_owned_keys() -> None:
