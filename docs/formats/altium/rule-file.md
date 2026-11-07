@@ -81,6 +81,7 @@ on it, S-0580).
 | `RoutingVias` | `via_drill` | `MINHOLEWIDTH` | `HOLEWIDTH` | `MAXHOLEWIDTH` | `AnyNet` | as the row above: `VIASTYLE`, `USEVIATEMPLATES` |
 | `HoleSize` | `hole_size` | `MINLIMIT` | — | `MAXLIMIT` | `AnyNet` | `ABSOLUTEVALUES` is `TRUE`; `MINPERCENT` and `MAXPERCENT` allowed and unused |
 | `BoardOutlineClearance` | `edge_clearance` | `GAP` | — | — | `DifferentNets` | `OBJECTCLEARANCES` absent, blank or a matrix of exact cells against the edges (each one more rule, change c0462); `GENERICCLEARANCE` absent or equal to `GAP`; `IGNOREPADTOPADCLEARANCEINFOOTPRINT` absent or `FALSE` |
+| `NetAntennae` | `antenna` | — | — | `NETANTENNAETOLERANCE` | `AnyNet` | — |
 | `HoleToHoleClearance` | `hole_to_hole` | `GAP` | — | — | `AnyNet` | `ALLOWSTACKEDMICROVIAS` is `FALSE` or `TRUE` (with `TRUE` the record is also kept: "Kept rule records") |
 | `MinimumAnnularRing` | `annular_width` | `MINIMUMRING` | — | — | `AnyNet` | — |
 | `SilkToSilkClearance` | `silk_clearance` | `SILKTOSILKCLEARANCE` | — | — | `AnyNet` | — |
@@ -270,7 +271,7 @@ lowered").
 | `MatchedLengths` | export (1) | S-0297 | yes: `skew` or `diff_pair_skew` (change c0462) |
 | `MinimumAnnularRing` | PCB documents (4 in 3 documents) | S-0174, S-0199, S-0200 | yes: `annular_width` |
 | `MinimumSolderMaskSliver` | export (4) | S-0297 | no |
-| `NetAntennae` | export (1) | S-0297 | no |
+| `NetAntennae` | export (1) | S-0297 | yes: `antenna` (change c0465) |
 | `PasteMaskExpansion` | export (1) | S-0297 | no |
 | `PlaneClearance` | export (1) | S-0297 | no |
 | `PlaneConnect` | export (1) | S-0297 | no |
@@ -281,7 +282,7 @@ lowered").
 | `RoutingPriority` | export (1) | S-0297 | no |
 | `RoutingTopology` | export (1) | S-0297 | no |
 | `RoutingVias` | export (1) | S-0297 | yes: `via_diameter` and `via_drill` |
-| `ShortCircuit` | export (1); summary (2 files) | S-0297, S-0298, S-0188 | no |
+| `ShortCircuit` | export (1); summary (2 files) | S-0297, S-0298, S-0188 | yes: `short` (change c0465) |
 | `SilkToBoardRegionClearance` | export (1) | S-0297 | no |
 | `SilkToSilkClearance` | export (1) | S-0297 | yes: `silk_clearance` |
 | `SilkToSolderMaskClearance` | export (1) | S-0297 | no |
