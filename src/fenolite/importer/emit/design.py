@@ -1192,7 +1192,7 @@ def _drawings(
 ) -> list[list[str]]:
     """The ``design.text()`` and drawing calls of the board's texts and graphics. ``members``, when given,
     takes each written item's KiCad uuid → its key (``design.group()``). ``built`` (change c0460), when
-    given, takes each written board text's KiCad uuid → the uuid the build gives it
+    given, takes each written board text's and graphic's KiCad uuid → the uuid the build gives it
     (``boarditems.item_uuid`` of its DSL id), as ``Tables.built`` does for copper."""
     from fenolite.backends.kicad.boarditems import item_uuid
     from fenolite.dsl.convert import key_id
@@ -1233,6 +1233,8 @@ def _drawings(
         out.append(statement(made))
         if members is not None:
             members[_native(graphic)] = text(key)
+        if built is not None and _native(graphic):
+            built[_native(graphic)] = item_uuid(key_id("graphic", key))
 
     def tkey(item: Text) -> tuple[object, ...]:
         return (item.layer, item.position.x, item.position.y, item.text)
@@ -1858,7 +1860,7 @@ def emit(source: Source, options: Options) -> Emission:
                 field_lines.append(statement(call))
     zone_lines = _zones(board, names, net_vars, layers, ledger, grouped, writer)
     area_lines = _areas(board, layers, ledger, grouped)
-    built = dict(tables.built)  # copper and board texts → their uuids in the build (change c0460)
+    built = dict(tables.built)  # copper, board texts and graphics → their uuids in the build (c0460)
     drawing_lines = _drawings(
         board,
         ledger,

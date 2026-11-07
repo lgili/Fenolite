@@ -199,6 +199,29 @@ def _stroke_unions(document: bytes) -> Counter[tuple[str, int]]:
     return found
 
 
+def _all_unions(document: bytes) -> Counter[tuple[str, int]]:
+    """Every union member of a document by kind and index: tracks, arcs and vias (``_stroke_unions``), texts
+    (119 of their first subrecord), regions of both storages and components (``UNIONINDEX``)."""
+    found = _stroke_unions(document)
+    read = read_pcbdoc(document)
+    for item in read.texts:
+        if isinstance(item, RawPrimitive):
+            continue
+        raw = bytes(item.raw)
+        first = raw[5 : 5 + struct.unpack_from("<I", raw, 1)[0]]
+        if len(first) >= unions.TEXT_UNION_OFFSET + 4 and (index := struct.unpack_from("<I", first, 119)[0]):
+            found["text", index] += 1
+    for kind, records in (("region", (*read.regions, *read.shape_regions)), ("component", read.components)):
+        for record in records:
+            if isinstance(record, RawPrimitive):
+                continue
+            fields = dict(record.properties.fields if kind == "region" else record.record.fields)
+            value = fields.get("UNIONINDEX", "0")
+            if value.isdigit() and int(value):
+                found[kind, int(value)] += 1
+    return found
+
+
 def test_a_track_and_an_arc_are_written_in_their_union() -> None:
     """Scenario "A length tuning comes back in its union" (S-2190): the member track is written in the
     49-byte form with its index at 36, the member arc in the 60-byte form with its index at 48, each with
@@ -248,9 +271,9 @@ def test_row_union_strokes_survive_kicad(tmp_path: Path, row: str) -> None:
     assert _stroke_unions(document) == before
 
 
-FLOW_A_MEMBERS = {"04": 22, "07": 47}
-"""The track, arc and via members of the rows flow A is run on: ``-04``'s 22 stitching vias, ``-07``'s 27
-tracks and 20 arcs of five length-tuning unions."""
+FLOW_A_MEMBERS = {"01": 2, "04": 22, "07": 47}
+"""The union members of the rows flow A is run on: ``-01``'s overlay region (one record in each region
+storage), ``-04``'s 22 stitching vias, ``-07``'s 27 tracks and 20 arcs of five length-tuning unions."""
 
 
 @pytest.mark.needs_corpus
@@ -278,9 +301,9 @@ def test_flow_a_keeps_row_unions(tmp_path: Path, row: str) -> None:
     (built,) = (tmp_path / "b").glob("*.kicad_pcb")
     go("convert", str(built), "--to", "altium", "--out", "alt", "--allow-lossy")
     (path,) = (tmp_path / "alt").glob("*.PcbDoc")
-    before = _stroke_unions(source.read_bytes())
+    before = _all_unions(source.read_bytes())
     assert sum(before.values()) == FLOW_A_MEMBERS[row]
-    assert _stroke_unions(path.read_bytes()) == before
+    assert _all_unions(path.read_bytes()) == before
 
 
 TEXT_UNION = 77

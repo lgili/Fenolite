@@ -33,7 +33,8 @@
   import to Python renames the copper uuids of a carried property to the build's (flow A lost `-04`'s 22
   vias the same way). Texts too (row `-08`, VM at 332b79837: 41 unions of 2724 members became 4 of 434):
   a free text holds its index at 119 of its first subrecord, a member component's designator and comment
-  hold the component's; the import to Python maps board texts to the build's uuids, and the stroke-font
+  hold the component's; the import to Python maps board texts and graphics to the build's uuids (row `-01`'s
+  region union, lost by flow A at 60687e26d), and the stroke-font
   carrier keys a member text by its marked uuid. Footprint tracks of a union (`-03` 4, `-06` 80) stay out;
   through flow A a member footprint (with its designator and comment) and the stroke fonts of footprint
   fields are still lost: the build gives footprints uuids the import does not map.
