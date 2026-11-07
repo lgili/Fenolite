@@ -50,12 +50,15 @@ BASELINE = {
     "altium-third-party-pcbdoc-05": {"Mech.1": 4, "Mech.2": 92, "Mech.4": 92},
     # change c0407: the three regions of KIND=1 (polygon cut-outs) on the Multi-Layer layer of -06 are rule
     # areas against pours on every copper layer, no longer graphics of layer 74
+    # change c0450 (task 4.5): of the 49 on the byte of Mechanical 16, 25 texts name Mechanical 19 by their
+    # long ids
     "altium-third-party-pcbdoc-06": {  # its 2 component cut-outs are Edge.Cuts since c0443
         "Mech.1": 18,
         "Mech.11": 105,
         "Mech.13": 217,
         "Mech.15": 482,
-        "Mech.16": 49,
+        "Mech.16": 24,
+        "Mech.19": 25,
         "Mech.2": 1,
         "Mech.6": 1,
     },
