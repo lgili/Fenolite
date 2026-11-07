@@ -195,3 +195,29 @@ def test_an_edge_matrix_whose_edges_differ_is_read_for_the_pour() -> None:
     assert extra == {0} and not fine
     assert "ClearanceObj_Poly-ClearanceObj_CutoutEdge:196850" in judged
     assert not matrix_problem(judged, "11.811mil", edges=True)
+
+
+def test_the_default_keep_out_clearance_governs_only_keep_outs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Altium's default keep-out clearance (a scope of keep-out and cut-out terms against ``All``) at
+    priority 1 is refused by the import for its scope; the pour reads it as the clearance between a keep-out
+    and any object, so it refuses no other pair (task 5.2, flow B)."""
+    original = pcbdoc.rule_records
+    scope = "OnLayer('Keep-Out Layer') or IsKeepOut or IsBoardCutoutRegion"
+
+    def records(spec: pcbdoc.PcbDocSpec, filename: str) -> list[bytes]:
+        keys = [
+            ("GAP", "10mil"),
+            ("GENERICCLEARANCE", "10mil"),
+            ("IGNOREPADTOPADCLEARANCEINFOOTPRINT", "FALSE"),
+            ("OBJECTCLEARANCES", ""),
+        ]
+        extra = pcbdoc._rule(0, "Clearance", "keepout", scope, 1, keys, filename)  # pyright: ignore[reportPrivateUsage]
+        return [*original(spec, filename), extra]
+
+    monkeypatch.setattr(pcbdoc, "rule_records", records)
+    rules = Clearances(_board(clearance(0.2)).base())
+    gnd = rule_subject("F.Cu", "zone", "GND", "Default")
+    vin = rule_subject("F.Cu", "pad", "VIN", "Default")
+    keepout = rule_subject("F.Cu", "keepout", None, "Default")
+    assert rules.clearance(gnd, vin, polygons=("GND_L01_P000",)) == _unit(mm(0.2))
+    assert rules.clearance(gnd, keepout, polygons=("GND_L01_P000",)) == 10 * 25_400
