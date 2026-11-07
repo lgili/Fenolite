@@ -8,7 +8,7 @@ from __future__ import annotations
 import pytest
 
 from fenolite.backends.altium.read.scope import LayerScope, parse_layer_scope, parse_scope
-from fenolite.model.rules import NO_NET, Selector
+from fenolite.model.rules import Selector
 
 NET_A = Selector("net", "A")
 NET_B = Selector("net", "B")
@@ -33,7 +33,7 @@ def test_class_and_item_kind() -> None:
         ("InNetClass('PWR')", Selector("netclass", "PWR")),
         ("InComponent('U1')", Selector("ref", "U1")),
         ("InNet('net with space')", Selector("net", "net with space")),
-        ("InNet('No Net')", NO_NET),
+        ("InNet('No Net')", Selector("not", items=(Selector("all"),))),  # S-2214
         ("IsTrack", TRACK),
         ("IsVia", VIA),
         ("IsPad", Selector("item_kind", "pad")),

@@ -411,7 +411,7 @@ other text is refused with a reason (`scope.Refusal`, whose `reason` is `grammar
 | `All` | `all` |
 | `InNet('v')` | `net v` |
 | `InNet('v1', 'v2', …)` | `or(net v1, net v2, …)` |
-| `InNet('No Net')` | `not(net *)` (`NO_NET`) |
+| `InNet('No Net')` | `not(all)` (`NOTHING`; no object) |
 | `InAnyNet` | `net *` (so `Not InAnyNet` is `NO_NET`) |
 | `InNetClass('v')` | `netclass v` |
 | `InComponent('v')` | `ref v` |
@@ -466,15 +466,15 @@ globs, `*` and `?` kept as wildcards and `[` and `]` escaped (`[[]`, `[]]`), so 
 escaped. The design of change c0462 asked for `InNet` values escaped whole; that would select another set
 of nets than Altium does, so the reading follows S-2212.
 
-`InNet('No Net')` selects the objects without a net (change c0409, B7; `H-A-RD-PRJ-SCOPE-NONET`, INFERRED): an
-object without a net has the Net property `No Net` (S-1680), and no public source states that `InNet` reads the
-name that way. It is read as `model.rules.NO_NET`, `not(net *)` (a net glob never matches an object
-without a net), which `select.no_net()` names and the KiCad target writes as `A.NetName == ''`
-(`docs/formats/kicad/rules.md`, `H-K-DRU-NONET`). The Altium writer does not write it back as `InNet('No Net')`:
-since change c0420 it writes `Not InAnyNet`, below.
+`InNet('No Net')` selects no object (change c0462 task 5.1; `H-A-RD-PRJ-SCOPE-NONET-2`, INFERRED). An object without a
+net shows the Net property `No Net` (S-1680), and change c0409 (B7) read the scope as the objects without a net
+(`H-A-RD-PRJ-SCOPE-NONET`, now refuted). Altium's PCB filter, run on rows `-04` and `-07` of the public corpus, which
+hold netless copper, selects nothing for it (S-2214). It is read as `NOTHING`, `not(all)`: `Not InNet('No Net')` reads
+as `all`, and `'No Net'` among other values of `InNet` adds no net. The objects without a net are `Not InAnyNet`,
+below, which the Altium writer has written for `model.rules.NO_NET` since change c0420.
 
 `InAnyNet` selects the objects that are on a net, so `Not InAnyNet` selects those without one (change c0420, B7;
-`H-A-RD-PRJ-SCOPE-NONET`, INFERRED): Altium's Attribute Checks page states that `Not InAnyNet` returns the objects
+`H-A-RD-PRJ-SCOPE-NONET-2`, INFERRED): Altium's Attribute Checks page states that `Not InAnyNet` returns the objects
 that are not nets or their primitives (S-1680). It is read as `net *`, so `Not InAnyNet` is `NO_NET` and a scope
 such as `IsPad And (Not InAnyNet)` maps without a `scope` refusal. The Altium writer lowers `net *` to `InAnyNet`, so
 `NO_NET` is written `Not InAnyNet` and `IsPad And (Not InAnyNet)` reads back as the same rule
@@ -505,10 +505,11 @@ the leaves carry the document's own names, every glob character escaped.
 | `ExistsOnLayer('L')`, `OnLayer('L')` | `or(layer L, MULTI_LAYER)` | `L` no copper layer (`undefined`); a via spanning part of the stack (`via-span`) |
 | `InDrillLayerPair('A - B')` | `item_kind via` for the pair of the top and bottom layers, else `NOTHING` | a via spanning part of the stack (`drill-pair`) |
 | `InDifferentialPair('P', …)`, `InAnyDifferentialPair` | `or(net positive, net negative, …)` of the pairs | — |
-| `IsDifferentialPair`, `InDifferentialPairClass('C')` | the same nets, for a rule that judges pair objects | any other rule (`object-kind`); `C` not defined once (`undefined`) |
+| `InDifferentialPairClass('C')` | the nets of the class's pairs | `C` not defined once (`undefined`) |
+| `IsDifferentialPair` | the same nets, for a rule that judges pair objects | any other rule (`object-kind`) |
 | `HasFootprint('F')` | `or(ref …)` of the components whose footprint matches | a designator shared with another component, or empty (`designator`) |
 | `IsComponent`, `IsNetTieComponent`, `InComponentClass('C')`, `IsBGA`, `IsSOIC`, `IsLCC` | `or(ref …)`, for a rule that judges component objects | any other rule (`object-kind`); a component kind not known to be Net Tie or not (`undefined`); a package check that cannot decide (`package-check`) |
-| `CompPinCount` compared with a number | `or(ref …)` of the components whose pad count complies | as `HasFootprint` |
+| `CompPinCount` compared with a number | `or(ref …)` of the components whose pad count complies; for a comparison that a free object meets (its count is 0), `not(or(ref …))` of the components that do not comply, or `all` | as `HasFootprint` |
 | `HoleDiameter`, `HoleSize` compared with a length | `hole lo..hi` | an interval that holds 0 (`hole-zero`); a pad on one layer with a hole size (`document`) |
 | `PadIsPlated = True`, `PadIsPlated = False` | `or(pad_type th, …)` of the plated pads, or of the unplated ones | pads without a hole that are neither all plated nor all unplated (`pad-plated`) |
 | `InNamedPolygon('P')` | `zone P` | `P` not in the document (`undefined`) |
@@ -525,12 +526,14 @@ document with blind or buried vias refuses it. The design of change c0462 wrote 
 would take the vias too, so the reading follows S-2212.
 
 **Parents and children.** `IsNamedPolygon`, `IsComponent`, `IsNetTieComponent`, `InComponentClass`, `IsBGA`, `IsSOIC`,
-`IsLCC`, `IsDifferentialPair` and `InDifferentialPairClass` return the parent object without its children (S-2212). A
-neutral rule judges copper primitives, so they map only for a rule kind whose subject is that parent:
-`ComponentClearance` and `FanoutControl` (components), `PolygonConnect` (pours) and `DiffPairsRouting` (pairs)
-(`scope.PARENTS`, `scope.for_kind`). `InDifferentialPair` and `InNamedPolygon` return the parent with its children,
-and the children are the objects of the pair's two nets and the copper of the pour. A pair maps to `net` leaves, not
-`diff_pair`: a primitive's subject does not carry its pair, and the nets select the same primitives.
+`IsLCC` and `IsDifferentialPair` return the parent object without its children (S-2212). A neutral rule judges copper
+primitives, so they map only for a rule kind whose subject is that parent: `ComponentClearance` and `FanoutControl`
+(components), `PolygonConnect` (pours) and `DiffPairsRouting` (pairs) (`scope.PARENTS`, `scope.for_kind`).
+`InDifferentialPair`, `InDifferentialPairClass` and `InNamedPolygon` return the parent with its children, and the
+children are the objects of the pair's two nets and the copper of the pour. Change c0462 read
+`InDifferentialPairClass` as parent-only; Altium's PCB filter on rows `-07` and `-08` selects the tracks, vias and
+pads of the class's pairs (S-2214), so it maps for every rule kind. A pair maps to `net` leaves, not `diff_pair`: a
+primitive's subject does not carry its pair, and the nets select the same primitives.
 
 **Units of a number** (`H-A-RD-PRJ-SCOPE-UNIT`, INFERRED). A number compared with `HoleDiameter` without `AsMils` or
 `AsMM` is in the document's measurement unit (S-2212, "Fields"). `scope_document` takes it from the board record's
@@ -562,7 +565,7 @@ with via template keys 4, BoardOutlineClearance object matrices 3, Clearance sco
 
 | form | reason it does not map (a declared loss: the rule is reported unmapped with this reason) |
 |---|---|
-| `WithinRoom`, `InNamedUnion`, `InxSignal`, `InxSignalClass`; and, outside the rule kinds that judge them, `IsDifferentialPair`, `InDifferentialPairClass`, `InComponentClass`, `IsNamedPolygon` | no neutral leaf holds a room, a union or an xSignal, and a rule on copper primitives does not judge a parent object (since change c0462 the other functions map, "Scope functions that read the document") |
+| `WithinRoom`, `InNamedUnion`, `InxSignal`, `InxSignalClass`; and, outside the rule kinds that judge them, `IsDifferentialPair`, `InComponentClass`, `IsNamedPolygon` | no neutral leaf holds a room, a union or an xSignal, and a rule on copper primitives does not judge a parent object (since change c0462 the other functions map, "Scope functions that read the document") |
 | `OnLayer`, `ExistsOnLayer` on a board with blind or buried vias | the neutral subject holds no via span (`via-span`; since change c0462 the layer functions map when joined with other terms) |
 | Clearance with `NETSCOPE=AnyNet` | a neutral clearance holds between different nets; a clearance between objects of one net has no counterpart, so mapping the record would drop half of it |
 | HoleToHoleClearance with `ALLOWSTACKEDMICROVIAS=TRUE` | the neutral rule has no exception for stacked micro-vias |

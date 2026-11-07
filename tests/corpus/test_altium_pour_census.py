@@ -215,7 +215,11 @@ around the clearance) and draws a relief conductor over its own pad outside the 
 of ``-04`` and P21 of ``-07`` now pass M1, so 4 polygons of ``-04`` and none of ``-07`` fail it. What is
 left on the top layer of ``-04`` is copper Fenolite keeps and Altium removes, joined to the rest through
 narrow channels. Parting a pinch that the neck removal's discs close again takes M3 and M4 off the top
-polygon of ``-05``."""
+polygon of ``-05``.
+
+Task 5.1 (S-2214) reads ``InDifferentialPairClass`` as the pairs' copper for every rule kind, so no polygon
+of ``-08`` is refused for a rule scope; the refusal of task 4.3 (``matrix-kind``) comes first there, so its
+counts stay those above."""
 
 
 @pytest.mark.parametrize("item", DOCUMENTS, ids=lambda item: item.id)

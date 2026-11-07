@@ -27,7 +27,6 @@ from dataclasses import dataclass, replace
 from decimal import Decimal, InvalidOperation
 from typing import Literal
 
-from fenolite.model.rules import NO_NET as NO_NET_SELECTOR
 from fenolite.model.rules import Selector, SelectorOp, hole_value
 
 LEAF_FUNCTIONS: dict[str, SelectorOp] = {"InNet": "net", "InNetClass": "netclass", "InComponent": "ref"}
@@ -38,8 +37,10 @@ WILDCARD_FUNCTIONS = frozenset({"InNet", "InComponent"})
 """The functions whose values hold Altium's wildcards (S-2212, "Membership Checks": ``InNet('V*')`` returns
 the nets whose names start with V)."""
 NO_NET = "No Net"
-"""The net name ``InNet`` takes for the objects without a net (``rule-file.md``, "Closed scope grammar";
-``H-A-RD-PRJ-SCOPE-NONET``, change c0409): ``InNet('No Net')`` is ``model.rules.NO_NET``."""
+"""The net name an object without a net shows (S-1680). Altium's PCB filter selects nothing for
+``InNet('No Net')`` on the two public rows that hold netless copper (S-2214, the kit run of change c0462
+task 5.1), so it is ``NOTHING``, not ``model.rules.NO_NET`` (``H-A-RD-PRJ-SCOPE-NONET-2``; change c0409 read
+it as the objects without a net)."""
 ANY_NET = "InAnyNet"
 """The attribute check, without an argument, that is true for an object of a net or a primitive of one: ``Not
 InAnyNet`` returns the objects without a net (S-1680; change c0420, B7). It is ``net *``, so ``Not InAnyNet``
@@ -191,7 +192,7 @@ class ScopeDocument:
     refused (``document``).
 
     ``parents``: the parent objects the rule of the scope judges. A function that returns parent objects and
-    not their children (``IsComponent``, ``IsNamedPolygon``, ``InDifferentialPairClass`` …) maps only for a
+    not their children (``IsComponent``, ``IsNamedPolygon``, ``IsDifferentialPair`` …) maps only for a
     rule that judges them; for any other rule it is refused (``object-kind``), because the reference does
     not say which primitives such a rule then governs."""
 
@@ -349,7 +350,8 @@ def _flat(op: Literal["and", "or"], items: Sequence[_Set]) -> Selector:
 
 
 def _not(selector: Selector) -> Selector:
-    return Selector("not", items=(selector,))
+    """``not`` of ``selector``; of ``NOTHING``, ``all``."""
+    return Selector("all") if selector == NOTHING else Selector("not", items=(selector,))
 
 
 def _escaped(text: str, wildcards: bool) -> str:
@@ -579,11 +581,12 @@ class _Parser:
         values = self.strings(name, many=name in WILDCARD_FUNCTIONS)
         op = LEAF_FUNCTIONS[name]
         leaves = [
-            NO_NET_SELECTOR
-            if name == "InNet" and value == NO_NET
-            else Selector(op, _escaped(value, name in WILDCARD_FUNCTIONS))
+            Selector(op, _escaped(value, name in WILDCARD_FUNCTIONS))
             for value in values
+            if not (name == "InNet" and value == NO_NET)
         ]
+        if not leaves:
+            return _Set(NOTHING)
         if len(leaves) == 1:
             return _Set(leaves[0])
         return _Set(Selector("or", items=tuple(leaves)), grouped=True)
@@ -726,7 +729,9 @@ def _nets_of(pairs: Sequence[ScopePair]) -> Selector:
 
 def _pair_function(parser: _Parser, name: str) -> _Value:
     """``InDifferentialPair('P', …)``, ``InAnyDifferentialPair``, ``IsDifferentialPair`` and
-    ``InDifferentialPairClass('C')`` (S-2212, "Membership Checks" and "Attribute Checks")."""
+    ``InDifferentialPairClass('C')`` (S-2212, "Membership Checks" and "Attribute Checks"). Of these only
+    ``IsDifferentialPair`` returns the pairs alone; for ``InDifferentialPairClass`` Altium's PCB filter
+    selects the tracks, vias and pads of the class's pairs (S-2214)."""
     if name == "InDifferentialPair":
         patterns = parser.strings(name, many=True)
         pairs = _need(parser, name, "pairs").pairs or ()
@@ -739,7 +744,6 @@ def _pair_function(parser: _Parser, name: str) -> _Value:
         _parent(parser, name, "pair")
         return _Set(_nets_of(_need(parser, name, "pairs").pairs or ()), grouped=True)
     (wanted,) = parser.strings(name, many=False)
-    _parent(parser, name, "pair")
     document = _need(parser, name, "classes")
     pairs = _need(parser, name, "pairs").pairs or ()
     found = _class(document, name, 6, wanted)
@@ -823,16 +827,21 @@ def _component_function(parser: _Parser, name: str) -> _Value:
 
 def _pin_count(parser: _Parser, name: str) -> _Value:
     """``CompPinCount``: the number of a component's pads; a comparison returns the components and their
-    children (S-2212)."""
+    children (S-2212). An object outside every component counts 0 pins: Altium's PCB filter selects every
+    free via, track and polygon for ``CompPinCount < 5`` (S-2214, the kit run of task 5.1), so an interval
+    that holds 0 is every object but the children of the components outside it."""
     _no_arguments(parser, name)
     document = _need(parser, name, "components")
 
     def leaf(lo: int | None, hi: int | None) -> Selector:
-        chosen = [
-            c for c in document.components or ()
-            if (lo is None or len(c.pads) >= lo) and (hi is None or len(c.pads) <= hi)
-        ]  # fmt: skip
-        return _refs(document, name, chosen)
+        every = document.components or ()
+        inside = [c for c in every if (lo is None or len(c.pads) >= lo) and (hi is None or len(c.pads) <= hi)]
+        if lo is not None and lo > 0:
+            return _refs(document, name, inside)
+        outside = [c for c in every if all(c is not chosen for chosen in inside)]
+        if not outside:
+            return Selector("all")
+        return Selector("not", items=(_refs(document, name, outside),))
 
     return _Field(name, leaf, length=False)
 

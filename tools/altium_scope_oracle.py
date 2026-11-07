@@ -5,7 +5,7 @@ each distinct mapped rule scope of the 8 public Altium rows selects.
 
     uv run python tools/altium_scope_oracle.py plan --out DIR
     uv run python tools/altium_scope_oracle.py record --results DIR --altium VERSION \
-        --out tests/data/altium/kit/scope-oracle-c0462.json
+        --out tests/data/altium/kit/scope-oracle-c0462.json [--not-measured ROW] [--extra KEY=SCOPE]
 
 ``plan`` reads the cached public rows (``FENOLITE_CORPUS_CACHE``, else ``~/.cache/fenolite/corpus``), and for
 each row writes ``DIR/<PcbDoc file name>.scopes.txt``, one line ``<n> <scope>`` per distinct scope that
@@ -20,7 +20,10 @@ PCB Filter panel with Select on, write ``<n>`` alone into ``<PcbDoc file name>.c
 document, then File » Run Script » ``FenoliteCountSelection``. That procedure runs no process: it counts the
 current selection as ``FenoliteScopeOracle`` does, writes ``<PcbDoc file name>.counts-<n>.txt`` and clears
 the selection. ``record`` reads a row's ``.counts-<n>.txt`` files when it has any (a scope that holds ``|``
-and has none is ``skipped``), else its ``.counts.txt``.
+and has none is ``skipped``), else its ``.counts.txt``. It numbers a row's scopes by its ``.scopes.txt`` in
+``DIR``, the plan as run, and writes each scope's text. ``--not-measured`` names a row the run did not
+measure; ``--extra x<k>=<scope>`` adds a scope run beside the plan, read from
+``<PcbDoc file name>.counts-x<k>.txt``.
 
 For each scope the script clears every selection itself (``Selected``), runs the server process
 ``PCB:RunQuery`` with ``Expr``, ``Select`` and ``Apply``, and counts the selected objects of each kind: a
@@ -44,11 +47,14 @@ import re
 import sys
 import tomllib
 import urllib.parse
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import replace
 from pathlib import Path
 from types import MappingProxyType
-from typing import cast
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from fenolite.backends.altium.read.scope import ParentKind, ScopeDocument
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "tests" / "corpus" / "manifest.toml"
@@ -178,7 +184,7 @@ def fenolite_counts(data: bytes, name: str, scopes: Sequence[str]) -> list[dict[
     )
     from fenolite.backends.altium.read.scope import parse_scope
     from fenolite.backends.altium.read.scopedoc import scope_document
-    from fenolite.model.rules import Selector
+    from fenolite.model.rules import RuleSubject, Selector
 
     reading = read_pour(data, file=name)
     board = reading.design.board
@@ -186,13 +192,37 @@ def fenolite_counts(data: bytes, name: str, scopes: Sequence[str]) -> list[dict[
     everything = replace(document, parents=frozenset({"component", "polygon", "pair"}))
     """The filter selects parent objects too; for a function that returns a component or a pair alone the
     selector's ``ref`` or ``net`` leaves select its children, so the comparison counts its parents."""
-    objects = LayerObjects(reading, 1)
-    subjects: dict[tuple[str, str], list[object]] = {}
+    polygons = polygons_of(reading)
+    objects = LayerObjects(reading, min((polygon.tol for polygon in polygons), default=25_400))
+    """The pour's own arc tolerance: the counts do not depend on the shapes, and a finer one makes the arcs of
+    a large board too many vertices to hold."""
+    vias: set[str] = {via.id for via in board.vias} if board is not None else set()
+    holes: set[str] = (
+        {hole.id for hole in board.holes}
+        | {pad.id for footprint in board.footprints for pad in footprint.pads}
+        if board is not None
+        else set()
+    )
+    """A via without an annulus is only a hole in the table, and so are a free hole, which the conversion to
+    KiCad writes as a pad of a generated footprint, and a footprint's pad without copper: each counts as
+    Altium counts it, a via or a pad."""
+    lines: set[str] = (
+        {track.id for track in board.tracks} | {arc.id for arc in board.arcs} if board is not None else set()
+    )
+    """The table holds a copper fill or region as a ``track`` too; Altium counts those as fills and
+    regions, so a track or an arc counts only for the board's own tracks and arcs."""
+    subjects: dict[tuple[str, str], list[RuleSubject]] = {}
     for layer, items in objects.by_layer.items():
         for item in items:
+            if item.kind == "hole" and item.entity_id in vias:
+                item = replace(item, kind="via")
+            elif item.kind == "hole" and item.entity_id in holes:
+                item = replace(item, kind="pad")
+            if item.kind in ("track", "arc") and item.entity_id not in lines:
+                continue
             if item.kind in ("track", "arc", "via", "pad"):
                 subjects.setdefault((item.kind, item.entity_id), []).append(object_subject(layer, item))
-    for polygon in polygons_of(reading):
+    for polygon in polygons:
         netclass = objects.netclass.get(polygon.net, objects.netclass[None])
         subject = rule_subject(polygon.layer, "zone", polygon.net, netclass, zone=polygon.name or None)
         subjects.setdefault(("polygon", str(polygon.index)), []).append(subject)
@@ -201,12 +231,38 @@ def fenolite_counts(data: bytes, name: str, scopes: Sequence[str]) -> list[dict[
         selector = parse_scope(scope, document=everything)
         if not isinstance(selector, Selector):
             raise ValueError(f"{name}: {scope!r} no longer maps: {selector}")
+        parent = parent_kind(scope, document)
         counts: dict[str, int] = {}
+        refs: set[str] = set()
         for (kind, _), each in sorted(subjects.items()):
-            if any(selector.matches(s) for s in each):  # type: ignore[arg-type]
+            matched = [s for s in each if selector.matches(s)]
+            if not matched:
+                continue
+            refs.update(s.ref for s in matched if s.ref)
+            if parent in (None, "polygon"):
                 counts[kind] = counts.get(kind, 0) + 1
+        if parent == "component":
+            counts = {"component": len(refs)}
         found.append(counts)
     return found
+
+
+def parent_kind(scope: str, document: ScopeDocument) -> str | None:
+    """The parent kind a scope returns alone (``component``, ``polygon`` or ``pair``): the PCB filter selects
+    those parents and not their children (the first by-hand run: ``IsSOIC`` selects components only), so the
+    comparison counts them; ``None`` for a scope that selects primitives. A ``zone`` leaf selects no
+    primitive of the table, so a polygon scope counts every kind: its ``Or`` with a primitive term counts
+    both."""
+    from fenolite.backends.altium.read.scope import Refusal, parse_scope
+
+    if not isinstance(parse_scope(scope, document=document), Refusal):
+        return None
+    kinds: tuple[ParentKind, ...] = ("component", "polygon", "pair")
+    for kind in kinds:
+        alone = replace(document, parents=frozenset({kind}))
+        if not isinstance(parse_scope(scope, document=alone), Refusal):
+            return kind
+    return None
 
 
 def scope_lines(scopes: Sequence[str]) -> str:
@@ -444,19 +500,58 @@ def plan(out: Path, cache: Path) -> int:
     return 0
 
 
-def record(results: Path, out: Path, cache: Path, altium: str) -> int:
+def extra_counts(results: Path, name: str, extras: Mapping[str, str]) -> list[dict[str, object]]:
+    """The counts of the extra scopes run on the document ``name``: ``extras`` maps a key such as ``x2`` to
+    its scope, and ``<name>.counts-<key>.txt`` holds its lines, each starting with the key."""
+    found: list[dict[str, object]] = []
+    for key, scope in sorted(extras.items()):
+        path = results / f"{name}.counts-{key}.txt"
+        if not path.is_file():
+            continue
+        lines = [line.strip() for line in path.read_text("utf-8").splitlines() if line.strip()]
+        stray = [line for line in lines if not line.startswith(f"{key} ")]
+        if stray:
+            raise ValueError(f"{path.name}: line {stray[0]!r} is not of scope {key}")
+        (entry,) = parse_counts("".join(f"1 {line[len(key) + 1 :]}\n" for line in lines), [scope])
+        found.append({"key": key, **entry})
+    return found
+
+
+def record(
+    results: Path,
+    out: Path,
+    cache: Path,
+    altium: str,
+    not_measured: Collection[str] = (),
+    extras: Mapping[str, str] | None = None,
+) -> int:
+    """Write the oracle JSON. A scope's number is its line in the row's ``.scopes.txt`` in ``results``, the
+    plan as run, else in the scopes the reader maps today; the JSON holds each scope's text, so a later
+    reading compares by text. A row named in ``not_measured`` is written with ``measured`` false and no
+    counts; any other row without counts is ``SystemExit``. ``extras``: the scopes run beside the plan."""
     rows: list[dict[str, object]] = []
     for ident, sha, path in public_rows(cache):
         if hashlib.sha256(path.read_bytes()).hexdigest() != sha:
             raise SystemExit(f"{ident}: the cached file is not the manifest's")
-        scopes = mapped_scopes(path.read_bytes(), path.name)
+        planned = results / f"{path.name}{SCOPES}"
+        scopes = (
+            [line.split(" ", 1)[1] for line in planned.read_text("utf-8").splitlines() if line.strip()]
+            if planned.is_file()
+            else mapped_scopes(path.read_bytes(), path.name)
+        )
+        if ident in not_measured:
+            rows.append({"row": ident, "sha256": sha, "measured": False, "scope_texts": scopes})
+            continue
         text = per_scope_counts(results, path.name, scopes)
         if text is None:
             counts = results / f"{path.name}{COUNTS}"
             if not counts.is_file():
                 raise SystemExit(f"{ident}: {counts.name} is missing from {results}")
             text = counts.read_text("utf-8")
-        rows.append({"row": ident, "sha256": sha, "scopes": parse_counts(text, scopes)})
+        row: dict[str, object] = {"row": ident, "sha256": sha, "measured": True}
+        row["scopes"] = parse_counts(text, scopes)
+        row["extras"] = extra_counts(results, path.name, extras or {})
+        rows.append(row)
     oracle = {"schema": SCHEMA, "source": "S-2214", "altium": altium, "rows": rows}
     out.write_text(json.dumps(oracle, indent=1, sort_keys=True) + "\n", encoding="utf-8")
     print(f"wrote {out}")
@@ -472,12 +567,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     r.add_argument("--results", type=Path, required=True)
     r.add_argument("--out", type=Path, required=True)
     r.add_argument("--altium", required=True, help="the Altium Designer version the run used, e.g. 26.1.0")
+    r.add_argument("--not-measured", action="append", default=[], help="a row id the run did not measure")
+    r.add_argument("--extra", action="append", default=[], help="KEY=SCOPE, a scope run beside the plan")
     for each in (p, r):
         each.add_argument("--cache", type=Path, default=default_cache())
     args = parser.parse_args(argv)
     if args.command == "plan":
         return plan(args.out, args.cache)
-    return record(args.results, args.out, args.cache, args.altium)
+    extras = dict(each.split("=", 1) for each in args.extra)
+    return record(args.results, args.out, args.cache, args.altium, args.not_measured, extras)
 
 
 if __name__ == "__main__":

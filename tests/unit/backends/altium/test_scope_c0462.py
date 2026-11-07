@@ -207,7 +207,7 @@ def _on(*leaves: Selector) -> Selector:
         ("(OnTopLayer or OnBottomLayer) and InNet('GND')", BOARD,
          Selector("and", items=(Selector("or", items=(_on(F_CU), _on(B_CU))), GND))),
         ("OnMid", ScopeDocument(layers=TWO, blind_vias=False), scope.NOTHING),
-        ("Not OnMid", ScopeDocument(layers=TWO, blind_vias=False), _not(scope.NOTHING)),
+        ("Not OnMid", ScopeDocument(layers=TWO, blind_vias=False), Selector("all")),
         ("InDrillLayerPair('Top Layer - Bottom Layer')", BOARD, VIA),
         ("InDrillLayerPair('Top Layer - Mid-Layer 1')", BOARD, scope.NOTHING),
     ],
@@ -268,14 +268,15 @@ def _nets(*names: str) -> Selector:
         ("InDifferentialPair('None')", (), scope.NOTHING),
         ("InAnyDifferentialPair", (), ALL_PAIRS),
         ("Not InAnyDifferentialPair", (), _not(ALL_PAIRS)),
-        ("InDifferentialPairClass('inputs')", ("pair",), _nets("IN1+", "IN1-", "RX_A", "RX_B")),
-        ("InDifferentialPairClass('All')", ("pair",), ALL_PAIRS),
+        ("InDifferentialPairClass('inputs')", (), _nets("IN1+", "IN1-", "RX_A", "RX_B")),
+        ("InDifferentialPairClass('All')", (), ALL_PAIRS),
         ("IsDifferentialPair", ("pair",), ALL_PAIRS),
     ],
 )  # fmt: skip
 def test_pair_functions(text: str, parents: tuple[scope.ParentKind, ...], selector: Selector) -> None:
     """A pair's objects are its two nets' objects, named in the document's pair definitions; pair names
-    take Altium's wildcards and compare without letter case."""
+    take Altium's wildcards and compare without letter case. ``InDifferentialPairClass`` returns the pairs'
+    copper, as ``InDifferentialPair`` does, so it needs no parent kind (S-2214)."""
     document = ScopeDocument(pairs=PAIRS, classes=PAIR_CLASSES, parents=frozenset(parents))
     assert parse_scope(text, document=document) == selector
 
@@ -285,10 +286,8 @@ def test_pair_functions(text: str, parents: tuple[scope.ParentKind, ...], select
     [
         ("InAnyDifferentialPair", None, "document"),
         ("InAnyDifferentialPair", ScopeDocument(), "document"),
-        ("InDifferentialPairClass('Inputs')", PAIRED, "object-kind"),
         ("Not IsDifferentialPair", PAIRED, "object-kind"),
-        ("InDifferentialPairClass('Missing')", ScopeDocument(pairs=PAIRS, classes=PAIR_CLASSES,
-         parents=frozenset({"pair"})), "undefined"),
+        ("InDifferentialPairClass('Missing')", PAIRED, "undefined"),
         ("InxSignalClass('X')", PAIRED, "xsignal"),
         ("InxSignal('X')", PAIRED, "xsignal"),
     ],
@@ -403,7 +402,10 @@ COMPONENTS = ScopeDocument(components=PARTS, classes=(scope.ScopeClass(1, "Power
         ("HasFootprint('QFN*')", (), scope.NOTHING),
         ("Not IsNetTieComponent", ("component",), _not(Selector("ref", "NT1"))),
         ("InComponentClass('power')", ("component",), _refs("U2", "R1")),
-        ("CompPinCount < 5", (), _refs("U2", "NT1", "R1")),
+        ("CompPinCount < 5", (), _not(Selector("ref", "U1"))),  # a free object counts 0 pins (S-2214)
+        ("CompPinCount > 4", (), Selector("ref", "U1")),
+        ("CompPinCount >= 1", (), _refs("U1", "U2", "NT1", "R1")),
+        ("CompPinCount < 100", (), Selector("all")),
     ],
 )  # fmt: skip
 def test_component_functions(text: str, parents: tuple[scope.ParentKind, ...], selector: Selector) -> None:

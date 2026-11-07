@@ -1,0 +1,2337 @@
+{
+ "altium": "24.5.2.23",
+ "rows": [
+  {
+   "measured": false,
+   "row": "altium-third-party-pcbdoc-01",
+   "scope_texts": [
+    "(CompPinCount < 5)",
+    "HasFootprint('XZMDKCBDDG45S-9')",
+    "InNet('VDD')",
+    "IsBGA",
+    "IsLCC",
+    "IsPad",
+    "IsSOIC",
+    "IsVia",
+    "Not IsNetTieComponent"
+   ],
+   "sha256": "e8a87333123e36e6b0260258322bccedac466624ed7f68dfe574db11ca11e4c4"
+  },
+  {
+   "extras": [
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 1,
+      "pad": 11,
+      "polygon": 2,
+      "region": 2,
+      "text": 0,
+      "track": 12,
+      "via": 22
+     },
+     "child": {
+      "component/pad": 11,
+      "polygon/region": 1
+     },
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 1,
+      "pad": 11,
+      "polygon": 2,
+      "region": 2,
+      "text": 0,
+      "track": 12,
+      "via": 22
+     },
+     "key": "x4",
+     "scope": "InNet('VCC')",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 5,
+      "polygon": 1,
+      "region": 1,
+      "text": 0,
+      "track": 6,
+      "via": 0
+     },
+     "child": {
+      "component/pad": 5,
+      "polygon/region": 1
+     },
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 5,
+      "polygon": 1,
+      "region": 1,
+      "text": 0,
+      "track": 6,
+      "via": 0
+     },
+     "key": "x5",
+     "scope": "InNet('NetC6_1')",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 2,
+      "polygon": 1,
+      "region": 1,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {
+      "component/pad": 2,
+      "polygon/region": 1
+     },
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 2,
+      "polygon": 1,
+      "region": 1,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "key": "x6",
+     "scope": "InNet('NetD1_1')",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 7,
+      "polygon": 1,
+      "region": 2,
+      "text": 0,
+      "track": 6,
+      "via": 15
+     },
+     "child": {
+      "component/pad": 7,
+      "polygon/region": 1
+     },
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 7,
+      "polygon": 1,
+      "region": 2,
+      "text": 0,
+      "track": 6,
+      "via": 15
+     },
+     "key": "x7",
+     "scope": "InNet('5V')",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 5,
+      "polygon": 1,
+      "region": 1,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {
+      "component/pad": 5,
+      "polygon/region": 1
+     },
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 5,
+      "polygon": 1,
+      "region": 1,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "key": "x8",
+     "scope": "InNet('V3P3')",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 9,
+      "polygon": 3,
+      "region": 3,
+      "text": 0,
+      "track": 9,
+      "via": 0
+     },
+     "child": {
+      "component/pad": 9,
+      "polygon/region": 3
+     },
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 9,
+      "polygon": 3,
+      "region": 3,
+      "text": 0,
+      "track": 9,
+      "via": 0
+     },
+     "key": "x9",
+     "scope": "InNet('OUT1') Or InNet('OUT2') Or InNet('OUT3')",
+     "state": "done"
+    }
+   ],
+   "measured": true,
+   "row": "altium-third-party-pcbdoc-02",
+   "scopes": [
+    {
+     "board": {
+      "arc": 51,
+      "component": 34,
+      "fill": 1,
+      "pad": 74,
+      "polygon": 13,
+      "region": 39,
+      "text": 100,
+      "track": 622,
+      "via": 242
+     },
+     "child": {
+      "component/arc": 27,
+      "component/pad": 74,
+      "component/region": 5,
+      "component/text": 3,
+      "component/track": 345,
+      "polygon/region": 12
+     },
+     "copper": {
+      "arc": 16,
+      "component": 34,
+      "fill": 1,
+      "pad": 74,
+      "polygon": 12,
+      "region": 33,
+      "text": 0,
+      "track": 252,
+      "via": 242
+     },
+     "scope": "(CompPinCount < 5)",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {},
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "HasFootprint('M3 HOLE')",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 35,
+      "polygon": 3,
+      "region": 4,
+      "text": 0,
+      "track": 10,
+      "via": 188
+     },
+     "child": {
+      "component/pad": 35,
+      "polygon/region": 3
+     },
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 35,
+      "polygon": 3,
+      "region": 4,
+      "text": 0,
+      "track": 10,
+      "via": 188
+     },
+     "scope": "InNet('GND')",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 1,
+      "pad": 94,
+      "polygon": 11,
+      "region": 16,
+      "text": 0,
+      "track": 96,
+      "via": 234
+     },
+     "child": {
+      "component/pad": 94,
+      "polygon/region": 11
+     },
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 1,
+      "pad": 94,
+      "polygon": 11,
+      "region": 16,
+      "text": 0,
+      "track": 96,
+      "via": 234
+     },
+     "scope": "InNetClass('PWR')",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {},
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "IsBGA",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {},
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "IsLCC",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 143,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {
+      "component/pad": 143
+     },
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 143,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "IsPad",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 4,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {},
+     "copper": {
+      "arc": 0,
+      "component": 4,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "IsSOIC",
+     "state": "done"
+    }
+   ],
+   "sha256": "55d15ca572546f1ed6cc36d9d3d6472b2b5f19137ad384d73f6369fec2efad31"
+  },
+  {
+   "extras": [],
+   "measured": true,
+   "row": "altium-third-party-pcbdoc-03",
+   "scopes": [
+    {
+     "board": {
+      "arc": 0,
+      "component": 55,
+      "fill": 0,
+      "pad": 385,
+      "polygon": 1,
+      "region": 16,
+      "text": 0,
+      "track": 604,
+      "via": 47
+     },
+     "child": {
+      "component/pad": 385,
+      "component/region": 8,
+      "polygon/region": 6
+     },
+     "copper": {
+      "arc": 0,
+      "component": 55,
+      "fill": 0,
+      "pad": 385,
+      "polygon": 1,
+      "region": 16,
+      "text": 0,
+      "track": 604,
+      "via": 47
+     },
+     "scope": "(ExistsOnLayer('Top Layer') Or ExistsOnLayer('Bottom Layer'))",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {},
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "IsBGA",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 1,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {},
+     "copper": {
+      "arc": 0,
+      "component": 1,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "IsLCC",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 385,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {
+      "component/pad": 385
+     },
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 385,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "IsPad",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 2,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {},
+     "copper": {
+      "arc": 0,
+      "component": 2,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "IsSOIC",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {},
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "OnMid",
+     "state": "done"
+    }
+   ],
+   "sha256": "567fd0dfdba54c04adbdd2cc19b427c894b7a94aa953aa361f3e0afc71db12b3"
+  },
+  {
+   "extras": [],
+   "measured": true,
+   "row": "altium-third-party-pcbdoc-04",
+   "scopes": [
+    {
+     "board": {
+      "arc": 11,
+      "component": 13,
+      "fill": 0,
+      "pad": 28,
+      "polygon": 9,
+      "region": 15,
+      "text": 26,
+      "track": 302,
+      "via": 67
+     },
+     "child": {
+      "component/arc": 7,
+      "component/pad": 26,
+      "component/track": 189,
+      "polygon/region": 11
+     },
+     "copper": {
+      "arc": 2,
+      "component": 13,
+      "fill": 0,
+      "pad": 28,
+      "polygon": 9,
+      "region": 15,
+      "text": 0,
+      "track": 149,
+      "via": 67
+     },
+     "scope": "(CompPinCount < 5)",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 13,
+      "component": 1,
+      "fill": 0,
+      "pad": 12,
+      "polygon": 0,
+      "region": 12,
+      "text": 2,
+      "track": 14,
+      "via": 0
+     },
+     "child": {
+      "component/arc": 13,
+      "component/pad": 12,
+      "component/region": 12,
+      "component/track": 18
+     },
+     "copper": {
+      "arc": 0,
+      "component": 1,
+      "fill": 0,
+      "pad": 12,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "HasFootprint('LM3644YFFR')",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {},
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "InNet('No Net')",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {},
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "IsBGA",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {},
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "IsLCC",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 53,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {
+      "component/pad": 51
+     },
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 53,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "IsPad",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {},
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "IsSOIC",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 67
+     },
+     "child": {},
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 67
+     },
+     "scope": "IsVia",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 24,
+      "component": 15,
+      "fill": 12,
+      "pad": 39,
+      "polygon": 5,
+      "region": 21,
+      "text": 33,
+      "track": 285,
+      "via": 12
+     },
+     "child": {
+      "component/arc": 20,
+      "component/fill": 12,
+      "component/pad": 37,
+      "component/region": 13,
+      "component/text": 3,
+      "component/track": 237,
+      "polygon/region": 5
+     },
+     "copper": {
+      "arc": 2,
+      "component": 15,
+      "fill": 6,
+      "pad": 39,
+      "polygon": 5,
+      "region": 8,
+      "text": 0,
+      "track": 96,
+      "via": 12
+     },
+     "scope": "not InNet('GND')",
+     "state": "done"
+    }
+   ],
+   "sha256": "bf32fd189e9850f2e9de397a567ba78934ad62e7b092184a3ad71227d5b8cf39"
+  },
+  {
+   "extras": [],
+   "measured": true,
+   "row": "altium-third-party-pcbdoc-05",
+   "scopes": [
+    {
+     "board": {
+      "arc": 1,
+      "component": 20,
+      "fill": 0,
+      "pad": 48,
+      "polygon": 2,
+      "region": 25,
+      "text": 59,
+      "track": 389,
+      "via": 59
+     },
+     "child": {
+      "component/arc": 1,
+      "component/pad": 44,
+      "component/track": 190,
+      "polygon/region": 5
+     },
+     "copper": {
+      "arc": 0,
+      "component": 20,
+      "fill": 0,
+      "pad": 48,
+      "polygon": 2,
+      "region": 7,
+      "text": 0,
+      "track": 194,
+      "via": 59
+     },
+     "scope": "(CompPinCount < 5)",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 4,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {},
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 4,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "(HoleDiameter > 0) And (PadIsPlated = 'False')",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 32,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {
+      "component/pad": 32
+     },
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 32,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "(HoleDiameter > 0) And (PadIsPlated = 'True')",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 10,
+      "polygon": 0,
+      "region": 1,
+      "text": 0,
+      "track": 26,
+      "via": 4
+     },
+     "child": {
+      "component/pad": 10
+     },
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 10,
+      "polygon": 0,
+      "region": 1,
+      "text": 0,
+      "track": 26,
+      "via": 4
+     },
+     "scope": "InNetClass('1A')",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {},
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "IsBGA",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {},
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "IsLCC",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 100,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {
+      "component/pad": 96
+     },
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 100,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "IsPad",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 2,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {},
+     "copper": {
+      "arc": 0,
+      "component": 2,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "IsSOIC",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 59
+     },
+     "child": {},
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 59
+     },
+     "scope": "IsVia",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 3,
+      "component": 23,
+      "fill": 0,
+      "pad": 100,
+      "polygon": 2,
+      "region": 25,
+      "text": 65,
+      "track": 421,
+      "via": 0
+     },
+     "child": {
+      "component/arc": 3,
+      "component/pad": 96,
+      "component/track": 222,
+      "polygon/region": 5
+     },
+     "copper": {
+      "arc": 0,
+      "component": 23,
+      "fill": 0,
+      "pad": 100,
+      "polygon": 2,
+      "region": 7,
+      "text": 0,
+      "track": 194,
+      "via": 0
+     },
+     "scope": "NOT IsVia",
+     "state": "done"
+    }
+   ],
+   "sha256": "1ff7234670ec5e20092d23ecf0cd5e7380e842ef7efff2b5cb992f53f84c9c69"
+  },
+  {
+   "extras": [],
+   "measured": true,
+   "row": "altium-third-party-pcbdoc-06",
+   "scopes": [
+    {
+     "board": {
+      "arc": 56,
+      "component": 22,
+      "fill": 6,
+      "pad": 48,
+      "polygon": 10,
+      "region": 33,
+      "text": 48,
+      "track": 739,
+      "via": 42
+     },
+     "child": {
+      "component/arc": 37,
+      "component/pad": 48,
+      "component/text": 21,
+      "component/track": 598,
+      "polygon/region": 11
+     },
+     "copper": {
+      "arc": 3,
+      "component": 22,
+      "fill": 6,
+      "pad": 48,
+      "polygon": 10,
+      "region": 33,
+      "text": 0,
+      "track": 111,
+      "via": 42
+     },
+     "scope": "(CompPinCount < 5)",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 2,
+      "component": 1,
+      "fill": 0,
+      "pad": 7,
+      "polygon": 0,
+      "region": 8,
+      "text": 2,
+      "track": 19,
+      "via": 0
+     },
+     "child": {
+      "component/arc": 2,
+      "component/pad": 7,
+      "component/region": 8,
+      "component/track": 19
+     },
+     "copper": {
+      "arc": 0,
+      "component": 1,
+      "fill": 0,
+      "pad": 7,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "HasFootprint('CONN-SMD_5P-P2.00_XUNPU_WAFER-PH2.0-5PWB')",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 8,
+      "polygon": 2,
+      "region": 2,
+      "text": 0,
+      "track": 1,
+      "via": 3
+     },
+     "child": {
+      "component/pad": 8,
+      "polygon/region": 2
+     },
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 8,
+      "polygon": 2,
+      "region": 2,
+      "text": 0,
+      "track": 1,
+      "via": 3
+     },
+     "scope": "InNet('VBUS')",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {},
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "IsBGA",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {},
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "IsLCC",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 106,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {
+      "component/pad": 106
+     },
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 106,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "IsPad",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 2,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {},
+     "copper": {
+      "arc": 0,
+      "component": 2,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "IsSOIC",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 69,
+      "component": 27,
+      "fill": 0,
+      "pad": 73,
+      "polygon": 6,
+      "region": 37,
+      "text": 58,
+      "track": 1064,
+      "via": 7
+     },
+     "child": {
+      "component/arc": 50,
+      "component/pad": 73,
+      "component/region": 10,
+      "component/text": 25,
+      "component/track": 935,
+      "polygon/region": 5
+     },
+     "copper": {
+      "arc": 3,
+      "component": 27,
+      "fill": 0,
+      "pad": 73,
+      "polygon": 6,
+      "region": 29,
+      "text": 0,
+      "track": 99,
+      "via": 7
+     },
+     "scope": "not InNet('GND')     or IsNamedPolygon('GND_L01_P002')",
+     "state": "done"
+    }
+   ],
+   "sha256": "d0913643166660cfdcc5490d63283b12f4ff08b0dbbaa05e409a9cd9196aa9c5"
+  },
+  {
+   "extras": [
+    {
+     "board": {
+      "arc": 26,
+      "component": 12,
+      "fill": 1,
+      "pad": 116,
+      "polygon": 9,
+      "region": 32,
+      "text": 36,
+      "track": 683,
+      "via": 60
+     },
+     "child": {
+      "component/arc": 4,
+      "component/fill": 1,
+      "component/pad": 114,
+      "component/region": 8,
+      "component/text": 12,
+      "component/track": 258,
+      "polygon/region": 16
+     },
+     "copper": {
+      "arc": 20,
+      "component": 12,
+      "fill": 0,
+      "pad": 116,
+      "polygon": 9,
+      "region": 24,
+      "text": 0,
+      "track": 475,
+      "via": 60
+     },
+     "key": "x3",
+     "scope": "Not IsDifferentialPair",
+     "state": "done"
+    }
+   ],
+   "measured": true,
+   "row": "altium-third-party-pcbdoc-07",
+   "scopes": [
+    {
+     "board": {
+      "arc": 22,
+      "component": 8,
+      "fill": 1,
+      "pad": 19,
+      "polygon": 9,
+      "region": 24,
+      "text": 24,
+      "track": 573,
+      "via": 60
+     },
+     "child": {
+      "component/fill": 1,
+      "component/pad": 17,
+      "component/text": 8,
+      "component/track": 120,
+      "polygon/region": 16
+     },
+     "copper": {
+      "arc": 20,
+      "component": 8,
+      "fill": 0,
+      "pad": 19,
+      "polygon": 9,
+      "region": 24,
+      "text": 0,
+      "track": 475,
+      "via": 60
+     },
+     "scope": "(CompPinCount < 5)",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 20,
+      "component": 0,
+      "fill": 0,
+      "pad": 24,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 246,
+      "via": 13
+     },
+     "child": {
+      "component/pad": 24
+     },
+     "copper": {
+      "arc": 20,
+      "component": 0,
+      "fill": 0,
+      "pad": 24,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 246,
+      "via": 13
+     },
+     "scope": "InAnyDifferentialPair",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 20,
+      "component": 0,
+      "fill": 0,
+      "pad": 24,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 246,
+      "via": 13
+     },
+     "child": {
+      "component/pad": 24
+     },
+     "copper": {
+      "arc": 20,
+      "component": 0,
+      "fill": 0,
+      "pad": 24,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 246,
+      "via": 13
+     },
+     "scope": "InDifferentialPairClass('USB3')",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 60
+     },
+     "child": {},
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 60
+     },
+     "scope": "InDrillLayerPair('Layer 1 - Layer 4')",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {},
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "InDrillLayerPair('Layer 1 - Layer 6') OR InDrillLayerPair('Layer 3 - Layer 4')",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {},
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "InNet('No Net')",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 15,
+      "polygon": 4,
+      "region": 8,
+      "text": 0,
+      "track": 79,
+      "via": 20
+     },
+     "child": {
+      "component/pad": 15,
+      "polygon/region": 4
+     },
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 15,
+      "polygon": 4,
+      "region": 8,
+      "text": 0,
+      "track": 79,
+      "via": 20
+     },
+     "scope": "InNetClass('Power_trace')",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 20,
+      "component": 0,
+      "fill": 0,
+      "pad": 24,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 246,
+      "via": 13
+     },
+     "child": {
+      "component/pad": 24
+     },
+     "copper": {
+      "arc": 20,
+      "component": 0,
+      "fill": 0,
+      "pad": 24,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 246,
+      "via": 13
+     },
+     "scope": "InNetClass('USB')",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 9,
+      "region": 16,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {
+      "polygon/region": 16
+     },
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 9,
+      "region": 16,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "InPolygon",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {},
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "IsBGA",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {},
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "IsLCC",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 116,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {
+      "component/pad": 114
+     },
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 116,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "IsPad",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 1,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {},
+     "copper": {
+      "arc": 0,
+      "component": 1,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "IsSOIC",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 26,
+      "component": 12,
+      "fill": 1,
+      "pad": 82,
+      "polygon": 5,
+      "region": 20,
+      "text": 36,
+      "track": 628,
+      "via": 38
+     },
+     "child": {
+      "component/arc": 4,
+      "component/fill": 1,
+      "component/pad": 80,
+      "component/region": 8,
+      "component/text": 12,
+      "component/track": 258,
+      "polygon/region": 5
+     },
+     "copper": {
+      "arc": 20,
+      "component": 12,
+      "fill": 0,
+      "pad": 82,
+      "polygon": 5,
+      "region": 12,
+      "text": 0,
+      "track": 420,
+      "via": 38
+     },
+     "scope": "not InNet('GND')",
+     "state": "done"
+    }
+   ],
+   "sha256": "62e53020ef96657bc013334446579ed6db6e8d225c50026579af533a0b281f2d"
+  },
+  {
+   "extras": [
+    {
+     "board": {
+      "arc": 529,
+      "component": 0,
+      "fill": 0,
+      "pad": 230,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 2435,
+      "via": 118
+     },
+     "child": {
+      "component/pad": 230
+     },
+     "copper": {
+      "arc": 529,
+      "component": 0,
+      "fill": 0,
+      "pad": 230,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 2435,
+      "via": 118
+     },
+     "key": "x2",
+     "scope": "InDifferentialPairClass('All Differential Pairs')",
+     "state": "done"
+    }
+   ],
+   "measured": true,
+   "row": "altium-third-party-pcbdoc-08",
+   "scopes": [
+    {
+     "board": {
+      "arc": 624,
+      "component": 486,
+      "fill": 0,
+      "pad": 942,
+      "polygon": 33,
+      "region": 203,
+      "text": 1597,
+      "track": 12318,
+      "via": 1749
+     },
+     "child": {
+      "component/arc": 140,
+      "component/fill": 5,
+      "component/pad": 938,
+      "component/region": 20,
+      "component/text": 485,
+      "component/track": 6404,
+      "component/via": 16,
+      "polygon/region": 128
+     },
+     "copper": {
+      "arc": 535,
+      "component": 486,
+      "fill": 0,
+      "pad": 942,
+      "polygon": 33,
+      "region": 163,
+      "text": 0,
+      "track": 8355,
+      "via": 1749
+     },
+     "scope": "(CompPinCount < 5)",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {},
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "(InNet('RF_OUT') or InNet('RF_ANT'))",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {},
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "(IsVia AND InNet('RF_ANT'))",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 26,
+      "component": 0,
+      "fill": 0,
+      "pad": 571,
+      "polygon": 2,
+      "region": 88,
+      "text": 0,
+      "track": 1077,
+      "via": 0
+     },
+     "child": {
+      "component/arc": 26,
+      "component/pad": 571,
+      "component/region": 25,
+      "component/track": 12,
+      "polygon/region": 59
+     },
+     "copper": {
+      "arc": 26,
+      "component": 0,
+      "fill": 0,
+      "pad": 571,
+      "polygon": 2,
+      "region": 88,
+      "text": 0,
+      "track": 1077,
+      "via": 0
+     },
+     "scope": "(OnTopLayer or OnBottomLayer) and InNet('GND')",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 504,
+      "component": 0,
+      "fill": 0,
+      "pad": 148,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 1762,
+      "via": 86
+     },
+     "child": {
+      "component/pad": 148
+     },
+     "copper": {
+      "arc": 504,
+      "component": 0,
+      "fill": 0,
+      "pad": 148,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 1762,
+      "via": 86
+     },
+     "scope": "InAnyDifferentialPair and (not InNetClass('PCIE'))",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 410,
+      "component": 0,
+      "fill": 0,
+      "pad": 174,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 1884,
+      "via": 84
+     },
+     "child": {
+      "component/pad": 174
+     },
+     "copper": {
+      "arc": 410,
+      "component": 0,
+      "fill": 0,
+      "pad": 174,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 1884,
+      "via": 84
+     },
+     "scope": "InDifferentialPairClass('100ohm')",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 119,
+      "component": 0,
+      "fill": 0,
+      "pad": 56,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 551,
+      "via": 34
+     },
+     "child": {
+      "component/pad": 56
+     },
+     "copper": {
+      "arc": 119,
+      "component": 0,
+      "fill": 0,
+      "pad": 56,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 551,
+      "via": 34
+     },
+     "scope": "InDifferentialPairClass('90ohm')",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {},
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 0,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "InNet('RF_ANT')",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 167,
+      "component": 0,
+      "fill": 0,
+      "pad": 20,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 367,
+      "via": 10
+     },
+     "child": {
+      "component/pad": 20
+     },
+     "copper": {
+      "arc": 167,
+      "component": 0,
+      "fill": 0,
+      "pad": 20,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 367,
+      "via": 10
+     },
+     "scope": "InNetClass('MIPI_RX0/1')",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 84,
+      "component": 0,
+      "fill": 0,
+      "pad": 12,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 276,
+      "via": 12
+     },
+     "child": {
+      "component/pad": 12
+     },
+     "copper": {
+      "arc": 84,
+      "component": 0,
+      "fill": 0,
+      "pad": 12,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 276,
+      "via": 12
+     },
+     "scope": "InNetClass('MIPI_RX2')",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 42,
+      "component": 0,
+      "fill": 0,
+      "pad": 12,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 168,
+      "via": 6
+     },
+     "child": {
+      "component/pad": 12
+     },
+     "copper": {
+      "arc": 42,
+      "component": 0,
+      "fill": 0,
+      "pad": 12,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 168,
+      "via": 6
+     },
+     "scope": "InNetClass('MIPI_RX3')",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 56,
+      "component": 0,
+      "fill": 0,
+      "pad": 12,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 208,
+      "via": 12
+     },
+     "child": {
+      "component/pad": 12
+     },
+     "copper": {
+      "arc": 56,
+      "component": 0,
+      "fill": 0,
+      "pad": 12,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 208,
+      "via": 12
+     },
+     "scope": "InNetClass('MIPI_RX4')",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 36,
+      "component": 0,
+      "fill": 0,
+      "pad": 12,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 192,
+      "via": 12
+     },
+     "child": {
+      "component/pad": 12
+     },
+     "copper": {
+      "arc": 36,
+      "component": 0,
+      "fill": 0,
+      "pad": 12,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 192,
+      "via": 12
+     },
+     "scope": "InNetClass('MIPI_RX5')",
+     "state": "done"
+    },
+    {
+     "board": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 2136,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "child": {
+      "component/pad": 2132
+     },
+     "copper": {
+      "arc": 0,
+      "component": 0,
+      "fill": 0,
+      "pad": 2136,
+      "polygon": 0,
+      "region": 0,
+      "text": 0,
+      "track": 0,
+      "via": 0
+     },
+     "scope": "IsPad",
+     "state": "done"
+    }
+   ],
+   "sha256": "64e23e984eac9f9d68114bae333a5929ada60f615402539f115867a286758148"
+  }
+ ],
+ "schema": "fenolite.altium-scope-oracle.v1",
+ "source": "S-2214"
+}

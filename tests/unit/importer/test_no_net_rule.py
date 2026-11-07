@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """A rule on the items without a net is imported (capability import-python, "Rules on items without a net";
-change c0409, B7). The Altium scope ``InNet('No Net')`` maps to ``model.rules.NO_NET`` with no
-``rule-unmapped`` (``docs/formats/altium/rule-file.md``, ``H-A-RD-PRJ-SCOPE-NONET``, INFERRED), and the
-emitted code writes it as ``select.no_net()``. The rules are authored here."""
+change c0409, B7). The Altium scope ``Not InAnyNet`` maps to ``model.rules.NO_NET`` with no
+``rule-unmapped`` (``docs/formats/altium/rule-file.md``), and the emitted code writes it as
+``select.no_net()``. ``InNet('No Net')`` selects nothing (S-2214, ``H-A-RD-PRJ-SCOPE-NONET-2``; change c0462).
+The rules are authored here."""
 
 from __future__ import annotations
 
@@ -33,14 +34,18 @@ def _clearance(scope: str) -> list[Field]:
     return [*((key, values[key]) for key in HEADER_KEYS), ("GAP", "0.3mm")]
 
 
-def test_altium_scope_of_netless_items() -> None:
-    assert parse_scope("InNet('No Net')") == NO_NET
-    assert parse_scope("Not InNet('No Net')") == Selector("not", items=(NO_NET,))
+def test_altium_scope_in_net_no_net_selects_nothing() -> None:
+    """Altium's PCB filter selects no object for ``InNet('No Net')`` on the public rows that hold netless
+    copper (S-2214; change c0462 task 5.1), so it reads as no object, not as ``NO_NET``
+    (``H-A-RD-PRJ-SCOPE-NONET`` refuted)."""
+    nothing = Selector("not", items=(Selector("all"),))
+    assert parse_scope("InNet('No Net')") == nothing
+    assert parse_scope("Not InNet('No Net')") == Selector("all")
+    assert parse_scope("InNet('No Net', 'GND')") == Selector("net", "GND")
     mapping = map_rules([_clearance("InNet('No Net')")], origin="board.RUL")
     assert mapping.unmapped == ()
     (rule,) = mapping.ruleset.rules
-    assert rule.selector_a == NO_NET and rule.min == 300_000
-    assert _selector(rule.selector_a, set()) == "select.no_net()"
+    assert rule.selector_a == nothing and rule.min == 300_000
 
 
 def test_altium_scope_not_in_any_net() -> None:
@@ -54,6 +59,7 @@ def test_altium_scope_not_in_any_net() -> None:
     assert mapping.unmapped == ()
     (rule,) = mapping.ruleset.rules
     assert rule.selector_a == pads and rule.min == 300_000
+    assert _selector(NO_NET, set()) == "select.no_net()"
 
 
 def test_kicad_project_round_trip(tmp_path: Path) -> None:
