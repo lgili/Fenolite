@@ -281,6 +281,21 @@ def test_a_pinch_the_opening_closes_again_is_parted() -> None:
         assert sum(area(piece) for piece in opened) > area(copper[0]) * 9 // 10
 
 
+def test_a_spike_of_almost_no_angle_is_opened() -> None:
+    """Input I10: the tip of a spike of almost no angle (row -06) lies where the inscribed circle would
+    touch its edges far beyond the board; the opening takes the spike off and stays in range."""
+    from fenolite.backends.altium.pour import _Geometry  # pyright: ignore[reportPrivateUsage]
+    from fenolite.geometry.boolean.clipper import ClipperBackend
+
+    geometry = _Geometry(ClipperBackend())
+    square = (Point(0, 0), Point(10_000_000, 0), Point(10_000_000, 10_000_000))
+    spike = (Point(5_000_010, 10_000_000), Point(5_000_000, 30_000_000), Point(4_999_990, 10_000_000))
+    copper = (Polygon((*square, *spike, Point(0, 10_000_000))),)
+    opened = geometry.open(copper, 200_000, 50)
+    assert len(opened) == 1
+    assert opened[0].bbox().y1 <= 10_000_000
+
+
 def test_islands_below_the_area_whatever_they_connect() -> None:
     """Input I12: a piece below 2500 mil² is removed even with a GND via on it; one above is kept."""
 

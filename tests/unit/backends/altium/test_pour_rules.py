@@ -8,6 +8,7 @@ could govern leaves the pair undetermined."""
 from __future__ import annotations
 
 import importlib.util
+from types import SimpleNamespace
 
 import pytest
 from _altium_pour import Board, clearance, mm, pad, track, via, zone
@@ -136,3 +137,61 @@ def test_an_unread_record_before_the_governing_rule(monkeypatch: pytest.MonkeyPa
     with_polygon_rule(9)
     rules = Clearances(_board(clearance(0.2)).base())
     assert rules.clearance(gnd, vin, polygons=("GND_L01_P000",)) == _unit(mm(0.2))
+
+
+def test_a_matrix_whose_twins_differ_is_read_for_the_polygon(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A Clearance matrix that gives an arc and a track, or a fill and a region, different clearances is
+    refused by the import (``matrix-kind``); the pour reads it with each twin as the kind that stands for it
+    and takes the polygon's clearance to each of them from its own cell (task 4.3, rows -06 and -08)."""
+    from fenolite.backends.altium.pour import fine_kind
+
+    original = pcbdoc.rule_records
+    # counts of 0.0001 mil: Arc-Poly 0, Track-Poly 10 mil, Fill-Poly 15 mil, Region-Poly 4 mil
+    matrix = ";".join(
+        f"ClearanceObj_{kind}-ClearanceObj_Poly:{count}"
+        for kind, count in (("Arc", 0), ("Track", 100_000), ("Fill", 150_000), ("Region", 40_000))
+    )
+
+    def records(spec: pcbdoc.PcbDocSpec, filename: str) -> list[bytes]:
+        keys = [
+            ("GAP", "8mil"),
+            ("GENERICCLEARANCE", "8mil"),
+            ("IGNOREPADTOPADCLEARANCEINFOOTPRINT", "FALSE"),
+            ("OBJECTCLEARANCES", matrix),
+        ]
+        extra = pcbdoc._rule(0, "Clearance", "matrix", "All", 1, keys, filename)  # pyright: ignore[reportPrivateUsage]
+        return [*original(spec, filename), extra]
+
+    monkeypatch.setattr(pcbdoc, "rule_records", records)
+    reading = _board(clearance(0.2)).base()
+    rules = Clearances(reading)
+    gnd, sig = rule_subject("F.Cu", "zone", "GND", "Default"), rule_subject("F.Cu", "track", "SIG", "Default")
+    polygons = ("GND_L01_P000",)
+    mil = 25_400
+    assert rules.clearance(gnd, sig, polygons=polygons, fine="Arc") == 0
+    assert rules.clearance(gnd, sig, polygons=polygons, fine="Track") == 10 * mil
+    assert rules.clearance(gnd, sig, polygons=polygons, fine="Fill") == 15 * mil
+    assert rules.clearance(gnd, sig, polygons=polygons, fine="Region") == 4 * mil
+    assert rules.largest >= 15 * mil
+    objects = LayerObjects(reading, 3175)
+    (track_item,) = [item for item in objects.by_layer["F.Cu"] if item.kind == "track"]
+    assert fine_kind(track_item) == "Track"
+
+
+def test_an_edge_matrix_whose_edges_differ_is_read_for_the_pour() -> None:
+    """A Board Outline Clearance matrix that gives a polygon one value from the outline and the generic
+    value from a cut-out is refused by the import (``matrix-kind``); the pour reads it with the outline's
+    value for both edges, as it judges both as the board's edge (row -06)."""
+    from fenolite.backends.altium.pour import pour_rule_fields
+    from fenolite.backends.altium.read.rules import matrix_problem
+
+    matrix = "ClearanceObj_Poly-ClearanceObj_OutlineEdge:196850"
+    assert matrix_problem(matrix, "11.811mil", edges=True)
+    fields = (("RULEKIND", "BoardOutlineClearance"), ("GAP", "11.811mil"), ("OBJECTCLEARANCES", matrix))
+
+    record = SimpleNamespace(record=dict(fields), fields=fields)  # what the pour reads of a rule record
+    read_fields, extra, fine = pour_rule_fields([record])  # pyright: ignore[reportArgumentType]
+    judged = dict(read_fields[0])["OBJECTCLEARANCES"]
+    assert extra == {0} and not fine
+    assert "ClearanceObj_Poly-ClearanceObj_CutoutEdge:196850" in judged
+    assert not matrix_problem(judged, "11.811mil", edges=True)

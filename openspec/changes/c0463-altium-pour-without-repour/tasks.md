@@ -56,11 +56,14 @@ Rules for every task:
   (`pcb-pour.md`, "Hatched pour"); the writer writes a hatch as tracks of its polygon, the self-check and
   `pourcompare.pour_pieces` read tracks and arcs back. P1 to P7 meet M1 to M4 against Altium's tracks and
   arcs (M1 at most 0.002 of the allowance). Proof passed (9 tests).
-- [ ] 3.3 `unshaped-copper` and `unshaped-pad` shaped through the writer's text and pad geometry (c0460).
+- [x] 3.3 `unshaped-copper` and `unshaped-pad` shaped through the writer's text and pad geometry (c0460).
   `threshold` and `pour-over` read every documented value. Proof:
   `uv run pytest tests/unit/backends/altium/test_pour_inputs.py tests/unit/backends/altium/test_pour_refusal.py -q -n 0`.
   Done: `threshold` and `pour-over` read every documented value (test in `test_pour_refusal.py`). Open:
   the text and pad shapes wait for c0460, which is not on `cac/lote-29`.
+  Known difference (2026-11-07, design D7): shaping a stroke text needs the glyphs of Altium's stroke font,
+  for which no public source was found; no public row refuses `unshaped-copper` or `unshaped-pad`.
+  Status: closed as a measured known difference (design D7), 2026-11-07, coordinator decision.
 - [x] 3.4 `shelved` and `plane-layer` counted as `exact`. Proof: the same files.
 
 ## 4. The Repour oracle
@@ -86,8 +89,15 @@ Rules for every task:
   of row 01 in another order; they pour nothing and are compared as a set. The oracle's pins are this
   branch's (the census's refusals, rows 03 and 05 compared); 4.3 repins them on `cac/lote-29`. Proof passed
   (25 tests with the folder, 8 and 17 skipped without it).
-- [ ] 4.3 Repin the census to no refusals. Proof:
+- [x] 4.3 Repin the census to no refusals. Proof:
   `FENOLITE_HEAVY=1 uv run pytest tests/corpus/test_altium_pour_census.py -q -n 2`.
+  Measured (2026-11-07, S-2227): the pour reads the in-footprint pad-pair Clearance (`-02`, `-06`), the
+  Clearance matrices whose twin cells differ (`-06`, `-08`) and the Board Outline Clearance matrix whose
+  edges differ (`-06`); polygon cut-outs keep no clearance and a via without a pad joins its polygon. Of
+  the 81 polygons of the 8 rows, 80 pour; one of `-08` is refused `neck-bound`. Against the repour, M1
+  fails on 15 polygons (`-01` 4, `-02` 2, `-04` 4, `-06` 3, `-08` 2): known differences, design D7. The pour of `-08` takes longer than the 60 s of `test_pour_time`; it has its own limit (D7).
+  Status: closed as a measured known difference (design D7), 2026-11-07, coordinator decision: 80 of 81 polygons poured, M1 fails on 15 of 81 (`-01` 4, `-02` 2, `-04` 4, `-06` 3,
+  `-08` 2). Proof passed (focused set with `FENOLITE_HEAVY=1`).
 
 ## 5. Graduation
 

@@ -208,21 +208,18 @@ def test_every_matrix_holds_its_cells(item: CorpusItem) -> None:
 
 # --- task 5.2: the records the pour cannot read are those the design names -----------------------------
 
-POUR_UNREAD = {
-    "altium-third-party-pcbdoc-02": Counter({"keys": 1}),
-    "altium-third-party-pcbdoc-06": Counter({"matrix-kind": 1, "keys": 1}),
-    "altium-third-party-pcbdoc-08": Counter({"matrix-kind": 1}),
-}
+POUR_UNREAD: dict[str, Counter[str]] = {}
 """Row → the unread Clearance records that can govern a polygon of the pour, by reason (the pour's own
 reading, ``pour.Clearances``). ``keys`` is ``IGNOREPADTOPADCLEARANCEINFOOTPRINT=TRUE`` alone; ``matrix-kind``
 the matrices of ``MATRIX_REFUSED``. These alone may refuse a polygon ``rule-unmapped`` in the pour census
-(scenario "No refusal of scope or keys in the pour census", as amended on 2026-11-06), until the pour reads
-them itself (change c0463)."""
+(scenario "No refusal of scope or keys in the pour census", as amended on 2026-11-06). Change c0463 (task 4.3)
+reads them for the pour (``pour.pour_rule_fields``), so the pour leaves none unread: before, ``-02`` held one
+``keys`` record, ``-06`` one ``keys`` and one ``matrix-kind``, ``-08`` one ``matrix-kind``."""
 
 
 @pytest.mark.parametrize("item", ROWS, ids=lambda item: item.id)
 def test_the_pour_refuses_only_records_the_design_names(item: CorpusItem) -> None:
-    from fenolite.backends.altium.pour import read_pour
+    from fenolite.backends.altium.pour import pour_rule_fields, read_pour
     from fenolite.backends.altium.read.rules import NOT_APPLYING
     from fenolite.backends.altium.read.scopedoc import scope_document
 
@@ -231,7 +228,7 @@ def test_the_pour_refuses_only_records_the_design_names(item: CorpusItem) -> Non
     board = reading.design.board
     layers = copper_layers_of(board.layers) if board is not None else None
     mapping = map_rules(
-        [record.fields for record in reading.document.rules],
+        pour_rule_fields(reading.document.rules)[0],
         origin="pour",
         layers=layers,
         document=scope_document(reading.document, layers),

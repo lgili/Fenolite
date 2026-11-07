@@ -103,6 +103,26 @@ Then:
 - `altium.zones-poured` no longer names Repour All;
 - `--altium-pour outline` stays for users who want Altium to pour.
 
+## D7: known differences (measured 2026-11-06, reported)
+
+The release of 2026-11-06 closes this change with the differences below measured and named, not fixed.
+Each is a polygon that pours and fails a criterion against Altium 24.5's Repour All (S-2224, S-2227), or a
+refusal with its reason. The evidence of `result.pcb.pour` stays below `ALTIUM-VERIFIED(kit)` for them.
+
+| Row | Polygons | Measured | Reason |
+|---|---|---|---|
+| `-01` | 4 of 5 (`Top Layer-No Net`) | M1 1.27 to 4.01 times the allowance; one M2 (0.30) | not measured; the five share one name, so a layer's verdicts share a key |
+| `-02` | GND planes `P18` (top), `P17` (bottom) | M1 4.46 and 3.98 | Altium pours a band of 163 µm mean width along the board's edge that the row's one Clearance (5.9055 mil, All to All, no Board Outline Clearance record) would keep free; row `-03` keeps it. Not explained |
+| `-04` | `P7`, `P8`, `P9`, `P14` (top) | M1 1.99 to 3.85 | the ball grid of an LM3644: Altium's copper stands 142 to 282 µm from pads whose governing Clearance is 100 µm. Not explained |
+| `-06` | GND `P6`, `P7` (top), `P9` (bottom) | M1 1.48, 2.23, 2.45 | read with its Board Outline Clearance matrix by the outline's cells (S-2227), the band along the board's edge is gone (16.1 and 14.1 before); what remains is not measured |
+| `-08` | `P100`, `P14` (bottom); one polygon refused `neck-bound` | M1 2.83 and 24.4 | on `P14` Altium pours a piece of 13.95 mm² among 83 pads of other nets that Fenolite leaves free (Fenolite's extra copper there is 0.015 mm²); not explained. `P100` not measured. The refused polygon's exact neck cut exceeds its work bound |
+| `-08` | the pour of the row | 175.2 s alone, 209 s with two workers, for 32 of 33 polygons poured (none before task 4.3) | the Clearance matrices are read cell by cell, so the row pours instead of refusing; `test_pour_time` gives `-08` its own limit of 270 s (175.2 s × 1.5, rounded up to 10 s), every other row keeps 60 s. A known difference for the performance work of v0.8 |
+| all | M2 on most polygons | the saved and repoured pours differ by small slivers | M2 counts pieces; slivers below the allowance count |
+
+Task 3.3 is not done: a text or a graphic within a polygon's reach still refuses it (`unshaped-copper`,
+`unshaped-pad`). Shaping a stroke text needs the glyphs of Altium's stroke font, for which no public
+source was found. No public row refuses for it; the maintainer's board (task 5.2) says whether it does.
+
 ## Risks
 
 - **Run time.** The pour of -08 is the slowest case (watch item `test_pour_time`). More polygons poured

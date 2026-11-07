@@ -39,7 +39,7 @@ from fenolite.backends.altium.connectstyle import (
     read_connect_styles,
 )
 from fenolite.backends.altium.hatch import HATCH_NORMALS, first_part, grid_segments
-from fenolite.backends.altium.read.pcb import PcbDocument, read_pcbdoc
+from fenolite.backends.altium.read.pcb import PcbDocument, RuleRecord, read_pcbdoc
 from fenolite.backends.altium.read.pcbprims import ArcRecord, RegionRecord, TrackRecord
 from fenolite.backends.altium.read.proptext import parse_length
 from fenolite.backends.altium.read.scope import ScopeDocument
@@ -112,6 +112,7 @@ REASONS: Mapping[str, str] = {
     "polygon-cutout": "a polygon cut-out within the polygon's reach could not be taken out of its area",
     "depends-on-refused": "an earlier polygon of the layer within this one's reach is refused",
     "copper-check": "the copper check finds a short or a clearance below the rule on the computed pour",
+    "neck-bound": "the exact cut of the neck removal exceeds its resource bound",
 }
 """Why a polygon keeps its outline only (``altium.zone-unpoured``), a closed list."""
 EXACT: Final = frozenset({"shelved", "plane-layer"})
@@ -733,6 +734,137 @@ def _pads_judged(fields: Sequence[tuple[str, str]]) -> tuple[tuple[str, str], ..
     return tuple((key, "FALSE" if key == PAD_PAIR_KEY else value) for key, value in fields)
 
 
+TWIN_FORMS: Mapping[str, str] = {"Arc": "Track", "Region": "Fill"}
+"""The object kinds of a Clearance matrix that one neutral kind holds (``read.rules.TWIN_KINDS``) → the kind
+that stands for both. The import refuses a matrix whose twins differ (``matrix-kind``); the pour asks only
+the polygon's row, so it reads the matrix with each twin as the kind that stands for it and takes the
+polygon's clearance to an arc, a track, a fill or a region from its own cell (``FINE_KINDS``; change c0463,
+task 4.3; rows ``-06`` and ``-08``)."""
+FINE_KINDS = ("Arc", "Track", "Fill", "Region")
+"""The object kinds whose cell with ``Poly`` the pour reads from a matrix that ``TWIN_FORMS`` reads."""
+_MATRIX_ENTRY = re.compile(r"ClearanceObj_([A-Za-z]+)-ClearanceObj_([A-Za-z]+):(\d+)")
+
+
+def _twins_judged(
+    fields: Sequence[tuple[str, str]],
+) -> tuple[tuple[tuple[str, str], ...], dict[str, Nm]] | None:
+    """``fields`` with the matrix of ``TWIN_FORMS`` and the clearance of ``Poly`` to each of ``FINE_KINDS``,
+    or ``None`` when the record holds no matrix that this reads."""
+    from fenolite.backends.altium.read.rules import MATRIX_UNIT
+    from fenolite.core.units import round_half_even_div
+
+    values = dict(fields)
+    text = (values.get("OBJECTCLEARANCES") or "").strip()
+    gap = parse_length(values.get("GAP") or "")
+    if not text or gap is None:
+        return None
+    listed: dict[tuple[str, ...], int] = {}
+    for part in text.split(";"):
+        match = _MATRIX_ENTRY.fullmatch(part.strip())
+        pair = None if match is None else tuple(sorted((match.group(1), match.group(2))))
+        if match is None or pair is None or pair in listed:
+            return None
+        listed[pair] = int(match.group(3))
+
+    def form(pair: tuple[str, ...]) -> tuple[str, ...]:
+        return tuple(sorted(TWIN_FORMS.get(kind, kind) for kind in pair))
+
+    def poly(kind: str) -> Nm:
+        count = listed.get(tuple(sorted((kind, "Poly"))))
+        return gap if count is None else round_half_even_div(count * MATRIX_UNIT[0], MATRIX_UNIT[1])
+
+    kinds = sorted({kind for pair in listed for kind in pair} | set(TWIN_FORMS) | set(TWIN_FORMS.values()))
+    entries: list[str] = []
+    for position, first in enumerate(kinds):
+        for second in kinds[position:]:
+            count = listed.get(form((first, second)))
+            if count is not None:
+                entries.append(f"ClearanceObj_{first}-ClearanceObj_{second}:{count}")
+    judged = tuple((key, ";".join(entries) if key == "OBJECTCLEARANCES" else value) for key, value in fields)
+    return judged, {kind: poly(kind) for kind in FINE_KINDS}
+
+
+def _edges_judged(fields: Sequence[tuple[str, str]]) -> tuple[tuple[str, str], ...] | None:
+    """``fields`` of a Board Outline Clearance record with each object's ``CutoutEdge`` cell set to its
+    ``OutlineEdge`` cell, or ``None`` when the record holds no matrix that this reads. The import refuses a
+    matrix whose two edges differ (``matrix-kind``), since its edge check judges both as the board's edge;
+    so does the pour (I17), which keeps the outline's value from both (row ``-06``: the Poly cell of the
+    outline is 0.5 mm, its cut-out cell the generic value)."""
+    values = dict(fields)
+    text = (values.get("OBJECTCLEARANCES") or "").strip()
+    if not text:
+        return None
+    outline: dict[str, str] = {}
+    kept: list[str] = []
+    for part in text.split(";"):
+        match = _MATRIX_ENTRY.fullmatch(part.strip())
+        if match is None:
+            return None
+        first, second, count = match.group(1), match.group(2), match.group(3)
+        if first in ("OutlineEdge", "CutoutEdge"):
+            first, second = second, first
+        if second == "OutlineEdge":
+            outline[first] = count
+        if second != "CutoutEdge":
+            kept.append(f"ClearanceObj_{first}-ClearanceObj_{second}:{count}")
+    kept.extend(f"ClearanceObj_{name}-ClearanceObj_CutoutEdge:{count}" for name, count in outline.items())
+    return tuple((key, ";".join(kept) if key == "OBJECTCLEARANCES" else value) for key, value in fields)
+
+
+def pour_rule_fields(
+    records: Sequence[RuleRecord],
+) -> tuple[list[tuple[tuple[str, str], ...]], frozenset[int], dict[int, dict[str, Nm]]]:
+    """The fields of the rule ``records`` as the pour reads them (change c0463, task 4.3), the indexes of the
+    records the import does not read and the pour reads (``_pads_judged``, ``_edges_judged``), and, by index,
+    the cells of each matrix read with ``TWIN_FORMS``."""
+    from fenolite.backends.altium.read.rules import matrix_problem
+
+    footprint_pads = frozenset(
+        index
+        for index, record in enumerate(records)
+        if (record.record.get("RULEKIND") or "") in PAD_PAIR_KINDS
+        and (record.record.get(PAD_PAIR_KEY) or "").upper() == "TRUE"
+    )
+    fields = [
+        _pads_judged(record.fields) if i in footprint_pads else tuple(record.fields)
+        for i, record in enumerate(records)
+    ]
+    fine: dict[int, dict[str, Nm]] = {}
+    read: set[int] = set(footprint_pads)
+    for i, record in enumerate(records):
+        kind = record.record.get("RULEKIND") or ""
+        if kind == "BoardOutlineClearance":
+            matrix, gap = record.record.get("OBJECTCLEARANCES"), record.record.get("GAP")
+            if not matrix_problem(matrix or "", gap, edges=True):
+                continue
+            edges = _edges_judged(fields[i])
+            if edges is not None and not matrix_problem(
+                dict(edges).get("OBJECTCLEARANCES") or "", gap, edges=True
+            ):
+                fields[i] = edges
+                read.add(i)
+            continue
+        if kind != "Clearance":
+            continue
+        matrix, gap = record.record.get("OBJECTCLEARANCES"), record.record.get("GAP")
+        if not matrix_problem(matrix or "", gap):
+            continue
+        judged = _twins_judged(fields[i])
+        if judged is not None and not matrix_problem(dict(judged[0]).get("OBJECTCLEARANCES") or "", gap):
+            fields[i], fine[i] = judged
+    return fields, frozenset(read), fine
+
+
+def fine_kind(item: PourObject) -> str | None:
+    """The object kind of the matrix that ``item`` is when it is one of ``FINE_KINDS``."""
+    storage = item.entity_id.split(":", 1)[0]
+    if storage == "Fills6":
+        return "Fill"
+    if storage == "Regions6":
+        return "Region"
+    return {"arc": "Arc", "track": "Track"}.get(item.kind)
+
+
 def _precedence(rules: Sequence[Rule]) -> list[Rule]:
     """The rules, the governing one first: the reverse of ``checks.clearance.rule_precedence``."""
     ordered = sorted(rules, key=lambda r: (r.priority != 0, -r.priority, r.name, r.id))
@@ -792,17 +924,9 @@ class Clearances:
         board = design.board
         layers = copper_layers_of(board.layers) if board is not None else None
         records = reading.document.rules
-        footprint_pads = {
-            index
-            for index, record in enumerate(records)
-            if (record.record.get("RULEKIND") or "") in PAD_PAIR_KINDS
-            and (record.record.get(PAD_PAIR_KEY) or "").upper() == "TRUE"
-        }
+        fields, extra, fine = pour_rule_fields(records)
         mapping = map_rules(
-            [
-                _pads_judged(record.fields) if i in footprint_pads else record.fields
-                for i, record in enumerate(records)
-            ],
+            fields,
             origin="pour",
             layers=layers,
             document=scope_document(reading.document, layers),
@@ -812,9 +936,15 @@ class Clearances:
             *(
                 rule
                 for rule, i in zip(mapping.ruleset.rules, mapping.rule_records, strict=True)
-                if i in footprint_pads
+                if i in extra or i in fine
             ),
         )
+        self._fine: list[tuple[Rule, dict[str, Nm]]] = [
+            (rule, fine[i])
+            for rule, i in zip(mapping.ruleset.rules, mapping.rule_records, strict=True)
+            if i in fine
+        ]
+        """Each rule of a matrix read by ``TWIN_FORMS`` with the clearance of ``Poly`` to ``FINE_KINDS``."""
 
         def candidates(kind: str) -> list[_Candidate]:
             return [
@@ -834,7 +964,10 @@ class Clearances:
             for record in reading.document.rules
         )
         """Whether the document holds a Board Outline Clearance record, read or not (S-2224)."""
-        self.largest: Nm = max((c.rule.min or 0 for c in self._clearance), default=0)
+        self.largest: Nm = max(
+            (*(c.rule.min or 0 for c in self._clearance), *(v for _, f in self._fine for v in f.values())),
+            default=0,
+        )
         """The largest clearance a rule of the reading gives."""
         self._unmapped: list[tuple[int, str, str | None]] = []
         """(priority, reason, the one polygon it can govern or ``None`` for any) of each unread record."""
@@ -849,7 +982,7 @@ class Clearances:
                 else None
             )
             self._unmapped.append((priority or 0, record.reason, only))
-        self._memo: dict[tuple[RuleSubject, RuleSubject, tuple[str, ...]], Nm | str] = {}
+        self._memo: dict[tuple[RuleSubject, RuleSubject, tuple[str, ...], str | None], Nm | str] = {}
 
     def _before(self, rule: Rule | None, polygons: tuple[str, ...]) -> str:
         """The refusal when an unread Clearance record that can govern a pair with the copper of one of the
@@ -862,10 +995,13 @@ class Clearances:
                 return "rule-scope" if reason == "scope" else "rule-unmapped"
         return ""
 
-    def clearance(self, a: RuleSubject, b: RuleSubject, *, polygons: tuple[str, ...] = ()) -> Nm | str:
+    def clearance(
+        self, a: RuleSubject, b: RuleSubject, *, polygons: tuple[str, ...] = (), fine: str | None = None
+    ) -> Nm | str:
         """The governing clearance between ``a`` and ``b`` on ``a.layer``, or the reason it is unknown;
-        ``polygons`` are the names of the polygons whose copper the pair holds (input I3)."""
-        key = (a, b, polygons)
+        ``polygons`` are the names of the polygons whose copper the pair holds (input I3), ``fine`` the kind
+        of ``FINE_KINDS`` that ``b`` is, for a polygon ``a``."""
+        key = (a, b, polygons, fine)
         found = self._memo.get(key)
         if found is None:
             fa, fb = _fold_subject(a), _fold_subject(b)
@@ -876,9 +1012,11 @@ class Clearances:
             elif rule is None or rule.severity == "ignore" or rule.min is None:
                 found = "no-clearance"
             else:
-                found = rule.min
+                none: dict[str, Nm] = {}
+                cells = next((f for r, f in self._fine if r is rule), none) if fine is not None else none
+                found = cells.get(fine or "", rule.min)
             self._memo[key] = found
-            self._memo[(b, a, polygons)] = found
+            self._memo[(b, a, polygons, fine)] = found
         return found
 
     def edge(self, a: RuleSubject) -> Nm | str:
@@ -1016,14 +1154,16 @@ class _Geometry:
         for piece in removed:
             found = [(v, corners[v]) for v in piece.outer if v in corners]
             tips = [(v, reach) for v, reach in found if reach]
+            box = piece.bbox()
+            whole = box.width + box.height + tol + 1  # a disc this wide about a vertex holds the whole piece
             for apex, reach in tips:
-                # the tip only: the part of the piece within the reach of the opening's arc at this corner
-                local = self.meet((piece,), (disc(apex, reach * 3 // 2 + half, tol),))
+                # the tip only: the part of the piece within the reach of the opening's arc at this corner (a
+                # spike of almost no angle reaches farther than the piece: row -06)
+                local = self.meet((piece,), (disc(apex, min(reach * 3 // 2 + half, whole), tol),))
                 points = [q for poly in local for q in poly.outer]
                 hull = convex_hull(points) if points else ()
                 if len(hull) >= 3:
                     cut.append(Polygon(hull))
-            box = piece.bbox()
             if found and not tips and max(box.width, box.height) <= half + tol:
                 continue  # the sliver the round opening takes off a corner of 89.5° or more stays
             cut.append(piece)
@@ -1085,6 +1225,14 @@ def _certified_neck_cut(subject: Sequence[Polygon], cut: Sequence[Polygon], tol:
     from fenolite.geometry.boolean._exact_noding import Budget
 
     return _without_debris(exact_difference(subject, cut, Budget()).polygons, tol)
+
+
+def _resource_bound(error: GeometryError) -> bool:
+    """Whether ``error`` is a work or storage bound of the exact geometry (``ResourceLimit``, or the bounds
+    that raise a plain ``GeometryError`` saying so), which counts work and so is the same on every machine."""
+    from fenolite.geometry.boolean._exact_noding import ResourceLimit
+
+    return isinstance(error, ResourceLimit) or error.message.endswith("budget exceeded")
 
 
 def _convex_corners(polys: Sequence[Polygon], radius: int) -> dict[Point, int]:
@@ -1404,7 +1552,7 @@ def _pour(
             same.append(item)
             if polygon.pour_over == "all":
                 continue
-        value = rules.clearance(me, subject, polygons=(polygon.name,))
+        value = rules.clearance(me, subject, polygons=(polygon.name,), fine=fine_kind(item))
         if isinstance(value, str):
             return (), (), value
         voids.extend(geometry.grow(item.shape, value + h, tol))
@@ -1434,7 +1582,12 @@ def _pour(
     elif polygon.neck > 0 and copper:
         # the result is cut back to the copper it was made from: the chords of Clipper's offsets would grow
         # it by their sag, and no void may lose its clearance
-        copper = geometry.open(copper, polygon.neck, tol)
+        try:
+            copper = geometry.open(copper, polygon.neck, tol)
+        except GeometryError as error:
+            if not _resource_bound(error):
+                raise  # any other refusal of the exact cut reaches the build (c0332)
+            return (), (), "neck-bound"  # the exact cut's resource bound (``_certified_neck_cut``; row -08)
     if polygon.hatch is None:
         conductors = _conductors(joins, copper, forbidden, area_now, geometry, tol)
         if conductors:
@@ -1648,7 +1801,7 @@ def check_pour(reading: PourReading, result: PourResult) -> tuple[int, ...]:
                 if (net is not None and item.net == net) or not item.box.intersects(near):
                     continue
                 subject = object_subject(layer, item)
-                value = rules.clearance(me, subject, polygons=(name,))
+                value = rules.clearance(me, subject, polygons=(name,), fine=fine_kind(item))
                 if isinstance(value, str):
                     continue
                 core, width, filled = item.shape

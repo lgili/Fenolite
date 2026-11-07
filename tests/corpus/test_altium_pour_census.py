@@ -120,12 +120,17 @@ def test_regions_thresholds(item: CorpusItem) -> None:
 
 TIME_LIMIT_S = 60.0
 """Task 3.6 of change c0215: above this for one document the plan comes back to the maintainer."""
+TIME_LIMITS_S = {"altium-third-party-pcbdoc-08": 270.0}
+"""Rows with their own limit, by the coordinator's decision of 2026-11-07 (change c0463, design D7): with its
+Clearance matrices read cell by cell, ``-08`` pours 32 of its 33 polygons and takes 175.2 s alone (209 s with
+two workers); the limit is that time × 1.5, rounded up to 10 s. A known difference for the performance work
+of v0.8."""
 
 
 @pytest.mark.parametrize("item", DOCUMENTS, ids=lambda item: item.id)
 def test_pour_time(item: CorpusItem) -> None:
-    """Reading a public document and pouring every polygon of it stays within ``TIME_LIMIT_S``
-    (``docs/evidence/altium-pour.md``, "Time")."""
+    """Reading a public document and pouring every polygon of it stays within ``TIME_LIMIT_S``, or the row's
+    own limit of ``TIME_LIMITS_S`` (``docs/evidence/altium-pour.md``, "Time")."""
     import importlib.util
     import time
 
@@ -138,7 +143,7 @@ def test_pour_time(item: CorpusItem) -> None:
     result = pour_reading(read_pour(path.read_bytes(), file=path.name))
     elapsed = time.perf_counter() - start
     assert result.polygons
-    assert elapsed < TIME_LIMIT_S, (item.id, elapsed)
+    assert elapsed < TIME_LIMITS_S.get(item.id, TIME_LIMIT_S), (item.id, elapsed)  # -08: design D7
 
 
 POUR_CENSUS: dict[str, tuple[int, dict[str, int], dict[str, tuple[str, ...]]]] = {
@@ -173,7 +178,13 @@ POUR_CENSUS: dict[str, tuple[int, dict[str, int], dict[str, tuple[str, ...]]]] =
         2, {}, {"B.Cu GND_BOTTOM": ("M2",), "F.Cu GND_TOP": ("M2",)},
     ),
     "altium-third-party-pcbdoc-06": (
-        10, {"depends-on-refused": 7, "rule-unmapped": 3}, {},
+        10,
+        {},
+        {
+            "F.Cu GND_L01_P008": ("M2", "M3"), "F.Cu GND_L01_P007": ("M1", "M2", "M3", "M4"),
+            "F.Cu GND_L01_P006": ("M1", "M2", "M3", "M4"), "F.Cu VBUS_L01_P000": ("M2",),
+            "B.Cu GND_L02_P009": ("M1", "M2", "M3"),
+        },
     ),
     "altium-third-party-pcbdoc-07": (
         9,
@@ -185,8 +196,14 @@ POUR_CENSUS: dict[str, tuple[int, dict[str, int], dict[str, tuple[str, ...]]]] =
     ),
     "altium-third-party-pcbdoc-08": (
         33,
-        {"depends-on-refused": 18, "rule-unmapped": 15},
-        {},
+        {"neck-bound": 1},
+        {
+            "F.Cu NONET_L-01_P-001": ("M2",), "F.Cu BB_SYS_L01_P065": ("M2", "M4"), "F.Cu \u00b8": ("M2",),
+            "B.Cu NONET_L-01_P-001": ("M2",), "B.Cu 3V3_WIFI_L06_P070": ("M2",),
+            "In2.Cu NONET_L-01_P-001": ("M2",), "In3.Cu NONET_L-01_P-001": ("M2",),
+            "In3.Cu \u00b8": ("M2", "M3"), "In4.Cu NONET_L-01_P-001": ("M2", "M3", "M4"),
+            "In1.Cu NONET_L-01_P-001": ("M2", "M3", "M4"),
+        },
     ),
 }  # fmt: skip
 """Row → its polygons, the refused ones per reason, and the failed criteria of each compared polygon (by layer
@@ -235,9 +252,15 @@ board's edge that Altium pours and its one Clearance keeps free, and ``P002`` fa
 pour only. On ``-06`` the pad-pair record maps, so one polygon is refused ``depends-on-refused`` instead.
 
 Task 5.2 (2026-11-06): on every row no polygon is refused ``rule-scope`` or ``connect-scope``. The polygons
-refused ``rule-unmapped`` (``-06``, ``-08``) are refused for records that the design names and ``map_rules``
+refused ``rule-unmapped`` (``-06``, ``-08``) were refused for records that the design names and ``map_rules``
 refuses: ``IGNOREPADTOPADCLEARANCEINFOOTPRINT=TRUE`` (``keys``) and the matrices of task 4.3 of c0462
-(``matrix-kind``), each listed in ``test_altium_rule_kinds_c0462.py::POUR_UNREAD``."""
+(``matrix-kind``), each listed in ``test_altium_rule_kinds_c0462.py::POUR_UNREAD``.
+
+Change c0463, task 4.3 (S-2227), reads those records for the pour (``pour.pour_rule_fields``): a Clearance
+matrix whose arc and track, or fill and region, cells differ is read cell by cell for the polygon's row, and
+a Board Outline Clearance matrix whose outline and cut-out cells differ keeps the outline's value from both.
+``POUR_UNREAD`` is empty. Every polygon of ``-06`` pours; of ``-08`` all but one, whose exact neck cut exceeds
+its resource bound (``neck-bound``)."""
 
 
 @pytest.mark.parametrize("item", DOCUMENTS, ids=lambda item: item.id)

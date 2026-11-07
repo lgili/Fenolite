@@ -75,6 +75,11 @@ the comparison of the census not included:
 The limit of task 3.6 is 60 s for one document. Before the neck removal took one difference per polygon,
 row `-03` took 36.6 s.
 
+On 2026-11-07 (change c0463, task 4.3) row `-08` pours 32 of its 33 polygons, where it refused them before,
+and takes 175.2 s alone (209 s with two workers). By the coordinator's decision it has its own limit of
+270 s (that time × 1.5, rounded up to 10 s; `TIME_LIMITS_S`), a known difference for the performance work of
+v0.8 (design D7 of c0463); every other row keeps 60 s.
+
 ## Kit rounds
 
 ### 2026-11-04, actual `AD24.5.2.23`, K6 (source S-1572)
