@@ -94,7 +94,7 @@ fenolite convert board.PcbDoc --to kicad --out converted --dry-run --json
 fenolite equivalent before.kicad_pcb after.kicad_pcb --level 5 --json
 ```
 
-**Conversions and Altium writes are experimental in 0.6.** Lossy conversion requires explicit consent.
+**Conversions and Altium writes are experimental in 0.7.** Lossy conversion requires explicit consent.
 Support depends on the constructs in the input; review the report and the resulting design.
 Read the [conversion guide](https://github.com/lgili/Fenolite/blob/main/docs/conversion.md).
 
@@ -139,13 +139,13 @@ and [assembly](https://github.com/lgili/Fenolite/blob/main/docs/assembly.md).
 
 ## Support at a glance
 
-> **Status: version 0.6.** Python scripts build KiCad 9/10 PCB and schematic projects. The agent loop
+> **Status: version 0.7.** Python scripts build KiCad 9/10 PCB and schematic projects. The agent loop
 > uses KiCad's ERC/DRC checks, the board engineering analyses and an MCP server; conversion supports
 > KiCad/Altium and the older KiCad major. Altium writes, computed Altium pours and conversions are
-> experimental. See the [release scope and limits](https://github.com/lgili/Fenolite/blob/main/docs/release/v0.6.md).
+> experimental. See the [release scope and limits](https://github.com/lgili/Fenolite/blob/main/docs/release/v0.7.md).
 
 
-| Workflow | What you need | Status in 0.6 |
+| Workflow | What you need | Status in 0.7 |
 |---|---|---|
 | Build the starter; inspect and view supported files | Python 3.11+, browser for the viewer | Shipped; format-specific rendering limits apply |
 | KiCad project generation | Python; KiCad 9 or 10 to open in the editor | Shipped |
@@ -162,8 +162,10 @@ and `kicad-ipc` for a live KiCad session. Since 0.6 the package includes the std
 
 The viewer, conversion, board panels, slots and review tools ship since 0.5; 0.6 adds the MCP server, the
 board engineering tools (analyses, tidy, reuse, silkscreen, test points, DRC gates) and the Python API.
+0.7 carries Altium boards through KiCad and back (rules, classes, planes, unions, fonts, computed pours), still
+experimental.
 Native Draftsman writing and Embedded Board Arrays remain gated. Detailed scope and deferred checks are in the
-[release record](https://github.com/lgili/Fenolite/blob/main/docs/release/v0.6.md).
+[release record](https://github.com/lgili/Fenolite/blob/main/docs/release/v0.7.md).
 
 ## Help and contribute
 
