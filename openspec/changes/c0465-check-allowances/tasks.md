@@ -68,6 +68,13 @@ Rules for every task:
   - stubs of 40, 50 and 60 mil under a Net Antennae of 50 mil, and a stub that ends at a via joining nothing;
   - a short `AGND`–`DGND` under Short-Circuit `ALLOWED=TRUE`, and a short `VIN`–`DGND` under the default rule.
   Record which are reported, and set `H-A-RULE-ANTENNA` and `H-A-RULE-SHORT`. Proof: the agent's report.
+  Deferred 2026-11-07 (coordinator's decision): three tries on Altium Designer 24.5.2.23, the third after a
+  clean restart (S-2283), stopped before any DRC. The script stops at `Priority := 1` right after
+  `AddPCBObject` with an error its Try/Except does not catch, so no allowance board is saved. Measured on the
+  way: a new ShortCircuit rule defaults to NetScope 2 (any net) and LayerKind 0 (same layer), the values the
+  writer writes. `H-A-RULE-SHORT` and `H-A-RULE-ANTENNA` stay `UNVERIFIED`. A fourth try sets `Priority`
+  before `AddPCBObject` (the writer puts the allowance rule at priority 1, above the default rule) and reports
+  each rule's priority as read back.
 - [x] 6.2 CHANGELOG, `gen_evidence_matrix`, `gen_cli_surface` and the other generators with `--check`;
   `openspec validate c0465-check-allowances --strict`; each touched test file alone with `-n 0`.
   Done 2026-11-06 on lote-29 23e429393: the 26 test files c0465 touched, the docs tests, `test_pages`,
