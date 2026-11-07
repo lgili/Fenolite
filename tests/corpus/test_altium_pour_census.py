@@ -150,7 +150,14 @@ POUR_CENSUS: dict[str, tuple[int, dict[str, int], dict[str, tuple[str, ...]]]] =
             "F.Cu Top Layer-No Net": ("M1", "M2", "M3", "M4"),
         },
     ),
-    "altium-third-party-pcbdoc-02": (12, {"depends-on-refused": 6, "rule-unmapped": 6}, {}),
+    "altium-third-party-pcbdoc-02": (
+        12,
+        {},
+        {
+            "F.Cu GND_L01_P018": ("M1", "M2"), "F.Cu NETC6_1_L01_P002": ("M2",),
+            "B.Cu GND_L04_P017": ("M1", "M2"),
+        },
+    ),
     "altium-third-party-pcbdoc-03": (1, {}, {"B.Cu GND_L02_P000": ("M2", "M3", "M4")}),
     "altium-third-party-pcbdoc-04": (
         9,
@@ -166,7 +173,7 @@ POUR_CENSUS: dict[str, tuple[int, dict[str, int], dict[str, tuple[str, ...]]]] =
         2, {}, {"B.Cu GND_BOTTOM": ("M2",), "F.Cu GND_TOP": ("M2",)},
     ),
     "altium-third-party-pcbdoc-06": (
-        10, {"depends-on-refused": 6, "rule-unmapped": 4}, {},
+        10, {"depends-on-refused": 7, "rule-unmapped": 3}, {},
     ),
     "altium-third-party-pcbdoc-07": (
         9,
@@ -219,7 +226,13 @@ polygon of ``-05``.
 
 Task 5.1 (S-2214) reads ``InDifferentialPairClass`` as the pairs' copper for every rule kind, so no polygon
 of ``-08`` is refused for a rule scope; the refusal of task 4.3 (``matrix-kind``) comes first there, so its
-counts stay those above."""
+counts stay those above.
+
+Task 4.3 (S-2227) reads ``-02``: the pour reads a Clearance with the in-footprint pad-pair flag as if the
+flag were off (it pairs no pads), a polygon cut-out keeps no clearance, and a via without a pad joins a
+polygon of its net. All 12 polygons pour; the GND planes fail M1 (4.46 and 3.98) by a band along the
+board's edge that Altium pours and its one Clearance keeps free, and ``P002`` fails M2 against the saved
+pour only. On ``-06`` the pad-pair record maps, so one polygon is refused ``depends-on-refused`` instead."""
 
 
 @pytest.mark.parametrize("item", DOCUMENTS, ids=lambda item: item.id)

@@ -426,7 +426,7 @@ class LayerObjects:
         self._tracks(board, tol)
         self._vias(board)
         self._pads(reading.pads)
-        self._holes_and_keepouts(board)
+        self._holes_and_keepouts(board, _cutout_locators(reading))
         self._keepout_regions(reading)
         self._copper_records(reading, tol)
         self._unshaped(board)
@@ -492,11 +492,15 @@ class LayerObjects:
             net = self._net(via.net_id)
             shape = ((via.position,), via.diameter, False)
             # a via without a pad shape on a layer is its hole there (c0132, ``removed_pad_vias``): a polygon
-            # keeps its clearance to the hole and does not join it (``H-A-IMP-VIA-PADLESS``)
+            # of another net keeps its clearance to the hole (``H-A-IMP-VIA-PADLESS``); a polygon of its net
+            # joins it as a via (``connect``; S-2227, row -02)
             hole = via.diameter == via.drill
             for layer in _span(self.copper, via.layers, via.via_type == "through"):
                 if hole:
-                    self._add(layer, self._object("hole", net, shape, via.id, hole=via.drill))
+                    item = self._object(
+                        "hole", net, shape, via.id, connect="via", center=via.position, hole=via.drill
+                    )
+                    self._add(layer, item)
                 else:
                     item = self._object(
                         "via", net, shape, via.id, connect="via", center=via.position, hole=via.drill
@@ -532,7 +536,7 @@ class LayerObjects:
                     if layer in self.unshaped:
                         self.unshaped[layer].append((BBox.of_points((pad.position,)).inflate(1), "pad"))
 
-    def _holes_and_keepouts(self, board: Board) -> None:
+    def _holes_and_keepouts(self, board: Board, cutouts: frozenset[str]) -> None:
         for hole in board.holes:
             core = (
                 (hole.position,)
@@ -547,6 +551,8 @@ class LayerObjects:
         for keepout in rule_areas(board):
             if not keepout.no_copper_pour or len(keepout.outline) < 3:
                 continue
+            if keepout.provenance is not None and keepout.provenance.locator in cutouts:
+                continue  # a polygon cut-out leaves the area (``_polygon_cutouts``), with no clearance
             for layer in keepout.layers or self.copper:
                 self._add(layer, self._object("keepout", None, (tuple(keepout.outline), 0, True), keepout.id))
 
@@ -714,6 +720,19 @@ def _fold_subject(subject: RuleSubject) -> RuleSubject:
     )
 
 
+PAD_PAIR_KEY = "IGNOREPADTOPADCLEARANCEINFOOTPRINT"
+PAD_PAIR_KINDS = frozenset({"Clearance", "BoardOutlineClearance"})
+"""A record of these kinds with ``IGNOREPADTOPADCLEARANCEINFOOTPRINT=TRUE`` leaves out the pairs of two pads
+of one footprint. The import does not map it (``keys``, ``rule-file.md``): no neutral selector says that.
+The pour never judges two pads, only a polygon's copper against an object, so for the pour the record says
+what it says with ``FALSE`` and is read so (change c0463, task 4.3; row ``-02``)."""
+
+
+def _pads_judged(fields: Sequence[tuple[str, str]]) -> tuple[tuple[str, str], ...]:
+    """``fields`` with ``IGNOREPADTOPADCLEARANCEINFOOTPRINT=FALSE`` (``PAD_PAIR_KINDS``)."""
+    return tuple((key, "FALSE" if key == PAD_PAIR_KEY else value) for key, value in fields)
+
+
 def _precedence(rules: Sequence[Rule]) -> list[Rule]:
     """The rules, the governing one first: the reverse of ``checks.clearance.rule_precedence``."""
     ordered = sorted(rules, key=lambda r: (r.priority != 0, -r.priority, r.name, r.id))
@@ -770,7 +789,32 @@ class Clearances:
         from fenolite.backends.altium.read.scopedoc import scope_document
 
         design = reading.design
-        rules = design.rules.rules if design.rules is not None else ()
+        board = design.board
+        layers = copper_layers_of(board.layers) if board is not None else None
+        records = reading.document.rules
+        footprint_pads = {
+            index
+            for index, record in enumerate(records)
+            if (record.record.get("RULEKIND") or "") in PAD_PAIR_KINDS
+            and (record.record.get(PAD_PAIR_KEY) or "").upper() == "TRUE"
+        }
+        mapping = map_rules(
+            [
+                _pads_judged(record.fields) if i in footprint_pads else record.fields
+                for i, record in enumerate(records)
+            ],
+            origin="pour",
+            layers=layers,
+            document=scope_document(reading.document, layers),
+        )
+        rules = (
+            *(design.rules.rules if design.rules is not None else ()),
+            *(
+                rule
+                for rule, i in zip(mapping.ruleset.rules, mapping.rule_records, strict=True)
+                if i in footprint_pads
+            ),
+        )
 
         def candidates(kind: str) -> list[_Candidate]:
             return [
@@ -792,15 +836,6 @@ class Clearances:
         """Whether the document holds a Board Outline Clearance record, read or not (S-2224)."""
         self.largest: Nm = max((c.rule.min or 0 for c in self._clearance), default=0)
         """The largest clearance a rule of the reading gives."""
-        board = design.board
-        layers = copper_layers_of(board.layers) if board is not None else None
-        mapping = map_rules(
-            [record.fields for record in reading.document.rules],
-            origin="pour",
-            layers=layers,
-            document=scope_document(reading.document, layers),
-        )
-        records = reading.document.rules
         self._unmapped: list[tuple[int, str, str | None]] = []
         """(priority, reason, the one polygon it can govern or ``None`` for any) of each unread record."""
         for record in mapping.unmapped:
@@ -1263,6 +1298,17 @@ def _depends(polygon: PourPolygon, state: _Layer, context: _Context) -> str:
     return ""
 
 
+def _cutout_locators(reading: PourReading) -> frozenset[str]:
+    """The locators (``Regions6/Data#<n>``) of the polygon cut-outs, regions of ``KIND=1``. The import makes a
+    pour-only rule area of each; Altium's pour stops at the cut-out's edge with no clearance (S-2227, row
+    ``-02``), so the pour takes the cut-out out of its area and keeps no clearance to that rule area."""
+    return frozenset(
+        f"Regions6/Data#{index}"
+        for index, region in enumerate(reading.document.regions)
+        if isinstance(region, RegionRecord) and region.properties.get("KIND") == "1"
+    )
+
+
 def _polygon_cutouts(reading: PourReading) -> Mapping[str, tuple[tuple[BBox, Polygon], ...]]:
     """The box and ring of each polygon cut-out (region of ``KIND=1``) per copper layer of the import, on
     Multi-Layer for every copper layer (change c0439 writes a pour-only rule area of every copper layer
@@ -1344,6 +1390,9 @@ def _pour(
             continue
         subject = object_subject(layer, item)
         own = net is not None and item.net == net
+        if own and item.kind == "hole" and item.connect == "via":
+            item = replace(item, kind="via")  # a via without a pad here: Altium joins it as a via (S-2227)
+            subject = object_subject(layer, item)
         if own and item.kind in ("via", "pad") and item.connect is not None:
             found = governing_connection(context.styles, subject, me, item.connect, polygon.name)
             if isinstance(found, str):

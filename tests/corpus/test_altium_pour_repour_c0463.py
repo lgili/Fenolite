@@ -61,7 +61,7 @@ ORACLE: dict[str, tuple[dict[str, int], dict[str, tuple[str, ...]]]] = {
             "P33 F.Cu": ("M1", "M2", "M3"), "P35 F.Cu": ("M1", "M2", "M3", "M4"),
         },
     ),
-    "altium-third-party-pcbdoc-02": ({"depends-on-refused": 6, "rule-unmapped": 6}, {}),
+    "altium-third-party-pcbdoc-02": ({}, {"P18 F.Cu": ("M1", "M2"), "P17 B.Cu": ("M1", "M2")}),
     "altium-third-party-pcbdoc-03": ({}, {"P0 B.Cu": ("M2", "M3", "M4")}),
     "altium-third-party-pcbdoc-04": (
         {},
@@ -72,7 +72,7 @@ ORACLE: dict[str, tuple[dict[str, int], dict[str, tuple[str, ...]]]] = {
         },
     ),
     "altium-third-party-pcbdoc-05": ({}, {"P1 B.Cu": ("M2",), "P0 F.Cu": ("M2",)}),
-    "altium-third-party-pcbdoc-06": ({"depends-on-refused": 6, "rule-unmapped": 4}, {}),
+    "altium-third-party-pcbdoc-06": ({"depends-on-refused": 7, "rule-unmapped": 3}, {}),
     "altium-third-party-pcbdoc-07": (
         {},
         {
@@ -96,7 +96,13 @@ off ``P0 F.Cu`` of ``-05``.
 
 On ``cac/lote-29`` 60687e26d (c0462 tasks 4.3 to 4.5) every row is repinned: the 5 polygons of ``-01`` pour
 and fail, 4 by M1 (ratios 1.27 to 4.01); ``-06`` and ``-08`` are refused ``rule-unmapped`` where they were
-refused for a connect or rule scope. Rows 01 to 08 hold the same refusals and failures as the census."""
+refused for a connect or rule scope. Rows 01 to 08 hold the same refusals and failures as the census.
+
+Task 4.3 (S-2227) reads ``-02``: its Clearance with the in-footprint pad-pair flag maps for the pour (which
+pairs no pads), a polygon cut-out keeps no clearance, and a via without a pad joins a polygon of its net.
+All 12 polygons pour; against the repour only the GND planes ``P18 F.Cu`` and ``P17 B.Cu`` fail (M1 ratios
+4.46 and 3.98: Altium pours to the board's edge where its one Clearance gives 0.15 mm, unexplained, a known
+difference). On ``-06`` one polygon moves from ``rule-unmapped`` to ``depends-on-refused``."""
 
 
 def _record() -> dict[str, object]:

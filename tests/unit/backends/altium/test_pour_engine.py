@@ -110,8 +110,11 @@ def test_board_edge_and_its_clearance() -> None:
 
 
 def test_keep_out_is_a_void() -> None:
-    """Input I16: a keep-out of copper on the polygon's layer is a void at the governing clearance."""
-    keepout = Keepout(id="k1", outline=rect(10, 10, 14, 14), layers=("F.Cu",), no_copper_pour=True)
+    """Input I16: a keep-out of copper on the polygon's layer is a void at the governing clearance (a keep-out
+    of tracks too, so the writer keeps it a keep-out region and no polygon cut-out, c0439)."""
+    keepout = Keepout(
+        id="k1", outline=rect(10, 10, 14, 14), layers=("F.Cu",), no_copper_pour=True, no_tracks=True
+    )
     board = Board(zones=(zone("z1", "GND"),), vias=(via("v1", "GND", 30, 20),), keepouts=(keepout,),
                   rules=(clearance(0.2),))  # fmt: skip
     _, result = board.pour()
@@ -119,6 +122,33 @@ def test_keep_out_is_a_void() -> None:
     assert not _covered(gnd, at(12, 12))
     assert not _covered(gnd, at(14.1, 12))
     assert _covered(gnd, at(14.5, 12))
+
+
+def test_polygon_cutout_keeps_no_clearance() -> None:
+    """A polygon cut-out (a region of ``KIND=1``, written for a rule area of poured copper alone, c0439) is
+    taken out of the area with no clearance: Altium's repour of row -02 pours to its edge (S-2227)."""
+    cutout = Keepout(id="k1", outline=rect(10, 10, 14, 14), layers=("F.Cu",), no_copper_pour=True)
+    board = Board(zones=(zone("z1", "GND"),), vias=(via("v1", "GND", 30, 20),), keepouts=(cutout,),
+                  rules=(clearance(0.2),))  # fmt: skip
+    _, result = board.pour()
+    gnd = _of(result, "GND")
+    assert not _covered(gnd, at(12, 12))
+    assert not _covered(gnd, at(13.95, 12))
+    assert _covered(gnd, at(14.05, 12))
+
+
+def test_a_via_without_a_pad_joins_its_polygon() -> None:
+    """A via without a pad shape (diameter equal to its drill) is joined by a polygon of its net as a via, and
+    keeps the clearance of its hole from a polygon of another net (S-2227, row -02;
+    ``H-A-IMP-VIA-PADLESS``)."""
+    padless = {"diameter": 0.3, "drill": 0.3}
+    board = Board(zones=(zone("z1", "GND", rect(1, 1, 19, 29)), zone("z2", "VIN", rect(21, 1, 39, 29))),
+                  vias=(via("v1", "GND", 10, 15, **padless), via("v2", "GND", 30, 15, **padless),
+                        via("v3", "VIN", 35, 25)),
+                  rules=(clearance(0.2),), full_drill=True)  # fmt: skip
+    _, result = board.pour()
+    assert _covered(_of(result, "GND"), at(10.2, 15))  # the GND pour reaches its own via
+    assert not _covered(_of(result, "VIN"), at(30.3, 15))  # the VIN pour keeps 0.2 from the GND hole
 
 
 # --- 3.2: the connections -----------------------------------------------------------------------------------
