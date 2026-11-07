@@ -68,3 +68,4 @@
   21) that Altium does not count, and the writer puts them on Mechanical 16, where it does (c0450, long
   mechanical ids). The written document holds 1081 TrueType records against the source's 1096: 13 texts with
   CR LF (task 2.5) and 2 footprint texts. Closes with c0450, not here.
+  Deferred to v0.8 (coordinator, 2026-11-07): not run before the cut of 0.7.0; the code ships.

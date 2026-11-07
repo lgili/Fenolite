@@ -27,6 +27,7 @@
 - [x] 4.1 Rows in `pcb-copper.md` and `board.md`, S-2250 to S-2252, and the CHANGELOG.
 - [ ] 4.2 Kit: Altium opens the round trip of rows `-01` and `-02` with their planes and splits, and Plane
   Connect finds the pads of the planes' nets connected.
+  Deferred to v0.8 (coordinator, 2026-11-07): not run before the cut of 0.7.0; the code ships.
 
 ## 5. Signal layer names (S-2254 to S-2256)
 

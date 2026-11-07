@@ -47,3 +47,4 @@
 - [ ] 5.2 Kit: Altium opens the flow A round trip of the maintainer's board and of row `-04` with metric
   units, the source's mechanical names and enabled flags, row `-05` with its black mask, and no error; it reports whether the super classes come back
   (S-2233, asked of altium-rounds-2).
+  Deferred to v0.8 (coordinator, 2026-11-07): not run before the cut of 0.7.0; the code ships.

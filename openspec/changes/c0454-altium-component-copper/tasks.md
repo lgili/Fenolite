@@ -18,3 +18,4 @@
   Done 2026-11-06 (S-2132): 4 regions with the source's owners and nets, 0 Short-Circuit, 0 Clearance, no
   connectivity message names that copper.
 - [ ] 2.3 KiCad 9.0.9 keeps `(net …)` on a footprint `fp_poly` on a save (maintainer's run).
+  Deferred to v0.8 (coordinator, 2026-11-07): not run before the cut of 0.7.0; the code ships.
