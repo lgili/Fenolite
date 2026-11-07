@@ -23,8 +23,10 @@
 ## 4. Close
 
 - [x] 4.1 CHANGELOG, `docs/equivalence.md`; light checks and focused tests.
-- [ ] 4.2 The next combined sweep confirms the private cases (L1 `ref-ambiguous`, L2 `net`, the
-  `build.unknown-pin` case) are gone (coordinator).
+- [x] 4.2 The next combined sweep confirms the private cases (L1 `ref-ambiguous`, L2 `net`, the
+  `build.unknown-pin` case) are gone (coordinator). The sweep of 2026-11-07 at lote-29 `0a88720c1` (88
+  cases): L1 `ref-ambiguous` 0, L2 `net` 0, `build.unknown-pin` 0; the cases import and build; no new
+  unexplained code.
 
 ## 5. Copper on a net with a slash
 
