@@ -33,8 +33,11 @@ Rules for every task:
   guide. Proof: `uv run pytest tests/unit/model/test_selector_leaves_c0462.py -q -n 0`,
   `uv run python tools/model_review.py --check`, `uv run python tools/gen_schemas.py --check`,
   `uv run python tools/gen_agent_guide.py --check`.
-- [ ] 3.2 The KiCad writer for the three leaves, from S-2213. Proof:
+- [x] 3.2 The KiCad writer for the three leaves, from S-2213. Proof:
   `uv run pytest tests/unit/backends/kicad/test_rulemap_leaves_c0462.py -q -n 0`.
+  Done 2026-11-06: the writer landed for KiCad 10 in ff7c38b43. The probes `dru-cond-zone`, `dru-cond-hole` and
+  `dru-cond-pad_type` are now recorded `present` on 9.0.9 too (pinned image, local run), so the leaves hold on
+  both majors and `H-K-DRU-LEAF-C0462` is `KICAD-VERIFIED (9.0.x, 10.0.x)`.
 - [x] 3.3 `IsNamedPolygon`, `InNamedPolygon`, `HoleDiameter` and `PadIsPlated` onto the leaves. Proof:
   `tests/unit/backends/altium/test_scope_c0462.py -k "polygon or hole or plated"`.
 

@@ -182,15 +182,15 @@ _BOTH = frozenset({9, 10})
 _ONLY_10 = frozenset({10})
 _SUPPORT: dict[str, frozenset[int]] = {
     **dict.fromkeys(SELECTOR_KEYS, _BOTH),
-    **dict.fromkeys(LEAF_KEYS_C0462, _ONLY_10),
+    **dict.fromkeys(LEAF_KEYS_C0462, _BOTH),
 }
 SELECTOR_SUPPORT: Mapping[str, frozenset[int]] = MappingProxyType(_SUPPORT)
 """Each key → the KiCad majors on which its ``dru-cond-<key>`` probe recorded ``present``
 (``docs/evidence/kicad/probes/9.0.9.json`` and ``10.0.6.json``). Every key of ``SELECTOR_KEYS`` holds on both
 majors: ``area`` (``dru-cond-area``, ``H-K-AREA-COND``) and ``diff_pair`` (``dru-cond-diff_pair``,
 ``H-K-DRU-PAIRSEL``) since their probes were recorded ``present`` on 9.0.9 on 2026-10-08. The leaves of
-``LEAF_KEYS_C0462`` hold on 10 alone: their probes are recorded ``present`` on 10.0.6 and not yet run on
-9.0.9 (change c0462, task 3.2)."""
+``LEAF_KEYS_C0462`` hold on both majors: their probes are recorded ``present`` on 10.0.6 and on 9.0.9 (change
+c0462, task 3.2; ``H-K-DRU-LEAF-C0462``)."""
 KIND_SUPPORT: Mapping[RuleKind, frozenset[int]] = MappingProxyType(
     {
         "clearance": _BOTH,

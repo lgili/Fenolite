@@ -64,15 +64,19 @@ def test_a_leaf_in_a_larger_condition(proved: None) -> None:
     assert parse_condition(written) == (selector, None)
 
 
-def test_the_shipped_table_holds_10_alone() -> None:
-    """The three probes are recorded ``present`` on 10.0.6 and not yet run on 9.0.9."""
+def test_the_shipped_table_holds_both_majors() -> None:
+    """The three probes are recorded ``present`` on 10.0.6 and on 9.0.9 (task 3.2)."""
     assert {key: rulemap.SELECTOR_SUPPORT[key] for key in rulemap.LEAF_KEYS_C0462} == dict.fromkeys(
-        rulemap.LEAF_KEYS_C0462, frozenset({10})
+        rulemap.LEAF_KEYS_C0462, frozenset({9, 10})
     )
 
 
-def test_unproved_leaves_are_losses() -> None:
-    """On a major without the probe: a rule with a new leaf is not written."""
+def test_unproved_leaves_are_losses(monkeypatch: pytest.MonkeyPatch) -> None:
+    """On a major without the probe (9, as if its probes were not recorded): a rule with a new leaf is not
+    written."""
+    support = dict(rulemap.SELECTOR_SUPPORT)
+    support.update(dict.fromkeys(rulemap.LEAF_KEYS_C0462, frozenset({10})))
+    monkeypatch.setattr(rulemap, "SELECTOR_SUPPORT", MappingProxyType(support))
     for selector in (Selector("zone", "Z"), Selector("hole", "1.."), Selector("pad_type", "smd")):
         written, issues = condition_text(_rule(selector), target=9)
         assert [issue.code for issue in issues] == ["rules.unsupported-selector"]

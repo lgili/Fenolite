@@ -191,9 +191,10 @@ Side `S` is `A` for `selector_a` and `B` for `selector_b`.
   selects, hence `> 0mm` for an open lower bound. `Edge connector` pads have no `pad_type` value. The probes
   `dru-cond-zone`, `dru-cond-pad_type` and `dru-cond-hole` (a probe zone named `probe` against one named
   `control`; SMD pads against through-hole pads; a 0.4 mm via and through-hole pads against a 0.3 mm via and
-  SMD pads, with `hole 350000..`) were recorded `present` on 10.0.6 on 2026-11-06 (local `kicad-cli`). A key
-  joins `SELECTOR_SUPPORT` only for the majors whose probe is recorded `present`, so the three keys hold 10
-  alone; on 9 a rule with the leaf is a reported loss on write. With no major recorded, `read_rules` would keep
+  SMD pads, with `hole 350000..`) were recorded `present` on 10.0.6 on 2026-11-06 (local `kicad-cli`) and on
+  9.0.9 the same day (the pinned image, local run; task 3.2). A key joins `SELECTOR_SUPPORT` only for the majors
+  whose probe is recorded `present`, so the three keys hold 9 and 10; on another major a rule with the leaf is
+  a reported loss on write. With no major recorded, `read_rules` would keep
   a KiCad rule that uses `Name`, `Pad_Type`, `Hole` or `Hole_Size_X` opaque. Only the written hole form reads back as `hole`; any other comparison keeps the rule
   opaque.
 

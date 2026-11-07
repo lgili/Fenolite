@@ -6,6 +6,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- The KiCad rules writer writes the selector leaves `zone`, `hole` and `pad_type` for KiCad 9 too (c0462 task 3.2): their condition probes are recorded `present` on 9.0.9 (the pinned image), as on 10.0.6, so a rule that uses one is no longer a loss on 9. `H-K-DRU-LEAF-C0462` is `KICAD-VERIFIED (9.0.x, 10.0.x)`.
 - The Altium writer's evidence no longer names `H-A-RULE-SHORT` and `H-A-RULE-ANTENNA` (c0465 task 6.2): both rows are `UNVERIFIED` until the kit of task 6.1, and a declared `INFERRED` may not name a weaker row. Task 6.2's checks pass on the lote-29 tip.
 - Tests: the coordinator approves c0462's extension key `layer_value` (a per-layer value of an Altium rule record) in the model review, and the reader's new rule rows (`H-A-RULE-MATRIX-NPTH` among them) are no claim of the Altium build.
 - Docs: the kit request S-2233 (c0464) and the open repeat and OutJob steps of c0389 name Altium Designer 24.5, which the maintainer accepts in place of 26 since 2026-11-06.
