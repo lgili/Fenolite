@@ -57,12 +57,12 @@ def _edited() -> Design:
 
 def test_empty_value_and_empty_text(tmp_path: Path) -> None:
     """Scenario "Empty value and empty text": ``R1`` keeps its hidden ``Value`` field with an empty value,
-    ``U1`` its empty text; the empty board text is counted as not written."""
+    ``U1`` its empty text; since c0460 task 2.5 the empty board text is written as well."""
     design = _edited()
     before = next(f for f in _footprint(design, "R1").fields if f.name == "Value")
     assert not before.visible
     written = lower.write_design(design, allow_lossy=True, rewrite=True)
-    assert derived_id("txt", "c0451", "board") in written.inputs.not_lowered["text"]
+    assert derived_id("txt", "c0451", "board") not in written.inputs.not_lowered.get("text", ())
     for name, data in written.files.items():
         (tmp_path / name).write_bytes(data)
     back = AltiumBackend().read(next(tmp_path.glob("*.PcbDoc"))).design
@@ -71,6 +71,7 @@ def test_empty_value_and_empty_text(tmp_path: Path) -> None:
     assert (value.layer, value.visible, value.position) == (before.layer, before.visible, before.position)
     assert next(c.value for c in back.circuit.components if c.ref == "R1") == ""
     assert [t.text for t in _footprint(back, "U1").texts].count("") == 1
+    assert [t.text for t in back.board.texts if t.position == Point(0, 0)].count("") == 1
 
 
 def test_a_component_without_field_or_comment_has_no_comment_record(tmp_path: Path) -> None:

@@ -283,7 +283,8 @@ def test_mechanical_layers_of_a_rewrite(tmp_path: Path) -> None:
 
 def test_free_text_of_a_footprint_is_written(tmp_path: Path) -> None:
     """Group 5a: a text of a footprint that is no field is a text record of the component, with its string
-    as stored; a text that the record cannot hold is counted under ``footprint-text``."""
+    as stored; a text that the record cannot hold is counted under ``footprint-text``. A line feed is written
+    as CR LF since c0460 task 2.5, so only the text on an unknown layer is left out."""
     first = _mechanical_document()
     (footprint,) = [fp for fp in _board(first).footprints if fp.texts]
     assert [text.text for text in footprint.texts] == ["note"]
@@ -302,8 +303,8 @@ def test_free_text_of_a_footprint_is_written(tmp_path: Path) -> None:
     unknown = dataclasses.replace(wanted, id="txt_layer", layer="User.9")
     design = _with_footprint(first, dataclasses.replace(footprint, texts=(wanted, broken, unknown)))
     inputs = lower.from_design(design, issues=[])
-    assert inputs.not_lowered["footprint-text"] == ("txt_bad", "txt_layer")
-    assert inputs.written["footprint-text"] == 1
+    assert inputs.not_lowered["footprint-text"] == ("txt_layer",)
+    assert inputs.written["footprint-text"] == 2
 
 
 def test_fill_and_region_of_a_footprint_are_regions(tmp_path: Path) -> None:
