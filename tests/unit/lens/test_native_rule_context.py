@@ -71,7 +71,7 @@ def bundle(tmp_path: Path, design: Design):
 def test_only_tool_version_metadata_is_neutral():
     design = model()
     header = design.header
-    changed = dataclasses.replace(design, header=dataclasses.replace(header, fenolite_version="0.7.0"))
+    changed = dataclasses.replace(design, header=dataclasses.replace(header, fenolite_version="9.9.9"))
     assert fingerprint(changed) == fingerprint(design)
     assert canonical.dumps(design) != canonical.dumps(changed)
     for key, value in (("name", header.name + "x"), ("schema_version", "2.0"), ("id", "dsn_" + "0" * 26)):

@@ -12,6 +12,7 @@ from pathlib import Path
 import _drawn
 import pytest
 from _importcode import PROJECT, build, copy_project, edited, imported
+from _schema_pin import pinned_version
 
 from fenolite.api import equivalent, read_board
 from fenolite.backends.kicad import drawn, sch, slots
@@ -79,7 +80,7 @@ def _shared_project(tmp: Path, target: int = 10) -> Path:
 
 def _snapshot(folder: Path) -> dict[str, str]:
     return {
-        p.relative_to(folder).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
+        p.relative_to(folder).as_posix(): hashlib.sha256(pinned_version(p.read_bytes())).hexdigest()
         for p in sorted(folder.rglob("*"))
         if p.is_file()
     }

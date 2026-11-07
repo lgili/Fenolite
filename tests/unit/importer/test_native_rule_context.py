@@ -75,8 +75,8 @@ def test_release_tool_version_changes_only_model_metadata_not_native_pins(tmp_pa
     args = ("build", "code/design.py", "--out", "version-proof", "--dry-run")
     before = api.run(*args, cwd=tmp_path)
     assert before.exit_code == 0, before.error
-    monkeypatch.setattr(convert, "__version__", "0.7.0")
-    monkeypatch.setattr(canonical, "__version__", "0.7.0")
+    monkeypatch.setattr(convert, "__version__", "9.9.9")
+    monkeypatch.setattr(canonical, "__version__", "9.9.9")
     after = api.run(*args, cwd=tmp_path)
     assert after.exit_code == 0, after.error
 

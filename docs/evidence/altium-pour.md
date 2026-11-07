@@ -80,6 +80,10 @@ and takes 175.2 s alone (209 s with two workers). By the coordinator's decision 
 270 s (that time × 1.5, rounded up to 10 s; `TIME_LIMITS_S`), a known difference for the performance work of
 v0.8 (design D7 of c0463); every other row keeps 60 s.
 
+On 2026-11-07 (`0e2823e5d`) the GitHub runner of the kicad-10 job took 542.1 s for row `-08` beside the
+pour census of that row, and 45.9 s for row `-01`; the M4 took 168 s for `-08` at that commit. Under `CI` each
+limit is 3.5 times larger (`RUNNER_FACTOR`, c0469); on the M4 the limits stay as written.
+
 ## Kit rounds
 
 ### 2026-11-04, actual `AD24.5.2.23`, K6 (source S-1572)

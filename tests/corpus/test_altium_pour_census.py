@@ -7,6 +7,8 @@ says what Altium saved; it raises no row above ``CORPUS-VERIFIED`` and says noth
 
 from __future__ import annotations
 
+import os
+
 import pytest
 from _corpus import CorpusItem, manifest_items, require
 
@@ -125,6 +127,10 @@ TIME_LIMITS_S = {"altium-third-party-pcbdoc-08": 270.0}
 Clearance matrices read cell by cell, ``-08`` pours 32 of its 33 polygons and takes 175.2 s alone (209 s with
 two workers); the limit is that time × 1.5, rounded up to 10 s. A known difference for the performance work
 of v0.8."""
+RUNNER_FACTOR = 3.5 if os.environ.get("CI") else 1.0
+"""The limits are measured on an Apple M4. On 2026-11-07 the GitHub runner of the kicad-10 job took 542.1 s
+for ``-08`` (168 s on the M4 at the same commit, ``0e2823e5d``) beside another test of that row: 3.2 times.
+Under ``CI`` each limit is that factor rounded up to 0.5 times larger (c0469)."""
 
 
 @pytest.mark.parametrize("item", DOCUMENTS, ids=lambda item: item.id)
@@ -143,7 +149,7 @@ def test_pour_time(item: CorpusItem) -> None:
     result = pour_reading(read_pour(path.read_bytes(), file=path.name))
     elapsed = time.perf_counter() - start
     assert result.polygons
-    assert elapsed < TIME_LIMITS_S.get(item.id, TIME_LIMIT_S), (item.id, elapsed)  # -08: design D7
+    assert elapsed < TIME_LIMITS_S.get(item.id, TIME_LIMIT_S) * RUNNER_FACTOR, (item.id, elapsed)
 
 
 POUR_CENSUS: dict[str, tuple[int, dict[str, int], dict[str, tuple[str, ...]]]] = {

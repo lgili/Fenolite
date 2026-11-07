@@ -69,7 +69,10 @@ RULES = (
     Rule(id="rul_c0084_f", name="holes", kind="hole_size", selector_a=ALL, min=290_000, max=6_100_000),
     Rule(id="rul_c0084_g", name="apart", kind="hole_to_hole", selector_a=ALL, min=230_000),
     Rule(id="rul_c0084_h", name="ring", kind="annular_width", selector_a=ALL, min=110_000),
+    Rule(id="rul_c0084_i", name="join", kind="short", selector_a=ALL, selector_b=ALL, severity="ignore"),
+    Rule(id="rul_c0084_j", name="stub", kind="antenna", selector_a=ALL, max=1_500_000),
 )
+"""The kinds of the table: the seven of change c0084 and the two that change c0465 writes."""
 ALLOWED_WARNING = re.compile(r"Layer 'Internal Plane \d+' could not be mapped and will be skipped\.")
 ZONE_CLEARANCE = re.compile(r"\(clearance ([0-9.]+)\)")
 
@@ -116,7 +119,7 @@ def imported(with_rules: bool) -> Imported:
 
 
 def test_every_lowered_kind_is_written_and_loads() -> None:
-    """KiCad's importer loads a document that holds the seven kinds of the table, with no error and no
+    """KiCad's importer loads a document that holds the nine kinds of the table, with no error and no
     warning but the planes outside the stack."""
     result = imported(True)
     assert set(result.kinds) == set(rulemap.KIND_ORDER)

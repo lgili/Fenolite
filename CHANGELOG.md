@@ -975,6 +975,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Fixed
 
+- c0469 (release 0.7.0): the byte pins of the tests compare the tool version as the reviewed `0.7.0.dev0` (`tests/_schema_pin.py`), and the native-rule tests change the version to one that is not the running one; the import example carries `0.7.0`; the KiCad 10 rules oracle writes and loads the `short` and `antenna` kinds of c0465 too; the import oracle counts an arc polygon that the import chords and KiCad keeps as arcs (c0463 task 1.3) under `zones-with-an-arc-outline`; the keep-out row of `docs/formats/altium/pcb-pour.md` names its source and hypothesis; under `CI` the pour time limits are 3.5 times larger, the runner measured 3.2 times slower than the M4 on row `-08`.
 - c0463 task 5.2: the pour reads Altium's default keep-out clearance whether its scope names the layer `Keep-Out Layer` or `KeepOutLayer`; on the maintainer's board in flow B every polygon then pours instead of every one being refused.
 - Docs: source row S-2100 and the archived c0451 proposal and design name a generic special string (`.MY_TAG`) as their example.
 - **Coincident tracks in strict level 5** (c0401): tracks, arcs or vias with the same key now match first

@@ -33,7 +33,7 @@ def test_readability_and_writer_are_model_versions() -> None:
     assert not any(readable(version) for version in ("0.1", "0.0", "1.2", "2.0"))
     meta = json.loads(canonical.dump_texts(Design.new("authored", seed=1))["meta.json"])
     assert meta["schema_version"] == "1.1"  # the writer always stamps the current version (c0462, D4)
-    assert meta["fenolite_version"] == __version__ == "0.7.0.dev0"
+    assert meta["fenolite_version"] == __version__ == "0.7.0"
 
 
 def test_pure_step_keeps_integer_units_ids_and_opaque_fragments() -> None:
