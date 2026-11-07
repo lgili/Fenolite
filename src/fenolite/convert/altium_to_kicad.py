@@ -25,6 +25,9 @@ from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef, ModelPlacement, SymbolDef
 from fenolite.model.rules import RuleSubject
 
+_DEFAULT_CLASS = "Default"
+"""The net class of a net that names none (``checks.clearance.DEFAULT_CLASS``)."""
+
 
 class Ledger:
     def __init__(self) -> None:
@@ -698,14 +701,13 @@ class RuleSubjects:
     def __init__(self, design: Design, document: Any) -> None:
         from fenolite.backends.altium.adapter.layers import copper_layers_of
         from fenolite.backends.altium.read.scopedoc import scope_document
-        from fenolite.checks.clearance import DEFAULT_CLASS
         from fenolite.model.pairs import net_bases
 
         circuit = design.circuit
         board = design.board
         names = {netclass.id: netclass.name for netclass in circuit.netclasses}
         self._nets = {
-            net.id: (net.name, names.get(net.netclass_id or "", DEFAULT_CLASS)) for net in circuit.nets
+            net.id: (net.name, names.get(net.netclass_id or "", _DEFAULT_CLASS)) for net in circuit.nets
         }
         self._bases = net_bases(net.name for net in circuit.nets)
         self.refs = {component.id: component.ref for component in circuit.components}

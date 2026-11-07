@@ -19,7 +19,6 @@ clearance between a drilled hole and the copper of another item (change c0403): 
 
 from __future__ import annotations
 
-import dataclasses
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Literal
@@ -27,7 +26,10 @@ from typing import Literal
 from fenolite.core.units import Nm
 from fenolite.model.design import Design
 from fenolite.model.pairs import coupled_name, net_bases
-from fenolite.model.rules import CASED_LEAVES, LEAF_OPS, Rule, RuleSeverity, RuleSubject, Selector
+from fenolite.model.rules import Rule, RuleSeverity, RuleSubject, Selector
+from fenolite.model.selectors import fold_selector as _fold_selector
+from fenolite.model.selectors import fold_subject as _fold_subject
+from fenolite.model.selectors import selector_matches
 
 CopperKind = Literal["track", "arc", "via", "pad", "fill", "zone", "keepout", "edge", "hole", "graphic"]
 """The kinds of copper items; a rule sees an arc as a ``track`` and a fill as a ``zone``. ``keepout`` names
@@ -115,47 +117,6 @@ def rule_precedence(rules: Sequence[Rule]) -> tuple[Rule, ...]:
     """The rules in the order a backend writes them: priority 0 first, then descending priority (priority 1
     last); ties by name, then id. The later rule governs (``H-K-DRU-ORDER``)."""
     return tuple(sorted(rules, key=lambda r: (r.priority != 0, -r.priority, r.name, r.id)))
-
-
-def _fold(text: str | None) -> str | None:
-    return None if text is None else text.casefold()
-
-
-def _fold_selector(selector: Selector) -> Selector:
-    """``selector`` with every leaf value case-folded: names compare without regard to letter case. An
-    ``area`` leaf is kept as written: KiCad compares area names with letter case (``H-K-AREA-COND``). A
-    ``diff_pair`` leaf keeps its value too, because KiCad compares a pair base with its letter case
-    (``H-K-DRU-PAIRSEL``). A ``zone``, ``hole`` or ``pad_type`` leaf is kept too
-    (``model.rules.CASED_LEAVES``)."""
-    if selector.op in CASED_LEAVES:
-        return selector
-    if selector.op in LEAF_OPS:
-        return dataclasses.replace(selector, value=selector.value.casefold())
-    if selector.items:
-        return dataclasses.replace(selector, items=tuple(_fold_selector(item) for item in selector.items))
-    return selector
-
-
-def _fold_subject(subject: RuleSubject) -> RuleSubject:
-    return RuleSubject(
-        item_kind=subject.item_kind.casefold(),
-        net=_fold(subject.net),
-        netclass=_fold(subject.netclass),
-        ref=_fold(subject.ref),
-        layer=_fold(subject.layer),
-        areas=subject.areas,
-        diff_pair=subject.diff_pair,
-        zone=subject.zone,
-        hole=subject.hole,
-        pad_type=subject.pad_type,
-    )
-
-
-def selector_matches(selector: Selector, subject: RuleSubject) -> bool:
-    """Whether ``selector`` selects ``subject``, names compared as the clearance rules compare them: without
-    regard to letter case, except an ``area`` leaf and a ``diff_pair`` leaf (``_fold_selector``). The
-    length stage (``checks.length``) matches its rules with it."""
-    return _fold_selector(selector).matches(_fold_subject(subject))
 
 
 @dataclass(frozen=True, slots=True)

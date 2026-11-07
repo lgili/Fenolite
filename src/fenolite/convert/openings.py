@@ -246,7 +246,7 @@ def _decided(selector: Selector, subject: RuleSubject) -> bool | None:
     judge (``_unknown``): every truth value of those leaves is tried, and one answer for all decides it.
     ``OnLayer('Bottom Layer')`` holds the vias and the pads with a hole by its own terms, so it decides them
     without their layer."""
-    from fenolite.checks.clearance import selector_matches
+    from fenolite.model.selectors import selector_matches
 
     unknown = sorted(_unknown(selector, subject), key=lambda leaf: (leaf.op, leaf.value))
     if len(unknown) > MAX_UNKNOWN:
