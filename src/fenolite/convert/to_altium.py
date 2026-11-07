@@ -336,7 +336,7 @@ def _carried_fonts(source: SourceProject, design: Design) -> Design:
     """``design`` whose stroke texts and fields a conversion to KiCad carried the font of hold it again
     (change c0460, S-2253; ``strokefonts``); unchanged for a board that does not read or carries none."""
     from fenolite.backends.kicad.boardcarrier import carried as board_carried
-    from fenolite.convert import strokefonts
+    from fenolite.convert import strokefonts, texttails
 
     if design.board is None or source.path.suffix != ".kicad_pcb":
         return design
@@ -345,7 +345,9 @@ def _carried_fonts(source: SourceProject, design: Design) -> Design:
     except (OSError, UnicodeDecodeError, FormatError):
         return design
     fonts = strokefonts.read_carrier(found.get(strokefonts.PROPERTY))
-    return dataclasses.replace(design, board=strokefonts.restored(design.board, fonts)) if fonts else design
+    tails = texttails.read_carrier(found.get(texttails.PROPERTY))  # change c0450, task 4.5
+    board = texttails.restored(strokefonts.restored(design.board, fonts), tails)
+    return dataclasses.replace(design, board=board) if fonts or tails else design
 
 
 def _carried_origin(source: SourceProject, design: Design) -> Point | None:

@@ -24,7 +24,7 @@ from fenolite.backends.altium.adapter import units
 from fenolite.backends.altium.adapter.codes import issue
 from fenolite.backends.altium.adapter.ids import Ids, bag
 from fenolite.backends.altium.read.pcb import PcbDocument
-from fenolite.backends.altium.read.pcbprims import ArcRecord, FillRecord, Primitive, TrackRecord
+from fenolite.backends.altium.read.pcbprims import ArcRecord, FillRecord, Primitive, TextRecord, TrackRecord
 from fenolite.backends.altium.read.pcbstack import LAYER_NAMES, BoardRecord, long_layer_id
 from fenolite.backends.altium.read.rules import CopperLayer, CopperLayers
 from fenolite.core.errors import Issue
@@ -67,12 +67,29 @@ def _table() -> dict[int, tuple[str, LayerKind]]:
     return table
 
 
+TEXT_LONG_AT = 226
+"""The offset of the long layer id in the first subrecord of a text of 232 or 252 bytes (change c0450, task
+4.5; ``pcb-records.md``, "Text")."""
+
+
+def text_first(item: TextRecord) -> bytes:
+    """The first subrecord of a text record; empty for a record too short to hold one."""
+    if len(item.raw) < 5:
+        return b""
+    (length,) = struct.unpack_from("<I", item.raw, 1)
+    return item.raw[5 : 5 + length]
+
+
 def long_mechanical(item: Primitive) -> int | None:
     """The long id of Mechanical 17 to 32 that a track, an arc or a fill of the long form names with the
     layer byte of Mechanical 16; ``None`` for any other record."""
-    if not isinstance(item, TrackRecord | ArcRecord | FillRecord) or item.prefix.layer != MECHANICAL_16:
+    if isinstance(item, TextRecord) and item.prefix.layer == MECHANICAL_16:
+        # a text holds it at 226 of its first subrecord, when that is long enough (task 4.5)
+        body, at = text_first(item), TEXT_LONG_AT
+    elif not isinstance(item, TrackRecord | ArcRecord | FillRecord) or item.prefix.layer != MECHANICAL_16:
         return None
-    body, at = item.raw[5:], _LONG_AT[type(item)]
+    else:
+        body, at = item.raw[5:], _LONG_AT[type(item)]
     if len(body) < at + 4:
         return None
     (long,) = struct.unpack_from("<I", body, at)
@@ -87,7 +104,7 @@ def _relayered(items: tuple[_P, ...]) -> tuple[_P, ...]:
     out: list[_P] = []
     for item in items:
         long = long_mechanical(item)
-        if long is not None and isinstance(item, TrackRecord | ArcRecord | FillRecord):
+        if long is not None and isinstance(item, TrackRecord | ArcRecord | FillRecord | TextRecord):
             moved = dataclasses.replace(item, prefix=dataclasses.replace(item.prefix, layer=long))
             out.append(cast(_P, moved))
         else:
@@ -100,9 +117,10 @@ def with_long_mechanical(doc: PcbDocument) -> PcbDocument:
     long id as their layer, so that the import names the layer as Altium shows it (change c0450, task 4.4);
     ``doc`` itself when none is."""
     tracks, arcs, fills = _relayered(doc.tracks), _relayered(doc.arcs), _relayered(doc.fills)
-    if (tracks, arcs, fills) == (doc.tracks, doc.arcs, doc.fills):
+    texts = _relayered(doc.texts)  # task 4.5: a text by the long id at 226
+    if (tracks, arcs, fills, texts) == (doc.tracks, doc.arcs, doc.fills, doc.texts):
         return doc
-    return dataclasses.replace(doc, tracks=tracks, arcs=arcs, fills=fills)
+    return dataclasses.replace(doc, tracks=tracks, arcs=arcs, fills=fills, texts=texts)
 
 
 LAYERS: Mapping[int, tuple[str, LayerKind]] = MappingProxyType(_table())
@@ -368,7 +386,9 @@ __all__ = [
     "MULTI",
     "LayerMap",
     "copper_name",
+    "TEXT_LONG_AT",
     "long_mechanical",
+    "text_first",
     "stackup",
     "with_long_mechanical",
 ]

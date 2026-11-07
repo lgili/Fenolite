@@ -39,3 +39,7 @@
   Mechanical 16 and the long id of Mechanical 17 to 32 comes back from KiCad with that byte and long id, and
   the layer's `LAYERV7_<i>` name and flag come back (S-2282);
   `uv run pytest tests/unit/convert/test_long_mechanical_c0450.py -n 0`.
+- [x] 4.5 Texts on Mechanical 17 to 32 keep their long id: a text with the byte 72 and the long id of
+  Mechanical 17 to 32 at 226 comes back from KiCad in the source's form with that id
+  (`Fenolite.Altium.TextTails`, S-2285); every other text keeps the 137-byte form;
+  `uv run pytest tests/unit/convert/test_long_mechanical_c0450.py -n 0`.

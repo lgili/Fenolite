@@ -1433,7 +1433,10 @@ def _footprint_items(
         mirrored = item.mirrored if isinstance(item, FootprintField) else layer in rec.BOTTOM_SIDE
         shown = item.visible if isinstance(item, FootprintField) else True
         font = pcbdoc.text_font(item)  # change c0460
-        return pcbdoc.TextPlace(item.position, layer, height, stroke, item.rotation, shown, mirrored, font)
+        tail = pcbdoc.text_tail_of(item)  # change c0450, task 4.5
+        return pcbdoc.TextPlace(
+            item.position, layer, height, stroke, item.rotation, shown, mirrored, font, tail
+        )
 
     places: dict[str, pcbdoc.TextPlace | None] = {}
     for field in fp.fields:

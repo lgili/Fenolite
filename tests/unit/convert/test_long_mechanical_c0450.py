@@ -167,3 +167,88 @@ def test_the_writer_writes_the_long_form() -> None:
     assert len(body) == 49 and body[0] == 72
     assert struct.unpack_from("<I", body, 41)[0] == rec.LONG_MECHANICAL + 24
     assert rec.mechanical_number(rec.mechanical_id(24)) == 24 and rec.mechanical_id(16) == 72
+
+
+def _first(record: bytes) -> bytes:
+    (length,) = struct.unpack_from("<I", record, 1)
+    return record[5 : 5 + length]
+
+
+TAIL = bytes(range(115))
+"""Authored bytes 137 to 251 of a text's first subrecord (task 4.5); the writer puts the long id at 226."""
+
+
+def _text_document(tmp_path: Path) -> Path:
+    """The two-layer board written as an Altium document with one authored free text in the 252-byte form
+    on Mechanical 20 (the byte 72 and the long id at 226) and one in the 137-byte form on Mechanical 16."""
+    from fenolite.backends.altium import pcbdoc
+    from fenolite.core.coords import Point
+
+    design = two_layer()
+    written = lower.write_design(design, allow_lossy=True).files[f"{design.header.name}.PcbDoc"]
+    streams = open_compound(written).as_dict()
+    (count,) = struct.unpack_from("<I", streams.get("Texts6/Header", bytes(4)))
+    common = {"component": rec.NO_INDEX, "designator": False, "free": True, "height": 1_000_000}
+    records = [
+        pcbdoc.text_record(
+            "LONG", layer=rec.mechanical_id(20), at=Point(0, 0), wide_index=900, tail=TAIL, **common
+        ),
+        pcbdoc.text_record("SHORT", layer=72, at=Point(0, 2_000_000), wide_index=901, **common),
+    ]
+    streams["Texts6/Header"] = struct.pack("<I", count + len(records))
+    streams["Texts6/Data"] = streams.get("Texts6/Data", b"") + b"".join(records)
+    text = _board6(streams["Board6/Data"][4:].rstrip(b"\x00").decode("latin-1")).encode("latin-1") + b"\x00"
+    streams["Board6/Data"] = struct.pack("<I", len(text)) + text
+    path = tmp_path / "altium" / f"{design.header.name}.PcbDoc"
+    path.parent.mkdir(parents=True)
+    path.write_bytes(write_compound(storage_from_paths(streams)))
+    return path
+
+
+def _long_texts(document: bytes) -> list[tuple[int, int, int | None, bytes]]:
+    """Each text on the byte 72: its byte, first-subrecord length, long id at 226 and bytes from 137."""
+    from fenolite.backends.altium.read.pcbprims import TextRecord
+
+    found = []
+    for item in read_pcbdoc(document).texts:
+        if isinstance(item, TextRecord) and item.prefix.layer == 72:
+            first = _first(item.raw)
+            long = struct.unpack_from("<I", first, 226)[0] if len(first) >= 230 else None
+            found.append((item.prefix.layer, len(first), long, first[137:]))
+    return sorted(found, key=lambda x: x[1])
+
+
+def test_a_text_on_mechanical_20_keeps_its_long_id(tmp_path: Path) -> None:
+    """Scenario "A text on Mechanical 17 to 32 keeps its long id" (task 4.5): the import puts the 252-byte
+    text with the long id of Mechanical 20 at 226 on ``Mech.20`` with its bytes from 137; the round trip
+    through KiCad writes it back in that form with the byte 72, the long id and the same bytes. The
+    137-byte text stays on Mechanical 16 in the 137-byte form."""
+    source = _text_document(tmp_path)
+    design = read_source(source).design
+    assert design.board is not None
+    layers = sorted(t.layer for t in design.board.texts if t.layer.startswith("Mech."))
+    assert layers == ["Mech.16", "Mech.20"]
+    conversion = convert_project(read_source(source), to="kicad", allow_lossy=True)
+    folder = tmp_path / "kicad"
+    for name, data in conversion.files.items():
+        (folder / name).parent.mkdir(parents=True, exist_ok=True)
+        (folder / name).write_bytes(data)
+    back = convert_project(read_source(folder / conversion.read_back), to="altium", allow_lossy=True)
+    document = next(data for name, data in back.files.items() if name.endswith(".PcbDoc"))
+    before, after = _long_texts(source.read_bytes()), _long_texts(document)
+    long = rec.LONG_MECHANICAL + 20
+    assert [(b, n, i) for b, n, i, _ in before] == [(72, 137, None), (72, 252, long)]
+    assert after == before
+
+
+def test_a_text_without_its_bytes_keeps_the_short_form() -> None:
+    """A text on a long id without the source's bytes from 137 is written in the 137-byte form."""
+    from fenolite.backends.altium import pcbdoc
+    from fenolite.core.coords import Point
+
+    record = pcbdoc.text_record(
+        "X", layer=rec.mechanical_id(20), at=Point(0, 0), component=rec.NO_INDEX, designator=False,
+        wide_index=0, free=True,
+    )  # fmt: skip
+    first = _first(record)
+    assert len(first) == 137 and first[0] == 72

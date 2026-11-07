@@ -40,6 +40,7 @@ from fenolite.backends.altium.adapter.context import Context
 from fenolite.backends.altium.adapter.ids import (
     ARC_UNION_OFFSET,
     STROKE_FONT_KEY,
+    TEXT_TAIL_KEY,
     TEXT_UNION_OFFSET,
     TRACK_UNION_OFFSET,
     UNION_KEY,
@@ -47,7 +48,13 @@ from fenolite.backends.altium.adapter.ids import (
     Exact,
     bag,
 )
-from fenolite.backends.altium.adapter.layers import EDGE, MULTI
+from fenolite.backends.altium.adapter.layers import (
+    EDGE,
+    LONG_MECHANICAL,
+    LONG_MECHANICAL_NUMBERS,
+    MULTI,
+    text_first,
+)
 from fenolite.backends.altium.adapter.pads import WILDCARD_ALL
 from fenolite.backends.altium.read.pcb import SPLIT_PLANE_POLYGON, PcbDocument, PolygonRecord
 from fenolite.backends.altium.read.pcbprims import (
@@ -1134,7 +1141,7 @@ def footprint_items(
             fields[name] = FootprintField(
                 id=ctx.ids.content("fld", section, name, _xy(position), layer, height, thickness, angle),
                 provenance=ctx.provenance(locator),
-                ext=bag([*exact.pairs(), *stroke_font(item)]),
+                ext=bag([*exact.pairs(), *stroke_font(item), *text_tail(item)]),
                 name=name,
                 position=position,
                 layer=layer,
@@ -1154,7 +1161,7 @@ def footprint_items(
                         "txt", section, item.text, _xy(position), layer, height, thickness, angle
                     ),
                     provenance=ctx.provenance(locator),
-                    ext=bag([*exact.pairs(), *stroke_font(item)]),
+                    ext=bag([*exact.pairs(), *stroke_font(item), *text_tail(item)]),
                     text=lines(item.text),
                     position=position,
                     layer=layer,
@@ -1603,6 +1610,16 @@ def stroke_font(item: TextRecord) -> list[tuple[str, str]]:
     return [(STROKE_FONT_KEY, f"{int(bool(item.bold))}{int(bool(item.italic))} {item.font_name}")]
 
 
+def text_tail(item: TextRecord) -> list[tuple[str, str]]:
+    """The ``text_tail`` pair of a text on Mechanical 17 to 32 (change c0450, task 4.5): the bytes from 137
+    on of its first subrecord, which hold the layer's long id at 226 (``layers.with_long_mechanical`` gave
+    the record that layer); none for any other text."""
+    first = text_first(item)
+    if item.prefix.layer - LONG_MECHANICAL not in LONG_MECHANICAL_NUMBERS or len(first) < 230:
+        return []
+    return [(TEXT_TAIL_KEY, first[137:].hex())]
+
+
 def texts(doc: PcbDocument, ctx: Context, owned: Collection[int] = ()) -> list[Text]:
     """The free texts; the text is the wide string when the record names one (the reader resolved it).
     A free text on an internal plane gives nothing."""
@@ -1631,7 +1648,9 @@ def texts(doc: PcbDocument, ctx: Context, owned: Collection[int] = ()) -> list[T
                     "txt", "texts", item.text, _xy(position), layer, height, thickness, rotation
                 ),
                 provenance=ctx.provenance(locator),
-                ext=bag([*exact.pairs(), *stroke_font(item), *_union_pairs(text_union(item))]),
+                ext=bag(
+                    [*exact.pairs(), *stroke_font(item), *text_tail(item), *_union_pairs(text_union(item))]
+                ),
                 text=lines(item.text),
                 position=position,
                 layer=layer,

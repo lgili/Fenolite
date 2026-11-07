@@ -90,3 +90,17 @@ and `pcbdoc.record_layer` reads the long id back, so the board record enables th
 `LAYERV7_<i>LAYERID`, `NAME` and `MECHENABLED` beside the keys of Mechanical 1 to 16, and a slot of 17 to 32
 takes the source's name and flag as c0464's slots do. Texts and regions on these layers are not moved: the
 text form the writer writes holds no long id.
+
+## Texts on Mechanical 17 to 32 (task 4.5)
+
+A text record names Mechanical 17 to 32 the way a track does: the byte of Mechanical 16 and the layer's long
+id, at 226 of a first subrecord of 232 or 252 bytes (`pcb-records.md`, "Text"; 266 texts of the public rows,
+241 of them on `-08`). The form the writer writes ends at 137, and of bytes 137 to 251 only some are constant
+over the corpus: floats at 173 to 223 and eight bytes at 244 to 251 vary from text to text. The writer
+therefore writes no long form from constants. The import reads 226 only on a text with the byte 72 and a
+first subrecord of at least 230 bytes, gives such a text `Mech.<n>`, and keeps its bytes from 137 on in its
+bag (`text_tail`). A conversion to KiCad carries them by KiCad uuid in `Fenolite.Altium.TextTails`, as
+`strokefonts` carries fonts. The writer writes a text on a long id that holds them as its 137 bytes, then
+those bytes with the long id at 226; a text on a long id without them (an authored one, or one whose uuid
+KiCad changed) keeps the 137-byte form on Mechanical 16, and every other text keeps the 137-byte form, so no
+other record changes.

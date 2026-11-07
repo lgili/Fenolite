@@ -49,3 +49,18 @@ The two rule areas of a circle SHALL give one arc. Any other area SHALL stay a k
   keep-out flag (change c0442)
 - **WHEN** the board is written as an Altium document
 - **THEN** the document holds one arc of the Keep-Out layer for them and no keep-out region
+
+### Requirement: Texts on Mechanical 17 to 32
+
+The writer SHALL write a text on Mechanical 17 to 32 whose Altium bag holds the source's bytes from 137 on
+of its first subrecord (`text_tail`) in the source's 232- or 252-byte form: the layer byte of Mechanical 16,
+its 137 bytes, then those bytes with the layer's long id at 226. Every other text SHALL keep the 137-byte
+form.
+
+#### Scenario: A text on Mechanical 17 to 32 keeps its long id
+
+- **GIVEN** an Altium document with a 252-byte text whose layer byte is 72 and whose long id at 226 is
+  Mechanical 20, and a 137-byte text on Mechanical 16
+- **WHEN** it is converted to KiCad and back
+- **THEN** the first text comes back with 252 bytes, the byte 72, the long id of Mechanical 20 and the same
+  bytes from 137, and the second in the 137-byte form

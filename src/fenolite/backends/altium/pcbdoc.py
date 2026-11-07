@@ -44,7 +44,7 @@ import fenolite.backends.altium.pcbrecords as rec
 import fenolite.backends.altium.rulemap as rulemap
 import fenolite.backends.altium.unions as unions
 from fenolite.backends.altium.adapter.arcring import ArcPolygon
-from fenolite.backends.altium.adapter.ids import STROKE_FONT_KEY
+from fenolite.backends.altium.adapter.ids import STROKE_FONT_KEY, TEXT_TAIL_KEY
 from fenolite.backends.altium.ascii import Field, text_problem
 from fenolite.backends.altium.cfb import Entry, Storage, write_compound
 from fenolite.backends.altium.docboard import (
@@ -351,6 +351,8 @@ class TextPlace:
     shown: bool = True
     mirrored: bool = False
     font: TextFont | None = None
+    tail: bytes = b""
+    """The source's bytes from 137 on of the text's first subrecord (``text_tail_of``, change c0450)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -1069,6 +1071,7 @@ def text_record(
     rotation: int = 0,
     font: TextFont | None = None,
     union: int = 0,
+    tail: bytes = b"",
 ) -> bytes:
     """A stroke text (type 5) in the 137-byte long form, ``at`` in nanometres in the Altium frame. A
     component's text is its designator or its comment; a ``free`` text (change c0085, ``component`` is
@@ -1076,7 +1079,10 @@ def text_record(
     (microdegrees), and its 8-bit string is ``short_text(text)``: the text itself is the wide string at
     ``wide_index``. A ``font`` makes it a TrueType text (change c0460): font type 1, bold, italic and the
     font name at 43 to 109 (``pcb-records.md``, "Text"). ``union`` (change c0460) is the union the text is a
-    member of, written at 119 (S-2190); 0 for none."""
+    member of, written at 119 (S-2190); 0 for none. A text on Mechanical 17 to 32 (a long id) with the
+    source's ``tail`` (``text_tail_of``, change c0450, task 4.5) is written in the source's 232- or 252-byte
+    form: the 137 bytes, then ``tail`` with the layer's long id at 226 (``pcb-records.md``, "Text"); every
+    other text in the 137-byte form, which holds the byte of Mechanical 16 alone."""
     body = rec.prefix(layer, component=component)
     body += struct.pack(
         "<3iHdBi",
@@ -1099,10 +1105,34 @@ def text_record(
         body += bytes((*flags, 0, kind, int(font.bold), int(font.italic))) + name + bytes(64 - len(name))
     body += b"\0" + struct.pack("<iII", 0, wide_index, union) + bytes(TEXT_SIZE - 123)
     assert len(body) == TEXT_SIZE
+    if rec.is_long_mechanical(layer) and TEXT_SIZE + len(tail) in TEXT_LONG_SIZES:
+        long_form = bytearray(body + tail)
+        struct.pack_into("<I", long_form, TEXT_LONG_AT, layer)
+        body = bytes(long_form)
     # a component text outside 7-bit ASCII (change c0090, a model that was read) is written like a free one
     text = crlf(text)  # change c0460: a line break as the record holds it
     string = short_text(text) if free or text_problem(text) is not None else rec.short_string(text)
     return bytes((rec.TEXT,)) + rec.subrecord(body) + rec.subrecord(string)
+
+
+TEXT_LONG_AT = 226
+"""The offset of the long layer id in a text's first subrecord of 232 or 252 bytes (change c0450, task 4.5;
+``pcb-records.md``, "Text")."""
+TEXT_LONG_SIZES = (232, 252)
+"""The lengths of a text's first subrecord that hold a long layer id at ``TEXT_LONG_AT`` (CORPUS-VERIFIED)."""
+
+
+def text_tail_of(item: Text | FootprintField) -> bytes:
+    """The source's bytes from 137 on of a text's first subrecord, from its Altium bag (``text_tail``,
+    change c0450, task 4.5); empty for a text without them or with a value that is not hex of a length
+    that ``TEXT_LONG_SIZES`` gives."""
+    bag = item.ext.get("altium")
+    value = dict(bag.payload).get(TEXT_TAIL_KEY, "") if bag is not None else ""
+    try:
+        tail = bytes.fromhex(value)
+    except ValueError:
+        return b""
+    return tail if TEXT_SIZE + len(tail) in TEXT_LONG_SIZES else b""
 
 
 TRUETYPE_FONT = 1
@@ -1899,6 +1929,7 @@ def free_texts(spec: PcbDocSpec, frame: Frame, first: int) -> tuple[list[bytes],
                 rotation=text.rotation,
                 font=text_font(text),
                 union=unions.union_of(text),  # change c0460
+                tail=text_tail_of(text),  # change c0450, task 4.5
             )
         )
         wide.append(_wide_entry(number, text.text))
@@ -2599,6 +2630,7 @@ def _write(
                         rotation=(place.rotation + component.rotation) % FULL_TURN,
                         font=place.font,
                         union=component.union,
+                        tail=place.tail,
                     )
                 )
             wide.append(_wide_entry(number, text))
@@ -2618,6 +2650,7 @@ def _write(
                     stroke=item.place.stroke,
                     rotation=(item.place.rotation + component.rotation) % FULL_TURN,
                     font=item.place.font,
+                    tail=item.place.tail,
                 )
             )
             wide.append(_wide_entry(number, item.text))
