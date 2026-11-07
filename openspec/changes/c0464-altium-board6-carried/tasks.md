@@ -36,6 +36,10 @@
   55 (`lower.drill_rows`). Proof: `uv run pytest tests/unit/convert/test_board6_settings_c0464.py -n 0 -k drill`.
 - [x] 6.3 Rows `-02`, `-04` and `-06` through flow A give every slot's name and flag back, and row `-02`'s
   drill drawing text on layer 73 (S-2236). Proof: the scratch slot census against the cached corpus.
+- [x] 6.4 A model body, and a footprint's generated model whose bodies share a layer, goes back on its source
+  body's mechanical layer (`models.read_layers`), so row `-05`'s Mechanical 13 and row `-01`'s Mechanical 14
+  stay disabled (S-2284). Proof:
+  `uv run pytest tests/unit/convert/test_board6_settings_c0464.py -n 0 -k "layer_of_model or body_layer"`.
 
 ## 5. Evidence and docs
 

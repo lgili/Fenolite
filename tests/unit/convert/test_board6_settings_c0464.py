@@ -15,15 +15,18 @@ import re
 import struct
 from pathlib import Path
 
+import _altium_models as am
+
 from fenolite.api import run
 from fenolite.backends.altium import docboard, lower
 from fenolite.backends.altium.cfb import storage_from_paths, write_compound
+from fenolite.backends.altium.read.bodies import read_bodies
 from fenolite.backends.altium.read.cfb import open_compound
 from fenolite.backends.altium.read.pcb import read_pcbdoc
 from fenolite.backends.altium.read.pcbprims import TrackRecord
 from fenolite.backends.kicad import boardcarrier, fpitems
 from fenolite.convert import altium_storages as storages
-from fenolite.convert import convert_project, pads
+from fenolite.convert import convert_project, models, pads
 from fenolite.convert.sources import read_source
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -131,7 +134,11 @@ def _go(folder: Path, *args: str) -> None:
 
 def _flow_a(folder: Path, *, slots: bool = False) -> Path:
     """``import --to python``, ``build`` and ``convert --to altium`` of the authored source."""
-    source = _source(folder, slots=slots)
+    return _round_trip(folder, _source(folder, slots=slots))
+
+
+def _round_trip(folder: Path, source: Path) -> Path:
+    """Flow A of the Altium document ``source``: the written document."""
     _go(folder, "import", str(source), "--to", "python", "--out", "py", "--licence", "CC0-1.0", "--copyright",
         "2026 Fenolite contributors", "--allow-lossy")  # fmt: skip
     _go(folder, "build", str(folder / "py" / "design.py"), "--out", "b")
@@ -259,3 +266,42 @@ def test_a_drill_drawing_row_goes_back_to_its_layer(tmp_path: Path) -> None:
     assert 73 in layers and 64 not in layers
     fields = _fields(_board6(open_compound(document).as_dict()["Board6/Data"]))
     assert fields["LAYER64MECHENABLED"] == "FALSE"
+
+
+def _body_layers(path: Path) -> list[int | None]:
+    document = read_pcbdoc(path.read_bytes(), file=path.name)
+    return [body.layer for body in read_bodies(document.storages["ComponentBodies6"]["Data"])]
+
+
+def test_flow_a_keeps_the_layer_of_model_bodies(tmp_path: Path) -> None:
+    """Scenario "Model bodies come back on their layer": every body of the authored document lies on
+    Mechanical 6, top and bottom, as public row ``-05``'s model bodies lie; through flow A each embedded
+    model and each generated model of an extruded, cylinder or sphere body is written on Mechanical 6 again,
+    not on Mechanical 13 or 14 by its side (``models.read_layers``), which enabled Mechanical 13 where row
+    ``-05`` disables it. Every slot keeps the source's name and enabled flag."""
+    (tmp_path / "source").mkdir()
+    cases = am.CASES
+    source = am.write_folder(tmp_path / "source", layer="Mech.6", cases=cases)
+    assert _body_layers(source) == [62] * len(cases)
+    document = _round_trip(tmp_path, source)
+    assert _body_layers(document) == [62] * len(cases)
+    assert _slots(_fields(_written(document)[0])) == _slots(_fields(_written(source)[0]))
+
+
+def test_the_heights_carrier_names_the_body_layer() -> None:
+    """``models.heights_text`` writes a body's layer only when it has one, so a carrier without layers is
+    the text of before; ``models.read_layers`` drops a key whose entries name different layers or none."""
+    one = models.StoredHeights("ab", (1, 2, 3), (0, 0, 0), "top", 5, 9, 62)
+    other = models.StoredHeights("cd", (0, 0, 0), (0, 0, 0), "bottom", 0, 7)
+    data = models.heights_text([one, other]).encode("utf-8")
+    assert models.read_layers(data) == {one.key: 62}
+    assert models.read_heights(data) == {one.key: (5, 9), other.key: (0, 7)}
+    plain = dataclasses.replace(one, layer=0)
+    assert '"layer"' not in models.heights_text([plain, other])
+    moved = dataclasses.replace(one, layer=63)
+    assert models.read_layers(models.heights_text([one, moved]).encode("utf-8")) == {}
+    assert models.read_layers(models.heights_text([one, plain]).encode("utf-8")) == {}
+    generated = models.height_key("ef", (0, 0, 0), (0, 0, 0), "bottom")
+    data = models.heights_text([other], [(generated, 69)]).encode("utf-8")
+    assert models.read_layers(data) == {generated: 69}
+    assert models.read_heights(data) == {other.key: (0, 7)}  # a generated model has no stored heights

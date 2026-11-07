@@ -121,7 +121,7 @@ def _mm(value: float) -> int:
     return round(value * 1_000_000)
 
 
-def _spec(cases: tuple[Case, ...]) -> PcbDocSpec:
+def _spec(cases: tuple[Case, ...], layer: str = "Mech.13") -> PcbDocSpec:
     spec, _model = blink_pcbdoc_spec()
     assert isinstance(spec, PcbDocSpec)
     template = next(c for c in spec.components if c.ref == "R1")
@@ -147,7 +147,7 @@ def _spec(cases: tuple[Case, ...]) -> PcbDocSpec:
             height=max(item.overall, 1) * MIL,
             standoff=max(item.standoff, 0) * MIL,
             outline=tuple(Point(x * MIL, y * MIL) for x, y in item.outline),
-            layer="Mech.13",
+            layer=layer,
             name=item.ref,
         )
         placed = place_body(
@@ -220,11 +220,13 @@ def _bodies(data: bytes, components: dict[str, tuple[int, int]], cases: tuple[Ca
     return out
 
 
-def write_document(*, unknown: bool = False) -> bytes:
+def write_document(
+    *, unknown: bool = False, layer: str = "Mech.13", cases: tuple[Case, ...] = CASES
+) -> bytes:
     """The bytes of the authored document; ``unknown`` adds ``UNKNOWN``, a body whose geometry is not
-    proved."""
-    cases = (*CASES, UNKNOWN) if unknown else CASES
-    written = write_pcbdoc(_spec(cases), filename=NAME)
+    proved; ``layer`` is the model layer every body lies on and ``cases`` the components (change c0464)."""
+    cases = (*cases, UNKNOWN) if unknown else cases
+    written = write_pcbdoc(_spec(cases, layer), filename=NAME)
     compound = open_compound(written)
     streams = {path: compound.read(path) for path in compound.streams()}
     from fenolite.backends.altium.read.pcb import read_pcbdoc
@@ -245,10 +247,12 @@ def write_document(*, unknown: bool = False) -> bytes:
     return write_compound(storage_from_paths(streams))
 
 
-def write_folder(folder: Path, *, unknown: bool = False) -> Path:
+def write_folder(
+    folder: Path, *, unknown: bool = False, layer: str = "Mech.13", cases: tuple[Case, ...] = CASES
+) -> Path:
     """The document written into ``folder``; its path."""
     path = folder / NAME
-    path.write_bytes(write_document(unknown=unknown))
+    path.write_bytes(write_document(unknown=unknown, layer=layer, cases=cases))
     return path
 
 

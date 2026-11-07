@@ -1057,15 +1057,23 @@ def body_model_id(body_id: str) -> str:
     return "{" + "-".join((digest[:8], digest[8:12], digest[12:16], digest[16:20], digest[20:32])) + "}"
 
 
-def body_layer(name: str, *, bottom: bool) -> int:
-    """The layer id a body on the model layer ``name`` is written on (``pcb-bodies.md``, "Layer rule"): the
-    id of a mechanical layer 1 to 16 when ``name`` is one of ``BOARD_LAYER_MAP`` or the import's
-    ``Mech.<n>``; else Mechanical 13 for a top footprint and Mechanical 14 for a bottom one."""
+def mechanical_body_layer(name: str) -> int | None:
+    """The id of the mechanical layer 1 to 16 that the model layer ``name`` is: one of ``BOARD_LAYER_MAP``
+    or the import's ``Mech.<n>``; ``None`` for any other name."""
     found = BOARD_LAYER_MAP.get(name)
     if found is None:
         match = _MECHANICAL.fullmatch(name)
         found = 56 + int(match.group(1)) if match is not None else None
-    if found is not None and found in BODY_LAYERS:
+    return found if found is not None and found in BODY_LAYERS else None
+
+
+def body_layer(name: str, *, bottom: bool) -> int:
+    """The layer id a body on the model layer ``name`` is written on (``pcb-bodies.md``, "Layer rule"): the
+    id of a mechanical layer 1 to 16 when ``name`` is one of ``BOARD_LAYER_MAP`` or the import's
+    ``Mech.<n>`` (``mechanical_body_layer``); else Mechanical 13 for a top footprint and Mechanical 14 for a
+    bottom one."""
+    found = mechanical_body_layer(name)
+    if found is not None:
         return found
     return BODY_BOTTOM_LAYER if bottom else BODY_TOP_LAYER
 
@@ -1444,6 +1452,7 @@ __all__ = [
     "BODY_TOP_LAYER",
     "BodyForm",
     "body_layer",
+    "mechanical_body_layer",
     "body_model_id",
     "checksum_problem",
     "body_record",

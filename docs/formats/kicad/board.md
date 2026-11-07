@@ -1136,7 +1136,9 @@ document (`docs/formats/altium/pcb-records.md`, "Through KiCad"), change c0463 t
 `Fenolite.Altium.PolygonArcs` (schema `fenolite.altium-polygon-arcs.v0`, keyed by the KiCad zone's uuid;
 `docs/conversion.md`), change c0449 the stored heights of each
 placed embedded model as `Fenolite.Altium.ModelHeights` (schema `fenolite.altium-model-heights.v0`: per
-model its SHA-256, offset, turns and side in KiCad, and its `STANDOFFHEIGHT` and `OVERALLHEIGHT` in nm;
+model its SHA-256, offset, turns and side in KiCad, its `STANDOFFHEIGHT` and `OVERALLHEIGHT` in nm, and since
+change c0464 the Altium id of its body's mechanical layer 1 to 16 when it has one (`layer`; a generated model
+whose bodies share one such layer has an entry with that layer and no heights);
 `docs/conversion.md`, "Models to Altium") and their identities as `Fenolite.Altium.ModelIds` (schema
 `fenolite.altium-model-ids.v0`: per model SHA-256 its record's `ID` and `CHECKSUM`, per placed model, keyed
 as the heights are, its body's `MODEL.CHECKSUM`).

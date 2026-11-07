@@ -600,10 +600,11 @@ def write_altium(source: SourceProject, options: Options) -> Written:
         counts["rule"] = counts.get("rule", 0) + records
     carried = _carried_rules(source, design, texts.get(f"{name}.kicad_dru"))
     board_items = dict(carried_storages)
-    if placed.heights:  # change c0449, task 4.3: the stored heights of each placed model, for the way back
+    # change c0449, task 4.3: the stored heights of each placed model, for the way back; c0464: the layers
+    if placed.heights or placed.layers:
         from fenolite.convert.models import HEIGHTS_PROPERTY, heights_text
 
-        board_items[HEIGHTS_PROPERTY] = heights_text(placed.heights).encode("utf-8")
+        board_items[HEIGHTS_PROPERTY] = heights_text(placed.heights, placed.layers).encode("utf-8")
     if placed.ids:  # change c0449: each placed model's record ID and checksums, for the way back
         from fenolite.convert.models import IDS_PROPERTY, ids_text
 

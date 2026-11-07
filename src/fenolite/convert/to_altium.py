@@ -35,6 +35,7 @@ from fenolite.convert.models import (
     footprint_models,
     read_heights,
     read_ids,
+    read_layers,
 )
 from fenolite.convert.report import SOURCE_RULE_LOST, ConversionReport, census
 from fenolite.convert.sources import ALTIUM, KICAD, SourceProject
@@ -363,20 +364,23 @@ def _carried_origin(source: SourceProject, design: Design) -> Point | None:
     return altium_frame.restored(design.board, carried) if carried is not None else None
 
 
-def _stored_models(source: SourceProject) -> tuple[dict[HeightKey, tuple[int, int]], CarriedIds]:
-    """The stored heights and the source identities of the embedded models a conversion to KiCad placed
-    (change c0449, task 4.3; ``models.read_heights`` and ``models.read_ids`` of the board properties
-    ``models.HEIGHTS_PROPERTY`` and ``models.IDS_PROPERTY``); none for a board that does not read or carries
-    none."""
+def _stored_models(
+    source: SourceProject,
+) -> tuple[dict[HeightKey, tuple[int, int]], CarriedIds, dict[HeightKey, int]]:
+    """The stored heights, the source identities and the body layers of the embedded models a conversion to
+    KiCad placed (change c0449, task 4.3; ``models.read_heights``, ``models.read_ids`` and, change c0464,
+    ``models.read_layers`` of the board properties ``models.HEIGHTS_PROPERTY`` and ``models.IDS_PROPERTY``);
+    none for a board that does not read or carries none."""
     from fenolite.backends.kicad.boardcarrier import carried as board_carried
 
     if source.path.suffix != ".kicad_pcb":
-        return {}, CarriedIds()
+        return {}, CarriedIds(), {}
     try:
         found = board_carried(source.path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, FormatError):
-        return {}, CarriedIds()
-    return read_heights(found.get(HEIGHTS_PROPERTY)), read_ids(found.get(IDS_PROPERTY))
+        return {}, CarriedIds(), {}
+    heights = found.get(HEIGHTS_PROPERTY)
+    return read_heights(heights), read_ids(found.get(IDS_PROPERTY)), read_layers(heights)
 
 
 def write(source: SourceProject, options: Options) -> Written:

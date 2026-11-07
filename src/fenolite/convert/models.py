@@ -100,6 +100,9 @@ class StoredHeights:
     side: str
     standoff: int
     height: int
+    layer: int = 0
+    """The id of the mechanical layer 1 to 16 (57 to 72) the source body lies on (change c0464), 0 for
+    none: the way back writes the body there again, not on Mechanical 13 or 14."""
 
     @property
     def key(self) -> HeightKey:
@@ -142,8 +145,11 @@ def height_key(
     return (sha256, offset, (rx, ry, rz), side)
 
 
-def heights_text(found: Iterable[StoredHeights]) -> str:
-    """The carrier's JSON text: the schema and one entry per distinct ``StoredHeights``, sorted."""
+def heights_text(found: Iterable[StoredHeights], layers: Iterable[tuple[HeightKey, int]] = ()) -> str:
+    """The carrier's JSON text: the schema and one entry per distinct ``StoredHeights``, sorted; an entry
+    names its body's ``layer`` only when it has one (change c0464), so a carrier without is the one of
+    before. Each of ``layers`` (a generated model's key and its bodies' layer, change c0464) is an entry
+    with a layer and no heights, which ``read_heights`` leaves out."""
     rows = sorted(
         {
             (
@@ -153,13 +159,19 @@ def heights_text(found: Iterable[StoredHeights]) -> str:
                 h.side,
                 h.standoff,
                 h.height,
+                h.layer,
             )
             for h in found
         }
     )
     bodies = [
         {"sha256": s, "offset": list(o), "rotation": list(r), "side": side, "standoff": lo, "height": hi}
-        for s, o, r, side, lo, hi in rows
+        | ({"layer": layer} if layer else {})
+        for s, o, r, side, lo, hi, layer in rows
+    ]
+    bodies += [
+        {"sha256": s, "offset": list(o), "rotation": list(r), "side": side, "layer": layer}
+        for (s, o, r, side), layer in sorted(set(layers))
     ]
     return json.dumps({"schema": HEIGHTS_SCHEMA, "bodies": bodies}, sort_keys=True, separators=(",", ":"))
 
@@ -177,33 +189,53 @@ def _triple(value: object) -> tuple[int, int, int] | None:
     return (a, b, c)
 
 
+def _height_rows(data: bytes | None) -> list[tuple[HeightKey, dict[str, object]]]:
+    """The entries of a heights carrier with a well-formed key, each with its key."""
+    if not data:
+        return []
+    try:
+        loaded: object = json.loads(data.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError):
+        return []
+    root = cast("dict[str, object]", loaded) if isinstance(loaded, dict) else {}
+    if root.get("schema") != HEIGHTS_SCHEMA:
+        return []
+    found: list[tuple[HeightKey, dict[str, object]]] = []
+    for row in _rows(root, "bodies"):
+        sha, side = row.get("sha256"), row.get("side")
+        offset, rotation = _triple(row.get("offset")), _triple(row.get("rotation"))
+        if not isinstance(sha, str) or side not in ("top", "bottom") or offset is None or rotation is None:
+            continue
+        found.append((height_key(sha, offset, rotation, str(side)), row))
+    return found
+
+
 def read_heights(data: bytes | None) -> dict[HeightKey, tuple[int, int]]:
     """The stored heights a board carries, ``(standoff, height)`` by ``HeightKey``; nothing for no property,
     another schema or text that is no carrier. An entry that is not well formed is left out, and so is a key
     whose entries disagree: the box then gives those models' heights."""
-    if not data:
-        return {}
-    try:
-        loaded: object = json.loads(data.decode("utf-8"))
-    except (UnicodeDecodeError, ValueError):
-        return {}
-    root = cast("dict[str, object]", loaded) if isinstance(loaded, dict) else {}
-    if root.get("schema") != HEIGHTS_SCHEMA:
-        return {}
-    bodies = root.get("bodies")
     found: dict[HeightKey, tuple[int, int]] = {}
     clash: set[HeightKey] = set()
-    for entry in cast("list[object]", bodies) if isinstance(bodies, list) else []:
-        row = cast("dict[str, object]", entry) if isinstance(entry, dict) else {}
-        sha, side = row.get("sha256"), row.get("side")
+    for key, row in _height_rows(data):
         lo, hi = _int(row.get("standoff")), _int(row.get("height"))
-        offset, rotation = _triple(row.get("offset")), _triple(row.get("rotation"))
-        if not isinstance(sha, str) or side not in ("top", "bottom") or offset is None or rotation is None:
-            continue
         if lo is None or hi is None:
             continue
-        key = height_key(sha, offset, rotation, str(side))
         if found.setdefault(key, (lo, hi)) != (lo, hi):
+            clash.add(key)
+    return {key: value for key, value in found.items() if key not in clash}
+
+
+def read_layers(data: bytes | None) -> dict[HeightKey, int]:
+    """The source body layers a heights carrier names (change c0464), the id of a mechanical layer 1 to 16
+    by ``HeightKey``; a key whose entries name different layers, or one of them none, gives none: the body
+    then goes on Mechanical 13 or 14 by its side."""
+    found: dict[HeightKey, int] = {}
+    clash: set[HeightKey] = set()
+    for key, row in _height_rows(data):
+        layer = _int(row.get("layer"))
+        if layer is None or layer not in rec.BODY_LAYERS:
+            clash.add(key)
+        elif found.setdefault(key, layer) != layer:
             clash.add(key)
     return {key: value for key, value in found.items() if key not in clash}
 
@@ -290,6 +322,9 @@ class Placed:
     """The stored heights of each placed embedded model, for the way back (change c0449, task 4.3)."""
     ids: tuple[StoredIds, ...] = ()
     """The source identity of each placed embedded model that has one, for the way back (change c0449)."""
+    layers: tuple[tuple[HeightKey, int], ...] = ()
+    """The key of each generated model whose bodies lie on one mechanical layer 1 to 16, with that layer, for
+    the way back (change c0464)."""
 
 
 def model_file(library: str, footprint: str, data: bytes) -> str:
@@ -450,6 +485,7 @@ def place_models(
     bodies_lost: dict[str, str] = {}
     heights: list[StoredHeights] = []
     ids: list[StoredIds] = []
+    generated_layers: list[tuple[HeightKey, int]] = []
     for footprint in footprints:
         found: list[ModelPlacement] = []
         generated: list[tuple[str, step.Solid, str]] = []
@@ -473,7 +509,13 @@ def place_models(
                     digest = hashlib.sha256(model.data).hexdigest()
                     heights.append(
                         StoredHeights(
-                            digest, placed.offset, placed.rotation, footprint.side, body.standoff, body.height
+                            digest,
+                            placed.offset,
+                            placed.rotation,
+                            footprint.side,
+                            body.standoff,
+                            body.height,
+                            rec.mechanical_body_layer(body.layer) or 0,  # change c0464
                         )
                     )
                     if model.ident:
@@ -497,6 +539,7 @@ def place_models(
             else:
                 generated.append((body.id, made.solid, made.reason))
         writable: list[tuple[str, step.Solid, str]] = []
+        on = {body.id: rec.mechanical_body_layer(body.layer) or 0 for body in footprint.bodies}
         for ident, solid, reason in generated:
             try:
                 step.write_solids(_stem(name), [solid])
@@ -513,9 +556,23 @@ def place_models(
                 found.append(ModelPlacement(path="${KIPRJMOD}/" + path))
                 for ident, _, reason in generated:
                     bodies_changed[ident] = reason
+                shared = {on.get(ident, 0) for ident, _, _ in generated}
+                if len(shared) == 1 and (layer := shared.pop()):  # change c0464: their one layer
+                    key = height_key(hashlib.sha256(data).hexdigest(), (0, 0, 0), (0, 0, 0), footprint.side)
+                    generated_layers.append((key, layer))
         if found:
             placements[footprint.id] = tuple(found)
-    return Placed(placements, files, changed, lost, bodies_changed, bodies_lost, tuple(heights), tuple(ids))
+    return Placed(
+        placements,
+        files,
+        changed,
+        lost,
+        bodies_changed,
+        bodies_lost,
+        tuple(heights),
+        tuple(ids),
+        tuple(generated_layers),
+    )
 
 
 # --- the way back: a KiCad model in an Altium document (change c0449) --------------------------------------
@@ -630,6 +687,7 @@ def footprint_models(
     root: Path,
     stored: Mapping[HeightKey, tuple[int, int]] | None = None,
     ids: CarriedIds | None = None,
+    layers: Mapping[HeightKey, int] | None = None,
 ) -> dict[str, tuple[pcbdoc.FootprintModel, ...]]:
     """Per footprint instance id, its ``model`` children as the Altium write takes them (change c0449):
     each child whose STEP file the project folder ``root`` holds, unscaled and with a box, as a model with
@@ -639,8 +697,10 @@ def footprint_models(
     conversion to KiCad gave it) takes the heights its source body stores; any other, those of its box.
     A model whose bytes ``ids`` names (``read_ids``) keeps its source record's ``ID`` and ``CHECKSUM``, and
     with its placement its body's ``MODEL.CHECKSUM``; any other model gets the ``ID`` of its bytes and its
-    file name (``pcbrecords.model_id``) and the stand-in checksum."""
+    file name (``pcbrecords.model_id``) and the stand-in checksum. A model whose ``HeightKey`` ``layers``
+    holds (``read_layers``, change c0464) goes back on its source body's mechanical layer."""
     stored = stored or {}
+    layers = layers or {}
     ids = ids or CarriedIds()
     boxes: dict[bytes, stepbox.Box | None] = {}
     found: dict[str, tuple[pcbdoc.FootprintModel, ...]] = {}
@@ -687,6 +747,7 @@ def footprint_models(
                     height,
                     changed=HIDDEN if ref.hidden else "",
                     checksum=ids.bodies.get(placed, ""),
+                    layer=layers.get(placed, 0),
                 )
             )
         if made:
@@ -729,6 +790,7 @@ __all__ = [
     "place_models",
     "placement",
     "read_heights",
+    "read_layers",
     "read_ids",
     "rotation_matrix",
     "turns",

@@ -15,6 +15,10 @@ on it; a component body on it SHALL NOT count as such a primitive. A mechanical 
 written document lies on SHALL take the source's enabled flag; one that something lies on SHALL be enabled.
 A drawing on the KiCad user layer a conversion named `Altium.DrillDrawing` or `Altium.DrillGuide` SHALL be
 written on Altium's drill drawing (73) or drill guide (55) layer.
+An embedded model that comes back with the bytes and placement the conversion to KiCad gave it
+SHALL be written on the mechanical layer 1 to 16 its source body lay on, which the conversion carries in
+`Fenolite.Altium.ModelHeights`; so SHALL the generated model of a footprint whose bodies lay on one such
+layer.
 
 #### Scenario: A metric document stays metric
 
@@ -59,3 +63,11 @@ written on Altium's drill drawing (73) or drill guide (55) layer.
 - **GIVEN** a KiCad board with a line on the user layer `User.8` named `Altium.DrillDrawing`
 - **WHEN** it is converted to Altium
 - **THEN** the line is a track on layer 73, nothing lies on Mechanical 8, and Mechanical 8 is disabled
+
+#### Scenario: Model bodies come back on their layer
+
+- **GIVEN** an authored Altium document whose model, extruded, cylinder and sphere bodies, on top and bottom
+  footprints, lie on Mechanical 6
+- **WHEN** it goes through flow A
+- **THEN** every body of the written document lies on Mechanical 6, not on Mechanical 13 or 14, and
+  the sixteen mechanical names and enabled flags are the source's

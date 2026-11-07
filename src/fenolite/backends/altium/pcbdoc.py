@@ -520,6 +520,9 @@ class FootprintModel:
     checksum: str = ""
     """The body's ``MODEL.CHECKSUM``: the source body's for a model that comes back with the same bytes and
     placement; empty, the stand-in."""
+    layer: int = 0
+    """The mechanical layer (57 to 72) the source body lay on, for a model that comes back with the same
+    bytes and placement (change c0464); 0, Mechanical 13 or 14 by the footprint's side."""
 
 
 @dataclass(frozen=True, slots=True)

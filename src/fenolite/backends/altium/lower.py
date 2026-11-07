@@ -1656,9 +1656,10 @@ def _place_model(
     placed_bodies: list[pcbdoc.PlacedBody] | None,
     account: _Account,
 ) -> None:
-    """A model of a written footprint as a body that names it (change c0449), on Mechanical 13 or 14 by the
-    footprint's side, or counted under ``model`` with its reason. Without ``--altium-bodies extruded`` the
-    caller counts a model lost with the reason of the bodies, and the document is the one of before."""
+    """A model of a written footprint as a body that names it (change c0449), on its source body's layer
+    (``FootprintModel.layer``, change c0464) or else on Mechanical 13 or 14 by the footprint's side, or
+    counted under ``model`` with its reason. Without ``--altium-bodies extruded`` the caller counts a model
+    lost with the reason of the bodies, and the document is the one of before."""
     if model.model is None or frame is None or placed_bodies is None:
         account.skip(MODEL_KIND, model.ident, model.reason or MODEL_UNPLACED)
         return
@@ -1671,7 +1672,7 @@ def _place_model(
     placed_bodies.append(
         pcbdoc.PlacedBody(
             component=component,
-            layer=rec.body_layer("", bottom=bottom),
+            layer=model.layer if model.layer in rec.BODY_LAYERS else rec.body_layer("", bottom=bottom),
             outline=model.outline,
             height=model.height,
             standoff=model.standoff,

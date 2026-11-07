@@ -318,7 +318,11 @@ comes back with the bytes, offset, turns and side the conversion to KiCad gave i
 source body stores (`STANDOFFHEIGHT` and `OVERALLHEIGHT`), which that conversion carries in the board property
 `Fenolite.Altium.ModelHeights` (`convert.models.StoredHeights`; change c0449, task 4.3). A model that is new
 or changed in KiCad takes the heights of its box. The footprint's place and its turn about Z are not
-compared: heights above the face do not depend on them, and a conversion moves the board's frame. A model
+compared: heights above the face do not depend on them, and a conversion moves the board's frame. Such a
+model also goes back on the mechanical layer 1 to 16 its source body lay on, which the same property names
+(`layer`; change c0464), and so does the generated model of a footprint whose extruded, cylinder and sphere
+bodies share one such layer (an entry with that layer and no heights); any other model goes on Mechanical
+13 or 14 by its footprint's side. A model
 whose bytes are the source's keeps its record's `ID` and `CHECKSUM`, and a body placed as before its
 `MODEL.CHECKSUM`, carried in `Fenolite.Altium.ModelIds` (`convert.models.StoredIds`). Altium seems to serve
 a model it has opened by its `ID`, so a new model gets the `ID` of its bytes and its name, which no other
