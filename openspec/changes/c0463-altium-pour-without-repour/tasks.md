@@ -108,3 +108,9 @@ Rules for every task:
 - [ ] 5.3 Evidence `ALTIUM-VERIFIED(kit)`, the new message texts, CHANGELOG, `gen_evidence_matrix` and
   `gen_altium_graduation` checks, and `openspec validate --all --strict`. Proof:
   `uv run pytest tests/unit/backends/altium/test_pour_modes.py -q -n 0`, then each `--check`.
+  State at the cutoff (2026-11-07 03:30, lote-29 f155216a4): the checks pass (`test_pour_modes.py` 7 passed;
+  `gen_evidence_matrix --check` and `gen_altium_graduation --check` exit 0; `openspec validate --all
+  --strict` 151 of 151). The evidence is not raised: `result.pcb.pour.evidence` stays `INFERRED` and
+  `altium.zones-poured` keeps naming Repour All, since D6's conditions are not all met (the Repour oracle
+  fails M1 on 15 of 81 polygons, design D7; 5.1 and 5.2 are not recorded at the cutoff). Raising it is the
+  first step once K6 (S-2225) and flow B (S-2226) pass and D7 is resolved.

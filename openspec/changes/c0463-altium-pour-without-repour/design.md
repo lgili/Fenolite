@@ -103,6 +103,9 @@ Then:
 - `altium.zones-poured` no longer names Repour All;
 - `--altium-pour outline` stays for users who want Altium to pour.
 
+At the release of 2026-11-07 the conditions are not all met (D7), so none of these steps is taken: the
+computed pour stays `INFERRED` and experimental, and `altium.zones-poured` still names Repour All.
+
 ## D7: known differences (measured 2026-11-06, reported)
 
 The release of 2026-11-06 closes this change with the differences below measured and named, not fixed.
