@@ -844,16 +844,18 @@ not, so it is the track from start to end, of the same width, layer, net and loc
 
 def straight_arc(arc: Arc) -> Track | None:
     """The track ``arc`` draws when its three points lie on one line with the middle point between the
-    ends (change c0435); ``None`` for any other arc."""
+    ends (change c0435), in the arc's union (change c0460); ``None`` for any other arc."""
     a, m, b = arc.start, arc.mid, arc.end
     if a == b or (m.x - a.x) * (b.y - a.y) != (m.y - a.y) * (b.x - a.x):
         return None
     if not (min(a.x, b.x) <= m.x <= max(a.x, b.x) and min(a.y, b.y) <= m.y <= max(a.y, b.y)):
         return None
-    return Track(
+    track = Track(
         id=arc.id, provenance=arc.provenance, start=a, end=b, width=arc.width, layer=arc.layer,
         net_id=arc.net_id, locked=arc.locked,
     )  # fmt: skip
+    index = unions.union_of(arc)
+    return unions.with_union(track, index) if index else track
 
 
 HOLE_FOOTPRINT_REASON = "a generated hole footprint is written as the free hole it stands for"

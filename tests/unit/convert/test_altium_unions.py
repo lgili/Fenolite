@@ -242,6 +242,21 @@ def test_a_track_and_an_arc_are_written_in_their_union() -> None:
     assert sorted(unions.members(imported.board).values()) == [TRACK_UNION, ARC_UNION]
 
 
+def test_a_straight_member_arc_is_a_track_of_its_union() -> None:
+    """An arc too short for its points to bend in nanometres comes back from KiCad straight and is written
+    as the track it draws (change c0435) in its union: row ``-08`` lost one such arc of each of two unions
+    (S-2190)."""
+    design = two_layer()
+    board = design.board
+    assert board is not None and board.arcs
+    arc, *arcs = board.arcs
+    flat = dataclasses.replace(arc, start=Point(20 * MM, 14 * MM), mid=Point(20 * MM + 500, 14 * MM),
+                               end=Point(20 * MM + 1000, 14 * MM), ext={})  # fmt: skip
+    board = dataclasses.replace(board, arcs=(unions.with_union(flat, ARC_UNION), *arcs))
+    document = _written(dataclasses.replace(design, board=board))
+    assert _stroke_unions(document) == Counter({("track", ARC_UNION): 1})
+
+
 UNION_ROWS = ("02", "07")
 """The public rows whose union members are free tracks and arcs (S-2190): ``-02`` 16 tracks, ``-07`` 27
 tracks and 20 arcs; every other member of theirs is a via."""

@@ -48,6 +48,11 @@
   `uv run pytest tests/unit/backends/altium/test_pcb_text.py -n 0` and
   `uv run pytest tests/corpus/test_convert_census.py -k "explained or not_written"`.
 
+- [x] 2.6 A straight member arc (row `-08`: one arc of each of the unions 0x4E and 0x59, sweep under
+  0.2 degree, comes back from KiCad with collinear points and is written as a track, change c0435) keeps
+  its union on that track. Proof:
+  `uv run pytest tests/unit/convert/test_altium_unions.py -n 0 -k straight`.
+
 ## 3. Evidence and docs
 
 - [x] 3.1 Census of union members, smart unions and TrueType texts in the public rows (S-2190); rows in
