@@ -49,6 +49,11 @@ Every other file of that row and every other row keep their digests.
 c0406 makes ``wired`` the default schematic layout: the 37 KiCad rows (targets 9 and 10) change their
 ``.kicad_sch`` files and the flag library ``fenolite.kicad_sym`` (which now also holds ``GND`` and
 ``RAIL``) and nothing else; every board, record, Altium row and exit code keeps its digest.
+
+c0463 task 4.3 (S-2227) keeps Altium's distance from the board's edge and draws a relief conductor over its
+pad outside the outline: board_40parts.PcbDoc moves from 9e3cabd7 to e2da3ead. Only the streams
+``Regions6/Data`` and ``ShapeBasedRegions6/Data`` change, and in them only the two regions of its polygon
+pours; every other stream, every other file of the row and every other row keep their digests.
 """
 
 from __future__ import annotations
@@ -84,4 +89,4 @@ def test_example_keeps_its_bytes(row: str, tmp_path: Path) -> None:
 def test_the_exact_final_cut_digest_is_platform_independent() -> None:
     files = RECORDED["board_40parts@altium"]["files"]
     assert isinstance(files, dict)
-    assert files["board_40parts.PcbDoc"] == "9e3cabd7ab7fb0e204fb23c521a63a2985997266f272352d690b3e9a2cd14a98"
+    assert files["board_40parts.PcbDoc"] == "e2da3eade86bd5f78d3b4ad2368f21d4628739a27d10fc7a7cb70ce6f5d3ac5d"
