@@ -261,9 +261,10 @@ These are choices of the writer, not format facts:
   width and rotation, at the text's position, on the layer of the board layer map below. The model's text
   has no mirror and no justification, so none is written but one: a text on a bottom-side layer is
   mirrored, as the saved documents have it. The 8-bit string holds the text in ISO-8859-1 with `?` for a
-  character outside it and at most 255 characters; the wide string holds the text. An empty text, a text
-  with a control character or a line break, and a text without a positive height and stroke width are not
-  written.
+  character outside it and at most 255 characters; the wide string holds the text. A line break of the
+  model is written as CR LF in both strings (`H-A-TEXT-CRLF`), and an empty text is written with an empty
+  string and no wide-string entry, as row `-08` holds both (change c0460). A text with another
+  control character, and a text without a positive height and stroke width, are not written.
 - **Board layer map (change c0085)**, `pcbrecords.BOARD_LAYER_MAP`, for free texts and graphics: the six
   non-copper rows of the table above and `F.Paste` 35, `B.Paste` 36, `F.Mask` 37, `B.Mask` 38. An item on
   another layer (`Edge.Cuts`, a user layer outside "Mechanical layers of KiCad drawings") is not written;

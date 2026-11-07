@@ -41,6 +41,13 @@
   Proof:
   `uv run pytest tests/unit/convert/test_altium_unions.py -n 0`.
 
+- [x] 2.5 Empty texts and line breaks (row `-08` at bbe4c452b: 2 671 of 2 724 members came back, its
+  51 empty member texts refused; its 13 texts with CR LF left out). The writer writes an empty text and a
+  line feed as CR LF; the ledgers of CM5_MINIMA_3, complex_hierarchy and seven other public boards lose
+  their empty-text and line-break rows (texts whose justification has no key move to that row). Proof:
+  `uv run pytest tests/unit/backends/altium/test_pcb_text.py -n 0` and
+  `uv run pytest tests/corpus/test_convert_census.py -k "explained or not_written"`.
+
 ## 3. Evidence and docs
 
 - [x] 3.1 Census of union members, smart unions and TrueType texts in the public rows (S-2190); rows in

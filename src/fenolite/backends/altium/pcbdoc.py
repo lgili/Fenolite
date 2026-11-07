@@ -1097,6 +1097,7 @@ def text_record(
     body += b"\0" + struct.pack("<iII", 0, wide_index, union) + bytes(TEXT_SIZE - 123)
     assert len(body) == TEXT_SIZE
     # a component text outside 7-bit ASCII (change c0090, a model that was read) is written like a free one
+    text = crlf(text)  # change c0460: a line break as the record holds it
     string = short_text(text) if free or text_problem(text) is not None else rec.short_string(text)
     return bytes((rec.TEXT,)) + rec.subrecord(body) + rec.subrecord(string)
 
@@ -1130,6 +1131,12 @@ def text_font(item: Text | FootprintField) -> TextFont | None:
     return TextFont(name, flags[0] == "1", flags[1] == "1", truetype=False)
 
 
+def crlf(text: str) -> str:
+    """``text`` with each line feed of the model as the CR LF a PCB document's text holds (``pcb-records.md``,
+    "Text", ``H-A-TEXT-CRLF``; change c0460); the import reads it back as a line feed (change c0427)."""
+    return text.replace("\r\n", "\n").replace("\n", "\r\n")
+
+
 def short_text(text: str) -> bytes:
     """The 8-bit string of a free text: one length byte and at most 255 characters in ISO-8859-1, a
     character outside it written ``?`` (``pcb-records.md``, "Text": a reader that knows the wide string
@@ -1138,13 +1145,12 @@ def short_text(text: str) -> bytes:
     return bytes((len(data),)) + data
 
 
-def text_problem_of(text: Text, *, footprint: bool = False) -> str | None:
-    """Why a free text cannot be written, or ``None``: an empty string (a board text; a ``footprint`` text
-    may be empty, as a saved document holds it, change c0451), a control character or a line break, a
-    height or stroke width that is not positive, or a style of change c0277 (knockout, bold, italic, a
-    font face) that the text record of the writer does not hold."""
-    if not text.text and not footprint:
-        return "the text is empty"
+def text_problem_of(text: Text) -> str | None:
+    """Why a free text cannot be written, or ``None``: a control character other than a line break (written
+    as CR LF, ``crlf``), a height or stroke width that is not positive, or a style of change c0277
+    (knockout, bold, italic, a font face) that the text record of the writer does not hold. An empty text
+    is written, as a saved document holds it: a footprint text (change c0451) and a board text (change
+    c0460; row ``-08`` holds 51 on Drill Drawing)."""
     # change c0460: a face makes a TrueType text, which holds bold and italic; a stroke text holds neither
     styles = [name for name in ("knockout", "bold", "italic") if getattr(text, name)]
     if truetype_face(text):
@@ -1155,8 +1161,8 @@ def text_problem_of(text: Text, *, footprint: bool = False) -> str | None:
             )
     if styles:
         return f"the text record of the writer holds no {', '.join(styles)}"
-    if any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in text.text):
-        return "the text holds a control character or a line break"
+    if any((ord(ch) < 0x20 and ch != "\n") or ord(ch) == 0x7F for ch in text.text):
+        return "the text holds a control character"
     if text.size.h <= 0:
         return f"a height of {text.size.h} nm is not positive"
     if text.thickness <= 0:
@@ -1170,7 +1176,7 @@ def _wide_entry(index: int, text: str) -> bytes:
     record's own short text, empty too, when the index names no entry (change c0451)."""
     if not text:
         return b""
-    data = text.encode("utf-16-le") + b"\0\0"
+    data = crlf(text).encode("utf-16-le") + b"\0\0"
     return struct.pack("<2I", index, len(data)) + data
 
 

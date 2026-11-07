@@ -54,3 +54,16 @@ font name, as before.
 - **GIVEN** a free board text without a face whose `altium` bag holds `stroke_font` = `11 Trebuchet MS`
 - **WHEN** the board is written
 - **THEN** its text record holds font type 0, bold 1, italic 1 and the font name `Trebuchet MS`
+
+### Requirement: Empty texts and line breaks are written
+
+The Altium PCB writer SHALL write a board text whose string is empty as a text record with an empty
+string, and SHALL write each line feed of a text's string as CR LF (`H-A-TEXT-CRLF`) in the record and in
+its wide string. It SHALL still refuse a text that holds any other control character.
+
+#### Scenario: An empty text and a two-line text
+
+- **GIVEN** a board with a free text whose string is empty and one whose string is `two\nlines`
+- **WHEN** the board is written
+- **THEN** both texts have a record, the second holds `two\r\nlines`, and reading the document back gives
+  an empty string and `two\nlines`

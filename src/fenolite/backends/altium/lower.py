@@ -1417,7 +1417,7 @@ def _footprint_items(
             places[field.name] = place(field, f"the place of the field {field.name}")
     texts: list[pcbdoc.ComponentText] = []
     for text in fp.texts:
-        problem = pcbdoc.text_problem_of(text, footprint=True)
+        problem = pcbdoc.text_problem_of(text)
         if problem is not None:
             account.skip("footprint-text", text.id, problem)
             continue

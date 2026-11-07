@@ -273,14 +273,12 @@ unchanged.
 | CM5_MINIMA_3 | model | lost | 5 | the model file is not found at its path |
 | CM5_MINIMA_3 | zone-fill | changed | 13 | a polygon is written unpoured; Altium fills it on a repour |
 | CM5_MINIMA_3 | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours, the finish, the impedance-control flag; the copper and dielectric values are written |
-| CM5_MINIMA_3 | text | lost | 131 | the text record has no key for a justification other than centred |
-| CM5_MINIMA_3 | text | lost | 18 | the text is empty |
+| CM5_MINIMA_3 | text | lost | 149 | the text record has no key for a justification other than centred |
 | CM5_MINIMA_3 | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | complex_hierarchy | footprint | changed | 28 | differs from the library footprint |
 | complex_hierarchy | model | lost | 68 | the model path names a variable other than KIPRJMOD; only files of the project are read |
 | complex_hierarchy | zone-fill | changed | 1 | a polygon is written unpoured; Altium fills it on a repour |
 | complex_hierarchy | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours; the copper and dielectric values are written |
-| complex_hierarchy | text | lost | 2 | the text holds a control character or a line break |
 | complex_hierarchy | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | ecc83-pp | footprint | changed | 5 | differs from the library footprint |
 | ecc83-pp | model | lost | 10 | the model path names a variable other than KIPRJMOD; only files of the project are read |
@@ -307,7 +305,6 @@ unchanged.
 | kit-dev-coldfire-xilinx_5213 | model | lost | 7 | the model file is not found in the project folder |
 | kit-dev-coldfire-xilinx_5213 | zone-fill | changed | 3 | a polygon is written unpoured; Altium fills it on a repour |
 | kit-dev-coldfire-xilinx_5213 | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours, the finish; the copper and dielectric values are written |
-| kit-dev-coldfire-xilinx_5213 | text | lost | 1 | the text holds a control character or a line break |
 | kit-dev-coldfire-xilinx_5213 | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | microwave | footprint | changed | 2 | differs from the library footprint |
 | microwave | footprint-copper | lost | 4 | a graphic of a footprint on a copper layer has no record written: it would be copper |
@@ -316,14 +313,13 @@ unchanged.
 | multichannel_mixer-unrouted | model | lost | 21 | the model path names a variable other than KIPRJMOD; only files of the project are read |
 | multichannel_mixer-unrouted | zone-fill | changed | 1 | a polygon is written unpoured; Altium fills it on a repour |
 | multichannel_mixer-unrouted | keep-out | lost | 4 | the keep-out sets no restriction that the record carries (tracks, vias, pads, copper) |
-| multichannel_mixer-unrouted | text | lost | 2 | the text holds a control character or a line break |
+| multichannel_mixer-unrouted | text | lost | 2 | the text record has no key for a justification other than centred |
 | multichannel_mixer-unrouted | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | multichannel_mixer | footprint | changed | 68 | differs from the library footprint |
 | multichannel_mixer | model | lost | 21 | the model path names a variable other than KIPRJMOD; only files of the project are read |
 | multichannel_mixer | zone-fill | changed | 2 | a polygon is written unpoured; Altium fills it on a repour |
 | multichannel_mixer | keep-out | lost | 4 | the keep-out sets no restriction that the record carries (tracks, vias, pads, copper) |
-| multichannel_mixer | text | lost | 1 | the text holds a control character or a line break |
-| multichannel_mixer | text | lost | 1 | the text record has no key for a justification other than centred |
+| multichannel_mixer | text | lost | 2 | the text record has no key for a justification other than centred |
 | multichannel_mixer | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | One-Air-Max | dnp | lost | 11 | the Altium documents hold no fitted flag outside variants |
 | One-Air-Max | footprint | changed | 118 | differs from the library footprint |
@@ -336,8 +332,7 @@ unchanged.
 | One-Air-Max | model | lost | 1 | the model file is not found in the project folder |
 | One-Air-Max | zone-fill | changed | 34 | a polygon is written unpoured; Altium fills it on a repour |
 | One-Air-Max | stackup | lost | 1 | the document has no key for the solder mask thickness, the finish; the copper and dielectric values are written |
-| One-Air-Max | text | lost | 24 | the text record has no key for a justification other than centred |
-| One-Air-Max | text | lost | 1 | the text holds a control character or a line break |
+| One-Air-Max | text | lost | 25 | the text record has no key for a justification other than centred |
 | One-Air-Max | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | pic_programmer | footprint | changed | 18 | differs from the library footprint |
 | pic_programmer | pad | lost | 2 | the pad has the shape custom, which has no exact Altium form |
@@ -357,7 +352,7 @@ unchanged.
 | RoyalBlue54L-Feather | zone | lost | 2 | the model holds no outline of the zone (an outline with an arc is kept by the reader) |
 | RoyalBlue54L-Feather | zone-fill | changed | 2 | a polygon is written unpoured; Altium fills it on a repour |
 | RoyalBlue54L-Feather | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours, the finish; the copper and dielectric values are written |
-| RoyalBlue54L-Feather | text | lost | 1 | the text holds a control character or a line break |
+| RoyalBlue54L-Feather | text | lost | 1 | the text record has no key for a justification other than centred |
 | RoyalBlue54L-Feather | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | RoyalBlue54L-NFC-Antenna | footprint-graphic | lost | 3 | a line of a footprint's Edge.Cuts is no closed outline: no board cut-out is written |
 | RoyalBlue54L-NFC-Antenna | footprint-graphic | lost | 2 | a arc of a footprint's Edge.Cuts is no closed outline: no board cut-out is written |
@@ -379,8 +374,7 @@ unchanged.
 | tinytapeout-demo | model | lost | 5 | the model file is not found in the project folder |
 | tinytapeout-demo | zone-fill | changed | 2 | a polygon is written unpoured; Altium fills it on a repour |
 | tinytapeout-demo | stackup | lost | 1 | the stack-up holds several dielectric sheets between F.Cu and In1.Cu (2 dielectric entries) and the document holds one dielectric per gap; the default stack values are written |
-| tinytapeout-demo | text | lost | 215 | the text record has no key for a justification other than centred |
-| tinytapeout-demo | text | lost | 9 | the text holds a control character or a line break |
+| tinytapeout-demo | text | lost | 222 | the text record has no key for a justification other than centred |
 | tinytapeout-demo | graphic | lost | 2 | a filled circle has no record: a region holds straight edges only |
 | tinytapeout-demo | dimension | lost | 6 | the document has no dimension record |
 | tinytapeout-demo | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
@@ -392,7 +386,6 @@ unchanged.
 | video | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours, the finish; the copper and dielectric values are written |
 | video | dimension | lost | 2 | the document has no dimension record |
 | video | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
-
 <!-- ledger:end -->
 
 ## Differences explained
