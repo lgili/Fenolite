@@ -37,7 +37,16 @@ from fenolite.backends.altium.adapter import units
 from fenolite.backends.altium.adapter.arcring import record_outline
 from fenolite.backends.altium.adapter.codes import issue
 from fenolite.backends.altium.adapter.context import Context
-from fenolite.backends.altium.adapter.ids import STROKE_FONT_KEY, UNION_KEY, VIA_UNION_OFFSET, Exact, bag
+from fenolite.backends.altium.adapter.ids import (
+    ARC_UNION_OFFSET,
+    STROKE_FONT_KEY,
+    TEXT_UNION_OFFSET,
+    TRACK_UNION_OFFSET,
+    UNION_KEY,
+    VIA_UNION_OFFSET,
+    Exact,
+    bag,
+)
 from fenolite.backends.altium.adapter.layers import EDGE, MULTI
 from fenolite.backends.altium.adapter.pads import WILDCARD_ALL
 from fenolite.backends.altium.read.pcb import SPLIT_PLANE_POLYGON, PcbDocument, PolygonRecord
@@ -415,7 +424,7 @@ def tracks(doc: PcbDocument, ctx: Context, owned: Collection[int] = ()) -> tuple
                 Track(
                     id=ctx.ids.content("trk", "tracks", _xy(start), _xy(end), width, layer, net_id or ""),
                     provenance=ctx.provenance(locator),
-                    ext=bag(exact.pairs()),
+                    ext=bag([*exact.pairs(), *_union_pairs(track_union(item))]),
                     start=start,
                     end=end,
                     width=width,
@@ -426,18 +435,17 @@ def tracks(doc: PcbDocument, ctx: Context, owned: Collection[int] = ()) -> tuple
             )
         else:
             layer = ctx.layers.name(layer_id)
-            graphics.append(
-                _graphic(
-                    ctx,
-                    "line",
-                    layer,
-                    (start, end),
-                    width=max(width, 0),
-                    filled=False,
-                    locator=locator,
-                    pairs=exact.pairs(),
-                )  # fmt: skip
-            )
+            graphic = _graphic(
+                ctx,
+                "line",
+                layer,
+                (start, end),
+                width=max(width, 0),
+                filled=False,
+                locator=locator,
+                pairs=exact.pairs(),
+            )  # fmt: skip
+            graphics.append(_member(graphic, track_union(item)))
         ctx.census.map("tracks")
     return found, graphics
 
@@ -508,18 +516,17 @@ def arcs(doc: PcbDocument, ctx: Context, owned: Collection[int] = ()) -> tuple[l
             centre, edge = units.circle_points(item.cx, item.cy, item.radius)
             if copper:
                 pairs += _net_pair(ctx, item.prefix.net)
-            graphics.append(
-                _graphic(
-                    ctx,
-                    "circle",
-                    layer,
-                    (centre, edge),
-                    width=max(width, 0),
-                    filled=False,
-                    locator=locator,
-                    pairs=pairs,
-                )  # fmt: skip
-            )
+            circle = _graphic(
+                ctx,
+                "circle",
+                layer,
+                (centre, edge),
+                width=max(width, 0),
+                filled=False,
+                locator=locator,
+                pairs=pairs,
+            )  # fmt: skip
+            graphics.append(_member(circle, arc_union(item)))
         else:
             start, mid, end = units.arc_points(item.cx, item.cy, item.radius, start_angle, end_angle)
             pairs.append((ARC_KEY, arc_pair(item)))
@@ -531,7 +538,7 @@ def arcs(doc: PcbDocument, ctx: Context, owned: Collection[int] = ()) -> tuple[l
                             "arc", "arcs", _xy(start), _xy(mid), _xy(end), width, layer, net_id or ""
                         ),
                         provenance=ctx.provenance(locator),
-                        ext=bag(pairs),
+                        ext=bag([*pairs, *_union_pairs(arc_union(item))]),
                         start=start,
                         mid=mid,
                         end=end,
@@ -542,18 +549,17 @@ def arcs(doc: PcbDocument, ctx: Context, owned: Collection[int] = ()) -> tuple[l
                     )
                 )
             else:
-                graphics.append(
-                    _graphic(
-                        ctx,
-                        "arc",
-                        layer,
-                        (start, mid, end),
-                        width=max(width, 0),
-                        filled=False,
-                        locator=locator,
-                        pairs=pairs,
-                    )  # fmt: skip
-                )
+                drawn = _graphic(
+                    ctx,
+                    "arc",
+                    layer,
+                    (start, mid, end),
+                    width=max(width, 0),
+                    filled=False,
+                    locator=locator,
+                    pairs=pairs,
+                )  # fmt: skip
+                graphics.append(_member(drawn, arc_union(item)))
         ctx.census.map("arcs")
     return found, graphics
 
@@ -1533,6 +1539,44 @@ def via_union(item: ViaRecord) -> int:
     return struct.unpack_from("<I", body, offset)[0] if len(body) >= offset + 4 else 0
 
 
+def _long_union(body: bytes, offset: int) -> int:
+    return struct.unpack_from("<I", body, offset)[0] if len(body) >= offset + 4 else 0
+
+
+def track_union(item: TrackRecord) -> int:
+    """The union index of a track record (change c0460): the 32-bit value at offset 36 of the long form of
+    its subrecord, 0 for a track of no union or a short record (S-2190)."""
+    return _long_union(item.raw[5:], TRACK_UNION_OFFSET)
+
+
+def arc_union(item: ArcRecord) -> int:
+    """The union index of an arc record (change c0460): the 32-bit value at offset 48 of the long form of
+    its subrecord, 0 for an arc of no union or a short record (S-2190)."""
+    return _long_union(item.raw[5:], ARC_UNION_OFFSET)
+
+
+def text_union(item: TextRecord) -> int:
+    """The union index of a text record (change c0460): the 32-bit value at offset 119 of the long form of
+    its first subrecord, 0 for a text of no union or a short record (S-2190)."""
+    raw = bytes(item.raw)
+    first = struct.unpack_from("<I", raw, 1)[0] if len(raw) >= 5 else 0
+    return _long_union(raw[5 : 5 + first], TEXT_UNION_OFFSET)
+
+
+def _union_pairs(member: int) -> list[tuple[str, str]]:
+    """The bag pair of a union member (change c0460), none for an item of no union."""
+    return [(UNION_KEY, str(member))] if member else []
+
+
+def _member(graphic: Graphic, member: int) -> Graphic:
+    """``graphic`` with its union index in its bag, outside its id (change c0460), as a region keeps it."""
+    if not member:
+        return graphic
+    held = graphic.ext.get("altium")
+    pairs = [*(held.payload if held is not None else ()), (UNION_KEY, str(member))]
+    return dataclasses.replace(graphic, ext=bag(pairs))
+
+
 def region_union(item: RegionRecord) -> int:
     """The union index of a region record (change c0460): its ``UNIONINDEX``, 0 for none."""
     value = dict(item.properties.fields).get("UNIONINDEX", "0")
@@ -1587,7 +1631,7 @@ def texts(doc: PcbDocument, ctx: Context, owned: Collection[int] = ()) -> list[T
                     "txt", "texts", item.text, _xy(position), layer, height, thickness, rotation
                 ),
                 provenance=ctx.provenance(locator),
-                ext=bag([*exact.pairs(), *stroke_font(item)]),
+                ext=bag([*exact.pairs(), *stroke_font(item), *_union_pairs(text_union(item))]),
                 text=lines(item.text),
                 position=position,
                 layer=layer,
@@ -1730,6 +1774,7 @@ __all__ = [
     "KEEPOUT_LAYER_ID",
     "NOTCH_LOCATOR",
     "TRUETYPE",
+    "arc_union",
     "arcs",
     "definition_graphics",
     "keepout_layer_restrictions",
@@ -1739,8 +1784,10 @@ __all__ = [
     "outline",
     "region_points",
     "shapes",
+    "text_union",
     "texts",
     "region_union",
+    "track_union",
     "tracks",
     "truetype",
     "via_union",

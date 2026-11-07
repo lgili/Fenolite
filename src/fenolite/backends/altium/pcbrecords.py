@@ -439,18 +439,20 @@ def track_record(
     locked: bool = False,
     keepout: tuple[int, int] | None = None,
     polygon: int = NO_INDEX,
+    union: tuple[int, int] | None = None,
 ) -> bytes:
     """A track (type 4): one subrecord of 36 bytes; points and width in binary units. ``locked`` writes the
     locked flag when ``track`` is in ``LOCK_WRITTEN``. ``keepout``, ``(long layer id, restriction byte)``,
     writes a keep-out track (change c0450) in the 49-byte form (``keepout_tail``). ``polygon`` writes a track
     of a hatched pour (change c0463): the polygon's position in ``Polygons6`` and the sub-polygon number 1,
-    as every hatch track of S-2223 holds them."""
+    as every hatch track of S-2223 holds them. ``union``, ``(long layer id, union index)``, writes a union
+    member (change c0460) in the 49-byte form with the index at 36 (S-2190)."""
     held = lock_written("track", locked)
     head = prefix(layer, net=net, component=component, locked=held, polygon=polygon)
     sub = 1 if polygon != NO_INDEX else 0
     body = _flagged(head, keepout) + struct.pack("<5iHB", *a, *b, width, sub, 0)
     assert len(body) == TRACK_SIZE
-    return bytes((TRACK,)) + subrecord(body + keepout_tail(keepout))
+    return bytes((TRACK,)) + subrecord(body + long_tail(keepout, union, TRACK_UNION_AT))
 
 
 KEEPOUT_TAIL = 13
@@ -465,6 +467,24 @@ def _flagged(head: bytes, keepout: tuple[int, int] | None) -> bytes:
     flagged = bytearray(head)
     flagged[2] = KEEPOUT_FLAG
     return bytes(flagged)
+
+
+TRACK_UNION_AT = 0
+ARC_UNION_AT = 1
+"""Where a member's union index sits in the 13 bytes of ``long_tail``: offset 36 of a track, 48 of an arc."""
+
+
+def long_tail(keepout: tuple[int, int] | None, union: tuple[int, int] | None, at: int) -> bytes:
+    """The 13 bytes after the short form of a keep-out track or arc (``keepout_tail``) or of a union member
+    (change c0460): a member holds its union index at ``at`` of the five zero bytes, and the long layer id
+    with the restriction byte 0 when it is no keep-out, as every long track and arc of the public rows holds
+    them (S-2190); none for a track or arc of neither."""
+    if union is None:
+        return keepout_tail(keepout)
+    long_layer, index = union
+    tail = bytearray(keepout_tail(keepout or (long_layer, 0)))
+    struct.pack_into("<I", tail, at, index)
+    return bytes(tail)
 
 
 def keepout_tail(keepout: tuple[int, int] | None) -> bytes:
@@ -519,16 +539,18 @@ def arc_record(
     component: int = NO_INDEX,
     locked: bool = False,
     keepout: tuple[int, int] | None = None,
+    union: tuple[int, int] | None = None,
 ) -> bytes:
     """An arc (type 1): one subrecord of 47 bytes. ``locked`` writes the locked flag when ``arc`` is in
     ``LOCK_WRITTEN``. ``keepout``, ``(long layer id, restriction byte)``, writes a keep-out arc (change
-    c0450) in the 60-byte form (``keepout_tail``)."""
+    c0450) in the 60-byte form (``keepout_tail``). ``union``, ``(long layer id, union index)``, writes a
+    union member (change c0460) in the 60-byte form with the index at 48 (S-2190)."""
     head = prefix(layer, net=net, component=component, locked=lock_written("arc", locked))
     body = _flagged(head, keepout) + struct.pack(
         "<3iddiH", arc.cx, arc.cy, arc.radius, arc.start, arc.end, width, 0
     )
     assert len(body) == ARC_SIZE
-    return bytes((ARC,)) + subrecord(body + keepout_tail(keepout))
+    return bytes((ARC,)) + subrecord(body + long_tail(keepout, union, ARC_UNION_AT))
 
 
 VIA_START, VIA_END = 1, 32
@@ -1375,6 +1397,9 @@ __all__ = [
     "hole_record",
     "keepout_tail",
     "layer_text",
+    "long_tail",
+    "ARC_UNION_AT",
+    "TRACK_UNION_AT",
     "region_record",
     "stack_problem",
     "v7_layer",

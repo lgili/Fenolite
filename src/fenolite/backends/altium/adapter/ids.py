@@ -82,6 +82,12 @@ UNION_KEY = "union_index"
 """The key of a union member's union index (change c0460, ``backends.altium.unions``)."""
 VIA_UNION_OFFSET = 70
 """The offset of a via's union index in its subrecord (change c0460, S-2190)."""
+TRACK_UNION_OFFSET = 36
+"""The offset of a track's union index in the long form of its subrecord (49 bytes; change c0460, S-2190)."""
+TEXT_UNION_OFFSET = 119
+"""The offset of a text's union index in the long form of its first subrecord (change c0460, S-2190)."""
+ARC_UNION_OFFSET = 48
+"""The offset of an arc's union index in the long form of its subrecord (60 bytes; change c0460, S-2190)."""
 _ORDER = {key: position for position, key in enumerate(EXT_KEYS)}
 
 

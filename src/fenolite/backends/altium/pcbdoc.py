@@ -1064,13 +1064,15 @@ def text_record(
     stroke: int = DESIGNATOR_STROKE,
     rotation: int = 0,
     font: TextFont | None = None,
+    union: int = 0,
 ) -> bytes:
     """A stroke text (type 5) in the 137-byte long form, ``at`` in nanometres in the Altium frame. A
     component's text is its designator or its comment; a ``free`` text (change c0085, ``component`` is
     ``pcbrecords.NO_INDEX``) is neither, has its own ``height`` and ``stroke`` (nanometres) and ``rotation``
     (microdegrees), and its 8-bit string is ``short_text(text)``: the text itself is the wide string at
     ``wide_index``. A ``font`` makes it a TrueType text (change c0460): font type 1, bold, italic and the
-    font name at 43 to 109 (``pcb-records.md``, "Text")."""
+    font name at 43 to 109 (``pcb-records.md``, "Text"). ``union`` (change c0460) is the union the text is a
+    member of, written at 119 (S-2190); 0 for none."""
     body = rec.prefix(layer, component=component)
     body += struct.pack(
         "<3iHdBi",
@@ -1091,7 +1093,7 @@ def text_record(
         name = font.face.encode("utf-16-le")
         kind = TRUETYPE_FONT if font.truetype else 0
         body += bytes((*flags, 0, kind, int(font.bold), int(font.italic))) + name + bytes(64 - len(name))
-    body += b"\0" + struct.pack("<iI", 0, wide_index) + bytes(TEXT_SIZE - 119)
+    body += b"\0" + struct.pack("<iII", 0, wide_index, union) + bytes(TEXT_SIZE - 123)
     assert len(body) == TEXT_SIZE
     # a component text outside 7-bit ASCII (change c0090, a model that was read) is written like a free one
     string = short_text(text) if free or text_problem(text) is not None else rec.short_string(text)
@@ -1427,6 +1429,13 @@ class _Copper:
         return self.layers[layer]
 
 
+def _union(layer: int, item: Track | Arc | Graphic) -> tuple[int, int] | None:
+    """The ``union`` of a track or arc record (change c0460): the layer's long id and the union index of
+    ``item``, ``None`` for an item of no union."""
+    index = unions.union_of(item)
+    return (long_id(layer), index) if index else None
+
+
 def routed_tracks(tracks: Sequence[Track], copper: _Copper) -> list[bytes]:
     """The free 36-byte tracks of the board (``pcb-copper.md``, "Tracks and arcs"), sorted by stack
     position of the layer, net name, start, end, width and entity id. ``ValueError`` names the id of a
@@ -1444,7 +1453,9 @@ def routed_tracks(tracks: Sequence[Track], copper: _Copper) -> list[bytes]:
             raise ValueError(f"{track.id}: the track has zero length")
         net = copper.net(track.id, track.net_id)
         a, b = _units(copper.frame(track.start)), _units(copper.frame(track.end))
-        out.append(rec.track_record(layer, a, b, rec.to_units(track.width), net=net, locked=track.locked))
+        member = _union(layer, track)  # change c0460
+        width = rec.to_units(track.width)
+        out.append(rec.track_record(layer, a, b, width, net=net, locked=track.locked, union=member))
     return out
 
 
@@ -1471,7 +1482,10 @@ def routed_arcs(
                 geometry = rec.arc_from_points(*(copper.frame(p) for p in (arc.start, arc.mid, arc.end)))
             except ValueError as error:
                 raise ValueError(f"{arc.id}: {error}") from error
-        out.append(rec.arc_record(layer, geometry, rec.to_units(arc.width), net=net, locked=arc.locked))
+        member = _union(layer, arc)  # change c0460
+        out.append(
+            rec.arc_record(layer, geometry, rec.to_units(arc.width), net=net, locked=arc.locked, union=member)
+        )
     return out
 
 
@@ -1777,15 +1791,18 @@ def free_records(spec: PcbDocSpec, copper: _Copper) -> _Free:
                 out.tracks.append(rec.track_record(layer, a, b, width, net=net))
         elif graphic.kind == "line":
             a, b = (_units(frame(point)) for point in graphic.points)
-            out.tracks.append(rec.track_record(layer, a, b, width, net=net, keepout=flagged))
+            member = _union(layer, graphic)  # change c0460
+            out.tracks.append(rec.track_record(layer, a, b, width, net=net, keepout=flagged, union=member))
         elif graphic.kind == "circle":
             centre, edge = (frame(point) for point in graphic.points)
             geometry = rec.circle_geometry(centre, edge)
-            out.arcs.append(rec.arc_record(layer, geometry, width, net=net, keepout=flagged))
+            member = _union(layer, graphic)
+            out.arcs.append(rec.arc_record(layer, geometry, width, net=net, keepout=flagged, union=member))
         else:
             start, mid, end = (frame(point) for point in graphic.points)
             geometry = kept or rec.arc_from_points(start, mid, end)
-            out.arcs.append(rec.arc_record(layer, geometry, width, net=net, keepout=flagged))
+            member = _union(layer, graphic)
+            out.arcs.append(rec.arc_record(layer, geometry, width, net=net, keepout=flagged, union=member))
     names = list(copper.layers)
     for keepout in sorted(spec.keepouts, key=lambda k: ([_xy(p) for p in k.outline], k.layers, k.id)):
         problem = keepout_problem(keepout, names)
@@ -1870,6 +1887,7 @@ def free_texts(spec: PcbDocSpec, frame: Frame, first: int) -> tuple[list[bytes],
                 stroke=text.thickness,
                 rotation=text.rotation,
                 font=text_font(text),
+                union=unions.union_of(text),  # change c0460
             )
         )
         wide.append(_wide_entry(number, text.text))
@@ -2545,6 +2563,7 @@ def _write(
                         designator=designator,
                         wide_index=number,
                         mirrored=bottom,
+                        union=component.union,  # change c0460: a member's designator and comment
                     )
                 )
             else:  # where the model's field says (change c0126)
@@ -2561,6 +2580,7 @@ def _write(
                         stroke=place.stroke,
                         rotation=(place.rotation + component.rotation) % FULL_TURN,
                         font=place.font,
+                        union=component.union,
                     )
                 )
             wide.append(_wide_entry(number, text))

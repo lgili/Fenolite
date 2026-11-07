@@ -14,7 +14,9 @@ record of font type 1 the record's font name as `face`, and its bold and italic 
 
 ### Requirement: Union members keep their union index
 
-The Altium import SHALL record the non-zero union index of a via (offset 70 of its record), a region (its
+The Altium import SHALL record the non-zero union index of a via (offset 70 of its record), a track
+(offset 36 of the long form of its record), an arc (offset 48 of the long form), a free text (offset 119 of
+its first subrecord), a region (its
 `UNIONINDEX`) and a component (its `UNIONINDEX`) in the item's `altium` bag under the key `union_index`.
 
 #### Scenario: A stitching via is a union member
@@ -22,6 +24,12 @@ The Altium import SHALL record the non-zero union index of a via (offset 70 of i
 - **GIVEN** a via whose record holds the union index 1048581 at offset 70
 - **WHEN** the document is imported
 - **THEN** the via's `altium` bag holds `union_index` = `1048581`
+
+#### Scenario: A length tuning is a union member
+
+- **GIVEN** a 49-byte track record holding 17 at offset 36 and a 60-byte arc record holding 19 at offset 48
+- **WHEN** the document is imported
+- **THEN** the track's `altium` bag holds `union_index` = `17` and the arc's `19`
 
 ### Requirement: Stroke texts keep the font their record names
 

@@ -43,12 +43,15 @@ def with_font(entity: _E, value: str) -> _E:
 
 
 def found(board: Board | None) -> dict[str, str]:
-    """The fonts of the board's stroke texts by the KiCad uuid the writer gives each (``pcb.kicad_uuid``):
-    footprint fields, footprint texts and free texts whose Altium bag holds ``stroke_font``."""
+    """The fonts of the board's stroke texts by the KiCad uuid the writer gives each (``pcb.kicad_uuid``,
+    after ``unions.marked``): footprint fields, footprint texts and free texts whose Altium bag holds
+    ``stroke_font``."""
+    from fenolite.backends.altium import unions
     from fenolite.backends.kicad.pcb import kicad_uuid
 
     if board is None:
         return {}
+    board = unions.marked(board, unions.members(board))  # a union member's text has its marked uuid
     items: list[Entity] = [*board.texts]
     for fp in board.footprints:
         items += [*fp.fields, *fp.texts]

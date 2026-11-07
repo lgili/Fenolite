@@ -5,6 +5,9 @@
 A union names its members by their records. ``UnionNames`` holds each union's index and name. A member's
 record holds the union index:
 - a via, as a 32-bit value at offset 70 of its subrecord;
+- a track and an arc, as a 32-bit value at offset 36 and 48 of the long form of their subrecord (S-2190);
+- a text, as a 32-bit value at offset 119 of its first subrecord; a member component's designator and
+  comment hold the component's index (S-2190);
 - a region of ``Regions6``, and a component of ``Components6``, as ``UNIONINDEX``.
 
 The census of the public rows (S-2190) found these. The import keeps a member's index in its Altium bag,
@@ -24,10 +27,16 @@ import uuid
 from collections.abc import Mapping
 from typing import TypeVar
 
-from fenolite.backends.altium.adapter.ids import UNION_KEY, VIA_UNION_OFFSET
+from fenolite.backends.altium.adapter.ids import (
+    ARC_UNION_OFFSET,
+    TEXT_UNION_OFFSET,
+    TRACK_UNION_OFFSET,
+    UNION_KEY,
+    VIA_UNION_OFFSET,
+)
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model.base import Entity, ExtBag
-from fenolite.model.board import Board, FootprintInstance, Graphic, Via
+from fenolite.model.board import Arc, Board, FootprintInstance, Graphic, Text, Track, Via
 
 EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-A-CONV-UNION",))
 """A conversion's claim: the members written with their index open in Altium as members of their union
@@ -75,16 +84,24 @@ def union_uuid(entity_id: str) -> str:
 
 def members(board: Board | None) -> dict[str, int]:
     """The union index of each member of ``board`` that a KiCad board can hold, by entity id: its vias, its
-    filled graphics and its footprints."""
+    tracks, its arcs, its graphics (a region, a free track or arc off copper), its texts and its
+    footprints."""
     if board is None:
         return {}
-    items: tuple[Entity, ...] = (*board.vias, *(g for g in board.graphics if g.filled), *board.footprints)
+    items: tuple[Entity, ...] = (
+        *board.vias,
+        *board.tracks,
+        *board.arcs,
+        *board.graphics,
+        *board.texts,
+        *board.footprints,
+    )
     return {item.id: index for item in items if (index := union_of(item))}
 
 
 def marked(board: Board, ids: Mapping[str, int]) -> Board:
-    """``board`` whose vias, filled graphics and footprints of ``ids`` carry ``union_uuid`` as their KiCad
-    uuid. A graphic that holds a KiCad uuid already (a fill's marker) keeps it."""
+    """``board`` whose vias, tracks, arcs, graphics, texts and footprints of ``ids`` carry ``union_uuid``
+    as their KiCad uuid. A graphic that holds a KiCad uuid already (a fill's marker) keeps it."""
 
     def mark(item: _E) -> _E:
         if item.id not in ids or "kicad" in item.native_ids:
@@ -92,9 +109,14 @@ def marked(board: Board, ids: Mapping[str, int]) -> Board:
         return dataclasses.replace(item, native_ids={**item.native_ids, "kicad": union_uuid(item.id)})
 
     vias: tuple[Via, ...] = tuple(mark(v) for v in board.vias)
+    tracks: tuple[Track, ...] = tuple(mark(t) for t in board.tracks)
+    arcs: tuple[Arc, ...] = tuple(mark(a) for a in board.arcs)
     graphics: tuple[Graphic, ...] = tuple(mark(g) for g in board.graphics)
+    texts: tuple[Text, ...] = tuple(mark(t) for t in board.texts)
     footprints: tuple[FootprintInstance, ...] = tuple(mark(fp) for fp in board.footprints)
-    return dataclasses.replace(board, vias=vias, graphics=graphics, footprints=footprints)
+    return dataclasses.replace(
+        board, vias=vias, tracks=tracks, arcs=arcs, graphics=graphics, texts=texts, footprints=footprints
+    )
 
 
 def carried_map(ids: Mapping[str, int]) -> bytes:
@@ -117,22 +139,30 @@ def read_map(data: bytes) -> dict[str, int]:
 
 
 def restored(board: Board, found: Mapping[str, int]) -> Board:
-    """``board`` whose vias, filled graphics and footprints of a KiCad uuid in ``found`` hold their union
-    index in their Altium bag again."""
+    """``board`` whose vias, tracks, arcs, graphics, texts and footprints of a KiCad uuid in ``found`` hold
+    their union index in their Altium bag again."""
 
     def give(item: _E) -> _E:
         index = found.get(item.native_ids.get("kicad", ""))
         return with_union(item, index) if index else item
 
     vias: tuple[Via, ...] = tuple(give(v) for v in board.vias)
-    graphics: tuple[Graphic, ...] = tuple(give(g) if g.filled else g for g in board.graphics)
+    tracks: tuple[Track, ...] = tuple(give(t) for t in board.tracks)
+    arcs: tuple[Arc, ...] = tuple(give(a) for a in board.arcs)
+    graphics: tuple[Graphic, ...] = tuple(give(g) for g in board.graphics)
+    texts: tuple[Text, ...] = tuple(give(t) for t in board.texts)
     footprints: tuple[FootprintInstance, ...] = tuple(give(fp) for fp in board.footprints)
-    return dataclasses.replace(board, vias=vias, graphics=graphics, footprints=footprints)
+    return dataclasses.replace(
+        board, vias=vias, tracks=tracks, arcs=arcs, graphics=graphics, texts=texts, footprints=footprints
+    )
 
 
 __all__ = [
+    "ARC_UNION_OFFSET",
     "CARRIER",
     "EVIDENCE",
+    "TEXT_UNION_OFFSET",
+    "TRACK_UNION_OFFSET",
     "UNION_KEY",
     "UNION_MARKER",
     "VIA_UNION_OFFSET",

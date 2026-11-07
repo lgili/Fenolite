@@ -5,13 +5,21 @@
 A conversion of an Altium design to KiCad that carries `UnionNames` SHALL write the union index of every
 union member it writes as a board property `Fenolite.Altium.UnionMembers`, keyed by the member's KiCad
 uuid. A conversion back SHALL give each member that the KiCad board still holds its index. It SHALL count
-`SmartUnions` lost under `altium-storage` when it holds data, as a frame-bound storage.
+`SmartUnions` lost under `altium-storage` when it holds data, as a frame-bound storage. An import of the
+KiCad board to Python SHALL name each track, arc and via of the property by the uuid its table row takes in
+the build, and each board text by the uuid the build gives its key, so the members survive flow A.
 
 #### Scenario: A stitching via comes back in its union
 
 - **GIVEN** an Altium document whose `UnionNames` names the union 1048581 and one of whose vias is a member
 - **WHEN** it is converted to KiCad and the KiCad board back to Altium
 - **THEN** the written via record holds 1048581 at offset 70, and `UnionNames` holds the source's bytes
+
+#### Scenario: Union members survive flow A
+
+- **GIVEN** the public row `-07`, whose five unions hold 27 tracks and 20 arcs
+- **WHEN** it is imported to Python, built and converted to Altium
+- **THEN** the written tracks and arcs hold the source's union indices, member for member
 
 #### Scenario: A smart union stays behind
 

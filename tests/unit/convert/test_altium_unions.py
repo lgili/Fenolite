@@ -5,13 +5,17 @@ c0460)."""
 
 import dataclasses
 import struct
+from collections import Counter
 from pathlib import Path
 
+import pytest
+from _altium_board6 import read_document
 from _convert import two_layer
 
 from fenolite.backends.altium import lower, unions
 from fenolite.backends.altium.backend import AltiumBackend
 from fenolite.backends.altium.cfb import storage_from_paths, write_compound
+from fenolite.backends.altium.libboard import long_id
 from fenolite.backends.altium.read.cfb import open_compound
 from fenolite.backends.altium.read.pcb import read_pcbdoc
 from fenolite.backends.altium.read.pcbprims import RawPrimitive, RegionRecord
@@ -20,7 +24,7 @@ from fenolite.convert import altium_storages as storages
 from fenolite.convert import convert_project
 from fenolite.convert.sources import read_source
 from fenolite.core.coords import Point
-from fenolite.model.board import Graphic
+from fenolite.model.board import Graphic, Size, Text
 from fenolite.model.design import Design
 
 UNION = 1048581
@@ -156,3 +160,213 @@ def test_a_map_line_that_is_not_a_member_is_left_out() -> None:
     assert unions.read_map(f"{uuid} 5\nnot a line\n{uuid.upper()} 6\n{uuid} 0\n".encode()) == {uuid: 5}
     assert unions.carried_map({"via-1": 5}) == f"{uuid} 5\n".encode()
     assert int(uuid.replace("-", ""), 16) >> 80 == unions.UNION_MARKER
+
+
+TRACK_UNION, ARC_UNION = 17, 19
+"""The indices of the authored track and arc members (the form of row ``-07``'s length tunings)."""
+
+
+def _strokes() -> Design:
+    """The two-layer board whose first track is a member of ``TRACK_UNION`` and whose arc is a member of
+    ``ARC_UNION``."""
+    design = two_layer()
+    board = design.board
+    assert board is not None and board.tracks and board.arcs
+    first, *tracks = board.tracks
+    arc, *arcs = board.arcs
+    board = dataclasses.replace(
+        board,
+        tracks=(unions.with_union(first, TRACK_UNION), *tracks),
+        arcs=(unions.with_union(arc, ARC_UNION), *arcs),
+    )
+    return dataclasses.replace(design, board=board)
+
+
+def _stroke_unions(document: bytes) -> Counter[tuple[str, int]]:
+    """The union members of a document's tracks (36), arcs (48) and vias (70), by kind and index."""
+    read = read_pcbdoc(document)
+    found: Counter[tuple[str, int]] = Counter()
+    for kind, items, offset in (
+        ("track", read.tracks, unions.TRACK_UNION_OFFSET),
+        ("arc", read.arcs, unions.ARC_UNION_OFFSET),
+        ("via", read.vias, unions.VIA_UNION_OFFSET),
+    ):
+        for item in items:
+            body = bytes(item.raw)[5:]
+            index = struct.unpack_from("<I", body, offset)[0] if len(body) >= offset + 4 else 0
+            if index:
+                found[kind, index] += 1
+    return found
+
+
+def test_a_track_and_an_arc_are_written_in_their_union() -> None:
+    """Scenario "A length tuning comes back in its union" (S-2190): the member track is written in the
+    49-byte form with its index at 36, the member arc in the 60-byte form with its index at 48, each with
+    its layer's long id and no restriction; the other tracks keep the 36-byte form, and the import reads
+    both members again."""
+    document = _written(_strokes())
+    assert _stroke_unions(document) == Counter({("track", TRACK_UNION): 1, ("arc", ARC_UNION): 1})
+    read = read_pcbdoc(document)
+    tracks = [bytes(t.raw)[5:] for t in read.tracks if not isinstance(t, RawPrimitive)]
+    (member,) = [body for body in tracks if len(body) == 49]
+    assert struct.unpack_from("<IBIB", member, 36) == (TRACK_UNION, 0, long_id(1), 0)
+    assert all(len(body) == 36 for body in tracks if body is not member)
+    arcs = [bytes(a.raw)[5:] for a in read.arcs if not isinstance(a, RawPrimitive)]
+    (arc,) = [body for body in arcs if len(body) == 60]
+    assert struct.unpack_from("<BIIB", arc, 47) == (0, ARC_UNION, long_id(1), 0)
+    _, imported = read_document(document, "strokes.PcbDoc")
+    assert imported.board is not None
+    assert sorted(unions.members(imported.board).values()) == [TRACK_UNION, ARC_UNION]
+
+
+UNION_ROWS = ("02", "07")
+"""The public rows whose union members are free tracks and arcs (S-2190): ``-02`` 16 tracks, ``-07`` 27
+tracks and 20 arcs; every other member of theirs is a via."""
+
+
+def _row(row: str) -> Path:
+    from _corpus import manifest_items, require
+
+    (item,) = [i for i in manifest_items("altium-pcbdoc") if i.id == f"altium-third-party-pcbdoc-{row}"]
+    return require(item)
+
+
+@pytest.mark.needs_corpus
+@pytest.mark.parametrize("row", UNION_ROWS)
+def test_row_union_strokes_survive_kicad(tmp_path: Path, row: str) -> None:
+    """A conversion to KiCad and back writes every track, arc and via member of the row in its union."""
+    source = _row(row)
+    conversion = convert_project(read_source(source), to="kicad", allow_lossy=True)
+    folder = tmp_path / "kicad"
+    for name, data in conversion.files.items():
+        (folder / name).parent.mkdir(parents=True, exist_ok=True)
+        (folder / name).write_bytes(data)
+    back = convert_project(read_source(folder / conversion.read_back), to="altium", allow_lossy=True)
+    document = next(data for name, data in back.files.items() if name.endswith(".PcbDoc"))
+    before = _stroke_unions(source.read_bytes())
+    assert sum(n for (kind, _), n in before.items() if kind != "via") == {"02": 16, "07": 47}[row]
+    assert _stroke_unions(document) == before
+
+
+FLOW_A_MEMBERS = {"04": 22, "07": 47}
+"""The track, arc and via members of the rows flow A is run on: ``-04``'s 22 stitching vias, ``-07``'s 27
+tracks and 20 arcs of five length-tuning unions."""
+
+
+@pytest.mark.needs_corpus
+@pytest.mark.parametrize("row", sorted(FLOW_A_MEMBERS))
+def test_flow_a_keeps_row_unions(tmp_path: Path, row: str) -> None:
+    """Scenario "Union members survive flow A" (``import --to python``, ``build``, ``convert --to altium``):
+    the build gives each table row a uuid of its own, and the import names the members by those uuids in
+    the carried map, so every member comes back with its index (the VM finding at 332b79837: ``-07``'s 47
+    members became 0)."""
+    from fenolite.api import run
+
+    stamp = "2026-11-06T00:00:00Z"
+
+    def go(*args: str) -> None:
+        planned = run(*args, "--dry-run", cwd=tmp_path, timestamp=stamp)
+        assert planned.exit_code == 0, planned.error
+        plan = str(planned.result["plan_id"])
+        done = run(*args, "--confirm", "--plan", plan, cwd=tmp_path, timestamp=stamp)
+        assert done.exit_code == 0, done.error
+
+    source = _row(row)
+    go("import", str(source), "--to", "python", "--out", "py", "--licence", "CC0-1.0", "--copyright",
+       "2026 Fenolite contributors", "--allow-lossy")  # fmt: skip
+    go("build", str(tmp_path / "py" / "design.py"), "--out", "b")
+    (built,) = (tmp_path / "b").glob("*.kicad_pcb")
+    go("convert", str(built), "--to", "altium", "--out", "alt", "--allow-lossy")
+    (path,) = (tmp_path / "alt").glob("*.PcbDoc")
+    before = _stroke_unions(source.read_bytes())
+    assert sum(before.values()) == FLOW_A_MEMBERS[row]
+    assert _stroke_unions(path.read_bytes()) == before
+
+
+TEXT_UNION = 77
+"""The index of the authored text members (the form of row ``-08``'s union 77)."""
+
+
+def _text_unions(document: bytes) -> list[tuple[str, int]]:
+    """The non-zero union index at 119 of each text record's first subrecord, with the text's role."""
+    found: list[tuple[str, int]] = []
+    for item in read_pcbdoc(document).texts:
+        if isinstance(item, RawPrimitive):
+            continue
+        raw = bytes(item.raw)
+        first = raw[5 : 5 + struct.unpack_from("<I", raw, 1)[0]]
+        index = struct.unpack_from("<I", first, unions.TEXT_UNION_OFFSET)[0]
+        if index:
+            role = "designator" if item.is_designator else "comment" if item.is_comment else "free"
+            found.append((role, index))
+    return sorted(found)
+
+
+def _text_members() -> Design:
+    """The two-layer board whose first footprint and a free silkscreen text are members of ``TEXT_UNION``."""
+    design = two_layer()
+    board = design.board
+    assert board is not None and board.footprints
+    fp, *footprints = board.footprints
+    label = Text(
+        id="txt-label",
+        text="L",
+        position=Point(4 * MM, 4 * MM),
+        layer="F.SilkS",
+        size=Size(MM, MM),
+        thickness=MM // 10,
+    )
+    board = dataclasses.replace(
+        board,
+        footprints=(unions.with_union(fp, TEXT_UNION), *footprints),
+        texts=(*board.texts, unions.with_union(label, TEXT_UNION)),
+    )
+    return dataclasses.replace(design, board=board)
+
+
+def test_texts_are_written_in_their_union(tmp_path: Path) -> None:
+    """Scenario "A text keeps its union" (S-2190): a free text member holds its index at 119, the
+    designator and comment of a member component hold the component's, every other text 0; the import
+    reads the free text's index again."""
+    document = _written(_text_members())
+    roles = [role for role, index in _text_unions(document) if index == TEXT_UNION]
+    assert sorted(roles) == ["comment", "designator", "free"]
+    assert {index for _, index in _text_unions(document)} == {TEXT_UNION}
+    path = tmp_path / "texts.PcbDoc"
+    path.write_bytes(document)
+    read = AltiumBackend().read(path).design.board
+    assert read is not None
+    assert [unions.union_of(t) for t in read.texts if t.text == "L"] == [TEXT_UNION]
+
+
+def test_flow_a_keeps_a_text_member(tmp_path: Path) -> None:
+    """Flow A of an authored document with ``UnionNames`` whose free text is a member: the build gives the
+    text a uuid of its own, and the import names it by that uuid in the carried map, so the written free
+    text holds its index at 119 again. A member footprint is not carried through flow A yet (the build
+    gives it a uuid the import does not map; c0460 task 2.4)."""
+    from fenolite.api import run
+
+    streams = open_compound(_written(_text_members())).as_dict()
+    names = struct.pack("<I", 1) + struct.pack("<II", TEXT_UNION, 10) + "Texts".encode("utf-16-le")
+    streams["UnionNames/Header"] = struct.pack("<I", 1)
+    streams["UnionNames/Data"] = names
+    source = tmp_path / "src" / "texts.PcbDoc"
+    source.parent.mkdir()
+    source.write_bytes(write_compound(storage_from_paths(streams)))
+    stamp = "2026-11-06T00:00:00Z"
+
+    def go(*args: str) -> None:
+        planned = run(*args, "--dry-run", cwd=tmp_path, timestamp=stamp)
+        assert planned.exit_code == 0, planned.error
+        plan = str(planned.result["plan_id"])
+        done = run(*args, "--confirm", "--plan", plan, cwd=tmp_path, timestamp=stamp)
+        assert done.exit_code == 0, done.error
+
+    go("import", str(source), "--to", "python", "--out", "py", "--licence", "CC0-1.0", "--copyright",
+       "2026 Fenolite contributors", "--allow-lossy")  # fmt: skip
+    go("build", str(tmp_path / "py" / "design.py"), "--out", "b")
+    (built,) = (tmp_path / "b").glob("*.kicad_pcb")
+    go("convert", str(built), "--to", "altium", "--out", "alt", "--allow-lossy")
+    (path,) = (tmp_path / "alt").glob("*.PcbDoc")
+    free = [found for found in _text_unions(path.read_bytes()) if found[0] == "free"]
+    assert free == [("free", TEXT_UNION)]

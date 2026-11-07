@@ -1188,7 +1188,14 @@ def _drawings(
     *,
     physical_edges: bool = False,
     spellings: Mapping[str, str] | None = None,
+    built: dict[str, str] | None = None,
 ) -> list[list[str]]:
+    """The ``design.text()`` and drawing calls of the board's texts and graphics. ``members``, when given,
+    takes each written item's KiCad uuid → its key (``design.group()``). ``built`` (change c0460), when
+    given, takes each written board text's KiCad uuid → the uuid the build gives it
+    (``boarditems.item_uuid`` of its DSL id), as ``Tables.built`` does for copper."""
+    from fenolite.backends.kicad.boarditems import item_uuid
+    from fenolite.dsl.convert import key_id
     from fenolite.dsl.items import BOARD_LAYER_KINDS
 
     # a DSL board holds the standard layers and the user layers it declares (design.user_layers, c0277)
@@ -1245,6 +1252,8 @@ def _drawings(
         out.append(statement(made))
         if members is not None:
             members[_native(item)] = text(key)
+        if built is not None and _native(item):
+            built[_native(item)] = item_uuid(key_id("text", key))
 
     def dkey(item: Dimension) -> tuple[object, ...]:
         return (item.layer, item.start.x, item.start.y, item.end.x, item.end.y, item.offset)
@@ -1288,10 +1297,35 @@ def _group_nodes(board: Board) -> list[Node]:
     return [child for child in _root_nodes(board) if child.name == "group"]
 
 
+_CARRIED_UUID = re.compile(rb"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+
+
+def _carried_property(tree: Node, built: Mapping[str, str]) -> Node:
+    """A carried property (``boardcarrier``, ``Fenolite.Altium.<Name>``) whose payload names copper by uuid,
+    with each copper uuid the uuid its table row takes in the build (change c0460): the union members of
+    ``Fenolite.Altium.UnionMembers`` are tracks, arcs and vias. Another payload stays as it is."""
+    from fenolite.backends.kicad import boardcarrier
+
+    atoms = tree.atoms()
+    if len(atoms) != 2 or not atoms[0].value.startswith(boardcarrier.PREFIX) or tree.nodes():
+        return tree
+    try:
+        data = boardcarrier.unpack(atoms[1].value)
+    except ValueError:
+        return tree
+    renamed = _CARRIED_UUID.sub(lambda m: built.get(m.group().decode(), m.group().decode()).encode(), data)
+    if renamed == data:
+        return tree
+    return tree.with_children([atoms[0], Atom.string(boardcarrier.pack(renamed))])
+
+
 def _verbatim_node(tree: Node, numbers: Mapping[int, str], built: Mapping[str, str]) -> Node | None:
     """``tree`` as a verbatim item says it (change c0277): a net named by its number (a KiCad 9 board) named
-    by its name, and each copper uuid of a ``members`` list the uuid its table row takes in the build;
-    ``None`` when a net number or a member names nothing the code writes."""
+    by its name, each copper uuid of a ``members`` list the uuid its table row takes in the build, and each
+    copper uuid of a carried property's payload too (``_carried_property``, change c0460); ``None`` when a
+    net number or a member names nothing the code writes."""
+    if tree.name == "property":
+        return _carried_property(tree, built)
     if tree.name == "net":
         atoms = tree.atoms()
         if len(atoms) == 1 and atoms[0].kind == AtomKind.STRING:
@@ -1824,12 +1858,20 @@ def emit(source: Source, options: Options) -> Emission:
                 field_lines.append(statement(call))
     zone_lines = _zones(board, names, net_vars, layers, ledger, grouped, writer)
     area_lines = _areas(board, layers, ledger, grouped)
+    built = dict(tables.built)  # copper and board texts → their uuids in the build (change c0460)
     drawing_lines = _drawings(
-        board, ledger, grouped, net_vars, numbers, physical_edges=_physical_edges(design), spellings=spellings
+        board,
+        ledger,
+        grouped,
+        net_vars,
+        numbers,
+        physical_edges=_physical_edges(design),
+        spellings=spellings,
+        built=built,
     )
     binary: dict[str, bytes] = {}
     drawing_lines += _images(board, ledger, binary, grouped)
-    verbatim_lines = _verbatim(board, numbers, tables.built, grouped, ledger)
+    verbatim_lines = _verbatim(board, numbers, built, grouped, ledger)
     group_lines = _groups(board, grouped, ledger)
     coverage.scan(design, ledger)
     issues += coverage.regenerated_issues(ledger)
