@@ -19,6 +19,15 @@ GitHub repository on the public patterns.
 | 2026-10-08 | v0.4.0 | root .. 367cdf8 | 8053 blobs reachable from any ref | 5 structural + blob list | not run | 0 |
 | 2026-10-15 | v0.5.0 | root .. 9946628 | 9814 blobs reachable from any ref | 5 structural + blob list | not run | 0 |
 | 2026-10-29 | v0.6.0 | root .. ab73da4 | 6991 blobs reachable from any ref of the local clone | 5 structural + blob list | not run | 0 |
+| 2026-11-06 | v0.7.0 | root .. 890c4e39c | 25559 files of the blobs reachable from any ref of the local clone | 5 structural + blob list | on (separate run: 42 history hits, 0 in the tree; below) | 0 |
+
+v0.7.0, 2026-11-06 (c0469 task 1.3). The public scan at `890c4e39c` over every ref of the local clone:
+`residue: 0 hit(s) in 0 file(s); 25559 file(s) scanned; waivers: 23`. A separate run with the private gate
+on, over the same refs at `89c5334d9`: 42 hits in the history and 0 in the tree of `cac/lote-29`. 41 hits are
+pattern `private-token-9`, one leaked identifier first committed on 2026-11-06; 8 of them are reachable from
+`origin/dev`, and all 41 were fixed forward under the maintainer's decision of 2026-11-06, with no history
+rewrite. 1 hit is pattern `private-token-3`, a chance byte match inside zlib-compressed PNG data (an `IDAT`
+chunk of `tests/visual/refs/altium_sheet.png`) reachable only from `origin/c0245-engineering-viewer`.
 
 Public development proof, 2026-11-01 (c0316, no tag or release):
 `make residue-history` passed on `8536797276b61e0ef02ee07dc1d7811b026f34ac`.
