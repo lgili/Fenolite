@@ -6,6 +6,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- c0450 task 4.4: a filled rectangle of a component on Mechanical 17 to 32 is written as a fill record with its long layer id, since a region record names no layer above Mechanical 16. Row `-08`'s five component fills on Mechanical 20 no longer come back on Mechanical 16, and its RTA3 round trips are equal again.
 - Package layering: `convert` no longer imports `checks` (it did since c0462 tasks 4.3 to 4.5, against capability package-layering). The selector matching of the clearance rules moves to `fenolite.model.selectors` (`selector_matches`, re-exported by `checks.clearance`), and the Altium scope objects of the conversion name the default net class themselves.
 - c0462 tasks 5.2 and 5.3: the pour and conversion censuses pass as pinned on `cac/lote-29`. No polygon is refused for a rule scope or a connect scope. A polygon is refused `rule-unmapped` only for a record that the design names (`IGNOREPADTOPADCLEARANCEINFOOTPRINT=TRUE`, an object matrix refused `matrix-kind`), which `test_altium_rule_kinds_c0462.py` now checks per row; the scenario and task 5.2 say so (coordinator, 2026-11-06).
 - Altium Designer 24.5 confirms the frame of the KiCad round trips (c0467 task 4.1, S-2263): origin, outline box and component positions of public rows `-01`, `-04`, `-07` and `-08` equal the source's. The outline's start vertex and direction are a recorded difference with the same shape.

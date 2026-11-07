@@ -47,7 +47,10 @@ def _authored() -> dict[str, list[bytes]]:
     ]
     arc = rec.ArcGeometry(200 * MIL, 200 * MIL, 40 * MIL, 0.0, 90.0)
     arcs = [_long(rec.arc_record(72, arc, 10 * MIL), mech[21])]
-    fills = [rec.fill_record(72, mech[20], (300 * MIL, 300 * MIL), (340 * MIL, 320 * MIL), 0.0)]
+    fills = [
+        rec.fill_record(72, mech[20], (300 * MIL, 300 * MIL), (340 * MIL, 320 * MIL), 0.0),
+        rec.fill_record(72, mech[20], (10 * MIL, 10 * MIL), (30 * MIL, 20 * MIL), 0.0, component=0),
+    ]
     return {"Tracks6": tracks, "Arcs6": arcs, "Fills6": fills}
 
 
@@ -131,7 +134,18 @@ def test_the_round_trip_keeps_the_long_ids(tmp_path: Path) -> None:
     source, document = _round_trip(tmp_path)
     before, after = _layers(source), _layers(document)
     assert before[("track", 72, 20, False)] == 2 and before[("fill", 72, 20, False)] == 1
+    assert before[("fill", 72, 20, True)] == 1
     assert {k: v for k, v in after.items() if k[2] > 16} == {k: v for k, v in before.items() if k[2] > 16}
+
+
+def test_a_component_fill_keeps_its_long_id(tmp_path: Path) -> None:
+    """A filled rectangle of a component on Mechanical 20 that is not tagged as a fill is written as a fill
+    record with its long id, since a region record names no layer above Mechanical 16 (row ``-08``: five
+    component fills on Mechanical 20)."""
+    design = read_source(_document(tmp_path)).design
+    written = lower.write_design(design, allow_lossy=True, rewrite=True)
+    document = next(data for name, data in written.files.items() if name.endswith(".PcbDoc"))
+    assert _layers(document)[("fill", 72, 20, True)] == 1
 
 
 def test_the_round_trip_keeps_the_names_and_flags(tmp_path: Path) -> None:

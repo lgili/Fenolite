@@ -1346,7 +1346,8 @@ def place_component(
                     )
             elif (
                 graphic.filled
-                and (item.fill or item.keepout is not None)
+                # a region names no layer above Mechanical 16, a fill holds its long id (c0450, task 4.4)
+                and (item.fill or item.keepout is not None or rec.is_long_mechanical(item.layer))
                 and (shape := fill_geometry(corners)) is not None
             ):
                 a, b, turn = shape
