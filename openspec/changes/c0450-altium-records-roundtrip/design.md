@@ -104,3 +104,14 @@ bag (`text_tail`). A conversion to KiCad carries them by KiCad uuid in `Fenolite
 those bytes with the long id at 226; a text on a long id without them (an authored one, or one whose uuid
 KiCad changed) keeps the 137-byte form on Mechanical 16, and every other text keeps the 137-byte form, so no
 other record changes.
+
+## Width 0 on mechanical layers (task 4.6)
+
+Altium stores tracks and arcs of width 0 on mechanical layers: rows `-01` (68 tracks and 1 arc on
+Mechanical 1) and `-03` (4 and 4), all of components (S-2286). The import and a build keep width 0, but
+`pcbdoc.graphic_problem` refused every drawn shape without a positive width, so flow A of `-01` lost them.
+The writer now accepts width 0 for a line or an arc on a layer that the document names as Mechanical 1
+to 32 (`Mech.<n>` of a board that was read, a KiCad user layer of `lower.named_mechanical`;
+`pcbrecords.mechanical_number`), free or of a component, and writes it with width 0. Copper, the layers of
+the fixed KiCad map (`F.Fab` and the others: their pins keep the refusal), every other layer, drawn rectangles, circles and polygons, and negative widths keep the refusal: the corpus shows width
+0 nowhere else.

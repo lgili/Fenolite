@@ -373,15 +373,17 @@ def test_in_model_frame_names_fenolite_mechanical_layers() -> None:
 def test_rta3_takes_out_the_footprint_items_that_are_not_written(tmp_path: Path) -> None:
     """Capability altium-verification, "Round-trip level RT-A3": ``rta3.without_unwritten`` takes out of the
     first model the footprint graphics that the write counts under ``footprint-copper`` and
-    ``footprint-graphic`` (here a track of the component on the top copper layer and a track of zero width
-    on Mechanical 1), so the first model and the reading of the rewrite are equal in the written scope
-    (design of c0126, "Found on 2026-10-08", 16)."""
+    ``footprint-graphic`` (here a track of the component on the top copper layer and a track without extent
+    on Mechanical 1; a track of width 0 there is written since change c0450 task 4.6), so the first model
+    and the reading of the rewrite are equal in the written scope (design of c0126, "Found on 2026-10-08",
+    16)."""
     from fenolite.backends.altium.rta3 import without_unwritten
 
     first = _mechanical_document()
     owner = next(fp for fp in _board(first).footprints if fp.graphics)
     copper = dataclasses.replace(owner.graphics[0], id="gfx_copper", layer="F.Cu")
-    thin = dataclasses.replace(owner.graphics[0], id="gfx_thin", width=0)
+    start = owner.graphics[0].points[0]
+    thin = dataclasses.replace(owner.graphics[0], id="gfx_thin", points=(start, start))
     design = _with_footprint(first, dataclasses.replace(owner, graphics=(*owner.graphics, copper, thin)))
     written = AltiumBackend().write(design, allow_lossy=True, rewrite=True)
     kept = written.inputs.not_lowered

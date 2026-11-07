@@ -39,6 +39,9 @@
   Mechanical 16 and the long id of Mechanical 17 to 32 comes back from KiCad with that byte and long id, and
   the layer's `LAYERV7_<i>` name and flag come back (S-2282);
   `uv run pytest tests/unit/convert/test_long_mechanical_c0450.py -n 0`.
+- [x] 4.6 Lines and arcs of width 0 on a mechanical layer are written with width 0 (row `-01`: 68 tracks and
+  1 arc of components on Mechanical 1, S-2286); copper and every other layer keep the refusal;
+  `uv run pytest tests/unit/convert/test_zero_width_mechanical_c0450.py -n 0`.
 - [x] 4.5 Texts on Mechanical 17 to 32 keep their long id: a text with the byte 72 and the long id of
   Mechanical 17 to 32 at 226 comes back from KiCad in the source's form with that id
   (`Fenolite.Altium.TextTails`, S-2285); every other text keeps the 137-byte form;

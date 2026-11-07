@@ -1675,8 +1675,9 @@ def graphic_problem(
 ) -> str | None:
     """Why a board graphic cannot be written, or ``None``: a layer outside ``BOARD_LAYER_MAP`` and
     ``copper``, a point count that does not fit its kind, collinear arc points, or a drawn outline without
-    a positive width. ``arc_known`` says that the arc is written from a record of its own
-    (``PcbDocSpec.arc_records``, change c0127), so its three points need not give a circle. ``copper``
+    a positive width; a line or an arc of width 0 on a mechanical layer that ``layers`` names is written
+    (``_on_mechanical``, change c0450 task 4.6). ``arc_known`` says that the arc is written from a record of
+    its own (``PcbDocSpec.arc_records``, change c0127), so its three points need not give a circle. ``copper``
     (change c0412) are the signal layers of the written stack: a graphic there is copper of its net."""
     if graphic.layer not in copper and board_layer(graphic.layer, layers) is None:
         return f"the layer {graphic.layer} has no layer in the document for a graphic"
@@ -1696,11 +1697,24 @@ def graphic_problem(
         except ValueError:
             return "the three points of the arc lie on one line"
     drawn = graphic.kind in ("line", "arc") or not graphic.filled
-    if drawn and graphic.width <= 0:
+    # a line or an arc of width 0 on a mechanical layer, as a source document holds it (change c0450 4.6)
+    hairline = graphic.width == 0 and graphic.kind in ("line", "arc") and _on_mechanical(graphic, layers)
+    if drawn and graphic.width <= 0 and not hairline:
         return f"a drawn {graphic.kind} needs a positive width, not {graphic.width} nm"
     if graphic.filled and graphic.kind == "circle":
         return "a filled circle has no record: a region holds straight edges only"
     return None
+
+
+def _on_mechanical(graphic: Graphic, layers: Mapping[str, int] | None) -> bool:
+    """Whether ``graphic`` is on a layer that ``layers`` names as Mechanical 1 to 32
+    (``pcbrecords.mechanical_number``): ``Mech.<n>`` of a board that was read, or a KiCad user layer named
+    after a mechanical layer (``lower.named_mechanical``). A layer of ``pcbrecords.BOARD_LAYER_MAP``
+    (``F.Fab``, ``F.CrtYd`` …) is not one: a KiCad drawing there keeps the refusal."""
+    if graphic.layer in rec.BOARD_LAYER_MAP or layers is None:
+        return False
+    layer = layers.get(graphic.layer)
+    return layer is not None and rec.mechanical_number(layer) is not None
 
 
 def _in_order(keepout: Keepout, names: Sequence[str]) -> list[str]:

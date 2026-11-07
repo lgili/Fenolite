@@ -64,3 +64,19 @@ form.
 - **WHEN** it is converted to KiCad and back
 - **THEN** the first text comes back with 252 bytes, the byte 72, the long id of Mechanical 20 and the same
   bytes from 137, and the second in the 137-byte form
+
+### Requirement: Width 0 on mechanical layers
+
+The writer SHALL write a line or an arc of width 0 on a layer the document names as Mechanical 1 to 32
+(`Mech.<n>` of a board that was read, or a KiCad user layer named after a mechanical layer), free or of a
+component, with width 0. A drawn shape of width 0 on any other layer (copper, `F.Fab` and the other
+layers of the fixed KiCad map), a drawn rectangle, circle or polygon of width 0 and a
+negative width SHALL stay refused.
+
+#### Scenario: A line of width 0 on a mechanical layer
+
+- **GIVEN** an Altium document with a free track, a component track and a component arc of width 0 on
+  Mechanical 1
+- **WHEN** it is converted to KiCad and back
+- **THEN** the document holds the three of them on Mechanical 1 with width 0, and a line of width 0 on a
+  silkscreen or copper layer is still refused
