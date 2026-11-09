@@ -37,6 +37,15 @@ def sheets(files: dict[str, bytes]) -> list[str]:
     return sorted(name for name in files if name.endswith(".kicad_sch"))
 
 
+def generated(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Convert as for a source without sheets: the generator draws the schematic. Since change c0470 a
+    source with sheets keeps its own drawing; these variants move components between sheets only in the
+    circuit, so they keep testing the generator."""
+    import fenolite.convert.schematic as drawing_lib
+
+    monkeypatch.setattr(drawing_lib, "drawing_of", lambda source: None)  # pyright: ignore[reportUnknownLambdaType]
+
+
 def refusing_more_than(monkeypatch: pytest.MonkeyPatch, most: int) -> None:
     """Make the layout refuse a sheet of more than ``most`` units, as a page too small would."""
     import fenolite.backends.kicad.schlayout as schlayout

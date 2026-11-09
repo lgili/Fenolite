@@ -159,6 +159,8 @@ def write_symbol_library(symbols: Sequence[SymbolDef], *, target: int = 10) -> s
         out = [f"\t(symbol {q(symbol.name)}"]
         if symbol.extends:
             out.append(f"\t\t(extends {q(symbol.extends)})")
+        if symbol.power:  # KiCad 10 names the scope; KiCad 9 knows global power symbols only (change c0470)
+            out.append(f"\t\t(power {symbol.power})" if target >= 10 else "\t\t(power)")
         out += [
             f"\t\t(exclude_from_sim {'yes' if symbol.exclude_from_sim else 'no'})",
             f"\t\t(in_bom {'yes' if symbol.in_bom else 'no'})",

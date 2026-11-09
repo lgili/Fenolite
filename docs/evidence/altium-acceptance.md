@@ -238,3 +238,72 @@ The saved files and logs stay in `claude-2026-11-04/c0092-saved/` and `c0092-out
 repository. This is an agent run on the acceptance tree. It records the steps and does not graduate any
 kind. Task 5.3 stays open: per-kind graduation needs a current `ALTIUM-VERIFIED` kit support, which the
 approved 24.5 scope cannot give, and exact-source CI is still pending.
+
+## Altium kit run of the converted sheets, 2026-11-08 (source S-2287)
+
+A Claude agent ran the schematic kit at the maintainer's request on the maintainer's Parallels Windows
+VM, with the Altium Designer that reports `Client.GetProductVersion` 24.5.2.23 (Trial). This is not the
+maintainer's own review. The artifacts were written by the c0470 code state (branch `claude/c0470-impl`,
+one commit behind `dev` `faacd6382`) with Fenolite's `convert` in both directions; `hier`, which has no
+PCB document, went through `convert/schematic.py` in both directions. The job opened each project in a
+new Altium session, compiled it, and printed every flattened component, every net with its pins, and
+every compiler message; it saved nothing.
+
+| project | source | components | nets | compiler messages |
+|---|---|---|---|---|
+| `blink` | S-0188 family, `tests/data/altium/blink` | 3 / 3 | 32 / 32 | 3 Error + 2 Warning, identical |
+| `altium_hier_board` | authored example | 3 / 3 | 32 / 32 | source 3 Error + 2 Warning; converted 3 Error + 3 Warning |
+| `hier` | `tests/data/altium/hier` | 6 / 6 | 9 / 9 | source 1 Info; converted 1 Info + 6 Warning |
+| `Battman` (`altium-set:02`, supplementary) | S-0188 | 248 / 248 | 183 / 188 | source 86 Warning + 1 Info; converted 3 Error + 58 Warning |
+
+The pair in each cell is the source drawing and the drawing read back after Altium → KiCad → Altium, or
+KiCad → Altium for the demos.
+
+**`blink`, `altium_hier_board`, `hier`.** The components and the net partition are equal on all three:
+no pin is missing, no two nets are merged, and no net is split. The three Errors on `blink` and
+`altium_hier_board` are the source's own (`NetU1_11` and `NetU1_12` contain floating input pins, `VIN`
+has only one pin), and they are reproduced word for word. The converted `altium_hier_board` adds one
+warning, a duplicate port `LED_A` at two positions. The converted `hier` adds six: four "net has multiple
+names" warnings (`SPI_CS`, `SPI_MISO`, `SPI_MOSI` and `SPI_SCK` carry both a net label and the two
+`flash-SPI.*` / `mcu-SPI.*` sheet entries) and two duplicate ports (`FLASH_WP`, `RESET_N`). Each is a
+message about the same connectivity; the net partition does not change.
+
+**Six public KiCad 10.0.6 demos.** Each Altium project opened, compiled and produced no script `ERROR`
+row:
+
+| project (corpus row) | components | nets | compared with `kicad-cli` 10.0.6 |
+|---|---|---|---|
+| `complex_hierarchy` (`kicad-demo-10-0-6-sch-01`) | 68 | 52 | 52 nets, same partition and same pins |
+| `ecc83-pp` (`-011`) | 15 | 13 | 13 nets, same partition and same pins |
+| `ecc83-pp_v2` (`-012`) | 15 | 13 | 13 nets, same partition and same pins |
+| `interf_u` (`-013`) | 24 | 175 | 173 nets; equal after the 16 implicit power pins and 2 empty bus nets below |
+| `laser_driver` (`-053`) | 13 | 9 | 9 nets, same partition and same pins |
+| `royer1` (`-058`) | 17 | 10 | 10 nets, same partition and same pins |
+
+The reference is the `kicadxml` netlist of the source project from `kicad-cli` 10.0.6, compared as a
+partition of `(reference, pin)` pairs. `interf_u` has 16 pins of `U5` and `U9` that `kicad-cli` puts on
+`GND` or `VCC` as `power_in` pins; Altium connects them implicitly and does not list them, so the two
+`GND` and `VCC` groups differ only by those 16 pins. Altium also lists the two empty bus nets
+`PC-DB[0..7]` and `PC-A[0..11]`, which have no pin. Removing the 16 implicit power pins and the two empty
+nets makes every group equal.
+
+**`Battman` (supplementary, not acceptance).** All 248 components and their references are equal and no
+script `ERROR` row appears. The source gives 183 nets and the converted drawing 188. Every difference is
+accounted for:
+
+- **`JP6` pin designators.** The source lists the connector's pins by number (`JP6.1`, `JP6.2`, `JP6.3`,
+  `JP6.5`, `JP6.6`, `JP6.ID`); the converted symbol takes the names of its pin-to-pad map
+  (`JP6.VBUS`, `JP6.D+`, `JP6.D-`, `JP6.GND`, `JP6.MT1`, `JP6.ID`). Each pair is on the same net, so the
+  connectivity is unchanged; only the pin spelling differs.
+- **Five nets split by a local label promoted to a port at a sheet crossing.** `POWER_BTN` becomes the
+  identical net `NetQ1_3` (`Q1.3`, `R62.1`, `U2.20`), and four nets lose one branch each, which becomes a
+  net of its own: `NetQ1_1` → `NetQ12_1` (`Q12.1`, `R46.1`, `R47.2`); `NetR39_1` → `NetU2_18` (`U2.18`);
+  `NetQ9_1` → `NetU2_43` (`U10.7`, `U2.43`); `NetQ11_1` → `NetU2_19` (`U2.19`); and `NetJP4_1` →
+  `NetR46_2` (`R46.2`). Every pin is present exactly once; the split follows the label that the source
+  keeps on one sheet and the conversion promotes across the sheet boundary.
+
+Within this scope the run supports `ALTIUM-VERIFIED(kit)` for the converted sheets of `blink`,
+`altium_hier_board`, `hier` and the six demos. It covers netlist and compiler-message equivalence on the
+24.5 trial, not the drawing's appearance and not per-kind graduation; it also does not cover the
+`Battman` net split, which is supplementary evidence only. The artifacts, the scripts and the results
+stay in the harness folder outside the repository, and no input file changed.

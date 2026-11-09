@@ -11,7 +11,7 @@ import shutil
 from pathlib import Path
 
 from fenolite.api.conversion import verify_conversion
-from fenolite.convert import convert_project
+from fenolite.convert import codes, convert_project
 from fenolite.convert.altium_to_kicad import DUPLICATE_DESIGNATORS, DUPLICATE_PLACED
 from fenolite.convert.sources import SourceProject, read_source
 from fenolite.core.coords import Point
@@ -63,13 +63,15 @@ def test_duplicate_designators_keep_the_schematic() -> None:
 
 
 def test_duplicate_designators_on_the_board_stay() -> None:
-    """Two placed parts that share a designator both keep it, on the board as in the source; the
-    schematic, which needs distinct designators, is a reported loss, not an internal failure."""
+    """Two placed parts that share a designator both keep it, on the board as in the source. The source
+    drawing is kept (change c0470): no sheet draws the twin, so it is a footprint without a symbol, a
+    reported change, and the drawing names each designator once."""
     source, ref = _with_twin(placed=True)
     conversion = convert_project(source, to="kicad", allow_lossy=True)
     row = conversion.report.row("schematic")
-    assert row is not None and row.lost == 1
-    assert [r.reason for r in row.reasons if r.outcome == "lost"] == [DUPLICATE_PLACED]
+    assert row is not None and row.lost == 0
+    assert [r.reason for r in row.reasons if r.outcome == "changed"] == [codes.DRAWING_BOARD_ONLY]
+    assert DUPLICATE_PLACED not in [r.reason for r in row.reasons]
     board = conversion.files[conversion.read_back].decode("utf-8")
     assert f'"{ref}_2"' not in board
 

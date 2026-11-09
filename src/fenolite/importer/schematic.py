@@ -23,6 +23,15 @@ from fenolite.model.drawn import FIELD_ROTATIONS, ROTATIONS, DrawnSchematic
 from fenolite.model.library import SymbolDef
 
 
+def has_drawing(source: Source) -> bool:
+    """Whether the import reads a source drawing: a KiCad project with sheets, or an Altium source whose
+    in-memory KiCad conversion wrote the drawing of its sheets (``sheet_texts``, change c0470, design D6).
+    The schematic a conversion generates for a PCB document alone is not a source drawing."""
+    if not source.hierarchy:
+        return False
+    return source.backend == "kicad" or bool(source.sheet_texts)
+
+
 @dataclass(frozen=True, slots=True)
 class SourceSymbols:
     """Slot-preserving definitions by library id and each reference's lowest-unit primary binding."""
@@ -35,7 +44,7 @@ class SourceSymbols:
 
 def symbols(source: Source, *, target: int) -> SourceSymbols:
     """Embedded source definitions, refusing ambiguity instead of replacing a native drawing."""
-    if source.backend != "kicad" or not source.hierarchy:
+    if not has_drawing(source):
         return SourceSymbols()
     from fenolite.importer.emit.sheets import instances
 
@@ -153,7 +162,7 @@ def drawing_value(
     """The extracted drawing before serialization, including its unchanged existing sheet keys.
 
     ``footprints`` maps a reference to the footprint its emitted part builds with (c0414)."""
-    if source.backend != "kicad" or not source.hierarchy:
+    if not has_drawing(source):
         return None, ()
     root_file = next(iter(source.hierarchy))
     root = source.hierarchy[root_file]
@@ -162,7 +171,12 @@ def drawing_value(
     errors = [issue for issue in issues if issue.severity == "error"]
     if errors:
         raise FormatError("source drawing cannot be imported: " + errors[0].message, file=root_file)
+    if source.sheet_texts:
+        from fenolite.backends.kicad.sheet_carrier import take_drawing
+
+        # the Altium records of a converted source ride in its sheet carriers (change c0470, design D6)
+        value = take_drawing(source.sheet_texts, value, root_file)
     return value, issues
 
 
-__all__ = ["SourceSymbols", "drawing", "drawing_value", "symbols"]
+__all__ = ["SourceSymbols", "drawing", "drawing_value", "has_drawing", "symbols"]

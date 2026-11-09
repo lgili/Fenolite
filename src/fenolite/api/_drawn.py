@@ -135,7 +135,13 @@ def _extract(root_file: Path, components: dict[str, str]) -> kicad_drawn.Extract
     root = sch.read_schematic(root_file, file=root_file.name)
     folder = root_file.parent
     children = {f: sch.read_schematic(folder / f, file=f) for f in tree.files[1:]}
-    return kicad_drawn.extract_with_pins(root, children, components=components, root_file=root_file.name)
+    found = kicad_drawn.extract_with_pins(root, children, components=components, root_file=root_file.name)
+    # the items an Altium conversion carried (``Fenolite.Altium.Sheet``) compare by their records, not by
+    # the uuid of their KiCad stand-ins, which a conversion makes anew (change c0470)
+    from fenolite.backends.kicad import sheet_carrier
+
+    texts = {f: (folder / f).read_text(encoding="utf-8") for f in tree.files}
+    return replace(found, drawn=sheet_carrier.take_drawing(texts, found.drawn, root_file.name))
 
 
 def schematic_level(

@@ -33,8 +33,9 @@ def test_netlist_and_sheet_tree_kept(tmp_path: Path, monkeypatch: pytest.MonkeyP
     assert len([f for f in conversion.files if f.endswith(".SchDoc")]) == 4
     assert "nested.PcbLib" in conversion.files
     row = conversion.report.row("schematic")
-    assert row is not None and row.changed == 1 and row.lost == 0
-    assert row.reasons[0].reason == "positions and wires are not converted"
+    # the drawing of the source sheets is converted (change c0470): the schematic is written unchanged
+    assert row is not None and row.changed == 0 and row.lost == 0
+    assert conversion.report.row("sheet") is not None
     target = tmp_path / "target"
     target.mkdir()
     for name, data in conversion.files.items():
@@ -71,15 +72,23 @@ def test_no_connect_marks_survive_conversion(tmp_path: Path, prepared: bool) -> 
 
 
 def test_off_grid_symbol_pin_refused_as_target_limit(tmp_path: Path) -> None:
-    """A pin length off Altium's 10-mil grid is a target limit (FEN-7001), not an internal error (c0160)."""
+    """A pin length off whole mils and off Altium's 127/50 nm step is a target limit (FEN-7001), not an
+    internal error (c0160); one on whole mils off the 10-mil grid is written with its ``_FRAC`` keys and
+    ``PinFrac`` entry (c0470)."""
     source = tmp_path / "source"
     source.mkdir()
     write_files(built_nested(), source)
     sch = source / "nested.kicad_sch"
     text = sch.read_text(encoding="utf-8")
     assert "(length 2.54)" in text
-    sch.write_text(text.replace("(length 2.54)", "(length 1.905)", 1), encoding="utf-8")
-    with pytest.raises(TargetLimitError, match=r"1905000 nm is not a multiple of 10 mil") as raised:
+    sch.write_text(text.replace("(length 2.54)", "(length 1.9)", 1), encoding="utf-8")
+    with pytest.raises(
+        TargetLimitError,
+        match=r"pin 1 x: -?\d+ nm is not a whole number of mils nor a length of Altium's 127/50 nm step",
+    ) as raised:
         convert_project(source / "nested.kicad_pro", to="altium", allow_lossy=True)
     assert raised.value.cli_code == "FEN-7001"
-    assert "10-mil grid" in raised.value.hint
+    assert "whole mils" in raised.value.hint
+    sch.write_text(text.replace("(length 2.54)", "(length 1.905)", 1), encoding="utf-8")
+    written = convert_project(source / "nested.kicad_pro", to="altium", allow_lossy=True).files
+    assert any(b"PINLENGTH_FRAC=50000" in data for name, data in written.items() if name.endswith(".SchDoc"))

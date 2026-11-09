@@ -162,6 +162,12 @@ The report gives each Altium rule record one outcome. `convert.kept` (info) coun
 hold, such as routing topology or a disabled rule: the model keeps them, and a build for Altium writes
 them back. They are a declared format limit, not a loss.
 
+A project with sheets keeps its drawing both ways; only a board alone gets a generated schematic. The
+report counts the drawing per kind (`sheet`, `schematic-symbol`, `symbol-graphic`, `wire`, `label`, `port`,
+`power`, `harness`, `title-block`, ...). Records the target cannot draw travel in a hidden carrier
+(`Fenolite.Altium.Sheet`, `Fenolite.KiCad.Sheet`) and are `changed`. A drawing that reads back different
+and that no row explains gives `convert.unexplained` (exit 5). The way back from KiCad needs `kicad-cli`.
+
 
 ## A drawing beside the script
 
@@ -175,8 +181,7 @@ reviewed plan. `result.schematic.source` is `drawn`, with counts in `result.sche
 unrepresentable coordinate gives `FEN-7001`. Opaque content without native text gives
 `drawn.opaque-dropped`. `drawn.altium-repeat-flattened` reports repeated instances written separately.
 Automatic/Global scope may qualify shared local labels; each text change is reported. Native mirror
-metadata, field justification, power field poses, bus aliases and per-sheet title metadata have explicit
-limitations. Read the findings. Edit the drawing in `schematic.toml`; Altium-to-drawn sync is unavailable.
+metadata, power field poses, bus aliases and per-sheet title metadata have explicit limitations. Read the findings. Edit the drawing in `schematic.toml`; Altium-to-drawn sync is unavailable.
 
 These files stay `INFERRED`: the drawn-sheet writer needs the native kit in
 `docs/evidence/altium-schematic.md`. Altium is currently unavailable; own-reader checks do not establish

@@ -10,6 +10,7 @@ import dataclasses
 from pathlib import Path
 
 import pytest
+from _gensheets import generated
 
 from fenolite.api.conversion import verify_conversion
 from fenolite.convert import convert_project
@@ -190,6 +191,7 @@ def test_board_in_a_project_subfolder_converts_as_beside(tmp_path: Path) -> None
 def test_refused_generated_schematic_is_a_declared_loss(monkeypatch: pytest.MonkeyPatch) -> None:
     """change c0372: when the schematic generator cannot lay the circuit out (here: a page too small for
     the blink), the board is still converted and the schematic is a loss that needs --allow-lossy."""
+    generated(monkeypatch)  # the generator's path: the drawing of the sheets is not read (c0470)
     import fenolite.backends.kicad.schlayout as schlayout
     from fenolite.convert import LossyConversionError
 
@@ -207,6 +209,7 @@ def test_refused_generated_schematic_is_a_declared_loss(monkeypatch: pytest.Monk
 def test_lost_schematic_explains_schematic_only_components(monkeypatch: pytest.MonkeyPatch) -> None:
     """change c0372: without a written schematic, a component that no footprint places is lost with it,
     and that loss explains its ``component-missing``."""
+    generated(monkeypatch)  # the generator's path: the drawing of the sheets is not read (c0470)
     import fenolite.backends.kicad.schlayout as schlayout
 
     name, _, _ = schlayout.PAPERS[0]

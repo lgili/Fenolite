@@ -332,11 +332,16 @@ def lowered_buses(design: Design) -> tuple[list[BusPlan], list[tuple[str, str]]]
     return drawn, flattened
 
 
-def _link(text: str, what: str) -> tuple[str, str]:
+def _link(text: str, what: str, *, form: SchematicForm = "ascii", read: bool = False) -> tuple[str, str]:
+    """The library and name of the link ``text``. ``form`` and ``read`` are those of ``_text``: a link read
+    from an Altium source keeps the characters it holds (change c0470)."""
     link = split_link(text)
     if link is None:
         raise ValueError(f"{what} {text!r} is not <library>:<name>")
-    return _text(link[0], f"{what} library"), _text(link[1], f"{what} name")
+    return (
+        _text(link[0], f"{what} library", form=form, read=read),
+        _text(link[1], f"{what} name", form=form, read=read),
+    )
 
 
 def part_specs(
@@ -353,7 +358,7 @@ def part_specs(
     unknown component, on a pin the component does not hold or on a pin that a net lists raises
     ``ValueError``. ``form`` is the schematic form that will carry the comment and the parameter values
     (change c0086): the binary form also takes the characters of its code page."""
-    bodies = {**generic_symbols(design), **(symbols or {})}
+    bodies = {**generic_symbols(design, form=form, read=read_circuit), **(symbols or {})}
     styles = power_styles(design)
     components = {c.id: c for c in design.circuit.components}
     joins: dict[str, dict[str, PinNet]] = {cid: {} for cid in components}
@@ -388,11 +393,13 @@ def part_specs(
         marks[component.id].add(mark.pin)
     specs: list[PartSpec] = []
     for component in sorted(design.circuit.components, key=component_path):
-        library, symbol = _link(component.lib_symbol_ref, f"{component.ref} lib_id")
+        library, symbol = _link(
+            component.lib_symbol_ref, f"{component.ref} lib_id", form=form, read=read_circuit
+        )
         if name and not is_altium_link(component.lib_symbol_ref):
             library = schlib_name(component.lib_symbol_ref, design=name)
         footprint = (
-            _link(component.lib_footprint_ref, f"{component.ref} footprint")
+            _link(component.lib_footprint_ref, f"{component.ref} footprint", form=form, read=read_circuit)
             if component.lib_footprint_ref
             else None
         )
@@ -444,7 +451,9 @@ def prefix_of(ref: str) -> str:
     return match.group(0) if match and match.group(0) else "U"
 
 
-def generic_symbols(design: Design) -> dict[str, AltiumSymbol]:
+def generic_symbols(
+    design: Design, *, form: SchematicForm = "ascii", read: bool = False
+) -> dict[str, AltiumSymbol]:
     """Lib id → its generic library symbol, built from the pins of the components of that lib id (which
     ``lens.altium.generic_pins`` makes equal): prefix of the first ref in component-path order, the parts'
     common footprint or none, the symbol name as comment."""
@@ -453,12 +462,12 @@ def generic_symbols(design: Design) -> dict[str, AltiumSymbol]:
         by_lib.setdefault(component.lib_symbol_ref, []).append(component)
     symbols: dict[str, AltiumSymbol] = {}
     for lib_id, components in sorted(by_lib.items()):
-        _library, name = _link(lib_id, f"{components[0].ref} lib_id")
+        _library, name = _link(lib_id, f"{components[0].ref} lib_id", form=form, read=read)
         pins = [(p.number, p.name or p.number) for p in components[0].pins]
         footprints = {c.lib_footprint_ref for c in components}
         footprint = None
         if len(footprints) == 1 and (only := footprints.pop()):
-            footprint = _link(only, f"{components[0].ref} footprint")
+            footprint = _link(only, f"{components[0].ref} footprint", form=form, read=read)
         symbols[lib_id] = from_generic(
             generic_symbol(pins),
             lib_ref=name,
@@ -541,7 +550,8 @@ def library_symbols(
 ) -> dict[str, list[AltiumSymbol]]:
     """Library file → its symbols, one per lib id of the design (``symbols`` first, generic otherwise),
     with the library files in the MS-CFB order of their names."""
-    generic = generic_symbols(design)
+    # a library is binary; ``part_specs`` already held each link to the form of its sheets
+    generic = generic_symbols(design, form="binary", read=True)
     given = symbols or {}
     libraries: dict[str, list[AltiumSymbol]] = {}
     for lib_id in sorted({c.lib_symbol_ref for c in design.circuit.components} | set(extra_symbols)):
@@ -670,7 +680,7 @@ def write_project(
     listed.extend(sorted(extra_footprints or {}))
     if project:
         files[f"{name}.PrjPcb"] = write_prjpcb(
-            schematic=f"{name}.SchDoc",
+            schematic=planned.top.file,  # ``<name>.SchDoc``, or a flat project's first document (c0470)
             pcb=f"{name}.PcbDoc" if pcb is not None else None,
             libraries=tuple(listed),
             sheets=tuple(sheet.file for sheet in planned.modules),
@@ -679,6 +689,7 @@ def write_project(
             outjob=f"{name}.OutJob" if outjob is not None else None,
             draftsman=f"{name}.PCBDwf" if draftsman is not None else None,
             parameters=draftsman.parameters if draftsman is not None else tuple(title_parameters),
+            channels=planned.channels,
         )
     for sheet in planned.sheets:
         frame = (frames or {}).get(sheet.file)
@@ -723,12 +734,20 @@ def write_project(
             for sheet in planned.sheets
             for part in sheet.plan.parts
         }
+        links = {link.ref: link for link in planned.links}  # a drawn conversion's sheets (c0470)
         pcb = dataclasses.replace(
             pcb,
             components=tuple(
                 dataclasses.replace(
                     part,
                     source_unit_unique_id=part_links.get(part.unique_id, part.source_unit_unique_id),
+                )
+                if (link := links.get(part.ref)) is None
+                else dataclasses.replace(
+                    part,
+                    source_unit_unique_id=part_links.get(link.unique_id, link.unique_id),
+                    source_designator=link.designator if link.channel else None,
+                    sheet=(link.symbols, link.names) if link.symbols else None,
                 )
                 for part in pcb.components
             ),

@@ -276,3 +276,27 @@ def test_example_shapes_and_overbars() -> None:
     by = {p.number: p for p in mcu.pins}
     assert (by["2"].name, by["2"].shape) == ("~{RST}", "inverted")
     assert by["3"].shape == "clock" and by["8"].hidden
+
+
+def test_pin_off_the_grid_through_pin_frac() -> None:
+    """A pin on whole mils off the 10-mil grid (change c0470): kicad-cli reads its ``PinFrac`` entry and
+    gives the pin its exact hot end and length, the other pins unchanged."""
+    import dataclasses
+
+    symbol = next(iter(generic_symbols(sample_model()).values()))
+    first = symbol.pins[0]
+    moved = dataclasses.replace(first, x=first.x - 5, y=first.y + 3, length=25)
+    off = dataclasses.replace(symbol, pins=(moved, *symbol.pins[1:]))
+    found = converted(write_schlib([off], library=SAMPLE_LIBRARY), SAMPLE_LIBRARY)
+    assert found.code == 0, found.message
+    (read,) = found.symbols.values()
+    pins = {pin.number: pin for pin in read.pins}
+    dx = {0: 1, 1: 0, 2: -1, 3: 0}[moved.direction]
+    dy = {0: 0, 1: 1, 2: 0, 3: -1}[moved.direction]
+    hot = ((moved.x + dx * moved.length) * MIL, (moved.y + dy * moved.length) * MIL)
+    pin = pins[moved.designator]
+    assert pin.length == 25 * MIL
+    # the library text holds millimetres to three decimals: within 500 nm
+    assert abs(pin.position.x - hot[0]) <= 500 and abs(pin.position.y - hot[1]) <= 500
+    for other in symbol.pins[1:]:
+        assert pins[other.designator].length == other.length * MIL

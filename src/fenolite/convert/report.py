@@ -21,7 +21,9 @@ from typing import Any, Literal
 from fenolite.model.board import rule_areas
 from fenolite.model.design import Design
 
-Group = Literal["circuit", "footprint", "copper", "board", "presentation", "project", "downgrade"]
+Group = Literal[
+    "circuit", "footprint", "copper", "board", "presentation", "schematic", "project", "downgrade"
+]
 LossClass = Literal["refuse", "report"]
 Outcome = Literal["changed", "lost", "kept"]
 Scope = Literal["ref", "pin", "net", "net-pins", "footprint-nets", "same"]
@@ -83,10 +85,35 @@ KINDS: tuple[KindRow, ...] = (
         ),
     ),
     *_rows("presentation", (), ("text", "graphic", "dimension", "schematic-text")),
+    *_rows(
+        "schematic",
+        (),
+        (
+            "sheet",
+            "schematic-symbol",
+            "symbol-graphic",
+            "pin",
+            "wire",
+            "junction",
+            "label",
+            "port",
+            "power",
+            "bus",
+            "bus-entry",
+            "sheet-symbol",
+            "harness",
+            "no-connect",
+            "directive",
+            "schematic-graphic",
+            "image",
+            "title-block",
+        ),  # fmt: skip
+    ),
     *_rows("project", ("project-curve-error",), ("schematic",)),
 )
 """The closed vocabulary of kinds, in report order. Every kind that ``lower.LOSS_KINDS`` names and ``dnp``
-are ``refuse``; ``schematic`` is a project file, generated (a change) or not converted (a loss)."""
+are ``refuse``; ``schematic`` is a project file, generated (a change) or not converted (a loss). The
+``schematic`` group holds the items of a converted drawing (change c0470, design D5)."""
 DOWNGRADE_PREFIX = "downgrade:"
 
 
@@ -540,6 +567,10 @@ class Explainer:
                 )
                 held = Counter(c.ref for c in circuit.components)
                 self._add(kind, "ref", {ref for ref, count in held.items() if count > 1})
+                continue
+            if kind == "schematic":
+                # a component that no sheet draws, changed to a footprint without a symbol (change c0470)
+                self._add(kind, "ref", {refs[i] for i in ids if i in refs})
                 continue
             if kind == "shared-footprint":
                 self._add(

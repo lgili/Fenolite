@@ -30,11 +30,12 @@ def test_source_sheets_and_pages_load(variant, monkeypatch) -> None:
     """change c0372 task 2.2: the KiCad sheets of a flat project of two sheets, and the pages of a circuit
     too large for one, load in KiCad: ERC reads every page and the exported netlist is the circuit's."""
     from _erc import run_erc
-    from _gensheets import BLINK, refusing_more_than, two_sheets
+    from _gensheets import BLINK, generated, refusing_more_than, two_sheets
 
     from fenolite.convert import convert_project
     from fenolite.convert.sources import read_source
 
+    generated(monkeypatch)  # the generator's sheets and pages (change c0470: not a source drawing)
     if variant == "pages":
         refusing_more_than(monkeypatch, 2)
         source = read_source(BLINK)

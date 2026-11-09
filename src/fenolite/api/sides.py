@@ -359,6 +359,8 @@ def read_schematic(path: Path, *, kicad_cli: str | None = None, timeout: float =
         else component
         for component in design.circuit.components
     )
+    # an empty Value that the netlist lists as ``~`` stays empty (change c0470)
+    components = tuple(parity_inputs.sheet_values(components, sheets.values()))
     design = replace(design, circuit=replace(design.circuit, components=components))
     from fenolite.importer.bom_only import preserve
 

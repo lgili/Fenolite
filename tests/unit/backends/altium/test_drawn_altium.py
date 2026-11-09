@@ -482,7 +482,9 @@ def test_component_pose_geometry_and_field_metadata(tmp_path: Path, rotation: in
     expected = pin_point(Point(20_320_000, 20_320_000), original.position, rotation, mirror)
     height = next(size.height for size in SHEET_SIZES if size.name == "A4") * NM_PER_MIL
     assert (pin.hot_end[0].nm(), height - pin.hot_end[1].nm()) == (expected.x, expected.y)
-    assert any(
+    # the justification is written (change c0470): right and top, which a quarter turn keeps, is 8
+    assert field.props is not None and field.props.int("JUSTIFICATION") == 8
+    assert not any(
         i["code"] == "altium.not-lowered" and "justification" in i["message"]
         for i in reply.envelope["issues"]
     )

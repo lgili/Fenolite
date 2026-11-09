@@ -134,6 +134,9 @@ class Source:
     """The 3D model files an in-memory conversion placed (``<library>.3dshapes/<file>.step`` → bytes), which
     the import writes at the same paths, so the ``${KIPRJMOD}`` model paths of its footprints resolve as in
     the converted project (change c0409, B9)."""
+    sheet_texts: Mapping[str, str] = field(default_factory=lambda: {})
+    """The text of each sheet of ``hierarchy`` by file, kept only for an in-memory conversion: its sheet
+    carriers hold the source records KiCad cannot draw (change c0470, design D6)."""
 
 
 def _sha(data: bytes) -> str:

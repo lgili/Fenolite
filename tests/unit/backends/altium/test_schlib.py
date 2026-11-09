@@ -10,6 +10,7 @@ Libraries are read back with ``tests/_altium_read.py`` (``read_schlib``), writte
 
 from __future__ import annotations
 
+import dataclasses
 import struct
 from collections.abc import Callable
 from functools import cache
@@ -23,7 +24,14 @@ from fenolite.backends.altium.altsym import AltiumPin, AltiumRect, AltiumSymbol,
 from fenolite.backends.altium.binary import frame_record, storage_stream
 from fenolite.backends.altium.cfb import Entry, Storage, storage_from_paths, write_compound
 from fenolite.backends.altium.project import generic_symbols, schlib_name, storage_name, unique_id
-from fenolite.backends.altium.schlib import HEADER_TEXT, data_stream, pin_record, write_schlib
+from fenolite.backends.altium.read.schlib import read_schlib as fenolite_read_schlib
+from fenolite.backends.altium.schlib import (
+    HEADER_TEXT,
+    data_stream,
+    pin_frac_stream,
+    pin_record,
+    write_schlib,
+)
 from fenolite.core.errors import Issue
 from fenolite.model.library import SymbolDef
 
@@ -62,7 +70,6 @@ def test_worked_pin() -> None:
         {"designator": "1" * 256},
         {"x": 400_000},
         {"length": -400_000},
-        {"x": 5},
         {"inner_edge": 256},
         {"electrical": -1},
         {"part": 40_000},
@@ -73,6 +80,23 @@ def test_pin_refusals(change: dict[str, object]) -> None:
     fields = {**worked_pin().__dict__, **change}
     with pytest.raises(ValueError):
         pin_record(AltiumPin(**fields))  # type: ignore[arg-type]
+
+
+def test_pin_off_the_grid_goes_to_pin_frac() -> None:
+    """A pin on whole mils off the 10-mil grid keeps its whole units in ``Data`` and the rest in the
+    ``PinFrac`` stream, which the reader applies to that pin (change c0470, S-0131, S-0148)."""
+    symbol = next(iter(sample_symbols().values()))
+    moved = dataclasses.replace(symbol.pins[0], x=symbol.pins[0].x - 5, y=symbol.pins[0].y + 3, length=25)
+    pins = (moved, *symbol.pins[1:])
+    data = write_schlib([dataclasses.replace(symbol, pins=pins)], library=LIBRARY)
+    (component,) = fenolite_read_schlib(data).components
+    assert set(component.side_streams) == {"PinFrac"}
+    read = component.pins[0]
+    assert [length.value for length in read.location] == [moved.x * 10_000, moved.y * 10_000]
+    assert read.length.value == 25 * 10_000
+    assert [p.location[0].value for p in component.pins[1:]] == [p.x * 10_000 for p in pins[1:]]
+    assert pin_frac_stream(symbol.pins) is None
+    assert write_schlib([symbol], library=LIBRARY) == write_schlib([symbol], library=LIBRARY)
 
 
 # --- names ------------------------------------------------------------------------------------------

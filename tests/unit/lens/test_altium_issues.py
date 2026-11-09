@@ -660,6 +660,8 @@ def test_closed_set() -> None:
         produced.setdefault(found.code, set()).add(found.severity)
     for found in run_definition_case():
         produced.setdefault(found.code, set()).add(found.severity)
+    for found in run_dropped_case():
+        produced.setdefault(found.code, set()).add(found.severity)
     for code, severities in produced.items():
         if code.startswith(PASS_THROUGH):
             continue
@@ -677,6 +679,39 @@ def run_definition_case() -> list[Issue]:
     part = Part("R1", "Fenolite:Resistor", footprint="Original:R", footprint_definition="Fenolite:Chip_0603")
     design.add(part)
     return lens_altium.with_footprint_definitions(to_model(design))[1]
+
+
+def run_dropped_case() -> list[Issue]:
+    """Change c0470: a footprint graphic that neither the library nor the board document holds, an arc of
+    three points on one line, and a filled polygon with an outline stroke, which a region has not
+    (``altium.primitive-dropped``); a filled rect without a stroke and a line on a KiCad user layer, which the
+    document holds, are no loss."""
+    from fenolite.core.coords import Point
+    from fenolite.model.board import Graphic
+    from fenolite.model.library import FootprintDef
+
+    design = Design("dropped")
+    design.board(mm(20), mm(20))
+    design.add(Part("R1", "Fenolite:Resistor", footprint="Authored:Marks"))
+    line = (Point(0, 0), Point(500_000, 0), Point(1_000_000, 0))
+    square = (Point(0, 0), Point(500_000, 500_000))
+    defn = FootprintDef(
+        id="fp-marks",
+        name="Marks",
+        graphics=(
+            Graphic(id="g-arc", kind="arc", layer="F.SilkS", points=line, width=100_000),
+            Graphic(id="g-fill", kind="rect", layer="F.SilkS", points=square, filled=True),
+            Graphic(id="g-user", kind="line", layer="User.1", points=square, width=100_000),
+            Graphic(id="g-mark", kind="polygon", layer="F.SilkS", points=line, width=100_000, filled=True),
+        ),
+    )
+    issues = lens_altium.resolve_footprints(to_model(design), None, {"Authored:Marks": defn})[1]
+    (dropped,) = [i for i in issues if i.code == "altium.primitive-dropped"]
+    assert (
+        "degenerate arc" in dropped.message and "filled polygon" in dropped.message
+    )  # a region has no stroke
+    assert "filled rect" not in dropped.message and "User.1" not in dropped.message
+    return issues
 
 
 GEO = importlib.util.find_spec("pyclipper") is not None

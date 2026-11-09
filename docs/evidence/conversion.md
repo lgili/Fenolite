@@ -688,3 +688,102 @@ No body falls back to the prism over its outline (a cylinder or sphere whose squ
 the authored document of `tests/_altium_models.py`, the KiCad oracle `tests/kicad/convert/test_altium_model_pose.py`
 finds every vertex of every model and generated body at the source's pose, on 9.0.9 (pinned image) and on
 10.0.6.
+
+## Schematic records — c0470 census
+
+Change c0470, task 1.1, measured on 2026-11-07 with `uv run pytest tests/corpus/test_altium_drawn_read.py -rA`
+(rows `altium-third-party-schdoc-01` to `-17`). Before c0470 no record of these rows reached a converted
+schematic: `convert` regenerated every sheet from the circuit (one `schematic` row, "positions and wires
+are regenerated from the circuit"). The census lists, per root record class, the report kind of design D5
+and the drawn item the extractor (`backends/altium/drawn_read.py`) gives it; every class has one. Classes
+that KiCad cannot hold are typed opaque items, carried by `Fenolite.Altium.Sheet`. `Note` is record 209
+and `CompileMask` record 225, which the reader keeps as unknown records.
+
+### Root records per class
+
+| class | records | kind | drawn item |
+|---|---|---|---|
+| Wire | 1212 | wire | wire |
+| NetLabel | 542 | label | label |
+| Parameter | 542 | title-block | title block |
+| PowerPort | 462 | power | power |
+| Component | 355 | schematic-symbol | symbol |
+| Junction | 318 | junction | junction |
+| WarningSign | 135 | directive | opaque |
+| Port | 109 | port | label |
+| SignalHarness | 107 | harness | bus and opaque |
+| Label | 68 | schematic-text | opaque |
+| NoErc | 60 | no-connect | no-connect |
+| HarnessConnector | 53 | harness | labels and opaque |
+| TextFrame | 38 | schematic-text | opaque |
+| SheetSymbol | 28 | sheet-symbol | sheet reference |
+| CompileMask | 20 | directive | opaque |
+| Sheet | 17 | sheet | paper and title block |
+| Polyline | 16 | schematic-graphic | opaque |
+| Template | 11 | title-block | carrier |
+| Note | 8 | schematic-text | opaque |
+| Rectangle | 8 | schematic-graphic | opaque |
+| Image | 7 | image | opaque |
+
+### Root records per kind and row
+
+| row | sheet | schematic-symbol | wire | junction | label | port | power | sheet-symbol | harness | no-connect | directive | schematic-text | schematic-graphic | image | title-block |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| altium-third-party-schdoc-01 | 1 | 0 | 10 | 1 | 0 | 0 | 0 | 11 | 11 | 0 | 0 | 0 | 0 | 0 | 31 |
+| altium-third-party-schdoc-02 | 1 | 34 | 55 | 27 | 26 | 13 | 17 | 0 | 7 | 0 | 0 | 0 | 0 | 0 | 31 |
+| altium-third-party-schdoc-03 | 1 | 10 | 61 | 28 | 0 | 0 | 20 | 17 | 45 | 6 | 0 | 1 | 0 | 0 | 35 |
+| altium-third-party-schdoc-04 | 1 | 58 | 175 | 46 | 72 | 9 | 81 | 0 | 6 | 6 | 38 | 4 | 11 | 0 | 35 |
+| altium-third-party-schdoc-05 | 1 | 3 | 7 | 2 | 0 | 1 | 4 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 31 |
+| altium-third-party-schdoc-06 | 1 | 3 | 7 | 4 | 0 | 2 | 2 | 0 | 2 | 0 | 0 | 0 | 0 | 0 | 31 |
+| altium-third-party-schdoc-07 | 1 | 7 | 28 | 1 | 0 | 6 | 9 | 0 | 4 | 1 | 0 | 0 | 0 | 0 | 31 |
+| altium-third-party-schdoc-08 | 1 | 3 | 3 | 2 | 1 | 0 | 3 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 27 |
+| altium-third-party-schdoc-09 | 1 | 9 | 19 | 8 | 2 | 3 | 8 | 0 | 2 | 0 | 0 | 2 | 0 | 0 | 35 |
+| altium-third-party-schdoc-10 | 1 | 16 | 47 | 12 | 30 | 5 | 21 | 0 | 4 | 13 | 0 | 5 | 0 | 1 | 34 |
+| altium-third-party-schdoc-11 | 1 | 3 | 128 | 10 | 77 | 15 | 39 | 0 | 16 | 13 | 28 | 2 | 0 | 0 | 34 |
+| altium-third-party-schdoc-12 | 1 | 24 | 67 | 23 | 15 | 3 | 32 | 0 | 2 | 0 | 3 | 9 | 0 | 0 | 34 |
+| altium-third-party-schdoc-13 | 1 | 41 | 77 | 43 | 38 | 0 | 33 | 0 | 0 | 0 | 2 | 10 | 6 | 0 | 28 |
+| altium-third-party-schdoc-14 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 40 | 0 | 0 | 34 |
+| altium-third-party-schdoc-15 | 1 | 111 | 193 | 93 | 23 | 13 | 123 | 0 | 4 | 1 | 14 | 26 | 6 | 6 | 34 |
+| altium-third-party-schdoc-16 | 1 | 26 | 197 | 18 | 151 | 21 | 39 | 0 | 28 | 5 | 36 | 11 | 1 | 0 | 34 |
+| altium-third-party-schdoc-17 | 1 | 7 | 138 | 0 | 107 | 18 | 31 | 0 | 28 | 15 | 34 | 3 | 0 | 0 | 34 |
+
+### Generated schematic before c0470
+
+Level S between the source drawing (`backends/altium/drawn_read`) and the drawing of the KiCad schematic
+that `convert` generated from the circuit before change c0470 (`altium_to_kicad.schematic_files`, which
+remains the path of a source without sheets). The report has one `schematic` row, `changed`, "positions and
+wires are regenerated from the circuit". Proof: `tests/unit/convert/test_schematic_c0470.py -k baseline`.
+
+| project | differences | item-missing | symbol-field | symbol-missing | symbol-pose |
+|---|---|---|---|---|---|
+| blink | 66 | 52 | 11 | 0 | 3 |
+| hier | 160 | 130 | 24 | 0 | 6 |
+| altium_hier_board | 82 | 67 | 12 | 0 | 3 |
+
+### Drawing kept — c0470, 2026-11-08
+
+Level S between the source drawing and the drawing read back after change c0470. The KiCad side is
+`KICAD-VERIFIED` with `kicad-cli` 10.0.6: that run loads every written sheet, keeps the carrier on a
+save, and exports a netlist that joins the pins as the source circuit does. The ERC by type of the
+trip there and back equals the first conversion's. The Altium side is `ALTIUM-VERIFIED(kit)` (S-2287,
+2026-11-08): Altium Designer 24.5.2.23 opens the converted `blink`, `altium_hier_board` and `hier`
+projects, compiles them, and finds the same components and the same net partition as the source. The
+converted drawings add only compiler warnings (one duplicate port on `altium_hier_board`; four
+multiple-name and two duplicate-port warnings on `hier`). The six KiCad 10.0.6 demos open and compile
+with no script error, and their net partition equals the `kicad-cli` netlist; `interf_u` agrees after
+its 16 implicit power pins and two empty bus nets.
+
+| route | project | differences | proof |
+|---|---|---|---|
+| Altium → KiCad | blink, altium_hier_board | 0 | `tests/unit/convert/test_schematic_c0470.py -k writes` |
+| Altium → KiCad → Altium | blink, altium_hier_board | 0 | `tests/corpus/test_convert_schematic_roundtrip.py` |
+| Altium → KiCad → Altium, drawing only | hier | 0 | same file, `-k hier` |
+| KiCad → Altium | authored nested project | 0 | `tests/unit/convert/test_schematic_c0470.py -k kicad_carrier` |
+| import → build | blink, altium_hier_board | 0 | `tests/corpus/test_altium_import_python_drawing_c0470.py` |
+| KiCad → Altium → KiCad | every KiCad 10.0.6 demo with a schematic | 0 | `tests/corpus/test_convert_schematic_roundtrip.py` |
+
+`cm5_minima` is the one demo left out: its BOM-only symbol has no Altium writer (c0334). The earlier
+`ecc83-pp` field loss and the generated `complex_hierarchy` are closed by c0470: both are in the
+level-S round trip above, and both compile in Altium. The kit run also compares the compiler messages
+of the source and the converted project; the remaining differences are warnings about the same
+connectivity (S-2287).

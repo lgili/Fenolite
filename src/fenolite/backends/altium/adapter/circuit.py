@@ -113,6 +113,7 @@ def build_circuit(resolved: Resolved, ids: Ids, issues: list[Issue]) -> CircuitI
         for number, group in enumerate(sheet.groups):
             native = resolved.component_ids[(instance.index, number)]
             ident, native_ids = ids.native("cmp", native)
+            is_new = native not in by_native
             by_native.setdefault(native, ident)
             if instance.repeated:
                 # the unique-id path of a component of a Repeat channel has no recorded form
@@ -121,6 +122,37 @@ def build_circuit(resolved: Resolved, ids: Ids, issues: list[Issue]) -> CircuitI
                 prefix = "".join(f"\\{uid}" for uid in instance.uids)
                 for unique in group.unique_ids:
                     by_path.setdefault(f"{prefix}\\{unique}", ident)
+            if not is_new:
+                own_tail = group.unique_ids[0] if group.unique_ids else f"#{group.first.ref.index}"
+                own_native = "cmp:" + "".join(f"\\{uid}" for uid in (*instance.uids, own_tail))
+                if own_native == native:
+                    ref = resolved.refs.get((instance.index, number), group.ref)
+                    for idx, existing in enumerate(components):
+                        if existing.id == ident:
+                            old_inst = next(
+                                (k for k, items in of_instance.items() if any(c.id == ident for c in items)),
+                                None,
+                            )
+                            if old_inst is not None:
+                                of_instance[old_inst] = [c for c in of_instance[old_inst] if c.id != ident]
+                            updated = Component(
+                                id=existing.id,
+                                native_ids=existing.native_ids,
+                                provenance=ids.provenance(file, sha256, group.locator),
+                                ext=existing.ext,
+                                ref=ref,
+                                value=group.value or existing.value,
+                                lib_symbol_ref=group.lib_symbol_ref or existing.lib_symbol_ref,
+                                lib_footprint_ref=group.lib_footprint_ref or existing.lib_footprint_ref,
+                                properties={**existing.properties, **dict(group.properties)},
+                                path="/".join((*instance.names, ref)),
+                                pins=existing.pins,
+                                pin_pad_map=existing.pin_pad_map,
+                            )
+                            components[idx] = updated
+                            of_instance.setdefault(instance.index, []).append(updated)
+                            break
+                continue
             ref = resolved.refs.get((instance.index, number), group.ref)
             if counts[instance.sheet] > 1:
                 repeated.add(ident)

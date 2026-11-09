@@ -453,6 +453,7 @@ def resolve(
                         touched[pin.at] += 1
                         wire_contacts.add(pin.at)
         bus_labels: list[tuple[str, str, Point]] = []
+        lone_buses: set[Point] = set()
         for label in sheet.labels:
             on_bus = bool(buses.under(label.at))
             # A bus-only entry end or junction does not turn a bus label into a scalar label.
@@ -466,6 +467,12 @@ def resolve(
                 bus_labels.append((label.kind, label.text, label.at))
                 continue
             if on_bus and not on_wire:
+                bus_labels.append((label.kind, label.text, label.at))
+                continue
+            if not on_wire and expand(label.text, aliases) is not None:
+                # KiCad takes a label for a bus by its text: one that touches nothing is a bus of its own,
+                # whose members join the local labels of their names (change c0470, H-K-DRAWN-BUS)
+                lone_buses.add(label.at)
                 bus_labels.append((label.kind, label.text, label.at))
                 continue
             if not on_wire:
@@ -535,6 +542,8 @@ def resolve(
 
         def bus_group(at: Point) -> object | None:
             under = buses.under(at)  # noqa: B023
+            if not under and at in lone_buses:  # noqa: B023
+                return union.find(bus_point(at))
             return union.find(bus_point(under[0][0])) if under else None
 
         for kind, text, at in bus_labels:
@@ -670,13 +679,11 @@ def component_path(component: Component) -> str:
     return component.properties.get(PATH_PROPERTY, component.ref)
 
 
-def compare(netlist: DrawnNetlist, circuit: Circuit) -> tuple[Issue, ...]:
-    """``drawn.netlist-differs`` for the first pin, in sorted ``REF-PIN`` order, whose group in the drawing
-    differs from its group in the circuit (over the pins of drawn components; the reason is ``open``,
-    ``split`` or ``merged``), and one ``drawn.net-name-differs`` per drawn net that equals a circuit net,
-    carries labels and has no label of the circuit net's name."""
+def _code_groups(
+    netlist: DrawnNetlist, circuit: Circuit
+) -> tuple[dict[Element, frozenset[Element]], dict[Element, str]]:
+    """Per drawn pin, its group in the circuit (over the pins of drawn components) and its net's name."""
     components = {c.id: c for c in circuit.components}
-    paths = {component_path(c): c for c in circuit.components}
     drawn_pins = set(netlist.pins)
     code_group: dict[Element, frozenset[Element]] = {}
     code_name: dict[Element, str] = {}
@@ -694,6 +701,17 @@ def compare(netlist: DrawnNetlist, circuit: Circuit) -> tuple[Issue, ...]:
         for element in members:
             code_group[element] = frozen
             code_name[element] = net.name
+    return code_group, code_name
+
+
+def pin_differences(netlist: DrawnNetlist, circuit: Circuit) -> list[Issue]:
+    """One ``drawn.netlist-differs`` per pin, in sorted ``REF-PIN`` order, whose group in the drawing differs
+    from its group in the circuit (over the pins of drawn components; the reason is ``open``, ``split`` or
+    ``merged``); ``where`` is the pin's ``REF-PIN`` (change c0470: a caller can leave out the pins of a
+    source's own disagreements)."""
+    paths = {component_path(c): c for c in circuit.components}
+    drawn_pins = set(netlist.pins)
+    code_group, code_name = _code_groups(netlist, circuit)
     drawn_group: dict[Element, frozenset[Element]] = {}
     drawn_name: dict[Element, DrawnNet] = {}
     for net in netlist.nets:
@@ -735,10 +753,19 @@ def compare(netlist: DrawnNetlist, circuit: Circuit) -> tuple[Issue, ...]:
         )
         key = (natural(ref_pin(element)),)
         differences.append((key, issue("drawn.netlist-differs", text, ref_pin(element), NETLIST_HINT)))
+    differences.sort(key=lambda pair: pair[0])
+    return [found for _, found in differences]
+
+
+def compare(netlist: DrawnNetlist, circuit: Circuit) -> tuple[Issue, ...]:
+    """``drawn.netlist-differs`` for the first pin, in sorted ``REF-PIN`` order, whose group in the drawing
+    differs from its group in the circuit (over the pins of drawn components; the reason is ``open``,
+    ``split`` or ``merged``), and one ``drawn.net-name-differs`` per drawn net that equals a circuit net,
+    carries labels and has no label of the circuit net's name."""
     found: list[Issue] = []
+    differences = pin_differences(netlist, circuit)
     if differences:
-        differences.sort(key=lambda pair: pair[0])
-        first = differences[0][1]
+        first = differences[0]
         more = f" (and {len(differences) - 1} more)" if len(differences) > 1 else ""
         found.append(
             issue(
@@ -748,6 +775,7 @@ def compare(netlist: DrawnNetlist, circuit: Circuit) -> tuple[Issue, ...]:
                 first.hint,
             )
         )
+    code_group, code_name = _code_groups(netlist, circuit)
     seen: set[str] = set()
     for net in netlist.nets:
         if not net.labels or len(net.members) < 1:
@@ -903,6 +931,7 @@ def coverage(
 
 
 __all__ = [
+    "pin_differences",
     "ISSUE_CODES",
     "DrawnNet",
     "DrawnNetlist",

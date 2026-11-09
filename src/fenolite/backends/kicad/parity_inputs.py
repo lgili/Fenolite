@@ -17,7 +17,8 @@ here runs a tool or writes a file.
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Mapping
+from collections.abc import Iterable, Iterator, Mapping
+from dataclasses import replace
 from pathlib import Path
 from types import MappingProxyType
 
@@ -26,6 +27,7 @@ from fenolite.backends.kicad import netnames, sch, sch_netlist
 from fenolite.backends.kicad.netlist import KicadNetlist
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence
+from fenolite.model.circuit import Component
 from fenolite.model.schematic import SchematicSheet
 
 BODY_STYLE = 1
@@ -158,10 +160,31 @@ def schematic_side(
     return side_of(root_file, sheets, netlist_nodes(found))
 
 
+NETLIST_EMPTY_VALUE = "~"
+"""How ``sch export netlist`` lists the empty ``Value`` of a symbol instance (``docs/formats/kicad/
+schematic.md``, H-K-SCH-COMPONENTS-2)."""
+
+
+def sheet_values(components: Iterable[Component], sheets: Iterable[SchematicSheet]) -> Iterator[Component]:
+    """``components`` with the empty value their sheets hold where the netlist lists ``~`` (change c0470):
+    a symbol instance whose ``Value`` is empty is empty, a literal ``~`` of the sheet stays."""
+    empty: set[str] = set()
+    for sheet in sheets:
+        for symbol in sheet.symbols:
+            if symbol.value == "":
+                empty |= {symbol.ref, *(use.ref for use in symbol.uses)}
+    for component in components:
+        if component.value == NETLIST_EMPTY_VALUE and component.ref in empty:
+            component = replace(component, value="")
+        yield component
+
+
 __all__ = [
+    "NETLIST_EMPTY_VALUE",
     "assignment_nodes",
     "grammar_issues",
     "netlist_nodes",
+    "sheet_values",
     "own_evidence",
     "own_netlist",
     "read_sheets",

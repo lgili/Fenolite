@@ -230,6 +230,29 @@ def test_mismatch_of_a_footprint_the_design_does_not_hold(tmp_path: Path) -> Non
     assert (found.code, found.where) == (MISMATCH, "H1") and "no component in the design" in found.message
 
 
+def test_a_hole_part_of_the_source_is_no_mismatch(tmp_path: Path) -> None:
+    """A footprint of the hole library with no pad on a net is a part of ``design.hole()``, which the design
+    holds as a board hole, not as a component (change c0470)."""
+    from fenolite.lens.altium_copper import _hole_part  # pyright: ignore[reportPrivateUsage]
+
+    source = kicad()
+    assert source.board is not None
+    refs = ref_of(source)
+    (fp,) = [f for f in source.board.footprints if refs[f.component_id] == "D1"]
+    hole = dataclasses.replace(
+        fp,
+        id="fp_00000000-0000-4000-8000-000000000002",
+        component_id="cmp_00000000-0000-4000-8000-000000000002",
+        lib_ref="Fenolite_Holes:MountingHole_3.2mm",
+        position=at(45, 5),
+        pads=(),
+    )
+    assert _hole_part(hole) and not _hole_part(fp)
+    grown = board_of(source, footprints=(*source.board.footprints, hole))
+    output = build(tmp_path, CopperSource(grown, "board", BOARD))
+    assert not [i for i in errors(output) if i.code == MISMATCH]
+
+
 def test_mismatch_of_two_footprints_for_one_component(tmp_path: Path) -> None:
     source = kicad()
     assert source.board is not None

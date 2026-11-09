@@ -15,6 +15,8 @@ from fenolite.backends.altium.altsym import (
     ELECTRICAL,
     AltiumRect,
     from_symbol_def,
+    mil_parts,
+    on_frac_step,
     overbar,
 )
 from fenolite.core.coords import Point
@@ -74,6 +76,31 @@ def test_off_grid_pin_refused() -> None:
         from_symbol_def(symbol(off), lib_ref="X", footprint=None)
     with pytest.raises(ValueError, match="length"):
         from_symbol_def(symbol(symbol_pin("1", 0, 0, 0, 1, length=MIL)), lib_ref="X", footprint=None)
+
+
+def test_fine_pin_on_whole_mils() -> None:
+    """``fine`` (a conversion, change c0470) takes a pin on whole mils off the 10-mil grid, and still refuses
+    one off a whole mil; ``mil_parts`` splits a length into its key and its ``_FRAC`` key."""
+    pin = symbol_pin("1", 0, 0, 0, 1, length=25 * MIL)
+    mapped = from_symbol_def(symbol(pin), lib_ref="X", footprint=None, fine=True)
+    assert mapped.pins[0].length == 25
+    with pytest.raises(ValueError, match="not a multiple of 10 mil"):
+        from_symbol_def(symbol(pin), lib_ref="X", footprint=None)
+    off = dataclasses.replace(pin, position=Point(1_000, 0))
+    with pytest.raises(ValueError, match="whole number of mils"):
+        from_symbol_def(symbol(off), lib_ref="X", footprint=None, fine=True)
+    # a length an Altium file holds (a whole 1/100 000 unit, read to the nanometre) keeps its nanometres
+    metric = dataclasses.replace(pin, position=Point(1_905_127, 0), length=1_905_127)  # 750 050 / 100 000
+    kept = from_symbol_def(symbol(metric), lib_ref="X", footprint=None, fine=True).pins[0]
+    assert kept.nm == (2 * 1_905_127, 0, 1_905_127)  # the body end, one length beyond the hot end
+    assert on_frac_step(1_905_000) and not on_frac_step(1_900_000)
+    assert [mil_parts(m) for m in (25, 20, -25, -5, 0)] == [
+        (2, 50_000),
+        (2, 0),
+        (-2, -50_000),
+        (0, -50_000),
+        (0, 0),
+    ]
 
 
 def test_directions() -> None:

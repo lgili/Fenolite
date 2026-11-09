@@ -853,6 +853,9 @@ def resolve(
                 labelled = sheet.labels.get(f"{ident.name}{index}".casefold())
                 if labelled is not None:
                     union.join(node, ("n", instance.index, labelled))
+                if ident.kind == "label":
+                    # a bus label names its member nets: two of one name on a sheet name the same nets
+                    union.join(node, ("bus-member", instance.index, f"{ident.name}{index}".casefold()))
         for a, first in enumerate(sheet.bus_idents):
             for second in sheet.bus_idents[a + 1 :]:
                 if first.group == second.group and (
@@ -1011,6 +1014,27 @@ def resolve(
                 f"\\{uid}" for uid in (*instance.uids, tail)
             )
     references, channel_sources, channel_instances = _references(data, instances, options, components)
+    by_ref: dict[str, list[tuple[int, int]]] = {}
+    for (inst_index, number), ref in references.items():
+        if ref and inst_index not in channel_instances:
+            by_ref.setdefault(ref, []).append((inst_index, number))
+    for group_keys in by_ref.values():
+        if len(group_keys) < 2:
+            continue
+        found_groups = [data[instances[i].sheet].groups[n] for i, n in group_keys]
+        part_sets = [{max(1, p.current_part) for p in g.parts} for g in found_groups]
+        if all(g.first.part_count > 1 for g in found_groups) and sum(len(s) for s in part_sets) == len(
+            set[int]().union(*part_sets)
+        ):
+            primary = min(
+                group_keys,
+                key=lambda k: (
+                    min(max(1, p.current_part) for p in data[instances[k[0]].sheet].groups[k[1]].parts),
+                    k,
+                ),
+            )
+            for key in group_keys:
+                components[key] = components[primary]
     pins: dict[Hashable, set[PinKey]] = {}
     idents: dict[Hashable, list[tuple[Ident, int]]] = {}
     firsts: dict[Hashable, list[tuple[int, int, str]]] = {}

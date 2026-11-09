@@ -278,6 +278,9 @@ class HarnessBlock:
     position: int
     line: tuple[tuple[int, int], tuple[int, int]]
     stubs: tuple[Stub, ...]
+    mirrored: bool = False
+    """The connection point on the right edge (``HARNESSCONNECTORSIDE=1``) and the entries on the left; a
+    drawn KiCad bus group may need it (change c0470, ``drawn_harness``)."""
 
     def entry_point(self, k: int) -> tuple[int, int]:
         """The connection point of entry ``k`` (1-based), on the right edge."""
@@ -375,6 +378,9 @@ class SheetPlan:
     lines: tuple[tuple[tuple[int, int], tuple[int, int]], ...] = ()
     """The signal harness lines that join two sheet entries directly, each from the entry on the right side
     of a sheet symbol to the entry of the same name on the left side of the next one."""
+    polylines: tuple[tuple[tuple[int, int], ...], ...] = ()
+    """Signal harness lines of any number of points: the KiCad buses of a drawn bus group (change c0470,
+    ``drawn_harness``)."""
     class_marks: tuple[ClassMark, ...] = ()
     """The net class directives of the sheet, in code-point order of their nets (change c0048)."""
     buses: tuple[BusBlock, ...] = ()

@@ -77,85 +77,97 @@ def imported(source: Path, cli: KicadCli, row: str = ""):
 
 
 def schematic(source: Path, cli: KicadCli):
-    with tempfile.TemporaryDirectory(prefix="fenolite-a2k-sch-") as temp:
-        folder = Path(temp)
-        conversion = write(source, folder, cli.major())
-        name = f"{conversion.design.header.name}.kicad_sch"
-        if name not in conversion.files:
-            assert conversion.report.row("schematic").lost
-            return ()
-        files = {key: folder / key for key in conversion.files if key != name}
-        run = cli.export_netlist(folder / name, files=files)
-        assert run.ok
-        from dataclasses import replace
+    # H-K-CONV-A2K-SCH checks the generated schematic path (a source without sheets since change c0470).
+    import fenolite.convert.schematic as drawing_lib
 
-        from fenolite.api.sides import netlist_design
-        from fenolite.backends.kicad.cli import NETLIST
-        from fenolite.backends.kicad.netlist import read_netlist
+    drawing_of = drawing_lib.drawing_of
+    drawing_lib.drawing_of = lambda _source: None  # type: ignore[assignment]
+    try:
+        with tempfile.TemporaryDirectory(prefix="fenolite-a2k-sch-") as temp:
+            folder = Path(temp)
+            conversion = write(source, folder, cli.major())
+            name = f"{conversion.design.header.name}.kicad_sch"
+            if name not in conversion.files:
+                assert conversion.report.row("schematic").lost
+                return ()
+            files = {key: folder / key for key in conversion.files if key != name}
+            run = cli.export_netlist(folder / name, files=files)
+            assert run.ok
+            from dataclasses import replace
 
-        exported = read_netlist(run.outputs[NETLIST].decode())
-        # H-K-SCH-UNCONNECTED: an open pin gets a synthetic net in
-        # KiCad's export. It is not a conductive connection in the source.
-        source_names = {net.name for net in conversion.design.circuit.nets}
-        exported = replace(
-            exported,
-            nets=tuple(
-                net
-                for net in exported.nets
-                if not (
-                    net.name.startswith("unconnected-(")
-                    and net.name not in source_names
-                    and len(net.nodes) == 1
-                )
-            ),
-        )
-        # An empty Value is exported as ``~`` by 9.0.9 and 10.0.6 (``schematic.md``, H-K-SCH-COMPONENTS-2);
-        # the sheet holds the empty text, which the second comparison below reads.
-        empty = {c.ref for c in conversion.design.circuit.components if not c.value}
-        exported = replace(
-            exported,
-            components=tuple(
-                replace(c, value="") if c.ref in empty and c.value == "~" else c for c in exported.components
-            ),
-        )
-        actual = netlist_design(
-            exported, "exported", dnp=frozenset(c.ref for c in exported.components if "dnp" in c.flags)
-        )
-        winners = {member: net.id for net in conversion.design.circuit.nets for member in net.members}
-        expected_nets = tuple(
-            replace(net, members=tuple(member for member in net.members if winners[member] == net.id))
-            for net in conversion.design.circuit.nets
-        )
-        connected = {(m.component_id, m.pin) for net in expected_nets for m in net.members}
-        parts = tuple(
-            replace(c, pins=tuple(p for p in c.pins if (c.id, p.number) in connected))
-            for c in conversion.design.circuit.components
-        )
-        expected = replace(
-            conversion.design,
-            board=None,
-            circuit=replace(conversion.design.circuit, components=parts, nets=expected_nets),
-        )
-        independent = equivalent(expected, actual, level=2, ignore_refs=("",))
-        assert independent.report is not None
-        assert not independent.report.differences, independent.report.differences
+            from fenolite.api.sides import netlist_design
+            from fenolite.backends.kicad.cli import NETLIST
+            from fenolite.backends.kicad.netlist import read_netlist
 
-        result = equivalent(replace(conversion.design, board=None), folder / name, level=2, ignore_refs=("",))
-        assert result.report is not None
-        # Export and ERC are independent checks; conversion is not a claim that a source is ERC clean.
-        erc = cli.erc(folder / name, files=files)
-        assert erc.report is not None
-        assert not tuple(
-            violation
-            for violation in erc.report.violations
-            if violation.severity == "error" and violation.type in ("pin_not_connected", "isolated_pin_label")
-        ), erc.report.violations
-        explainer = Explainer(conversion.source.design, conversion.report)
-        return tuple(
-            difference
-            for difference in result.report.differences
-            if explainer.explain(difference.kind, difference.where, difference.a, difference.b) is None
-        )
+            exported = read_netlist(run.outputs[NETLIST].decode())
+            # H-K-SCH-UNCONNECTED: an open pin gets a synthetic net in
+            # KiCad's export. It is not a conductive connection in the source.
+            source_names = {net.name for net in conversion.design.circuit.nets}
+            exported = replace(
+                exported,
+                nets=tuple(
+                    net
+                    for net in exported.nets
+                    if not (
+                        net.name.startswith("unconnected-(")
+                        and net.name not in source_names
+                        and len(net.nodes) == 1
+                    )
+                ),
+            )
+            # An empty Value is exported as ``~`` by 9.0.9 and 10.0.6 (``schematic.md``,
+            # H-K-SCH-COMPONENTS-2); the sheet holds the empty text, which the second comparison reads.
+            empty = {c.ref for c in conversion.design.circuit.components if not c.value}
+            exported = replace(
+                exported,
+                components=tuple(
+                    replace(c, value="") if c.ref in empty and c.value == "~" else c
+                    for c in exported.components
+                ),
+            )
+            actual = netlist_design(
+                exported, "exported", dnp=frozenset(c.ref for c in exported.components if "dnp" in c.flags)
+            )
+            winners = {member: net.id for net in conversion.design.circuit.nets for member in net.members}
+            expected_nets = tuple(
+                replace(net, members=tuple(member for member in net.members if winners[member] == net.id))
+                for net in conversion.design.circuit.nets
+            )
+            connected = {(m.component_id, m.pin) for net in expected_nets for m in net.members}
+            parts = tuple(
+                replace(c, pins=tuple(p for p in c.pins if (c.id, p.number) in connected))
+                for c in conversion.design.circuit.components
+            )
+            expected = replace(
+                conversion.design,
+                board=None,
+                circuit=replace(conversion.design.circuit, components=parts, nets=expected_nets),
+            )
+            independent = equivalent(expected, actual, level=2, ignore_refs=("",))
+            assert independent.report is not None
+            assert not independent.report.differences, independent.report.differences
+
+            result = equivalent(
+                replace(conversion.design, board=None), folder / name, level=2, ignore_refs=("",)
+            )
+            assert result.report is not None
+            # Export and ERC are independent checks; conversion is not a claim that a source is ERC clean.
+            erc = cli.erc(folder / name, files=files)
+            assert erc.report is not None
+            assert not tuple(
+                violation
+                for violation in erc.report.violations
+                if violation.severity == "error"
+                and violation.type in ("pin_not_connected", "isolated_pin_label")
+            ), erc.report.violations
+            explainer = Explainer(conversion.source.design, conversion.report)
+            return tuple(
+                difference
+                for difference in result.report.differences
+                if explainer.explain(difference.kind, difference.where, difference.a, difference.b) is None
+            )
+    finally:
+        drawing_lib.drawing_of = drawing_of
 
 
 def load_probe() -> str:

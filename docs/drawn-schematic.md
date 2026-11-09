@@ -362,3 +362,71 @@ absence is no longer mistaken for an authoring request to inherit.
 One valid string `href` on opaque free text is preserved without changing its
 measured nonvisual glyph rendering (c0337). The view adapts a clone, opens no
 URL and adds no clickable-link feature; typed effects remain closed.
+
+## Converted drawings (c0470)
+
+`fenolite convert` keeps the drawing of a project with sheets in both directions, and
+`fenolite import --to python` of an Altium project writes it to `schematic.toml`. Only a source
+without sheets (a PCB document alone) still gets a schematic generated from its circuit.
+
+- **Altium to KiCad.** The extractor `backends/altium/drawn_read.py` reads every sheet into the
+  drawn model. Each component gets the symbol its sheet embeds, and each power port gets a KiCad
+  power symbol `AltiumPower:<style>`. A harness becomes a bus group, local labels and a rectangle.
+  The Altium records that KiCad cannot draw travel in `Fenolite.Altium.Sheet`
+  (`fenolite.altium-sheet.v0`), in the title block's comment 9. `kicad-cli` 10.0.6 keeps that
+  comment on a save.
+- **KiCad to Altium.** The drawn writer `backends/altium/drawn.py` runs with `carry`:
+  - A KiCad global label is written as a power port.
+  - A power symbol other than `AltiumPower:<style>` is written as a power port.
+  - A power flag (`PWR_FLAG`) and every item without Altium text are written to no record.
+  - A local label that shares its text with a hierarchical label of its sheet is written as a port,
+    and one that shares it with a power symbol as a power port. KiCad joins them; Altium joins a net
+    label to neither (`H-A-IMP-DUP-NAME`).
+  - A hidden power-input pin gets a power port of its name at its hot end. KiCad joins it to that
+    global net; an Altium hidden pin joins nothing.
+  - Each property of a symbol, besides `Reference`, `Value` and `Footprint`, is a parameter of its part.
+  - A pin on whole mils that is off the 10-mil grid keeps its `_FRAC` keys in the sheet and its
+    `PinFrac` entry in the library.
+  - A net of the schematic takes the board's spelling: KiCad's stored `{slash}` is `/`
+    (`H-K-SCH-SLASH`), so the sheets and the board name one net.
+  - A bus group that crosses a sheet (`UART{TX RX}` on a hierarchical label and its sheet pin) is
+    written as a signal harness (`backends/altium/drawn_harness.py`). Altium joins the members of a
+    port or a sheet entry only through a harness (`H-A-SCH-HARN-NETS`), and a bus joins nothing
+    (`H-A-IMP-BUS`). The port or sheet entry takes the group's name and a harness type
+    `KiCadBus_<id>` of its entries. The KiCad buses that join the group's ends become signal harness
+    lines. Beside them a block is drawn in free space: a harness line on the 50-mil grid that touches
+    nothing of the sheet but its start, a connector (on its right side, `HARNESSCONNECTORSIDE=1`,
+    when it faces left) and, per entry, a 300-mil wire with the net label `<group>.<entry>` that joins
+    the member's wires by name. KiCad joins the groups on one bus by member name, so a block has one
+    label per group name. A sheet without free space for a block refuses the drawing.
+
+  The carrier `Fenolite.KiCad.Sheet` (`fenolite.kicad-sheet.v0`) holds what the native records
+  cannot. It is a hidden parameter of the sheet (record 41 without an owner) whose value is base64
+  canonical JSON. For each port that stands in for a KiCad item, it keeps the item's kind, shape and
+  field poses, keyed by `UNIQUEID`. It also keeps each label's kind and written text by position (a
+  port by either hot end), the fields of each sheet symbol and of each symbol (by `<designator>:<unit>`,
+  with the lib id of a unit drawn by another symbol), and, for a sheet that KiCad uses more than once,
+  the KiCad sheet and file it was copied from. A point off Altium's 127/50 nm step is written rounded
+  (`drawn.coordinate-rounded`); the carrier keeps each rounded coordinate with its nm length, and the
+  reader puts the length back. A coordinate written from two lengths stays rounded. The carrier
+  lists the items of each harness block, which the reader drops, and the library text of each
+  carried symbol's definition by lib id, which the way back embeds again (a logo, a mounting hole). A value longer than 60 000 characters goes in numbered
+  parts `Fenolite.KiCad.Sheet`, `.2`, `.3`, since a record holds at most 65 535 bytes. Carried Altium
+  records, a harness among them, are written again. Their KiCad stand-ins are dropped, because the
+  reader draws them from those records.
+- **Reused sheets.** Altium writes a KiCad sheet used more than once as one sheet per instance, its
+  parts named by their own designators. The way back folds the copies into one KiCad sheet again
+  (`convert/schematic.py`, `refolded`), and the comparison copies the read sheet once per instance
+  (`checks/equivalence/drawn.py`, `flattened`).
+- **Verification.** `fenolite.api.convert` compares the source drawing with the drawing read back
+  from the written files at level S, and the resolved netlist of the written drawing with its
+  circuit. A row of the report explains each difference by its kind, or the difference gives
+  `convert.unexplained` (exit 5). A net that differs is explained only by a lost item.
+- **Limits.** The way back from a KiCad drawing needs `kicad-cli`, because the own netlist covers
+  generated sheets only. Display modes other than the shown one are reported under
+  `symbol-graphic`, not drawn. A pin off whole mils is refused (`FEN-7001`). A DNP mark is reported
+  under `dnp`: no Altium writer holds it. A BOM-only symbol is refused (c0334). The KiCad 10.0.6 demo
+  projects go there and back with no difference at level S, except `cm5_minima`, which holds a
+  BOM-only symbol (`tests/corpus/test_convert_schematic_roundtrip.py`). Altium Designer 24.5.2.23
+  opens the converted `blink`, `altium_hier_board`, `hier` and the six demos and finds the same net
+  partition as the source (S-2287).

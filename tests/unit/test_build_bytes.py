@@ -54,6 +54,9 @@ c0463 task 4.3 (S-2227) keeps Altium's distance from the board's edge and draws 
 pad outside the outline: board_40parts.PcbDoc moves from 9e3cabd7 to e2da3ead. Only the streams
 ``Regions6/Data`` and ``ShapeBasedRegions6/Data`` change, and in them only the two regions of its polygon
 pours; every other stream, every other file of the row and every other row keep their digests.
+c0470 writes the footprint graphics an Altium library cannot hold as items of the placed component: in
+generated@altium the four filled F.Paste rects of one footprint, so only its ``generated.PcbDoc`` and
+``.fenolite/board.json`` move; every other file of the row and every other row keep their digests.
 """
 
 from __future__ import annotations

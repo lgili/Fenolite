@@ -7,11 +7,16 @@ the public Altium blink, made in memory."""
 from __future__ import annotations
 
 import pytest
-from _gensheets import BLINK, refusing_more_than, sheets, two_sheets
+from _gensheets import BLINK, generated, refusing_more_than, sheets, two_sheets
 
 from fenolite.api.conversion import verify_conversion
 from fenolite.convert import convert_project
 from fenolite.convert.sources import read_source
+
+
+@pytest.fixture(autouse=True)
+def _generator(monkeypatch: pytest.MonkeyPatch) -> None:
+    generated(monkeypatch)
 
 
 def test_one_source_sheet_keeps_one_kicad_sheet() -> None:

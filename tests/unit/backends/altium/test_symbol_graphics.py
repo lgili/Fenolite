@@ -296,3 +296,21 @@ def test_graphic_record_keys() -> None:
         "RECORD", "OWNERPARTID", "LINEWIDTH", "COLOR", "AREACOLOR", "ISSOLID", "LOCATIONCOUNT",
         "X1", "Y1", "X2", "X2_FRAC", "Y2", "X3", "Y3",
     ]  # fmt: skip
+
+
+def test_a_drawn_build_keeps_a_pin_off_the_grid() -> None:
+    """A drawn schematic keeps the source's symbols: a pin off the 10-mil grid on whole mils is written with
+    its ``_FRAC`` keys, as a conversion writes it (change c0470); a generated one refuses it. A pin on no
+    whole mil and off Altium's 127/50 nm step is refused either way."""
+    from fenolite.lens.altium import library_symbols
+
+    symbols = {lib_id: get_symbol(lib_id) for lib_id in ("Fenolite:Terminal_1Pin", "Fenolite:Potentiometer")}
+    refused: list[Issue] = []
+    assert library_symbols(symbols, refused) == {}
+    assert [i.where for i in refused] == ["Fenolite:Potentiometer", "Fenolite:Terminal_1Pin"]
+    kept: list[Issue] = []
+    written = library_symbols(symbols, kept, fine=True)
+    assert sorted(written) == ["Fenolite:Potentiometer"]
+    assert [i.where for i in kept if i.code == "altium.symbol-off-grid"] == ["Fenolite:Terminal_1Pin"]
+    library = read_schlib(write_schlib(list(written.values()), library="L.SchLib"))
+    assert len(library.components) == 1

@@ -37,10 +37,20 @@ def test_harness_projects_use_explicit_net_labels() -> None:
     assert b"AllowPortNetNames" not in plain and b"AllowSheetEntryNetNames" not in plain
 
 
-@pytest.mark.parametrize("name", ["", "sub/x.SchDoc", "sub\\x.SchDoc", "µ.SchDoc", "a|b.SchDoc"])
+@pytest.mark.parametrize("name", ["", "sub/x.SchDoc", "sub\\x.SchDoc", "a\x01.SchDoc", "a|b.SchDoc"])
 def test_unwritable_names(name: str) -> None:
     with pytest.raises(ValueError):
         write_prjpcb(schematic=name)
+
+
+def test_a_name_outside_ascii_makes_a_utf8_project_file() -> None:
+    """A document name outside 7-bit ASCII is written as Altium 26.5 saves a project file: UTF-8 with a byte
+    order mark (``project.md``; change c0470); an ASCII project stays ASCII."""
+    data = write_prjpcb(schematic="µ.SchDoc", libraries=("01 - 电容.SchLib",))
+    assert data.startswith(b"\xef\xbb\xbf[Design]\r\n")
+    assert "DocumentPath=µ.SchDoc" in data[3:].decode("utf-8")
+    assert "DocumentPath=01 - 电容.SchLib" in data[3:].decode("utf-8")
+    assert not write_prjpcb(schematic="a.SchDoc").startswith(b"\xef\xbb\xbf")
 
 
 def test_project_with_a_library() -> None:

@@ -20,7 +20,7 @@ from typing import Literal
 
 from fenolite.core.coords import Point, Size
 from fenolite.core.units import Nm, Udeg
-from fenolite.model.presentation import TitleBlock
+from fenolite.model.presentation import SheetFrameRef, TitleBlock
 
 SCHEMA = "fenolite.drawn-schematic.v0"
 """The schema of the drawn schematic file this version reads and writes."""
@@ -36,6 +36,31 @@ TITLE_FIELDS: tuple[str, ...] = (
     "title", "date", "revision", "organization", "doc_id", "responsible", "approver",
 )  # fmt: skip
 """The text fields of a drawn title block, in file order; ``param.<name>`` pairs follow."""
+
+
+NAMED_PAPERS: tuple[str, ...] = ("A0", "A1", "A2", "A3", "A4", "A5", "Letter", "Legal", "Tabloid")
+
+
+def paper_frame(paper: str) -> SheetFrameRef:
+    """The frame of a drawn sheet's ``paper``: a named paper with an optional `` portrait``, or
+    ``custom:<width>x<height>`` in nm (change c0470); anything else is ``ValueError``."""
+    name, _, rest = paper.partition(" ")
+    if name in NAMED_PAPERS and rest in ("", "portrait"):
+        return SheetFrameRef(name, portrait=rest == "portrait")  # type: ignore[arg-type]
+    if name.startswith("custom:") and not rest:
+        width, _, height = name.removeprefix("custom:").partition("x")
+        if width.isdecimal() and height.isdecimal() and int(width) > 0 and int(height) > 0:
+            return SheetFrameRef("custom", width=int(width), height=int(height))
+    raise ValueError(f"paper {paper!r} is a named paper (with ' portrait') or 'custom:<width>x<height>'")
+
+
+def paper_text(frame: SheetFrameRef) -> str:
+    """The ``paper`` of a drawn sheet for ``frame``, the inverse of ``paper_frame``."""
+    if frame.paper == "custom" and frame.width is not None and frame.height is not None:
+        return f"custom:{frame.width}x{frame.height}"
+    if frame.paper == "custom":
+        return "A4"
+    return f"{frame.paper} portrait" if frame.portrait else frame.paper
 
 
 def title_pairs(block: TitleBlock | None) -> tuple[tuple[str, str], ...]:
@@ -350,7 +375,9 @@ class DrawnBusAlias:
 
 @dataclass(frozen=True, slots=True)
 class DrawnOpaque:
-    """An item the model does not hold, kept verbatim: one KiCad S-expression and optionally Altium text."""
+    """An item the model does not hold, kept verbatim: one KiCad S-expression and optionally Altium text.
+    An Altium record that KiCad cannot draw has no KiCad text (``kicad == ""``): a KiCad sheet carries it in
+    its carrier (change c0470, ``backends/kicad/sheet_carrier.py``)."""
 
     kicad: str
     altium: str = ""

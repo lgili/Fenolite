@@ -194,7 +194,10 @@ from the schematic.
 
 - The written project file is exactly `[Design]`, `Version=1.0`, an empty line, `[Document1]` and
   `DocumentPath=<name>.SchDoc`, each line ending with CR LF, in 7-bit ASCII and without a byte-order
-  mark.
+  mark. A project whose document names are not all 7-bit ASCII (change c0470: a library of a converted
+  Altium source named `01 - 电容-电阻-电感.SchLib`) is written as Altium Designer 26.5 saves its project
+  files: UTF-8 with a byte-order mark (row 36 above); the corpus project files of the Altium sets 01 and
+  04 start with the same three bytes.
 - It is written once: an existing `<name>.PrjPcb` in the output folder is kept, because Altium rewrites
   it when the PCB document is added (capability `altium-build`, "Edited Altium outputs are not
   overwritten").

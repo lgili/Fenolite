@@ -17,6 +17,9 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+import pytest
+from _gensheets import generated
+
 from fenolite.api import run
 from fenolite.backends.altium import pcbrecords as rec
 from fenolite.backends.altium.read.pcb import read_pcbdoc
@@ -88,10 +91,12 @@ def _differences(result: Mapping[str, Any], kind: str) -> list[dict[str, str]]:
     return [row for row in rows if row["kind"] == kind]
 
 
-def test_a_pad_margin_survives_both_ways(tmp_path: Path) -> None:
+def test_a_pad_margin_survives_both_ways(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """KiCad → Altium writes each pad's own margin as a manual expansion; Altium → KiCad gives it back; and
     level 3 of ``equivalent`` finds the pads of the original document, which follow the rules of a
-    document without a mask rule, different from them."""
+    document without a mask rule, different from them. The first leg writes the generated schematic, whose
+    netlist the pure way back reads without ``kicad-cli`` (change c0470)."""
+    generated(monkeypatch)
     kicad = convert_project(BLINK, to="kicad", kicad_version=10, allow_lossy=True)
     first = tmp_path / "k"
     _write(dict(kicad.files), first)

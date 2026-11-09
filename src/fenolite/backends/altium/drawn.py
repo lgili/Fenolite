@@ -16,11 +16,21 @@ from dataclasses import dataclass, replace
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
+import fenolite.backends.altium.drawn_carrier as drawn_carrier
+import fenolite.backends.altium.drawn_harness as drawn_harness
+import fenolite.backends.altium.drawn_read as drawn_read
 import fenolite.backends.altium.schdoc as schdoc
-from fenolite.backends.altium.altsym import NM_PER_MIL, STEPS, AltiumSymbol
+from fenolite.backends.altium.altsym import HIDDEN, NM_PER_MIL, STEPS, AltiumSymbol
 from fenolite.backends.altium.ascii import Field, TextForm, format_record, text_problem
-from fenolite.backends.altium.hierarchy import ProjectSheets, SheetFile
-from fenolite.backends.altium.layout import SHEET_SIZES, PartSpec, PlacedPart, SheetPlan
+from fenolite.backends.altium.hierarchy import ProjectSheets, SheetFile, SheetLink
+from fenolite.backends.altium.layout import (
+    SHEET_SIZES,
+    HarnessBlock,
+    PartSpec,
+    PlacedPart,
+    SheetPlan,
+    SheetSize,
+)
 from fenolite.backends.altium.project import unique_id
 from fenolite.core.coords import Point
 from fenolite.core.errors import FenoliteError, FormatError, Issue
@@ -29,6 +39,7 @@ from fenolite.model.design import Design
 from fenolite.model.drawn import DrawnInstance, DrawnSchematic, DrawnSheet, DrawnSheetRef, DrawnSymbol
 from fenolite.model.drawn_connect import (
     UnitInfo,
+    bus_group_parts,
     bus_vector,
     component_path,
     coverage,
@@ -39,24 +50,50 @@ from fenolite.model.drawn_connect import (
 
 if TYPE_CHECKING:
     from fenolite.backends.altium.adapter.netlist import Resolved
+    from fenolite.backends.altium.read.sch import SchDocument
 
 Record = list[Field]
 EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-A-DRAWN-WRITE",))
 UNIT_SCALE = 100_000
 # One native fractional unit is 127/50 nm (the existing schematic-records.md unit).
 NM_NUMERATOR, NM_DENOMINATOR = 50, 127
+PORT_WIDTH = 100 * 10_000
+"""The width of a written port: 100 mil in file units."""
+PORT_NM = 100 * NM_PER_MIL
 _IO = {"input": "2", "output": "1", "bidirectional": "3", "tri_state": "3"}
 _COORD = re.compile(r"(?:LOCATION|CORNER)\.X|X[0-9]+")
 _BUS_MEMBER = re.compile(r"^(.+?)([0-9]+)$")
 
 
-def _native_buses(drawn: DrawnSchematic, sheet: DrawnSheet, where: str, issues: list[Issue]) -> DrawnSheet:
-    """Lower only bus-anchored identifiers, preserving the exact scalar member set (S-0301)."""
+def _aliases(drawn: DrawnSchematic, sheet: DrawnSheet) -> dict[str, tuple[str, ...]]:
     aliases: dict[str, tuple[str, ...]] = {}
     for other in drawn.sheets:
         for alias in other.bus_aliases:
             aliases.setdefault(alias.name, alias.members)
     aliases.update((alias.name, alias.members) for alias in sheet.bus_aliases)
+    return aliases
+
+
+def _group_members(text: str, aliases: Mapping[str, tuple[str, ...]]) -> tuple[str, tuple[str, ...]] | None:
+    """The name and entries of a named bus group ``text`` that is no native bus vector: ``UART{TX, RX}``
+    gives ``UART`` and ``TX``, ``RX``; ``None`` for anything else."""
+    parts = bus_group_parts(text)
+    if parts is None or not parts[0] or bus_vector(text) is not None:
+        return None
+    members = expand(text, aliases)
+    prefix = parts[0] + "."
+    if not members or any(not member.startswith(prefix) for member in members):
+        return None
+    return parts[0], tuple(member[len(prefix) :] for member in members)
+
+
+def _native_buses(
+    drawn: DrawnSchematic, sheet: DrawnSheet, where: str, issues: list[Issue], harness: bool = False
+) -> DrawnSheet:
+    """Lower only bus-anchored identifiers, preserving the exact scalar member set (S-0301). With ``harness``
+    a named bus group of a hierarchical label or a sheet pin is kept: it is written as a harness."""
+    aliases = _aliases(drawn, sheet)
+    harnesses = harness
 
     def on(at: Point, segments: Sequence[tuple[Point, Point]]) -> bool:
         return any(
@@ -66,9 +103,19 @@ def _native_buses(drawn: DrawnSchematic, sheet: DrawnSheet, where: str, issues: 
             for a, b in segments
         )
 
-    def name(text: str, at: Point, locator: str) -> str:
+    def name(text: str, at: Point, locator: str, harness: bool = False) -> str:
         if not on(at, sheet.bus_segments()) or on(at, sheet.segments()):
             return text
+        if harness and harnesses and _group_members(text, aliases) is not None:
+            return text  # a harness (change c0470, ``drawn_harness``)
+        if (
+            harness
+            and harnesses
+            and (empty := bus_group_parts(text)) is not None
+            and empty[0]
+            and not empty[1]
+        ):
+            return text  # a harness type that no connector defines: an empty group (change c0470)
         members = expand(text, aliases)
         if members is None or (bus_vector(text) is not None and text not in aliases):
             return text
@@ -104,14 +151,24 @@ def _native_buses(drawn: DrawnSchematic, sheet: DrawnSheet, where: str, issues: 
     return replace(
         sheet,
         labels=tuple(
-            replace(label, text=name(label.text, label.at, f"{where}.label[{index}]"))
+            replace(
+                label,
+                text=name(
+                    label.text,
+                    label.at,
+                    f"{where}.label[{index}]",
+                    label.kind in ("local", "hierarchical"),
+                ),
+            )
             for index, label in enumerate(sheet.labels)
         ),
         sheet_refs=tuple(
             replace(
                 ref,
                 pins=tuple(
-                    replace(pin, name=name(pin.name, pin.at, f"{where}.sheet_ref.{ref.key}.pin[{index}]"))
+                    replace(
+                        pin, name=name(pin.name, pin.at, f"{where}.sheet_ref.{ref.key}.pin[{index}]", True)
+                    )
                     for index, pin in enumerate(ref.pins)
                 ),
             )
@@ -197,15 +254,307 @@ def _turn(x: int, y: int, rotation: int, mirror: str = "") -> tuple[int, int]:
     return x, y
 
 
+POWER_LIBRARY = "AltiumPower"
+"""The library of the KiCad power symbols that stand for Altium power port styles (change c0470,
+``drawn_read.POWER_LIBRARY``)."""
+POWER_STYLES: tuple[str, ...] = (
+    "circle", "arrow", "bar", "wave", "power_ground", "signal_ground", "earth", "gost_arrow",
+    "gost_power_ground", "gost_earth", "gost_bar",
+)  # fmt: skip
+"""``STYLE`` 0 to 10 of a power port (``drawn_read.POWER_STYLES``)."""
+TITLE_NAMES = {
+    "title": "Title", "revision": "Revision", "date": "Date", "organization": "CompanyName",
+    "doc_id": "DocumentNumber", "responsible": "DrawnBy", "approver": "ApprovedBy",
+}  # fmt: skip
+"""Title-block field → the document parameter a sheet template shows (``drawn_read.TITLE_PARAMETERS``)."""
+HARNESS_GROWTH = 2_000
+"""How far, in mil, a sheet without free space for a harness block grows to the right (change c0470)."""
+HARNESS_GROWTHS = 3
+"""How often it grows before the drawing is refused."""
+_MODELLED = frozenset(
+    {None, "0", "1", "2", "15", "16", "17", "18", "22", "25", "26", "27", "29", "31", "32", "33", "34", "37",
+     "41"}
+)  # fmt: skip
+"""The ``RECORD`` of a root record that an opaque item must not hold: a drawn item or the framework writes
+it."""
+_OWNERS = frozenset({"OWNERINDEX", "OWNERINDEXADDITIONALLIST", "OWNERINDEXADDITIONALRECORD"})
+_COLUMNS = {"left": 0, "right": 2}
+_ROWS = {"bottom": 0, "top": 2}
+_FLIP = {"left": "right", "right": "left", "top": "bottom", "bottom": "top"}
+
+
+def _justification(words: Sequence[str], turn: int) -> int:
+    """The ``JUSTIFICATION`` of a parameter (``docs/formats/altium/sheet-template.md``: 0 bottom left to 8
+    top right) that shows the KiCad justification ``words`` at quarter turn ``turn``: Altium anchors a text
+    turned by two or three quarters at its opposite corner, so the words flip (change c0470)."""
+    if turn % 4 >= 2:
+        words = [_FLIP.get(word, word) for word in words]
+    column = next((_COLUMNS[word] for word in words if word in _COLUMNS), 1)
+    row = next((_ROWS[word] for word in words if word in _ROWS), 1)
+    return row * 3 + column
+
+
+def _orientation(quarter: int, mirror: str) -> int:
+    """The ``ORIENTATION`` of a component turned ``quarter`` quarter turns and then mirrored (KiCad order).
+    Altium mirrors the part about its vertical axis before it turns it (``drawn_read._mirror``): ``y`` at an
+    even orientation, ``x`` at an odd one. A mirror about X is a mirror about Y turned by a half turn
+    (change c0470)."""
+    if not mirror:
+        return quarter % 4
+    turn = (quarter + 2) % 4 if mirror == "x" else quarter % 4
+    return turn if turn % 2 == 0 else (turn + 2) % 4
+
+
 class _Sheet:
-    def __init__(self, plan: SheetPlan, issues: list[Issue], allow_lossy: bool, form: TextForm) -> None:
+    def __init__(
+        self,
+        plan: SheetPlan,
+        issues: list[Issue],
+        allow_lossy: bool,
+        form: TextForm,
+        carry: bool = False,
+        harness: bool | None = None,
+    ) -> None:
         self.plan = plan
+        self.carry = carry
+        self.harness = carry if harness is None else harness
+        """Whether a KiCad bus group that crosses a sheet is written as a signal harness (``drawn_harness``):
+        always in a conversion, and in a build (change c0470)."""
         self.height = plan.size.height * 10_000
         self.issues = issues
         self.allow_lossy = allow_lossy
         self.form: TextForm = form
         self.records: list[Record] = []
         self.poses: list[PlacedPart] = []
+        self.origin = ""
+        """With ``carry``, the key of the KiCad sheet of which this sheet is one instance's copy (c0470)."""
+        self.origin_file = ""
+        self.origin_parts: dict[str, str] = {}
+        self.bodies: Mapping[str, AltiumSymbol] = {}
+        """With ``carry``, the own body of a component, by reference, whose instance differs from the library
+        symbol of its link (change c0470)."""
+        self.spellings: Mapping[tuple[int, int], str] = {}
+        """With ``carry``, the own text of each net label that the reader wrote in the letter case of another
+        label of its net (``drawn_read.one_spelling``), by its position (change c0470)."""
+        self.lone_harness: Mapping[tuple[str, str], str] = {}
+        """With ``carry``, the ``HARNESSTYPE`` of each sheet entry that the carrier keeps, by (sheet name,
+        entry name) (change c0470): the type of an entry drawn as the empty group ``NAME{}``, or "" for an
+        entry whose record holds none."""
+        self.definitions: Mapping[str, str] = {}
+        """With ``carry``, the KiCad library text of this sheet's carried opaque symbol definitions."""
+        self.power_in: Mapping[str, frozenset[str]] = {}
+        """Per component path, the numbers of its KiCad power-input pins (the circuit's pin types)."""
+        self.hidden_pins: list[tuple[str, Point, str]] = []
+        """With ``carry``, the net, sheet point and locator of each hidden power pin whose net its name gives:
+        KiCad joins such a pin to that net, Altium joins no hidden pin by its name (S-0185), so a carried
+        power port stands at its end (change c0470)."""
+        self.coordinates: dict[int, set[int]] = {}
+        """Each coordinate ``point`` wrote (fraction units, Y from the top) and the nm lengths it came
+        from."""
+        self.harness_types: Mapping[tuple[str, ...], str] = {}
+        """With ``carry``, the harness type of each set of entries that a carried connector holds (c0470)."""
+        self.aliases: Mapping[str, tuple[str, ...]] = {}
+        self.groups: list[drawn_harness.GroupEnd] = []
+        self.harness_buses: set[int] = set()
+        """The KiCad buses of ``groups``, written as signal harness lines."""
+        """With ``carry``, each port and sheet entry written for a KiCad bus group (``drawn_harness``)."""
+
+    def group(self, text: str) -> tuple[str, str] | None:
+        """With ``carry``, the name and harness type of a port or sheet entry of the bus group ``text``
+        (``drawn_harness``); ``None`` when ``text`` is no named bus group."""
+        found = _group_members(text, self.aliases) if self.harness else None
+        if found is None:
+            return None
+        return found[0], drawn_harness.harness_type(found[1])
+
+    def mils(self, at: Point, where: str) -> tuple[int, int]:
+        x, y = self.point(at, where)
+        if x % drawn_harness.MIL or y % drawn_harness.MIL:
+            raise FormatError(
+                "a point of a bus group is off the 1-mil grid; no harness is written", locator=where
+            )
+        return x // drawn_harness.MIL, y // drawn_harness.MIL
+
+    def networks(self, sheet: DrawnSheet, where: str) -> None:
+        """With ``carry``, the harness of each named bus group of ``sheet``'s hierarchical labels and sheet
+        pins (``drawn_harness.GroupEnd``): the ends that its KiCad buses join, written as one harness."""
+        ends: list[tuple[Point, str, str]] = []
+
+        def new(text: str) -> bool:  # a KiCad bus group, not an Altium harness type that a carrier holds
+            group = bus_group_parts(text)
+            return self.group(text) is not None and (
+                group is None or sorted_entries(group[1]) not in self.harness_types
+            )
+
+        for index, label in enumerate(sheet.labels):
+            if label.kind == "hierarchical" and new(label.text):
+                ends.append((label.at, label.text, f"{where}.label[{index}]"))
+        for ref in sheet.sheet_refs:
+            for index, pin in enumerate(ref.pins):
+                if new(pin.name):
+                    ends.append((pin.at, pin.name, f"{where}.sheet_ref.{ref.key}.pin[{index}]"))
+        if not ends:
+            return
+
+        def on(at: Point, line: Sequence[Point]) -> bool:
+            pairs = zip(line, line[1:], strict=False)
+            return any(drawn_harness.on_segment((at.x, at.y), (a.x, a.y), (b.x, b.y)) for a, b in pairs)
+
+        buses = list(sheet.buses)
+        owner = list(range(len(buses) + len(ends)))
+
+        def root(index: int) -> int:
+            while owner[index] != index:
+                owner[index] = owner[owner[index]]
+                index = owner[index]
+            return index
+
+        for i, line in enumerate(buses):
+            for j in range(i):
+                if any(on(p, buses[j]) for p in line) or any(on(p, line) for p in buses[j]):
+                    owner[root(i)] = root(j)
+        for k, (at, _, _) in enumerate(ends):
+            for i, line in enumerate(buses):
+                if on(at, line):
+                    owner[root(len(buses) + k)] = root(i)
+        groups: dict[int, list[int]] = {}
+        for k in range(len(ends)):
+            groups.setdefault(root(len(buses) + k), []).append(k)
+        label_texts = {label.text for label in sheet.labels}
+        by_key: dict[tuple[tuple[str, ...], str], int] = {}
+        for number, members in groups.items():
+            # KiCad joins the bus groups on one bus by their member names: one harness, named by each
+            found = [_group_members(ends[k][1], self.aliases) for k in members]
+            first = ends[members[0]]
+            entries = found[0][1] if found[0] is not None else ()
+            if any(item is None or item[1] != entries for item in found):
+                texts = ", ".join(sorted({ends[k][1] for k in members}))
+                raise FormatError(f"one KiCad bus joins the bus groups {texts}", locator=first[2])
+            names = tuple(dict.fromkeys(item[0] for item in found if item is not None))
+            if len(names) > drawn_harness.STUB // 100:
+                raise FormatError("one KiCad bus joins more than three bus group names", locator=first[2])
+            lines = [i for i in range(len(buses)) if root(i) == number]
+            self.harness_buses.update(lines)
+            network = tuple(tuple(self.mils(p, f"{where}.bus[{i}]") for p in buses[i]) for i in lines)
+            starts = {p for line in network for p in line}
+            starts.update(self.mils(ends[k][0], ends[k][2]) for k in members)
+            present = tuple(e for e in entries if any(f"{group}.{e}" in label_texts for group in names))
+            kind = drawn_harness.harness_type(entries)
+            # a bus between sheet entries whose members no label of this sheet names needs no block
+            through = len(members) > 1 and not present
+            end = drawn_harness.GroupEnd(
+                tuple(sorted(starts)),
+                network,
+                names,
+                present or entries,
+                kind,
+                first[2],
+                through=through,
+            )
+            if not through and (names, kind) in by_key:
+                # one connector block of a harness on a sheet joins every end of its name there
+                earlier = self.groups[by_key[(names, kind)]]
+                self.groups[by_key[(names, kind)]] = replace(
+                    earlier,
+                    starts=tuple(sorted(set(earlier.starts) | starts)),
+                    network=(*earlier.network, *network),
+                )
+            else:
+                if not through:
+                    by_key[(names, kind)] = len(self.groups)
+                self.groups.append(end)
+
+    def harness_blocks(
+        self,
+        paper: str = "",
+    ) -> tuple[
+        list[HarnessBlock],
+        list[tuple[tuple[int, int], tuple[int, int]]],
+        list[tuple[tuple[int, int], ...]],
+        drawn_carrier.Json | None,
+    ]:
+        """The block of each harness (``drawn_harness.place_all``), with its member wires and labels
+        written here, the lines of the blocks and of the KiCad buses, and what the carrier lists for the
+        reader: the block's items to drop and the buses whose harness line it reads as a bus."""
+        if not self.groups:
+            return [], [], [], None
+        size = (self.plan.size.width, self.plan.size.height)
+        blocked = [end for end in self.groups if not end.through]
+        placements = drawn_harness.place_all(blocked, self.records, self.height, size) if blocked else []
+        grew = False
+        for _ in range(HARNESS_GROWTHS):
+            if not isinstance(placements, drawn_harness.GroupEnd):
+                break
+            # a full sheet grows to the right, where nothing is drawn; its height, and so every written
+            # point, stays (change c0470)
+            size = (size[0] + HARNESS_GROWTH, size[1])
+            placements = drawn_harness.place_all(blocked, self.records, self.height, size)
+            if not isinstance(placements, drawn_harness.GroupEnd):
+                grew = True
+                self.plan = replace(self.plan, size=SheetSize("custom", size[0], size[1], None))
+                self.issues.append(
+                    Issue(
+                        "altium.sheet-custom",
+                        "warning",
+                        f"the sheet has no free space for a harness block; a custom sheet of {size[0]} x "
+                        f"{size[1]} mil is written",
+                        where=self.groups[0].where,
+                    )
+                )
+        if isinstance(placements, drawn_harness.GroupEnd):
+            raise FormatError(
+                f"no free space for the harness block of bus group {placements.names[0]!r}",
+                locator=placements.where,
+            )
+        blocks: list[HarnessBlock] = []
+        lines: list[tuple[tuple[int, int], tuple[int, int]]] = []
+        drop: drawn_carrier.Json = {
+            "wires": [], "labels": [], "connectors": [], "lines": [], "networks": [], "ends": []
+        }  # fmt: skip
+        if grew and paper:
+            drop["paper"] = paper
+        polylines: list[tuple[tuple[int, int], ...]] = []
+
+        def nm(point: tuple[int, int]) -> Point:
+            return Point(point[0] * NM_PER_MIL, point[1] * NM_PER_MIL)
+
+        def xy(point: tuple[int, int]) -> list[int]:
+            return [point[0] * NM_PER_MIL, point[1] * NM_PER_MIL]
+
+        for end in self.groups:
+            if end.through:  # its harness lines alone join its entries (change c0470)
+                drop["ends"] += [{"at": xy(p)} for p in end.starts]
+                for line in end.network:
+                    polylines.append(line)
+                    drop["networks"].append({"pts": [xy(p) for p in line]})
+        for end, placed in zip(blocked, placements, strict=True):
+            blocks.append(placed.block)
+            lines += placed.lines
+            drop["ends"] += [{"at": xy(p)} for p in end.starts]
+            for line in end.network:
+                polylines.append(line)
+                drop["networks"].append({"pts": [xy(p) for p in line]})
+            block = placed.block
+            drop["connectors"].append({"at": xy((block.x, block.y))})
+            for start, stop in (*placed.lines, block.line):
+                drop["lines"].append({"pts": [xy(start), xy(stop)]})
+            for index, (start, stop, entry) in enumerate(placed.stubs):
+                locator = f"{end.where}.harness[{index}]"
+                self.polyline((nm(start), nm(stop)), False, locator)
+                drop["wires"].append({"pts": [xy(start), xy(stop)]})
+                # each name of the harness labels the member's wire, 100 mil apart from its far end
+                back = -100 if stop[0] > start[0] else 100
+                for number, name in enumerate(end.names):
+                    text = drawn_carrier.altium_text(f"{name}.{entry}")
+                    at = (stop[0] + number * back, stop[1])
+                    self.identifier(text, nm(at), 0, "local", "", locator)
+                    drop["labels"].append({"text": text, "at": xy(at)})
+        return blocks, lines, polylines, {key: value for key, value in drop.items() if value}
+
+    def native(self, at: Point, where: str) -> tuple[int, int]:
+        """The native point of ``at``: its fields ``X`` and ``Y`` as ``location`` writes them."""
+        x, y = self.point(at, where)
+        return x, self.height - y
 
     def point(self, at: Point, where: str) -> tuple[int, int]:
         values = (at.x * NM_NUMERATOR, at.y * NM_NUMERATOR)
@@ -219,20 +568,41 @@ class _Sheet:
             if not self.allow_lossy:
                 raise DrawnLossError(finding)
             self.issues.append(finding)
-        return tuple(_round(value, NM_DENOMINATOR) for value in values)  # type: ignore[return-value]
+        found = tuple(_round(value, NM_DENOMINATOR) for value in values)
+        for length, value in zip((at.x, at.y), found, strict=True):
+            self.coordinates.setdefault(value, set()).add(length)
+        return found  # type: ignore[return-value]
+
+    def exact(self) -> dict[int, int]:
+        """Each written coordinate that only one length off the 127/50 nm step was rounded to, and that
+        length: the reader puts it back (change c0470, task 5.4). A coordinate also written from another
+        length is left rounded."""
+        found: dict[int, int] = {}
+        for value, lengths in self.coordinates.items():
+            if len(lengths) == 1:
+                (length,) = lengths
+                if length * NM_NUMERATOR % NM_DENOMINATOR:
+                    found[value] = length
+        return found
 
     def location(self, at: Point, where: str, name: str = "LOCATION") -> Record:
         x, y = self.point(at, where)
         return [*_fields(f"{name}.X", x), *_fields(f"{name}.Y", self.height - y)]
 
-    def add(self, record: Record, where: str = "") -> int:
+    def add(self, record: Record, where: str = "", read: bool = False) -> int:
         # Sheet record is inserted by schdoc, so the first explicit record has native index 1.
+        # A parameter text is held to the rule its plan applied (``project.parameters_of``, read=True).
+        # ``read``: a record an Altium document held, written again with the reader's rule (change c0470).
+        parameter = dict(record).get("RECORD") == "41"
         for key, value in record:
             try:
                 format_record([(key, "")])
             except ValueError as error:
                 raise FormatError(str(error), locator=where or f"record[{len(self.records)}]") from None
-            problem = text_problem(value, form=self.form) if value else None
+            loose = parameter and key == "TEXT"
+            # a conversion (``carry``) writes the text its source holds, with its ``%UTF8%`` twin
+            held = loose or read or self.carry
+            problem = text_problem(value, form=self.form, parameter=loose, read=held) if value else None
             if problem is not None:
                 raise FormatError(
                     f"Altium field {key}: {problem}", locator=where or f"record[{len(self.records)}]"
@@ -283,8 +653,12 @@ class _Sheet:
                     direction = next(k for k, vector in STEPS.items() if vector == (dx, dy))
                     value = str((number & ~3) | direction)
                 output.append((key, value))
+            if record.get("RECORD") == "2" and self.carry:
+                self.hidden_pin(spec, dict(output), f"{where}.pin")
             if record.get("RECORD") == "1":
-                output.append(("ORIENTATION", str(quarter)))
+                output.append(("ORIENTATION", str(_orientation(quarter, symbol.mirror))))
+                if symbol.mirror:
+                    output.append(("ISMIRRORED", "T"))
             if record.get("RECORD") == "14":
                 rectangle = dict(output)
                 x0, x1 = sorted((_value(rectangle, "LOCATION.X"), _value(rectangle, "CORNER.X")))
@@ -304,12 +678,12 @@ class _Sheet:
                     and k not in {"ORIENTATION", "ISHIDDEN", "JUSTIFICATION", "ISMIRRORED"}
                 ]
                 output += self.location(pose.at, f"{where}.fields.{field_name}")
-                output.append(("ORIENTATION", str(pose.rotation // 90_000_000)))
+                turn = pose.rotation // 90_000_000
+                output.append(("ORIENTATION", str(turn)))
                 words = pose.justify.split()
-                if any(word != "mirror" for word in words):
-                    self.issues.append(Issue("altium.not-lowered", "info", "source field justification "
-                                             "is not represented by the native component parameter writer",
-                                             where=f"{where}.fields.{field_name}"))  # fmt: skip
+                justification = _justification(words, turn)
+                if justification:
+                    output.append(("JUSTIFICATION", str(justification)))
                 if "mirror" in words:
                     output.append(("ISMIRRORED", "T"))
                 if pose.hide:
@@ -318,6 +692,42 @@ class _Sheet:
         self.poses.append(
             replace(placed, x=symbol.at.x // NM_PER_MIL, y=symbol.at.y // NM_PER_MIL, rotation=quarter)
         )
+
+    def hidden_pin(self, spec: PartSpec, pin: Mapping[str, str], where: str) -> None:
+        """Note the written pin ``pin`` of ``spec`` in ``hidden_pins`` when it is a hidden KiCad power-input
+        pin, which KiCad joins to the global net its name gives."""
+        conglomerate = int(pin.get("PINCONGLOMERATE", "0"))
+        name, number = pin.get("NAME", ""), pin.get("DESIGNATOR", "")
+        if not conglomerate & HIDDEN or not name or number not in self.power_in.get(spec.key, ()):
+            return
+        dx, dy = STEPS[conglomerate & 3]
+        length = _value(pin, "PINLENGTH")
+        x = _value(pin, "LOCATION.X") + dx * length
+        y = self.height - (_value(pin, "LOCATION.Y") + dy * length)
+        at = Point(round(x * NM_DENOMINATOR / NM_NUMERATOR), round(y * NM_DENOMINATOR / NM_NUMERATOR))
+        self.hidden_pins.append((name, at, f"{where}.{pin.get('DESIGNATOR', '')}"))
+
+    def title_block(self, pairs: Sequence[tuple[str, str]], where: str) -> None:
+        """The title block as document parameters (change c0470): each field by the parameter name a sheet
+        template shows (``drawn_read.TITLE_PARAMETERS``), each ``param.<name>`` as ``<name>``."""
+        for name, text in pairs:
+            if not text:
+                continue
+            parameter = TITLE_NAMES.get(name) or name.removeprefix("param.")
+            self.add(
+                [
+                    ("RECORD", "41"),
+                    ("OWNERPARTID", "-1"),
+                    *_fields("LOCATION.X", 0),
+                    *_fields("LOCATION.Y", 0),
+                    ("COLOR", schdoc.TEXT_COLOR),
+                    ("FONTID", "1"),
+                    ("ISHIDDEN", "T"),
+                    ("TEXT", text),
+                    ("NAME", parameter),
+                ],
+                f"{where}.title_block.{name}",
+            )
 
     def polyline(self, points: Sequence[Point], bus: bool, where: str) -> None:
         record: Record = [
@@ -332,7 +742,18 @@ class _Sheet:
             record += [*_fields(f"X{index}", x), *_fields(f"Y{index}", self.height - y)]
         self.add(record)
 
-    def identifier(self, name: str, at: Point, rotation: int, kind: str, shape: str, where: str) -> None:
+    def identifier(
+        self,
+        name: str,
+        at: Point,
+        rotation: int,
+        kind: str,
+        shape: str,
+        where: str,
+        uid: str = "",
+        style: int = 2,
+        harness: str = "",
+    ) -> None:
         x, y = self.point(at, where)
         location = [*_fields("LOCATION.X", x), *_fields("LOCATION.Y", self.height - y)]
         record: Record = [
@@ -346,10 +767,17 @@ class _Sheet:
         if kind == "local":
             record += [("TEXT", name), ("ORIENTATION", str(quarter))]
         elif kind == "global":
-            record += [("TEXT", name), ("STYLE", "2"), ("ORIENTATION", str(quarter)), ("SHOWNETNAME", "T")]
+            record += [
+                ("TEXT", name),
+                ("STYLE", str(style)),
+                ("ORIENTATION", str(quarter)),
+                ("SHOWNETNAME", "T"),
+            ]
+            if uid:  # the stand-in of a carried KiCad item (change c0470, design D4)
+                record.append(("UNIQUEID", uid))
         else:
             # A port's two hot ends stay on the label's axis; the drawn point is always one end.
-            width = 100 * 10_000
+            width = PORT_WIDTH
             if quarter == 2:
                 x -= width
             elif quarter == 3:
@@ -363,6 +791,7 @@ class _Sheet:
                 *_fields("WIDTH", width),
                 ("HEIGHT", "10"),
                 ("IOTYPE", _IO.get(shape, "0")),
+                *([("HARNESSTYPE", harness)] if harness else []),
                 ("UNIQUEID", unique_id(where)),
             ]
         self.add(record)
@@ -386,6 +815,16 @@ class _Sheet:
             ]
         )
         for index, pin in enumerate(ref.pins):
+            entry_name, harness_type = pin.name, ""
+            group = bus_group_parts(pin.name) if self.harness_types or self.lone_harness else None
+            held = self.lone_harness.get((ref.name, group[0])) if group is not None else None
+            if group is not None and held is not None:  # the record's own HARNESSTYPE, carried (c0470)
+                entry_name, harness_type = group[0], held
+            elif group is not None and sorted_entries(group[1]) in self.harness_types:
+                # an entry of a harness type: the extractor names it by its group of entries (c0470)
+                entry_name, harness_type = group[0], self.harness_types[sorted_entries(group[1])]
+            elif (lowered := self.group(pin.name)) is not None:
+                entry_name, harness_type = lowered  # a KiCad bus group: a harness (``drawn_harness``)
             px, py = self.point(pin.at, f"{where}.pin[{index}]")
             if px == x:
                 side, distance = 0, py - y
@@ -410,7 +849,8 @@ class _Sheet:
                     ("RECORD", "16"),
                     ("OWNERINDEX", str(owner)),
                     ("OWNERPARTID", "-1"),
-                    ("NAME", pin.name),
+                    ("NAME", drawn_carrier.altium_text(entry_name) if self.carry else entry_name),
+                    *([("HARNESSTYPE", harness_type)] if harness_type else []),
                     ("SIDE", str(side)),
                     ("DISTANCEFROMTOP", str(whole)),
                     *([("DISTANCEFROMTOP_FRAC1", str(fraction))] if fraction else []),
@@ -450,17 +890,16 @@ class _Sheet:
             self.issues.append(Issue("altium.not-lowered", "info", "bus alias declarations are not written "
                                      "as native alias metadata; the written pin partition remains guarded",
                                      where=where))  # fmt: skip
-        if sheet.title_block:
-            self.issues.append(
-                Issue(
-                    "altium.not-lowered",
-                    "info",
-                    "per-sheet source title metadata is not represented by the native drawn sheet writer",
-                    where=where,
-                )
-            )
+        if sheet.title_block:  # a build writes the title block too (change c0470)
+            self.title_block(sheet.title_block, where)
+        symbols: dict[str, drawn_carrier.Json] = {}
         for index, symbol in enumerate(sheet.symbols):
             spec = specs.get(instance.component(symbol.part))
+            if spec is not None and self.origin:
+                self.origin_parts[spec.ref] = symbol.part
+            if spec is not None and self.carry and (symbol.fields or symbol.symbol):
+                # keyed by the designator Altium reads back, not the shared part name (c0470)
+                symbols[f"{spec.ref}:{symbol.unit}"] = drawn_carrier.symbol_value(symbol)
             if spec is not None and 1 <= symbol.unit <= spec.body.parts:
                 if symbol.symbol:
                     alias = symbol_overrides.get(symbol.symbol)
@@ -470,9 +909,14 @@ class _Sheet:
                         )
                     library, body = alias
                     spec = replace(spec, library=library, symbol=body.lib_ref, body=body)
+                elif (own := self.bodies.get(spec.ref)) is not None:
+                    spec = replace(spec, body=own)  # its own body, under its link's name (c0470)
                 self.component(spec, symbol, f"{where}.symbol[{index}]")
+        self.networks(sheet, where)
         for kind, polylines in (("wire", sheet.wires), ("bus", sheet.buses)):
             for index, points in enumerate(polylines):
+                if kind == "bus" and index in self.harness_buses:
+                    continue  # a harness line (``drawn_harness``)
                 self.polyline(points, kind == "bus", f"{where}.{kind}[{index}]")
         for index, junction in enumerate(sheet.junctions):
             self.add(
@@ -507,12 +951,66 @@ class _Sheet:
                     ("SYMBOL", schdoc.NO_ERC_SYMBOL),
                 ]
             )
+        stand_ins: dict[str, drawn_carrier.Json] = {}
+        flags: list[drawn_carrier.Json] = []
+        written: list[drawn_carrier.Json] = []
+        # KiCad joins a local label to the hierarchical label of its name on its sheet; Altium joins a net
+        # label to no port (H-A-IMP-DUP-NAME), so such a local label is written as a port (change c0470)
+        ports = {label.text for label in sheet.labels if self.carry and label.kind == "hierarchical"}
+        # likewise a local label joins the power symbol of its name on its sheet, and Altium joins a net
+        # label to no power port (H-A-IMP-DUP-NAME): it is written as a power port, a stand-in (c0470)
+        powers = {power.net for power in sheet.powers if self.carry} | {net for net, _, _ in self.hidden_pins}
         for index, label in enumerate(sheet.labels):
-            self.identifier(
-                label.text, label.at, label.rotation, label.kind, label.shape, f"{where}.label[{index}]"
-            )
+            at = f"{where}.label[{index}]"
+            kind = "hierarchical" if label.kind == "local" and label.text in ports else label.kind
+            if label.kind == "local" and label.text in powers and label.text not in ports:
+                kind = "global"
+            if self.carry and kind != "global":
+                # a port has two hot ends, 100 mil apart along it: the reader may meet either (c0470)
+                step = {0: (PORT_NM, 0), 1: (0, -PORT_NM), 2: (-PORT_NM, 0), 3: (0, PORT_NM)}
+                dx, dy = step[label.rotation // 90_000_000 % 4]
+                other = Point(label.at.x + dx, label.at.y + dy) if kind == "hierarchical" else None
+                written.append(drawn_carrier.written_label(label, other))
+            # a power port stands for a KiCad global label: the carrier keeps its kind and shape (c0470)
+            uid = unique_id(at) if self.carry and kind == "global" else ""
+            own = self.spellings.get((label.at.x, label.at.y))
+            group = bus_group_parts(label.text) if own is not None else None
+            named = label.text if group is None else group[0]  # a label on a harness: ``NAME{A B}``
+            lowered = self.group(label.text) if kind in ("local", "hierarchical") else None
+            if own is not None and own.casefold() == named.casefold() and kind == "local":
+                text = drawn_carrier.altium_text(own)  # its own letter case and text (c0470)
+            elif lowered is not None and kind == "local":
+                text = drawn_carrier.altium_text(lowered[0]) if self.carry else lowered[0]
+            else:
+                text = drawn_carrier.altium_text(label.text) if self.carry else label.text
+            if lowered is not None and kind == "hierarchical":  # a KiCad bus group: a port of a harness
+                self.identifier(
+                    lowered[0], label.at, label.rotation, kind, label.shape, at, harness=lowered[1]
+                )
+                continue
+            self.identifier(text, label.at, label.rotation, kind, label.shape, at, uid)
+            if uid:
+                stand_ins[uid] = {"label": {**drawn_carrier.label_value(label), "text": label.text}}
+        for net, point, at in self.hidden_pins:
+            uid = unique_id(at)
+            self.identifier(net, point, 0, "global", "", at, uid)
+            stand_ins[uid] = {"pin": net}
         for index, power in enumerate(sheet.powers):
-            self.identifier(power.net, power.at, power.rotation, "global", "", f"{where}.power[{index}]")
+            at = f"{where}.power[{index}]"
+            library, _, style = power.symbol.partition(":")
+            if self.carry and style == drawn_carrier.POWER_FLAG:
+                flags.append(drawn_carrier.flag_value(power))  # a power flag names no net (c0470)
+                continue
+            native = library == POWER_LIBRARY and style in POWER_STYLES
+            uid = unique_id(at) if self.carry and not native else ""
+            self.identifier(
+                drawn_carrier.altium_text(power.net) if self.carry else power.net,
+                power.at, power.rotation, "global", "", at, uid,
+                POWER_STYLES.index(style) if native else 2,
+            )  # fmt: skip
+            if uid:
+                stand_ins[uid] = {"power": {**drawn_carrier.power_value(power), "net": power.net}}
+                continue
             if power.fields or power.mirror:
                 self.issues.append(
                     Issue(
@@ -523,11 +1021,18 @@ class _Sheet:
                         where=f"{where}.power[{index}]",
                     )
                 )
+        refs: list[drawn_carrier.Json] = []
         for ref in sheet.sheet_refs:
             child = "/".join((*instance.keys, ref.key))
             if child in files:
                 self.reference(ref, files[child], f"{where}.sheet_ref.{ref.key}")
+                if self.carry:
+                    refs.append(drawn_carrier.sheet_ref_value(ref))
+        carried: list[str] = []
         for index, opaque in enumerate(sheet.opaques):
+            if not opaque.altium and self.carry:
+                carried.append(opaque.kicad)  # the carrier of design D4 (change c0470)
+                continue
             if not opaque.altium:
                 self.issues.append(
                     issue(
@@ -537,7 +1042,8 @@ class _Sheet:
                     )
                 )
                 continue
-            for line in opaque.altium.splitlines():
+            natives: list[int] = []
+            for number, line in enumerate(opaque.altium.splitlines()):
                 fields: Record = []
                 keys: set[str] = set()
                 for item in line.strip().split("|"):
@@ -555,28 +1061,20 @@ class _Sheet:
                         )
                     keys.add(key.upper())
                     fields.append((key, value))
-                if dict(fields).get("RECORD") in {
-                    None,
-                    "0",
-                    "1",
-                    "2",
-                    "15",
-                    "16",
-                    "17",
-                    "18",
-                    "22",
-                    "25",
-                    "26",
-                    "27",
-                    "29",
-                    "31",
-                    "32",
-                    "33",
-                    "34",
-                    "37",
-                    "41",
-                } or any(
-                    key.upper() in {"OWNERINDEX", "OWNERINDEXADDITIONALLIST", "OWNERINDEXADDITIONALRECORD"}
+                owner = dict(fields).get("OWNERINDEX", "")
+                # a carried subtree (change c0470, drawn_read.subtree_text): a child names its owner's line
+                child = self.carry and number > 0 and owner.startswith("@")
+                if child:
+                    line_number = int(owner[1:]) if owner[1:].isdigit() else -1
+                    if not 0 <= line_number < len(natives):
+                        raise FormatError(
+                            "opaque Altium child names no earlier line", locator=f"{where}.opaque[{index}]"
+                        )
+                    fields = [(k, str(natives[line_number]) if k == "OWNERINDEX" else v) for k, v in fields]
+                harness = self.carry and number == 0 and drawn_read.is_harness_text(opaque.altium)
+                if (not child and not harness and dict(fields).get("RECORD") in _MODELLED) or any(
+                    key.upper() in _OWNERS
+                    and not (child and key.upper() in ("OWNERINDEX", "OWNERINDEXADDITIONALLIST"))
                     for key, _ in fields
                 ):
                     raise FormatError(
@@ -584,7 +1082,44 @@ class _Sheet:
                         "framework-owned records",
                         locator=f"{where}.opaque[{index}]",
                     )
-                self.add(fields, f"{where}.opaque[{index}]")
+                natives.append(self.add(fields, f"{where}.opaque[{index}]", read=self.carry))
+        blocks, lines, harness_lines, generated = self.harness_blocks(sheet.paper)
+        junctions = [drawn_carrier.junction_value(j) for j in sheet.junctions if self.carry and j.diameter]
+        origin = (
+            drawn_carrier.origin_value(self.origin, self.origin_file, self.origin_parts)
+            if self.origin
+            else None
+        )
+        exact = self.exact() if self.carry else None
+        found = drawn_carrier.carrier(
+            carried,
+            flags,
+            stand_ins,
+            symbols,
+            junctions,
+            written,
+            refs,
+            origin,
+            exact,
+            generated,
+            self.definitions if self.carry else None,
+            sheet.bus_aliases if self.carry else (),
+        )
+        for index, part in enumerate(drawn_carrier.parts(found.value()) if found is not None else ()):
+            self.add(
+                [
+                    ("RECORD", "41"),
+                    ("OWNERPARTID", "-1"),
+                    *_fields("LOCATION.X", 0),
+                    *_fields("LOCATION.Y", 0),
+                    ("COLOR", schdoc.TEXT_COLOR),
+                    ("FONTID", "1"),
+                    ("ISHIDDEN", "T"),
+                    ("TEXT", part),
+                    ("NAME", drawn_carrier.part_name(index)),
+                ],
+                f"{where}.carrier",
+            )
         return replace(
             self.plan,
             parts=tuple(self.poses),
@@ -592,13 +1127,118 @@ class _Sheet:
             no_connects=(),
             symbols=(),
             ports=(),
-            harnesses=(),
-            lines=(),
+            harnesses=tuple(blocks),
+            lines=tuple(lines),
+            polylines=tuple(harness_lines),
             class_marks=(),
             buses=(),
             composition=None,
             drawn_records=tuple(tuple(record) for record in self.records),
         )
+
+
+def _carried_harnesses(drawn: DrawnSchematic) -> dict[str, SchDocument]:
+    """Per sheet key, the document of the harness records that its opaque items carry (change c0470)."""
+    found: dict[str, SchDocument] = {}
+    for sheet in drawn.sheets:
+        texts = [o.altium for o in sheet.opaques if o.altium and drawn_read.is_harness_text(o.altium)]
+        if texts:
+            found[sheet.key] = drawn_read.carried_document(texts)
+    return found
+
+
+def carried(
+    fields: Mapping[str, Mapping[str, str]],
+) -> tuple[dict[tuple[str, str], str], dict[tuple[int, int], str]]:
+    """From the Altium fields that a sheet's carrier keeps (``drawn_read``, change c0470): the
+    ``HARNESSTYPE`` of sheet entries by (sheet name, entry name) (``harness:<sheet>:<entry>``, "" for an
+    entry whose record holds none) and the own text of net labels by position (``text:<x>,<y>``)."""
+    harness: dict[tuple[str, str], str] = {}
+    spellings: dict[tuple[int, int], str] = {}
+    for name, value in fields.items():
+        kind, _, rest = name.partition(":")
+        if kind == "harness" and "HARNESSTYPE" in value:
+            ref, _, entry = rest.rpartition(":")
+            if ref and entry:
+                harness[(ref, entry)] = value["HARNESSTYPE"]
+        elif kind == "text" and "TEXT" in value:
+            x, _, y = rest.partition(",")
+            if x.lstrip("-").isdigit() and y.lstrip("-").isdigit():
+                spellings[(int(x), int(y))] = value["TEXT"]
+    return harness, spellings
+
+
+def sorted_entries(entries: Sequence[str]) -> tuple[str, ...]:
+    """The key of a harness type by its entries: their names in code-point order."""
+    return tuple(sorted(entries))
+
+
+def _harness_types(documents: Sequence[SchDocument]) -> dict[tuple[str, ...], str]:
+    """The harness type of each set of entries (``sorted_entries``: two connectors of a type can list its
+    entries in other orders, and the documents of the two ways come in other orders, change c0470)."""
+    from fenolite.backends.altium.read.sch import HarnessConnector, HarnessType
+
+    names: dict[str, str] = {}
+    for document in documents:
+        for connector in document.of_type(HarnessConnector):
+            kind = next((c.text for c in document.children_of(connector) if isinstance(c, HarnessType)), "")
+            if kind:
+                names.setdefault(kind.casefold(), kind)
+    members = drawn_read.harness_members(documents)
+    return {
+        sorted_entries(entries): names[kind] for kind, entries in members.items() if kind in names and entries
+    }
+
+
+def _without_stand_ins(
+    sheet: DrawnSheet, state: _Sheet, stand_ins: drawn_read.HarnessStandIns, where: str
+) -> DrawnSheet:
+    """``sheet`` without the items that its carried harness records stand for in KiCad (change c0470): the
+    bus of a signal harness (which KiCad cuts into two-point segments), the labels of connector entries and
+    harness ports. The records are written again, and the extractor draws these items from them."""
+    segments = [(a, b) for line in stand_ins.buses for a, b in zip(line, line[1:], strict=False)]
+
+    def is_stand_in(points: Sequence[tuple[int, int]]) -> bool:
+        if tuple(points) in stand_ins.buses:
+            return True
+        return bool(points) and all(
+            any(drawn_harness.on_segment(a, c, d) and drawn_harness.on_segment(b, c, d) for c, d in segments)
+            for a, b in zip(points, points[1:], strict=False)
+        )
+
+    buses = tuple(
+        points
+        for index, points in enumerate(sheet.buses)
+        if not is_stand_in([state.native(at, f"{where}.bus[{index}]") for at in points])
+    )
+    labels = tuple(
+        label
+        for index, label in enumerate(sheet.labels)
+        if (label.text, state.native(label.at, f"{where}.label[{index}]")) not in stand_ins.labels
+    )
+    return replace(sheet, buses=buses, labels=labels)
+
+
+def sheet_size(paper: str) -> SheetSize | None:
+    """The Altium sheet of a drawn sheet's ``paper``: a named style (``drawn_read.SHEET_STYLES``), or a
+    custom size ``custom:<width>x<height>`` in nm on the 10-mil file unit (change c0470); ``None`` else."""
+    found = next((size for size in SHEET_SIZES if size.name == paper), None)
+    if found is not None:
+        return found
+    for style, (units_x, units_y, name) in enumerate(drawn_read.SHEET_STYLES):
+        if name and name == paper:
+            return SheetSize(name, units_x * 10, units_y * 10, style)
+    if not paper.startswith("custom:"):
+        return None
+    width, _, height = paper.removeprefix("custom:").partition("x")
+    try:
+        nm = (int(width), int(height))
+    except ValueError:
+        return None
+    unit = 10 * NM_PER_MIL
+    if any(value <= 0 or value % unit for value in nm):
+        return None
+    return SheetSize("custom", nm[0] // NM_PER_MIL, nm[1] // NM_PER_MIL, None)
 
 
 def lower_drawn(
@@ -611,8 +1251,20 @@ def lower_drawn(
     allow_lossy: bool = False,
     form: TextForm = "binary",
     symbol_overrides: Mapping[str, tuple[str, AltiumSymbol]] = MappingProxyType({}),
+    carry: bool = False,
+    harness: bool | None = None,
+    definitions: Mapping[str, Mapping[str, str]] = MappingProxyType({}),
+    fields: Mapping[str, Mapping[str, Mapping[str, str]]] = MappingProxyType({}),
+    bodies: Mapping[str, AltiumSymbol] = MappingProxyType({}),
 ) -> ProjectSheets:
-    """One native sheet per drawn instance, retaining generated module sheets and their records."""
+    """One native sheet per drawn instance, retaining generated module sheets and their records. With
+    ``carry`` (a conversion, change c0470) a KiCad item without Altium text travels in the sheet's
+    ``Fenolite.KiCad.Sheet`` parameter (``drawn_carrier``) instead of giving ``drawn.opaque-dropped``;
+    ``definitions`` holds, per drawn sheet key, the library text of its opaque symbols' definitions,
+    ``fields`` the Altium fields that the carrier of a sheet keeps (``carried``), and ``bodies`` the own
+    body of a component, by reference, whose instance differs from its library symbol. ``harness`` (by
+    default ``carry``) writes a KiCad bus group that crosses a sheet as a signal harness."""
+    harness = carry if harness is None else harness
     found, walk_issues = instances(drawn)
     issues.extend(walk_issues)
     specs = {part.spec.key: part.spec for sheet in planned.sheets for part in sheet.plan.parts}
@@ -628,6 +1280,10 @@ def lower_drawn(
         for key, spec in specs.items()
     }
     issues.extend(coverage(drawn, design.circuit, units))
+    power_in = {
+        component_path(c): frozenset(p.number for p in c.pins if p.etype == "power_in")
+        for c in design.circuit.components
+    }
     for instance in found:
         sheet = drawn.sheet(instance.sheet)
         if sheet is not None:
@@ -636,18 +1292,30 @@ def lower_drawn(
                 raise _DrawnStyleLoss(losses[0])
             issues.extend(losses)
     generated = {sheet.module or "": sheet for sheet in planned.sheets}
+    harnesses = _carried_harnesses(drawn) if carry else {}
+    members = drawn_read.harness_members(list(harnesses.values()))
+    harness_types = _harness_types(list(harnesses.values()))
+    # a root that stands for no source document: its sheets are top documents of their own names (c0470)
+    tops = fields.get(drawn.root, {}).get(drawn_read.TOPS_KEY, {}).get(drawn_read.TOPS_FIELD) == "T"
     files: dict[str, str] = {}
     for instance in found:
         sheet = drawn.sheet(instance.sheet)
         if sheet is not None and sheet.generated and instance.module in generated:
             files[instance.path] = generated[instance.module].file
+        elif tops and len(instance.keys) == 1:
+            files[instance.path] = f"{instance.sheet}.SchDoc"
         else:
             files[instance.path] = (
                 f"{name}.SchDoc" if not instance.keys else f"{name}_drawn_{unique_id(instance.path)}.SchDoc"
             )
     counts = Counter(instance.sheet for instance in found)
+    channels = channel_sheets(found, drawn, specs) if carry else {}
+    firsts = {key: next(i for i in found if i.sheet == key) for key in channels}
+    for instance in found:  # a channel is drawn by the one sheet of its first channel
+        if instance.sheet in firsts:
+            files[instance.path] = files[firsts[instance.sheet].path]
     for key, count in sorted(counts.items()):
-        if count > 1:
+        if count > 1 and key not in channels:
             issues.append(
                 issue(
                     "drawn.altium-repeat-flattened",
@@ -658,7 +1326,9 @@ def lower_drawn(
     written: list[SheetFile] = []
     for instance in found:
         sheet = drawn.sheet(instance.sheet)
-        if sheet is None:
+        if sheet is None or (tops and not instance.keys):
+            continue
+        if instance.sheet in firsts and instance is not firsts[instance.sheet]:
             continue
         if sheet.generated:
             source = generated.get(instance.module)
@@ -676,25 +1346,121 @@ def lower_drawn(
                     s for s in planned.sheets if s.module and s.module.startswith(instance.module + "/")
                 )
             continue
-        size = next((size for size in SHEET_SIZES if size.name == sheet.paper), None)
+        size = sheet_size(sheet.paper)
         if size is None:
             raise FormatError(f"Altium drawn sheet {sheet.key}: unsupported paper {sheet.paper!r}")
         base = SheetPlan(size, (), ())
-        state = _Sheet(base, issues, allow_lossy, form)
-        sheet = _native_buses(drawn, sheet, instance.path or "root", issues)
-        plan = state.drawing(sheet, instance, specs, files, symbol_overrides)
+        state = _Sheet(base, issues, allow_lossy, form, carry, harness)
+        state.harness_types = harness_types
+        state.aliases = _aliases(drawn, sheet)
+        state.definitions = definitions.get(sheet.key, {})
+        state.lone_harness, state.spellings = carried(fields.get(sheet.key, {}))
+        state.power_in = power_in
+        state.origin = sheet.key if carry and counts[instance.sheet] > 1 and sheet.key not in channels else ""
+        state.origin_file = instance.ref.file if instance.ref is not None else ""
+        if sheet.key in harnesses:
+            stand_ins = drawn_read.harness_stand_ins(harnesses[sheet.key], members)
+            sheet = _without_stand_ins(sheet, state, stand_ins, instance.path or "root")
+        sheet = _native_buses(drawn, sheet, instance.path or "root", issues, harness)
+        state.bodies = bodies
+        own = channels.get(instance.sheet, {})
+        written_specs = {**specs, **{k: replace(specs[k], ref=d) for k, d in own.items()}} if own else specs
+        plan = state.drawing(sheet, instance, written_specs, files, symbol_overrides)
+        top = not instance.keys or (tops and len(instance.keys) == 1)
         written.append(
             SheetFile(
-                files[instance.path],
-                plan,
-                instance.module or None,
-                unique_id(instance.path) if instance.keys else None,
+                files[instance.path], plan, instance.module or None, None if top else unique_id(instance.path)
             )
         )
-    repeated_files = frozenset(files[instance.path] for instance in found if counts[instance.sheet] > 1)
+    repeated_files = frozenset(
+        files[instance.path]
+        for instance in found
+        if counts[instance.sheet] > 1 and instance.sheet not in channels
+    )
     bindings = _canonical_local_bindings(written, design, repeated_files)
     written = _global_local_names(written, issues, bindings=bindings)
-    return ProjectSheets("modules" if len(written) > 1 else "flat", tuple(written))
+    links = sheet_links(found, drawn, specs, channels, tops=tops) if carry else ()
+    return ProjectSheets("modules" if len(written) > 1 else "flat", tuple(written), links)
+
+
+def channel_sheets(
+    found: Sequence[DrawnInstance], drawn: DrawnSchematic, specs: Mapping[str, PartSpec]
+) -> dict[str, dict[str, str]]:
+    """Per drawn sheet that several instances show and that Altium holds as one sheet of several channels
+    (change c0470), the designator of its record per component path: every part of every instance is
+    named ``<designator>_<designator of the instance's sheet symbol>``, the names of a channel under the
+    format of ``prjpcb.CHANNEL_KEYS`` (``docs/formats/altium/connectivity.md``, "Channels"). A sheet with
+    sheets below it, or a part named otherwise, keeps one Altium sheet per instance."""
+    groups: dict[str, list[DrawnInstance]] = {}
+    for instance in found:
+        groups.setdefault(instance.sheet, []).append(instance)
+    found_channels: dict[str, dict[str, str]] = {}
+    for key, group in groups.items():
+        sheet = drawn.sheet(key)
+        if len(group) < 2 or sheet is None or sheet.generated or sheet.sheet_refs:
+            continue
+        rooms = [instance.names[-1] if instance.names else "" for instance in group]
+        if not all(rooms) or len(set(rooms)) != len(rooms):
+            continue
+        designators: dict[str, str] = {}
+        per_part: dict[str, str] = {}
+        for symbol in sheet.symbols:
+            for instance, room in zip(group, rooms, strict=True):
+                spec = specs.get(instance.component(symbol.part))
+                suffix = f"_{room}"
+                if spec is None or not spec.ref.endswith(suffix) or spec.ref == suffix:
+                    break
+                designator = spec.ref.removesuffix(suffix)
+                if per_part.setdefault(symbol.part, designator) != designator:
+                    break
+                designators[instance.component(symbol.part)] = designator
+            else:
+                continue
+            break
+        else:
+            if len(set(per_part.values())) == len(per_part):
+                found_channels[key] = designators
+    return found_channels
+
+
+def sheet_links(
+    found: Sequence[DrawnInstance],
+    drawn: DrawnSchematic,
+    specs: Mapping[str, PartSpec],
+    channels: Mapping[str, Mapping[str, str]],
+    *,
+    tops: bool = False,
+) -> tuple[SheetLink, ...]:
+    """How each drawn component links to its sheet record (``SheetLink``, change c0470): through the unique
+    ids that ``_Sheet.reference`` gives the sheet symbols of its instance, from the top sheet (the first
+    level is the top documents of a project without a root, ``tops``)."""
+    firsts = {key: next(i for i in found if i.sheet == key) for key in channels}
+    links: dict[str, SheetLink] = {}
+    units: dict[str, int] = {}
+    for instance in found:
+        sheet = drawn.sheet(instance.sheet)
+        if sheet is None or sheet.generated:
+            continue
+        start = 1 if tops else 0
+        symbols = "\\".join(
+            unique_id(f"{'/'.join(instance.keys[:level]) or 'root'}.sheet_ref.{instance.keys[level]}")
+            for level in range(start, len(instance.keys))
+        )
+        names = "\\".join(instance.names[start:])
+        own = channels.get(instance.sheet)
+        for symbol in sheet.symbols:
+            spec = specs.get(instance.component(symbol.part))
+            if spec is None or (spec.ref in units and symbol.unit >= units[spec.ref]):
+                continue
+            units[spec.ref] = symbol.unit
+            if own is None:
+                links[spec.ref] = SheetLink(spec.ref, symbols, names, spec.unique_id, spec.ref)
+                continue
+            first = specs.get(firsts[instance.sheet].component(symbol.part))
+            designator = own.get(instance.component(symbol.part), spec.ref)
+            shared = first.unique_id if first is not None else spec.unique_id
+            links[spec.ref] = SheetLink(spec.ref, symbols, names, shared, designator, channel=True)
+    return tuple(links.values())
 
 
 def _canonical_local_bindings(
@@ -968,6 +1734,7 @@ def readback_issues(
 
 
 __all__ = [
+    "carried",
     "EVIDENCE",
     "DrawnLossError",
     "NativeCoverage",

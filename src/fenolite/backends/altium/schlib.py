@@ -15,9 +15,17 @@ parent records. The bytes depend only on the symbols and the library name.
 from __future__ import annotations
 
 import struct
+import zlib
 from collections.abc import Sequence
 
-from fenolite.backends.altium.altsym import AltiumPin, AltiumSymbol, PinPads, map_records
+from fenolite.backends.altium.altsym import (
+    AltiumPin,
+    AltiumSymbol,
+    PinPads,
+    map_records,
+    mil_parts,
+    unit_and_frac,
+)
 from fenolite.backends.altium.ascii import Field
 from fenolite.backends.altium.binary import frame_record, storage_stream
 from fenolite.backends.altium.cfb import FORBIDDEN, MAX_NAME, Entry, Storage, name_key, write_compound
@@ -32,6 +40,9 @@ FILE_HEADER_STREAM = "FileHeader"
 STORAGE_STREAM = "Storage"
 SECTION_KEYS_STREAM = "SectionKeys"
 DATA_STREAM = "Data"
+PIN_FRAC_STREAM = "PinFrac"
+FRAC_MARK = 0xD0
+"""The first byte of a ``PinFrac`` entry (``schematic-library.md``, "Pin side streams")."""
 BINARY = 1
 """The record type of a binary record, in the top byte of the length word."""
 PIN_RECORD = 2
@@ -76,18 +87,79 @@ def storage_name(lib_ref: str) -> str:
     return key
 
 
-def _units(mils: int, what: str) -> int:
-    if mils % MILS_PER_UNIT:
-        raise ValueError(f"{what}: {mils} mil is not a multiple of {MILS_PER_UNIT} mil")
-    units = mils // MILS_PER_UNIT
+def storage_names(lib_refs: Sequence[str]) -> dict[str, str]:
+    """Lib ref → storage name for one library: ``storage_name``, and for a cut name (a section key) that an
+    earlier one already takes, the cut name with ``_2``, ``_3`` … in its last characters, within 31
+    (``schematic-library.md``, "Fenolite's choices"; change c0470). Two names that take one storage
+    name uncut keep it: ``ordered`` refuses them."""
+    taken: set[tuple[int, tuple[int, ...]]] = set()
+    found: dict[str, str] = {}
+    for lib_ref in sorted(dict.fromkeys(lib_refs), key=lambda r: (len(storage_name(r)) != len(r), r)):
+        key = storage_name(lib_ref)
+        index = 2
+        while key != lib_ref and name_key(key) in taken:
+            suffix = f"_{index}"
+            key = storage_name(lib_ref)[: MAX_NAME - len(suffix)] + suffix
+            index += 1
+        taken.add(name_key(key))
+        found[lib_ref] = key
+    return found
+
+
+def _pin_units(mils: int, what: str) -> int:
+    """The integer of a pin key in file units; ``pin_fracs`` holds the rest of a length off the grid."""
+    return _units(mil_parts(mils)[0], what)
+
+
+def _units(units: int, what: str) -> int:
+    """``units`` file units, checked against the signed 16-bit range of a pin key."""
     if not _INT16[0] <= units <= _INT16[1]:
         raise ValueError(f"{what}: {units} units lie outside the signed 16-bit range")
     return units
 
 
-def _coord(name: str, x: int, y: int) -> tuple[Field, Field]:
-    """``<name>.X`` and ``<name>.Y`` of a symbol-relative point in mils (negative values allowed)."""
-    return (f"{name}.X", str(_units(x, name))), (f"{name}.Y", str(_units(y, name)))
+def pin_parts(pin: AltiumPin) -> tuple[tuple[int, int], tuple[int, int], tuple[int, int]]:
+    """The file units and ``_FRAC`` of the pin's X, Y and length (change c0470)."""
+    if pin.nm is not None:
+        x, y, length = pin.nm
+        return unit_and_frac(x), unit_and_frac(y), unit_and_frac(length)
+    return mil_parts(pin.x), mil_parts(pin.y), mil_parts(pin.length)
+
+
+def pin_fracs(pin: AltiumPin) -> tuple[int, int, int]:
+    """The ``_FRAC`` of the pin's X, Y and length (change c0470): zero for a pin on the 10-mil grid."""
+    x, y, length = pin_parts(pin)
+    return x[1], y[1], length[1]
+
+
+def pin_frac_stream(pins: Sequence[AltiumPin]) -> bytes | None:
+    """The ``PinFrac`` stream of a component whose pins are ``pins`` in ``Data`` order, or ``None`` when every
+    pin lies on the grid: the header ``HEADER=PinFrac|Weight=<entries>``, then per pin off the grid the byte
+    0xD0, its index as a short string, the size and the zlib data of its three fractions (S-0131, S-0148)."""
+    entries: list[bytes] = []
+    for index, pin in enumerate(pins):
+        fracs = pin_fracs(pin)
+        if not any(fracs):
+            continue
+        packed = zlib.compress(struct.pack("<3i", *fracs))
+        payload = (
+            bytes((FRAC_MARK,)) + _short(str(index), "pin index") + struct.pack("<I", len(packed)) + packed
+        )
+        entries.append(struct.pack("<I", BINARY << 24 | len(payload)) + payload)
+    if not entries:
+        return None
+    return frame_record([("HEADER", PIN_FRAC_STREAM), ("Weight", str(len(entries)))]) + b"".join(entries)
+
+
+def _coord(name: str, x: int, y: int) -> list[Field]:
+    """``<name>.X`` and ``<name>.Y`` of a symbol-relative point in mils (negative values allowed), each off
+    the 10-mil grid with its ``_FRAC`` key (a body around pins off the grid, change c0470)."""
+    out: list[Field] = []
+    for key, value in ((f"{name}.X", x), (f"{name}.Y", y)):
+        unit, frac = mil_parts(value)
+        _pin_units(value, name)
+        out += [(key, str(unit)), *([(f"{key}_FRAC", str(frac))] if frac else [])]
+    return out
 
 
 def _short(text: str, what: str) -> bytes:
@@ -132,9 +204,14 @@ def pin_record(pin: AltiumPin) -> bytes:
             ),
             struct.pack(
                 "<hhhI",
-                _units(pin.length, f"{where} length"),
-                _units(pin.x, f"{where} x"),
-                _units(pin.y, f"{where} y"),
+                *(
+                    _units(part[0], f"{where} {name}")
+                    for part, name in zip(
+                        (pin_parts(pin)[2], pin_parts(pin)[0], pin_parts(pin)[1]),
+                        ("length", "x", "y"),
+                        strict=True,
+                    )
+                ),
                 0,
             ),
             _short(pin.name, f"{where} name"),
@@ -242,9 +319,10 @@ def data_stream(symbol: AltiumSymbol, *, library: str) -> bytes:
 
 def ordered(symbols: Sequence[AltiumSymbol]) -> list[AltiumSymbol]:
     """``symbols`` in the MS-CFB order of their storage names; ``ValueError`` for two equal names."""
-    keyed = sorted(symbols, key=lambda s: name_key(storage_name(s.lib_ref)))
+    names = storage_names([s.lib_ref for s in symbols])
+    keyed = sorted(symbols, key=lambda s: name_key(names[s.lib_ref]))
     for before, after in zip(keyed, keyed[1:], strict=False):
-        if name_key(storage_name(before.lib_ref)) == name_key(storage_name(after.lib_ref)):
+        if name_key(names[before.lib_ref]) == name_key(names[after.lib_ref]):
             raise ValueError(
                 f"the symbols {before.lib_ref!r} and {after.lib_ref!r} get one storage name under the "
                 "MS-CFB order"
@@ -283,15 +361,18 @@ def write_schlib(symbols: Sequence[AltiumSymbol], *, library: str) -> bytes:
         (FILE_HEADER_STREAM, frame_record(header_record(symbols, weight))),
         (STORAGE_STREAM, storage_stream()),
     ]
-    keyed = [s for s in symbols if storage_name(s.lib_ref) != s.lib_ref]
+    names = storage_names([s.lib_ref for s in symbols])
+    keyed = [s for s in symbols if names[s.lib_ref] != s.lib_ref]
     if keyed:
         keys: list[Field] = [("KEYCOUNT", str(len(keyed)))]
         for index, symbol in enumerate(keyed):
-            keys += [(f"LIBREF{index}", symbol.lib_ref), (f"SECTIONKEY{index}", storage_name(symbol.lib_ref))]
+            keys += [(f"LIBREF{index}", symbol.lib_ref), (f"SECTIONKEY{index}", names[symbol.lib_ref])]
         entries.append((SECTION_KEYS_STREAM, frame_record(keys)))
     for symbol in symbols:
         data = b"".join(streams[symbol.lib_ref])
-        entries.append(Storage(storage_name(symbol.lib_ref), ((DATA_STREAM, data),)))
+        fracs = pin_frac_stream(symbol.pins)
+        side = () if fracs is None else ((PIN_FRAC_STREAM, fracs),)
+        entries.append(Storage(names[symbol.lib_ref], ((DATA_STREAM, data), *side)))
     return write_compound(entries)
 
 
@@ -320,5 +401,6 @@ __all__ = [
     "ordered",
     "pin_record",
     "storage_name",
+    "storage_names",
     "write_schlib",
 ]

@@ -16,6 +16,7 @@ import shutil
 from pathlib import Path
 
 import pytest
+from _gensheets import generated
 from _importcode import STAMP
 
 import fenolite.convert as convert_module
@@ -95,9 +96,11 @@ def test_parameters_become_text_variables(tmp_path: Path) -> None:
     assert changed and all(row.lost == 0 for row in changed)
 
 
-def test_parameters_come_back(tmp_path: Path) -> None:
+def test_parameters_come_back(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Scenario "Parameters come back" (change c0451): the KiCad project of the conversion, converted to
-    Altium, gives the source's special strings and the project parameter ``REV_CODE``."""
+    Altium, gives the source's special strings and the project parameter ``REV_CODE``. The first leg writes
+    the generated schematic, whose netlist the pure way back reads without ``kicad-cli`` (change c0470)."""
+    generated(monkeypatch)
     conversion = convert_project(_source(tmp_path / "blink"), to="kicad", allow_lossy=True)
     for name, data in conversion.files.items():
         (tmp_path / "k" / name).parent.mkdir(parents=True, exist_ok=True)

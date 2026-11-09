@@ -66,6 +66,7 @@ from fenolite.model.board import (
     Zone,
 )
 from fenolite.model.design import Design
+from fenolite.model.holes import HOLE_LIBRARY
 
 COPPER_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
     {
@@ -1216,6 +1217,14 @@ def library_pad_positions(footprint: FootprintInstance) -> list[tuple[str, int, 
     return [(pad.number, pad.position.x, sign * pad.position.y) for pad in footprint.pads]
 
 
+def _hole_part(footprint: FootprintInstance) -> bool:
+    """Whether a footprint of the copper source is a part of ``design.hole()``: a footprint of the hole
+    library with no pad on a net. The design took such parts out of its circuit as board holes
+    (``lens.altium.split_hole_parts``), so no component of the design matches it."""
+    library = footprint.lib_ref.partition(":")[0]
+    return library == HOLE_LIBRARY and not any(pad.net_id for pad in footprint.pads)
+
+
 def match_source(
     design: Design,
     source: CopperSource,
@@ -1315,6 +1324,8 @@ def match_source(
         ):
             moved.append(ref)
     for footprint in board.footprints if board is not None else ():
+        if footprint.id not in used and _hole_part(footprint):
+            continue  # a part of ``design.hole()``, which the design holds as a board hole (change c0470)
         if footprint.id not in used:
             ref = refs[footprint.id]
             issues.append(_mismatch(source, f"the footprint {ref} has no component in the design", ref))

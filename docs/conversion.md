@@ -34,8 +34,8 @@ experimental, and its evidence.
 
 | from | to | writer | experimental | evidence |
 |---|---|---|---|---|
-| kicad | altium | the footprint items projected (`fpitems.with_footprint_items`), then `lower.write_design`: the PCB document, and the schematic, its libraries and the project file when the schematic writer takes the circuit | yes | `INFERRED` (the Altium writers), with the triangle `H-K-CONV-TRIANGLE` |
-| altium | kicad | 9, 10 | `altium-to-kicad`; derived libraries, generated schematic, reported losses |
+| kicad | altium | the footprint items projected (`fpitems.with_footprint_items`), then `lower.write_design`: the PCB document, and the source's drawing (`backends/altium/drawn.py` with the carrier `Fenolite.KiCad.Sheet`, change c0470; `docs/drawn-schematic.md`), its libraries and the project file | yes | `INFERRED` (the Altium writers), with the triangle `H-K-CONV-TRIANGLE`; the schematic drawing is `ALTIUM-VERIFIED(kit)` (S-2287) |
+| altium | kicad | 9, 10 | `altium-to-kicad`; derived libraries, the source's drawing with the carrier `Fenolite.Altium.Sheet` (change c0470; a source without sheets gets a generated schematic), reported losses |
 | kicad | kicad | `write_triad` for the target major with the source's project file updated, the source's rules file written again for the target, and the schematic files copied when the majors are equal; for an older target, every file written through the downgrade resolver (below) | no | `KICAD-VERIFIED (9.0.x, 10.0.x)` (`H-K-CONV-RETARGET`; a downgrade: `H-K-DOWN-ROWS`, `H-K-DOWN-DEMOS`) |
 
 - A schematic of an older major than the target is not converted (a schematic is not upgraded): the
@@ -135,6 +135,24 @@ The vocabulary is closed (`fenolite.convert.report.KINDS`), one table for every 
 | `graphic` | presentation | report |
 | `dimension` | presentation | report |
 | `schematic-text` | presentation | report |
+| `sheet` | schematic | report |
+| `schematic-symbol` | schematic | report |
+| `symbol-graphic` | schematic | report |
+| `pin` | schematic | report |
+| `wire` | schematic | report |
+| `junction` | schematic | report |
+| `label` | schematic | report |
+| `port` | schematic | report |
+| `power` | schematic | report |
+| `bus` | schematic | report |
+| `bus-entry` | schematic | report |
+| `sheet-symbol` | schematic | report |
+| `harness` | schematic | report |
+| `no-connect` | schematic | report |
+| `directive` | schematic | report |
+| `schematic-graphic` | schematic | report |
+| `image` | schematic | report |
+| `title-block` | schematic | report |
 | `project-curve-error` | project | refuse |
 | `schematic` | project | report |
 <!-- kinds:end -->

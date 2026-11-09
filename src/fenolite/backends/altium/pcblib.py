@@ -313,6 +313,11 @@ def _graphic_drop(graphic: Graphic) -> str | None:
     return None
 
 
+graphic_drop = _graphic_drop
+"""What a library footprint leaves out of ``graphic`` (``"<kind> on <layer>"``), or ``None`` when it holds
+it (change c0470: the build writes the rest into the document as a component item)."""
+
+
 def check_footprint(
     defn: FootprintDef,
     extras: Mapping[str, PadExtras],
@@ -820,6 +825,7 @@ __all__ = [
     "body_problem",
     "check_footprint",
     "footprint_primitives",
+    "graphic_drop",
     "graphic_records",
     "is_pour_cutout",
     "library_body_vertices",

@@ -100,6 +100,7 @@ tracked separately in `frozen-v0.json` while the active CLI writer remains v0.
 | `fenolite.altium-rules.v1` | internal | `internal` | Rule records of an Altium source in a KiCad board property (c0434, keyed by content in c0457). |
 | `fenolite.altium-rules.v2` | internal | `internal` | Rule records of an Altium source in a KiCad board property (c0457, conditions compared parsed). |
 | `fenolite.altium-schematic-layout.v0` | internal | `internal` | Protected native-layout observation used only by rebuilds. |
+| `fenolite.altium-sheet.v0` | internal | `internal` | Altium-only records of a sheet in a KiCad title-block comment (c0470). |
 | `fenolite.artifacts.v0` | public | `fenolite.exports.manifest:Manifest` | User-authored input or agent-readable output. |
 | `fenolite.assembly-template.v0` | public | `fenolite.cli.file_formats:AssemblyTemplateFile` | User-authored input or agent-readable output. |
 | `fenolite.base.v0` | internal | `internal` | Protected three-way merge base. |
@@ -123,6 +124,7 @@ tracked separately in `frozen-v0.json` while the active CLI writer remains v0.
 | `fenolite.family.v1` | public | `fenolite.cli.file_record_formats:FamilyGrammarFile` | Grammar dialect, already v1. |
 | `fenolite.import-provenance.v0` | public | `fenolite.cli.file_formats:ImportProvenanceFile` | User-authored input or agent-readable output. |
 | `fenolite.import.v0` | public | `fenolite.importer.schema:ImportReply` | Frozen legacy result schema. |
+| `fenolite.kicad-sheet.v0` | internal | `internal` | KiCad-only items of a sheet in a hidden Altium parameter (c0470). |
 | `fenolite.library-cache.v0` | internal | `internal` | Disposable library-download cache. |
 | `fenolite.library-import.v0` | public | `fenolite.cli.file_formats:LibraryImportFile` | User-authored input or agent-readable output. |
 | `fenolite.library-index.v0` | public | `fenolite.cli.file_formats:LibraryIndexFile` | User-authored input or agent-readable output. |

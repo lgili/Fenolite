@@ -22,10 +22,12 @@ from decimal import Decimal
 
 from fenolite.backends.altium import lower
 from fenolite.backends.altium.adapter.arcring import ArcPolygon
+from fenolite.backends.altium.altsym import AltiumSymbol
 from fenolite.backends.altium.cfb import CompoundTooLarge
 from fenolite.backends.kicad import fpitems
+from fenolite.backends.kicad.netnames import UNCONNECTED_PREFIX
 from fenolite.backends.kicad.outline import edge_outline
-from fenolite.convert import altium_links, altium_planes, altium_strings, pads, schematic
+from fenolite.convert import altium_links, altium_planes, altium_strings, codes, pads, schematic
 from fenolite.convert.direction import Direction, Options, TargetLimitError, Written
 from fenolite.convert.models import (
     HEIGHTS_PROPERTY,
@@ -385,6 +387,62 @@ def _stored_models(
     return read_heights(heights), read_ids(found.get(IDS_PROPERTY)), read_layers(heights)
 
 
+def _schematic_dnp(design: Design, sch: Design | None) -> Design:
+    """``design`` with each component that its schematic symbol marks DNP marked so too (change c0470):
+    KiCad keeps the mark on the symbol, and a board that was not updated holds the footprint without it;
+    the Altium writer then reports the mark as the ``dnp`` loss it is."""
+    marked = {c.ref for c in sch.circuit.components if c.dnp and c.ref} if sch is not None else set[str]()
+    if not any(c.ref in marked and not c.dnp for c in design.circuit.components):
+        return design
+    components = tuple(
+        dataclasses.replace(c, dnp=True) if c.ref in marked else c for c in design.circuit.components
+    )
+    return dataclasses.replace(design, circuit=dataclasses.replace(design.circuit, components=components))
+
+
+FLAGGED_NAMED = (
+    "a pin under a no-connect flag on a net that a label names: KiCad's netlist lists the pin as not "
+    "connected, Altium's names the net of the pin"
+)
+"""The reason of a ``pin-net`` change (change c0470): the drawing holds both the flag and the label, and
+the board names the pad's net, as Altium's netlist does (``docs/formats/kicad/schematic.md``)."""
+
+
+def _flagged_named(design: Design, sch: Design | None) -> tuple[str, ...]:
+    """``component_id:pin`` of each pin that the schematic marks not connected while the board puts its
+    pads alone on a net whose name a label gives (not KiCad's ``unconnected-(…)``, change c0470)."""
+    if sch is None or design.board is None or not sch.circuit.no_connects:
+        return ()
+    refs = {c.id: c.ref for c in sch.circuit.components}
+    names = {net.id: net.name for net in design.circuit.nets}
+    by_ref = {c.ref: c for c in design.circuit.components}
+    holders: dict[str, set[tuple[str, str]]] = {}
+    pads_of: dict[tuple[str, str], set[str | None]] = {}
+    for fp in design.board.footprints:
+        for pad in fp.pads:
+            if pad.number:
+                pads_of.setdefault((fp.component_id, pad.number), set()).add(pad.net_id)
+                if pad.net_id:
+                    holders.setdefault(pad.net_id, set()).add((fp.component_id, pad.number))
+    found: list[str] = []
+    for mark in sch.circuit.no_connects:
+        component = by_ref.get(refs.get(mark.component_id, ""))
+        if component is None:
+            continue
+        numbers = component.pads_of(mark.pin)
+        nets = {n for number in numbers for n in pads_of.get((component.id, number), {None})}
+        if len(nets) != 1 or (net := next(iter(nets))) is None:
+            continue
+        name = names.get(net, "")
+        if (
+            name
+            and not name.startswith(UNCONNECTED_PREFIX)
+            and holders[net] <= {(component.id, number) for number in numbers}
+        ):
+            found.append(f"{component.id}:{mark.pin}")
+    return tuple(found)
+
+
 def write(source: SourceProject, options: Options) -> Written:
     """The Altium project of a KiCad source, with its report. Its copper graphics take the net their KiCad
     slot names (``fpitems.with_graphic_nets``), as a build's do: without it a netted copper shape is written
@@ -397,7 +455,19 @@ def write(source: SourceProject, options: Options) -> Written:
     links = altium_links.symbol_links(design)  # change c0451: the source's links of an Altium conversion
     design = altium_links.restore(design)
     design, strings = altium_strings.altium_strings(design)  # change c0451: ${NAME} as .NAME
-    sch, symbols, changed_comments = schematic.inputs(source, design, links)
+    bodies: dict[str, AltiumSymbol] = {}  # change c0470: each instance's own body
+    sch, symbols, changed_comments = schematic.inputs(source, design, links, bodies)
+    design = _schematic_dnp(design, sch)
+    # change c0470, design D3: the sheets are the source's drawing, not generated ones
+    drawing, drawing_issues = schematic.kicad_drawing(source, sch) if sch is not None else (None, ())
+    unread = any(i.severity == "error" for i in drawing_issues)
+    if unread:  # the generated sheets, reported as such
+        drawing = None
+    aliases = schematic.drawing_aliases(source, drawing, design.header.name) if drawing is not None else {}
+    definitions = schematic.drawing_definitions(source, drawing) if drawing is not None else {}
+    carrier_fields = schematic.drawing_fields(source, drawing) if drawing is not None else {}
+    if aliases:  # the units drawn with another symbol than their component's, in the library (c0470)
+        symbols = {**symbols, **{f"{lib}:{body.lib_ref}": body for lib, body in aliases.values()}}
     board = design.board
     # the edges as an outline (change c0170): the board ring as before, each inner ring a cut-out region
     edges = edge_outline(design) if board is not None and board.outline is None else None
@@ -430,6 +500,11 @@ def write(source: SourceProject, options: Options) -> Written:
             polygon_arcs=_carried_arcs(source, design),  # change c0463, task 1.3
             planes=planes,  # change c0466
             frame_origin=frame_origin,  # change c0467
+            drawn=drawing,  # change c0470
+            drawn_aliases=aliases,
+            drawn_definitions=definitions,
+            drawn_fields=carrier_fields,
+            drawn_bodies=bodies,
         )
     except CompoundTooLarge as error:
         raise TargetLimitError(
@@ -476,12 +551,27 @@ def write(source: SourceProject, options: Options) -> Written:
     if design.circuit.components:
         counts[SCHEMATIC] = 1
     name = inputs.name
-    if f"{name}.SchDoc" in written.files:
-        changed[SCHEMATIC] = {
-            "positions and wires are not converted" if sch is not None else CHANGES[SCHEMATIC]: (
-                design.header.id,
-            )
-        }
+    drawn = drawing is not None and not any(
+        i.code == lower.NOT_LOWERED and i.message.startswith(lower.DRAWING_NOT_WRITTEN)
+        for i in written.issues
+    )
+    sheets_written = any(file.endswith(".SchDoc") for file in written.files)  # a flat one has no <name>
+    if drawn and sheets_written:
+        assert drawing is not None
+        source_counts, changes = schematic.kicad_drawing_rows(drawing)  # change c0470, design D5
+        for kind, count in source_counts.items():
+            counts[kind] = counts.get(kind, 0) + count
+        for kind, item, reason in changes:
+            found = changed.setdefault(kind, {})
+            found[reason] = (*found.get(reason, ()), item)
+    elif sheets_written:
+        reason = CHANGES[SCHEMATIC]
+        if sch is not None:
+            refused_drawing = drawing is not None or unread
+            reason = codes.DRAWING_REFUSED if refused_drawing else "positions and wires are not converted"
+        changed[SCHEMATIC] = {reason: (design.header.id,)}
+    if flagged := _flagged_named(design, sch):
+        changed["pin-net"] = {**changed.get("pin-net", {}), FLAGGED_NAMED: flagged}
     report = ConversionReport.of(source=counts, written=held, changed=changed, lost=lost)
     issues = tuple(
         issue for issue in written.issues if issue.code != lower.NOT_LOWERED or issue.where == SCHEMATIC
@@ -491,7 +581,8 @@ def write(source: SourceProject, options: Options) -> Written:
         written.files,
         report,
         design,
-        f"{name}.PcbDoc",
+        # a project without a board reads back from its project file (change c0470)
+        f"{name}.PcbDoc" if f"{name}.PcbDoc" in written.files else f"{name}.PrjPcb",
         issues,
         schematic=f"{name}.PrjPcb" if sch is not None else None,
         evidence=Evidence.combine(EVIDENCE, summary.evidence)

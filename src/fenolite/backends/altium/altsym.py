@@ -29,7 +29,7 @@ from fenolite.model.library import PinShape, SymbolDef, SymbolGraphic, SymbolPin
 
 NM_PER_MIL = 25_400
 GRID = 10
-"""Library pins lie on the 10-mil grid of the file unit; finer positions would need ``PinFrac``."""
+"""Library pins lie on the 10-mil grid of the file unit; a conversion writes finer ones with ``PinFrac``."""
 NM_GRID = GRID * NM_PER_MIL
 MIN_BODY = 200
 """A part's rectangle is at least 200 mil on each side (a Fenolite choice)."""
@@ -100,6 +100,10 @@ class AltiumPin:
     hidden: bool = False
     inner_edge: int = 0
     outer_edge: int = 0
+    nm: tuple[int, int, int] | None = None
+    """The body end and length in nanometres when one of them is off a whole mil (a conversion of a
+    metric source, change c0470): the writers then give each its ``_FRAC`` keys and ``PinFrac`` entry at
+    the file's 127/50 nm step, and ``x``, ``y`` and ``length`` hold the nearest mils."""
 
     @property
     def hot_end(self) -> tuple[int, int]:
@@ -150,6 +154,15 @@ def frac_units(nm: int) -> int:
     """A length in nanometres as a count of 1/100 000 file unit, rounded half up: exact for a multiple
     of 127 nm, and within 1.27 nm otherwise."""
     return (2 * nm * FRAC_PER_UNIT + NM_PER_UNIT) // (2 * NM_PER_UNIT)
+
+
+def on_frac_step(nm: int) -> bool:
+    """Whether ``nm`` is the nanometre reading of a whole number of 1/100 000 file unit (127/50 nm): a
+    length that an Altium file holds, rounded to the nanometre, is written back without a change."""
+    quotient, remainder = divmod(frac_units(nm) * 127, 50)  # the reader's rounding: half to even
+    if remainder * 2 > 50 or (remainder * 2 == 50 and quotient % 2 == 1):
+        quotient += 1
+    return quotient == nm
 
 
 def unit_and_frac(nm: int) -> tuple[int, int]:
@@ -296,11 +309,21 @@ def from_generic(
 # --- KiCad symbols ----------------------------------------------------------------------------------
 
 
-def _mils(value: int, what: str) -> int:
-    """A length in nanometres as mils on the 10-mil grid; ``ValueError`` naming ``what`` otherwise."""
-    if value % NM_GRID:
-        raise ValueError(f"{what}: {value} nm is not a multiple of {GRID} mil ({NM_GRID} nm)")
+def _mils(value: int, what: str, grid: int = GRID) -> int:
+    """A length in nanometres as mils on the ``grid``-mil grid; ``ValueError`` naming ``what`` otherwise."""
+    if value % (grid * NM_PER_MIL):
+        if grid == 1:
+            raise ValueError(f"{what}: {value} nm is not a whole number of mils ({NM_PER_MIL} nm)")
+        raise ValueError(f"{what}: {value} nm is not a multiple of {grid} mil ({grid * NM_PER_MIL} nm)")
     return value // NM_PER_MIL
+
+
+def mil_parts(mils: int) -> tuple[int, int]:
+    """A length in mils as the integer of its key in 10-mil file units and of its ``_FRAC`` key, each with
+    the length's sign (``schematic-records.md``, "Units"): 25 mil is 2 units and 50 000."""
+    total = mils * FRAC_PER_UNIT // GRID
+    unit = abs(total) // FRAC_PER_UNIT * (1 if total >= 0 else -1)
+    return unit, total - unit * FRAC_PER_UNIT
 
 
 def overbar(name: str) -> str:
@@ -323,18 +346,35 @@ def _issue(code: str, severity: Severity, message: str, where: str) -> Issue:
     return Issue(code, severity, message, where=where)
 
 
-def map_pin(symbol: SymbolDef, pin: SymbolPin, issues: list[Issue] | None = None) -> AltiumPin:
+def map_pin(
+    symbol: SymbolDef, pin: SymbolPin, issues: list[Issue] | None = None, *, fine: bool = False
+) -> AltiumPin:
     """One KiCad pin as an Altium pin: direction from its angle, body end from its hot end and length,
     electrical type and edge codes from the tables (a lossy entry adds an ``altium.pin-lossy`` warning).
-    ``ValueError`` names an off-grid pin."""
+    ``ValueError`` names an off-grid pin: off the 10-mil grid without ``fine``. With ``fine`` (a conversion,
+    change c0470, whose writers give a pin its ``_FRAC`` keys and ``PinFrac`` entry) a pin off a whole mil
+    keeps its nanometres (``AltiumPin.nm``)."""
     where = f"{symbol.lib_id} pin {pin.number}"
     direction = DIRECTION_OF_ROTATION.get(pin.rotation)
     if direction is None:
         raise ValueError(f"{where}: angle {pin.rotation} µdeg is not 0, 90, 180 or 270 degrees")
-    hx = _mils(pin.position.x, f"{where} x")
-    hy = _mils(pin.position.y, f"{where} y")
-    length = _mils(pin.length, f"{where} length")
     dx, dy = STEPS[direction]
+    exact: tuple[int, int, int] | None = None
+    if fine and any(v % NM_PER_MIL for v in (pin.position.x, pin.position.y, pin.length)):
+        # a metric pin: written at the file's 127/50 nm step, which an Altium source holds exactly
+        exact = (pin.position.x - dx * pin.length, pin.position.y - dy * pin.length, pin.length)
+        for value, what in zip(exact, ("x", "y", "length"), strict=True):
+            if not on_frac_step(value):
+                raise ValueError(
+                    f"{where} {what}: {value} nm is not a whole number of mils nor a length of Altium's "
+                    "127/50 nm step"
+                )
+        hx, hy, length = (round(v / NM_PER_MIL) for v in (pin.position.x, pin.position.y, pin.length))
+    else:
+        grid = 1 if fine else GRID
+        hx = _mils(pin.position.x, f"{where} x", grid)
+        hy = _mils(pin.position.y, f"{where} y", grid)
+        length = _mils(pin.length, f"{where} length", grid)
     etype: PinType = pin.etype
     shape: PinShape = pin.shape
     if issues is not None and etype in LOSSY_TYPES:
@@ -361,6 +401,7 @@ def map_pin(symbol: SymbolDef, pin: SymbolPin, issues: list[Issue] | None = None
         hidden=pin.hidden,
         inner_edge=inner,
         outer_edge=outer,
+        nm=exact,
     )
 
 
@@ -387,12 +428,12 @@ def map_graphic(graphic: SymbolGraphic, part: int = 1) -> AltiumGraphic:
     ellipse of two equal radii: the distance from its centre to the point beside it on its rim.
     ``ValueError`` for a kind outside ``GRAPHIC_KINDS`` or a graphic with too few points."""
     points = [(point.x, point.y) for point in graphic.points]
-    need = 3 if graphic.kind == "polygon" else 2
-    if graphic.kind not in GRAPHIC_KINDS or len(points) < need:
+    if graphic.kind not in GRAPHIC_KINDS or len(points) < 2:
         raise ValueError(
             f"a symbol graphic of kind {graphic.kind!r} with {len(points)} point(s) has no record"
         )
-    if graphic.kind == "line":
+    if graphic.kind == "line" or (graphic.kind == "polygon" and len(points) == 2):
+        # a polygon of two points encloses nothing: KiCad draws it as its one segment (change c0470)
         return AltiumGraphic("line", part, (points[0], points[1]))
     if graphic.kind == "rect":
         (ax, ay), (bx, by) = points[0], points[1]
@@ -454,9 +495,10 @@ def from_symbol_def(
     unmodelled: Sequence[str] = (),
     bodies: SymbolBodies = DEFAULT_BODIES,
     parents: Sequence[SymbolDef] = (),
+    fine: bool = False,
 ) -> AltiumSymbol:
     """A resolved symbol as an Altium symbol (design Decisions 6 and 7 of change c0034, Decision 1 of
-    change c0086, decision 7 of change c0261).
+    change c0086, decision 7 of change c0261). ``fine`` takes pins on whole mils (``map_pin``).
 
     Body style 1 and common pins are kept; other body styles and pin alternates are dropped. A derived
     symbol is flattened onto the symbols of ``parents`` first (``flatten``). With ``bodies="generic"``
@@ -477,7 +519,7 @@ def from_symbol_def(
     kept = [p for p in symbol.pins if p.body_style in (0, 1)]
     dropped = len(symbol.pins) - len(kept)
     alternates = sum(1 for p in kept if p.alternates)
-    pins = pin_order([map_pin(symbol, p, issues) for p in kept])
+    pins = pin_order([map_pin(symbol, p, issues, fine=fine) for p in kept])
     parts = symbol.unit_count
     notes: list[str] = []
     graphics: tuple[AltiumGraphic, ...] = ()

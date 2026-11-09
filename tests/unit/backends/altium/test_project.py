@@ -32,10 +32,12 @@ from fenolite.dsl import Design, Net, Part, Power, connect
 
 PACKAGE = Path(project.__file__).parent
 STDLIB_ALLOWED = {
-    "__future__", "collections", "dataclasses", "decimal", "fractions", "hashlib", "re", "struct", "types",
-    "typing",
+    "__future__", "collections", "dataclasses", "decimal", "fractions", "hashlib", "heapq", "re", "struct",
+    "types", "typing", "zlib",
 }  # fmt: skip
-"""``decimal``, ``fractions`` and ``types`` serve the PCB writers (change c0035)."""
+"""``decimal``, ``fractions`` and ``types`` serve the PCB writers (change c0035); ``heapq`` the search for
+free space of a harness block (``drawn_harness``) and ``zlib`` the ``PinFrac`` stream (``schlib``), change
+c0470."""
 READING_MODULES = {"backend.py", "docset.py", "frame.py", "models3d.py", "pour.py", "roundtrip.py", "rta3.py"}
 """The modules of the reading side; ``pour.py`` (change c0215) pours the document it reads back."""
 """The modules of the reading side (changes c0043, c0044, c0088, c0090 and c0193): the registered backend, the
@@ -110,6 +112,10 @@ def test_imports_only_core_and_model() -> None:
                         continue  # c0450: the fill marker is a version-8 uuid built in memory
                     if path.name == "unions.py" and name == "uuid":
                         continue  # c0460: the union member marker is a version-8 uuid built in memory
+                    if path.name == "drawn_read.py" and name in {"uuid", "pathlib"}:
+                        continue  # c0470: a version-5 stand-in uuid and PureWindowsPath, both in memory
+                    if path.name == "drawn_carrier.py" and name in {"base64", "binascii", "json"}:
+                        continue  # c0470: the KiCad sheet carrier is canonical JSON in base64, in memory
                     allowed = STDLIB_ALLOWED | (
                         {"json", "pathlib"} if path.name == "graduation.py" else set()
                     )

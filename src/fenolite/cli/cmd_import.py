@@ -143,6 +143,9 @@ def _altium(
             target.write_bytes(data)
         project = next(root.glob("*.kicad_pro"), None) or next(root.glob("*.kicad_pcb"))
         read = read_kicad(project)
+        # the conversion wrote the source drawing only when the source has sheets (change c0470)
+        drawn = conversion.report.row("sheet") is not None
+        sheet_texts = {name: (root / name).read_text(encoding="utf-8") for name in read.hierarchy if drawn}
     origin = conversion.source
     listed = set(origin.files.values())
     if origin.path.suffix.lower() == ".prjpcb":
@@ -157,6 +160,7 @@ def _altium(
     source = dataclasses.replace(
         read, name=origin.path.stem, backend="altium", inputs=inputs, paths=tuple(files), folder=origin.root,
         sheets=0, native_rules_text=None,  # conversion-generated rules are not original KiCad input
+        sheet_texts=sheet_texts,  # the sheet carriers of the source drawing (change c0470)
     )  # fmt: skip
     models = {
         key: data

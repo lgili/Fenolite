@@ -339,9 +339,12 @@ class _Reader:
         for at, item in self.items(data, "opaque", where):
             table = self.table(item, at, "opaque", ("kicad",))
             text = self.text(table, "kicad", at)
-            if not _one_expression(text):
+            altium = self.text(table, "altium", at, "")
+            # an Altium record that KiCad cannot draw has no KiCad text: the KiCad build carries it in the
+            # sheet carrier (change c0470, design D4)
+            if not (text == "" and altium) and not _one_expression(text):
                 raise self.fail(f"{at}.kicad", "an opaque item holds one KiCad S-expression")
-            opaques.append(DrawnOpaque(text, self.text(table, "altium", at, "")))
+            opaques.append(DrawnOpaque(text, altium))
         generated = self.boolean(data, "generated", where)
         sheet = DrawnSheet(
             key,

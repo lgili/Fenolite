@@ -29,7 +29,9 @@ def test_fenolite_written_altium_document(tmp_path: Path) -> None:
     ]
     assert "blink.PcbDoc" in inputs and "blink.PrjPcb" in inputs
     codes = {i["code"] for i in (reply.envelope or {})["issues"]}
-    assert "import.symbol-regenerated" in codes
+    # the drawing of the sheets is kept with their embedded symbols (change c0470): none is regenerated
+    assert "import.symbol-regenerated" not in codes
+    assert (tmp_path / "out" / "schematic.toml").is_file()
     built = run("build", "design.py", "--out", "built", "--confirm", cwd=tmp_path / "out", timestamp=STAMP)
     assert built.exit_code == 0, built.error
     result = equivalent(

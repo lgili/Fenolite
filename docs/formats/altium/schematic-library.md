@@ -155,6 +155,7 @@ by `tests/corpus/test_altium_sch_read.py`, with counts in `docs/evidence/altium-
 | A library's storage holds, besides `Data`, the side streams `PinFrac`, `PinWideText`, `PinTextData`, `PinSymbolLineWidth` and `PinFunctionData`; one reader opens `PinFrac`, `PinWideText` and `PinTextData` by those names | S-0148, S-0152 | INFERRED | H-A-RD-SCH-PINSIDE |
 | `PinFrac` is a sequence of framed records. Each binary record is the byte 0xD0, a short string holding the pin's index in decimal, a 4-byte little-endian length and that many bytes of zlib data, which expand to three 4-byte signed integers: the `_FRAC` of the pin's X, of its Y and of its length | S-0131, S-0148 | CORPUS-VERIFIED (22 rows; 2026-10-05) | H-A-RD-SCH-PINSIDE |
 | The index of a `PinFrac` entry counts the pin records of `Data` from 0, in stream order | S-0131 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-05) | H-A-RD-SCH-PINSIDE |
+| A `PinFrac` stream that Fenolite writes (header, then per pin 0xD0, the index, the size and the zlib data of the three fractions) is read by kicad-cli 10.0.6: a pin with a body end of (-5, -97) mil and a length of 25 mil converts to a hot end of (-0.762, -2.464) mm and a length of 0.635 mm (`tests/kicad/altium/test_schlib_oracle.py -k pin_off`, 2026-11-07) | S-0131, S-0148, S-0153 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-11-07) | H-A-RD-SCH-PINSIDE |
 | A property-list record of `PinFrac` is skipped by KiCad's reader; saved files start the stream with one, `\|HEADER=PinFrac\|Weight=<entries>` | S-0148, S-0279 | CORPUS-VERIFIED (22 rows; 2026-10-05) | H-A-RD-SCH-PINSIDE |
 | The layouts of `PinWideText`, `PinTextData`, `PinSymbolLineWidth` and `PinFunctionData` are given by no permitted source: S-0152 marks them as work in progress and KiCad does not decode them | S-0148, S-0152 | UNKNOWN | H-A-RD-SCH-PINSIDE |
 | Saved libraries hold a further per-symbol stream, `PinPackageLength`, that no source describes | S-0277, S-0278 | UNKNOWN | H-A-RD-SCH-PINSIDE |
@@ -167,6 +168,12 @@ The reader's own choices: `PinFrac` is decoded only when every record matches th
 byte, each entry expanding to exactly 12 bytes (the decompression stops at 13), and its fractions are added to
 the pin it names; every other side stream is kept as bytes with an `altium.schlib.side-stream-opaque` info and
 changes no pin. Bytes after a binary pin's last known field are kept in its `tail`.
+
+The writer's own choices (change c0470): a conversion takes a KiCad pin on whole mils, off the 10-mil grid.
+The binary pin holds the whole units of its X, Y and length, each with the length's sign. The component
+storage gets a `PinFrac` stream: the header `|HEADER=PinFrac|Weight=<entries>`, then one entry per such pin
+with the three remainders. A library whose pins all lie on the grid gets no `PinFrac` stream, so its bytes
+are as before. A build keeps refusing a pin off the grid (`altium.symbol-off-grid`).
 
 ## Oracle observations
 
@@ -279,9 +286,16 @@ These are choices of the writer, not format facts (design of change c0034):
   part-and-sequence and default value, display mode 0 and colour 0;
 - the data file keys of the footprint model stay 0-based (`MODELDATAFILEENTITY0`, `MODELDATAFILEKIND0`,
   `MODELDATAFILE0`), as in the schematic;
-- a lib ref longer than 31 characters is stored under its section key; another invalid name, and two
-  storage names equal under the MS-CFB order, are refused;
-- no side stream is written: off-grid pins and pin texts over 255 bytes are refused.
+- a lib ref longer than 31 characters is stored under its section key; when an earlier lib ref (in text
+  order, those stored under their own name first) already takes that key, the key ends in `_2`, `_3` …
+  within 31 characters, and `SectionKeys` lists it (change c0470: two lib refs of one source library
+  that share their first 31 characters keep their names). The suffix is a choice of this writer: how
+  Altium picks a key for such names is UNKNOWN (row above). Another invalid name, and two names stored
+  under their own name that are equal under the MS-CFB order, are refused;
+- the only side stream is `PinFrac`, for pins off the 10-mil grid (above); pin texts over 255 bytes are
+  refused. A conversion (change c0470) writes a pin off a whole mil when each of its body end and
+  length is a whole number of 1/100 000 unit read to the nanometre (half to even), as every length of
+  an Altium file is; another pin is refused.
 
 ### Mapping from a KiCad symbol
 

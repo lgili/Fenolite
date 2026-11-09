@@ -26,7 +26,7 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from fractions import Fraction
 from types import MappingProxyType
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 import fenolite.backends.altium.connectstyle as connectstyle
 import fenolite.backends.altium.fills as fills
@@ -75,6 +75,10 @@ from fenolite.model.board import (
 )
 from fenolite.model.circuit import Component, Net, Pin, PinRef
 from fenolite.model.design import Design
+from fenolite.model.drawn import DrawnSchematic
+
+if TYPE_CHECKING:
+    from fenolite.backends.altium.hierarchy import ProjectSheets
 from fenolite.model.holes import HOLE_LIBRARY
 from fenolite.model.library import FootprintDef
 
@@ -286,6 +290,20 @@ def kicad_mechanical(board: Board) -> dict[str, int]:
     return {**fixed, **named}
 
 
+def _built_mechanical(board: Board) -> dict[str, int]:
+    """The drawing layers of ``kicad_mechanical`` that a build writes (change c0470): those outside
+    ``pcbrecords.BOARD_LAYER_MAP`` that a graphic or a text of the board or of a placed footprint lies on, so
+    the document holds a footprint's graphics there and names only those mechanical layers after them."""
+    used = {item.layer for item in (*board.graphics, *board.texts)}
+    for fp in board.footprints:
+        used |= {item.layer for item in (*fp.graphics, *fp.texts)}
+    return {
+        name: ident
+        for name, ident in kicad_mechanical(board).items()
+        if name in used and name not in rec.BOARD_LAYER_MAP
+    }
+
+
 DEFINITION_LAYERS: frozenset[str] = frozenset(
     name for name, ident in rec.LAYER_MAP.items() if ident in rec.FLIP_PAIRS and not name.endswith(".Cu")
 )
@@ -420,11 +438,15 @@ class LowerOptions:
 
 def written_comment(component: Component) -> tuple[str, bool]:
     """The comment a PCB document holds for ``component`` and whether it is the symbol's name because the
-    value holds a character outside 7-bit ASCII (change c0086): the value, else the symbol's name, else the
-    reference. The schematic keeps the value."""
+    value holds a character outside 7-bit ASCII (change c0086): the value, else the symbol's name. A part
+    without a value and without a symbol (a part of the board only) gets an empty comment, which reads back
+    as no value (change c0470); the reference stands in only for a value it cannot write. The schematic
+    keeps the value."""
     link = project.split_link(component.lib_symbol_ref)
     symbol = link[1] if link is not None else component.ref
-    comment = component.value or symbol
+    comment = component.value or (symbol if link is not None else "")
+    if not comment:
+        return "", False
     if text_problem(comment) is not None:
         return symbol, True
     return comment, False
@@ -2035,12 +2057,18 @@ def unique_links(design: Design) -> dict[str, str]:
     return {ident: unique for ident, unique in found.items() if unique is not None and count[unique] == 1}
 
 
+def _held(text: str) -> bool:
+    """Whether a binary record holds ``text`` as read from a source: printable Unicode with its ``%UTF8%``
+    twin (change c0470: a library that a source names outside 7-bit ASCII keeps its name)."""
+    return text_problem(text, form="binary", read=True) is None
+
+
 def schematic_design(design: Design, name: str, account: _Account | None = None) -> Design:
     """The design whose circuit the schematic writer takes: every component with a reference, a symbol
     link, a value and pins. A component without a reference (a free pad) is left out with its net
     members; a symbol link that is not ``<library>:<name>`` becomes ``<name>.SchLib:<its text or PART>``;
     a component without pins gets one passive pin per pin its nets name, and a pin without a name is named
-    by its number. A part of a link that no record holds (a library named outside 7-bit ASCII) is
+    by its number. A part of a link that no binary record holds (a control character, ``|``) is
     replaced the same way, and a footprint link that no record holds is left out. Two components of one
     path (two footprints of one reference on a board read alone) get paths of their own, and a native
     unique id that two components share (the instances of a repeated sheet) is not reused. The schematic
@@ -2060,8 +2088,8 @@ def schematic_design(design: Design, name: str, account: _Account | None = None)
         if parts is None:
             _library, symbol = _link(component.lib_footprint_ref, ".PcbLib")
             link = f"{name}.SchLib:{link if link and text_problem(link) is None else symbol or 'PART'}"
-        elif text_problem(parts[0]) is not None or text_problem(parts[1]) is not None:
-            link = f"{name}.SchLib:{parts[1] if text_problem(parts[1]) is None else 'PART'}"
+        elif not _held(parts[0]) or not _held(parts[1]):
+            link = f"{name}.SchLib:{parts[1] if _held(parts[1]) else 'PART'}"
         path = project.component_path(component)
         seen = paths.get(path, 0)
         paths[path] = seen + 1
@@ -2103,9 +2131,10 @@ def schematic_design(design: Design, name: str, account: _Account | None = None)
     pin_sets: dict[str, set[tuple[tuple[str, str, str], ...]]] = {}
     for component in components:
         symbol = component.lib_symbol_ref.rpartition(":")[2]
-        key = (
+        stored = storage_name(symbol)
+        key = (  # a cut name gets a storage name of its own (``schlib.storage_names``, change c0470)
             name_key(project.schlib_name(component.lib_symbol_ref, design=name)),
-            name_key(storage_name(symbol)),
+            name_key(stored if stored == symbol else symbol),
         )
         storages.setdefault(key, set()).add(component.lib_symbol_ref)
         pin_sets.setdefault(component.lib_symbol_ref, set()).add(
@@ -2370,7 +2399,13 @@ def _document(
     # a board that was read names its mechanical layers Mech.<n>: the document holds them (change c0126)
     layer_ids: Mapping[str, int] = MappingProxyType(
         {
-            **(MECHANICAL_LAYERS if read else kicad_mechanical(board) if options is None else {}),
+            **(
+                MECHANICAL_LAYERS
+                if read
+                else kicad_mechanical(board)
+                if options is None
+                else _built_mechanical(board)
+            ),
             **(dict(zip(layers, stack.copper, strict=True)) if options is None else {}),
         }
     )
@@ -2449,9 +2484,7 @@ def _document(
         origin=origin,
         free_pads=tuple(free_pads),
         layer_ids={**layer_ids, **KEEPOUT_STROKE_IDS},
-        named_layers=frozenset(named_mechanical(board).values())
-        if not read and options is None
-        else frozenset(),
+        named_layers=frozenset(named_mechanical(board).values()) if not read else frozenset(),
         arc_records=MappingProxyType(arc_records),
         polygon_arcs=MappingProxyType(matched),
         plane_splits=MappingProxyType(
@@ -2468,6 +2501,11 @@ def _document(
         kept_rules=_kept_rules(board) if read else (),
         body_form=options.body_form if options is not None and placed_bodies else "saved",
     )
+
+
+DRAWING_NOT_WRITTEN = "the source drawing is not written; the sheets are generated from the circuit"
+"""The start of the ``altium.not-lowered`` note of a converted drawing that the drawn writer refuses (change
+c0470): the conversion writes the generated sheets instead."""
 
 
 def write_design(
@@ -2491,6 +2529,11 @@ def write_design(
     polygon_arcs: Mapping[str, ArcPolygon] | None = None,
     planes: Mapping[str, CarriedPlane] | None = None,
     frame_origin: Point | None = None,
+    drawn: DrawnSchematic | None = None,
+    drawn_aliases: Mapping[str, tuple[str, AltiumSymbol]] | None = None,
+    drawn_definitions: Mapping[str, Mapping[str, str]] | None = None,
+    drawn_fields: Mapping[str, Mapping[str, Mapping[str, str]]] | None = None,
+    drawn_bodies: Mapping[str, AltiumSymbol] | None = None,
 ) -> ProjectWrite:
     """The files of an Altium project written from ``design`` alone: ``<name>.PcbDoc`` when the design holds a
     board with an outline or an item, and ``<name>.SchDoc`` with its libraries and ``<name>.PrjPcb`` when the
@@ -2519,7 +2562,10 @@ def write_design(
     through KiCad (change c0467, ``convert.altium_frame``), in the document's frame: a board that was not
     read from a PCB document is then written where its coordinates are, Y negated, with that origin; when
     that would put a point of the outline at a negative coordinate, it is anchored at its corner and one
-    ``outline`` change says so (``FRAME_ANCHORED``)."""
+    ``outline`` change says so (``FRAME_ANCHORED``).
+    ``drawn`` (change c0470) is the drawing of a converted source with sheets: the sheets are those of the
+    Altium drawn writer (``backends.altium.drawn.lower_drawn``), each KiCad item it cannot draw in the
+    sheet carrier, instead of the generated sheets."""
     refuse_bom_only(design)
     if schematic is not None:
         refuse_bom_only(schematic)
@@ -2576,6 +2622,36 @@ def write_design(
         also = [found for found in issues if found.code == NOT_LOWERED and found.where not in LOSS_KINDS]
         raise LossyWriteError(lost, also)
     name = inputs.name
+    planned: ProjectSheets | None = None
+    if drawn is not None and schematic is not None:
+        from fenolite.backends.altium.drawn import lower_drawn
+        from fenolite.backends.altium.hierarchy import plan_sheets
+
+        drawn_issues: list[Issue] = []
+        try:
+            planned = lower_drawn(
+                drawn,
+                inputs.schematic,
+                plan_sheets(inputs.schematic, name=name, sheets="modules", form="binary", symbols=symbols,
+                            read_circuit=True),
+                name=name,
+                issues=drawn_issues,
+                allow_lossy=True,
+                carry=True,
+                symbol_overrides=drawn_aliases or {},
+                definitions=drawn_definitions or {},
+                fields=drawn_fields or {},
+                bodies=drawn_bodies or {},
+            )  # fmt: skip
+        except FenoliteError as error:
+            drawn_issues.append(Issue("drawn.refused", "error", str(error), where="schematic"))
+        refused = [i for i in drawn_issues if i.severity == "error"]
+        if refused:  # the generated sheets, and one note that says why (change c0470)
+            planned = None
+            message = f"{DRAWING_NOT_WRITTEN}: {refused[0].message}"
+            issues.append(Issue(NOT_LOWERED, "info", message, where="schematic"))
+        else:
+            issues.extend(drawn_issues)
     files: dict[str, bytes] = {}
     mode: PourMode = pour or "computed"
     results: list[pcbdoc.PcbDocResult] = []
@@ -2600,6 +2676,7 @@ def write_design(
                     pour=mode,
                     pour_results=results,
                     title_parameters=parameters,
+                    planned_sheets=planned,
                 )
             )
         except CompoundTooLarge:
@@ -3085,6 +3162,7 @@ def _is_hole(footprint: FootprintInstance) -> bool:
 __all__ = [
     "ARC_KEY",
     "ARC_TOLERANCE",
+    "DRAWING_NOT_WRITTEN",
     "EVIDENCE",
     "FENOLITE_MECHANICAL",
     "KINDS",

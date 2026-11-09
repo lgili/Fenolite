@@ -438,6 +438,9 @@ class PlacedComponent:
     the key is left out, as for most saved components."""
     union: int = 0
     """The union the component is a member of, its ``UNIONINDEX`` (change c0460); 0 for none."""
+    source_designator: str | None = None
+    """The designator of the sheet record, its ``SOURCEDESIGNATOR``: the sheet's designator for a component of
+    a channel (change c0470); ``None`` for ``ref``."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -1041,7 +1044,7 @@ def _component_record(component: PlacedComponent, offset: int, frame: Frame, fil
         ("UNIONINDEX", str(component.union)),
         *((("COMPONENTKIND", NET_TIE_KIND),) if component.net_tie else ()),
         ("CHANNELOFFSET", str(offset)),
-        ("SOURCEDESIGNATOR", component.ref),
+        ("SOURCEDESIGNATOR", component.source_designator or component.ref),
         ("SOURCEUNIQUEID", link),
         ("SOURCEHIERARCHICALPATH", path),
         ("SOURCEFOOTPRINTLIBRARY", component.footprint_library),

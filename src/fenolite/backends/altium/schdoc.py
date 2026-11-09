@@ -26,7 +26,14 @@ import dataclasses
 from collections.abc import Callable, Sequence
 from typing import Protocol
 
-from fenolite.backends.altium.altsym import NM_PER_MIL, AltiumGraphic, map_records, unit_and_frac
+from fenolite.backends.altium.altsym import (
+    NM_PER_MIL,
+    AltiumGraphic,
+    AltiumPin,
+    map_records,
+    mil_parts,
+    unit_and_frac,
+)
 from fenolite.backends.altium.ascii import Field, coord_fields, encode_records, to_units
 from fenolite.backends.altium.layout import (
     COMMENT_DROP,
@@ -95,6 +102,12 @@ BUS_COLOR = "8388608"
 """The colour of a bus line and of a bus entry (a Fenolite choice: the colour of its wires)."""
 BUS_WIDTH = "2"
 """``LINEWIDTH`` of a bus line: one step wider than a wire (a Fenolite choice)."""
+
+
+def _parts(key: str, mils: int) -> list[Field]:
+    """``key`` in file units and, off the 10-mil grid, its ``_FRAC`` key (``altsym.mil_parts``)."""
+    unit, frac = mil_parts(mils)
+    return [(key, str(unit)), *([(f"{key}_FRAC", str(frac))] if frac else [])]
 
 
 def length_fields(key: str, nm: int) -> Record:
@@ -232,9 +245,29 @@ class _Writer:
         self.records.append(record)
         return len(self.records) - 1
 
-    def at(self, name: str, x: int, y: int) -> tuple[Field, Field]:
-        """A point of the layout frame (Y downwards) as fields of the file frame (Y upwards)."""
-        return coord_fields(name, x, self.height - y)
+    def at(self, name: str, x: int, y: int) -> list[Field]:
+        """A point of the layout frame (Y downwards) as fields of the file frame (Y upwards): on whole mils,
+        each coordinate off the 10-mil grid with its ``_FRAC`` key (a pin off the grid, change c0470)."""
+        out: list[Field] = []
+        for key, value in ((f"{name}.X", x), (f"{name}.Y", self.height - y)):
+            if value < 0:
+                raise ValueError(f"{value} mil is not a non-negative length")
+            out += _parts(key, value)
+        return out
+
+    def pin_place(
+        self, pin: AltiumPin, placed: PlacedPart, place: Callable[[int, int], tuple[int, int]]
+    ) -> list[Field]:
+        """``PINLENGTH`` and ``LOCATION`` of ``pin`` of ``placed``: in mils, or from its nanometres when it
+        lies off a whole mil (``AltiumPin.nm``, change c0470)."""
+        if pin.nm is None:
+            return [*_parts("PINLENGTH", pin.length), *self.at("LOCATION", *placed.at(pin.x, pin.y))]
+        x, y = place(pin.nm[0], pin.nm[1])
+        return [
+            *length_fields("PINLENGTH", pin.nm[2]),
+            *length_fields("LOCATION.X", x),
+            *length_fields("LOCATION.Y", y),
+        ]
 
     def component(self, placed: PlacedPart) -> None:
         spec, body = placed.spec, placed.spec.body
@@ -305,8 +338,7 @@ class _Writer:
                         "PINCONGLOMERATE",
                         str((pin.conglomerate & ~3) | ((pin.direction + placed.rotation) % 4)),
                     ),
-                    ("PINLENGTH", str(to_units(pin.length))),
-                    *self.at("LOCATION", *placed.at(pin.x, pin.y)),
+                    *self.pin_place(pin, placed, place),
                     ("NAME", pin.name),
                     ("DESIGNATOR", pin.designator),
                 ]
@@ -682,6 +714,7 @@ def block_records(block: HarnessBlock, index: int, height: int) -> list[Record]:
             ("COLOR", CONNECTOR_COLOR),
             ("AREACOLOR", CONNECTOR_FILL),
             ("PRIMARYCONNECTIONPOSITION", str(to_units(block.position))),
+            *((("HARNESSCONNECTORSIDE", RIGHT_SIDE),) if block.mirrored else ()),
         ]
     ]
     for k, (entry, _net) in enumerate(block.entries, start=1):
@@ -691,7 +724,7 @@ def block_records(block: HarnessBlock, index: int, height: int) -> list[Record]:
                 *owner,
                 ("OWNERINDEXADDITIONALLIST", "T"),
                 ("OWNERPARTID", "-1"),
-                ("SIDE", RIGHT_SIDE),
+                *(() if block.mirrored else (("SIDE", RIGHT_SIDE),)),
                 ("DISTANCEFROMTOP", str(k)),
                 ("COLOR", HARNESS_ENTRY_COLOR),
                 ("AREACOLOR", ENTRY_FILL),
@@ -719,18 +752,21 @@ def block_records(block: HarnessBlock, index: int, height: int) -> list[Record]:
 
 def line_record(start: tuple[int, int], end: tuple[int, int], height: int) -> Record:
     """``RECORD=218``: a signal harness line of two points, on a sheet ``height`` mil high."""
-    (x1, y1), (x2, y2) = start, end
-    return [
+    return polyline_record((start, end), height)
+
+
+def polyline_record(points: Sequence[tuple[int, int]], height: int) -> Record:
+    """``RECORD=218``: a signal harness line through ``points``, on a sheet ``height`` mil high."""
+    fields: Record = [
         ("RECORD", "218"),
         ("OWNERPARTID", "-1"),
         ("LINEWIDTH", "2"),
         ("COLOR", HARNESS_LINE_COLOR),
-        ("LOCATIONCOUNT", "2"),
-        ("X1", str(to_units(x1))),
-        ("Y1", str(to_units(height - y1))),
-        ("X2", str(to_units(x2))),
-        ("Y2", str(to_units(height - y2))),
+        ("LOCATIONCOUNT", str(len(points))),
     ]
+    for index, (x, y) in enumerate(points, start=1):
+        fields += [*_parts(f"X{index}", x), *_parts(f"Y{index}", height - y)]
+    return fields
 
 
 def additional_records(plan: SheetPlan) -> list[Record]:
@@ -743,6 +779,8 @@ def additional_records(plan: SheetPlan) -> list[Record]:
         found += block_records(block, len(found), plan.size.height)
     for start, end in plan.lines:
         found.append(line_record(start, end, plan.size.height))
+    for points in plan.polylines:
+        found.append(polyline_record(points, plan.size.height))
     return found
 
 
@@ -750,7 +788,7 @@ def write_schdoc(plan: SheetPlan, frame: Frame | None = None) -> bytes:
     """The bytes of the ASCII schematic of ``plan``, with the drawing sheet ``frame`` (change c0087). A plan
     with a harness block is refused: the place of harness records in the ASCII form is not documented
     (``hierarchy.plan_sheets`` makes none for it)."""
-    if plan.lines:
+    if plan.lines or plan.polylines:
         raise ValueError("the ASCII form cannot carry a signal harness line: harness records are binary only")
     if plan.harnesses:
         names = ", ".join(sorted({block.name for block in plan.harnesses}))

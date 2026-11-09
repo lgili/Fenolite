@@ -8,7 +8,8 @@ drawn items, as ``backends.kicad.drawn.extract_with_pins`` gives them. Sheet ins
 path; the sheets of a matched pair are compared once, at the first instance (in page order) where they
 meet. Symbols match by component path (of that instance) and unit; wires and buses are turned into their
 maximal collinear segments first, so a wire split differently is the same drawing; every other item
-matches as a multiset by kind, position and attributes, an opaque item by the SHA-256 of its fragment.
+matches as a multiset by kind, position and attributes, an opaque item by the SHA-256 of its Altium record
+text when it has one (change c0470), else of its KiCad fragment.
 Both drawings are then resolved (``drawn_connect.resolve``) and the first pin, in sorted order, whose group
 of common pins differs gives ``drawn-net``.
 
@@ -21,6 +22,7 @@ from __future__ import annotations
 import hashlib
 from collections import Counter, defaultdict
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import replace
 from math import gcd
 
 from fenolite.checks.equivalence.model import (
@@ -160,7 +162,8 @@ def items(sheet: DrawnSheet) -> list[Item]:
     for alias in sheet.bus_aliases:
         found.append(("bus_alias", (), (("name", alias.name), ("members", " ".join(alias.members)))))
     for opaque in sheet.opaques:
-        digest = hashlib.sha256(opaque.kicad.encode("utf-8")).hexdigest()
+        # an item read from Altium compares by its record text, whatever stands for it in KiCad (c0470)
+        digest = hashlib.sha256((opaque.altium or opaque.kicad).encode("utf-8")).hexdigest()
         found.append(("opaque", (), (("sha256", digest),)))
     return found
 
@@ -293,6 +296,17 @@ def _symbols(instance: DrawnInstance, sheet: DrawnSheet) -> dict[str, DrawnSymbo
     return found
 
 
+_HALF_TURN = 180_000_000
+_FULL_TURN = 360_000_000
+
+
+def _pose(rotation: int, mirror: str) -> tuple[int, str]:
+    """``rotation`` and ``mirror`` with a mirror about X written as a mirror about Y and a half turn."""
+    if mirror == "x":
+        return (rotation + _HALF_TURN) % _FULL_TURN, "y"
+    return rotation % _FULL_TURN, mirror
+
+
 def compare_symbols(
     path: str, a: Mapping[str, DrawnSymbol], b: Mapping[str, DrawnSymbol], tolerances: Tolerances
 ) -> list[Difference]:
@@ -307,9 +321,12 @@ def compare_symbols(
             continue
         if not points_equal(x.at, y.at, tolerances):
             found.append(_difference("symbol-pose", where, _point(x.at), _point(y.at), "at"))
-        if not angles_equal(x.rotation, y.rotation, tolerances):
+        # a mirror about X is a mirror about Y turned by a half turn: the same pose (change c0470)
+        rotation_x, mirror_x = _pose(x.rotation, x.mirror)
+        rotation_y, mirror_y = _pose(y.rotation, y.mirror)
+        if not angles_equal(rotation_x, rotation_y, tolerances):
             found.append(_difference("symbol-pose", where, str(x.rotation), str(y.rotation), "rotation"))
-        if x.mirror != y.mirror:
+        if mirror_x != mirror_y:
             found.append(_difference("symbol-pose", where, x.mirror, y.mirror, "mirror"))
         if x.symbol != y.symbol:
             found.append(_difference("symbol-field", where, x.symbol, y.symbol, "symbol"))
@@ -441,4 +458,63 @@ def compare_drawn(
     return LevelResult(SCHEMATIC_LEVEL, instances + symbols + item_count + pins, ordered, summary=summary)
 
 
-__all__ = ["compare_drawn", "compare_items", "compare_nets", "compare_symbols", "items", "merged"]
+def flattened(
+    drawn: DrawnSchematic, pins: Mapping[PinKey, Sequence[PinPoint]], refs: Mapping[str, str]
+) -> tuple[DrawnSchematic, dict[PinKey, tuple[PinPoint, ...]]]:
+    """``drawn`` with each sheet that more than one instance shows copied once per instance, and ``pins``
+    for the copies (change c0470). In a copy, each part is named by the reference of its component
+    (``refs``: component path → reference), as a format without reused sheets names it. The instances,
+    their paths and their items are those of ``drawn``: a reused sheet and its copies are the same drawing
+    at level S. ``drawn`` itself when no sheet is reused."""
+    from fenolite.model.drawn_connect import instances
+
+    walk, _ = instances(drawn)
+    uses = Counter(instance.sheet for instance in walk)
+    if all(count == 1 for count in uses.values()):
+        return drawn, {key: tuple(points) for key, points in pins.items()}
+
+    def key_of(instance: DrawnInstance) -> str:
+        return instance.sheet if uses[instance.sheet] == 1 else f"{instance.sheet}@{instance.path}"
+
+    by_keys = {instance.keys: instance for instance in walk}
+    sheets: list[DrawnSheet] = []
+    out: dict[PinKey, tuple[PinPoint, ...]] = {}
+    for instance in walk:
+        sheet = drawn.sheet(instance.sheet)
+        if sheet is None:
+            continue
+        key = key_of(instance)
+        refs_out = tuple(
+            replace(ref, sheet=key_of(child)) if (child := by_keys.get((*instance.keys, ref.key))) else ref
+            for ref in sheet.sheet_refs
+        )
+        symbols = sheet.symbols
+        if uses[instance.sheet] > 1:
+            symbols = tuple(
+                replace(s, part=_renamed(refs.get(instance.component(s.part)), s.part)) for s in symbols
+            )
+        sheets.append(replace(sheet, key=key, sheet_refs=refs_out, symbols=symbols))
+        for (sheet_key, kind, index), points in pins.items():
+            if sheet_key == instance.sheet:
+                out[(key, kind, index)] = tuple(points)
+    root = key_of(walk[0]) if walk else drawn.root
+    return replace(drawn, sheets=tuple(sheets), root=root), out
+
+
+def _renamed(ref: str | None, part: str) -> str:
+    """``part`` named by the reference ``ref`` of its component, in the same module."""
+    if not ref:
+        return part
+    module, _, _ = part.rpartition("/")
+    return f"{module}/{ref}" if module else ref
+
+
+__all__ = [
+    "compare_drawn",
+    "compare_items",
+    "flattened",
+    "compare_nets",
+    "compare_symbols",
+    "items",
+    "merged",
+]

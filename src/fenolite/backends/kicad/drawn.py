@@ -69,6 +69,8 @@ from fenolite.model.drawn import (
     DrawnSheetProperty,
     DrawnSheetRef,
     DrawnSymbol,
+    paper_frame,
+    paper_text,
     title_pairs,
 )
 from fenolite.model.drawn_connect import (
@@ -87,7 +89,7 @@ from fenolite.model.drawn_connect import (
     resolve,
 )
 from fenolite.model.library import SymbolDef
-from fenolite.model.presentation import SheetFrameRef, TitleBlock
+from fenolite.model.presentation import TitleBlock
 from fenolite.model.schematic import (
     PIN_SHAPES,
     BusAlias,
@@ -344,6 +346,8 @@ def _power_definition(
 
 def opaque_symbol(item: DrawnOpaque) -> SymbolInstance | None:
     """Read a native opaque symbol through the schematic reader, without a second symbol parser."""
+    if not item.kicad:
+        return None  # an Altium record without a KiCad stand-in (change c0470)
     native = parse(item.kicad)
     if native.name != "symbol":
         return None
@@ -537,7 +541,9 @@ def lower_drawn(
             used[definition.lib_id] = definition
             # An empty source Footprint field stays empty; the part keeps its footprint (c0414).
             footprint = "" if symbol.empty_footprint else first.lib_footprint_ref
-            properties = {k: "" for k in MANDATORY} | dict(first.properties)
+            properties = (
+                {k: "" for k in MANDATORY} | {f.name: "" for f in symbol.fields} | dict(first.properties)
+            )
             properties |= {"Reference": first.ref, "Value": first.value, "Footprint": footprint}
             instance = SymbolInstance(
                 id=derived_id("sci", ID_BACKEND, f"{name}:{first_part.path}#{symbol.unit}"),
@@ -591,7 +597,9 @@ def lower_drawn(
                     mirror=power.mirror,  # type: ignore[arg-type]
                     ref=refs[0],
                     value=power.net,
-                    properties={k2: "" for k2 in MANDATORY} | {"Reference": refs[0], "Value": power.net},
+                    properties={k2: "" for k2 in MANDATORY}
+                    | {f.name: "" for f in power.fields}
+                    | {"Reference": refs[0], "Value": power.net},
                     in_bom=False,
                     on_board=False,
                     uses=tuple(SymbolUse(name, use_paths[i], refs[j], 1) for j, i in enumerate(indices)),
@@ -933,11 +941,12 @@ def _sheet(
     # Resolve blank intent before omitting the empty native node; do not inherit again.
     if block is not None and not title_pairs(block):
         block = None
-    opaque = [*slanted, *(item.kicad for item in sheet.opaques)]
+    # an Altium record without a KiCad stand-in travels in the sheet carrier, not drawn (change c0470)
+    opaque = [*slanted, *(item.kicad for item in sheet.opaques if item.kicad)]
     return SchematicSheet(
         id=sheet_id,
         name=name if key == drawn.root else key,
-        paper=SheetFrameRef(sheet.paper),  # type: ignore[arg-type]
+        paper=paper_frame(sheet.paper),
         title_block=block,
         lib_symbols=tuple(d.definition for d in sorted(used.values(), key=lambda e: e.lib_id)),
         symbols=tuple(symbols),
@@ -1523,7 +1532,7 @@ def extract_with_pins(
             if head in HEADER_HEADS:
                 continue
             opaques.append(DrawnOpaque(slot.fragment))
-        paper = sheet.paper.paper if sheet.paper.paper != "custom" else "A4"
+        paper = paper_text(sheet.paper)
         sheets.append(
             DrawnSheet(
                 key,
@@ -1624,6 +1633,9 @@ def _connection_names(found: Extracted) -> tuple[DrawnSchematic, dict[PinKey, tu
     return replace(found.drawn, sheets=sheets), pins
 
 
+bus_member_keys = _bus_member_keys  # the KiCad identities of bus members, for a drawing read back
+
+
 def _resolve_extracted(found: Extracted, *, name: str = "") -> DrawnNetlist:
     """The native connectivity view, leaving the extracted source drawing untouched."""
     connections, pins = _connection_names(found)
@@ -1667,6 +1679,7 @@ def drawn_counts(drawn: DrawnSchematic) -> dict[str, int]:
 
 
 __all__ = [
+    "bus_member_keys",
     "EVIDENCE",
     "HEADER_HEADS",
     "ROOT_KEY",

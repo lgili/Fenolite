@@ -621,6 +621,38 @@ def _counted(items: Sequence[str]) -> str:
     return ", ".join(f"{count} x {item}" for item, count in sorted(Counter(items).items()))
 
 
+def _document_drops(defn: FootprintDef, dropped: Sequence[str]) -> list[str]:
+    """``dropped`` of ``pcblib.check_footprint`` less the graphics that the board document holds as items
+    of the placed component (``_document_holds``, ``place_footprints``; change c0470)."""
+    lost = list(dropped)
+    for graphic in defn.graphics:
+        drop = pcblib.graphic_drop(graphic)
+        if drop is not None and drop in lost and _document_holds(graphic):
+            lost.remove(drop)
+    return lost
+
+
+def _document_pieces(graphic: Graphic) -> tuple[Graphic, ...]:
+    """``graphic`` as the board document holds it (change c0470): the outline of an unfilled polygon is its
+    closed ring of lines, as ``pcbdoc`` writes it and the import reads it back; anything else is itself."""
+    if graphic.kind != "polygon" or graphic.filled:
+        return (graphic,)
+    ring = graphic.points if graphic.points[0] != graphic.points[-1] else graphic.points[:-1]
+    return tuple(
+        dataclasses.replace(graphic, kind="line", points=(a, b))
+        for a, b in zip(ring, (*ring[1:], ring[0]), strict=True)
+    )
+
+
+def _document_holds(graphic: Graphic) -> bool:
+    """Whether the board document holds ``graphic`` of a footprint as an item of the placed component
+    (change c0470): not on copper, not a filled shape with an outline stroke, which a region has not, and
+    passed by ``pcbdoc.graphic_problem`` with the KiCad drawing layers (``lower.KICAD_MECHANICAL``)."""
+    if graphic.layer.endswith(".Cu") or (graphic.filled and graphic.width > 0):
+        return False
+    return pcbdoc.graphic_problem(graphic, layers=lower.KICAD_MECHANICAL) is None
+
+
 def resolve_footprints(
     design: Design,
     resolver: LibraryResolver | None,
@@ -677,10 +709,9 @@ def resolve_footprints(
                 )
             )
             continue
-        if check.dropped:
-            issues.append(
-                issue("altium.primitive-dropped", f"{link}: left out: {_counted(check.dropped)}", link)
-            )
+        lost = _document_drops(defn, check.dropped)
+        if lost:
+            issues.append(issue("altium.primitive-dropped", f"{link}: left out: {_counted(lost)}", link))
         if check.extras:
             issues.append(
                 issue(
@@ -1084,7 +1115,19 @@ def place_footprints(
                 native_ids={},
                 provenance=None,
             )
-            for index, graphic in enumerate(check.graphics)
+            # the graphics the library leaves out follow as items of the instance, in the order the
+            # document is read back (lower._footprint_items; change c0470)
+            for index, graphic in enumerate(
+                (
+                    *check.graphics,
+                    *(
+                        piece
+                        for g in footprint.defn.graphics
+                        if g not in check.graphics and _document_holds(g)
+                        for piece in _document_pieces(g)
+                    ),
+                )
+            )
         )
         keepouts = tuple(
             dataclasses.replace(
@@ -1324,11 +1367,16 @@ def unmodelled_graphics(symbol: SymbolDef) -> tuple[str, ...]:
 
 
 def library_symbols(
-    symbols: Mapping[str, SymbolDef], issues: list[Issue], bodies: SymbolBodies = DEFAULT_BODIES
+    symbols: Mapping[str, SymbolDef],
+    issues: list[Issue],
+    bodies: SymbolBodies = DEFAULT_BODIES,
+    *,
+    fine: bool = False,
 ) -> dict[str, AltiumSymbol]:
     """Lib id → the Altium symbol of every resolved KiCad symbol, drawn from its own graphics where
     ``altsym.from_symbol_def`` can (change c0086); an off-grid pin gives ``altium.symbol-off-grid`` and no
-    symbol."""
+    symbol. With ``fine`` (a drawn schematic, change c0470) a pin off the 10-mil grid on whole mils or on
+    Altium's 127/50 nm step is kept, written with its ``_FRAC`` keys as a conversion writes it."""
     mapped: dict[str, AltiumSymbol] = {}
     for lib_id, symbol in sorted(symbols.items()):
         link = split_link(lib_id)
@@ -1342,6 +1390,7 @@ def library_symbols(
                 issues=issues,
                 unmodelled=unmodelled_graphics(symbol),
                 bodies=bodies,
+                fine=fine,
             )
         except ValueError as error:
             issues.append(
@@ -1390,9 +1439,17 @@ def _library_checks(
     _case_collision_of_files(found, list(libraries))
     for library, members in libraries.items():
         keys: dict[tuple[int, tuple[int, ...]], str] = {}
+        valid: list[str] = []
         for symbol in members:
             try:
-                key_name = schlib.storage_name(symbol.lib_ref)
+                schlib.storage_name(symbol.lib_ref)
+            except ValueError:
+                continue
+            valid.append(symbol.lib_ref)
+        names = schlib.storage_names(valid)  # cut names that share a prefix get a suffix (change c0470)
+        for symbol in members:
+            try:
+                key_name = names.get(symbol.lib_ref) or schlib.storage_name(symbol.lib_ref)
             except ValueError:
                 found.append(
                     issue(
@@ -2326,7 +2383,7 @@ def build_altium(
         )
     model, pin_issues = kicad_pins(design, resolved)
     issues += pin_issues
-    symbols = library_symbols(resolved, issues, symbol_bodies)
+    symbols = library_symbols(resolved, issues, symbol_bodies, fine=drawn is not None)
     model = with_written_values(generic_pins(model))
     if unused or two_terminal:
         model, request_issues = resolve_requests(model, unused or {}, two_terminal)
@@ -2481,6 +2538,7 @@ def build_altium(
             allow_lossy=allow_lossy,
             form=form,
             symbol_overrides=aliases,
+            harness=True,  # a bus group that crosses a sheet is a signal harness (change c0470)
         )
         input_evidence.append(DRAWN_EVIDENCE)
         if any(found.severity == "error" for found in issues):

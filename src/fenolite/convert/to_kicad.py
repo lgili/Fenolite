@@ -498,7 +498,6 @@ def write_altium(source: SourceProject, options: Options) -> Written:
         footprint_files,
         plane_losses,
         prepare,
-        schematic_files,
     )
 
     ledger = Ledger()
@@ -589,7 +588,7 @@ def write_altium(source: SourceProject, options: Options) -> Written:
             definition, target=options.kicad_version
         )
     design = distinct_designators(design, ledger)  # change c0428: after the board is written
-    schematic, notes = schematic_files(source, design, name, options.kicad_version, ledger)
+    schematic, notes = _drawing_files(source, design, name, options.kicad_version, ledger, counts)
     texts.update(schematic)
     issues.extend(notes)
     counts["schematic"] = 1
@@ -657,6 +656,51 @@ def write_altium(source: SourceProject, options: Options) -> Written:
         tuple(issues),
         schematic=f"{name}.kicad_sch" if schematic else None,
     )
+
+
+def _drawing_files(
+    source: SourceProject, design: Design, name: str, target: int, ledger: Ledger, counts: dict[str, int]
+) -> tuple[dict[str, str], tuple[Issue, ...]]:
+    """The KiCad schematic of an Altium source: its own drawing (change c0470, ``convert.schematic``) when
+    the project holds sheets and the drawing can be written, else the schematic generated from the circuit
+    (``altium_to_kicad.schematic_files``), whose row says why. A circuit that holds a designator twice keeps
+    the generated schematic too: a drawing names its symbols by component path, and the generator's
+    renaming of a duplicate (change c0425) is the reported way to write that circuit. So does a circuit
+    with a part that no sheet draws and no board places."""
+    from collections import Counter
+
+    from fenolite.convert import codes
+    from fenolite.convert import schematic as drawing_lib
+    from fenolite.convert.altium_to_kicad import schematic_files
+
+    drawing = drawing_lib.drawing_of(source)
+    if drawing is None:
+        return schematic_files(source, design, name, target, ledger)
+    # a designator held twice by parts of the board alone names no symbol of the drawing (change c0470)
+    undrawn = {c.id for c in drawing_lib.undrawn(drawing.extracted.drawn, source.design.circuit)}
+    board = source.design.board
+    placed = {fp.component_id for fp in board.footprints} if board is not None else set[str]()
+    refs = Counter(c.ref for c in source.design.circuit.components if c.ref and c.id not in undrawn)
+    # a part that neither a sheet draws nor the board places would be written nowhere: generated too
+    if any(count > 1 for count in refs.values()) or undrawn - placed:
+        return schematic_files(source, design, name, target, ledger)
+    links = drawing_lib.links_of(source.design)  # ``prepare`` keeps no native ids
+    written = drawing_lib.write_kicad_drawing(drawing, design, name, target, links)
+    errors = [i for i in (*drawing.extracted.issues, *written.issues) if i.severity == "error"]
+    if errors or not written.files:
+        files, notes = schematic_files(source, design, name, target, ledger)
+        reason = f"{codes.DRAWING_REFUSED}: {errors[0].message}" if errors else codes.DRAWING_REFUSED
+        ledger.change("schematic", design.header.id, reason)
+        return files, (*notes, *(dataclasses.replace(i, severity="warning") for i in errors))
+    source_counts, changes = drawing_lib.drawing_rows(drawing, written)
+    for kind, count in source_counts.items():
+        counts[kind] = counts.get(kind, 0) + count
+    for kind, item, reason in changes:
+        ledger.change(kind, item, reason)
+    for component in drawing_lib.undrawn(drawing.extracted.drawn, design.circuit):
+        ledger.change("schematic", component.id, codes.DRAWING_BOARD_ONLY)
+    notes = tuple(i for i in (*drawing.extracted.issues, *written.issues) if i.severity != "error")
+    return dict(written.files), notes
 
 
 def _carried_planes(source: SourceProject, design: Design) -> altium_planes.Carried:

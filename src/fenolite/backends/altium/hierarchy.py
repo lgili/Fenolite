@@ -93,11 +93,34 @@ class SheetFile:
 
 
 @dataclass(frozen=True)
+class SheetLink:
+    """How the board component ``ref`` links to its sheet record (change c0470): ``symbols`` the unique ids
+    and ``names`` the designators of the sheet symbols from the top sheet, each joined by a backslash;
+    ``unique_id`` the part spec whose record the board links to and ``designator`` that record's
+    designator. A channel of a sheet written once for several sheet symbols links to the record of the
+    first channel, whose designator is the sheet's (``docs/formats/altium/connectivity.md``, "Channels")."""
+
+    ref: str
+    symbols: str
+    names: str
+    unique_id: str
+    designator: str
+    channel: bool = False
+
+
+@dataclass(frozen=True)
 class ProjectSheets:
     """The sheets of a project: the top sheet first, then the module sheets in module-name order."""
 
     mode: SheetMode
     sheets: tuple[SheetFile, ...]
+    links: tuple[SheetLink, ...] = ()
+    """Per component of a drawn conversion (change c0470), how the board links to its sheet record."""
+
+    @property
+    def channels(self) -> bool:
+        """Whether a sheet is written once for several sheet symbols: an Altium multichannel design."""
+        return any(link.channel for link in self.links)
 
     @property
     def top(self) -> SheetFile:

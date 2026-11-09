@@ -376,6 +376,10 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `docset` | see `import_evidence` |
 | `draftsman` | `EVIDENCE` INFERRED: `H-A-DWF-CONTAINER`, `H-A-DWF-FIELD`, `H-A-DWF-GEOM`, `H-A-DWF-IMPORT`, `H-A-DWF-KIT`, `H-A-DWF-MINIMAL`, `H-A-DWF-PARAMS`, `H-A-DWF-READBACK`, `H-A-DWF-TEMPLATE` |
 | `drawn` | `EVIDENCE` INFERRED: `H-A-DRAWN-WRITE` |
+| `drawn_carrier` | see `drawn`, `drawn_read` |
+| `drawn_harness` | see `drawn` |
+| `drawn_read` | `EVIDENCE` INFERRED: `H-A-DRAWN-READ` |
+| `drawn_symbols` | see `drawn_read` |
 | `edit.connectivity` | see `edit.session` |
 | `edit.integrity` | `EVIDENCE` INFERRED: `H-A-EDIT-DELETE`, `H-A-INTEG-ID`, `H-A-INTEG-LAYER`, `H-A-INTEG-MODEL`, `H-A-INTEG-PARAMCOUNT`, `H-A-INTEG-PARAMORPHAN`, `H-A-INTEG-POURINDEX`, `H-A-INTEG-SUBPOLY` |
 | `edit.ops` | see `edit.session` |
@@ -527,6 +531,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `schreadability` | none: it measures a created sheet's drawing and states no fact about a file format or a tool |
 | `schwired` | see `schgen`, `sch` |
 | `sexpr` | `EVIDENCE` INFERRED: `H-K-SEXPR-ESCAPES`, `H-K-SEXPR-LEX-10`, `H-K-SEXPR-LEX-9`, `H-K-SEXPR-NUM-CORPUS`, `H-K-SEXPR-NUM-READ`, `H-K-SEXPR-NUM-WRITE-2`, `H-K-SEXPR-STRICT` |
+| `sheet_carrier` | see `drawn` |
 | `slots` | see `dru`, `mod`, `pcb`, `sch`, `sym`, `wks` |
 | `stackup` | `EVIDENCE` KICAD-VERIFIED: `H-K-STACKUP-JOB`, `H-K-STACKUP-COMPLETE`, `H-K-STACKUP-DEFAULT`, `H-K-STACKUP-RESAVE` |
 | `sym` | `EVIDENCE` INFERRED: `H-K-LIB-READ`<br>`WRITE_EVIDENCE` UNVERIFIED: — |

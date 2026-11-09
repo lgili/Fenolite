@@ -928,6 +928,10 @@ symbol are not written. A rectangle of the source symbol holds `ISSOLID=T` only 
 No `ISNOTACCESIBLE` and no `INDEXINSHEET` is written, as on every Fenolite record. An open circle is an
 ellipse without `ISSOLID`.
 
+A pin (record 2) of a conversion on whole mils off the 10-mil grid (change c0470) holds `PINLENGTH_FRAC`,
+`LOCATION.X_FRAC` and `LOCATION.Y_FRAC` the same way, and so do the designator and comment around a body
+that such pins size. On the grid nothing changes. A pin off a whole mil is refused.
+
 ### Directions, buses, parameters and text
 
 | fact | source | label | hypothesis |
@@ -942,8 +946,10 @@ ellipse without `ISSOLID`.
 Fenolite's choices: a binary schematic is written in Windows-1252; a comment or a parameter value with a
 character outside printable 7-bit ASCII is written as `%UTF8%TEXT` in UTF-8 and then `TEXT` in the code
 page. For read circuits, printable characters outside Windows-1252 retain their UTF-8 twin and
-use `?` replacements in the plain fallback (c0160); script validation stays strict. Every other text
-stays printable 7-bit ASCII. A bus line holds `LINEWIDTH=2` and the colour of a wire.
+use `?` replacements in the plain fallback (c0160); script validation stays strict. A parameter value of a
+read circuit or of a converted drawing may start or end with a space, which Fenolite's reader keeps (c0470);
+whether Altium Designer trims it is a kit question.
+Every other text stays printable 7-bit ASCII. A bus line holds `LINEWIDTH=2` and the colour of a wire.
 
 ## Drawn-sheet writer (c0276)
 

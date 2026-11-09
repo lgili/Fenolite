@@ -51,11 +51,25 @@ CLASS_GENERATION: tuple[tuple[str, str], ...] = (
 ``NetClassManualEnabled=1`` is the option "Generate Net Classes" for user-defined classes."""
 
 
+UTF8_BOM = b"\xef\xbb\xbf"
+"""The byte-order mark that Altium Designer writes before a saved project file (``project.md``)."""
+
+
 def _file_name(name: str, what: str) -> str:
-    problem = text_problem(name)
+    # a name outside 7-bit ASCII (a library a converted source names) puts the file in UTF-8 (change c0470)
+    problem = text_problem(name, form="binary", read=True)
     if problem is not None or "/" in name or "\\" in name:
         raise ValueError(f"the {what} file name {name!r} cannot be written: {problem or 'a path'}")
     return name
+
+
+CHANNEL_KEYS: tuple[tuple[str, str], ...] = (
+    ("ChannelRoomNamingStyle", "0"),
+    ("ChannelDesignatorFormatString", "$Component_$RoomName"),
+    ("ChannelRoomLevelSeperator", "_"),
+)
+"""The designator format of a multichannel design, as the project file spells it (``connectivity.md``,
+"Channels", S-0452): a component of a channel is named ``<designator>_<designator of its sheet symbol>``."""
 
 
 def write_prjpcb(
@@ -69,6 +83,7 @@ def write_prjpcb(
     outjob: str | None = None,
     draftsman: str | None = None,
     parameters: Sequence[tuple[str, str]] = (),
+    channels: bool = False,
 ) -> bytes:
     """``[Design]``, ``Version=1.0``, an empty line, ``[Document1]`` and ``DocumentPath=<schematic>``; then,
     each after an empty line as ``[Document<i>]`` and ``DocumentPath=<file>``, numbered from 2: each module
@@ -86,10 +101,15 @@ def write_prjpcb(
     bytes do not change.
 
     Change c0087: the output job ``outjob`` is listed after the PCB document and before the libraries,
-    with ``DocumentPath`` alone; without one the bytes do not change."""
+    with ``DocumentPath`` alone; without one the bytes do not change.
+
+    Change c0470: with ``channels`` (a sheet written once for several sheet symbols) ``[Design]`` holds the
+    three ``CHANNEL_KEYS``, which name the components of a channel ``<designator>_<sheet symbol>``."""
     with_keys = bool(sheets) or pcb is not None
     sheet_keys = [f"{key}={value}" for key, value in SHEET_CLASS_KEYS] if with_keys else []
     lines = ["[Design]", f"Version={VERSION}"]
+    if channels:
+        lines += [f"{key}={value}" for key, value in CHANNEL_KEYS]
     if harnesses:
         # c0166: use the explicit net labels rather than extra SPI.CS-style
         # names synthesized from harness ports and sheet entries.
@@ -121,7 +141,9 @@ def write_prjpcb(
         if not name or "=" in name:
             raise ValueError("project parameter names must be non-empty and contain no equals sign")
         lines += ["", f"[Parameter{index}]", f"Name={name}", f"Value={value}"]
-    return b"".join(line.encode("ascii") + LINE_END for line in lines)
+    if all(line.isascii() for line in lines):
+        return b"".join(line.encode("ascii") + LINE_END for line in lines)
+    return UTF8_BOM + b"".join(line.encode("utf-8") + LINE_END for line in lines)
 
 
-__all__ = ["CLASS_GENERATION", "CLASS_SECTION", "SHEET_CLASS_KEYS", "VERSION", "write_prjpcb"]
+__all__ = ["CHANNEL_KEYS", "CLASS_GENERATION", "CLASS_SECTION", "SHEET_CLASS_KEYS", "VERSION", "write_prjpcb"]
