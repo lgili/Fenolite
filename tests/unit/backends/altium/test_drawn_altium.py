@@ -506,3 +506,33 @@ def test_power_port_pose_limitations_are_explicit(tmp_path: Path) -> None:
     assert any(
         i["code"] == "altium.not-lowered" and "power port" in i["message"] for i in reply.envelope["issues"]
     )
+
+
+def test_opaque_subtree_harness_and_compile_mask_build_directly(tmp_path: Path) -> None:
+    """Change c0471: ``build --target altium`` writes imported opaque subtrees (``OWNERINDEX=@<line>``),
+    harness records and compile-mask / note records (`209`, `225`), and passes the native readback guard."""
+    script = copy_source(tmp_path / "source", "flat")
+    source = script.parent / "schematic.toml"
+    subtree = (
+        "|RECORD=43|OWNERPARTID=-1|LOCATION.X=50|LOCATION.Y=50|NAME=Net Class\n"
+        "|RECORD=41|OWNERINDEX=@0|OWNERPARTID=-1|NAME=ClassName|TEXT=HV_DC"
+    )
+    connector = (
+        "|RECORD=215|OWNERPARTID=-1|LOCATION.X=80|LOCATION.Y=80|XSIZE=40|YSIZE=30\n"
+        "|RECORD=216|OWNERINDEX=@0|OWNERPARTID=-1|NAME=TX|SIDE=0|DISTANCEFROMTOP=1\n"
+        "|RECORD=217|OWNERINDEX=@0|OWNERPARTID=-1|TEXT=UART_H|LOCATION.X=80|LOCATION.Y=80"
+    )
+    mask = "|RECORD=225|OWNERPARTID=-1|LOCATION.X=10|LOCATION.Y=10|CORNER.X=20|CORNER.Y=20"
+    source.write_text(
+        source.read_text(encoding="utf-8")
+        + f'\n[[sheet.opaque]]\nkicad = \'(text "directive")\'\naltium = """{subtree}"""\n'
+        + f'\n[[sheet.opaque]]\nkicad = \'(text "harness")\'\naltium = """{connector}"""\n'
+        + f"\n[[sheet.opaque]]\nkicad = '(text \"mask\")'\naltium = '{mask}'\n",
+        encoding="utf-8",
+    )
+    reply = build(script, tmp_path, "--confirm")
+    assert reply.exit_code == 0, (reply.error, (reply.envelope or {}).get("issues"))
+    document = sch.read_schematic(next((tmp_path / "out").glob("*.SchDoc")).read_bytes())
+    assert len(document.of_type(sch.WarningSign)) == 1
+    assert len(document.of_type(sch.HarnessConnector)) == 1
+    assert len(document.of_type(sch.UnknownRecord)) == 1

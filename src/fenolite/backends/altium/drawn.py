@@ -1043,7 +1043,8 @@ class _Sheet:
                 )
                 continue
             natives: list[int] = []
-            for number, line in enumerate(opaque.altium.splitlines()):
+            lines = opaque.altium.splitlines()
+            for number, line in enumerate(lines):
                 fields: Record = []
                 keys: set[str] = set()
                 for item in line.strip().split("|"):
@@ -1062,8 +1063,9 @@ class _Sheet:
                     keys.add(key.upper())
                     fields.append((key, value))
                 owner = dict(fields).get("OWNERINDEX", "")
-                # a carried subtree (change c0470, drawn_read.subtree_text): a child names its owner's line
-                child = self.carry and number > 0 and owner.startswith("@")
+                # a carried subtree (changes c0470 and c0471, drawn_read.subtree_text): a child names its
+                # owner's line with ``@<line>``
+                child = number > 0 and owner.startswith("@")
                 if child:
                     line_number = int(owner[1:]) if owner[1:].isdigit() else -1
                     if not 0 <= line_number < len(natives):
@@ -1071,7 +1073,7 @@ class _Sheet:
                             "opaque Altium child names no earlier line", locator=f"{where}.opaque[{index}]"
                         )
                     fields = [(k, str(natives[line_number]) if k == "OWNERINDEX" else v) for k, v in fields]
-                harness = self.carry and number == 0 and drawn_read.is_harness_text(opaque.altium)
+                harness = number == 0 and drawn_read.is_harness_text(opaque.altium)
                 if (not child and not harness and dict(fields).get("RECORD") in _MODELLED) or any(
                     key.upper() in _OWNERS
                     and not (child and key.upper() in ("OWNERINDEX", "OWNERINDEXADDITIONALLIST"))
@@ -1082,7 +1084,13 @@ class _Sheet:
                         "framework-owned records",
                         locator=f"{where}.opaque[{index}]",
                     )
-                natives.append(self.add(fields, f"{where}.opaque[{index}]", read=self.carry))
+                natives.append(
+                    self.add(
+                        fields,
+                        f"{where}.opaque[{index}]",
+                        read=self.carry or len(lines) > 1 or harness,
+                    )
+                )
         blocks, lines, harness_lines, generated = self.harness_blocks(sheet.paper)
         junctions = [drawn_carrier.junction_value(j) for j in sheet.junctions if self.carry and j.diameter]
         origin = (
@@ -1292,7 +1300,7 @@ def lower_drawn(
                 raise _DrawnStyleLoss(losses[0])
             issues.extend(losses)
     generated = {sheet.module or "": sheet for sheet in planned.sheets}
-    harnesses = _carried_harnesses(drawn) if carry else {}
+    harnesses = _carried_harnesses(drawn)
     members = drawn_read.harness_members(list(harnesses.values()))
     harness_types = _harness_types(list(harnesses.values()))
     # a root that stands for no source document: its sheets are top documents of their own names (c0470)
@@ -1661,7 +1669,10 @@ def _read_native(files: Mapping[str, bytes]) -> tuple[Resolved, NativeCoverage]:
               for name, data in sorted(files.items()) if name.lower().endswith(".schdoc")]  # fmt: skip
     if not sheets or any(
         document.document.sheet is None
-        or document.document.of_type(sch.UnknownRecord)
+        or any(
+            drawn_read.record_class(record) == "UnknownRecord"
+            for record in document.document.of_type(sch.UnknownRecord)
+        )
         or any(i.severity in {"warning", "error"} for i in document.document.issues)
         for document in sheets
     ):

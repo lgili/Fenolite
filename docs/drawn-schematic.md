@@ -307,11 +307,13 @@ library entries; their files bind reviewed plans. Unreadable or missing native c
 Repeated sheets become separate native files. Under Automatic/Global scope, shared local names get
 reported qualifications; unique names and Hierarchical/Flat names keep their text. This preserves the
 tested pin partition, with explicit text and hierarchy changes. Opaque items without native text are
-reported as dropped. A point outside the native fractional grid refuses unless `--allow-lossy`, which
-reports every rounding. Source field justification and power field/mirror metadata are not represented;
-component mirror geometry is written, with native mirror metadata still unverified. Bus alias declarations
-and per-sheet title metadata have explicit unrepresented-metadata findings. Edit the drawing in
-`schematic.toml`; Altium-to-drawn sync is unavailable.
+reported as dropped; multi-line opaque subtrees (`OWNERINDEX=@<line>`), harness opaque records, and opaque
+`Note` (`209`) and `CompileMask` (`225`) records from an Altium import are written and accepted by the
+native readback guard (change c0471). A point outside the native fractional grid refuses unless
+`--allow-lossy`, which reports every rounding. Source field justification and power field/mirror metadata
+are not represented; component mirror geometry is written, with native mirror metadata still unverified.
+Bus alias declarations and per-sheet title metadata have explicit unrepresented-metadata findings. Edit the
+drawing in `schematic.toml`; Altium-to-drawn sync is unavailable.
 
 New explicit drawn fonts, label/pin justification and sheet-name/file poses have no proved Altium
 lowering. Strict builds refuse with `FEN-7001` before planning writes. An explicit `--allow-lossy`

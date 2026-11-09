@@ -77,8 +77,9 @@ board-only part, which keeps its own value without it. The import self-check SHA
 load it with `design.load_schematic`. The drawing SHALL name each symbol by the component path of the emitted
 code. The schematic built from the emitted code SHALL equal the source drawing at level S of
 `design-equivalence`: the source drawing is the one the Altium extractor gives, the built drawing is the one
-extracted from the built KiCad sheets. A source without sheets (a PCB document alone) MUST emit no
-`schematic.toml`.
+extracted from the built KiCad sheets. Building the emitted code with `--target altium` SHALL also write the
+drawn sheets directly without refusing carried opaque subtrees, harness records, notes or compile masks. A
+source without sheets (a PCB document alone) MUST emit no `schematic.toml`.
 
 #### Scenario: Authored flat project
 
