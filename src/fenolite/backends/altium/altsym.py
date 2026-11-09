@@ -434,7 +434,7 @@ def map_graphic(graphic: SymbolGraphic, part: int = 1) -> AltiumGraphic:
         )
     if graphic.kind == "line" or (graphic.kind == "polygon" and len(points) == 2):
         # a polygon of two points encloses nothing: KiCad draws it as its one segment (change c0470)
-        return AltiumGraphic("line", part, (points[0], points[1]))
+        return AltiumGraphic("line", part, tuple(points))
     if graphic.kind == "rect":
         (ax, ay), (bx, by) = points[0], points[1]
         corners = ((min(ax, bx), min(ay, by)), (max(ax, bx), max(ay, by)))

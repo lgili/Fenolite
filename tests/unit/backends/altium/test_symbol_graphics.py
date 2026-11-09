@@ -285,6 +285,16 @@ def test_graphic_record_keys() -> None:
         "RECORD", "OWNERPARTID", "LOCATION.X", "LOCATION.Y", "CORNER.X", "CORNER.X_FRAC", "CORNER.Y",
         "LINEWIDTH", "COLOR",
     ]  # fmt: skip
+    assert keys(AltiumGraphic("line", 1, (here, there, (0, 254_000)))) == [
+        "RECORD", "OWNERPARTID", "LINEWIDTH", "COLOR", "LOCATIONCOUNT",
+        "X1", "Y1", "X2", "X2_FRAC", "Y2", "X3", "Y3",
+    ]  # fmt: skip
+    assert (
+        dict(graphic_fields(AltiumGraphic("line", 1, (here, there, (0, 254_000))), lambda x, y: (x, y)))[
+            "RECORD"
+        ]
+        == "6"
+    )
     assert keys(AltiumGraphic("rectangle", 1, (here, there), True))[-3:] == ["COLOR", "AREACOLOR", "ISSOLID"]
     assert keys(AltiumGraphic("rectangle", 1, (here, there)))[-2:] == ["COLOR", "AREACOLOR"]
     assert keys(AltiumGraphic("ellipse", 1, (here,), True, 254_000)) == [

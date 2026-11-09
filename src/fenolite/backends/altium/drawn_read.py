@@ -705,10 +705,14 @@ def _text_pose(record: SchRecord, frame: Frame, name: str, hidden: bool) -> Draw
 def _fields(document: SchDocument, component: Component, frame: Frame) -> tuple[DrawnField, ...]:
     found: list[DrawnField] = []
     seen: set[str] = set()
-    for child in document.children_of(component):
+    children = document.children_of(component)
+    has_comment = any(isinstance(c, Parameter) and c.name == "Comment" for c in children)
+    for child in children:
         if isinstance(child, Designator):
             name = "Reference"
         elif isinstance(child, Parameter) and child.name:
+            if child.name == "Value" and has_comment:
+                continue
             name = "Value" if child.name == "Comment" else child.name
             if child.hidden and name != "Value":
                 continue

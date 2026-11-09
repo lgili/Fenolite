@@ -323,6 +323,8 @@ def test_a_line_keeps_every_point() -> None:
     zigzag = SymbolGraphic("line", (Point(0, 0), Point(1_270_000, 1_270_000), Point(2_540_000, 0)))
     text = write_symbol_library((_resistor(graphics=(zigzag,)),))
     assert "(polyline (pts (xy 0 0) (xy 1.27 1.27) (xy 2.54 0)) (stroke" in text
+    loaded = read_symbol_library(text, library="Local")[0]
+    assert loaded.graphics == (zigzag,)
     segment = SymbolGraphic("line", (Point(0, 0), Point(1_270_000, 0)))
     assert (
         "(polyline (pts (xy 0 0) (xy 1.27 0)) (stroke (width 0.254) (type default)) (fill (type none)))"

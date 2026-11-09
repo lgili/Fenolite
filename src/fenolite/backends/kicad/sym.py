@@ -339,6 +339,14 @@ class _Reader:
 
     def graphic(self, node: Node, loc: str) -> SymbolGraphic:
         ctx = self.ctx
+        fill_node = node.find("fill")
+        fill_type_node = fill_node.find("type") if fill_node is not None else None
+        fill_type = (
+            fill_type_node.atoms()[0].value
+            if fill_type_node is not None and fill_type_node.atoms()
+            else "none"
+        )
+        filled = fill_type in ("background", "outline")
         if node.name == "rectangle":
             start, end = node.find("start"), node.find("end")
             if start is None or end is None:
@@ -365,8 +373,9 @@ class _Reader:
             )
             if len(points) < 2:
                 raise ctx.error("symbol polyline needs at least two points", loc, node)
-            kind = "line" if len(points) == 2 else "polygon"
-            if kind == "polygon" and points[0] == points[-1]:
+            closed = len(points) > 2 and points[0] == points[-1]
+            kind = "polygon" if closed or (filled and len(points) > 2) else "line"
+            if closed:
                 points = points[:-1]
         stroke = node.find("stroke")
         width_node = stroke.find("width") if stroke is not None else None
@@ -375,14 +384,7 @@ class _Reader:
             if width_node is not None and width_node.atoms()
             else 254_000
         )
-        fill_node = node.find("fill")
-        fill_type_node = fill_node.find("type") if fill_node is not None else None
-        fill_type = (
-            fill_type_node.atoms()[0].value
-            if fill_type_node is not None and fill_type_node.atoms()
-            else "none"
-        )
-        return SymbolGraphic(kind, points, width, fill_type in ("background", "outline"))  # type: ignore[arg-type]
+        return SymbolGraphic(kind, points, width, filled)  # type: ignore[arg-type]
 
     def symbol(
         self, node: Node, loc: str, *, name: str | None = None, native: str | None = None

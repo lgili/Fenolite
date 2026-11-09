@@ -137,13 +137,26 @@ def graphic_fields(
         return [*length_fields(f"{name}.X", x), *length_fields(f"{name}.Y", y)]
 
     if graphic.kind == "line":
-        return [
-            *head,
-            *point("LOCATION", graphic.points[0]),
-            *point("CORNER", graphic.points[1]),
+        if len(graphic.points) == 2:
+            return [
+                *head,
+                *point("LOCATION", graphic.points[0]),
+                *point("CORNER", graphic.points[1]),
+                ("LINEWIDTH", "1"),
+                ("COLOR", COMPONENT_COLOR),
+            ]
+        polyline: Record = [
+            ("RECORD", "6"),
+            *owner,
+            ("OWNERPARTID", str(graphic.part)),
             ("LINEWIDTH", "1"),
             ("COLOR", COMPONENT_COLOR),
+            ("LOCATIONCOUNT", str(len(graphic.points))),
         ]
+        for index, at in enumerate(graphic.points, start=1):
+            x, y = place(*at)
+            polyline += [*length_fields(f"X{index}", x), *length_fields(f"Y{index}", y)]
+        return polyline
     if graphic.kind == "rectangle":
         corners = [*point("LOCATION", graphic.points[0]), *point("CORNER", graphic.points[1])]
         if normalise_rectangle:

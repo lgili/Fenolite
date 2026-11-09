@@ -122,7 +122,28 @@ def test_to_kicad_symbol_library_reads_back() -> None:
         assert {(p.number, p.position, p.rotation) for p in read.pins} == {
             (p.number, p.position, p.rotation) for p in written.pins
         }
-        assert len(read.graphics) == len(written.graphics)
+        assert [(g.kind, g.points, g.filled) for g in read.graphics] == [
+            (g.kind, g.points, g.filled) for g in written.graphics
+        ]
+
+
+def test_comment_field_not_shadowed_by_hidden_value_and_pin_visibility_kept() -> None:
+    """c0472: a hidden Parameter named Value does not shadow the visible Comment field, and hidden pin names
+    and numbers stay hidden on the extracted SymbolDef."""
+    data = ascii_doc(
+        [
+            SHEET,
+            *_component("C1", 300, 300, 1),
+            "|RECORD=41|OWNERINDEX=1|OWNERPARTID=-1|LOCATION.X=300|LOCATION.Y=300|NAME=Value|TEXT=330nF|ISHIDDEN=T",
+            "|RECORD=41|OWNERINDEX=1|OWNERPARTID=-1|LOCATION.X=320|LOCATION.Y=280|NAME=Comment|TEXT=330nF",
+        ]
+    )
+    doc = sch.read_schematic(data, file="authored.SchDoc")
+    found, symbols = _symbols([SheetInput("authored.SchDoc", "", doc)])
+    definition, _ = symbols[("authored", 0)]
+    assert definition.pin_names_hidden and definition.pin_numbers_hidden
+    value_field = next(f for f in found.drawn.sheets[0].symbols[0].fields if f.name == "Value")
+    assert not value_field.hide and value_field.at == Point(320 * 254_000, (760 - 280) * 254_000)
 
 
 def test_to_altium_draws_each_symbol_from_its_graphics(tmp_path: Path) -> None:

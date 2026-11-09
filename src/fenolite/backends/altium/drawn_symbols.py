@@ -244,6 +244,7 @@ def component_symbol(
     counter holds the body records per reason of ``CHANGED``."""
     pose = Pose(component)
     changed: Counter[str] = Counter()
+    raw_pins: list[Pin] = []
     pins: list[SymbolPin] = []
     graphics: list[SymbolGraphic] = []
     mode = component.display_mode
@@ -252,6 +253,7 @@ def component_symbol(
             changed[CHANGED_MODE] += 1
             continue
         if isinstance(child, Pin):
+            raw_pins.append(child)
             pins.append(_pin(child, pose))
             continue
         shape, reason = graphic(child, pose)
@@ -267,12 +269,16 @@ def component_symbol(
     if comment and comment != "*":
         properties["Value"] = comment
     native = f"{library}:{name}"
+    pin_names_hidden = bool(raw_pins) and not any(p.name_shown and p.name not in ("", "~") for p in raw_pins)
+    pin_numbers_hidden = bool(raw_pins) and not any(p.designator_shown for p in raw_pins)
     return (
         SymbolDef(
             id=derived_id("sym", "altium-sheet", native),
             name=name,
             library=library,
             properties=properties,
+            pin_names_hidden=pin_names_hidden,
+            pin_numbers_hidden=pin_numbers_hidden,
             units=tuple(SymbolUnit(unit, 1) for unit in range(1, parts + 1)),
             pins=tuple(pins),
             graphics=tuple(graphics),
