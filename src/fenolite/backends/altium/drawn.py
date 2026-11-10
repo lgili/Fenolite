@@ -632,7 +632,10 @@ class _Sheet:
         origin = 1_000_000
         placed = PlacedPart(spec, origin, origin, (0, 0, 0, 0), symbol.unit)
         offset = len(self.records) + 1
-        for original in schdoc.component_records(placed):
+        written: dict[int, int] = {}
+        # A carried body can change the number of records preceding an owner. Map template positions
+        # to their actual sheet indexes instead of adding a fixed offset (change c0475).
+        for position, original in enumerate(schdoc.component_records(placed)):
             record = dict(original)
             if use_carried_gfx and record.get("RECORD") in {"6", "7", "8", "13", "14"}:
                 continue
@@ -660,7 +663,12 @@ class _Sheet:
                 if key in coordinates or key in consumed:
                     continue
                 if key == "OWNERINDEX":
-                    value = str(int(value) + offset)
+                    target = int(value)
+                    if target not in written:
+                        raise FormatError(
+                            f"the component template names unwritten owner {target}", locator=where
+                        )
+                    value = str(written[target])
                 elif key == "PINCONGLOMERATE":
                     number = int(value)
                     dx, dy = _turn(*STEPS[number & 3], quarter, symbol.mirror)
@@ -708,7 +716,7 @@ class _Sheet:
                 output = [(k, comp_gfx["COMMENT_FONTID"] if k == "FONTID" else v) for k, v in output]
             if record.get("RECORD") == "41" and name == "Comment" and comp_gfx.get("COMMENT_EMPTY") == "T":
                 output = [(k, "" if k == "TEXT" else v) for k, v in output]
-            self.add(output)
+            written[position] = self.add(output)
             if record.get("RECORD") == "1" and use_carried_gfx:
                 for gfx_line in comp_gfx["RECORDS"].splitlines():
                     gfx_fields: Record = []

@@ -213,10 +213,18 @@ def test_unconnected_native_coverage_defects_refuse(
         if defect == "component":
             return ()
         if defect == "pin":
+            removed = next(
+                i
+                for i, record in enumerate(records)
+                if dict(record).get("RECORD") == "2" and dict(record).get("DESIGNATOR") == "1"
+            )
             return tuple(
-                record
-                for record in records
-                if not (dict(record).get("RECORD") == "2" and dict(record).get("DESIGNATOR") == "1")
+                tuple(
+                    (key, str(int(value) - (int(value) > removed)) if key == "OWNERINDEX" else value)
+                    for key, value in record
+                )
+                for i, record in enumerate(records)
+                if i != removed
             )
         duplicate = tuple(
             tuple(
@@ -637,3 +645,102 @@ def test_carried_sheet_fields_style_the_document(tmp_path: Path) -> None:
     body = [c for c in document.children_of(component) if type(c) is sch.Line]
     assert len(body) == 1
     assert body[0].props is not None and body[0].props.text("LOCATION.X") == "1000"
+
+
+@pytest.mark.parametrize("count", [1, 2, 3])
+def test_carried_body_owners_shift_the_footprint_chain(tmp_path: Path, count: int) -> None:
+    """Change c0475, task 1.2: a carried body that replaces the template's own body records with a
+    different number of records keeps the footprint chain on the written indexes: the record 45 names
+    the record 44 just before it and the records 46 and 48 name that 45, as Altium's compiler needs to
+    link the footprint model."""
+    from fenolite.backends.altium.read.cfb import open_compound
+    from fenolite.backends.altium.read.sch.framing import deframe
+    from fenolite.backends.altium.read.sch.props import parse
+    from fenolite.backends.kicad.sheet_carrier import TOML_PREFIX, AltiumSheet
+
+    script = copy_source(tmp_path / "source", "flat")
+    script.write_text(
+        script.read_text().replace('value="4k7")', 'value="4k7", pad_map={"1": "2", "2": "1"})')
+    )
+    source = script.parent / "schematic.toml"
+    graphics = [
+        "|RECORD=4|OWNERINDEX=@0|OWNERPARTID=-1|LOCATION.X=1000|LOCATION.Y=1020|COLOR=8388608|"
+        "TEXT=carried|FONTID=1|ORIENTATION=0|ISNOTACCESIBLE=T",
+        "|RECORD=13|OWNERINDEX=@0|OWNERPARTID=-1|LOCATION.X=1000|LOCATION.Y=1000|CORNER.X=1100|CORNER.Y=1010",
+        "|RECORD=6|OWNERINDEX=@0|OWNERPARTID=-1|COLOR=8388608|LINEWIDTH=1|LOCATIONCOUNT=2|"
+        "X1=1000|Y1=1030|X2=1100|Y2=1030",
+    ]
+    fields = {
+        "comp_gfx:1": {
+            "POSE": "127000000,63500000,0,",
+            "RECORDS": "\n".join(graphics[:count]),
+        },
+    }
+
+    payload = AltiumSheet("", (), fields).text()
+    source.write_text(
+        source.read_text(encoding="utf-8") + f"\n{TOML_PREFIX}root {payload}\n", encoding="utf-8"
+    )
+    reply = build(script, tmp_path, "--confirm")
+    assert reply.exit_code == 0, (reply.error, (reply.envelope or {}).get("issues"))
+    data = next((tmp_path / "out").glob("*.SchDoc")).read_bytes()
+    # the owner indexes count the records after the header (S-0130): the first frame is the header
+    frames = deframe(open_compound(data).read("FileHeader"), where="out")[1:]
+    records = [
+        {k: props.get(k) for k in props.keys()}
+        for props in (parse(frame.payload.removesuffix(b"\0")) for frame in frames)
+    ]
+    component = next(
+        i
+        for i, props in enumerate(records)
+        if props.get("RECORD") == "1" and props.get("LIBREFERENCE") == "Mini_R"
+    )
+    block = [props for props in records if props.get("OWNERINDEX") == str(component)]
+    # the carried body replaced the template's own one body record: the label of the carrier is there
+    assert any(p.get("RECORD") == "4" and p.get("TEXT") == "carried" for p in block)
+    assert not any(p.get("RECORD") == "14" for p in block)
+    # the footprint chain names the records as written: 45 the 44 just before it, 46 and 48 that 45
+    listing = next(
+        i
+        for i, props in enumerate(records)
+        if props.get("RECORD") == "44" and props.get("OWNERINDEX") == str(component)
+    )
+    model = next(
+        i
+        for i, props in enumerate(records)
+        if props.get("RECORD") == "45" and props.get("OWNERINDEX") == str(listing)
+    )
+    assert model == listing + 1
+    for kind in ("46", "48"):
+        assert any(props.get("RECORD") == kind and props.get("OWNERINDEX") == str(model) for props in records)
+    maps = next(
+        i
+        for i, props in enumerate(records)
+        if props.get("RECORD") == "46" and props.get("OWNERINDEX") == str(model)
+    )
+    assert any(props.get("RECORD") == "47" and props.get("OWNERINDEX") == str(maps) for props in records)
+    document = sch.read_schematic(data)
+    assert not [i for i in document.issues if i.severity in {"warning", "error"}]
+
+
+def test_component_template_with_unwritten_owner_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from fenolite.backends.altium import schdoc
+
+    script = copy_source(tmp_path / "source", "flat")
+    producer = schdoc.component_records
+
+    def broken(placed):
+        records = producer(placed)
+        if placed.spec.ref == "R1":
+            for record in records:
+                if dict(record).get("RECORD") == "45":
+                    record[:] = [(key, "99999" if key == "OWNERINDEX" else value) for key, value in record]
+        return records
+
+    monkeypatch.setattr(schdoc, "component_records", broken)
+    reply = build(script, tmp_path, "--confirm")
+    assert reply.exit_code == 3
+    assert reply.error["code"] == "FEN-3004"
+    assert not (tmp_path / "out").exists()

@@ -6,6 +6,12 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Altium carried component graphics** (c0475): footprint implementation and pin-map owner indexes
+  now refer to the records actually written when carried body graphics change the component record count.
+  Verification in Altium Designer remains pending.
+
 ### Changed
 
 - **Closed without their open tasks** (maintainer's decision, 2026-11-07): c0175 (task 10.4, body copy by pad fit and the house-library coverage report), c0384 (tasks 0.4, 1.4 and 3.1 of the native identity follow-up) and c0389 (the Altium native rounds moved there from earlier changes, and the maintainer's reviews) are archived; those tasks will not be done. What the three changes implemented stays, and no evidence label is raised for the tasks left open.
