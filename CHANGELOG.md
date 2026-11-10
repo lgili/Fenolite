@@ -16,6 +16,8 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Changed
 
+- Archive c0454 after its six tasks completed, including native Altium component-copper checks and the KiCad 9 save proof. The complete CI and coverage audit passed on source commit `579e1d8fb` (run `42809343312`); the three capability requirements are now reconciled into the main specs.
+
 - **Closed without their open tasks** (maintainer's decision, 2026-11-07): c0175 (task 10.4, body copy by pad fit and the house-library coverage report), c0384 (tasks 0.4, 1.4 and 3.1 of the native identity follow-up) and c0389 (the Altium native rounds moved there from earlier changes, and the maintainer's reviews) are archived; those tasks will not be done. What the three changes implemented stays, and no evidence label is raised for the tasks left open.
 - **Faithful schematic conversion** (c0470): `convert` and `import --to python` keep the drawing of a project with sheets. This applies Altium → KiCad and KiCad → Altium, and to the `schematic.toml` of an import; a board alone still gets a generated schematic.
   - What the target cannot draw travels in the carriers `Fenolite.Altium.Sheet` (title block comment 9) and `Fenolite.KiCad.Sheet` (a hidden sheet parameter). Harness records are carried too.
