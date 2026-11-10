@@ -84,9 +84,10 @@ def additional_stream(records: Sequence[Sequence[Field]]) -> bytes:
 
 def write_schdoc_binary(plan: SheetPlan, frame: Frame | None = None) -> bytes:
     """The bytes of the binary schematic of ``plan``; ``cfb.CompoundTooLarge`` past the size limit. The
-    stream ``Additional`` is written only when the plan holds harness records, so a sheet without a harness
-    keeps the two streams and the bytes of change c0033. ``frame`` is the drawing sheet of the sheet
-    (change c0087, ``schdoc.schdoc_records``)."""
+    stream ``Additional`` is written only when ``schdoc.additional_records`` holds records (drawn or
+    carried harness records, change c0474), so a sheet without a harness keeps the two streams and the
+    bytes of change c0033. ``frame`` is the drawing sheet of the sheet (change c0087,
+    ``schdoc.schdoc_records``)."""
     streams = [
         (FILE_HEADER_STREAM, file_header_stream(schdoc_records(plan, frame))),
         (STORAGE_STREAM, storage_stream()),

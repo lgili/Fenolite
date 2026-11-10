@@ -278,6 +278,9 @@ _MODELLED = frozenset(
 """The ``RECORD`` of a root record that an opaque item must not hold: a drawn item or the framework writes
 it."""
 _OWNERS = frozenset({"OWNERINDEX", "OWNERINDEXADDITIONALLIST", "OWNERINDEXADDITIONALRECORD"})
+_ADDITIONAL_ROOTS = frozenset({"215", "218"})
+"""The ``RECORD`` of a root record that an opaque item writes into the Additional stream (change c0474):
+a harness connector and a signal harness line, whose Altium stream is not the FileHeader."""
 _COLUMNS = {"left": 0, "right": 2}
 _ROWS = {"bottom": 0, "top": 2}
 _FLIP = {"left": "right", "right": "left", "top": "bottom", "bottom": "top"}
@@ -353,6 +356,9 @@ class _Sheet:
         self.coordinates: dict[int, set[int]] = {}
         """Each coordinate ``point`` wrote (fraction units, Y from the top) and the nm lengths it came
         from."""
+        self.carried_additional: list[tuple[Field, ...]] = []
+        """The harness records (215 to 218) carried from a source Additional stream, in stream order; their
+        ``OWNERINDEX`` counts the carried records alone (change c0474)."""
         self.harness_types: Mapping[tuple[str, ...], str] = {}
         """With ``carry``, the harness type of each set of entries that a carried connector holds (c0470)."""
         self.aliases: Mapping[str, tuple[str, ...]] = {}
@@ -481,8 +487,9 @@ class _Sheet:
         if not self.groups:
             return [], [], [], None
         size = (self.plan.size.width, self.plan.size.height)
+        held = [*self.records, *self.carried_additional]
         blocked = [end for end in self.groups if not end.through]
-        placements = drawn_harness.place_all(blocked, self.records, self.height, size) if blocked else []
+        placements = drawn_harness.place_all(blocked, held, self.height, size) if blocked else []
         grew = False
         for _ in range(HARNESS_GROWTHS):
             if not isinstance(placements, drawn_harness.GroupEnd):
@@ -490,7 +497,7 @@ class _Sheet:
             # a full sheet grows to the right, where nothing is drawn; its height, and so every written
             # point, stays (change c0470)
             size = (size[0] + HARNESS_GROWTH, size[1])
-            placements = drawn_harness.place_all(blocked, self.records, self.height, size)
+            placements = drawn_harness.place_all(blocked, held, self.height, size)
             if not isinstance(placements, drawn_harness.GroupEnd):
                 grew = True
                 self.plan = replace(self.plan, size=SheetSize("custom", size[0], size[1], None))
@@ -861,13 +868,20 @@ class _Sheet:
                 *_fields("LOCATION.X", x),
                 *_fields("LOCATION.Y", self.height - y),
                 ("NAME", name),
-                ("STYLE", port_style),
+                *(
+                    [("STYLE", port_style)]
+                    if not (self.sheet_fields and "STYLE" not in held and port_style == "0")
+                    else []
+                ),
                 *_fields("WIDTH", width),
                 *_fields("HEIGHT", height),
                 ("IOTYPE", _IO.get(shape, "0")),
                 *(
                     [
-                        ("AREACOLOR", held.get("AREACOLOR", "8437759" if shape == "input" else schdoc.ENTRY_FILL)),
+                        (
+                            "AREACOLOR",
+                            held.get("AREACOLOR", "8437759" if shape == "input" else schdoc.ENTRY_FILL),
+                        ),
                         ("TEXTCOLOR", held.get("TEXTCOLOR", schdoc.SYMBOL_COLOR)),
                     ]
                     if self.sheet_fields
@@ -957,8 +971,22 @@ class _Sheet:
         file_x = int(held["FILE_X"]) if held.get("FILE_X", "").lstrip("-").isdigit() else x
         file_y = int(held["FILE_Y"]) if held.get("FILE_Y", "").lstrip("-").isdigit() else (self.height - y)
         for record, text, tx, ty, font_id, color in (
-            ("32", ref.name, name_x, name_y, held.get("NAME_FONTID", "1"), held.get("NAME_COLOR", schdoc.TEXT_COLOR)),
-            ("33", child_file, file_x, file_y, held.get("FILE_FONTID", "1"), held.get("FILE_COLOR", schdoc.TEXT_COLOR)),
+            (
+                "32",
+                ref.name,
+                name_x,
+                name_y,
+                held.get("NAME_FONTID", "1"),
+                held.get("NAME_COLOR", schdoc.TEXT_COLOR),
+            ),
+            (
+                "33",
+                child_file,
+                file_x,
+                file_y,
+                held.get("FILE_FONTID", "1"),
+                held.get("FILE_COLOR", schdoc.TEXT_COLOR),
+            ),
         ):
             self.add(
                 [
@@ -1142,7 +1170,15 @@ class _Sheet:
                 )
                 continue
             self.identifier(
-                text, label.at, label.rotation, kind, label.shape, at, uid, held=held_label, port_width=p_width
+                text,
+                label.at,
+                label.rotation,
+                kind,
+                label.shape,
+                at,
+                uid,
+                held=held_label,
+                port_width=p_width,
             )
             if uid:
                 stand_ins[uid] = {"label": {**drawn_carrier.label_value(label), "text": label.text}}
@@ -1200,6 +1236,10 @@ class _Sheet:
                 continue
             natives: list[int] = []
             lines = opaque.altium.splitlines()
+            additional: dict[int, int] = {}
+            """Per line of the item, the carried-relative index of the Additional record it wrote
+            (change c0474): a harness subtree's records belong to the Additional stream."""
+            in_additional = False
             for number, line in enumerate(lines):
                 fields: Record = []
                 keys: set[str] = set()
@@ -1222,13 +1262,27 @@ class _Sheet:
                 # a carried subtree (changes c0470 and c0471, drawn_read.subtree_text): a child names its
                 # owner's line with ``@<line>``
                 child = number > 0 and owner.startswith("@")
+                if number == 0:
+                    # a harness connector or signal harness line writes into the Additional stream, which
+                    # the FileHeader records never name (change c0474)
+                    in_additional = dict(fields).get("RECORD") in _ADDITIONAL_ROOTS
                 if child:
                     line_number = int(owner[1:]) if owner[1:].isdigit() else -1
                     if not 0 <= line_number < len(natives):
                         raise FormatError(
                             "opaque Altium child names no earlier line", locator=f"{where}.opaque[{index}]"
                         )
-                    fields = [(k, str(natives[line_number]) if k == "OWNERINDEX" else v) for k, v in fields]
+                    if in_additional:
+                        if (target := additional.get(line_number)) is None:
+                            raise FormatError(
+                                "opaque Altium child names no earlier line",
+                                locator=f"{where}.opaque[{index}]",
+                            )
+                        fields = [(k, str(target) if k == "OWNERINDEX" else v) for k, v in fields]
+                    else:
+                        fields = [
+                            (k, str(natives[line_number]) if k == "OWNERINDEX" else v) for k, v in fields
+                        ]
                 harness = number == 0 and drawn_read.is_harness_text(opaque.altium)
                 if (not child and not harness and dict(fields).get("RECORD") in _MODELLED) or any(
                     key.upper() in _OWNERS
@@ -1240,13 +1294,20 @@ class _Sheet:
                         "framework-owned records",
                         locator=f"{where}.opaque[{index}]",
                     )
-                natives.append(
-                    self.add(
-                        fields,
-                        f"{where}.opaque[{index}]",
-                        read=self.carry or len(lines) > 1 or harness,
+                if in_additional:
+                    # children name their connector by its carried-relative index; the write shifts it
+                    # behind the records ``schdoc.additional_records`` builds itself (change c0474)
+                    additional[number] = len(self.carried_additional)
+                    self.carried_additional.append(tuple(fields))
+                    natives.append(-1)
+                else:
+                    natives.append(
+                        self.add(
+                            fields,
+                            f"{where}.opaque[{index}]",
+                            read=self.carry or len(lines) > 1 or harness,
+                        )
                     )
-                )
         blocks, lines, harness_lines, generated = self.harness_blocks(sheet.paper)
         junctions = [drawn_carrier.junction_value(j) for j in sheet.junctions if self.carry and j.diameter]
         origin = (
@@ -1294,6 +1355,7 @@ class _Sheet:
             harnesses=tuple(blocks),
             lines=tuple(lines),
             polylines=tuple(harness_lines),
+            carried_additional=tuple(tuple(record) for record in self.carried_additional),
             class_marks=(),
             buses=(),
             composition=None,

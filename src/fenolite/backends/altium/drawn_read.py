@@ -57,7 +57,6 @@ from fenolite.backends.altium.read.sch import (
     HarnessEntry,
     HarnessType,
     Junction,
-    Label,
     NetLabel,
     NoErc,
     Parameter,
@@ -1468,7 +1467,9 @@ def extract_with_pins(
             line.startswith("|RECORD=39|")
             or (
                 line.startswith("|RECORD=31|")
-                and ("|AREACOLOR=" in line or ("|FONTIDCOUNT=" in line and "|FONTIDCOUNT=1|" not in line + "|"))
+                and (
+                    "|AREACOLOR=" in line or ("|FONTIDCOUNT=" in line and "|FONTIDCOUNT=1|" not in line + "|")
+                )
             )
             for line in held
         ):

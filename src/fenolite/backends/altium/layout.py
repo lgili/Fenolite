@@ -391,6 +391,10 @@ class SheetPlan:
     """Explicit native records for a drawn sheet; the sheet header and optional frame are added later."""
     sheet_record: tuple[tuple[str, str], ...] | None = None
     """Optional sheet record (31) carried from an Altium source sheet (change c0473)."""
+    carried_additional: tuple[tuple[tuple[str, str], ...], ...] = ()
+    """Harness records (215 to 218) carried from an Altium source sheet's Additional stream: children name
+    their connector with ``OWNERINDEX`` counted over the carried records alone, and
+    ``schdoc.additional_records`` shifts it behind the records it builds itself (change c0474)."""
 
     @property
     def bus_blocks(self) -> tuple[BusBlock, ...]:

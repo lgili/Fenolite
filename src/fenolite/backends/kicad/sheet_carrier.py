@@ -197,7 +197,7 @@ def carried_sheets(texts: Mapping[str, str], drawn: DrawnSchematic, root_file: s
 
 
 def toml_footer(texts: Mapping[str, str], drawn: DrawnSchematic, root_file: str) -> str:
-    """Comment lines at the end of ``schematic.toml`` carrying ``AltiumSheet.sheet`` and ``fields`` (c0473)."""
+    """Comment lines at the end of ``schematic.toml`` with each sheet's ``AltiumSheet`` (c0473)."""
     lines: list[str] = []
     for key, file in sorted(sheet_files(drawn, texts, root_file).items()):
         carried = take(texts[file])

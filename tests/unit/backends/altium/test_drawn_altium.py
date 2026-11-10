@@ -536,3 +536,104 @@ def test_opaque_subtree_harness_and_compile_mask_build_directly(tmp_path: Path) 
     assert len(document.of_type(sch.WarningSign)) == 1
     assert len(document.of_type(sch.HarnessConnector)) == 1
     assert len(document.of_type(sch.UnknownRecord)) == 1
+
+
+def test_carried_harness_records_write_to_the_additional_stream(tmp_path: Path) -> None:
+    """Change c0474: harness records carried from a source Additional stream (215 to 218) return to the
+    Additional stream of the written document, with their owners counted there; the FileHeader holds none,
+    and the document re-reads without a warning, as Altium's compiler requires."""
+    from fenolite.backends.altium.read.cfb import open_compound
+    from fenolite.backends.altium.read.sch.framing import deframe
+    from fenolite.backends.altium.read.sch.props import parse
+
+    script = copy_source(tmp_path / "source", "flat")
+    source = script.parent / "schematic.toml"
+    first = (
+        "|RECORD=215|OWNERPARTID=-1|LOCATION.X=140|LOCATION.Y=370|XSIZE=90|YSIZE=20|LINEWIDTH=1|"
+        "COLOR=13213327|AREACOLOR=16511725|PRIMARYCONNECTIONPOSITION=10|UNIQUEID=AAAAAAAA\n"
+        "|RECORD=216|OWNERINDEXADDITIONALLIST=T|OWNERPARTID=-1|SIDE=1|DISTANCEFROMTOP=1|NAME=RL_NTC|"
+        "UNIQUEID=BBBBBBBB|OWNERINDEX=@0\n"
+        "|RECORD=217|OWNERINDEXADDITIONALLIST=T|OWNERPARTID=-1|LOCATION.X=140|LOCATION.Y=370|"
+        "TEXT=PRECHARGE_CTRL|FONTID=1|COLOR=8388608|UNIQUEID=CCCCCCCC|OWNERINDEX=@0"
+    )
+    second = (
+        "|RECORD=215|OWNERPARTID=-1|LOCATION.X=140|LOCATION.Y=430|XSIZE=90|YSIZE=20|LINEWIDTH=1|"
+        "COLOR=13213327|AREACOLOR=16511725|PRIMARYCONNECTIONPOSITION=10|UNIQUEID=EEEEEEEE\n"
+        "|RECORD=216|OWNERINDEXADDITIONALLIST=T|OWNERPARTID=-1|SIDE=1|DISTANCEFROMTOP=1|NAME=RL_PRE|"
+        "UNIQUEID=FFFFFFFF|OWNERINDEX=@0"
+    )
+    line = (
+        "|RECORD=218|OWNERPARTID=-1|LINEWIDTH=2|COLOR=15187117|LOCATIONCOUNT=2|X1=120|Y1=360|X2=140|"
+        "Y2=360|UNIQUEID=GGGGGGGG"
+    )
+    source.write_text(
+        source.read_text(encoding="utf-8")
+        + f'\n[[sheet.opaque]]\nkicad = \'(text "harness")\'\naltium = """{first}"""\n'
+        + f'\n[[sheet.opaque]]\nkicad = \'(text "harness")\'\naltium = """{second}"""\n'
+        + f'\n[[sheet.opaque]]\nkicad = \'(text "harness")\'\naltium = "{line}"\n',
+        encoding="utf-8",
+    )
+    reply = build(script, tmp_path, "--confirm")
+    assert reply.exit_code == 0, (reply.error, (reply.envelope or {}).get("issues"))
+    data = next((tmp_path / "out").glob("*.SchDoc")).read_bytes()
+    compound = open_compound(data)
+    kinds = [
+        parse(frame.payload.removesuffix(b"\0")).get("RECORD")
+        for frame in deframe(compound.read("FileHeader"), where="out")
+    ]
+    assert not {"215", "216", "217", "218"} & set(kinds)
+    additional = [
+        parse(frame.payload.removesuffix(b"\0"))
+        for frame in deframe(compound.read("Additional"), where="out")
+    ]
+    assert [props.get("RECORD") for props in additional[1:]] == ["215", "216", "217", "215", "216", "218"]
+    # a child of the first connector omits its owner (the connector is the first Additional record), and a
+    # child of the second names it by its Additional index, as a native document writes them
+    assert additional[2].get("OWNERINDEX") is None and additional[5].get("OWNERINDEX") == "3"
+    document = sch.read_schematic(data)
+    assert not [i for i in document.issues if i.severity in {"warning", "error"}]
+
+
+def test_carried_sheet_fields_style_the_document(tmp_path: Path) -> None:
+    """Change c0473, task 1.1: the ``schematic.toml`` footer (``TOML_PREFIX`` lines) styles the written
+    document: the carried sheet record, a label's justification and colour, a power port's colour and a
+    component's body graphic replace the generated ones."""
+    from fenolite.backends.kicad.sheet_carrier import TOML_PREFIX, AltiumSheet
+
+    script = copy_source(tmp_path / "source", "flat")
+    source = script.parent / "schematic.toml"
+    fields = {
+        "__sheet__": {"RECORDS": "|RECORD=31|AREACOLOR=123456|FONTIDCOUNT=1|SIZE1=8|FONTNAME1=Arial|"},
+        "label_at:local:120650000,60960000": {"JUSTIFICATION": "2", "COLOR": "255"},
+        "power_style:0": {"COLOR": "255"},
+        "comp_gfx:0": {
+            "POSE": "101600000,76200000,0,",
+            "RECORDS": (
+                "|RECORD=13|OWNERINDEX=@0|OWNERPARTID=-1|LOCATION.X=1000|LOCATION.Y=1000|"
+                "CORNER.X=1100|CORNER.Y=1010"
+            ),
+        },
+    }
+    payload = AltiumSheet("", (), fields).text()
+    source.write_text(
+        source.read_text(encoding="utf-8") + f"\n{TOML_PREFIX}root {payload}\n", encoding="utf-8"
+    )
+    reply = build(script, tmp_path, "--confirm")
+    assert reply.exit_code == 0, (reply.error, (reply.envelope or {}).get("issues"))
+    document = sch.read_schematic(next((tmp_path / "out").glob("*.SchDoc")).read_bytes())
+    sheet = document.sheet
+    assert sheet is not None and sheet.props is not None
+    assert sheet.props.text("AREACOLOR") == "123456"
+    label = next(c for c in document.all_records() if isinstance(c, sch.NetLabel) and c.text == "SDA")
+    assert label.props is not None
+    assert label.props.text("JUSTIFICATION") == "2" and label.props.text("COLOR") == "255"
+    power = next(c for c in document.all_records() if isinstance(c, sch.PowerPort))
+    assert power.props is not None and power.props.text("COLOR") == "255"
+    component = next(
+        c
+        for c in document.components()
+        if any(isinstance(d, sch.Designator) and d.text == "U1" for d in document.children_of(c))
+    )
+    body = [c for c in document.children_of(component) if type(c) is sch.Line]
+    assert len(body) == 1
+    assert body[0].props is not None and body[0].props.text("LOCATION.X") == "1000"

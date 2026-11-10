@@ -2231,9 +2231,7 @@ def build_design(
         extra_fields: dict[str, dict[str, dict[str, str]]] = {}
         proj_dir = resolver.config.project_dir
         if proj_dir is not None and drawn_file and (proj_dir / drawn_file).is_file():
-            extra_sheets, extra_fields = from_toml_text(
-                (proj_dir / drawn_file).read_text(encoding="utf-8")
-            )
+            extra_sheets, extra_fields = from_toml_text((proj_dir / drawn_file).read_text(encoding="utf-8"))
         # the Altium records of an imported drawing ride in the sheet carriers (change c0470, design D6)
         for path, text in put_drawing(
             drawn_texts, drawn, f"{name}.kicad_sch", extra_sheets=extra_sheets, extra_fields=extra_fields

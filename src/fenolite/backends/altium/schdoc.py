@@ -782,11 +782,26 @@ def polyline_record(points: Sequence[tuple[int, int]], height: int) -> Record:
     return fields
 
 
+def carried_additional_record(record: Sequence[Field], base: int) -> Record:
+    """A harness record carried from a source Additional stream (``plan.carried_additional``) with its
+    ``OWNERINDEX`` shifted behind the ``base`` records built before the carried ones; the owner of the
+    first record is left out, as ``block_records`` writes it (change c0474)."""
+    owner = dict(record).get("OWNERINDEX")
+    if owner is None:
+        return list(record)
+    shifted = base + int(owner)
+    if shifted == 0:
+        return [(key, value) for key, value in record if key != "OWNERINDEX"]
+    return [(key, str(shifted) if key == "OWNERINDEX" else value) for key, value in record]
+
+
 def additional_records(plan: SheetPlan) -> list[Record]:
     """The records of the ``Additional`` stream after its header (change c0037, "Harness records"): per
     harness block of ``plan``, in block order, the connector, its entries in code-point order of their
     names, the type and the line; then one line per pair of sheet entries that a signal harness line joins
-    directly (``plan.lines``). A sheet without a block and without a line gives no record."""
+    directly (``plan.lines``); then the harness records carried from a source sheet's Additional stream
+    (``plan.carried_additional``, change c0474). A sheet without a block and without a line gives no
+    record."""
     found: list[Record] = []
     for block in plan.harnesses:
         found += block_records(block, len(found), plan.size.height)
@@ -794,6 +809,9 @@ def additional_records(plan: SheetPlan) -> list[Record]:
         found.append(line_record(start, end, plan.size.height))
     for points in plan.polylines:
         found.append(polyline_record(points, plan.size.height))
+    base = len(found)
+    for record in plan.carried_additional:
+        found.append(carried_additional_record(record, base))
     return found
 
 
@@ -806,6 +824,10 @@ def write_schdoc(plan: SheetPlan, frame: Frame | None = None) -> bytes:
     if plan.harnesses:
         names = ", ".join(sorted({block.name for block in plan.harnesses}))
         raise ValueError(f"the ASCII form cannot carry the harness {names}: harness records are binary only")
+    if plan.carried_additional:
+        raise ValueError(
+            "the ASCII form cannot carry the records of an Additional stream: harness records are binary only"
+        )
     return encode_records(schdoc_records(plan, frame))
 
 
@@ -825,6 +847,7 @@ __all__ = [
     "IO_TYPES",
     "additional_records",
     "block_records",
+    "carried_additional_record",
     "component_records",
     "graphic_fields",
     "io_field",
