@@ -266,8 +266,7 @@ def component_symbol(
     properties: dict[str, str] = {"Reference": _prefix(document, component)}
     comment = next((c.text for c in document.children_of(component) if isinstance(c, Parameter)
                     and c.name == "Comment"), "")  # fmt: skip
-    if comment and comment != "*":
-        properties["Value"] = comment
+    properties["Value"] = "" if comment == "*" else comment
     native = f"{library}:{name}"
     pin_names_hidden = bool(raw_pins) and not any(p.name_shown and p.name not in ("", "~") for p in raw_pins)
     pin_numbers_hidden = bool(raw_pins) and not any(p.designator_shown for p in raw_pins)

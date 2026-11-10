@@ -2166,6 +2166,11 @@ def _run_altium(
         if drawn_path is not None and drawn_name is not None
         else None
     )
+    drawn_fields: dict[str, dict[str, dict[str, str]]] = {}
+    if drawn_path is not None and drawn_value is not None:
+        from fenolite.backends.kicad.sheet_carrier import from_toml_text
+
+        _, drawn_fields = from_toml_text(drawn_path.read_text(encoding="utf-8"))
     # change c0086: the symbols and footprints the script authored or took from the catalog are written
     # like resolved ones, as in a KiCad build, so their graphics reach the libraries
     record_footprints, record_symbols, _ = project_definitions(run, model)
@@ -2339,6 +2344,7 @@ def _run_altium(
                 unused=unused_marks(run.design),
                 two_terminal=two_terminal(run.design),
                 drawn=drawn_value,
+                drawn_fields=drawn_fields,
                 composition=None
                 if drawn_value is not None
                 else schematic_composition(

@@ -2225,10 +2225,19 @@ def build_design(
     files["fp-lib-table"] = write_lib_table(LibTable("footprint", rows), target=target).encode("utf-8")
     if generated is not None and drawn_texts is not None:
         assert drawn is not None
-        from fenolite.backends.kicad.sheet_carrier import put_drawing
+        from fenolite.backends.kicad.sheet_carrier import from_toml_text, put_drawing
 
+        extra_sheets: dict[str, str] = {}
+        extra_fields: dict[str, dict[str, dict[str, str]]] = {}
+        proj_dir = resolver.config.project_dir
+        if proj_dir is not None and drawn_file and (proj_dir / drawn_file).is_file():
+            extra_sheets, extra_fields = from_toml_text(
+                (proj_dir / drawn_file).read_text(encoding="utf-8")
+            )
         # the Altium records of an imported drawing ride in the sheet carriers (change c0470, design D6)
-        for path, text in put_drawing(drawn_texts, drawn, f"{name}.kicad_sch").items():
+        for path, text in put_drawing(
+            drawn_texts, drawn, f"{name}.kicad_sch", extra_sheets=extra_sheets, extra_fields=extra_fields
+        ).items():
             files[path] = text.encode("utf-8")
     elif generated is not None:
         written = sch.write_schematic(generated.sheet, target=target, allow_lossy=allow_lossy)

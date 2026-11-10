@@ -1963,7 +1963,12 @@ def emit(source: Source, options: Options) -> Emission:
     )
     issues.extend(drawing_issues)
     if drawing is not None:
-        files["schematic.toml"] = write_drawn(drawing)
+        drawn_text = write_drawn(drawing)
+        if source.sheet_texts:
+            from fenolite.backends.kicad.sheet_carrier import toml_footer
+
+            drawn_text += toml_footer(source.sheet_texts, drawing, next(iter(source.hierarchy)))
+        files["schematic.toml"] = drawn_text
         contexts = symbol_contexts.write(
             vendored.source_symbols.contexts,
             {item.file: item.sha256 for item in source.inputs},

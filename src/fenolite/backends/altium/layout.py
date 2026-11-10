@@ -389,6 +389,8 @@ class SheetPlan:
     composition: CompositionPlan | None = None
     drawn_records: tuple[tuple[tuple[str, str], ...], ...] | None = None
     """Explicit native records for a drawn sheet; the sheet header and optional frame are added later."""
+    sheet_record: tuple[tuple[str, str], ...] | None = None
+    """Optional sheet record (31) carried from an Altium source sheet (change c0473)."""
 
     @property
     def bus_blocks(self) -> tuple[BusBlock, ...]:

@@ -30,6 +30,7 @@ from types import MappingProxyType
 from typing import cast
 
 import fenolite.backends.altium.drawn_carrier as drawn_carrier
+import fenolite.backends.altium.drawn_symbols as drawn_symbols
 from fenolite.backends.altium.adapter.connectivity import (
     SIDE_LEFT,
     SIDE_RIGHT,
@@ -56,6 +57,7 @@ from fenolite.backends.altium.read.sch import (
     HarnessEntry,
     HarnessType,
     Junction,
+    Label,
     NetLabel,
     NoErc,
     Parameter,
@@ -188,7 +190,21 @@ Altium's ``CompanyName``. Other parameters with a value become ``param.<name>`` 
 ITEM_FIELDS: Mapping[str, tuple[str, ...]] = MappingProxyType(
     {
         "symbol": ("DISPLAYMODE", "PARTCOUNT", "DISPLAYMODECOUNT"),
-        "label": ("STYLE", "IOTYPE", "ALIGNMENT", "WIDTH", "HEIGHT", "BORDERWIDTH", "AREACOLOR", "TEXTCOLOR"),
+        "label": (
+            "STYLE",
+            "IOTYPE",
+            "ALIGNMENT",
+            "WIDTH",
+            "WIDTH_FRAC",
+            "HEIGHT",
+            "HEIGHT_FRAC",
+            "BORDERWIDTH",
+            "AREACOLOR",
+            "TEXTCOLOR",
+            "COLOR",
+            "FONTID",
+            "JUSTIFICATION",
+        ),
         "power": ("STYLE", "SHOWNETNAME", "ISCROSSSHEETCONNECTOR"),
     }
 )
@@ -853,6 +869,7 @@ def _restore_stand_ins(
     for index, power in enumerate(powers):
         entry = stand_ins.get(uids[index]) if uids[index] else None
         found = kept.pop(f"power:{index}", None)
+        pstyle = kept.pop(f"power_style:{index}", None)
         if entry is not None and "label" in entry:
             labels.append(drawn_carrier.label_of(entry["label"], power.net, power.at, power.rotation))
             continue
@@ -863,6 +880,8 @@ def _restore_stand_ins(
             continue  # the port at a hidden KiCad power pin, which joins the net its name gives
         if found is not None:
             moved[f"power:{len(out)}"] = found
+        if pstyle is not None:
+            moved[f"power_style:{len(out)}"] = pstyle
         out.append(power)
     kept.update(moved)
     out += [drawn_carrier.flag_of(value) for carrier in carriers for value in carrier.powers]
@@ -1099,6 +1118,32 @@ def extract_with_pins(
             )
             if found := item_fields(record, "symbol"):
                 kept[f"symbol:{len(symbols)}"] = found
+            gfx_lines = [
+                record_line(child, 0)
+                for child in document.children_of(record)
+                if child.owner_display_mode == record.display_mode
+                and child.owner_part in (0, max(1, record.current_part))
+                and isinstance(child, drawn_symbols.BODY)
+                and not isinstance(child, Pin)
+            ]
+            gfx_lines = [line for line in gfx_lines if line]
+            comp_gfx: dict[str, str] = {}
+            if gfx_lines:
+                comp_gfx["POSE"] = f"{drawn.at.x},{drawn.at.y},{drawn.rotation},{drawn.mirror}"
+                comp_gfx["RECORDS"] = "\n".join(gfx_lines)
+            des_rec = next((c for c in document.children_of(record) if isinstance(c, Designator)), None)
+            com_rec = next(
+                (c for c in document.children_of(record) if isinstance(c, Parameter) and c.name == "Comment"),
+                None,
+            )
+            if des_rec is not None and des_rec.props is not None and "FONTID" in set(des_rec.props.keys()):
+                comp_gfx["DESIGNATOR_FONTID"] = des_rec.props.text("FONTID")
+            if com_rec is not None and com_rec.props is not None and "FONTID" in set(com_rec.props.keys()):
+                comp_gfx["COMMENT_FONTID"] = com_rec.props.text("FONTID")
+            if com_rec is not None and not com_rec.text:
+                comp_gfx["COMMENT_EMPTY"] = "T"
+            if comp_gfx:
+                kept[f"comp_gfx:{len(symbols)}"] = comp_gfx
             placed[(key, len(symbols))] = (path, number, record)
             symbols.append(drawn)
             pins_of_sheet.append([p.at for p in pins[(key, "symbol", len(symbols) - 1)]])
@@ -1147,6 +1192,9 @@ def extract_with_pins(
                         # a net label that names a harness: KiCad's bus group of its members (c0470)
                         text = group_text(record.text, harness_entries)
                         kept[f"text:{at.x},{at.y}"] = {"TEXT": record.text}
+                    if found := item_fields(record, "label"):
+                        kept[f"label:{len(labels)}"] = found
+                        kept[f"label_at:{label_kind}:{at.x},{at.y}"] = found
                     labels.append(DrawnLabel(label_kind, text, at,
                                              (record.orientation % 4) * QUARTER, shape))  # fmt: skip
                 continue
@@ -1169,6 +1217,7 @@ def extract_with_pins(
                                          where))  # fmt: skip
                 if found := item_fields(record, "label"):
                     kept[f"label:{len(labels)}"] = found
+                    kept[f"label_at:{label.kind}:{label.at.x},{label.at.y}"] = found
                 labels.append(label)
                 continue
             if isinstance(record, PowerPort):
@@ -1185,6 +1234,10 @@ def extract_with_pins(
                     continue
                 if found := item_fields(record, "power"):
                     kept[f"power:{len(powers)}"] = found
+                if record.props is not None:
+                    p_keys = set(record.props.keys())
+                    if pstyle := {k: record.props.text(k) for k in ("COLOR", "FONTID") if k in p_keys}:
+                        kept[f"power_style:{len(powers)}"] = pstyle
                 power_uids.append(record.props.text("UNIQUEID") if record.props is not None else "")
                 at = frame.point(record.location)
                 # Altium draws the net name by the port's style; the drawn Value sits on the port, shown as
@@ -1243,6 +1296,44 @@ def extract_with_pins(
                         found := lone_harness(entry, kinds[id(entry)], members)
                     ):
                         kept[f"harness:{title or child.names[-1]}:{entry.name}"] = found
+                ref_style: dict[str, str] = {}
+                if record.props is not None:
+                    r_keys = set(record.props.keys())
+                    for k in ("COLOR", "AREACOLOR"):
+                        if k in r_keys:
+                            ref_style[k] = record.props.text(k)
+                sname = next((c for c in document.children_of(record) if isinstance(c, SheetName)), None)
+                if sname is not None:
+                    ref_style["NAME_X"] = str(sname.location[0].value)
+                    ref_style["NAME_Y"] = str(sname.location[1].value)
+                    if sname.props is not None:
+                        s_keys = set(sname.props.keys())
+                        for k in ("FONTID", "COLOR"):
+                            if k in s_keys:
+                                ref_style[f"NAME_{k}"] = sname.props.text(k)
+                sfile = next((c for c in document.children_of(record) if isinstance(c, SheetFileName)), None)
+                if sfile is not None:
+                    ref_style["FILE_X"] = str(sfile.location[0].value)
+                    ref_style["FILE_Y"] = str(sfile.location[1].value)
+                    if sfile.props is not None:
+                        f_keys = set(sfile.props.keys())
+                        for k in ("FONTID", "COLOR"):
+                            if k in f_keys:
+                                ref_style[f"FILE_{k}"] = sfile.props.text(k)
+                kept_entries = [
+                    entry
+                    for entry in document.children_of(record)
+                    if isinstance(entry, SheetEntry)
+                    and _entry_pin(document, entry, frame, members, kinds[id(entry)]) is not None
+                ]
+                for entry_idx, entry in enumerate(kept_entries):
+                    if entry.props is not None:
+                        e_keys = set(entry.props.keys())
+                        for k in ("TEXTFONTID", "COLOR", "AREACOLOR", "TEXTCOLOR"):
+                            if k in e_keys:
+                                ref_style[f"ENTRY_{k}:{entry_idx}"] = entry.props.text(k)
+                if ref_style:
+                    kept[f"ref:{len(refs)}"] = ref_style
                 corner = frame.point(record.location)
                 child_module = sheet_modules.get(child.sheet, "")
                 rel_module = (
@@ -1373,6 +1464,15 @@ def extract_with_pins(
                 )
             )
         sheet_records[key] = "\n".join(held)
+        if any(
+            line.startswith("|RECORD=39|")
+            or (
+                line.startswith("|RECORD=31|")
+                and ("|AREACOLOR=" in line or ("|FONTIDCOUNT=" in line and "|FONTIDCOUNT=1|" not in line + "|"))
+            )
+            for line in held
+        ):
+            kept["__sheet__"] = {"RECORDS": sheet_records[key]}
         classes[key] = dict(sorted(per_class.items()))
         one_spelling(labels, kept)
         if kept:

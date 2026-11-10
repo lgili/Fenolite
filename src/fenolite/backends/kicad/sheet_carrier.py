@@ -112,11 +112,18 @@ def sheet_files(drawn: DrawnSchematic, files: Iterable[str], root_file: str) -> 
     return found
 
 
+TOML_PREFIX = "# fenolite.altium-sheet: "
+"""Comment prefix in ``schematic.toml`` that carries ``AltiumSheet`` styling for an Altium import (c0473)."""
+
+
 def put_drawing(
     texts: Mapping[str, str],
     drawn: DrawnSchematic,
     root_file: str,
     carriers: Mapping[str, AltiumSheet] | None = None,
+    *,
+    extra_sheets: Mapping[str, str] | None = None,
+    extra_fields: Mapping[str, Mapping[str, Mapping[str, str]]] | None = None,
 ) -> dict[str, str]:
     """The written KiCad sheet ``texts`` (by file) of ``drawn`` with the carrier of each sheet that holds
     Altium records: ``carriers`` by sheet key, else the opaque records of the sheet."""
@@ -127,10 +134,13 @@ def put_drawing(
             continue
         carrier = carriers.get(key) if carriers is not None else None
         params = param_lines(sheet.title_block)
-        if carrier is None and (params or any(o.altium for o in sheet.opaques)):
+        held_sheet = (extra_sheets or {}).get(key, "")
+        held_fields = (extra_fields or {}).get(key, {})
+        if carrier is None and (params or held_sheet or held_fields or any(o.altium for o in sheet.opaques)):
             # a build: the sheet's own document parameters travel as the sheet records a conversion
             # carries, which ``restore`` reads back (``sheet_params``; change c0470)
-            carrier = altium_sheet(sheet.opaques, params, {})
+            combined_sheet = "\n".join(part for part in (held_sheet, params) if part)
+            carrier = altium_sheet(sheet.opaques, combined_sheet, held_fields)
         if carrier is not None:
             out[file] = put(out[file], carrier.text())
     return out
@@ -168,6 +178,61 @@ def carried_fields(
         if fields:
             found[key] = {name: dict(value) for name, value in fields.items()}
     return found
+
+
+def carried_sheets(texts: Mapping[str, str], drawn: DrawnSchematic, root_file: str) -> dict[str, str]:
+    """Per sheet key, the held sheet records (``AltiumSheet.sheet``) of its carrier (change c0473)."""
+    found: dict[str, str] = {}
+    for key, file in sheet_files(drawn, texts, root_file).items():
+        carried = take(texts[file])
+        if carried is None:
+            continue
+        try:
+            sheet_text = AltiumSheet.parse(carried).sheet
+        except ValueError:
+            continue
+        if sheet_text:
+            found[key] = sheet_text
+    return found
+
+
+def toml_footer(texts: Mapping[str, str], drawn: DrawnSchematic, root_file: str) -> str:
+    """Comment lines at the end of ``schematic.toml`` carrying ``AltiumSheet.sheet`` and ``fields`` (c0473)."""
+    lines: list[str] = []
+    for key, file in sorted(sheet_files(drawn, texts, root_file).items()):
+        carried = take(texts[file])
+        if carried is None:
+            continue
+        try:
+            parsed = AltiumSheet.parse(carried)
+        except ValueError:
+            continue
+        if parsed.sheet or parsed.fields:
+            payload = AltiumSheet(parsed.sheet, (), parsed.fields).text()
+            lines.append(f"{TOML_PREFIX}{key} {payload}")
+    return ("\n" + "\n".join(lines) + "\n") if lines else ""
+
+
+def from_toml_text(text: str) -> tuple[dict[str, str], dict[str, dict[str, dict[str, str]]]]:
+    """``(sheet_records_by_key, fields_by_key)`` from ``TOML_PREFIX`` lines in ``schematic.toml`` (c0473)."""
+    sheets: dict[str, str] = {}
+    fields: dict[str, dict[str, dict[str, str]]] = {}
+    for line in text.splitlines():
+        if not line.startswith(TOML_PREFIX):
+            continue
+        rest = line[len(TOML_PREFIX) :]
+        key, sep, payload = rest.partition(" ")
+        if not sep or not key or not payload:
+            continue
+        try:
+            parsed = AltiumSheet.parse(payload)
+        except ValueError:
+            continue
+        if parsed.sheet:
+            sheets[key] = parsed.sheet
+        if parsed.fields:
+            fields[key] = {name: dict(value) for name, value in parsed.fields.items()}
+    return sheets, fields
 
 
 def take(text: str) -> str | None:
@@ -271,5 +336,9 @@ __all__ = [
     "stand_in_uuid",
     "take",
     "take_drawing",
+    "TOML_PREFIX",
     "carried_fields",
+    "carried_sheets",
+    "from_toml_text",
+    "toml_footer",
 ]

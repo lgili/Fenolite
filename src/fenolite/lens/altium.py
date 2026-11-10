@@ -2266,6 +2266,7 @@ def build_altium(
     draftsman: bool = False,
     drawing_spec: DrawingSpec | None = None,
     drawn: DrawnSchematic | None = None,
+    drawn_fields: Mapping[str, Mapping[str, Mapping[str, str]]] = MappingProxyType({}),
 ) -> BuildOutput:
     """Every file of the Altium project of ``design`` as bytes, or no file when an issue is an error.
 
@@ -2539,6 +2540,7 @@ def build_altium(
             form=form,
             symbol_overrides=aliases,
             harness=True,  # a bus group that crosses a sheet is a signal harness (change c0470)
+            fields=drawn_fields,
         )
         input_evidence.append(DRAWN_EVIDENCE)
         if any(found.severity == "error" for found in issues):

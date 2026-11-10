@@ -340,6 +340,8 @@ class _Sheet:
         """With ``carry``, the ``HARNESSTYPE`` of each sheet entry that the carrier keeps, by (sheet name,
         entry name) (change c0470): the type of an entry drawn as the empty group ``NAME{}``, or "" for an
         entry whose record holds none."""
+        self.sheet_fields: Mapping[str, Mapping[str, str]] = {}
+        """The Altium fields and sheet records carried for this sheet (change c0473)."""
         self.definitions: Mapping[str, str] = {}
         """With ``carry``, the KiCad library text of this sheet's carried opaque symbol definitions."""
         self.power_in: Mapping[str, frozenset[str]] = {}
@@ -610,18 +612,23 @@ class _Sheet:
         self.records.append(record)
         return len(self.records)
 
-    def component(self, spec: PartSpec, symbol: DrawnSymbol, where: str) -> None:
+    def component(self, spec: PartSpec, symbol: DrawnSymbol, where: str, symbol_index: int = -1) -> None:
         anchor_x, anchor_y = self.point(symbol.at, where)
         quarter = symbol.rotation // 90_000_000
         if symbol.mirror:
             self.issues.append(Issue("altium.not-lowered", "info", "the component mirror is carried by "
                                      "absolute child geometry; its native mirror metadata is unverified",
                                      where=where))  # fmt: skip
+        comp_gfx = self.sheet_fields.get(f"comp_gfx:{symbol_index}", {})
+        pose_key = f"{symbol.at.x},{symbol.at.y},{symbol.rotation},{symbol.mirror}"
+        use_carried_gfx = comp_gfx.get("POSE") == pose_key and bool(comp_gfx.get("RECORDS"))
         origin = 1_000_000
         placed = PlacedPart(spec, origin, origin, (0, 0, 0, 0), symbol.unit)
         offset = len(self.records) + 1
         for original in schdoc.component_records(placed):
             record = dict(original)
+            if use_carried_gfx and record.get("RECORD") in {"6", "7", "8", "13", "14"}:
+                continue
             points: dict[str, Record] = {}
             for key in record:
                 if not _COORD.fullmatch(key):
@@ -688,7 +695,24 @@ class _Sheet:
                     output.append(("ISMIRRORED", "T"))
                 if pose.hide:
                     output.append(("ISHIDDEN", "T"))
+            if record.get("RECORD") == "34" and "DESIGNATOR_FONTID" in comp_gfx:
+                output = [(k, comp_gfx["DESIGNATOR_FONTID"] if k == "FONTID" else v) for k, v in output]
+            if record.get("RECORD") == "41" and name == "Comment" and "COMMENT_FONTID" in comp_gfx:
+                output = [(k, comp_gfx["COMMENT_FONTID"] if k == "FONTID" else v) for k, v in output]
+            if record.get("RECORD") == "41" and name == "Comment" and comp_gfx.get("COMMENT_EMPTY") == "T":
+                output = [(k, "" if k == "TEXT" else v) for k, v in output]
             self.add(output)
+            if record.get("RECORD") == "1" and use_carried_gfx:
+                for gfx_line in comp_gfx["RECORDS"].splitlines():
+                    gfx_fields: Record = []
+                    for item in gfx_line.strip().split("|"):
+                        if not item:
+                            continue
+                        k, sep, v = item.partition("=")
+                        if sep and k:
+                            gfx_fields.append((k, str(offset) if k == "OWNERINDEX" and v == "@0" else v))
+                    if gfx_fields:
+                        self.add(gfx_fields, f"{where}.gfx", read=True)
         self.poses.append(
             replace(placed, x=symbol.at.x // NM_PER_MIL, y=symbol.at.y // NM_PER_MIL, rotation=quarter)
         )
@@ -742,6 +766,37 @@ class _Sheet:
             record += [*_fields(f"X{index}", x), *_fields(f"Y{index}", self.height - y)]
         self.add(record)
 
+    def _port_width(
+        self,
+        name: str,
+        at: Point,
+        rotation: int,
+        held: Mapping[str, str],
+        wires: Sequence[tuple[Point, ...]],
+    ) -> int:
+        if not self.sheet_fields:
+            return PORT_WIDTH
+        if "WIDTH" in held and held["WIDTH"].lstrip("-").isdigit():
+            frac = int(held["WIDTH_FRAC"]) if held.get("WIDTH_FRAC", "").lstrip("-").isdigit() else 0
+            cand = int(held["WIDTH"]) * UNIT_SCALE + frac
+        else:
+            cand = max(35, 10 * -(-(7 * len(name) + 15) // 10)) * UNIT_SCALE
+        if cand <= PORT_WIDTH:
+            return PORT_WIDTH
+        quarter = rotation // 90_000_000 % 4
+        width_nm = round(cand * NM_DENOMINATOR / NM_NUMERATOR)
+        step = {0: (width_nm, 0), 1: (0, -width_nm), 2: (-width_nm, 0), 3: (0, width_nm)}[quarter]
+        far = (at.x + step[0], at.y + step[1])
+        near = (at.x, at.y)
+        segments = [(a, b) for line in wires for a, b in zip(line, line[1:], strict=False)]
+        if any(drawn_harness.on_segment(far, (a.x, a.y), (b.x, b.y)) for a, b in segments):
+            return PORT_WIDTH
+        if quarter in (2, 3) and not any(
+            drawn_harness.on_segment(near, (a.x, a.y), (b.x, b.y)) for a, b in segments
+        ):
+            return PORT_WIDTH
+        return cand
+
     def identifier(
         self,
         name: str,
@@ -753,19 +808,31 @@ class _Sheet:
         uid: str = "",
         style: int = 2,
         harness: str = "",
+        *,
+        held: Mapping[str, str] = MappingProxyType({}),
+        port_width: int = PORT_WIDTH,
     ) -> None:
         x, y = self.point(at, where)
         location = [*_fields("LOCATION.X", x), *_fields("LOCATION.Y", self.height - y)]
+        default_color = (
+            schdoc.SYMBOL_COLOR
+            if self.sheet_fields and kind in ("hierarchical", "global")
+            else schdoc.TEXT_COLOR
+        )
+        color = held.get("COLOR", default_color)
+        font_id = held.get("FONTID", "1")
         record: Record = [
             ("RECORD", {"local": "25", "hierarchical": "18", "global": "17"}[kind]),
             ("OWNERPARTID", "-1"),
             *location,
-            ("COLOR", schdoc.TEXT_COLOR),
-            ("FONTID", "1"),
+            ("COLOR", color),
+            ("FONTID", font_id),
         ]
         quarter = rotation // 90_000_000
         if kind == "local":
             record += [("TEXT", name), ("ORIENTATION", str(quarter))]
+            if "JUSTIFICATION" in held:
+                record.append(("JUSTIFICATION", held["JUSTIFICATION"]))
         elif kind == "global":
             record += [
                 ("TEXT", name),
@@ -777,26 +844,44 @@ class _Sheet:
                 record.append(("UNIQUEID", uid))
         else:
             # A port's two hot ends stay on the label's axis; the drawn point is always one end.
-            width = PORT_WIDTH
+            width = port_width
             if quarter == 2:
                 x -= width
             elif quarter == 3:
                 y += width
+            height = (
+                int(held["HEIGHT"]) * UNIT_SCALE
+                + (int(held["HEIGHT_FRAC"]) if held.get("HEIGHT_FRAC", "").lstrip("-").isdigit() else 0)
+                if "HEIGHT" in held and held["HEIGHT"].lstrip("-").isdigit()
+                else 10 * UNIT_SCALE
+            )
+            port_style = held.get("STYLE", "4" if quarter % 2 else "0")
             record = [(k, v) for k, v in record if not k.startswith("LOCATION.")]
             record += [
                 *_fields("LOCATION.X", x),
                 *_fields("LOCATION.Y", self.height - y),
                 ("NAME", name),
-                ("STYLE", "4" if quarter % 2 else "0"),
+                ("STYLE", port_style),
                 *_fields("WIDTH", width),
-                ("HEIGHT", "10"),
+                *_fields("HEIGHT", height),
                 ("IOTYPE", _IO.get(shape, "0")),
+                *(
+                    [
+                        ("AREACOLOR", held.get("AREACOLOR", "8437759" if shape == "input" else schdoc.ENTRY_FILL)),
+                        ("TEXTCOLOR", held.get("TEXTCOLOR", schdoc.SYMBOL_COLOR)),
+                    ]
+                    if self.sheet_fields
+                    else []
+                ),
+                *([("ALIGNMENT", held["ALIGNMENT"])] if "ALIGNMENT" in held else []),
+                *([("BORDERWIDTH", held["BORDERWIDTH"])] if "BORDERWIDTH" in held else []),
                 *([("HARNESSTYPE", harness)] if harness else []),
                 ("UNIQUEID", unique_id(where)),
             ]
         self.add(record)
 
-    def reference(self, ref: DrawnSheetRef, child_file: str, where: str) -> None:
+    def reference(self, ref: DrawnSheetRef, child_file: str, where: str, ref_index: int = -1) -> None:
+        held = self.sheet_fields.get(f"ref:{ref_index}", {})
         x, y = self.point(ref.at, where + ".at")
         width, height = self.point(Point(ref.size.w, ref.size.h), where + ".size")
         owner = self.add(
@@ -807,8 +892,8 @@ class _Sheet:
                 *_fields("LOCATION.Y", self.height - y),
                 *_fields("XSIZE", width),
                 *_fields("YSIZE", height),
-                ("COLOR", schdoc.SYMBOL_COLOR),
-                ("AREACOLOR", schdoc.SYMBOL_FILL),
+                ("COLOR", held.get("COLOR", schdoc.SYMBOL_COLOR)),
+                ("AREACOLOR", held.get("AREACOLOR", schdoc.SYMBOL_FILL)),
                 ("ISSOLID", "T"),
                 ("SYMBOLTYPE", "Normal"),
                 ("UNIQUEID", unique_id(where)),
@@ -817,9 +902,9 @@ class _Sheet:
         for index, pin in enumerate(ref.pins):
             entry_name, harness_type = pin.name, ""
             group = bus_group_parts(pin.name) if self.harness_types or self.lone_harness else None
-            held = self.lone_harness.get((ref.name, group[0])) if group is not None else None
-            if group is not None and held is not None:  # the record's own HARNESSTYPE, carried (c0470)
-                entry_name, harness_type = group[0], held
+            held_h = self.lone_harness.get((ref.name, group[0])) if group is not None else None
+            if group is not None and held_h is not None:  # the record's own HARNESSTYPE, carried (c0470)
+                entry_name, harness_type = group[0], held_h
             elif group is not None and sorted_entries(group[1]) in self.harness_types:
                 # an entry of a harness type: the extractor names it by its group of entries (c0470)
                 entry_name, harness_type = group[0], self.harness_types[sorted_entries(group[1])]
@@ -855,25 +940,36 @@ class _Sheet:
                     ("DISTANCEFROMTOP", str(whole)),
                     *([("DISTANCEFROMTOP_FRAC1", str(fraction))] if fraction else []),
                     ("IOTYPE", _IO.get(pin.shape, "0")),
-                    ("COLOR", schdoc.SYMBOL_COLOR),
-                    ("AREACOLOR", schdoc.ENTRY_FILL),
-                    ("TEXTCOLOR", schdoc.SYMBOL_COLOR),
-                    ("TEXTFONTID", "1"),
+                    ("COLOR", held.get(f"ENTRY_COLOR:{index}", schdoc.SYMBOL_COLOR)),
+                    ("AREACOLOR", held.get(f"ENTRY_AREACOLOR:{index}", schdoc.ENTRY_FILL)),
+                    ("TEXTCOLOR", held.get(f"ENTRY_TEXTCOLOR:{index}", schdoc.SYMBOL_COLOR)),
+                    ("TEXTFONTID", held.get(f"ENTRY_TEXTFONTID:{index}", "1")),
                     ("TEXTSTYLE", "Full"),
                     ("ARROWKIND", schdoc.ENTRY_ARROW),
                 ]
             )
-        for record, text in (("32", ref.name), ("33", child_file)):
+        name_x = int(held["NAME_X"]) if held.get("NAME_X", "").lstrip("-").isdigit() else x
+        name_y = (
+            int(held["NAME_Y"])
+            if held.get("NAME_Y", "").lstrip("-").isdigit()
+            else (self.height - y + (12 * UNIT_SCALE if self.sheet_fields else 0))
+        )
+        file_x = int(held["FILE_X"]) if held.get("FILE_X", "").lstrip("-").isdigit() else x
+        file_y = int(held["FILE_Y"]) if held.get("FILE_Y", "").lstrip("-").isdigit() else (self.height - y)
+        for record, text, tx, ty, font_id, color in (
+            ("32", ref.name, name_x, name_y, held.get("NAME_FONTID", "1"), held.get("NAME_COLOR", schdoc.TEXT_COLOR)),
+            ("33", child_file, file_x, file_y, held.get("FILE_FONTID", "1"), held.get("FILE_COLOR", schdoc.TEXT_COLOR)),
+        ):
             self.add(
                 [
                     ("RECORD", record),
                     ("OWNERINDEX", str(owner)),
                     ("OWNERPARTID", "-1"),
-                    *_fields("LOCATION.X", x),
-                    *_fields("LOCATION.Y", self.height - y),
+                    *_fields("LOCATION.X", tx),
+                    *_fields("LOCATION.Y", ty),
                     ("TEXT", text),
-                    ("FONTID", "1"),
-                    ("COLOR", schdoc.TEXT_COLOR),
+                    ("FONTID", font_id),
+                    ("COLOR", color),
                 ]
             )
 
@@ -886,6 +982,45 @@ class _Sheet:
         symbol_overrides: Mapping[str, tuple[str, AltiumSymbol]],
     ) -> SheetPlan:
         where = instance.path or "root"
+        base_size = self.plan.size
+        sheet_rec: Record | None = None
+        sheet_lines = self.sheet_fields.get("__sheet__", {}).get("RECORDS", "").splitlines()
+        template_idx = -1
+        for line in sheet_lines:
+            if line.startswith("|RECORD=31|") and sheet_rec is None:
+                parsed_31: Record = []
+                for item in line.strip().split("|"):
+                    if not item:
+                        continue
+                    k, sep, v = item.partition("=")
+                    if sep and k and k.upper() != "FILEVERSIONINFO":
+                        parsed_31.append((k, v))
+                if parsed_31:
+                    sheet_rec = parsed_31
+            elif line.startswith("|RECORD=39|") and self.form == "binary":
+                t_fields: Record = []
+                for item in line.strip().split("|"):
+                    if not item:
+                        continue
+                    k, sep, v = item.partition("=")
+                    if sep and k:
+                        t_fields.append((k, v))
+                if t_fields:
+                    template_idx = self.add(t_fields, f"{where}.template", read=True)
+            elif template_idx > 0 and "|OWNERINDEX=@0" in line and self.form == "binary":
+                if line.startswith("|RECORD=30|") and "|EMBEDIMAGE=T" in line:
+                    continue
+                c_fields: Record = []
+                for item in line.strip().split("|"):
+                    if not item:
+                        continue
+                    k, sep, v = item.partition("=")
+                    if sep and k:
+                        c_fields.append((k, str(template_idx) if k == "OWNERINDEX" and v == "@0" else v))
+                if c_fields:
+                    self.add(c_fields, f"{where}.template", read=True)
+            else:
+                template_idx = -1
         if sheet.bus_aliases:
             self.issues.append(Issue("altium.not-lowered", "info", "bus alias declarations are not written "
                                      "as native alias metadata; the written pin partition remains guarded",
@@ -911,7 +1046,7 @@ class _Sheet:
                     spec = replace(spec, library=library, symbol=body.lib_ref, body=body)
                 elif (own := self.bodies.get(spec.ref)) is not None:
                     spec = replace(spec, body=own)  # its own body, under its link's name (c0470)
-                self.component(spec, symbol, f"{where}.symbol[{index}]")
+                self.component(spec, symbol, f"{where}.symbol[{index}]", index)
         self.networks(sheet, where)
         for kind, polylines in (("wire", sheet.wires), ("bus", sheet.buses)):
             for index, points in enumerate(polylines):
@@ -962,15 +1097,12 @@ class _Sheet:
         powers = {power.net for power in sheet.powers if self.carry} | {net for net, _, _ in self.hidden_pins}
         for index, label in enumerate(sheet.labels):
             at = f"{where}.label[{index}]"
+            held_label = self.sheet_fields.get(
+                f"label_at:{label.kind}:{label.at.x},{label.at.y}"
+            ) or self.sheet_fields.get(f"label:{index}", {})
             kind = "hierarchical" if label.kind == "local" and label.text in ports else label.kind
             if label.kind == "local" and label.text in powers and label.text not in ports:
                 kind = "global"
-            if self.carry and kind != "global":
-                # a port has two hot ends, 100 mil apart along it: the reader may meet either (c0470)
-                step = {0: (PORT_NM, 0), 1: (0, -PORT_NM), 2: (-PORT_NM, 0), 3: (0, PORT_NM)}
-                dx, dy = step[label.rotation // 90_000_000 % 4]
-                other = Point(label.at.x + dx, label.at.y + dy) if kind == "hierarchical" else None
-                written.append(drawn_carrier.written_label(label, other))
             # a power port stands for a KiCad global label: the carrier keeps its kind and shape (c0470)
             uid = unique_id(at) if self.carry and kind == "global" else ""
             own = self.spellings.get((label.at.x, label.at.y))
@@ -983,12 +1115,35 @@ class _Sheet:
                 text = drawn_carrier.altium_text(lowered[0]) if self.carry else lowered[0]
             else:
                 text = drawn_carrier.altium_text(label.text) if self.carry else label.text
+            port_name = lowered[0] if lowered is not None and kind == "hierarchical" else text
+            p_width = (
+                self._port_width(port_name, label.at, label.rotation, held_label, sheet.wires)
+                if kind == "hierarchical"
+                else PORT_WIDTH
+            )
+            if self.carry and kind != "global":
+                # a port has two hot ends along it: the reader may meet either (c0470)
+                w_nm = round(p_width * NM_DENOMINATOR / NM_NUMERATOR)
+                step = {0: (w_nm, 0), 1: (0, -w_nm), 2: (-w_nm, 0), 3: (0, w_nm)}
+                dx, dy = step[label.rotation // 90_000_000 % 4]
+                other = Point(label.at.x + dx, label.at.y + dy) if kind == "hierarchical" else None
+                written.append(drawn_carrier.written_label(label, other))
             if lowered is not None and kind == "hierarchical":  # a KiCad bus group: a port of a harness
                 self.identifier(
-                    lowered[0], label.at, label.rotation, kind, label.shape, at, harness=lowered[1]
+                    lowered[0],
+                    label.at,
+                    label.rotation,
+                    kind,
+                    label.shape,
+                    at,
+                    harness=lowered[1],
+                    held=held_label,
+                    port_width=p_width,
                 )
                 continue
-            self.identifier(text, label.at, label.rotation, kind, label.shape, at, uid)
+            self.identifier(
+                text, label.at, label.rotation, kind, label.shape, at, uid, held=held_label, port_width=p_width
+            )
             if uid:
                 stand_ins[uid] = {"label": {**drawn_carrier.label_value(label), "text": label.text}}
         for net, point, at in self.hidden_pins:
@@ -1007,6 +1162,7 @@ class _Sheet:
                 drawn_carrier.altium_text(power.net) if self.carry else power.net,
                 power.at, power.rotation, "global", "", at, uid,
                 POWER_STYLES.index(style) if native else 2,
+                held=self.sheet_fields.get(f"power_style:{index}", {}),
             )  # fmt: skip
             if uid:
                 stand_ins[uid] = {"power": {**drawn_carrier.power_value(power), "net": power.net}}
@@ -1022,10 +1178,10 @@ class _Sheet:
                     )
                 )
         refs: list[drawn_carrier.Json] = []
-        for ref in sheet.sheet_refs:
+        for ref_idx, ref in enumerate(sheet.sheet_refs):
             child = "/".join((*instance.keys, ref.key))
             if child in files:
-                self.reference(ref, files[child], f"{where}.sheet_ref.{ref.key}")
+                self.reference(ref, files[child], f"{where}.sheet_ref.{ref.key}", ref_idx)
                 if self.carry:
                     refs.append(drawn_carrier.sheet_ref_value(ref))
         carried: list[str] = []
@@ -1142,6 +1298,7 @@ class _Sheet:
             buses=(),
             composition=None,
             drawn_records=tuple(tuple(record) for record in self.records),
+            sheet_record=tuple(sheet_rec) if sheet_rec is not None and self.plan.size == base_size else None,
         )
 
 
@@ -1362,6 +1519,7 @@ def lower_drawn(
         state.harness_types = harness_types
         state.aliases = _aliases(drawn, sheet)
         state.definitions = definitions.get(sheet.key, {})
+        state.sheet_fields = fields.get(sheet.key, {})
         state.lone_harness, state.spellings = carried(fields.get(sheet.key, {}))
         state.power_in = power_in
         state.origin = sheet.key if carry and counts[instance.sheet] > 1 and sheet.key not in channels else ""

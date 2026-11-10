@@ -153,7 +153,14 @@ def drawing(
 ) -> tuple[str | None, tuple[Issue, ...]]:
     """Canonical source drawing using the emitter's final reference-to-component-path map."""
     value, issues = drawing_value(source, refs, footprints)
-    return (write_drawn(value) if value is not None else None), issues
+    if value is None:
+        return None, issues
+    text = write_drawn(value)
+    if source.sheet_texts:
+        from fenolite.backends.kicad.sheet_carrier import toml_footer
+
+        text += toml_footer(source.sheet_texts, value, next(iter(source.hierarchy)))
+    return text, issues
 
 
 def drawing_value(

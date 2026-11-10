@@ -634,7 +634,7 @@ def schdoc_records(plan: SheetPlan, frame: Frame | None = None) -> list[Record]:
     frame's custom sheet and the frame's root records come last, so no owner index changes; without one
     the records are those of the changes before."""
     if plan.drawn_records is not None:
-        header = sheet_record(plan)
+        header = list(plan.sheet_record) if plan.sheet_record is not None else sheet_record(plan)
         return [
             header if frame is None else frame.sheet_record(header),
             *(list(record) for record in plan.drawn_records),
