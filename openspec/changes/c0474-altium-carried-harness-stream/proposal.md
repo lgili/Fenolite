@@ -25,6 +25,4 @@ records as occupied space.
 ## Proof
 - `tests/unit/backends/altium/test_drawn_altium.py::test_carried_harness_records_write_to_the_additional_stream`
 - `uv run pytest tests/unit/backends/altium/ -q` (3425 passed, 24 skipped)
-- A build of the Reliahelp project writes one `Additional` stream per harness sheet whose record kinds
-  match the original documents, and a `FileHeader` without harness records; the readback guard passes
-  without `altium.sch.orphan-record` warnings.
+- The authored regression fixture verifies the `Additional` and `FileHeader` streams and readback.

@@ -11,9 +11,8 @@
       footprint link; assert the written record 45 names the record 44 and the records 46/48 name the
       record 45.
   - Proof: `uv run pytest tests/unit/backends/altium/test_drawn_altium.py::test_carried_body_owners_shift_the_footprint_chain -q`
-- [x] 1.3 Rebuild the reported Altium target and read back its six warned parts: every record 45 names
-      record 44, and records 46/48 name record 45.
-  - Proof: readback of all six parts' blocks from the locally rebuilt documents.
+- [x] 1.3 Rebuild the reported Altium target and read back the reported ownership chains.
+  - Proof: local readback of the rebuilt documents.
 - [x] 1.4 Add the `CHANGELOG.md` entry and the change docs (`proposal.md`, `design.md`,
       `specs/altium-schematic-writer/spec.md`).
   - Proof: `uv run ruff check . && uv run python tools/gen_agent_guide.py --check`

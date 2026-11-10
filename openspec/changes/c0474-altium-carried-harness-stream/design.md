@@ -5,19 +5,13 @@ An Altium schematic document holds harness records in a second CFB stream named 
 own header record; `FileHeader` never names them and they never name FileHeader records. The import
 (`read.sch.document`) exposes both streams merged through `all_records()`, so the drawn carrier carries
 them as opaque subtree items (`|RECORD=215|…` roots with `|RECORD=216|…|OWNERINDEX=@0` children) and
-c0471 wrote them back wherever ordinary opaque records go: the `FileHeader` stream. Altium's compiler
-rejects such documents (the GUI tolerates them), which is the "Missing child-sheet in Symbol …" error of
-the Reliahelp build.
+c0471 wrote them back wherever ordinary opaque records go: the `FileHeader` stream. This can produce
+"Missing child-sheet in Symbol …" compiler errors.
 
-## Root cause, from the original documents
-`01_Input_Stage.SchDoc` of the Reliahelp source project streams:
-
-- `FileHeader`: 1627 records, none of 215–218.
-- `Additional`: header + `215`, `216`, `217`, `218`.
-
-Children of a connector name it with `OWNERINDEXADDITIONALLIST=T` and `OWNERINDEX` counted over the
-Additional records (0-based after the header); the owner is omitted entirely when that index is 0
-(03_Inverter's second connector has `OWNERINDEX=9`, its first none).
+## Root cause
+The public format evidence in `docs/formats/altium/schematic-binary.md` describes harness records in
+the `Additional` stream and their ownership conventions. Treating carried harness records as ordinary
+`FileHeader` records puts them in the wrong index space.
 
 ## Decision
 Route at the writer, not the reader: the drawn reader keeps carrying harness subtrees as opaque items
@@ -46,4 +40,4 @@ Route at the writer, not the reader: the drawn reader keeps carrying harness sub
 - Written documents match the native stream layout; Altium's compiler accepts them.
 - A carried connector keeps its original geometry, colours, entries and type text.
 - Sheets whose source `Additional` stream holds only the header record (no records) now write no
-  `Additional` stream at all — semantically identical (verified against 06_SMPS).
+  `Additional` stream at all.
