@@ -240,6 +240,22 @@ from the schematic.
 - No key of the comparator or of the change-order options is written: the saved files number those options
   without naming them, so their meaning is in no permitted source.
 
+## The source's layout (change c0483)
+
+- A project written from the drawing of an Altium source (a conversion through KiCad, or the Altium build of
+  an imported script) lists its documents as the source does: each written document whose file name a
+  source path ends with stands at that path (`SCH\`, `PCB\`, `LIB\` folders), the written PCB document
+  takes the folder and place of the source's first one, and the `Document<n>` sections follow the
+  source's order, then the written documents the source lacks. A section keeps the keys the writer gives it.
+- The documents Fenolite does not model (every listed document but `.SchDoc`, `.SchLib`, `.PcbLib` and the
+  first `.PcbDoc`: output jobs, Draftsman documents, harness definition files, a second PCB document,
+  integrated libraries) and the `.PrjPcbStructure` beside the project are written back with the bytes read.
+  The structure file is the one Altium derives (the choices above); a carried copy is the source's own,
+  written as `<name>.PrjPcbStructure`.
+- A drawn sheet written once keeps its source file name when it is a valid `.SchDoc` name no other written
+  sheet holds; otherwise it is `<name>_drawn_<id>.SchDoc` as in change c0470.
+- Without a document list from a source the written project keeps the bytes of the choices above.
+
 ## Output job in the project (change c0087)
 
 | fact | source | label | hypothesis |

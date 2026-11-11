@@ -1538,19 +1538,35 @@ def lower_drawn(
     harness_types = _harness_types(list(harnesses.values()))
     # a root that stands for no source document: its sheets are top documents of their own names (c0470)
     tops = fields.get(drawn.root, {}).get(drawn_read.TOPS_KEY, {}).get(drawn_read.TOPS_FIELD) == "T"
+    counts = Counter(instance.sheet for instance in found)
+    channels = channel_sheets(found, drawn, specs) if carry else {}
+    # the source's own file name of a sheet written once (change c0483), unless two sheets would hold it
+    own = {
+        key: file
+        for key, file in _source_names(fields.get(drawn.root, {}), drawn.root).items()
+        if counts[key] == 1 or key in channels
+    }
     files: dict[str, str] = {}
     for instance in found:
         sheet = drawn.sheet(instance.sheet)
         if sheet is not None and sheet.generated and instance.module in generated:
             files[instance.path] = generated[instance.module].file
+        elif instance.sheet in own:
+            files[instance.path] = own[instance.sheet]
         elif tops and len(instance.keys) == 1:
             files[instance.path] = f"{instance.sheet}.SchDoc"
         else:
             files[instance.path] = (
                 f"{name}.SchDoc" if not instance.keys else f"{name}_drawn_{unique_id(instance.path)}.SchDoc"
             )
-    counts = Counter(instance.sheet for instance in found)
-    channels = channel_sheets(found, drawn, specs) if carry else {}
+    holders: dict[str, set[str]] = {}
+    for instance in found:
+        holders.setdefault(files[instance.path].casefold(), set()).add(instance.sheet)
+    for instance in found:
+        if instance.sheet in own and len(holders[files[instance.path].casefold()]) > 1:
+            files[instance.path] = (
+                f"{name}.SchDoc" if not instance.keys else f"{name}_drawn_{unique_id(instance.path)}.SchDoc"
+            )
     firsts = {key: next(i for i in found if i.sheet == key) for key in channels}
     for instance in found:  # a channel is drawn by the one sheet of its first channel
         if instance.sheet in firsts:
@@ -1644,12 +1660,31 @@ def written_kind(
     return "global" if label.text in powers else "local"
 
 
+def _source_names(fields: Mapping[str, Mapping[str, str]], root: str) -> dict[str, str]:
+    """The file name of each drawn sheet, by key, that the source project's document list in the root
+    sheet's carrier ``fields`` gives it (change c0483): a ``.SchDoc`` name Altium can hold; the root sheet's
+    by ``root``."""
+    from fenolite.backends.altium.prjpcb import documents_of
+
+    text = fields.get(drawn_read.TOPS_KEY, {}).get(drawn_read.DOCUMENTS_FIELD, "")
+    found: dict[str, str] = {}
+    for path, key in documents_of(text):
+        file = path.rpartition("/")[2]
+        if key and file.lower().endswith(".schdoc") and text_problem(file, form="binary", read=True) is None:
+            found[root if key == drawn_read.ROOT_DOCUMENT else key] = file
+    return found
+
+
+_CARRIED_PROJECT = (drawn_read.PROJECT_FIELD, drawn_read.DOCUMENTS_FIELD)
+
+
 def _styling_fields(fields: Mapping[str, Mapping[str, str]]) -> Mapping[str, Mapping[str, str]]:
-    """``fields`` without the carried project settings, which style no sheet (change c0479)."""
+    """``fields`` without the carried project settings and document list, which style no sheet (changes
+    c0479, c0483)."""
     project = fields.get(drawn_read.TOPS_KEY, {})
-    if drawn_read.PROJECT_FIELD not in project:
+    if not any(field in project for field in _CARRIED_PROJECT):
         return fields
-    rest = {k: v for k, v in project.items() if k != drawn_read.PROJECT_FIELD}
+    rest = {k: v for k, v in project.items() if k not in _CARRIED_PROJECT}
     out = {k: v for k, v in fields.items() if k != drawn_read.TOPS_KEY}
     return {**out, drawn_read.TOPS_KEY: rest} if rest else out
 

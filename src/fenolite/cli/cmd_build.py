@@ -1365,7 +1365,7 @@ def _built(
         source_inputs.extend(run.source_files)
     design = run.design
     if args.target == ALTIUM_TARGET and altium_carried(design) and getattr(args, "copper_from", None) is None:
-        return _through_conversion(args, ctx, run, out)
+        return _through_conversion(args, ctx, run, out, script_path.parent)
     native_project_text = None
     native_project_resources = ()
     native_rule_binding = None
@@ -2130,15 +2130,21 @@ def altium_carried(design: DslDesign) -> bool:
     )
 
 
-def _through_conversion(args: argparse.Namespace, ctx: Context, run: ScriptRun, out: Path) -> Result:
+def _through_conversion(
+    args: argparse.Namespace, ctx: Context, run: ScriptRun, out: Path, folder_of_script: Path
+) -> Result:
     """The ``--target altium`` build of a script that carries an Altium source's board records (change
     c0480): the KiCad build of the script, planned in memory into a temporary folder, converted to Altium
     as ``fenolite convert --to altium`` converts a project, so the carried rule records, storages, unions,
     fonts and frame are written back as a conversion writes them. An error of the KiCad build refuses this
-    build with its issues; the files are the conversion's, under ``--out``."""
+    build with its issues; the files are the conversion's, under ``--out``. The documents of the source that
+    Fenolite does not model, which the import keeps beside the script (``prjpcb.CARRIED_FOLDER``, change
+    c0483), go with the KiCad build, so the conversion writes them back."""
+    import shutil
     import tempfile
 
     from fenolite.api.conversion import convert
+    from fenolite.backends.altium.prjpcb import CARRIED_FOLDER
 
     with tempfile.TemporaryDirectory(prefix="fenolite-altium-") as folder:
         staged = Path(folder) / "kicad"
@@ -2153,6 +2159,8 @@ def _through_conversion(args: argparse.Namespace, ctx: Context, run: ScriptRun, 
             path = Path(write.path)
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(write.data)
+        if (folder_of_script / CARRIED_FOLDER).is_dir():
+            shutil.copytree(folder_of_script / CARRIED_FOLDER, staged / CARRIED_FOLDER)
         try:
             found = convert(
                 staged,

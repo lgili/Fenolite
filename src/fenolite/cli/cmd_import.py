@@ -27,6 +27,7 @@ from typing import Any
 
 from fenolite import __version__
 from fenolite.api import convert, read_board, run
+from fenolite.backends.altium.prjpcb import CARRIED_FOLDER
 from fenolite.backends.altium.read.project import read_project
 from fenolite.backends.kicad.cli import find_kicad_cli
 from fenolite.backends.kicad.symbol_contexts import check_paths
@@ -166,6 +167,7 @@ def _altium(
         key: data
         for key, data in conversion.files.items()
         if PurePosixPath(key).parent.name.endswith(FOLDER_SUFFIX)  # change c0409, B9
+        or key.startswith(f"{CARRIED_FOLDER}/")  # change c0483: the documents Fenolite does not model
     }
     source = dataclasses.replace(
         source,

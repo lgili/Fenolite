@@ -34,8 +34,8 @@ experimental, and its evidence.
 
 | from | to | writer | experimental | evidence |
 |---|---|---|---|---|
-| kicad | altium | the footprint items projected (`fpitems.with_footprint_items`), then `lower.write_design`: the PCB document, and the source's drawing (`backends/altium/drawn.py` with the carrier `Fenolite.KiCad.Sheet`, change c0470; `docs/drawn-schematic.md`), its libraries and the project file | yes | `INFERRED` (the Altium writers), with the triangle `H-K-CONV-TRIANGLE`; the schematic drawing is `ALTIUM-VERIFIED(kit)` (S-2287) |
-| altium | kicad | 9, 10 | `altium-to-kicad`; derived libraries, the source's drawing with the carrier `Fenolite.Altium.Sheet` (change c0470; a source without sheets gets a generated schematic), reported losses |
+| kicad | altium | the footprint items projected (`fpitems.with_footprint_items`), then `lower.write_design`: the PCB document, and the source's drawing (`backends/altium/drawn.py` with the carrier `Fenolite.KiCad.Sheet`, change c0470; `docs/drawn-schematic.md`), its libraries and the project file; with the document list of an Altium source, the source's layout and the documents carried in `altium-carried/` (change c0483) | yes | `INFERRED` (the Altium writers), with the triangle `H-K-CONV-TRIANGLE`; the schematic drawing is `ALTIUM-VERIFIED(kit)` (S-2287) |
+| altium | kicad | 9, 10 | `altium-to-kicad`; derived libraries, the source's drawing with the carrier `Fenolite.Altium.Sheet` (change c0470; a source without sheets gets a generated schematic), the source's document list in that carrier and the documents Fenolite does not model in `altium-carried/` (change c0483), reported losses |
 | kicad | kicad | `write_triad` for the target major with the source's project file updated, the source's rules file written again for the target, and the schematic files copied when the majors are equal; for an older target, every file written through the downgrade resolver (below) | no | `KICAD-VERIFIED (9.0.x, 10.0.x)` (`H-K-CONV-RETARGET`; a downgrade: `H-K-DOWN-ROWS`, `H-K-DOWN-DEMOS`) |
 
 - A schematic of an older major than the target is not converted (a schematic is not upgraded): the

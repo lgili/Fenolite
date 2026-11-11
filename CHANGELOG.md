@@ -29,6 +29,12 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Fixed
 
+- **The source's project layout is kept** (c0483): an Altium project converted to KiCad and back, or
+  imported with `import --to python` and built with `build --target altium`, keeps its sheet file names, its
+  document folders and order, and the documents Fenolite does not model: output jobs, Draftsman documents,
+  harness definition files, a second PCB document, integrated libraries and the `.PrjPcbStructure`. Their
+  bytes travel in `altium-carried/` beside the KiCad project or the script; the document list rides in the
+  root sheet's carrier beside the project settings of c0479.
 - **The source's pour is kept** (c0482): a conversion from Altium through KiCad and back to Altium writes the
   source's saved polygon regions as read, instead of pouring again. This covers a script imported with
   `import --to python` and built with `build --target altium`. A conversion to KiCad carries them in

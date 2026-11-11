@@ -666,6 +666,10 @@ TOPS_KEY = "project"
 TOPS_FIELD = "TOPS"
 PROJECT_FIELD = "PRJPCB"
 """The field of ``TOPS_KEY`` that holds the source project's settings (``prjpcb.carried_settings``, c0479)."""
+DOCUMENTS_FIELD = "DOCUMENTS"
+"""The field of ``TOPS_KEY`` that holds the source project's document list (``prjpcb.documents_text``,
+change c0483); the root sheet's own document has the key ``ROOT_DOCUMENT``."""
+ROOT_DOCUMENT = "/"
 """The carrier field of the root sheet that the drawing adds over the top sheets of a project without one
 (a flat project): the Altium writer writes those sheets as top documents again (change c0470)."""
 
@@ -1552,7 +1556,9 @@ def extract(
 
 __all__ = [
     "label_harness",
+    "DOCUMENTS_FIELD",
     "PROJECT_FIELD",
+    "ROOT_DOCUMENT",
     "TOPS_FIELD",
     "TOPS_KEY",
     "EVIDENCE",

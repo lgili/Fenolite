@@ -342,6 +342,8 @@ class SourceDrawing:
     sheets: tuple[SheetInput, ...]
     project: str = ""
     """The settings of the source project (``prjpcb.carried_settings``, change c0479)."""
+    documents: str = ""
+    """The source project's document list (``prjpcb.documents_text``, change c0483)."""
 
 
 def drawing_of(source: SourceProject) -> SourceDrawing | None:
@@ -353,7 +355,52 @@ def drawing_of(source: SourceProject) -> SourceDrawing | None:
     if not sheets:
         return None
     project = carried_settings(source.path.read_bytes(), file=source.path.name)
-    return SourceDrawing(drawn_read.extract_with_pins(sheets), tuple(sheets), project)
+    extracted = drawn_read.extract_with_pins(sheets)
+    return SourceDrawing(extracted, tuple(sheets), project, _documents(source, extracted))
+
+
+def _documents(source: SourceProject, extracted: drawn_read.Extracted) -> str:
+    """The source's document list for the root sheet's carrier (change c0483): each listed document, then the
+    ``.PrjPcbStructure`` beside the project when there is one; a sheet names its drawn sheet's key, the root
+    sheet ``drawn_read.ROOT_DOCUMENT``."""
+    from pathlib import PurePosixPath
+
+    from fenolite.backends.altium.prjpcb import documents_text
+    from fenolite.backends.altium.read.project import read_project
+
+    listed = [d.posix for d in read_project(source.path.read_bytes(), file=source.path.name).documents]
+    keys = {file.casefold(): key for key, file in extracted.files.items()}
+    root = extracted.drawn.root
+    sheets: dict[str, str] = {}
+    for path in listed:
+        key = keys.get(PurePosixPath(path).name.casefold())
+        if key is not None and path.lower().endswith(".schdoc"):
+            sheets[path] = drawn_read.ROOT_DOCUMENT if key == root else key
+    structure = source.path.with_suffix(".PrjPcbStructure")
+    extra = [structure.name] if structure.is_file() else []
+    return documents_text([*listed, *extra], sheets)
+
+
+def carried_documents(source: SourceProject) -> dict[str, bytes]:
+    """The bytes of the source project's documents that Fenolite does not model (``prjpcb.carried_kind``),
+    each under ``prjpcb.CARRIED_FOLDER`` at its project path, for a KiCad or Python output (change c0483). A
+    document that leaves the project folder or is not on disk is left out."""
+    from fenolite.backends.altium.prjpcb import CARRIED_FOLDER, carried_kind, document_path
+    from fenolite.backends.altium.read.project import locate, read_project
+
+    if source.backend != "altium" or source.path.suffix.lower() != ".prjpcb":
+        return {}
+    listed = [d.path for d in read_project(source.path.read_bytes(), file=source.path.name).documents]
+    paths = [p for p in (document_path(path) for path in listed) if p is not None]
+    structure = source.path.with_suffix(".PrjPcbStructure")
+    found: dict[str, bytes] = {}
+    for path in carried_kind(paths):
+        file = locate(source.path.parent, path)
+        if file is not None:
+            found[f"{CARRIED_FOLDER}/{path}"] = file.read_bytes()
+    if structure.is_file():
+        found[f"{CARRIED_FOLDER}/{structure.name}"] = structure.read_bytes()
+    return found
 
 
 @dataclass(frozen=True)
@@ -577,7 +624,7 @@ def write_kicad_drawing(
         sheet.key: sheet_carrier.altium_sheet(
             sheet.opaques,
             found.sheet_records.get(sheet.key, ""),
-            _with_project(found.altium_fields.get(sheet.key, {}), drawing.project)
+            _with_project(found.altium_fields.get(sheet.key, {}), drawing.project, drawing.documents)
             if sheet.key == found.drawn.root
             else found.altium_fields.get(sheet.key, {}),
         )
@@ -594,12 +641,17 @@ def write_kicad_drawing(
     return WrittenDrawing(files, generated.issues, dict(changes))
 
 
-def _with_project(fields: Mapping[str, Mapping[str, str]], project: str) -> Mapping[str, Mapping[str, str]]:
-    """The root sheet's carrier ``fields`` with the source project's settings (change c0479)."""
-    if not project:
+def _with_project(
+    fields: Mapping[str, Mapping[str, str]], project: str, documents: str = ""
+) -> Mapping[str, Mapping[str, str]]:
+    """The root sheet's carrier ``fields`` with the source project's settings (change c0479) and its document
+    list (change c0483)."""
+    held = {drawn_read.PROJECT_FIELD: project, drawn_read.DOCUMENTS_FIELD: documents}
+    held = {field: value for field, value in held.items() if value}
+    if not held:
         return fields
     key = drawn_read.TOPS_KEY
-    return {**fields, key: {**fields.get(key, {}), drawn_read.PROJECT_FIELD: project}}
+    return {**fields, key: {**fields.get(key, {}), **held}}
 
 
 def kicad_drawing(source: SourceProject, design: Design) -> tuple[DrawnSchematic | None, tuple[Issue, ...]]:

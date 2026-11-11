@@ -21,6 +21,10 @@ additional names synthesized from harness sheet entries; projects without harnes
 
 Change c0479 carries the settings of a converted or imported source project (``carried_settings``) and
 merges them into the written file (``write_prjpcb(carried=...)``).
+
+Change c0483 keeps the source project's layout: its document list (``documents_text``, carried beside the
+settings), the documents Fenolite does not model (``carried_kind``, their bytes under ``CARRIED_FOLDER`` of
+a KiCad or Python output) and the folders of every document (``laid_out``).
 """
 
 # evidence: see project
@@ -244,13 +248,133 @@ def _merged(lines: Sequence[str], carried: str) -> list[str]:
     return out
 
 
+CARRIED_FOLDER = "altium-carried"
+"""The folder of a KiCad or Python output that holds the bytes of the source's documents that Fenolite does
+not model, each at its project path (change c0483)."""
+STRUCTURE_SUFFIX = ".prjpcbstructure"
+_MODELLED = (".schdoc", ".schlib", ".pcblib")
+
+
+def document_path(path: str) -> str | None:
+    """The project path ``path`` (``\\`` or ``/`` between folders) with ``/``, or ``None`` when it would leave
+    the project folder: absolute, a drive, an empty, ``.`` or ``..`` part (change c0483)."""
+    parts = path.replace("\\", "/").split("/")
+    if not path or ":" in path or any(part in ("", ".", "..") for part in parts):
+        return None
+    return "/".join(parts)
+
+
+def documents_text(paths: Sequence[str], sheets: Mapping[str, str]) -> str:
+    """The source's document list as the root sheet's carrier holds it (change c0483): one line per project
+    path in source order, a tab, and the key of the drawn sheet the document is (``sheets``), else ``""``."""
+    return "".join(f"{path}\t{sheets.get(path, '')}\n" for path in paths)
+
+
+def documents_of(text: str) -> list[tuple[str, str]]:
+    """``(path, sheet key)`` of each line of ``documents_text``; a path that leaves the folder is left out."""
+    found: list[tuple[str, str]] = []
+    for line in text.splitlines():
+        path, _, key = line.partition("\t")
+        if (posix := document_path(path)) is not None:
+            found.append((posix, key))
+    return found
+
+
+def carried_kind(paths: Sequence[str]) -> list[str]:
+    """The ``paths`` (in order) whose bytes a conversion carries: every document but the schematic sheets,
+    the libraries and the first PCB document, which Fenolite writes itself (change c0483)."""
+    boards = [p for p in paths if p.lower().endswith(".pcbdoc")]
+    return [p for p in paths if not p.lower().endswith(_MODELLED) and p not in boards[:1]]
+
+
+def laid_out(
+    files: Mapping[str, bytes],
+    documents: Sequence[tuple[str, str]],
+    carried: Mapping[str, bytes],
+    *,
+    name: str,
+) -> dict[str, bytes]:
+    """The written ``files`` (bare names) in the source's layout (change c0483): each written document that
+    the source lists by its name (without case) moves to the source's path, each carried document the source
+    lists is added at its path, the written ``<name>.PcbDoc`` that the source does not name takes the place
+    and folder of the source's first PCB document, and ``<name>.PrjPcb`` lists them in the source's order,
+    then the written documents the source lacks in written order. A carried ``.PrjPcbStructure`` becomes
+    ``<name>.PrjPcbStructure``. Without ``documents`` the files are returned as they are."""
+    project = f"{name}.PrjPcb"
+    out = dict(files)
+    if not documents or project not in out:
+        return out
+    loose = {file.casefold(): file for file in files if "/" not in file and file != project}
+    board = next((path for path, _ in documents if path.lower().endswith(".pcbdoc")), None)
+    listed: list[tuple[str, str]] = []  # (source path, written name or "")
+    for path, _ in documents:
+        folder, _, base = path.rpartition("/")
+        if base.lower().endswith(STRUCTURE_SUFFIX):
+            if path in carried:
+                out[f"{name}.PrjPcbStructure"] = carried[path]
+            continue
+        written = loose.pop(base.casefold(), None)
+        if written is None and path == board:  # the written board in the place of the source's first
+            written = loose.pop(f"{name}.PcbDoc".casefold(), None)
+            path = f"{folder}/{written}" if folder and written else path
+        if written is not None:
+            out[path] = out.pop(written)
+        elif path in carried and path not in out:
+            out[path] = carried[path]
+        else:
+            continue
+        listed.append((path, written or ""))
+    out[project] = relisted(out[project], listed)
+    return out
+
+
+def relisted(data: bytes, listed: Sequence[tuple[str, str]]) -> bytes:
+    """The project file ``data`` with its ``Document<n>`` sections in the order of ``listed`` (each source
+    path with the section of its written name, else ``DocumentPath`` alone), then its other documents,
+    renumbered from 1 where the first document section stood (change c0483)."""
+    text = data.removeprefix(UTF8_BOM).decode("utf-8")
+    sections = _sections(text.split("\r\n"))
+    own = {
+        next((e.partition("=")[2] for e in entries if e.startswith("DocumentPath=")), ""): entries
+        for name, entries in sections
+        if _family(name) == "Document"
+    }
+    ordered: list[list[str]] = []
+    for path, written in listed:
+        entries = own.pop(written, [])
+        rest = [e for e in entries if not e.startswith("DocumentPath=")]
+        windows = path.replace("/", "\\")
+        ordered.append([f"DocumentPath={windows}", *rest])
+    ordered += own.values()
+    lines: list[str] = []
+    placed = False
+    for name, entries in sections:
+        if _family(name) == "Document":
+            if not placed:
+                for index, held in enumerate(ordered, start=1):
+                    lines += [*([""] if lines else []), f"[Document{index}]", *held]
+                placed = True
+            continue
+        lines += [*([""] if lines else []), f"[{name}]", *entries]
+    if all(line.isascii() for line in lines):
+        return b"".join(line.encode("ascii") + LINE_END for line in lines)
+    return UTF8_BOM + b"".join(line.encode("utf-8") + LINE_END for line in lines)
+
+
 __all__ = [
+    "CARRIED_FOLDER",
     "CHANNEL_KEYS",
     "CLASS_GENERATION",
     "CLASS_SECTION",
     "SHEET_CLASS_KEYS",
     "VERSION",
+    "carried_kind",
     "carried_settings",
+    "document_path",
+    "documents_of",
+    "documents_text",
+    "laid_out",
+    "relisted",
     "retarget_variants",
     "write_prjpcb",
 ]

@@ -503,6 +503,21 @@ def open_pads(design: Design) -> Design:
     )
 
 
+def _source_layout(
+    source: SourceProject, files: Mapping[str, bytes], root: Mapping[str, Mapping[str, str]], name: str
+) -> dict[str, bytes]:
+    """``files`` in the layout of the Altium project that the drawing's root carrier ``root`` lists (change
+    c0483, ``prjpcb.laid_out``): its folders, its document order and the documents Fenolite does not model,
+    whose bytes the KiCad project holds under ``prjpcb.CARRIED_FOLDER``."""
+    from fenolite.backends.altium import drawn_read
+    from fenolite.backends.altium.prjpcb import CARRIED_FOLDER, carried_kind, documents_of, laid_out
+
+    documents = documents_of(root.get(drawn_read.TOPS_KEY, {}).get(drawn_read.DOCUMENTS_FIELD, ""))
+    held = {path: source.root / CARRIED_FOLDER / path for path in carried_kind([p for p, _ in documents])}
+    carried = {path: file.read_bytes() for path, file in held.items() if file.is_file()}
+    return laid_out(files, documents, carried, name=name)
+
+
 def write(source: SourceProject, options: Options) -> Written:
     """The Altium project of a KiCad source, with its report. Its copper graphics take the net their KiCad
     slot names (``fpitems.with_graphic_nets``), as a build's do: without it a netted copper shape is written
@@ -617,6 +632,8 @@ def write(source: SourceProject, options: Options) -> Written:
         for i in written.issues
     )
     sheets_written = any(file.endswith(".SchDoc") for file in written.files)  # a flat one has no <name>
+    root_fields = carrier_fields.get(drawing.root, {}) if drawn and drawing is not None else {}
+    files = _source_layout(source, written.files, root_fields, name)
     if drawn and sheets_written:
         assert drawing is not None
         source_counts, changes = schematic.kicad_drawing_rows(drawing)  # change c0470, design D5
@@ -638,12 +655,13 @@ def write(source: SourceProject, options: Options) -> Written:
         issue for issue in written.issues if issue.code != lower.NOT_LOWERED or issue.where == SCHEMATIC
     )
     summary = written.pour.pour if written.pour is not None else None
+    board_file = next((f for f in files if f.rpartition("/")[2] == f"{name}.PcbDoc"), None)
     return Written(
-        written.files,
+        files,
         report,
         design,
         # a project without a board reads back from its project file (change c0470)
-        f"{name}.PcbDoc" if f"{name}.PcbDoc" in written.files else f"{name}.PrjPcb",
+        board_file or f"{name}.PrjPcb",
         issues,
         schematic=f"{name}.PrjPcb" if sch is not None else None,
         evidence=Evidence.combine(EVIDENCE, summary.evidence)

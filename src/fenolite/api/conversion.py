@@ -135,29 +135,34 @@ def _schematic(
     source = conversion.source.root / f"{conversion.source.name}{suffix}"
     target = folder / conversion.schematic
     if conversion.target == "altium":
+        from fenolite.backends.altium.prjpcb import relisted
         from fenolite.backends.altium.project import write_prjpcb
 
         stem = PurePosixPath(conversion.read_back).stem
         # the first sheet of the written project: ``<name>.SchDoc``, or a flat project's first document
         listed = [
-            line.partition("=")[2].strip()
+            line.partition("=")[2].strip().replace("\\", "/")
             for line in conversion.files.get(f"{stem}.PrjPcb", b"")
             .decode("utf-8-sig", "replace")
             .splitlines()
             if line.startswith("DocumentPath=") and line.strip().endswith(".SchDoc")
         ]
         main = f"{stem}.SchDoc" if f"{stem}.SchDoc" in conversion.files or not listed else listed[0]
+        sheets = [f for f in conversion.files if f.endswith(".SchDoc") and f != main]
+        libraries = [f for f in conversion.files if f.endswith(".SchLib")]
         # Physical pads can include unused pins absent from the schematic circuit.
         target = folder / "schematic-verification.PrjPcb"
-        target.write_bytes(
-            write_prjpcb(
-                schematic=main,
-                sheets=tuple(f for f in conversion.files if f.endswith(".SchDoc") and f != main),
-                libraries=tuple(f for f in conversion.files if f.endswith(".SchLib")),
-                # the names of the channels of a sheet written once for several symbols (c0470)
-                channels=b"ChannelDesignatorFormatString=" in conversion.files.get(f"{stem}.PrjPcb", b""),
-            )
+        data = write_prjpcb(
+            schematic=PurePosixPath(main).name,
+            sheets=tuple(PurePosixPath(f).name for f in sheets),
+            libraries=tuple(PurePosixPath(f).name for f in libraries),
+            # the names of the channels of a sheet written once for several symbols (c0470)
+            channels=b"ChannelDesignatorFormatString=" in conversion.files.get(f"{stem}.PrjPcb", b""),
         )
+        # the documents in the folders of a source's layout (change c0483)
+        if any("/" in f for f in (main, *sheets, *libraries)):
+            data = relisted(data, [(f, PurePosixPath(f).name) for f in (main, *sheets, *libraries)])
+        target.write_bytes(data)
     try:
         found = equivalent(source, target, level=SCHEMATIC_LEVEL, profile=profile)
     except FenoliteError as error:
