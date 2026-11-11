@@ -71,7 +71,7 @@ The quality gates SHALL be runnable locally through the `Makefile` target `make 
 
 ### Requirement: kicad-10 oracle job
 
-Full CI SHALL retain pinned KiCad 10.0.6, all current corpus uses, geo, FENOLITE_HEAVY=1 and FENOLITE_REQUIRE=kicad,corpus,libs. All tests/kicad and tests/corpus node ids plus whole resource-bearing unit files SHALL execute in four audited whole-file partitions with loadfile scheduling and container-local temporary files. Fast MAY omit these jobs only without satisfying the full gate.
+Full CI SHALL retain pinned KiCad 10.0.6, all current corpus uses, geo, FENOLITE_HEAVY=1 and FENOLITE_REQUIRE=kicad,corpus,libs. All tests/kicad and tests/corpus node ids plus whole resource-bearing unit files SHALL execute in five audited whole-file partitions with container-local temporary files. Four partitions SHALL retain hash-based loadfile scheduling for the ordinary native collection. The routing completion scale file SHALL run serially in the fifth partition with its original fixtures, assertions, and budgets. Fast MAY omit these jobs only without satisfying the full gate.
 
 #### Scenario: Heavy corpus test assigned
 - **WHEN** full CI partitions the KiCad 10 collection
@@ -109,6 +109,10 @@ Full CI SHALL retain pinned KiCad 10.0.6, all current corpus uses, geo, FENOLITE
 #### Scenario: Demo projects are checked
 - **WHEN** the `kicad-10` job runs
 - **THEN** `tests/kicad/check/test_check_demos.py::test_demo_projects` runs on the fetched demo projects and is not skipped for a missing corpus
+
+#### Scenario: Routing scale isolated
+- **WHEN** full CI partitions the KiCad 10 collection
+- **THEN** the routing completion scale file is scheduled exactly once on a dedicated serial runner
 
 ### Requirement: Required-resource mode
 When the environment variable `FENOLITE_REQUIRE` lists a resource (`kicad`, `corpus`, `libs`; comma-separated), tests marked with the matching `needs_*` marker MUST fail, not skip, if the resource is missing. The failure message MUST be the one the skip would have shown. With `corpus` listed, a corpus test MUST also fail when any non-heavy `rt0` manifest item is missing from the cache, naming the item. Without the variable, the skip rules of `corpus-policy` apply unchanged.
