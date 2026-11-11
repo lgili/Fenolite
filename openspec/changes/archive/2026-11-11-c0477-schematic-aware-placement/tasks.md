@@ -130,7 +130,7 @@ decision. Follow [evaluation](evaluation.md) for benchmark controls and acceptan
   2026-11-10: 1 passed. Distance-only, electrical and capacity controls precede a feedback
   run under the same declared budget. The feedback recovers a longer checked pose when
   the shortest pose of the electrical and capacity controls hits the routing limit.
-- [ ] 2.5 Check the authored local benchmarks with the pinned native oracle targets and
+- [x] 2.5 Check the authored local benchmarks with the pinned native oracle targets and
   record a baseline for larger boards. Exercise locked connectors, bypass return and
   a switching stage with quiet sense. Run the native proof in CI.
   Proof: `uv run pytest tests/kicad/place/test_optimization_local_oracle.py -q`.
@@ -138,6 +138,8 @@ decision. Follow [evaluation](evaluation.md) for benchmark controls and acceptan
   retain their connector and existing copper, route both required nets and pass native
   check. The blink before/after control reports identical findings. The pinned CI matrix
   remains open. The larger-board baseline is recorded in 3.4.
+  2026-11-11: The bypass and gate-loop/sense cases passed in both pinned KiCad 9 and 10
+  oracle jobs in GitHub Actions run 43014842233.
 
 ## 3. Block floorplanning and scale
 
@@ -156,12 +158,15 @@ decision. Follow [evaluation](evaluation.md) for benchmark controls and acceptan
   Proof: `uv run pytest tests/unit/placement/test_optimization_full_board.py -q`.
   2026-11-10: 2 passed. Local expansion checks full extents, retries adjacent regions
   within budget, and reports blocked and overflowing groups without omitting members.
-- [ ] 3.4 Evaluate two- and four-layer scale fixtures up to the target size and record
+- [x] 3.4 Evaluate two- and four-layer scale fixtures up to the target size and record
   baseline, holdout, failure cases and selected limits. Run native probes and DRC in CI.
   Proof: `uv run pytest tests/kicad/place/test_optimization_scale.py -q`.
   2026-11-10: 2 passed locally with KiCad 10.0.6. Each authored 150-part case takes
   150 placement evaluations, routes 75 connections and passes native DRC. These
   pre-seeded block cases provide a baseline. The pinned CI matrix remains open.
+  2026-11-11: The two-layer baseline and four-layer holdout both passed in the
+  pinned KiCad 9 and 10 oracle jobs. Each placed 150 parts and routed 75 connections.
+  The block-origin scope, full-region refusal and wider-scale limits are in evaluation.md.
 - [x] 3.5 Benchmark a seeded annealing or analytical seed against the measured baseline at
   comparable effort. Record the keep/discard decision and supported scope. No production
   strategy is added if this comparison does not justify one.
@@ -183,12 +188,17 @@ decision. Follow [evaluation](evaluation.md) for benchmark controls and acceptan
   2026-11-10: passed with the real served action runner. An external anchor edit
   invalidates a staged plan, refinement uses the new board and current scope, and
   the selected updated pose writes only after explicit confirmation.
-- [ ] 4.3 Verify keyboard inspection, cross-probing and comparison in the pinned viewer job.
+- [x] 4.3 Verify keyboard inspection, cross-probing and comparison in the pinned viewer job.
   Review references and differences there. Rebuild the committed viewer assets.
   Proof: `make viewer-check && uv run pytest tests/visual/test_placement_optimization.py -q`.
   2026-11-10: the assets reproduce locally. The Playwright 1.63.0 test opens an
   alternative by keyboard and locates its exact pads and net in the standalone
   page. The CI screenshot and reference review remain open.
+  2026-11-11: The committed viewer bundle reproduced and the exact keyboard and
+  pad/net cross-probe case passed in the pinned viewer job (126 visual cases selected).
+  The authored capture shows both alternatives and the selected R1-2/D1-2 return
+  measurement on LED_A. The new case uses interaction assertions, and the pinned
+  suite also verifies the existing image references.
 - [x] 4.4 Update placement and CLI docs and teach the public surface in the agent guide.
   Include an authored worked example and describe incomplete or unsupported results.
   Proof: `uv run python tools/gen_agent_guide.py && uv run pytest tests/unit/agent/test_pages.py -q`.
@@ -198,7 +208,7 @@ decision. Follow [evaluation](evaluation.md) for benchmark controls and acceptan
 
 ## Closing
 
-- [ ] 5.1 Run focused proofs, local quick checks and residue scan. Verify the required full CI
+- [x] 5.1 Run focused proofs, local quick checks and residue scan. Verify the required full CI
   jobs on the commit proposed for merge, including native and viewer proofs. Record skips
   as missing evidence.
   Proof: `make check-fast && git diff --check` plus the required CI jobs.
@@ -206,9 +216,18 @@ decision. Follow [evaluation](evaluation.md) for benchmark controls and acceptan
   pass in a fresh CI environment with `uv sync --locked --extra dev --extra geo`.
   The static viewer proof reads UTF-8 HTML explicitly and passes with a Windows cp1252
   default for file reads.
-- [ ] 5.2 Record benchmark artifacts, tool versions, scope and observed evidence labels.
+  2026-11-11: Local check-fast passed 25,080 cases with 77 declared skips. The
+  required exact-commit CI and coverage audit passed in GitHub Actions run 43014842233.
+  Native CAD and viewer receipts record their specific executed cases.
+- [x] 5.2 Record benchmark artifacts, tool versions, scope and observed evidence labels.
   Publish failed and unattempted cases with the successful cases.
   Proof: `uv run python tools/gen_evidence_matrix.py --check`.
-- [ ] 5.3 Update CHANGELOG for delivered behavior and validate the final spec and diff. Verify
+  2026-11-11: The evidence matrix check passed. The exact tested commit reproduces
+  the bytes of the Altium save/reopen input. Scope, failures, unattempted cases and
+  observed evidence are recorded in evaluation.md and the pinned job receipts.
+- [x] 5.3 Update CHANGELOG for delivered behavior and validate the final spec and diff. Verify
   any final edits on the corresponding CI commit before archive.
   Proof: `openspec validate c0477-schematic-aware-placement --strict && git diff --check`.
+  2026-11-11: Strict validation and diff checks passed. GitHub Actions run 43014842233
+  verified a4ff6f02b8d672d4f8cc67ef7c56ee47be5757c2 with the delivered changelog and
+  all executable changes. The subsequent archive updates OpenSpec and the changelog.

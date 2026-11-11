@@ -39,6 +39,8 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Changed
 
+- Archive c0477 after complete CI and coverage passed on `a4ff6f02b` (run `43014842233`).
+
 - Archive c0478 after complete CI and coverage passed on `eee9f53a2` (run `42985032593`).
 
 - Archive c0464, c0465, c0475 after complete CI and coverage passed on `c904cfceb` (run `42956587864`).
