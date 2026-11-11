@@ -662,6 +662,15 @@ A harness crossing SHALL be drawn on the module sheet, and on the top sheet unle
 - A plan with a harness block or a line of `plan.lines` MUST be refused by `schdoc.write_schdoc` (the ASCII form) with `ValueError`; `plan_sheets` never makes one for that form.
 - No block is written in the `flat` mode.
 
+`fenolite.backends.altium.binary.write_schdoc_binary` SHALL write the harness records of a plan (the
+blocks of `plan.harnesses`, the direct-join lines of `plan.lines` and `plan.polylines`, and the records
+carried from a source `Additional` stream in `plan.carried_additional`) into the document's `Additional`
+stream, after its own header record, and SHALL NOT write them into the `FileHeader` stream. A carried
+child's `OWNERINDEX` SHALL name its connector's index in the Additional stream (0-based after the
+header), shifted behind the records `schdoc.additional_records` builds itself, and SHALL be omitted when
+that index is 0. The ASCII form (`schdoc.write_schdoc`) SHALL refuse a plan with carried Additional
+records, as it refuses drawn harnesses.
+
 #### Scenario: Block of the flash sheet
 - **WHEN** `additional_records` runs on the plan of `altium_hier_flash.SchDoc`
 - **THEN** it returns 7 records: one 215, four 216 named `CS`, `MISO`, `MOSI` and `SCK` with `DISTANCEFROMTOP` 1 to 4 and no `OWNERINDEX`, one 217 with `TEXT=SPI`, and one 218 with `LOCATIONCOUNT=2`
@@ -686,6 +695,16 @@ A harness crossing SHALL be drawn on the module sheet, and on the top sheet unle
 #### Scenario: ASCII writer refuses a block
 - **WHEN** `schdoc.write_schdoc` is called on the binary-form plan of `altium_hier_flash.SchDoc`
 - **THEN** it raises `ValueError` naming the harness
+
+#### Scenario: Carried harness records return to the Additional stream
+- **GIVEN** a drawn sheet whose opaque items hold a harness connector subtree (root `RECORD=215` with
+  `RECORD=216` and `RECORD=217` children naming `OWNERINDEX=@0`), a second connector with one entry, and
+  a signal harness line (`RECORD=218`)
+- **WHEN** the project is built with `build --target altium` in the binary form
+- **THEN** the written document's `FileHeader` stream holds no record of 215–218, its `Additional`
+  stream holds them in order `215, 216, 217, 215, 216, 218`, the entry of the first connector names no
+  owner, the entry of the second names `OWNERINDEX=3`, and the document re-reads without an
+  `altium.sch.orphan-record` warning.
 
 ### Requirement: Harness lines between sheet symbols
 `backends.altium.hierarchy.harness_lines(design, crossings)` SHALL name the harnesses whose two sheet entries the top sheet joins by one signal harness line, and `plan_sheets` SHALL draw that line instead of two harness blocks (S-0186, S-0187, S-0188: saved top sheets hold harness lines between sheet entries and no connector). This is the answer to step H3 of the maintainer's report of 2026-10-03: with a labelled block beside each sheet entry, Altium Designer 26.5 warned that each member net had multiple names (the net label and the names the sheet entries give it).
@@ -1141,7 +1160,12 @@ The drawn writer SHALL retain Automatic mode 0. Only when Automatic selects Glob
 - **AND** partial groups, ambiguous matches, duplicate references or names and reserved-name collisions retain the explicit scope-preserving fallback without selecting the first candidate; ordinary sheets retain their existing byte path
 
 ### Requirement: Drawn sheets in Altium
-`fenolite.backends.altium.drawn.lower_drawn` SHALL write one sheet per drawn sheet instance: wires and buses as polylines, junctions, local labels as net labels, hierarchical labels as ports, references as sheet symbols with sheet entries, power symbols and global labels as power ports of their text, bus entries and no-connect directives. A repeated sheet MUST be written once per instance with `drawn.altium-repeat-flattened` (info).
+`fenolite.backends.altium.drawn.lower_drawn` SHALL write one sheet per drawn sheet instance: wires and buses as polylines, junctions, local labels as net labels, hierarchical labels as ports, references as sheet symbols with sheet entries, power symbols and global labels as power ports of their text, bus entries and no-connect directives. A repeated sheet MUST be written once per instance with `drawn.altium-repeat-flattened` (info). When a sheet carries `Fenolite.Altium.Sheet` records and fields (from an Altium conversion or import), `lower_drawn` SHALL restore the sheet's `RECORD=31` font table and background colour, `RECORD=39` template graphics, port dimensions and colours, net-label justifications and colours, sheet-symbol colours and non-overlapping `SheetName`/`SheetFileName` poses and fonts, and component body graphics and field font ids.
+
+#### Scenario: Carried Altium styling restored without overlap
+- **GIVEN** an Altium schematic with a multi-font `RECORD=31`, a `Template` (`RECORD=39`), a sized `Port` (`RECORD=18`), a right-justified `NetLabel` (`RECORD=25`), a `SheetSymbol` (`RECORD=15`) with separated `SheetName` (`RECORD=32`) and `SheetFileName` (`RECORD=33`), and coloured component body graphics
+- **WHEN** it is imported to Python or converted to KiCad and built or converted back to Altium
+- **THEN** the written `.SchDoc` preserves the `RECORD=31` fonts and `AREACOLOR`, the `Template` graphics, the port's `WIDTH` and colours, the net label's `JUSTIFICATION`, the separated `SheetName` and `SheetFileName` locations, and the component body graphics
 
 #### Scenario: Drawn example in Altium
 - **WHEN** `uv run pytest tests/unit/backends/altium/test_drawn_altium.py` builds `examples/drawn/design.py` with `--target altium` and reads the sheets back with the Altium reader
@@ -1233,4 +1257,13 @@ The schematic writer SHALL write a circuit that was read from a file, as follows
 - **GIVEN** a component whose comment holds a character outside Windows-1252
 - **WHEN** it is written in the binary form and read back
 - **THEN** the reader gives the comment from the `%UTF8%` twin, equal to the model's
+
+### Requirement: Clean-room regression fixture
+The harness stream regression fixture SHALL use data authored for Fenolite and SHALL NOT contain
+private-project identifiers, data or examples.
+
+#### Scenario: Harness stream owner regression
+- **GIVEN** independently authored harness connector, entry, type and line records
+- **WHEN** a drawn sheet is built to Altium and read back
+- **THEN** the records and their owner indexes satisfy the existing harness-stream requirement.
 
