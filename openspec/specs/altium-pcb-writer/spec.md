@@ -1324,3 +1324,195 @@ graphic of such a footprint without a net, or on a plane, SHALL stay counted los
 - **WHEN** the board is written
 - **THEN** the document holds one region of the component on the top layer with the index of `5V`
 
+### Requirement: Fills of a converted board
+
+The writer SHALL write a filled rectangle, or a filled polygon of four corners that is a rectangle within
+10 nm, whose KiCad uuid is tagged as an Altium fill as one fill record of its layer, net and owner: the
+50-byte form with the rotation of its first edge. Any other filled shape SHALL stay a region.
+
+#### Scenario: A fill comes back as a fill
+
+- **GIVEN** a KiCad board converted from an Altium document with a free fill and a fill of a component
+- **WHEN** the board is converted to Altium
+- **THEN** the document holds two fill records, one of them with the component's index, and no region in
+  their place
+
+#### Scenario: A component's copper fill of no net comes back
+
+- **GIVEN** a footprint without net ties that holds a tagged fill of no net on a copper layer (row `-04`'s
+  J1 holds six on the Top Layer)
+- **WHEN** the board is converted to Altium
+- **THEN** each is a fill record of no net on that layer with the component's index, and a copper graphic
+  of no net that is not tagged stays refused
+
+### Requirement: Keep-out strokes of a converted board
+
+The writer SHALL write a rule area named with the marker of a keep-out stroke (`Altium.KeepOut/flag<r>/…`)
+as a keep-out track or arc of its signal layer, with the keep-out flag and the restriction byte r in the
+long form (49 bytes for a track, 60 for an arc), of the area's component for an area of a footprint, when the
+area is still its stroke's: one layer, what r forbids and no more, and the band of the stroke as its outline.
+The two rule areas of a circle SHALL give one arc. Any other area SHALL stay a keep-out region.
+
+#### Scenario: A keep-out stroke comes back as a stroke
+
+- **GIVEN** a KiCad board converted from an Altium document with a keep-out circle of a component on the top
+  layer that forbids everything (r = 31)
+- **WHEN** the board is converted to Altium
+- **THEN** the document holds one keep-out arc of the component on the top layer, in the 60-byte form with
+  the byte 31, and no keep-out region in its place
+
+#### Scenario: An edited keep-out stroke stays an area
+
+- **GIVEN** the area of a keep-out stroke edited to forbid vias too
+- **WHEN** the board is written as an Altium document
+- **THEN** the area is a keep-out region and no keep-out track is written for it
+
+#### Scenario: A plain circle of the Keep-Out layer comes back whole
+
+- **GIVEN** the two rule areas that a conversion makes of a circle drawn on the Keep-Out layer without the
+  keep-out flag (change c0442)
+- **WHEN** the board is written as an Altium document
+- **THEN** the document holds one arc of the Keep-Out layer for them and no keep-out region
+
+### Requirement: Texts on Mechanical 17 to 32
+
+The writer SHALL write a text on Mechanical 17 to 32 whose Altium bag holds the source's bytes from 137 on
+of its first subrecord (`text_tail`) in the source's 232- or 252-byte form: the layer byte of Mechanical 16,
+its 137 bytes, then those bytes with the layer's long id at 226. Every other text SHALL keep the 137-byte
+form.
+
+#### Scenario: A text on Mechanical 17 to 32 keeps its long id
+
+- **GIVEN** an Altium document with a 252-byte text whose layer byte is 72 and whose long id at 226 is
+  Mechanical 20, and a 137-byte text on Mechanical 16
+- **WHEN** it is converted to KiCad and back
+- **THEN** the first text comes back with 252 bytes, the byte 72, the long id of Mechanical 20 and the same
+  bytes from 137, and the second in the 137-byte form
+
+### Requirement: Width 0 on mechanical layers
+
+The writer SHALL write a line or an arc of width 0 on a layer the document names as Mechanical 1 to 32
+(`Mech.<n>` of a board that was read, or a KiCad user layer named after a mechanical layer), free or of a
+component, with width 0. A drawn shape of width 0 on any other layer (copper, `F.Fab` and the other
+layers of the fixed KiCad map), a drawn rectangle, circle or polygon of width 0 and a
+negative width SHALL stay refused.
+
+#### Scenario: A line of width 0 on a mechanical layer
+
+- **GIVEN** an Altium document with a free track, a component track and a component arc of width 0 on
+  Mechanical 1
+- **WHEN** it is converted to KiCad and back
+- **THEN** the document holds the three of them on Mechanical 1 with width 0, and a line of width 0 on a
+  silkscreen or copper layer is still refused
+
+### Requirement: A text with a font face is a TrueType text
+
+The Altium PCB writer SHALL write a text or a field that has a `face` as a text record of font type 1,
+with the face as its font name and its bold and italic bytes. It SHALL NOT refuse such a text unless its
+face is longer than the record's 31 characters. It SHALL still refuse bold or italic without a face, and
+knockout.
+
+#### Scenario: A free text with a face
+
+- **GIVEN** a free board text with the face `Arial` and `bold` set
+- **WHEN** the board is written
+- **THEN** its text record holds font type 1, bold 1 and the font name `Arial`
+
+### Requirement: Zero-height TrueType footprint text keeps its record
+
+The Altium PCB writer SHALL write an ordinary footprint text with both dimensions zero, a valid
+TrueType face and positive stroke width as a component text of height zero. Free board texts,
+footprint fields and footprint stroke texts SHALL continue to require positive height.
+
+#### Scenario: A zero-height TrueType footprint text returns from KiCad
+
+- **GIVEN** a KiCad footprint text with size `0 0`, a TrueType face and positive stroke width
+- **WHEN** the board is converted to Altium
+- **THEN** its text record keeps the owning component, text, face, rotation, stroke and height zero
+
+### Requirement: Union members are written with their index
+
+The Altium PCB writer SHALL write the union index that `PcbDocSpec.unions` gives an entity id at offset 70
+of the via record of that id, and as `UNIONINDEX` of the region or component record of that id. It SHALL
+write a free track or arc that is a union member in the long form of its record (49 and 60 bytes) with the
+index at offset 36 and 48, the long id of its layer and the restriction byte 0. It SHALL write the index of
+a free text member, and of a member component for its designator and comment, at offset 119 of the text
+record. Every other record SHALL keep 0.
+
+#### Scenario: A via written with its union
+
+- **GIVEN** a `PcbDocSpec` whose `unions` give the via `v1` the index 1048581
+- **WHEN** the document is written
+- **THEN** the record of `v1` holds 1048581 at offset 70 and every other via holds 0
+
+#### Scenario: A text keeps its union
+
+- **GIVEN** a board whose free text and whose first footprint are members of the union 77
+- **WHEN** the document is written
+- **THEN** the free text's record and the component's designator and comment records hold 77 at offset 119,
+  and every other text 0
+
+#### Scenario: A length tuning comes back in its union
+
+- **GIVEN** a board whose first track is a member of the union 17 and whose arc is a member of the union 19
+- **WHEN** the document is written
+- **THEN** the track record is 49 bytes with 17 at offset 36 and the arc record 60 bytes with 19 at offset
+  48, and every other track keeps 36 bytes
+
+### Requirement: A stroke text is written with the font its bag names
+
+The Altium PCB writer SHALL write a text or a field without a face whose `altium` bag holds a well-formed
+`stroke_font` as a text record of font type 0 with that font name, bold and italic. A text without one, or
+with a value that is not two flags, a space and a name of at most 31 characters, SHALL be written with no
+font name, as before.
+
+#### Scenario: A stroke free text with its font
+
+- **GIVEN** a free board text without a face whose `altium` bag holds `stroke_font` = `11 Trebuchet MS`
+- **WHEN** the board is written
+- **THEN** its text record holds font type 0, bold 1, italic 1 and the font name `Trebuchet MS`
+
+### Requirement: Empty texts and line breaks are written
+
+The Altium PCB writer SHALL write a board text whose string is empty as a text record with an empty
+string, and SHALL write each line feed of a text's string as CR LF (`H-A-TEXT-CRLF`) in the record and in
+its wide string. It SHALL still refuse a text that holds any other control character.
+
+#### Scenario: An empty text and a two-line text
+
+- **GIVEN** a board with a free text whose string is empty and one whose string is `two\nlines`
+- **WHEN** the board is written
+- **THEN** both texts have a record, the second holds `two\r\nlines`, and reading the document back gives
+  an empty string and `two\nlines`
+
+### Requirement: Carried plane splits, names and pull-backs
+
+Given split polygons for an internal plane (`PcbDocSpec.plane_splits`), the writer SHALL write one Split
+Plane polygon per split, on the split's net, instead of the board outline on the plane's net. It SHALL
+accept `(Multiple Nets)` as the net of such a plane. It SHALL write each plane's pull-back
+(`StackSpec.pullbacks`, else 20 mil), and it SHALL name a plane after `PcbDocSpec.copper_names` where the
+spec gives a name. Without them, the document SHALL be as before.
+
+#### Scenario: A (Multiple Nets) plane with two splits
+
+- **GIVEN** a four-layer spec whose first plane is `(Multiple Nets)` with splits on `GND` and `VCC`, named
+  `Ground Plane`, with a pull-back of 30 mil
+- **WHEN** the document is written
+- **THEN** `PLANE1NETNAME` is `(Multiple Nets)` and Internal Plane 1 is named `Ground Plane`
+- **AND** `Polygons6` holds two Split Plane polygons on that layer, on `GND` and `VCC`
+- **AND** the plane's `PULLBACKDISTANCE` is 30 mil
+
+### Requirement: Carried signal layer names
+
+The writer SHALL name a signal layer (ids 1 to 32) after `PcbDocSpec.copper_names` where the spec gives a
+name, in every `Board6` key that holds the layer's name. For a design read from KiCad, the spec SHALL give a
+signal layer its row's user name, unless a property record cannot hold it, it is the name of another Altium
+layer, or two layers take it; such a layer keeps Altium's name.
+
+#### Scenario: A KiCad row's user name names its layer
+
+- **GIVEN** a two-layer KiCad board whose `F.Cu` row is named `Component Side` and whose `B.Cu` row is named
+  `Top Overlay`
+- **WHEN** it is converted to Altium
+- **THEN** the top layer is named `Component Side` and the bottom layer `Bottom Layer`
+

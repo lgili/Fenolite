@@ -16,6 +16,8 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Changed
 
+- Archive c0427, c0450, c0460, c0466 after complete CI and coverage passed on `9b19a5bdd` (run `42935899720`).
+
 - Carry native Altium Net Antennae rules with their original tolerance and report the portable DRC coverage limit (c0465). Altium 24.5.2.23 native probes show width- and topology-dependent results. Legacy Altium rules cannot suppress KiCad dangling findings.
 
 - Archive c0473, c0474 and c0476 after all tasks passed and GitHub complete CI and coverage succeeded on `874a78c49` (run `42914437832`).
