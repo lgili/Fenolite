@@ -72,13 +72,13 @@ def rules_of(design: Design) -> tuple[Rule, ...]:
 
 
 def read_file(data: bytes) -> list[Rule]:
-    """The neutral rules of a written rule file; every record must map."""
+    """The neutral rules of a written rule file, with native antenna records kept separate."""
     file = read_rule_file(data, file="x.RUL")
     assert file.kind == "export" and file.to_bytes() == data
     # the end mark is the single byte B6, as in the public file that Altium saved: not UTF-8
     assert [issue.code for issue in file.issues] == ["altium.text.encoding-assumed"]
     mapping = map_rules([record.fields for record in file.records], origin="x.RUL")
-    assert mapping.unmapped == ()
+    assert all(u.kind == "NetAntennae" and u.reason == "no-counterpart" for u in mapping.unmapped)
     return list(mapping.ruleset.rules)
 
 
@@ -92,7 +92,13 @@ def test_readback_of_a_rule_of_every_kind() -> None:
     data = rulemap.write_rule_file(rules, name="blink")
     lowered = rulemap.lower(rules)
     assert {rule.kind for rule in lowered.written} == {row.neutral for row in rulemap.TABLE if row.exact}
-    assert rulemap.same_rules(read_file(data), lowered.written)
+    assert rulemap.same_rules(read_file(data), [rule for rule in lowered.written if rule.kind != "antenna"])
+    antenna = [
+        dict(r.fields)
+        for r in read_rule_file(data, file="x.RUL").records
+        if dict(r.fields).get("RULEKIND") == "NetAntennae"
+    ]
+    assert len(antenna) == 1 and antenna[0]["NETANTENNAETOLERANCE"] == "50mil"
     assert [(item.kind, item.reason) for item in lowered.not_lowered] == [
         ("track_width", "value-unsupported"),
         ("silk_clearance", "no-counterpart"),

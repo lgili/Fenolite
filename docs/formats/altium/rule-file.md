@@ -52,6 +52,8 @@ known to `kicad-cli`, so nothing here is `ORACLE-VERIFIED`, and the meaning of t
 | A Routing Layers record holds one key per signal layer: `TOP LAYER_V5` (layer id 1), `MID LAYER <n>_V5` (id n + 1) and `BOTTOM LAYER_V5` (id 32), each `TRUE` or `FALSE`; an internal plane has no key | S-1838, S-1832 | INFERRED | H-A-RD-RULE-ROUTINGLAYERS |
 | A Short-Circuit rule reports two touching copper primitives of different nets; with "Allow Short Circuit" the nets under its two scopes may short (the example: two ground systems in one design). How several such rules combine by priority is not stated | S-2241 | INFERRED | H-A-RULE-SHORT |
 | A Net Antennae rule reports, per net, an open-ended track or arc, or one ending in a via, whose stub is longer than its tolerance (the maximum permissible stub length). Where the stub is measured, and whether a stub of exactly the tolerance passes, are not stated | S-2240 | INFERRED | H-A-RULE-ANTENNA |
+| On authored Altium 24.5.2.23 DRC controls, width and geometry change straight-track and arc verdicts. Eleven via-ended cases are reported at each of 0, 50 and 1000 mil; four connected via continuations are clean at all three tolerances | S-2298 | ORACLE-VERIFIED (Altium Designer 24.5.2.23 DRC) | H-A-RULE-ANTENNA |
+| On authored Altium 24.5.2.23 DRC controls, the scoped short allowance suppresses the AGND–DGND short while VIN–DGND remains reported; both are reported with the scoped allowance disabled | S-2245 | ORACLE-VERIFIED (Altium Designer 24.5.2.23 DRC) | H-A-RULE-SHORT |
 | The public ShortCircuit records (rule-kind number 15) hold one own key, `ALLOWED` (`FALSE` in all 8); the NetAntennae records (rule-kind number 56) hold `NETANTENNAETOLERANCE` (`0mil` in 6, `1mil` in 2); every one is enabled with scopes `All` and `All` | S-2243 | CORPUS-VERIFIED (8 rows; 2026-11-06) | H-A-RULE-SHORT, H-A-RULE-ANTENNA |
 | `Arc` and `Track` are the tracks and arcs of the import, `SMDPad` and `THPad` its pads, `Via` its vias, and `Poly` the poured copper of a polygon, which the import reads as the fills of a zone; `Fill` and `Region` the free fills and regions, which the copper check judges on copper as `graphic` items (change c0462); `Text` and `Hole` are objects the copper check holds no item of | S-0558 | INFERRED | H-A-RULE-CLEARANCE-CELLS |
 
@@ -81,7 +83,6 @@ on it, S-0580).
 | `RoutingVias` | `via_drill` | `MINHOLEWIDTH` | `HOLEWIDTH` | `MAXHOLEWIDTH` | `AnyNet` | as the row above: `VIASTYLE`, `USEVIATEMPLATES` |
 | `HoleSize` | `hole_size` | `MINLIMIT` | — | `MAXLIMIT` | `AnyNet` | `ABSOLUTEVALUES` is `TRUE`; `MINPERCENT` and `MAXPERCENT` allowed and unused |
 | `BoardOutlineClearance` | `edge_clearance` | `GAP` | — | — | `DifferentNets` | `OBJECTCLEARANCES` absent, blank or a matrix of exact cells against the edges (each one more rule, change c0462); `GENERICCLEARANCE` absent or equal to `GAP`; `IGNOREPADTOPADCLEARANCEINFOOTPRINT` absent or `FALSE` |
-| `NetAntennae` | `antenna` | — | — | `NETANTENNAETOLERANCE` | `AnyNet` | — |
 | `HoleToHoleClearance` | `hole_to_hole` | `GAP` | — | — | `AnyNet` | `ALLOWSTACKEDMICROVIAS` is `FALSE` or `TRUE` (with `TRUE` the record is also kept: "Kept rule records") |
 | `MinimumAnnularRing` | `annular_width` | `MINIMUMRING` | — | — | `AnyNet` | — |
 | `SilkToSilkClearance` | `silk_clearance` | `SILKTOSILKCLEARANCE` | — | — | `AnyNet` | — |
@@ -93,8 +94,9 @@ on it, S-0580).
 reported apart with the reason `no-verified-keys`. The table is empty since change c0084, which found the
 keys of `BoardOutlineClearance` in public PCB documents; the reason stays for a later kind.
 
-The last three kinds of the table are those of change c0084: the table holds every Altium kind of an
-`exact` row of `rulemap.TABLE` (`pcb-copper.md`, "The lowering table"), so what Fenolite writes it reads.
+Change c0084 completed the original table using public board records. Fenolite reads and carries
+`NetAntennae` records with their original `NETANTENNAETOLERANCE`. An authored `antenna` rule can write
+that native field, while native DRC uses its own width and topology semantics (c0465, S-2298).
 A Hole To Hole Clearance with `ALLOWSTACKEDMICROVIAS=TRUE` exempts the holes of stacked microvias, which
 the neutral rule does not: since change c0424 it maps, and its record is kept for an Altium write. The last
 four rows are those of change c0424; a key of a Routing Layers record for a layer the board does not hold
@@ -197,7 +199,7 @@ table is reported with `no-counterpart`.
 | `MatchedLengths` | neutral | `skew` or `diff_pair_skew` ("Matched Lengths"); the 15 public records use delay units and are refused with `delay-units` |
 | `MinimumAnnularRing` | neutral | `annular_width` |
 | `MinimumSolderMaskSliver` | carried | a minimum solder mask web: no copper geometry |
-| `NetAntennae` | neutral | `antenna`, `max` = `NETANTENNAETOLERANCE`, over the first scope (change c0465); mapped only when one enabled record of the document has a tolerance above zero, else `checked` (KiCad's dangling tracks) |
+| `NetAntennae` | carried | native DRC differs from the portable centre-line check; the record is kept for Altium and reported as unmapped (c0465, S-2298) |
 | `PasteMaskExpansion` | read | `convert.openings`: the paste margin of each pad (c0440) |
 | `PlaneClearance` | read | the internal planes: a conversion to KiCad counts each plane lost with its rules (c0461) |
 | `PlaneConnect` | read | the internal planes: a conversion to KiCad counts each plane lost with its rules (c0461) |
@@ -271,7 +273,7 @@ lowered").
 | `MatchedLengths` | export (1) | S-0297 | yes: `skew` or `diff_pair_skew` (change c0462) |
 | `MinimumAnnularRing` | PCB documents (4 in 3 documents) | S-0174, S-0199, S-0200 | yes: `annular_width` |
 | `MinimumSolderMaskSliver` | export (4) | S-0297 | no |
-| `NetAntennae` | export (1) | S-0297 | yes: `antenna` (change c0465) |
+| `NetAntennae` | export (1) | S-0297 | no |
 | `PasteMaskExpansion` | export (1) | S-0297 | no |
 | `PlaneClearance` | export (1) | S-0297 | no |
 | `PlaneConnect` | export (1) | S-0297 | no |

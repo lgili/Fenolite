@@ -97,9 +97,8 @@ d1.place(mm(15), mm(6), rot=180)
 `design.rules.rule(name, kind, where=, between=, min=, opt=, max=, severity=, priority=, layers=)`:
 
 - **Kinds:** the six of `minimum()`, and `hole_to_hole`, `hole_clearance`, `annular_width`,
-  `courtyard_clearance`, `silk_clearance` and `creepage`. Allowances: `short` (`between=`, no limit;
-  `severity="ignore"` allows the short) and `antenna` (`max=` alone: the longest stub that passes);
-  `check` lists what they accept as `info`.
+  `courtyard_clearance`, `silk_clearance`, `creepage`, `short` (`between=`, `severity="ignore"` to allow)
+  and `antenna` (`max=` stub length). `check` reports allowances as `info`. Use Altium DRC for native Net Antennae.
 - **Selectors** from `select`: `select.net(name)`, `select.netclass(name)`, `select.ref(part)`,
   `select.item("track")` (or `"via"`, `"pad"`, `"zone"`), `select.no_net()` (no net), `select.ALL`,
   the default; `&`, `|`, `~` combine them; names may hold `*`.

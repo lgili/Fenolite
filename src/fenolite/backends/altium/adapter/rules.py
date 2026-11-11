@@ -22,6 +22,7 @@ from collections.abc import Sequence
 from fenolite.backends.altium.adapter.codes import issue
 from fenolite.backends.altium.adapter.ids import Ids, bag
 from fenolite.backends.altium.read.rules import (
+    ANTENNA_PORTABILITY,
     BACKEND,
     CELL_PAIR,
     LAYER_PAIR,
@@ -162,10 +163,11 @@ def adopt(
     for kind in sorted(by_kind):
         reasons = by_kind[kind]
         listed = ", ".join(f"{reason} {count}" for reason, count in sorted(reasons.items()))
+        detail = f". {ANTENNA_PORTABILITY}. Use Altium DRC" if kind == "NetAntennae" else ""
         issues.append(
             issue(
                 "altium.import.rule-unmapped",
-                f"{sum(reasons.values())} rule(s) of kind {kind} are not mapped ({listed})",
+                f"{sum(reasons.values())} rule(s) of kind {kind} are not mapped ({listed}){detail}",
                 f"{storage}/Data",
             )
         )

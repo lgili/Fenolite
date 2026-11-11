@@ -307,3 +307,63 @@ Within this scope the run supports `ALTIUM-VERIFIED(kit)` for the converted shee
 24.5 trial, not the drawing's appearance and not per-kind graduation; it also does not cover the
 `Battman` net split, which is supplementary evidence only. The artifacts, the scripts and the results
 stay in the harness folder outside the repository, and no input file changed.
+
+## Native allowance observations (c0465, S-2245)
+
+Altium Designer 24.5.2.23 batch DRC, 2026-11-10. Four authored documents were written from
+`feb039bb5`; none was saved by Altium. Each report names its input and lists zero waived findings;
+the input SHA-256 was checked again after DRC. The `allow`, `zero` and `deny` documents have identical
+compound streams except `Rules6/Data`. The independent `threshold` board tests track width at fixed
+50 mil tolerance. None of these reports is a complete Fenolite kit graduation.
+
+| Probe | Total | Short-Circuit | Net Antennae | DRC SHA-256 |
+|---|---:|---:|---:|---|
+| allow | 4 | 1 | 1 | `9faba14767f74db6ede937a26fafa26f9df47c32a8a3a52af823656f57019f19` |
+| zero | 7 | 1 | 4 | `d11c223a39c7d2e9ec45f4e3ce3513461105261d3019f3d48a4bd978e15cb7f7` |
+| deny | 6 | 2 | 1 | `78d9dd011d7f21a295524aecc2ec23253c736f13d236777b940527a4c2eb50ac` |
+| threshold | 8 | 0 | 8 | `f154b974a6424ecf31938cf473ca494984316cda363560c852714848ae13ea92` |
+
+- At 50 mil with the allowing rule, Altium reports only the control short (`VIN`–`DGND`), not the
+  `AGND`–`DGND` short. With the one allowance bit changed, Altium reports both pairs. This supports
+  the priority/scope hypothesis for these two authored pairs.
+- At 0 mil it reports each 40, 50 and 60 mil bare track stub and the via-ended branch. At 50 mil it
+  reports only the via-ended branch, despite that branch's 40 mil track centre-line length.
+- For 10 mil wide branches at 50 mil tolerance, the largest tested length that passes is 60 mil and
+  the shortest flagged length is 61 mil. At 20 mil wide the corresponding lengths are 70 and 80 mil.
+  These finite probes establish a width-dependent difference; they do not establish a general formula,
+  behaviour for arcs or bends, or the boundary at 71 mil for the 20 mil track.
+- The prior native construction script still stops at `Priority := 1` when it is moved before
+  `AddPCBObject`; its partial test document was not saved or used for these DRC reports. The writer
+  produced the fresh authored inputs with their rule priorities already encoded.
+
+The centre-line hypothesis did not predict these results. The follow-up below records the
+additional controls and the resulting portability decision.
+
+
+## Native antenna matrix (c0465, S-2298)
+
+Altium Designer 24.5.2.23 batch DRC ran three authored boards containing the same 56 cases:
+32 straight tees, 12 via-ended branches, four vias with connected continuations, four bent stubs
+and four arcs. The inputs' compound streams differ only in `Rules6/Data`. The source file hashes
+were verified before and after DRC. The three reports each ended normally with zero waivers.
+
+| Tolerance (mil) | Straight tee findings | Via findings | Bent stub findings | Arc findings | DRC SHA-256 |
+|---:|---:|---:|---:|---:|---|
+| 0 | 32 | 11 | 4 | 4 | `cc51544785dd7bd9bc39c22f49fb5722ce7ecd60fd3d7789c9591372cf65874e` |
+| 50 | 14 | 11 | 0 | 1 | `ab392584c1d513161563dda6bb1d5f1fc3e39d6d957bbb4f1b8a832a25653e0f` |
+| 1000 | 0 | 11 | 0 | 0 | `fb842e2d160088417842368917ed078e131491f882dbcbeda7ecdb7453cf7107` |
+
+At 50 mil the equal-width 10 mil tee passes at 60 and is reported at 61; the equal-width 20 mil tee
+passes at 70 and is reported at 71. Changing either trunk or stub width changes some outcomes.
+The same 11 via endpoints are reported at all three tolerances, including a 20 mil branch ending in
+a 24 mil via. A 20 mil branch ending in a 60 mil via and all four vias with a connected continuation
+pass at all three tolerances. These observations establish differences from neutral centre-line
+measurement on the authored inputs. They leave the general Altium algorithm unverified. The
+coordinate-matched comparison receipt has SHA-256
+`34096fbe523f3829e492374310c8cc704ddd5934daac70216363a780b7656ff0`.
+
+A native NetAntennae record travels through the KiCad board carrier, including its original scope,
+priority, enabled state and tolerance. The CLI identifies the coverage limit. Legacy typed rules with
+Altium identity cannot reduce KiCad dangling findings. An authored portable rule still uses its
+centre-line length, and Altium export writes its declared tolerance without promising matching DRC
+outcomes.

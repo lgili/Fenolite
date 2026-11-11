@@ -52,7 +52,7 @@ Rules for every task:
 ## 5. Altium
 
 - [x] 5.1 Rebase onto c0462. ShortCircuit and NetAntennae records map (design D5); `check-relaxed` is
-  withdrawn; the kind table lists both as neutral. Proof:
+  withdrawn. The c0465 native follow-up below changes NetAntennae to carried. Proof:
   `uv run pytest tests/unit/backends/altium/test_rule_allowances_c0465.py tests/unit/backends/altium/read/test_rule_map.py tests/corpus/test_altium_rule_kinds_c0462.py -q -n 0`.
 - [x] 5.2 The Altium writer writes both kinds with the keys of S-2243. Proof: the same file, `-k write`, and
   `uv run pytest tests/unit/backends/altium/test_rulemap.py -q -n 0`.
@@ -64,7 +64,7 @@ Rules for every task:
 
 ## 6. Acceptance
 
-- [ ] 6.1 Kit (S-2245). On an authored document in Altium Designer, run DRC on:
+- [x] 6.1 Kit (S-2245). On an authored document in Altium Designer, run DRC on:
   - stubs of 40, 50 and 60 mil under a Net Antennae of 50 mil, and a stub that ends at a via joining nothing;
   - a short `AGND`–`DGND` under Short-Circuit `ALLOWED=TRUE`, and a short `VIN`–`DGND` under the default rule.
   Record which are reported, and set `H-A-RULE-ANTENNA` and `H-A-RULE-SHORT`. Proof: the agent's report.
@@ -75,6 +75,25 @@ Rules for every task:
   writer writes. `H-A-RULE-SHORT` and `H-A-RULE-ANTENNA` stay `UNVERIFIED`. A fourth try sets `Priority`
   before `AddPCBObject` (the writer puts the allowance rule at priority 1, above the default rule) and reports
   each rule's priority as read back.
+  Progress 2026-11-10 (S-2245): assigning priority before registration also raises the native script
+  error. Fresh authored documents from the Fenolite writer ran actual DRC on Altium 24.5.2.23.
+  The scoped short allowance agrees with the controls. Antenna results differ from centre-line length:
+  the 50 mil rule reports the 40 mil via-ended branch but none of the three bare tracks; at 0 mil it
+  reports all four. Width controls bracket the bare-track boundary at 60/61 mil for a 10 mil track
+  and 70/80 mil for a 20 mil track. See the retained S-2245 report in `docs/evidence/altium-acceptance.md`.
+  Follow-up 2026-11-10 (S-2298): Altium 24.5.2.23 ran the 56-case matrix at 0, 50 and 1000 mil.
+  Reconcile the rules by keeping native NetAntennae records with explicit coverage diagnostics instead of
+  applying portable centre-line allowances. Keep authored portable checks and the native writer. Prove
+  both conversion legs and the legacy model guard. Completed 2026-11-10. Proof:
+  `uv run pytest tests/unit/convert/test_altium_rule_fates.py -q -n 0` exercises strict and tolerant
+  conversions and the Python import/build round trip. `uv run pytest
+  tests/unit/checks/test_drc_allowances_c0465.py -q -n 0` confirms the legacy finding retains its
+  severity and the authored allowance still works. S-2245 verifies the scoped short controls and
+  S-2298 verifies the antenna differences on the stated Altium version. The native algorithm beyond
+  these controls remains unverified.
+  The public rule corpus verifies that NetAntennae is the only exportable kind outside the neutral
+  import table and that the original record number, scope and tolerance are carried. All 51 rule
+  corpus checks passed with `FENOLITE_HEAVY=1`, and the two public 1 mil conversion cases passed.
 - [x] 6.2 CHANGELOG, `gen_evidence_matrix`, `gen_cli_surface` and the other generators with `--check`;
   `openspec validate c0465-check-allowances --strict`; each touched test file alone with `-n 0`.
   Done 2026-11-06 on lote-29 23e429393: the 26 test files c0465 touched, the docs tests, `test_pages`,

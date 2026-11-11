@@ -6,8 +6,9 @@
 ``TABLE`` holds one row per neutral rule kind: the Altium kind that carries it, or the reason it has no
 counterpart (``docs/formats/altium/pcb-copper.md``, "Rule kinds lowered"). ``lower`` turns neutral rules
 into rule records, exactly or not at all; ``lift`` reads records back through ``read.rules.map_rules``,
-whose table (``RULE_KIND_MAP``) holds the same kinds and keys, so the writer and the reader cannot
-disagree. A rule that is not written is named with one reason of ``NOT_LOWERED_REASONS``.
+whose table (``RULE_KIND_MAP``) shares the kinds and keys except for native NetAntennae. Writing its
+requested tolerance does not make it a portable centre-line allowance. A rule that is not written is
+named with one reason of ``NOT_LOWERED_REASONS``.
 """
 
 from __future__ import annotations
@@ -676,8 +677,8 @@ def write_rule_file(rules: Sequence[Rule], *, name: str = "rules") -> bytes:
     writes, one record per line in the order of the lowering (capability altium-project-reader, "Rule file
     written"; ``rule-file.md``, "Writing a rule file"). ``name`` seeds the unique ids, so the same rules
     and name give the same bytes. Without a lowered rule the result is empty, which is no rule file: the
-    caller writes none. ``read.rul.read_rule_file`` reads the bytes back and ``read.rules.map_rules`` maps
-    every record."""
+    caller writes none. ``read.rul.read_rule_file`` reads the bytes back; see ``lift`` for neutral
+    mappings."""
     from fenolite.backends.altium.project import (
         unique_id,
     )  # project imports the PCB writer, which imports this
@@ -693,7 +694,8 @@ def write_rule_file(rules: Sequence[Rule], *, name: str = "rules") -> bytes:
     return b"".join(lines)
 
 
-assert {row.altium for row in TABLE if row.exact} == set(KIND_ORDER) <= set(RULE_KIND_MAP)
+assert {row.altium for row in TABLE if row.exact} == set(KIND_ORDER)
+assert set(KIND_ORDER) - set(RULE_KIND_MAP) == {"NetAntennae"}
 
 __all__ = [
     "ALL_SCOPE",

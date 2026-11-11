@@ -227,6 +227,18 @@ def test_a_stub_within_the_tolerance() -> None:
     assert result.summary["allowed"] == {"fake.drc.track-dangling": 1}
 
 
+def test_legacy_native_antenna_rule_cannot_lower_a_finding() -> None:
+    design, short, _ = _stubs_bench()
+    native = dataclasses.replace(SIG_STUB, native_ids={"altium": "Native NetAntennae"})
+    result = _stage(design, _entry("track_dangling", short), allowances=(native,))
+    assert "allowed" not in result.summary
+    assert [(i.code, i.severity) for i in result.issues] == [
+        ("check.allowance-unresolved", "info"),
+        ("fake.drc.track-dangling", "error"),
+    ]
+    assert "needs Altium DRC" in result.issues[0].message
+
+
 def test_the_model_rules_and_the_design_rules_both_count() -> None:
     design, short, _ = _stubs_bench()
     assert design.rules is not None

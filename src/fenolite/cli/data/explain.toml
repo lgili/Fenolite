@@ -1499,8 +1499,8 @@ fix = "Remove the waiver from the script, or name its items as the 'where' of th
 see = "check"
 
 ["check.allowance-unresolved"]
-meaning = "A DRC entry that a short or antenna rule could judge (shorting_items, track_dangling, via_dangling) names an item that is on no design item, on several, or whose stub Fenolite does not find. The entry keeps its severity: no allowance was applied to it."
-fix = "Build again so the board and the .fenolite/ model agree, then run check again. If the entry stays, judge it by hand or waive it with design.waive."
+meaning = "An allowance could not judge a DRC entry. The item or stub could not be resolved, or the governing antenna rule retains a native Altium identity. The entry keeps its severity."
+fix = "Build again so the board and the .fenolite/ model agree, then run check again. For a native Net Antennae rule, run Altium DRC. For other unresolved entries, review the finding or waive it explicitly with design.waive."
 see = "check"
 
 ["check.waiver-expired"]

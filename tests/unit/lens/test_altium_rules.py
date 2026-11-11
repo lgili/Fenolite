@@ -59,19 +59,24 @@ def read_back(
     output: BuildOutput, name: str = DOCUMENT
 ) -> tuple[list[tuple[str, str, int, str, str]], list[Rule]]:
     """The rule records of the built document as (kind, name, priority, scope1, scope2), and the neutral
-    rules they map to; every record must map but the plane rules of a document with a plane (change c0389),
-    which the internal planes' part reads (change c0462)."""
+    rules they map to; internal planes read their own records and native antennae remain carried."""
     document = read_pcbdoc(output.files[name], file=name)
     mapping = map_rules([r.fields for r in document.rules], origin=name)
-    assert all(u.kind in PLANE_KINDS and u.reason == "read-elsewhere" for u in mapping.unmapped), (
-        mapping.unmapped
-    )
+    assert all(
+        (u.kind in PLANE_KINDS and u.reason == "read-elsewhere")
+        or (u.kind == "NetAntennae" and u.reason == "no-counterpart")
+        for u in mapping.unmapped
+    ), mapping.unmapped
     rules = [r for r in document.rules if r.rule_kind not in PLANE_KINDS]
     header = [
         (r.rule_kind or "", r.name or "", r.priority or 0, r.scope1 or "", r.scope2 or "") for r in rules
     ]
     assert [r.kind_number for r in rules] == [
-        rulemap.row_of(next(rule.kind for rule in mapping.ruleset.rules if rule.name == r.name)).number
+        rulemap.row_of(
+            "antenna"
+            if r.rule_kind == "NetAntennae"
+            else next(rule.kind for rule in mapping.ruleset.rules if rule.name == r.name)
+        ).number
         for r in rules
     ]
     return header, list(mapping.ruleset.rules)
@@ -222,7 +227,13 @@ def test_readback() -> None:
     assert {rule.kind for rule in lowered} == {row.neutral for row in rulemap.TABLE if row.exact}
     names = {item["rule"] for item in summary(output)["written"]}
     read = [rule for rule in rules if rule.name in names]
-    assert rulemap.same_rules(read, lowered)
+    assert rulemap.same_rules(read, [rule for rule in lowered if rule.kind != "antenna"])
+    antenna = [
+        dict(record.fields)
+        for record in read_pcbdoc(output.files[DOCUMENT]).rules
+        if record.rule_kind == "NetAntennae"
+    ]
+    assert len(antenna) == 1 and antenna[0]["NETANTENNAETOLERANCE"] == "50mil"
     assert not_lowered(output) == [] and summary(output)["not_lowered"] == []
     assert [kind for kind, *_rest in header] == sorted(
         (kind for kind, *_rest in header), key=rulemap.KIND_ORDER.index

@@ -134,3 +134,73 @@ def test_shadowed_rules_keep_altiums_order(tmp_path: Path) -> None:
     # notice names the rule Altium applies as the governing one
     assert shadowed and all("governing rule 'everything'" in str(i["message"]) for i in shadowed)
     assert all("ground" in str(i["message"]) for i in shadowed)
+
+
+def test_native_antenna_is_carried_by_the_cli_without_a_portable_rule(tmp_path: Path) -> None:
+    from fenolite.backends.altium.pcbdoc import PcbDocSpec, write_pcbdoc
+    from fenolite.backends.altium.read.pcb import read_rule_fields
+    from fenolite.backends.kicad import boardcarrier
+    from fenolite.convert import rulecarrier
+    from fenolite.core.coords import Point
+
+    source = tmp_path / "probe.PcbDoc"
+    records = (
+        rule("NetAntennae", ("NETANTENNAETOLERANCE", "50mil"), name="KeepNative",
+             scope="InNet('GND')", priority=3),
+        rule("NetAntennae", ("NETANTENNAETOLERANCE", "40mil"), name="DisabledNative",
+             priority=7, enabled=False),
+    )  # fmt: skip
+    outline = (Point(0, 0), Point(10_000_000, 0), Point(10_000_000, 10_000_000), Point(0, 10_000_000))
+    board = PcbDocSpec(outline=outline, nets=("GND",), source_rules=tuple((n, tuple(r)) for n, r in records))
+    source.write_bytes(write_pcbdoc(board, filename=source.name))
+
+    def execute(*args: str) -> Reply:
+        planned = run(*args, "--dry-run", cwd=tmp_path, timestamp=STAMP)
+        assert planned.exit_code == 0, planned.error
+        result = run(*args, "--confirm", "--plan", planned.result["plan_id"], cwd=tmp_path, timestamp=STAMP)
+        assert result.exit_code == 0, result.error
+        return result
+
+    def native_fields(path: Path) -> list[dict[str, str | None]]:
+        fields = [dict(row) for row in read_rule_fields(path.read_bytes(), file=path.name)]
+        return [row for row in fields if row.get("RULEKIND") == "NetAntennae"]
+
+    expected = native_fields(source)
+    assert [row["NETANTENNAETOLERANCE"] for row in expected] == ["50mil", "40mil"]
+    assert [row["PRIORITY"] for row in expected] == ["3", "7"]
+    assert [row["ENABLED"] for row in expected] == ["TRUE", "FALSE"]
+    for mode, flags in (("strict", ()), ("tolerant", ("--allow-lossy",))):
+        report = execute("convert", str(source), "--to", "kicad", "--out", f"kicad-{mode}", *flags)
+        assert any(
+            i["code"] == "convert.kept" and "needs Altium DRC" in str(i["message"]) for i in _issues(report)
+        )
+        assert any(
+            i["code"] == "altium.import.rule-unmapped" and "Use Altium DRC" in str(i["message"])
+            for i in _issues(report)
+        )
+        (converted,) = (tmp_path / f"kicad-{mode}").glob("*.kicad_pcb")
+        payload = boardcarrier.carried(converted.read_text(encoding="utf-8"))[rulecarrier.PROPERTY]
+        carried = [
+            c
+            for c in rulecarrier.read_carrier(payload.decode())
+            if dict(c.fields).get("RULEKIND") == "NetAntennae"
+        ]
+        assert len(carried) == 2 and not any(record.blocks for record in carried)
+        execute(
+            "convert", str(converted), "--to", "altium", "--altium-pour", "outline",
+            "--out", f"back-{mode}", *flags,
+        )  # fmt: skip
+        (returned,) = (tmp_path / f"back-{mode}").glob("*.PcbDoc")
+        assert native_fields(returned) == expected
+
+    imported = execute("import", str(source), "--to", "python", "--out", "code")
+    assert any(
+        i["code"] == "convert.kept" and "needs Altium DRC" in str(i["message"]) for i in _issues(imported)
+    )
+    assert '"antenna"' not in (tmp_path / "code" / "design.py").read_text(encoding="utf-8")
+
+    execute("build", "code/design.py", "--out", "built")
+    (built,) = (tmp_path / "built").glob("*.kicad_pcb")
+    execute("convert", str(built), "--to", "altium", "--altium-pour", "outline", "--out", "back-code")
+    (returned,) = (tmp_path / "back-code").glob("*.PcbDoc")
+    assert native_fields(returned) == expected

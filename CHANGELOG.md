@@ -16,6 +16,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Changed
 
+- Carry native Altium Net Antennae rules with their original tolerance and report the portable DRC coverage limit (c0465). Altium 24.5.2.23 native probes show width- and topology-dependent results. Legacy Altium rules cannot suppress KiCad dangling findings.
+
+- Record c0465 native Altium 24.5 DRC controls for scoped short allowances and antenna stubs. The short control agrees; the width-dependent antenna boundary and via findings keep the antenna proof open.
+
 - Archive c0454 after its six tasks completed, including native Altium component-copper checks and the KiCad 9 save proof. The complete CI and coverage audit passed on source commit `579e1d8fb` (run `42809343312`); the three capability requirements are now reconciled into the main specs.
 
 - **Closed without their open tasks** (maintainer's decision, 2026-11-07): c0175 (task 10.4, body copy by pad fit and the house-library coverage report), c0384 (tasks 0.4, 1.4 and 3.1 of the native identity follow-up) and c0389 (the Altium native rounds moved there from earlier changes, and the maintainer's reviews) are archived; those tasks will not be done. What the three changes implemented stays, and no evidence label is raised for the tasks left open.

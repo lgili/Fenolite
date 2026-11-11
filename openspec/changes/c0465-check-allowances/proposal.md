@@ -41,12 +41,12 @@ report, and an agent must waive each one by hand.
   - No finding is removed. The summary of each stage counts the findings an allowance accepted.
   - Allowances are not waivers: they live in the rules, match by nets and the other selector leaves, and
     never go stale.
-- **The Altium import fills them.** c0462's Short-Circuit and Net Antennae records map:
-  - every enabled Short-Circuit becomes a `short` rule, `ignore` when `ALLOWED=TRUE` and `error` otherwise,
-    so the source's order of priority holds;
-  - every enabled Net Antennae becomes an `antenna` rule with `max` = `NETANTENNAETOLERANCE`.
-  - `altium.rules.check-relaxed` goes away: the records it named are now honoured.
-  - The Altium writer writes the two kinds back as Short-Circuit and Net Antennae records.
+- **Altium import** maps the enabled Short-Circuit records when one allows a short. `ALLOWED=TRUE`
+  becomes `ignore`, `ALLOWED=FALSE` becomes `error`, and the source priorities are preserved.
+- **Native Net Antennae records** travel in the Altium carrier. The native probes (S-2245, S-2298)
+  show verdicts that differ from the portable centre-line calculation, so conversion reports the
+  coverage limit. Legacy Altium identities cannot lower the severity of a KiCad dangling finding.
+  The Altium writer still emits the tolerance field for an authored portable rule.
 - **KiCad.** KiCad has no constraint for a short between two nets, and no length for a dangling track
   (S-2242):
   - A `short` rule of `ignore` whose two sides are `all` becomes the project severity
@@ -64,7 +64,7 @@ report, and an agent must waive each one by hand.
 - `rules-model`: the kinds `short` and `antenna`, their limits and their KiCad lowering.
 - `copper-check`: an allowed short.
 - `verification-loop`: allowances in the DRC stage and their summary counts.
-- `altium-project-reader`: Short-Circuit and Net Antennae records map; `check-relaxed` is withdrawn.
+- `altium-project-reader`: Short-Circuit records map; native Net Antennae records are carried.
 - `design-dsl`: `rule()` takes the two kinds.
 
 ## Impact

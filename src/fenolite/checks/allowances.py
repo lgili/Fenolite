@@ -389,9 +389,12 @@ def judge_entries(
                 judged.append((made, names, violation))
                 continue
             rule = governing(antennae, "antenna", stub_subject(design, found, resolver))
-            if rule is not None and rule.max is not None and found.length <= rule.max:
-                made = _with_severity(made, "info", stub_suffix(found.length, rule))
-                allowed[made.code] = allowed.get(made.code, 0) + 1
+            if rule is not None:
+                if "altium" in rule.native_ids or "altium" in rule.ext:
+                    unresolved_issue(made, "the carried Altium Net Antennae rule needs Altium DRC")
+                elif rule.max is not None and found.length <= rule.max:
+                    made = _with_severity(made, "info", stub_suffix(found.length, rule))
+                    allowed[made.code] = allowed.get(made.code, 0) + 1
         judged.append((made, names, violation))
     return judged, dict(sorted(allowed.items())), unresolved
 

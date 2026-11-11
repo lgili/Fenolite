@@ -37,3 +37,14 @@ c0465), before waivers ("Waivers in the check"). No code is shared with `checks.
 - **WHEN** the same test measures the stub of a track that runs 1 mm from its open end to a junction of
   three tracks, of a track ending in a via that joins nothing else, and of a track open at both ends
 - **THEN** the stubs are 1 mm, the run from the via to the first other copper, and the whole track
+
+### Requirement: A native antenna rule is not a portable allowance
+
+A legacy model rule carrying an Altium NetAntennae identity SHALL leave an antenna-related KiCad
+finding at its original severity when that rule governs. The stage SHALL explain the unresolved
+allowance. An explicitly authored portable `antenna` rule retains the centre-line contract.
+
+#### Scenario: A legacy native tolerance cannot clear a KiCad finding
+- **GIVEN** a KiCad dangling finding and a governing antenna rule with a legacy Altium identity
+- **WHEN** the allowance judge evaluates that finding
+- **THEN** the finding retains its original severity and reports `check.allowance-unresolved`

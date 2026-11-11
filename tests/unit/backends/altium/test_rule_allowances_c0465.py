@@ -1,9 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """Short-Circuit and Net Antennae records (change c0465, design D5; capability altium-project-reader,
-"Short-Circuit and Net Antennae records map"): read onto ``short`` and ``antenna`` rules where a record of
-the document relaxes the check, and written back with the keys of the public records (S-2243). Every record
-here is authored for Fenolite."""
+"Short-Circuit records map and native antenna records travel"): map scoped shorts, carry native antennae
+and write authored portable rules with the public record keys. Every record here is authored for Fenolite."""
 
 from __future__ import annotations
 
@@ -11,6 +10,7 @@ from collections.abc import Sequence
 
 from fenolite.backends.altium import rulemap
 from fenolite.backends.altium.read.rules import (
+    CARRIED_KINDS,
     CHECKED_KINDS,
     HEADER_KEYS,
     RULE_KIND_MAP,
@@ -63,21 +63,16 @@ def test_an_allowed_short_and_a_default_rule() -> None:
         short("FALSE", NAME="ShortCircuit", PRIORITY="2"),
         antenna("50mil"),
     )
-    assert mapping.unmapped == ()
-    assert not [issue for issue in mapping.issues if issue.code == "altium.rules.check-relaxed"]
-    allowed, default, stub = mapping.ruleset.rules
+    (native,) = mapping.unmapped
+    assert (native.kind, native.reason) == ("NetAntennae", "no-counterpart")
+    assert "portable centre-line check" in native.detail
+    assert [issue.code for issue in mapping.issues] == ["altium.rule.unmapped"]
+    allowed, default = mapping.ruleset.rules
     assert (allowed.kind, allowed.severity, allowed.priority) == ("short", "ignore", 1)
     assert (allowed.selector_a, allowed.selector_b) == (Selector("net", "AGND"), Selector("net", "DGND"))
     assert (default.kind, default.severity, default.priority) == ("short", "error", 2)
     assert (default.selector_a, default.selector_b) == (Selector("all"), Selector("all"))
-    assert (stub.kind, stub.max, stub.min, stub.selector_a, stub.selector_b) == (
-        "antenna",
-        50 * MIL,
-        None,
-        Selector("all"),
-        None,
-    )
-    assert mapping.rule_records == (0, 1, 2)
+    assert mapping.rule_records == (0, 1)
 
 
 def test_nothing_relaxed_nothing_mapped() -> None:
@@ -86,16 +81,19 @@ def test_nothing_relaxed_nothing_mapped() -> None:
     assert mapping.ruleset.rules == ()
     assert [(u.kind, u.reason) for u in mapping.unmapped] == [
         ("ShortCircuit", "checked"),
-        ("NetAntennae", "checked"),
+        ("NetAntennae", "no-counterpart"),
     ]
 
 
-def test_each_kind_maps_on_its_own() -> None:
-    """A tolerance maps the Net Antennae records and leaves the Short-Circuit records checked; a disabled
-    record that relaxes makes nothing map."""
+def test_native_tolerances_stay_carried() -> None:
+    """Positive and zero tolerances never become portable rules."""
     mapping = mapped(short("FALSE"), antenna("1mil"), antenna("0mil", NAME="Zero", PRIORITY="2"))
-    assert [(u.kind, u.reason) for u in mapping.unmapped] == [("ShortCircuit", "checked")]
-    assert [(rule.kind, rule.max) for rule in mapping.ruleset.rules] == [("antenna", MIL), ("antenna", 0)]
+    assert [(u.kind, u.reason) for u in mapping.unmapped] == [
+        ("ShortCircuit", "checked"),
+        ("NetAntennae", "no-counterpart"),
+        ("NetAntennae", "no-counterpart"),
+    ]
+    assert mapping.ruleset.rules == ()
     off = mapped(short("TRUE", ENABLED="FALSE"), short("FALSE", NAME="On", PRIORITY="2"))
     assert [(u.kind, u.reason) for u in off.unmapped] == [("ShortCircuit", "checked")] * 2
 
@@ -116,14 +114,17 @@ def test_records_that_do_not_read_stay_unmapped() -> None:
         ("Odd", "keys"),
         ("Extra", "keys"),
         ("Off", "disabled"),
-        ("Pair", "scope"),
-        ("Bad", "value"),
+        ("NetAntennae", "no-counterpart"),
+        ("Pair", "no-counterpart"),
+        ("Bad", "no-counterpart"),
     ]
-    assert [rule.kind for rule in mapping.ruleset.rules] == ["short", "antenna"]
+    assert [rule.kind for rule in mapping.ruleset.rules] == ["short"]
 
 
-def test_the_kinds_are_neutral() -> None:
-    assert {"ShortCircuit", "NetAntennae"} <= set(RULE_KIND_MAP)
+def test_short_is_neutral_and_antenna_is_carried() -> None:
+    assert "ShortCircuit" in RULE_KIND_MAP
+    assert "NetAntennae" in CARRIED_KINDS
+    assert "NetAntennae" not in RULE_KIND_MAP
     assert not {"ShortCircuit", "NetAntennae"} & set(CHECKED_KINDS)
 
 
@@ -142,7 +143,7 @@ def _rule(kind: str, severity: str = "error", *, first: Selector, second: Select
 
 def test_write_both_kinds_with_the_public_keys() -> None:
     """The Altium writer lowers both kinds to their records, with the one key each public record holds
-    (S-2243), and the reader maps the records back to the same rules."""
+    (S-2243); lifting recognizes the short records and treats the native tolerance as opaque."""
     rules = (
         _rule("short", "ignore", first=Selector("net", "AGND"), second=Selector("net", "DGND")),
         _rule("short", first=Selector("all"), second=Selector("all")),
@@ -157,9 +158,9 @@ def test_write_both_kinds_with_the_public_keys() -> None:
         (56, "NetAntennae", "All", "All", "AnyNet", 1, (("NETANTENNAETOLERANCE", "50mil"),)),
     ]
     back, opaque = rulemap.lift(lowered.records)
-    assert opaque == {}
-    assert all(rulemap.same_rule(one, other) for one, other in zip(rules, back, strict=True))
-    assert [rule.severity for rule in back] == ["ignore", "error", "error"]
+    assert opaque == {"NetAntennae": 1}
+    assert all(rulemap.same_rule(one, other) for one, other in zip(rules[:2], back, strict=True))
+    assert [rule.severity for rule in back] == ["ignore", "error"]
 
 
 def test_write_refuses_what_no_record_holds() -> None:

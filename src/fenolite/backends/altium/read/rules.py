@@ -329,9 +329,6 @@ RULE_KIND_MAP: dict[str, KindMap] = {
         (Condition("ALLOWED", ("TRUE", "FALSE"), required=True),),
         binary=True,
     ),
-    "NetAntennae": KindMap(  # change c0465, design D5 (S-2243)
-        (NeutralLimits("antenna", None, None, "NETANTENNAETOLERANCE"),), "AnyNet"
-    ),
     "HoleToHoleClearance": KindMap(
         (NeutralLimits("hole_to_hole", "GAP", None, None),),
         "AnyNet",
@@ -402,12 +399,14 @@ CHECKED_KINDS: dict[str, str] = {
 ``checked``."""
 ALLOWANCE_KINDS: dict[str, str] = {
     "ShortCircuit": "`copper.short`, and KiCad's shorting items",
-    "NetAntennae": "KiCad's dangling tracks",
 }
 """Kinds of ``RULE_KIND_MAP`` that relax a check ``fenolite check`` performs (change c0465, design D5): the
 enabled records of one map only when one of them relaxes the check (``_relaxes``), and otherwise each is
 reported with the reason ``checked``, as a kind of ``CHECKED_KINDS`` is."""
+ANTENNA_PORTABILITY = "Altium's Net Antennae verdict is not equivalent to the portable centre-line check"
+"""The native rule stays in the Altium carrier (change c0465, S-2298)."""
 CARRIED_KINDS: dict[str, str] = {
+    "NetAntennae": ANTENNA_PORTABILITY,
     "AcuteAngle": "a minimum angle of track corners: the model holds no rule of corner angles",
     "AssemblyTestPointUsage": "test point usage for assembly: no copper geometry",
     "AssemblyTestpoint": "test point style for assembly: no copper geometry",
@@ -987,16 +986,8 @@ def _matched_lengths(fields: Sequence[Field]) -> list[tuple[NeutralLimits, tuple
 
 
 def _relaxes(fields: Sequence[Field], kind: str) -> bool:
-    """Whether an enabled record of ``ALLOWANCE_KINDS`` relaxes the check Fenolite performs: a Short-Circuit
-    that allows the short (S-2241), a Net Antennae with a tolerance above zero (S-2240)."""
-    if _get(fields, "ENABLED") != "TRUE":
-        return False
-    if kind == "ShortCircuit":
-        return _get(fields, "ALLOWED") == "TRUE"
-    if kind == "NetAntennae":
-        length = parse_length(_get(fields, "NETANTENNAETOLERANCE") or "")
-        return length is not None and length > 0
-    return False
+    """Whether a supported enabled rule relaxes the portable check (change c0465, S-2241)."""
+    return kind == "ShortCircuit" and _get(fields, "ENABLED") == "TRUE" and _get(fields, "ALLOWED") == "TRUE"
 
 
 def _and(selector: Selector, leaf: Selector) -> Selector:

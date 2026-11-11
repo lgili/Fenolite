@@ -65,7 +65,10 @@ KEPT: Mapping[str, str] = MappingProxyType(
         "PlaneClearance": "the conversion gives an internal plane no zone: no KiCad item takes the clearance",
         "PlaneConnect": "the conversion gives an internal plane no zone: no KiCad item takes the connection",
         "MinimumSolderMaskSliver": "Fenolite's model and KiCad writer hold no minimum solder mask web",
-        "NetAntennae": "KiCad's check of dangling tracks takes no tolerance",
+        "NetAntennae": (
+            "KiCad's check of dangling tracks takes no tolerance. Altium's Net Antennae verdict "
+            "differs from the portable centre-line check and needs Altium DRC"
+        ),
         "SilkToSolderMaskClearance": "KiCad's one silkscreen clearance is not split by what it measures to",
         "SilkToBoardRegionClearance": "KiCad's rules have no silkscreen to board region clearance",
         "PolygonConnect": "the record cannot be read, so no zone or pad takes its style",

@@ -571,8 +571,7 @@ def test_kinds_read_elsewhere_checked_and_carried() -> None:
 
 
 def test_a_record_that_relaxes_a_check_maps() -> None:
-    """``ALLOWED=TRUE`` on Short-Circuit, a tolerance on Net Antennae: since change c0465 (design D5) the
-    records map and the warning ``altium.rules.check-relaxed`` is withdrawn; a disabled one stays unmapped."""
+    """The allowed short maps and the native antenna records stay carried (c0465, design D5)."""
     records = [
         record("ShortCircuit", ("ALLOWED", "TRUE"), SCOPE2EXPRESSION="InNet('B')"),
         record("NetAntennae", ("NETANTENNAETOLERANCE", "1mil")),
@@ -583,8 +582,10 @@ def test_a_record_that_relaxes_a_check_maps() -> None:
     assert not [i for i in mapping.issues if i.code == "altium.rules.check-relaxed"]
     assert [(r.kind, r.severity, r.max) for r in mapping.ruleset.rules] == [
         ("short", "ignore", None),
-        ("antenna", "error", 25_400),
-        ("antenna", "error", 0),
     ]
     assert mapping.ruleset.rules[0].selector_b == Selector("net", "B")
-    assert [(u.kind, u.reason) for u in mapping.unmapped] == [("ShortCircuit", "disabled")]
+    assert [(u.kind, u.reason) for u in mapping.unmapped] == [
+        ("NetAntennae", "no-counterpart"),
+        ("NetAntennae", "no-counterpart"),
+        ("ShortCircuit", "disabled"),
+    ]

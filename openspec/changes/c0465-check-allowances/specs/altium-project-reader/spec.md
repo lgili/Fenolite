@@ -1,32 +1,30 @@
 ## ADDED Requirements
 
-### Requirement: Short-Circuit and Net Antennae records map
-`read.rules.map_rules` SHALL map the enabled ShortCircuit and NetAntennae records of a document that relax
-their check (change c0465, design D5):
-- When some enabled ShortCircuit record holds `ALLOWED=TRUE`, every enabled ShortCircuit record MUST map, and
-  otherwise none MUST. When some enabled NetAntennae record holds a tolerance above 0, every enabled NetAntennae
-  record MUST map, and otherwise none MUST. A record not mapped MUST stay `Unmapped` with `checked`.
-- ShortCircuit MUST give one `short` rule over its two scopes, of severity `ignore` when `ALLOWED=TRUE` and
-  `error` when `ALLOWED=FALSE`, at the record's priority.
-- NetAntennae MUST give one `antenna` rule over its first scope with `max` = `NETANTENNAETOLERANCE`.
-- A record of another key, or a value of `ALLOWED` other than `TRUE` and `FALSE`, MUST stay `Unmapped` with
-  `keys`.
-- The two kinds MUST leave `CHECKED_KINDS` for `RULE_KIND_MAP`, and the table "Rule kinds and their reading" of
-  `rule-file.md` MUST list them as neutral.
-- The warning `altium.rules.check-relaxed` MUST no longer be given, and MUST leave `TEXT_READ_CODES`.
-- The Altium writer MUST write a `short` rule as a ShortCircuit record and an `antenna` rule as a NetAntennae
-  record, with the keys of the public records (S-2243). A record read from a document is still carried as it
-  was (c0434).
+### Requirement: Short-Circuit records map and native antenna records travel
 
-#### Scenario: An allowed short and a default rule
-- **GIVEN** an authored rule file with a ShortCircuit `ALLOWED=TRUE` between `InNet('AGND')` and
-  `InNet('DGND')` at priority 1, a ShortCircuit `ALLOWED=FALSE` `All`/`All` at priority 2, and a NetAntennae
-  of tolerance 50 mil
-- **WHEN** `uv run pytest tests/unit/backends/altium/test_rule_allowances_c0465.py -q -n 0` maps it
-- **THEN** it gives a `short` rule `ignore` between nets `AGND` and `DGND` governing over a `short` rule
-  `error` `all`/`all`, an `antenna` rule of `max` 1 270 000 nm, no `Unmapped`, and no `check-relaxed`
+When an enabled ShortCircuit record holds `ALLOWED=TRUE`, `read.rules.map_rules` SHALL map every enabled
+ShortCircuit record in the document. Each gives one `short` rule over its two scopes at the record's
+priority, with severity `ignore` for `ALLOWED=TRUE` or `error` for `ALLOWED=FALSE`. When no enabled record
+allows a short, the records SHALL remain unmapped with reason `checked`. Extra keys and other values of
+`ALLOWED` SHALL remain unmapped.
 
-#### Scenario: Nothing relaxed, nothing mapped
-- **GIVEN** an authored rule file with one ShortCircuit `ALLOWED=FALSE` and one NetAntennae of tolerance 0
-- **WHEN** the same test maps it
-- **THEN** it gives no rule, and both records are `Unmapped` with `checked`
+A NetAntennae record SHALL travel as a native record and remain unmapped as a portable rule. The import
+and KiCad conversion SHALL report the coverage limit. The Altium round trip SHALL restore the record's
+tolerance, scope, enabled state and priority. Altium Designer 24.5.2.23's DRC measures antennae differently
+from the portable centre-line check (S-2245, S-2298).
+
+The Altium writer SHALL keep writing explicit authored `short` and `antenna` rules with the public record
+keys. This writes the declared tolerance field; it does not establish equal DRC verdicts. The legacy
+warning `altium.rules.check-relaxed` SHALL remain withdrawn.
+
+#### Scenario: An allowed short and a native antenna rule
+- **GIVEN** an allowing ShortCircuit for AGND and DGND, a default ShortCircuit that forbids shorts and
+  a native NetAntennae rule of tolerance 50 mil
+- **WHEN** Fenolite imports the records
+- **THEN** both ShortCircuit records become neutral rules and the antenna record is carried with its
+  original tolerance, without installing a portable allowance
+
+#### Scenario: Preserve a native rule through KiCad
+- **WHEN** Fenolite converts an authored Altium project with a native NetAntennae rule to KiCad and back
+- **THEN** the first conversion reports that Altium checks the carried native rule, and the return
+  writes its native fields unchanged

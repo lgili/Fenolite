@@ -13,7 +13,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from fenolite.backends.altium import rulemap
-from fenolite.backends.altium.read.rules import PENDING_KINDS, RULE_KIND_MAP
+from fenolite.backends.altium.read.rules import CARRIED_KINDS, PENDING_KINDS, RULE_KIND_MAP
 from fenolite.backends.altium.read.scope import parse_scope
 from fenolite.backends.altium.rulemap import NOT_LOWERED_REASONS, TABLE, lift, lower, same_rules
 from fenolite.model.rules import NO_NET, Rule, RuleKind, Selector
@@ -100,17 +100,20 @@ def test_complete_exact_rows_are_cited_and_read() -> None:
     for row in TABLE:
         if not row.exact:
             continue
-        entry = RULE_KIND_MAP[row.altium]
-        assert entry.net_scope == row.net_scope
-        assert ("pair" in row.scopes) == entry.binary
-        if row.limits:
-            limits = next(limits for limits in entry.rules if limits.kind == row.neutral)
-            assert set(limits.keys) <= set(row.fields)
-        else:  # change c0465: a short rule has no limit; the reader's ALLOWED condition is its severity
-            assert row.neutral == "short" and entry.rules == () and row.fields == ("ALLOWED",)
-        # the keys of change c0125 (a matrix cell) are read and never written
-        assert all(c.key in row.fields for c in entry.conditions if not c.read_only)
-        assert not any(c.key in row.fields for c in entry.conditions if c.read_only)
+        if row.altium in CARRIED_KINDS:
+            assert row.altium == "NetAntennae" and row.fields == ("NETANTENNAETOLERANCE",)
+        else:
+            entry = RULE_KIND_MAP[row.altium]
+            assert entry.net_scope == row.net_scope
+            assert ("pair" in row.scopes) == entry.binary
+            if row.limits:
+                limits = next(limits for limits in entry.rules if limits.kind == row.neutral)
+                assert set(limits.keys) <= set(row.fields)
+            else:  # change c0465: a short rule has no limit; the reader's ALLOWED condition is its severity
+                assert row.neutral == "short" and entry.rules == () and row.fields == ("ALLOWED",)
+            # the keys of change c0125 (a matrix cell) are read and never written
+            assert all(c.key in row.fields for c in entry.conditions if not c.read_only)
+            assert not any(c.key in row.fields for c in entry.conditions if c.read_only)
         if row.number not in (0, 2, 11):  # the three kinds of c0038 are cited under "Rules"
             cited = [line for line in facts.splitlines() if f"`RULEKIND={row.altium}`" in line]
             assert cited and re.search(r"\| S-\d{4}", cited[0]) and f"number {row.number}" in cited[0]
@@ -163,10 +166,11 @@ def test_roundtrip_of_one_of_each() -> None:
     for where in (ALL, PWR, Selector("net", "VIN")):
         lowered = lower(one_of_each(where))
         lifted, opaque = lift(lowered.records)
-        assert opaque == {} and same_rules(lifted, lowered.written)
+        assert opaque == {"NetAntennae": 1}
+        assert same_rules(lifted, [r for r in lowered.written if r.kind != "antenna"])
         assert [r.kind for r in lifted] == [
             "clearance", "track_width", "via_diameter", "via_drill", "hole_size", "edge_clearance",
-            "hole_to_hole", "annular_width", "short", "antenna",
+            "hole_to_hole", "annular_width", "short",
         ]  # fmt: skip
 
 
@@ -579,7 +583,7 @@ def test_roundtrip_of_generated_rule_sets(rules: list[Rule]) -> None:
     checked: dict[str, int] = {}
     for kind, altium, relaxes in (
         ("short", "ShortCircuit", lambda r: r.severity == "ignore"),
-        ("antenna", "NetAntennae", lambda r: (r.max or 0) > 0),
+        ("antenna", "NetAntennae", lambda r: False),
     ):  # change c0465, design D5: records that relax nothing read back as the check Fenolite performs
         of_kind = [r for r in written if r.kind == kind]
         if of_kind and not any(relaxes(r) for r in of_kind):

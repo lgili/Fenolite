@@ -30,8 +30,7 @@ version 1.1 and does not bump `SCHEMA_VERSION` itself.
   - `error` reports it as an error.
   With no governing `short` rule, a short is an error, as today.
 - `antenna` keeps its `severity` for a stub longer than `max`. A stub within `max` is accepted.
-- Altium's page does not say whether a stub of exactly the tolerance passes. `max` is inclusive like every
-  `max` of the model. The kit of task 6.1 settles it (`H-A-RULE-ANTENNA`).
+- The neutral `max` is inclusive. Altium DRC uses different measurements (D7).
 
 ## D2: which rule governs
 
@@ -84,21 +83,22 @@ There is one helper, `checks.allowances`, and no code is shared with `checks.wai
 
 ## D5: the Altium import
 
-c0462 lists ShortCircuit and NetAntennae as `checked`. Here they move to `RULE_KIND_MAP`:
+ShortCircuit is mapped as follows. Native NetAntennae is carried:
 
 | Altium | neutral |
 |---|---|
 | ShortCircuit, `ALLOWED=TRUE` | `short`, severity `ignore`, scopes → selectors |
 | ShortCircuit, `ALLOWED=FALSE` | `short`, severity `error` |
-| NetAntennae, `NETANTENNAETOLERANCE` = t | `antenna`, `max` = t, scope → `selector_a` |
+| NetAntennae | native carrier; the tolerance cannot govern the portable centre-line check |
 
 - **Only where it relaxes something** (coordinator's adjustment, 2026-11-06). When no enabled ShortCircuit
   record of the document has `ALLOWED=TRUE`, none maps: a rule that forbids a short is Fenolite's built-in
   check, and an `error` rule on every import would churn every census. When one does, every enabled
-  ShortCircuit record maps, so the source's order of priority holds. NetAntennae likewise maps only when one
-  enabled record has a tolerance above 0. A record not mapped is reported `checked` as in c0462.
+  ShortCircuit record maps, so the source's order of priority holds. A ShortCircuit
+  record in a document where none relaxes a short is reported `checked`, as in c0462.
 - Every record, mapped or not, is still carried (c0434), so the Altium writer writes it back unchanged.
-- `altium.rules.check-relaxed` is withdrawn: its records are now honoured.
+- `altium.rules.check-relaxed` remains withdrawn. The ordinary unmapped and conversion coverage reports
+  explain that native NetAntennae must be checked in Altium.
 - The Altium writer lowers both kinds of an authored design to their records. The keys are those the public
   records hold (S-2243, a corpus census).
 
@@ -138,3 +138,23 @@ The labels:
 - The Altium semantics are INFERRED until the kit (task 6.1) shows Altium's DRC on authored stubs and
   shorts.
 - The KiCad lowering is KICAD-VERIFIED by the probe and the tests.
+
+### Native observations (S-2245, 2026-11-10)
+
+The scoped short control agrees with D2: one forbidden pair is reported with the allowance, and both
+pairs are reported with that allowance disabled. The antenna measurements do not establish D3 as an
+Altium oracle. At 50 mil tolerance the observed bare-track boundary depends on the width, and a 40 mil
+via-ended branch is reported. The 0 mil control proves the three bare-track branches were measurable.
+Do not replace the neutral centre-line definition with an inferred width correction: the tested lengths
+only bracket its effect, and via, arc and bend handling still need separation. No broad evidence label
+is raised by these partial native measurements.
+
+### Portability decision (S-2298)
+
+At 50 mil, width, geometry and the existence of a via affected Altium's verdict. At 1000 mil the
+same 11 via endpoints still generated findings. Lowering a native tolerance to a neutral allowance
+would therefore suppress some findings that Altium reports. Native records stay in the board
+carrier and return unchanged, and the conversion describes the coverage limit. A legacy model rule
+with an Altium record identity cannot lower the severity of a KiCad dangling finding. An authored
+portable antenna rule still uses the centre-line check; exporting it writes the requested native
+tolerance field, with no claim of DRC equivalence.

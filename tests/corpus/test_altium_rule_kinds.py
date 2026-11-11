@@ -15,6 +15,7 @@ from _corpus import CorpusItem, manifest_items, require
 
 from fenolite.backends.altium import rulemap
 from fenolite.backends.altium.adapter.layers import LayerMap
+from fenolite.backends.altium.adapter.rules import KEPT_RULE, kept_fields
 from fenolite.backends.altium.backend import AltiumBackend
 from fenolite.backends.altium.connectstyle import read_connect_styles
 from fenolite.backends.altium.read.pcb import read_pcbdoc
@@ -80,11 +81,8 @@ def test_board_outline_clearance_is_imported() -> None:
     objects gives that edge clearance, and the import lists no pending kind."""
     (item,) = [row for row in ROWS if row.id == "altium-third-party-pcbdoc-05"]
     path = require(item)
-    record = next(
-        r
-        for r in read_pcbdoc(path.read_bytes(), file=path.name).rules
-        if r.rule_kind == "BoardOutlineClearance"
-    )
+    native_rules = read_pcbdoc(path.read_bytes(), file=path.name).rules
+    (record,) = [r for r in native_rules if r.rule_kind == "BoardOutlineClearance"]
     assert (record.scope1, record.scope2) == ("All", "All")
     result = AltiumBackend().read(path)
     rules = result.design.rules
@@ -97,7 +95,22 @@ def test_board_outline_clearance_is_imported() -> None:
     assert not [message for message in unmapped if "no-verified-keys" in message]
     assert not [message for message in unmapped if "BoardOutlineClearance" in message]
     assert {rule.kind for rule in rules.rules} >= {"edge_clearance", "hole_to_hole", "annular_width"}
-    assert set(RULE_KIND_MAP) >= set(rulemap.KIND_ORDER)
+    assert set(rulemap.KIND_ORDER) - set(RULE_KIND_MAP) == {"NetAntennae"}
+
+    # Native Net Antennae can be written, but its geometry differs from portable antenna (c0465).
+    assert all(rule.kind != "antenna" for rule in rules.rules)
+    assert any("NetAntennae" in message and "no-counterpart" in message for message in unmapped)
+    (native,) = [r for r in native_rules if r.rule_kind == "NetAntennae"]
+    board = result.design.board
+    assert board is not None
+    kept = [kept_fields(str(value)) for key, value in board.ext["altium"].payload if key == KEPT_RULE]
+    ((kind, fields),) = [
+        (number, pairs) for number, pairs in kept if dict(pairs)["RULEKIND"] == "NetAntennae"
+    ]
+    start = next(i for i, (key, _) in enumerate(native.fields) if key == "RULEKIND")
+    assert kind == native.kind_number and fields == tuple(
+        (key, value or "") for key, value in native.fields[start:]
+    )
 
 
 # --- More forms of a Clearance record (change c0125) ---------------------------------------------------
