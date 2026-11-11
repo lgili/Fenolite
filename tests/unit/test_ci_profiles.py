@@ -226,8 +226,8 @@ def test_ci_collections_and_wrapper_contract() -> None:
     assert "ci_profiles.py gate --kind full" in complete
     for job in policy.FULL_JOBS:
         assert job in complete.split("needs: [", 1)[1].split("]", 1)[0].split(", ")
-    assert "shard: [0, 1, 2, 3]" in text
-    assert "--suite kicad-10 --shard ${{ matrix.shard }} --shards 4" in text
+    assert "shard: [0, 1, 2, 3, 4]" in text
+    assert "--suite kicad-10 --shard ${{ matrix.shard }} --shards 5" in text
     assert "FENOLITE_REQUIRE: kicad,corpus,libs" in text
     assert "ci_tests.py audit ci-receipts --commit" in text
     assert "pattern: ci-tests-*" in text

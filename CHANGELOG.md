@@ -8,6 +8,8 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Fixed
 
+- Run the KiCad 10 routing completion scale file in a dedicated serial CI partition with the existing time and proposal assertions (c0478).
+
 - **Clean-room harness regression** (c0476): replaced private-derived example data with an authored
   fixture and removed private-project references from change documentation.
 - **Altium carried component graphics** (c0475): footprint implementation and pin-map owner indexes

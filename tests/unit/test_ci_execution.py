@@ -110,6 +110,57 @@ def test_audit_rejects_planted_coverage_holes(mutation: str) -> None:
     assert runner.audit(rows, {"sample": 4}, "authored")
 
 
+def test_kicad10_scale_partition_preserves_original_assignments_and_audits_all_five() -> None:
+    scale = {"id": f"{runner.ROUTER_SCALE_FILE}::test_scale", "file": runner.ROUTER_SCALE_FILE}
+    ordinary = baseline()
+    items = [*ordinary, scale]
+    groups = [runner.partition(items, shard, 5, suite="kicad-10") for shard in range(5)]
+    assert groups[:4] == [runner.partition(ordinary, shard, 4) for shard in range(4)]
+    assert groups[4] == [scale]
+    assert sorted(item["id"] for group in groups for item in group) == sorted(item["id"] for item in items)
+    rows = [
+        dict(
+            schema=runner.SCHEMA,
+            suite="kicad-10",
+            shard=shard,
+            shards=5,
+            commit="authored",
+            baseline=items,
+            selected=group,
+            outcomes={i["id"]: "passed" for i in group},
+            exit_code=0,
+        )
+        for shard, group in enumerate(groups)
+    ]
+    expected = {"kicad-10": 5}
+    assert runner.audit(rows, expected, "authored") == []
+    assert runner.audit(rows[:4], expected, "authored")
+    assert runner.audit([*rows, rows[4]], expected, "authored")
+    missing = copy.deepcopy(rows)
+    for row in missing:
+        row["baseline"] = [item for item in row["baseline"] if item != scale]
+    missing[4].update(selected=[], outcomes={})
+    assert any("scale file" in problem for problem in runner.audit(missing, expected, "authored"))
+    moved = copy.deepcopy(rows)
+    moved[0]["selected"].append(scale)
+    moved[0]["outcomes"][scale["id"]] = "passed"
+    moved[4].update(selected=[], outcomes={})
+    assert runner.audit(moved, expected, "authored")
+    skipped = copy.deepcopy(rows)
+    skipped[4]["outcomes"][scale["id"]] = "skipped"
+    assert runner.audit(skipped, expected, "authored")
+
+
+def make_serial_scale_file(root: Path) -> None:
+    scale = root / runner.ROUTER_SCALE_FILE
+    scale.parent.mkdir(parents=True, exist_ok=True)
+    scale.write_text(
+        "import os\ndef test_scale(request):\n"
+        " if os.environ.get('CI_RECEIPT_SUITE') == 'kicad-10':\n"
+        "  assert not hasattr(request.config, 'workerinput')\n"
+    )
+
+
 def prepare(pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch) -> Path:
     config = pytester.path / "isolated-gitconfig"
     config.write_text("")
@@ -243,7 +294,7 @@ def test_collection_failure_does_not_preserve_a_success_receipt(
     assert not (out / "junit.xml").exists()
 
 
-def test_real_four_shards_include_empty_receipts_and_every_new_file(
+def test_real_five_shards_include_empty_receipts_and_run_scale_serially(
     pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     root = prepare(pytester, monkeypatch)
@@ -256,14 +307,17 @@ def test_real_four_shards_include_empty_receipts_and_every_new_file(
     ][:2]
     for name in names:
         (root / name).write_text("def test_new(): pass\n")
+    make_serial_scale_file(root)
+    monkeypatch.setenv("PYTEST_XDIST_AUTO_NUM_WORKERS", "2")
     rows = []
-    for shard in range(4):
+    for shard in range(5):
         out = root / f"evidence-{shard}"
-        assert runner.run("kicad-10", shard, 4, out, "0") == 0
+        assert runner.run("kicad-10", shard, 5, out, "auto" if shard == 4 else "0") == 0
         rows.append(json.loads((out / "receipt.json").read_text()))
-    assert runner.audit(rows, {"kicad-10": 4}, rows[0]["commit"]) == []
-    assert sum(bool(row["selected"]) for row in rows) == 1
-    assert sum(len(row["outcomes"]) for row in rows) == 2
+    assert runner.audit(rows, {"kicad-10": 5}, rows[0]["commit"]) == []
+    assert sum(bool(row["selected"]) for row in rows) == 2
+    assert [item["file"] for item in rows[4]["selected"]] == [runner.ROUTER_SCALE_FILE]
+    assert sum(len(row["outcomes"]) for row in rows) == 3
 
 
 def test_full_suite_scopes_retain_the_prepartition_baselines() -> None:
@@ -290,7 +344,7 @@ def test_implicit_last_failed_or_keyword_filter_cannot_shrink_baseline(
         (tmp_path / "receipt.json").write_text('{"old_success": true}')
         (tmp_path / "junit.xml").write_text("stale success")
         with pytest.raises(ValueError, match="PYTEST_ADDOPTS"):
-            runner.run("kicad-10", 0, 4, tmp_path, "0")
+            runner.run("kicad-10", 0, 5, tmp_path, "0")
         assert not (tmp_path / "receipt.json").exists()
         assert not (tmp_path / "junit.xml").exists()
     assert not (tmp_path / "receipt.json").exists()
@@ -300,6 +354,7 @@ def resource_reports(omit: str = "") -> list[dict]:
     suite = "unit-ubuntu-latest-py3.12"
     items = [
         {"id": "tests/kicad/test_core.py::test_core", "file": "tests/kicad/test_core.py", "resources": []},
+        {"id": f"{runner.ROUTER_SCALE_FILE}::test_scale", "file": runner.ROUTER_SCALE_FILE, "resources": []},
         {"id": "tests/unit/test_extra.py::test_prepare", "file": "tests/unit/test_extra.py", "resources": []},
         {
             "id": "tests/unit/test_extra.py::test_required",
@@ -326,14 +381,14 @@ def resource_reports(omit: str = "") -> list[dict]:
             "exit_code": 0,
         }
     ]
-    for shard in range(4):
-        chosen = runner.partition(native, shard, 4)
+    for shard in range(5):
+        chosen = runner.partition(native, shard, 5, suite="kicad-10")
         rows.append(
             {
                 "schema": runner.SCHEMA,
                 "suite": "kicad-10",
                 "shard": shard,
-                "shards": 4,
+                "shards": 5,
                 "commit": "authored",
                 "baseline": native,
                 "selected": chosen,
@@ -357,7 +412,7 @@ def test_unit_inventory_independently_requires_native_resource_coverage(omitted:
         rows[0] = copy.deepcopy(rows[0])
         for item in rows[0]["baseline"]:
             item.pop("resources")
-    problems = runner.audit(rows, {"unit-ubuntu-latest-py3.12": 1, "kicad-10": 4}, "authored")
+    problems = runner.audit(rows, {"unit-ubuntu-latest-py3.12": 1, "kicad-10": 5}, "authored")
     assert bool(problems) == bool(omitted)
     if omitted:
         assert any("resource" in problem for problem in problems)
@@ -385,20 +440,21 @@ def test_real_native_shards_cover_resource_unit_files_and_preserve_unmarked_stat
             for marker in ("needs_kicad", "needs_corpus", "needs_libs")
         )
     )
+    make_serial_scale_file(root)
     rows = []
-    for suite, count in (("unit-ubuntu-latest-py3.12", 1), ("kicad-10", 4)):
+    for suite, count in (("unit-ubuntu-latest-py3.12", 1), ("kicad-10", 5)):
         for shard in range(count):
             out = root / f"evidence-{suite}-{shard}"
             assert runner.run(suite, shard, count, out, "2") == 0
             rows.append(json.loads((out / "receipt.json").read_text()))
     native = next(row for row in rows if row["suite"] == "kicad-10")
-    assert len(native["baseline"]) == 6  # Two native cases and the entire four-case unit file.
+    assert len(native["baseline"]) == 7  # Three native cases and the entire four-case unit file.
     assert {m for i in native["baseline"] for m in i["resources"]} == {
         "needs_kicad",
         "needs_corpus",
         "needs_libs",
     }
-    assert runner.audit(rows, {"unit-ubuntu-latest-py3.12": 1, "kicad-10": 4}, rows[0]["commit"]) == []
+    assert runner.audit(rows, {"unit-ubuntu-latest-py3.12": 1, "kicad-10": 5}, rows[0]["commit"]) == []
 
 
 @pytest.mark.parametrize(("workers", "priority_enabled"), [("1", True), ("1", False), ("0", True)])

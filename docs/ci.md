@@ -67,15 +67,17 @@ proves both the early scheduling and that removing the option restores case-coun
 must protect dependency updates; no private scheduler API is imported or replaced. This is not a
 controlled speedup measurement. See the [upstream option](https://pytest-xdist.readthedocs.io/en/stable/changelog.html#pytest-xdist-3-8-0-2025-06-30).
 
-## Four KiCad 10 partitions
+## Five KiCad 10 partitions
 
 Every partition first collects the configured repository in its native container. It retains all
 `tests/kicad` and `tests/corpus` items and whole unit files containing `needs_kicad`, `needs_corpus` or
 `needs_libs` cases. This closes an existing gap: these unit cases could skip in the portable jobs and
 were outside the old native job roots. Libraries are now required alongside KiCad and corpus.
 Unrelated tool-free unit files are excluded from duplicate native execution. A stable SHA-256 of the
-repo-relative POSIX file path assigns each retained whole file to one of
-four independent runners. Each execution validates its own collection and original within-file order
+repo-relative POSIX file path assigns ordinary retained files to the existing four independent
+runners. The routing completion scale file runs serially in a fifth partition. That file's
+600-second shapes budget and proposal assertions remain in force without competing corpus workers.
+Each execution validates its own collection and original within-file order
 against the plan before running. Unsharded suites retain their compact original root arguments,
 including on Windows, rather than passing thousands of file paths on the command line. New tests/files are assigned automatically; there is no exclusion
 allowlist and no manual census row to update for selection.
@@ -120,7 +122,7 @@ receipts for negative tests and must not be uploaded into the audit input. Recei
 receipts from another commit never satisfy the audit. Failure artifacts are kept;
 a failed collection, interrupted process or crashed worker cannot reuse an old successful receipt.
 
-`tools/ci_tests.py audit DIR --commit SHA` requires exactly fourteen full receipts: five unit, four
+`tools/ci_tests.py audit DIR --commit SHA` requires exactly fifteen full receipts: five unit, five
 KiCad 10, one KiCad 9, two routing, one viewer and one MCP. It rejects a missing/duplicate/unexpected
 suite or shard, changed baseline, wrong commit/count/assignment, missing or extra test outcome, failed
 execution and incomplete/overlapping union. Passing job status without complete receipts is not enough.

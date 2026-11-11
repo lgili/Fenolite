@@ -330,10 +330,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3]
+        shard: [0, 1, 2, 3, 4]
     needs: [plan, quality]
     if: needs.plan.outputs.profile == 'full'
-    name: kicad-10 (oracle and corpus shard ${{ matrix.shard }}/4)
+    name: kicad-10 (oracle and corpus shard ${{ matrix.shard }}/5)
     runs-on: ubuntu-latest
     container:
       image: kicad/kicad:10.0.6@sha256:18693567392b80da435f9fa952ce3a3e534c66eb5a6033f5b9c80aa3b19dd3ec
@@ -366,7 +366,7 @@ jobs:
         env:
           FENOLITE_REQUIRE: kicad,corpus,libs
           FENOLITE_SCALE_RECORD: /tmp/fenolite-scale/scale-kicad-10.jsonl
-        run: uv run python tools/ci_tests.py run --suite kicad-10 --shard ${{ matrix.shard }} --shards 4 --out /tmp/fenolite-kicad-corpus
+        run: uv run python tools/ci_tests.py run --suite kicad-10 --shard ${{ matrix.shard }} --shards 5 --out /tmp/fenolite-kicad-corpus
       - name: Keep router scale measurements (c0370)
         if: always()
         uses: actions/upload-artifact@v4

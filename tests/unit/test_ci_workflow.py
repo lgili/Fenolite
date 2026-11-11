@@ -28,7 +28,7 @@ STEPS = [
 ]
 KICAD10_PYTEST = (
     "run: uv run python tools/ci_tests.py run --suite kicad-10 --shard ${{ matrix.shard }} "
-    "--shards 4 --out /tmp/fenolite-kicad-corpus"
+    "--shards 5 --out /tmp/fenolite-kicad-corpus"
 )
 UNIT_PYTEST = (
     "run: uv run python tools/ci_tests.py run --suite unit-${{ matrix.os }}-py${{ matrix.python }} "

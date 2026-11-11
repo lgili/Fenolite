@@ -23,9 +23,11 @@ UNIT_LABELS = (
     "macos-latest-py3.12",
     "windows-latest-py3.12",
 )
+KICAD_10_ORDINARY_SHARDS = 4
+ROUTER_SCALE_FILE = "tests/kicad/routing/test_completion_scale.py"
 FULL = {
     **{f"unit-{label}": 1 for label in UNIT_LABELS},
-    "kicad-10": 4,
+    "kicad-10": KICAD_10_ORDINARY_SHARDS + 1,
     "kicad-9": 1,
     "routing-9": 1,
     "routing-10": 1,
@@ -59,11 +61,21 @@ def slot(file: str, count: int) -> int:
     return int.from_bytes(hashlib.sha256(file.encode("utf-8")).digest()[:8], "big") % count
 
 
-def partition(items: list[dict], shard: int, count: int) -> list[dict]:
+def partition(items: list[dict], shard: int, count: int, *, suite: str = "") -> list[dict]:
     if count < 1 or not 0 <= shard < count:
         raise ValueError("invalid shard index/count")
     if len({item["id"] for item in items}) != len(items):
         raise ValueError("duplicate node ids in baseline collection")
+    if suite == "kicad-10":
+        if count != FULL[suite]:
+            raise ValueError("invalid KiCad 10 partition count")
+        if shard == KICAD_10_ORDINARY_SHARDS:
+            return [item for item in items if item["file"] == ROUTER_SCALE_FILE]
+        return [
+            item
+            for item in items
+            if item["file"] != ROUTER_SCALE_FILE and slot(item["file"], KICAD_10_ORDINARY_SHARDS) == shard
+        ]
     return [item for item in items if slot(item["file"], count) == shard]
 
 
@@ -85,6 +97,8 @@ def audit(reports: list[dict], expected: dict[str, int], commit: str) -> list[st
         baseline = group[0].get("baseline", [])
         if not baseline:
             problems.append(f"{suite}: empty full collection")
+        if suite == "kicad-10" and not any(item.get("file") == ROUTER_SCALE_FILE for item in baseline):
+            problems.append("kicad-10: routing completion scale file is missing from the baseline")
         seen: Counter[str] = Counter()
         for report in group:
             if (
@@ -96,7 +110,7 @@ def audit(reports: list[dict], expected: dict[str, int], commit: str) -> list[st
                 problems.append(f"{suite}: inconsistent schema, commit, partition count or baseline")
                 continue
             try:
-                planned = partition(baseline, report["shard"], count)
+                planned = partition(baseline, report["shard"], count, suite=suite)
             except (ValueError, KeyError, TypeError):
                 problems.append(f"{suite}: invalid partition")
                 continue
@@ -107,6 +121,11 @@ def audit(reports: list[dict], expected: dict[str, int], commit: str) -> list[st
                 or set(outcomes) != ids
                 or any(v not in {"passed", "skipped"} for v in outcomes.values())
                 or report.get("exit_code") != 0
+                or (
+                    suite == "kicad-10"
+                    and report["shard"] == KICAD_10_ORDINARY_SHARDS
+                    and any(v != "passed" for v in outcomes.values())
+                )
             ):
                 problems.append(f"{suite}/{report['shard']}: collection/outcomes incomplete or failed")
             seen.update(item["id"] for item in report.get("selected", []))
@@ -147,7 +166,7 @@ def run(suite: str, shard: int, count: int, out: Path, workers: str) -> int:
     allowed_counts = (1, 3) if suite == "fast" else (FULL[suite],)
     if count not in allowed_counts:
         raise ValueError(f"{suite} requires shard count in {allowed_counts}")
-    partition([], shard, count)
+    partition([], shard, count, suite=suite)
     # Container users can differ from checkout ownership. Trust only this checkout for this
     # invocation, and retain actual HEAD identity rather than substituting GITHUB_SHA blindly.
     commit = subprocess.check_output(
@@ -179,7 +198,9 @@ def run(suite: str, shard: int, count: int, out: Path, workers: str) -> int:
     collection = json.loads(collect_path.read_text(encoding="utf-8"))["items"]
     if not collection:
         raise ValueError("full baseline collection is empty")
-    chosen = partition(collection, shard, count)
+    if suite == "kicad-10" and not any(item["file"] == ROUTER_SCALE_FILE for item in collection):
+        raise ValueError("kicad-10 baseline is missing the routing completion scale file")
+    chosen = partition(collection, shard, count, suite=suite)
     plan = {
         "schema": SCHEMA,
         "suite": suite,
@@ -201,8 +222,10 @@ def run(suite: str, shard: int, count: int, out: Path, workers: str) -> int:
     files = sorted({item["file"] for item in chosen})
     marker_args = targets[targets.index("-m") :] if "-m" in targets else []
     # Preserve the legacy root selection when unsharded. Enumerating 1600+ files would exceed
-    # Windows' command-line limit; only the four Linux partitions need explicit file arguments.
+    # Windows' command-line limit; only sharded Linux suites need explicit file arguments.
     execution_args = targets if count == 1 else [*files, *marker_args]
+    if suite == "kicad-10" and shard == KICAD_10_ORDINARY_SHARDS:
+        workers = "0"
     started = time.monotonic()
     code = subprocess.call(
         [
