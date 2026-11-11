@@ -16,6 +16,16 @@
 - [x] 1.4 Add the `CHANGELOG.md` entry and the change docs (`proposal.md`, `design.md`,
       `specs/altium-schematic-writer/spec.md`).
   - Proof: `uv run ruff check . && uv run python tools/gen_agent_guide.py --check`
-- [ ] 1.5 Compile the regenerated project in Altium and compare its footprint warnings with the original;
-      also compare the multiple-name warnings against the original without changing electrical connectivity.
-  - Proof: Altium compiler messages for both projects.
+- [x] 1.5 Compile matched authored reference and regenerated projects in Altium and compare their
+      footprint and multiple-name diagnostics and electrical connectivity. This approved scope substitutes
+      for the unavailable reported private project.
+  - Proof: Altium Designer 24.5.2.23 compiled the two copies (S-2299). Both returned identical named
+    net groups and pin exports (34 physical pins and 32 groups), and identical diagnostic files.
+    Each has zero footprint and multiple-name diagnostics and the same three errors and two warnings
+    from the authored fixture's single-pin GND and floating inputs. Input hashes stayed fixed.
+    Comparison SHA-256: `f2a6d3a5ab26b89aa91d221bf7de50384e0488de4c3fdfdb097f86f2b4e76d9e`.
+    A negative control reinstated the previous fixed offset on the five footprint and pad-map
+    owner references. Altium reported a missing footprint for the affected part, and its pin and
+    net exports remained byte-identical to the corrected export. The corrected document has no
+    such warning (S-2305). Canary SHA-256:
+    `25a4c33058d7ef67c9bbea58914e6e68488dba3b8fe1e02692411097d766f554`.

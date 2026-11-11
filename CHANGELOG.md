@@ -12,7 +12,7 @@ All notable changes to Fenolite are documented here. The format follows
   fixture and removed private-project references from change documentation.
 - **Altium carried component graphics** (c0475): footprint implementation and pin-map owner indexes
   now refer to the records actually written when carried body graphics change the component record count.
-  Verification in Altium Designer remains pending.
+  Altium Designer 24.5 returned identical compiler diagnostics, pins, and net groups on the matched authored controls (S-2299).
 
 ### Changed
 

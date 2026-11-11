@@ -16,7 +16,7 @@ fixed offset is right for the component (every child whose template owner is 0),
 name template positions **past the body**, where the written block now holds a different number of
 records. The chain can consequently name a parameter or other unrelated record instead of the
 implementation list. An Altium compiler warning about a missing footprint was reported for affected
-components, but the corrected project has not yet been compiled in Altium.
+components. The original reported project was unavailable for the follow-up.
 
 ## Decision
 Resolve owners through a position map, not an offset: `drawn.component` walks the template with
@@ -41,7 +41,9 @@ computed.
   source document holds, the exact thing c0473 restores.
 
 ## Consequences
-- The footprint chain of a component with a carried body names the records actually written. Native
-  compiler acceptance remains to be verified.
+- The footprint chain of a component with a carried body names the records actually written. The
+  matched authored reference and carried-body control have identical Altium compiler diagnostics
+  and native pin and net exports (S-2299). Restoring the old offsets in an authored negative control
+  reproduces the missing-footprint warning without changing the pin and net exports (S-2305).
 - The map covers the `RECORD=47` pin-map owners too (they name the 46 past the body, same shift).
 - A template that ever names a forward or skipped owner fails loudly at build time.
