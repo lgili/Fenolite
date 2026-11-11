@@ -29,6 +29,11 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Fixed
 
+- **The source's pour is kept** (c0482): a conversion from Altium through KiCad and back to Altium writes the
+  source's saved polygon regions as read, instead of pouring again. This covers a script imported with
+  `import --to python` and built with `build --target altium`. A conversion to KiCad carries them in
+  `Fenolite.Altium.Pours`. The writer keeps them when every polygon still has its outline, net and layer and
+  the copper check finds no fault the source's own pour lacks; otherwise it pours as before.
 - **Box of a STEP surface model** (c0481): `stepbox.model_box` measures a model that holds bounded surfaces
   and no edge by its trimmed curves. A line or a conic is trimmed by points or by parameters, the angles in
   the context's plane angle unit. A conversion to Altium writes such a model as a body. Before, it was

@@ -2203,6 +2203,7 @@ def from_design(
     edges: Outline | None = None,
     models: Mapping[str, Sequence[pcbdoc.FootprintModel]] | None = None,
     polygon_arcs: Mapping[str, ArcPolygon] | None = None,
+    kept_pours: Mapping[str, pcbdoc.KeptPour] | None = None,
     planes: Mapping[str, CarriedPlane] | None = None,
     frame_origin: Point | None = None,
 ) -> AltiumInputs:
@@ -2277,6 +2278,7 @@ def from_design(
                 edges=edges,
                 models=models,
                 polygon_arcs=polygon_arcs,
+                kept_pours=kept_pours,
                 carried_planes=planes,
                 frame_origin=frame_origin,
             )
@@ -2346,6 +2348,7 @@ def _document(
     edges: Outline | None = None,
     models: Mapping[str, Sequence[pcbdoc.FootprintModel]] | None = None,
     polygon_arcs: Mapping[str, ArcPolygon] | None = None,
+    kept_pours: Mapping[str, pcbdoc.KeptPour] | None = None,
     carried_planes: Mapping[str, CarriedPlane] | None = None,
     frame_origin: Point | None = None,
 ) -> pcbdoc.PcbDocSpec:
@@ -2488,6 +2491,7 @@ def _document(
         named_layers=frozenset(named_mechanical(board).values()) if not read else frozenset(),
         arc_records=MappingProxyType(arc_records),
         polygon_arcs=MappingProxyType(matched),
+        kept_pours=MappingProxyType(dict(kept_pours or {})),
         plane_splits=MappingProxyType(
             {plane_ids[n]: p.splits for n, p in carried_planes.items() if n in planes and p.splits}
         ),
@@ -2531,6 +2535,7 @@ def write_design(
     models: Mapping[str, Sequence[pcbdoc.FootprintModel]] | None = None,
     storages: Mapping[str, tuple[bytes, bytes]] | None = None,
     polygon_arcs: Mapping[str, ArcPolygon] | None = None,
+    kept_pours: Mapping[str, pcbdoc.KeptPour] | None = None,
     planes: Mapping[str, CarriedPlane] | None = None,
     frame_origin: Point | None = None,
     drawn: DrawnSchematic | None = None,
@@ -2584,6 +2589,7 @@ def write_design(
         edges=edges,
         models=models,
         polygon_arcs=polygon_arcs,
+        kept_pours=kept_pours,
         planes=planes,
         frame_origin=frame_origin,
     )

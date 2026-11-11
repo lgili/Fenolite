@@ -211,5 +211,12 @@ is not below the grid refuses `hatched`.
   (`pour.EXACT`). Every value of `POUROVERSTYLE`, `ARCRESOLUTION`, `AREATHRESHOLD` and
   `NECKWIDTHTHRESHOLD` that I8, I10, I12 and I14 record reads; `threshold` and `pour-over` remain for a
   value no source defines.
+- **The source's pour** (change c0482). A conversion to KiCad carries each polygon's saved regions as
+  read, each with its shape-based twin, in `Fenolite.Altium.Pours`. A computed pour of the way back writes
+  them as read, changing only the polygon index of their prefix (`pcbrecords.prefix`), when two things hold.
+  First, every written polygon has a carried pour with its vertices, net and `LAYER`. Second, the copper
+  check finds no fault that the source's own pour does not have. Otherwise it pours. The source's saved
+  pour can fail Fenolite's check (10 of 28 polygons of the maintainer's board, private, codes and counts
+  only), so the check is judged against the source's own result.
 - **Polygon Connect Style.** The records of change c0215, Decision 11: the Advanced form, one rule per
   net scoped `InNet` and one `All` rule.

@@ -25,7 +25,7 @@ from collections import Counter, defaultdict
 from collections.abc import Mapping
 from decimal import Decimal
 from pathlib import Path, PurePosixPath
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from fenolite.backends.altium.adapter.arcring import ArcPolygon
 from fenolite.backends.altium.pcbrecords import to_units
@@ -613,6 +613,11 @@ def write_altium(source: SourceProject, options: Options) -> Written:
         from fenolite.convert import zonearcs
 
         board_items[zonearcs.PROPERTY] = zonearcs.carrier_text(arcs).encode("utf-8")
+    pours = _carried_pours(source, design)
+    if pours:  # change c0482: the poured regions of each polygon, for the way back
+        from fenolite.convert import zonepours
+
+        board_items[zonepours.PROPERTY] = zonepours.carrier_text(pours).encode("utf-8")
     planes = _carried_planes(source, design)
     if (
         planes.planes or planes.signals or planes.names
@@ -724,6 +729,19 @@ def _carried_arcs(source: SourceProject, design: Design) -> list[tuple[str, str,
     if board is None or not found:
         return []
     return [(kicad_uuid(zone), *found[zone.id]) for zone in board.zones if zone.id in found]
+
+
+def _carried_pours(source: SourceProject, design: Design) -> list[tuple[str, Any]]:
+    """The pours of the source's board document whose zones the written board holds (change c0482;
+    ``altium_to_kicad.pour_zones``), each as ``(KiCad uuid, pour)`` for ``zonepours.carrier_text``."""
+    from fenolite.backends.kicad.pcb import kicad_uuid
+    from fenolite.convert.altium_to_kicad import pour_zones
+
+    board = design.board
+    found = pour_zones(source, source.design)
+    if board is None or not found:
+        return []
+    return [(kicad_uuid(zone), found[zone.id]) for zone in board.zones if zone.id in found]
 
 
 def _carried_storages(

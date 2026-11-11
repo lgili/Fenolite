@@ -38,7 +38,7 @@ from dataclasses import dataclass, field
 from decimal import ROUND_HALF_EVEN, Decimal, localcontext
 from decimal import Context as DecimalContext
 from fractions import Fraction
-from typing import Final, Literal
+from typing import TYPE_CHECKING, Final, Literal
 
 import fenolite.backends.altium.pcbrecords as rec
 import fenolite.backends.altium.rulemap as rulemap
@@ -99,6 +99,9 @@ from fenolite.model.board import (
     Zone,
     ZoneSettings,
 )
+
+if TYPE_CHECKING:
+    from fenolite.backends.altium.pour import PourReading
 
 NET_TIE_KIND = "4"
 """The ``COMPONENTKIND`` value written for a net tie (change c0420, N1): the kind Net Tie, the one the public
@@ -694,6 +697,23 @@ class PlaneBoundary:
 
 
 @dataclass(frozen=True, slots=True)
+class KeptPour:
+    """The pour of a source polygon carried through a conversion (change c0482, ``convert.zonepours``): the
+    polygon's vertices ``(x, y)`` as read, exact fractions of the file unit; its net's name (``None`` for
+    none); and its region records as read, each plain ``Regions6`` record with its ``ShapeBasedRegions6``
+    twin, if any."""
+
+    vertices: tuple[tuple[Fraction, Fraction], ...]
+    net: str | None
+    regions: tuple[tuple[bytes, bytes | None], ...]
+    layer: str = ""
+    """The polygon record's ``LAYER`` text: one outline and net may be poured on two layers."""
+    source_failed: bool = False
+    """Whether the source document's own pour of the polygon fails Fenolite's copper check
+    (``pour.check_pour``): then the written pour may fail it too, as the source does."""
+
+
+@dataclass(frozen=True, slots=True)
 class PcbDocSpec:
     """A board: its outline (KiCad frame, in order), its components, its net names and its copper.
 
@@ -758,6 +778,10 @@ class PcbDocSpec:
     """Zone id → the arc vertices of the source polygon record that a conversion carried through KiCad
     (change c0463, task 1.3), for a zone whose outline is still that record's ring (``ArcPolygon.matches``):
     the polygon is written with those vertices, moved as the outline was."""
+    kept_pours: Mapping[str, KeptPour] = field(default_factory=lambda: {})
+    """The source pours that a conversion carried through KiCad, by any key (change c0482): a computed pour
+    writes their regions instead when every polygon has one whose vertices and net are its own
+    (``write_pcbdoc_result``)."""
     plane_splits: Mapping[int, tuple[tuple[str, tuple[Point, ...]], ...]] = field(default_factory=lambda: {})
     """Internal plane id → its ``Split Plane`` polygons that a conversion carried through KiCad (change
     c0466, ``convert.altium_planes``): each a net name and its ring in the frame of the design. A plane with
@@ -3042,6 +3066,8 @@ class PourSummary:
     """(reason, zone id, layer) of each refused polygon, in record order."""
     evidence: Evidence
     rounds: int = 1
+    kept: bool = False
+    """Whether the source's poured regions were written as a conversion carried them (change c0482)."""
 
     @property
     def unpoured(self) -> dict[str, int]:
@@ -3076,7 +3102,18 @@ class PourSummary:
             )
             for reason, zone, layer in self.refused
         ]
-        if self.poured:
+        if self.poured and self.kept:  # change c0482
+            found.append(
+                Issue(
+                    ZONES_POURED,
+                    "info",
+                    f"{self.poured} polygon(s) written with the source's poured regions as read, which a "
+                    "conversion carried through KiCad; Fenolite's copper check finds no fault in them that "
+                    "the source's own pour does not have",
+                    where=where,
+                )
+            )
+        elif self.poured:
             found.append(
                 Issue(
                     ZONES_POURED,
@@ -3195,7 +3232,14 @@ def write_pcbdoc_result(
     if pour == "outline" or not spec.zones:
         data = _write(spec, filename)
         return PcbDocResult(data, None if pour == "outline" else PourSummary(0, (), POUR_EVIDENCE))
-    from fenolite.backends.altium.pour import check_pour, pour_reading, read_pour
+    from fenolite.backends.altium.pour import (
+        PolygonPour,
+        PourResult,
+        check_pour,
+        polygons_of,
+        pour_reading,
+        read_pour,
+    )
     from fenolite.geometry.boolean.clipper import ClipperBackend
 
     backend = ClipperBackend()
@@ -3203,6 +3247,22 @@ def write_pcbdoc_result(
     base = _write(spec, filename, computed=True)
     reading = read_pour(base, file=filename)
     order = [(zone.id, layer) for zone, layer, _ in polygon_order(spec.zones, _spec_copper(spec))]
+    kept = _carried_pour_records(spec, reading, order)
+    if kept is not None:  # change c0482: the source's own pour, while the copper check finds no new fault
+        records, matched = kept
+        data = _write(spec, filename, computed=True, pour_records=records)
+        written = read_pour(data, file=filename)
+        polygons = polygons_of(written)
+        held = PourResult(
+            tuple(
+                PolygonPour(p.index, p.layer, p.net, (), p.arc_resolution, zone_id=p.zone.id)
+                for p in polygons
+            )
+        )
+        failed = check_pour(written, held)
+        if all(matched[index].source_failed for index in failed):
+            summary = PourSummary(len(polygons), (), POUR_EVIDENCE, kept=True)
+            return PcbDocResult(data if pour_regions else base, summary, issues)
     refused: dict[int, str] = {}
     rounds = 0
     while True:
@@ -3229,6 +3289,42 @@ def write_pcbdoc_result(
         rounds=rounds,
     )
     return PcbDocResult(data if pour_regions else base, summary, issues)
+
+
+def _reindexed(raw: bytes, polygon: int) -> bytes:
+    """A region record as read (type byte, length, body) with the polygon index of its prefix replaced: the
+    body's bytes 5 and 6 (``prefix``)."""
+    return raw[:10] + struct.pack("<H", polygon) + raw[12:]
+
+
+def _carried_pour_records(
+    spec: PcbDocSpec, reading: PourReading, order: Sequence[tuple[str, str]]
+) -> tuple[list[tuple[bytes, bytes]], list[KeptPour]] | None:
+    """The carried region records of every polygon of ``reading`` (the document written without a pour), in
+    record order and indexed for it, with the carried pour of each polygon (change c0482); ``None`` unless
+    each polygon has a carried pour whose vertices, net and layer are the written polygon's and whose every
+    region has its shape-based twin. A carried pour is found by its vertices, net and layer, not by its
+    zone: a script's build gives its zones other ids than the conversion that carried them."""
+    if not spec.kept_pours or len(reading.document.polygons) != len(order):
+        return None
+    carried = {(kept.vertices, kept.net, kept.layer): kept for kept in spec.kept_pours.values()}
+    zones = {zone.id: zone for zone in spec.zones}
+    found: list[tuple[bytes, bytes]] = []
+    matched: list[KeptPour] = []
+    for index, (zone_id, _layer) in enumerate(order):
+        zone = zones.get(zone_id)
+        record = reading.document.polygons[index]
+        vertices = tuple((vertex.x, vertex.y) for vertex in record.vertices)
+        layer = record.record.get("LAYER") or ""
+        kept = carried.get((vertices, zone.net_id, layer)) if zone is not None else None
+        if kept is None:
+            return None
+        for plain, shape in kept.regions:
+            if shape is None or len(plain) < 12 or len(shape) < 12:
+                return None
+            found.append((_reindexed(plain, index), _reindexed(shape, index)))
+        matched.append(kept)
+    return found, matched
 
 
 def _spec_copper(spec: PcbDocSpec) -> _Copper:

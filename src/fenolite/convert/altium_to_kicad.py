@@ -521,6 +521,70 @@ def arc_zones(source: SourceProject, design: Design) -> dict[str, tuple[str, Any
     return arcs
 
 
+def pour_zones(source: SourceProject, design: Design) -> dict[str, Any]:
+    """Per zone id, the pour of the source polygon it was read from (change c0482): the polygon's vertices
+    as read, its net's name and its region records with their shape-based twins (``pcbdoc.KeptPour``). A
+    zone of another document (a copy of an Embedded Board Array), or whose regions and twins do not pair
+    one to one, is not carried."""
+    from fenolite.backends.altium.pcbdoc import KeptPour
+    from fenolite.backends.altium.read.pcbprims import RegionRecord
+
+    board = design.board
+    found = board_document(source, design)
+    if board is None or found is None:
+        return {}
+    names = {net.id: net.name for net in design.circuit.nets}
+    documents: dict[str, Any] = {}
+    pours: dict[str, Any] = {}
+    failing = _source_check(found)
+    for zone in board.zones:
+        where = zone.provenance
+        match = POLYGON_RECORD.fullmatch(where.locator) if where is not None else None
+        if where is None or match is None or where.file != found.name:
+            continue
+        document = _source_document(source, found, where, documents)
+        index = int(match.group(1))
+        if document is None or index >= len(document.polygons):
+            continue
+        plain = document.regions_of(index)
+        shapes = tuple(
+            r for r in document.shape_regions if isinstance(r, RegionRecord) and r.prefix.polygon == index
+        )
+        if len(plain) != len(shapes):
+            continue
+        record = document.polygons[index]
+        pours[zone.id] = KeptPour(
+            tuple((vertex.x, vertex.y) for vertex in record.vertices),
+            names.get(zone.net_id) if zone.net_id is not None else None,
+            tuple((a.raw, b.raw) for a, b in zip(plain, shapes, strict=True)),
+            record.record.get("LAYER") or "",
+            index in failing,
+        )
+    return pours
+
+
+def _source_check(path: Path) -> frozenset[int]:
+    """The indices of the polygons whose saved pour in the document at ``path`` fails Fenolite's copper check
+    (``pour.check_pour``, change c0482); none without the ``geo`` extra or for a document that does not
+    read."""
+    from fenolite.core.errors import FenoliteError
+
+    try:
+        from fenolite.backends.altium import pour
+
+        reading = pour.read_pour(path.read_bytes(), file=path.name)
+        polygons = pour.polygons_of(reading)
+        held = pour.PourResult(
+            tuple(
+                pour.PolygonPour(p.index, p.layer, p.net, (), p.arc_resolution, zone_id=p.zone.id)
+                for p in polygons
+            )
+        )
+        return frozenset(pour.check_pour(reading, held))
+    except (ImportError, OSError, FenoliteError):
+        return frozenset()
+
+
 def zone_outlines(source: SourceProject, design: Design, ledger: Ledger) -> Design:
     """Zones whose outline holds arc vertices: one the import chorded (``altium.import.zone-arc``, change
     c0463) is counted ``changed`` (``ZONE_ARC_REASON``); one it left empty gets the outline of the source

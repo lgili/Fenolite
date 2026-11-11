@@ -25,6 +25,7 @@ from fenolite.backends.altium import lower
 from fenolite.backends.altium.adapter.arcring import ArcPolygon
 from fenolite.backends.altium.altsym import AltiumSymbol
 from fenolite.backends.altium.cfb import CompoundTooLarge
+from fenolite.backends.altium.pcbdoc import KeptPour
 from fenolite.backends.kicad import fpitems
 from fenolite.backends.kicad.netnames import UNCONNECTED_PREFIX
 from fenolite.backends.kicad.outline import edge_outline
@@ -112,6 +113,8 @@ def _zone_fills(
     summary = write.pour.pour if write.pour is not None and write.pour_mode == "computed" else None
     if summary is None or not summary.poured:
         return dict(reasons)
+    if summary.kept:  # change c0482: the source's own regions, written as read
+        return {}
     refused = {zone for _, zone, _ in summary.refused}
     ids = tuple(i for found in reasons.values() for i in found)
     found = {
@@ -304,6 +307,23 @@ def _carried_arcs(source: SourceProject, design: Design) -> dict[str, ArcPolygon
     except (OSError, UnicodeDecodeError, FormatError):
         return {}
     return zonearcs.arc_polygons(board.zones, zonearcs.read_carrier(found.get(zonearcs.PROPERTY)))
+
+
+def _carried_pours(source: SourceProject, design: Design) -> dict[str, KeptPour]:
+    """The pours of the source polygons that a conversion to KiCad carried, by KiCad zone uuid (change c0482;
+    ``zonepours.read_carrier`` of the board property ``zonepours.PROPERTY``); none for a board that does not
+    read or carries none. The writer finds each by its polygon's vertices and net."""
+    from fenolite.backends.kicad.boardcarrier import carried as board_carried
+    from fenolite.convert import zonepours
+
+    board = design.board
+    if board is None or source.path.suffix != ".kicad_pcb":
+        return {}
+    try:
+        found = board_carried(source.path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, FormatError):
+        return {}
+    return zonepours.read_carrier(found.get(zonepours.PROPERTY))
 
 
 def _carried_planes(
@@ -538,6 +558,7 @@ def write(source: SourceProject, options: Options) -> Written:
             models=models,
             storages=kept_storages,  # change c0450
             polygon_arcs=_carried_arcs(source, design),  # change c0463, task 1.3
+            kept_pours=_carried_pours(source, design),  # change c0482
             planes=planes,  # change c0466
             frame_origin=frame_origin,  # change c0467
             drawn=drawing,  # change c0470
