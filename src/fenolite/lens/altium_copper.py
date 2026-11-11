@@ -37,6 +37,7 @@ from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.cutouts import cutout_items
 from fenolite.backends.altium.docboard import Dielectric, StackSpec
 from fenolite.backends.altium.lower import (
+    built_mechanical,
     copper_shape_problem,
     keepout_footprints_info,
     stack_unfit_reason,
@@ -639,6 +640,7 @@ def lower_items(
     *,
     net_names: Mapping[str, str] | None = None,
     planes: Collection[str] = (),
+    layer_ids: Mapping[str, int] | None = None,
 ) -> LoweredItems:
     """The texts, graphics, keep-outs and holes of ``board`` that ``pcbdoc`` writes (change c0085,
     "Complete board in an Altium build"); ``layers`` are the copper layers of the document. An item that
@@ -649,7 +651,9 @@ def lower_items(
     bodies are not decided here: ``lower_bodies`` places them on the components of the document. A graphic
     on a signal layer of ``layers`` (not one of ``planes``) is copper of its net (change c0412): it is
     passed on with the net's name from ``net_names`` in ``net_id``; one that has no copper record is named
-    with ``where`` ``copper-shape/<id>``."""
+    with ``where`` ``copper-shape/<id>``. ``layer_ids`` are the drawing layers of the document beyond
+    ``pcbrecords.BOARD_LAYER_MAP`` (``lower.built_mechanical``, change c0480): a text or a graphic there is
+    written on its mechanical layer."""
     if board is None:
         return LoweredItems()
     names = net_names or {}
@@ -658,7 +662,7 @@ def lower_items(
     texts: list[Text] = []
     for text in board.texts:
         problem = pcbdoc.text_problem_of(text)
-        if text.layer not in pcbrecords.BOARD_LAYER_MAP:
+        if pcbdoc.board_layer(text.layer, layer_ids) is None:
             problem = f"the layer {text.layer} has no layer in the document for a text"
         if problem is None and (text.h_justify, text.v_justify) != ("center", "center"):
             words = " ".join(w for w in (text.h_justify, text.v_justify) if w != "center")
@@ -722,7 +726,7 @@ def lower_items(
                 message = f"the copper {graphic.kind} on {graphic.layer} is not written: {problem}"
                 issues.append(_kept("copper-shape", graphic.id, message))
             continue
-        problem = pcbdoc.graphic_problem(graphic)
+        problem = pcbdoc.graphic_problem(graphic, layers=layer_ids)
         if problem is None:
             graphics.append(graphic)
         else:
@@ -1031,6 +1035,7 @@ def lower_copper(
         issues,
         net_names={net.id: net.name for net in design.circuit.nets},
         planes=tuple(on_planes),
+        layer_ids=built_mechanical(design.board),
     )
     counts = {
         "track": (len(tracks), len(board.tracks) - len(tracks)),
@@ -1350,17 +1355,24 @@ def match_source(
     return placements, issues
 
 
-def source_not_lowered(source: CopperSource) -> list[Issue]:
+def source_not_lowered(source: CopperSource, held: Board | None = None) -> list[Issue]:
     """One ``altium.not-lowered`` info per kind of item of a source that is not copied: keep-outs, texts,
-    graphics (but for the outline) and holes."""
+    graphics (but for the outline) and holes. An item whose id the design's own board ``held`` holds is
+    written from there (change c0480: a script copper source holds the script's own items) and is not
+    counted."""
     board = source.design.board
     if board is None:
         return []
+    own: set[str] = (
+        set()
+        if held is None
+        else {item.id for item in (*held.keepouts, *held.texts, *held.graphics, *held.holes)}
+    )
     kinds = (
-        ("keep-outs", len(board.keepouts)),
-        ("texts", len(board.texts)),
-        ("graphics", sum(1 for graphic in board.graphics if graphic.layer != EDGE_LAYER)),
-        ("holes", len(board.holes)),
+        ("keep-outs", sum(1 for item in board.keepouts if item.id not in own)),
+        ("texts", sum(1 for item in board.texts if item.id not in own)),
+        ("graphics", sum(1 for g in board.graphics if g.layer != EDGE_LAYER and g.id not in own)),
+        ("holes", sum(1 for item in board.holes if item.id not in own)),
     )
     return [
         Issue(

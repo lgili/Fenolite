@@ -290,7 +290,7 @@ def kicad_mechanical(board: Board) -> dict[str, int]:
     return {**fixed, **named}
 
 
-def _built_mechanical(board: Board) -> dict[str, int]:
+def built_mechanical(board: Board) -> dict[str, int]:
     """The drawing layers of ``kicad_mechanical`` that a build writes (change c0470): those outside
     ``pcbrecords.BOARD_LAYER_MAP`` that a graphic or a text of the board or of a placed footprint lies on, so
     the document holds a footprint's graphics there and names only those mechanical layers after them."""
@@ -2405,7 +2405,7 @@ def _document(
                 if read
                 else kicad_mechanical(board)
                 if options is None
-                else _built_mechanical(board)
+                else built_mechanical(board)
             ),
             **(dict(zip(layers, stack.copper, strict=True)) if options is None else {}),
         }
@@ -3175,6 +3175,7 @@ __all__ = [
     "LOSS_KINDS",
     "MECHANICAL_LAYERS",
     "KICAD_MECHANICAL",
+    "built_mechanical",
     "kicad_mechanical",
     "named_mechanical",
     "MORE_KINDS",

@@ -621,13 +621,13 @@ def _counted(items: Sequence[str]) -> str:
     return ", ".join(f"{count} x {item}" for item, count in sorted(Counter(items).items()))
 
 
-def _document_drops(defn: FootprintDef, dropped: Sequence[str]) -> list[str]:
+def _document_drops(defn: FootprintDef, dropped: Sequence[str], layers: Mapping[str, int]) -> list[str]:
     """``dropped`` of ``pcblib.check_footprint`` less the graphics that the board document holds as items
     of the placed component (``_document_holds``, ``place_footprints``; change c0470)."""
     lost = list(dropped)
     for graphic in defn.graphics:
         drop = pcblib.graphic_drop(graphic)
-        if drop is not None and drop in lost and _document_holds(graphic):
+        if drop is not None and drop in lost and _document_holds(graphic, layers):
             lost.remove(drop)
     return lost
 
@@ -644,13 +644,14 @@ def _document_pieces(graphic: Graphic) -> tuple[Graphic, ...]:
     )
 
 
-def _document_holds(graphic: Graphic) -> bool:
+def _document_holds(graphic: Graphic, layers: Mapping[str, int]) -> bool:
     """Whether the board document holds ``graphic`` of a footprint as an item of the placed component
     (change c0470): not on copper, not a filled shape with an outline stroke, which a region has not, and
-    passed by ``pcbdoc.graphic_problem`` with the KiCad drawing layers (``lower.KICAD_MECHANICAL``)."""
+    passed by ``pcbdoc.graphic_problem`` with the board's drawing layers ``layers``
+    (``lower.kicad_mechanical``, change c0480: a user layer named after a mechanical layer is one)."""
     if graphic.layer.endswith(".Cu") or (graphic.filled and graphic.width > 0):
         return False
-    return pcbdoc.graphic_problem(graphic, layers=lower.KICAD_MECHANICAL) is None
+    return pcbdoc.graphic_problem(graphic, layers=layers) is None
 
 
 def resolve_footprints(
@@ -665,6 +666,7 @@ def resolve_footprints(
     ``extruded`` (change c0121) the component bodies of a definition are written with it."""
     issues: list[Issue] = []
     resolved: dict[str, pcblib.LibFootprint] = {}
+    drawing = lower.kicad_mechanical(design.board) if design.board is not None else lower.KICAD_MECHANICAL
     for link in kicad_footprint_ids(design):
         if link in authored:
             reason = ""
@@ -709,7 +711,7 @@ def resolve_footprints(
                 )
             )
             continue
-        lost = _document_drops(defn, check.dropped)
+        lost = _document_drops(defn, check.dropped, drawing)
         if lost:
             issues.append(issue("altium.primitive-dropped", f"{link}: left out: {_counted(lost)}", link))
         if check.extras:
@@ -1058,6 +1060,7 @@ def place_footprints(
     board = design.board
     assert board is not None and board.outline is not None
     issues: list[Issue] = []
+    drawing = lower.kicad_mechanical(board)
     nets = altium_copper.pad_net_names(design)
     net_ids = {net.name: net.id for net in design.circuit.nets}
     outline = board.outline.points
@@ -1123,7 +1126,7 @@ def place_footprints(
                     *(
                         piece
                         for g in footprint.defn.graphics
-                        if g not in check.graphics and _document_holds(g)
+                        if g not in check.graphics and _document_holds(g, drawing)
                         for piece in _document_pieces(g)
                     ),
                 )
@@ -1319,7 +1322,7 @@ def lowered_pcb(
             design, copper_source, footprints, requested=placements
         )
         issues += source_issues
-        issues += altium_copper.source_not_lowered(copper_source)
+        issues += altium_copper.source_not_lowered(copper_source, design.board)
         if any(found.severity == "error" for found in source_issues):
             return None, issues
     placed, place_issues = place_footprints(design, footprints, placements, name=name)

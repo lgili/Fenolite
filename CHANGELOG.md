@@ -29,6 +29,17 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Fixed
 
+- **Altium build of an imported Altium project** (c0480): `build --target altium` of a script that carries an
+  Altium source's board records (`Fenolite.Altium.*` verbatim properties, as `import --to python` of an
+  Altium project writes them) builds the KiCad project of the script in memory and converts it as
+  `convert --to altium` does, so the source's rule records, storages, unions, fonts and frame come back as
+  read. `result.through` is `conversion`. Before, the build dropped those records: it rewrote the rules
+  from net-class values and renamed footprints. Board texts and drawings, and footprint drawings, on a
+  user layer named after a mechanical layer (`Mech.<n>`) are written on that layer
+  (`lower_items(layer_ids=...)`, `lower.built_mechanical`). A script copper source no longer reports the
+  script's own items as `not copied`. A conversion to Altium writes a pad on a KiCad net `unconnected-(…)`
+  that holds that one pad and no copper on no net and drops that net (`to_altium.open_pads`), as the Altium
+  build does.
 - **Altium project settings carried** (c0479): an Altium project imported to Python or converted to KiCad
   keeps the settings of its `.PrjPcb` (net identifier options, compiler error levels and connection matrix,
   annotation, variants, output groups, parameters; every section but the document list) in the root sheet's

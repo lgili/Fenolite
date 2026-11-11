@@ -1364,6 +1364,8 @@ def _built(
     if source_inputs is not None:
         source_inputs.extend(run.source_files)
     design = run.design
+    if args.target == ALTIUM_TARGET and altium_carried(design) and getattr(args, "copper_from", None) is None:
+        return _through_conversion(args, ctx, run, out)
     native_project_text = None
     native_project_resources = ()
     native_rule_binding = None
@@ -2114,6 +2116,82 @@ def altium_base(
         written[path] = {prop: value for prop, value in values.items() if value is not None}
     held = {path: {**values, **(codes or {}).get(path, {})} for path, values in script.items()}
     return edits_mod.write_base(edits_mod.base_record(held, written, target="altium"))
+
+
+def altium_carried(design: DslDesign) -> bool:
+    """Whether the script carries the board records of an Altium source (change c0480): a ``kicad_pcb``
+    verbatim item that is a ``Fenolite.Altium.*`` property (``boardcarrier.PREFIX``), as an import of an
+    Altium project writes the carriers of its conversion to KiCad."""
+    from fenolite.backends.kicad.boardcarrier import PREFIX
+
+    return any(
+        target == "kicad_pcb" and text.lstrip().startswith(f'(property "{PREFIX}')
+        for text, target in design.verbatim_items.values()
+    )
+
+
+def _through_conversion(args: argparse.Namespace, ctx: Context, run: ScriptRun, out: Path) -> Result:
+    """The ``--target altium`` build of a script that carries an Altium source's board records (change
+    c0480): the KiCad build of the script, planned in memory into a temporary folder, converted to Altium
+    as ``fenolite convert --to altium`` converts a project, so the carried rule records, storages, unions,
+    fonts and frame are written back as a conversion writes them. An error of the KiCad build refuses this
+    build with its issues; the files are the conversion's, under ``--out``."""
+    import tempfile
+
+    from fenolite.api.conversion import convert
+
+    with tempfile.TemporaryDirectory(prefix="fenolite-altium-") as folder:
+        staged = Path(folder) / "kicad"
+        # the KiCad build takes none of the Altium options, which the conversion takes instead
+        given = {key: None if key.startswith("altium_") else value for key, value in vars(args).items()}
+        kicad = _built(
+            argparse.Namespace(**{**given, "target": "kicad", "out": str(staged)}), ctx, script_run=run
+        )
+        if not kicad.writes or any(found.severity == "error" for found in kicad.issues):
+            return dataclasses.replace(kicad, writes=(), result={**kicad.result, "target": ALTIUM_TARGET})
+        for write in kicad.writes:
+            path = Path(write.path)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(write.data)
+        try:
+            found = convert(
+                staged,
+                to="altium",
+                kicad_version=ctx.kicad_target,
+                allow_lossy=ctx.allow_lossy,
+                bodies=args.altium_bodies or DEFAULT_ALTIUM_BODIES,
+                name=run.design.name,
+                pour=args.altium_pour,
+            )
+        except BackendUnavailable as error:
+            raise CliError(
+                "FEN-6001",
+                "--altium-pour computed needs the geo extra, which is not installed",
+                where="--altium-pour",
+                hint="pip install 'fenolite[geo]', or use --altium-pour outline",
+            ) from error
+    conversion = found.conversion
+    writes = tuple(
+        PlannedWrite(path=str(out / rel), data=data, kind=_kind(rel, DEFAULT_FORM))
+        for rel, data in sorted(conversion.files.items())
+    )
+    result: dict[str, Any] = {
+        "design": run.design.name,
+        "target": ALTIUM_TARGET,
+        "out": str(out),
+        "files": [write.path for write in writes],
+        "through": "conversion",
+        "report": conversion.report.to_json(ids=False),
+        "equivalence": found.equivalence_json(),
+        "experimental": conversion.direction.experimental,
+        "script_output": run.output,
+    }
+    return Result(
+        result=result,
+        issues=(*kicad.issues, *found.issues),
+        evidence=Evidence.combine(kicad.evidence, found.evidence),
+        writes=writes,
+    )
 
 
 def _run_altium(

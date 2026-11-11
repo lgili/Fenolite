@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import dataclasses
 import re
+from collections import Counter
 from collections.abc import Mapping
 from decimal import Decimal
 
@@ -443,11 +444,50 @@ def _flagged_named(design: Design, sch: Design | None) -> tuple[str, ...]:
     return tuple(found)
 
 
+def open_pads(design: Design) -> Design:
+    """``design`` whose pads on a net ``unconnected-(…)`` that holds that one pad and no copper are on no net
+    (change c0480), as the Altium build reads such a net (c0061, ``lens.altium_copper.match_source``): KiCad
+    names the net of an unconnected pin so, and an Altium document holds the pad on no net
+    and no such net."""
+    board = design.board
+    if board is None:
+        return design
+    names = {net.id: net.name for net in design.circuit.nets}
+    pads_on = Counter(pad.net_id for fp in board.footprints for pad in fp.pads if pad.net_id)
+    copper = {item.net_id for item in (*board.tracks, *board.arcs, *board.vias, *board.zones) if item.net_id}
+    open_nets = {
+        net_id
+        for net_id, count in pads_on.items()
+        if count == 1 and net_id not in copper and names.get(net_id, "").startswith(UNCONNECTED_PREFIX)
+    }
+    if not open_nets:
+        return design
+    footprints = tuple(
+        dataclasses.replace(
+            fp,
+            pads=tuple(
+                dataclasses.replace(pad, net_id=None) if pad.net_id in open_nets else pad for pad in fp.pads
+            ),
+        )
+        for fp in board.footprints
+    )
+    circuit = design.circuit
+    # a net that a bus or an interface names stays: dropping it would leave that reference dangling
+    named = {m.net_id for bus in circuit.buses for m in bus.members}
+    named |= {net_id for interface in circuit.interfaces for net_id in interface.members.values()}
+    nets = tuple(net for net in circuit.nets if net.id not in open_nets or net.id in named)
+    return dataclasses.replace(
+        design,
+        circuit=dataclasses.replace(circuit, nets=nets),
+        board=dataclasses.replace(board, footprints=footprints),
+    )
+
+
 def write(source: SourceProject, options: Options) -> Written:
     """The Altium project of a KiCad source, with its report. Its copper graphics take the net their KiCad
     slot names (``fpitems.with_graphic_nets``), as a build's do: without it a netted copper shape is written
     with no net and shorts the copper it touches (changes c0439, c0441)."""
-    projected = fpitems.with_footprint_items(_named(source.design, options.name)).design
+    projected = open_pads(fpitems.with_footprint_items(_named(source.design, options.name)).design)
     design = with_mask_margin(pads.project(fpitems.with_graphic_nets(projected)), source)
     design = with_unions(source, design)  # change c0460: the union members of an Altium conversion
     carried = _carried(source, design)  # change c0434: the source's own rule records

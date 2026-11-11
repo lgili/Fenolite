@@ -258,12 +258,15 @@ with `convert.models.footprint_models`, without a conversion; `microwave` and `R
 name no model. The `writer_ledger_sha256` of row 16 follows the new rows; its compared differences are
 unchanged.
 
+Change c0480 writes a pad whose KiCad net `unconnected-(…)` holds that one pad and no copper on no net, and
+drops that net, as an Altium document holds such a pad (`to_altium.open_pads`). `CM5_MINIMA_3` loses its two
+`pin-net` rows: the second mount pad of J502 and of J503 was alone on such a net, and its pin keeps the
+net of its other pads.
+
 <!-- ledger:begin -->
 | board | kind | outcome | count | reason |
 |---|---|---|---|---|
 | CM5_MINIMA_3 | dnp | lost | 2 | the Altium documents hold no fitted flag outside variants |
-| CM5_MINIMA_3 | pin-net | lost | 1 | the pin's membership of unconnected-(J502-MountPin-PadMP)_1 is omitted: the largest net, then name, wins |
-| CM5_MINIMA_3 | pin-net | lost | 1 | the pin's membership of unconnected-(J503-MountPin-PadMP)_1 is omitted: the largest net, then name, wins |
 | CM5_MINIMA_3 | footprint | changed | 33 | differs from the library footprint |
 | CM5_MINIMA_3 | pad | changed | 2 | a connector pad is written as a surface pad with no paste and no mask opening |
 | CM5_MINIMA_3 | pad | lost | 2 | the pad is a surface pad without a copper layer |
