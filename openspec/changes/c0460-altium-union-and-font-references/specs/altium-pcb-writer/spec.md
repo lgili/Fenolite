@@ -13,6 +13,18 @@ knockout.
 - **WHEN** the board is written
 - **THEN** its text record holds font type 1, bold 1 and the font name `Arial`
 
+### Requirement: Zero-height TrueType footprint text keeps its record
+
+The Altium PCB writer SHALL write an ordinary footprint text with both dimensions zero, a valid
+TrueType face and positive stroke width as a component text of height zero. Free board texts,
+footprint fields and footprint stroke texts SHALL continue to require positive height.
+
+#### Scenario: A zero-height TrueType footprint text returns from KiCad
+
+- **GIVEN** a KiCad footprint text with size `0 0`, a TrueType face and positive stroke width
+- **WHEN** the board is converted to Altium
+- **THEN** its text record keeps the owning component, text, face, rotation, stroke and height zero
+
 ### Requirement: Union members are written with their index
 
 The Altium PCB writer SHALL write the union index that `PcbDocSpec.unions` gives an entity id at offset 70

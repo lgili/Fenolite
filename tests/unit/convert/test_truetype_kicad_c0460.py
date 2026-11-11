@@ -128,3 +128,17 @@ def test_truetype_texts_come_back_from_kicad(tmp_path: Path) -> None:
     (user,) = [r for r in records if r.text == "TTU"]
     assert (user.font_type, user.font_name, user.italic) == (1, "Arial", True)
     assert all(r.font_type == 0 for r in records if r.is_comment)
+
+
+def test_zero_height_truetype_footprint_text_returns(tmp_path: Path) -> None:
+    board = _board(tmp_path)
+    board.write_text(
+        board.read_text("utf-8").replace(USER, USER.replace("(size 1 1)", "(size 0 0)")), "utf-8"
+    )
+
+    conversion = convert_project(read_source(board), to="altium", allow_lossy=True)
+    (document,) = [data for name, data in conversion.files.items() if name.endswith(".PcbDoc")]
+    (user,) = [record for record in _records(document) if record.text == "TTU"]
+    assert user.prefix.component == 0
+    assert (user.font_type, user.font_name, user.bold, user.italic) == (1, "Arial", False, True)
+    assert (user.height, user.stroke_width, user.rotation) == (0, 59055, 90.0)

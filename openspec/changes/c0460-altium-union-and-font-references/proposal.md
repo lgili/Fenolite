@@ -24,6 +24,8 @@ the references live:
   field of font type 1 the font name as `face`, with its bold and italic bytes. The writer writes a text
   with a `face` as font type 1 with that name, bold and italic, in the record's long form, and no longer
   refuses it.
+- **Zero-height TrueType footprint text keeps its record.** The public row `-08` contains two such
+  ordinary footprint texts (S-0187). The writer preserves their zero height on direct conversion.
 - **Union members keep their union.** The import records a via's, a region's and a component's non-zero
   union index in the item's `altium` bag. The conversion to KiCad carries the index of every member as one
   board property `Fenolite.Altium.UnionMembers`, by the KiCad uuid of the item. The conversion back writes

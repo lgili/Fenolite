@@ -21,6 +21,14 @@ still refused: a stroke text holds neither.
 The text box at offset 124 stays 0, as in every text the writer writes. Whether Altium measures a
 TrueType text again on opening is for the kit run (task 4.1).
 
+The public row `-08` (S-0187) contains two ordinary footprint texts with a TrueType face, zero
+height and positive stroke width. The Altium writer accepts a zero-size TrueType footprint text
+with a positive stroke width and writes the existing height field unchanged. Fields, free texts,
+stroke texts and negative heights keep their existing validation. KiCad 10.0.6 reads the intermediate
+board and resaves the two records with a height of 0.001 mm. A conversion of that saved board uses
+the current KiCad height. The direct round trip checks record retention. The native comparison in
+task 4.1 covers display.
+
 ## Union members
 
 A member is any item whose record holds a non-zero union index:

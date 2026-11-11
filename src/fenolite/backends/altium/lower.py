@@ -1442,7 +1442,7 @@ def _footprint_items(
         problem = None
         if layer is None:
             problem = f"the layer {item.layer} has no layer in the document for a text"
-        elif height <= 0:
+        elif isinstance(item, FootprintField) and height <= 0:
             problem = f"a height of {height} nm is not positive"
         elif stroke is None or stroke <= 0:
             if isinstance(item, Text):
@@ -1466,7 +1466,7 @@ def _footprint_items(
             places[field.name] = place(field, f"the place of the field {field.name}")
     texts: list[pcbdoc.ComponentText] = []
     for text in fp.texts:
-        problem = pcbdoc.text_problem_of(text)
+        problem = pcbdoc.text_problem_of(text, component_text=True)
         if problem is not None:
             account.skip("footprint-text", text.id, problem)
             continue

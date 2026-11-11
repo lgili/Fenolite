@@ -1181,15 +1181,17 @@ def short_text(text: str) -> bytes:
     return bytes((len(data),)) + data
 
 
-def text_problem_of(text: Text) -> str | None:
+def text_problem_of(text: Text, *, component_text: bool = False) -> str | None:
     """Why a free text cannot be written, or ``None``: a control character other than a line break (written
     as CR LF, ``crlf``), a height or stroke width that is not positive, or a style of change c0277
     (knockout, bold, italic, a font face) that the text record of the writer does not hold. An empty text
     is written, as a saved document holds it: a footprint text (change c0451) and a board text (change
-    c0460; row ``-08`` holds 51 on Drill Drawing)."""
+    c0460; row ``-08`` holds 51 on Drill Drawing). Ordinary component TrueType texts can also have
+    both dimensions zero (c0460, S-0187)."""
     # change c0460: a face makes a TrueType text, which holds bold and italic; a stroke text holds neither
     styles = [name for name in ("knockout", "bold", "italic") if getattr(text, name)]
-    if truetype_face(text):
+    face = truetype_face(text)
+    if face:
         styles = [name for name in styles if name == "knockout"]
         if len(text.face) > FONT_NAME_CHARS:
             return (
@@ -1199,7 +1201,7 @@ def text_problem_of(text: Text) -> str | None:
         return f"the text record of the writer holds no {', '.join(styles)}"
     if any((ord(ch) < 0x20 and ch != "\n") or ord(ch) == 0x7F for ch in text.text):
         return "the text holds a control character"
-    if text.size.h <= 0:
+    if text.size.h <= 0 and not (component_text and face and text.size.h == text.size.w == 0):
         return f"a height of {text.size.h} nm is not positive"
     if text.thickness <= 0:
         return f"a stroke width of {text.thickness} nm is not positive"

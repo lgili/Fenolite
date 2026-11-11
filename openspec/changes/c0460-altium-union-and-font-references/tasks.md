@@ -18,6 +18,10 @@
   `Fenolite.Altium.StrokeFonts`, and the writer writes them in the stroke text's record. Proof:
   `uv run pytest tests/unit/convert/test_stroke_fonts_c0460.py -n 0`.
 
+- [x] 1.5 Preserve zero-height TrueType ordinary footprint texts when converting to Altium, as in the
+  two omitted records of public row `-08` (S-0187). Proof:
+  `uv run pytest tests/unit/convert/test_truetype_kicad_c0460.py tests/unit/backends/altium/test_pcb_text.py -n 0`.
+
 ## 2. Union members
 
 - [x] 2.1 The import records a via's, region's and component's non-zero union index in its `altium` bag;
@@ -60,7 +64,7 @@
 
 ## 4. Kit
 
-- [ ] 4.1 altium-rounds-2 opens the round trips of rows `-01` and `-04`: Altium lists the source's union
+- [x] 4.1 altium-rounds-2 opens the round trips of rows `-01` and `-04`: Altium lists the source's union
   and TrueType texts (S-2191). Row `-04` at 332b79837: unions and TrueType texts identical, stroke
   `FONTNAME` lost (task 1.4); row `-01` open. Row `-07` at 332b79837: 47 union members became 0 (task 2.4).
   Row `-08` at bbe4c452b: TrueType texts 857 became 1081 and texts 1742 became 1917. No text changes font
@@ -69,3 +73,13 @@
   mechanical ids). The written document holds 1081 TrueType records against the source's 1096: 13 texts with
   CR LF (task 2.5) and 2 footprint texts. Closes with c0450, not here.
   Deferred to v0.8 (coordinator, 2026-11-07): not run before the cut of 0.7.0; the code ships.
+
+  Altium 24.5.2.23 follow-up, 2026-11-10: both direct round trips opened. Row `-01` kept one
+  TrueType text and one region member of union 1. Row `-04` kept 18 TrueType texts and 22 via members
+  with the same union indices. Row `-08` kept 1,742 native text objects, of which 859 were TrueType
+  including two of size zero. It kept 312 text union members and 2,412 other members by union index;
+  one arc each in unions 78 and 89 came back as a track, as task 2.6 describes. The strict reader
+  counted 1,098 TrueType records in each file of row `-08`. The font type, name and flag census and
+  the UnionNames and EmbeddedFonts6 storage bytes matched for all three rows. The script ran on
+  copies, with SHA-256 checks before and after. Native TSV SHA-256:
+  `a07fda29f89a07cca0417e835a0833e6199140792a16a6d55b1c7c10e4664d5e`.

@@ -16,6 +16,8 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Changed
 
+- Preserve zero-height TrueType footprint texts when converting a KiCad board back to Altium (c0460). Altium 24.5 also confirmed the TrueType and union membership counts on the three public controls.
+
 - Carry native Altium Net Antennae rules with their original tolerance and report the portable DRC coverage limit (c0465). Altium 24.5.2.23 native probes show width- and topology-dependent results. Legacy Altium rules cannot suppress KiCad dangling findings.
 
 - Record c0465 native Altium 24.5 DRC controls for scoped short allowances and antenna stubs. The short control agrees; the width-dependent antenna boundary and via findings keep the antenna proof open.
