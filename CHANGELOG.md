@@ -29,6 +29,12 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Fixed
 
+- Proposed (spec only) changes c0490 to c0496: the copper check tolerates the Altium unit grid and says
+  so, `copper.hole-clearance` leaves out copper of an unplated pad's own net, imported Altium texts keep
+  their lower-left anchor in KiCad, `silk --designators` places designators on dense boards with an
+  Altium clearance model, an Altium build adds no overlay segment, four small CLI fixes (argument names,
+  `net` on a `.PcbDoc`, zone locations in DRC findings, what a lossy conversion loses), and remote zones
+  leave the other written Altium pours unchanged.
 - **A straight Altium arc is kept** (c0485): an Altium arc whose three points lie on one line (a very short
   arc) comes back as the source's arc record from a conversion through KiCad and back, and from
   `import --to python` built with `build --target altium`. Before, it came back as a straight track. A
