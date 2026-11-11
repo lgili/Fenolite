@@ -87,6 +87,9 @@ All notable changes to Fenolite are documented here. The format follows
   now refer to the records actually written when carried body graphics change the component record count.
   Altium Designer 24.5 returned identical compiler diagnostics, pins, and net groups on the matched authored controls (S-2299).
 
+- Round the clearance corners of Altium filled keep-out regions. The K6 kit checks the
+  positive-clearance region against Altium 24.5 and retains exact polygon cut-out outlines.
+
 ### Changed
 
 - Archive c0477 after complete CI and coverage passed on `a4ff6f02b` (run `43014842233`).
@@ -96,6 +99,8 @@ All notable changes to Fenolite are documented here. The format follows
 - Archive c0464, c0465, c0475 after complete CI and coverage passed on `c904cfceb` (run `42956587864`).
 
 - Archive c0427, c0450, c0460, c0466 after complete CI and coverage passed on `9b19a5bdd` (run `42935899720`).
+
+- Record native Flow B DRC parity for the authored 28-polygon default keep-out case in Altium 24.5.
 
 - Carry native Altium Net Antennae rules with their original tolerance and report the portable DRC coverage limit (c0465). Altium 24.5.2.23 native probes show width- and topology-dependent results. Legacy Altium rules cannot suppress KiCad dangling findings.
 
@@ -1130,6 +1135,8 @@ All notable changes to Fenolite are documented here. The format follows
 - **Public URL paths in residue scans** (c0316): distinguish HTTP(S) path components from local user paths while retaining file URI, query, fragment, private-token, blob and other structural checks across supported encodings, archives and history.
 
 ### Fixed
+
+- **Altium kit K6.5** (c0463): count polygons the manager flags for repour. The two authored empty controls count only when flagged.
 
 - c0469 (release 0.7.0): the byte pins of the tests compare the tool version as the reviewed `0.7.0.dev0` (`tests/_schema_pin.py`), and the native-rule tests change the version to one that is not the running one; the import example carries `0.7.0`; the KiCad 10 rules oracle writes and loads the `short` and `antenna` kinds of c0465 too; the import oracle counts an arc polygon that the import chords and KiCad keeps as arcs (c0463 task 1.3) under `zones-with-an-arc-outline`; the keep-out row of `docs/formats/altium/pcb-pour.md` names its source and hypothesis; under `CI` the pour time limits are 3.5 times larger, the runner measured 3.2 times slower than the M4 on row `-08`.
 - c0463 task 5.2: the pour reads Altium's default keep-out clearance whether its scope names the layer `Keep-Out Layer` or `KeepOutLayer`; on the maintainer's board in flow B every polygon then pours instead of every one being refused.

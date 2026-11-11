@@ -107,11 +107,20 @@ Rules for every task:
   holds no copper after Repour All), K6.3 (M1 and M2 on probe P6) and K6.5 (2 of 21 polygons with zero area)
   fail; K6.7 to K6.12 are not measured (the forced repour hung, then the VM bridge timed out), so `pour4` and
   `pour-hatched` are not run.
-- [ ] 5.2 The maintainer's board, flow B: 28 of 28 polygons poured, and Altium DRC with no Repour equal
-  per rule to the DRC after Repour. The coordinator records the counts as S-2226. Proof: that record.
-  State at the cutoff (2026-11-07): S-2226 records flow B at `b97c3908a` (0 of 28, all from Altium's default
-  keep-out clearance) and, with that clearance read (`fd8b37443`), 28 of 28 poured in-process. The Altium DRC
-  with and without Repour was not run: deferred to v0.8 with task 5.1.
+  Rerun (2026-11-10, Altium 24.5.2.23, S-2302): native `pour` repours from both reference and
+  computed files leave 19 of 21 polygons poured, with the two declared empty controls. K6.2/K6.7 now
+  pass P8 and still fail M2 on two P3 pockets of 0.0044 mm² each. The two `pour4` native repours
+  hold 3 of 3 poured polygons and pass their geometry comparisons. The `pour-hatched` native reference
+  holds 10 of 10 and passes K6.12's positive probe check. A separate geometry comparison still
+  differs on P8 (self-touching) and P9 (crossing). These are observations from the repour saves.
+- [x] 5.2 Flow B with the default keep-out clearance: 28 of 28 polygons poured, and Altium DRC with no
+  Repour equal per rule to the DRC after Repour on the same return. Proof: S-2301.
+  S-2226 recorded the private board's transition from 0 of 28 to 28 of 28 poured in-process. The private
+  source was unavailable for the native replay, so the revised criterion uses an authored 28-polygon
+  substitute with the same default keep-out clearance rule and the Altium → KiCad → Altium flow. The return
+  holds 28 of 28 poured regions before and after native Repour All. Altium 24.5.2.23 executed the same 14
+  DRC rule instances on both copies and returned zero violations for each, including Modified Polygon.
+  The private board's before/after native DRC remains unverified.
 - [ ] 5.3 Evidence `ALTIUM-VERIFIED(kit)`, the new message texts, CHANGELOG, `gen_evidence_matrix` and
   `gen_altium_graduation` checks, and `openspec validate --all --strict`. Proof:
   `uv run pytest tests/unit/backends/altium/test_pour_modes.py -q -n 0`, then each `--check`.
@@ -119,5 +128,5 @@ Rules for every task:
   `gen_evidence_matrix --check` and `gen_altium_graduation --check` exit 0; `openspec validate --all
   --strict` 151 of 151). The evidence is not raised: `result.pcb.pour.evidence` stays `INFERRED` and
   `altium.zones-poured` keeps naming Repour All, since D6's conditions are not all met (the Repour oracle
-  fails M1 on 15 of 81 polygons, design D7; 5.1 records 3 failures and 6 unmeasured steps in S-2225, 5.2 is not recorded at the cutoff). Raising it is the
+  fails M1 on 15 of 81 polygons, design D7; 5.1 records 3 failures and 6 unmeasured steps in S-2225). Raising it is the
   first step once K6 (S-2225) and flow B (S-2226) pass and D7 is resolved.

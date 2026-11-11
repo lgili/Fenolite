@@ -9,6 +9,8 @@
 | S-2222 | The same rows: the outlines that are not simple rings, and the regions Altium saved for them. | D2 |
 | S-2223 | Kit sample `pour-hatched`: authored hatched polygons (90°, 45°, horizontal, vertical) poured by Altium Designer 24.5.2.23 and saved. | D3 |
 | S-2224 | Kit step `repour`: each public row, as published, opened in Altium Designer 24.5.2.23, Repour All run, the document saved, its regions read back. | D5 |
+| S-2300 | K6 sample `pour` repoured in Altium 24.5.2.23. The positively cleared Keep-Out layer region has rounded corners; the polygon cut-out with zero clearance keeps its outline. | D6 |
+| S-2301 | Altium 24.5.2.23 batch DRC before and after native Repour All on a Fenolite-authored 28-polygon Flow B substitute. | D6 |
 | S-2225 to S-2229 | reserved for the tasks' records | |
 
 Each fact is recorded in `docs/formats/altium/pcb-pour.md` with its evidence label.
@@ -89,19 +91,28 @@ pour is stale. The test then says so for that polygon and uses the Repour record
 
 ## D6: graduation
 
+Use a round conservative clearance around filled keep-out regions (S-2300); the square-corner rule for
+ordinary rectangular pads and filled copper is separate. Polygon cut-outs still carry no clearance.
+
 `Computed pours are experimental` names the K6 round as its exit. This change adds the conditions and
 performs it:
 
 - K6 passes `pour`, `pour4` and `pour-hatched`;
 - the Repour oracle passes every polygon of the 8 rows;
-- the maintainer's board, flow B, writes all 28 polygons poured, and Altium's DRC with no Repour gives
-  the same counts per rule as after Repour (S-2220, counts only).
+- the authored Flow B acceptance board reproduces the default keep-out clearance trigger, writes all
+  28 polygons poured, and Altium's DRC with no Repour gives the same counts per rule as after Repour
+  on the same return (S-2301). The original private board remains a separate unverified case (S-2220).
 
 Then:
 
 - `result.pcb.pour.evidence` is `ALTIUM-VERIFIED(kit)`, and the hypotheses are recorded as verified;
 - `altium.zones-poured` no longer names Repour All;
 - `--altium-pour outline` stays for users who want Altium to pour.
+
+K6.5 measures the Polygon Pour Manager's pending repour status, as specified by c0215. The authored
+`P5` and `P5_NONET` negative controls have no copper both before and after a successful repour
+(S-1572, S-1579). A zero area alone does not put either control in the K6.5 count; a manager flag
+still does. The native save, DRC and geometry comparisons remain separate gates.
 
 At the release of 2026-11-07 the conditions are not all met (D7), so none of these steps is taken: the
 computed pour stays `INFERRED` and experimental, and `altium.zones-poured` still names Repour All.
@@ -124,7 +135,7 @@ refusal with its reason. The evidence of `result.pcb.pour` stays below `ALTIUM-V
 
 Task 3.3 is not done: a text or a graphic within a polygon's reach still refuses it (`unshaped-copper`,
 `unshaped-pad`). Shaping a stroke text needs the glyphs of Altium's stroke font, for which no public
-source was found. No public row refuses for it; the maintainer's board (task 5.2) says whether it does.
+source was found. No public row refuses for it. The authored Flow B substitute also pours all of its polygons (task 5.2).
 
 ## Risks
 

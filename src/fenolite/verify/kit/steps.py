@@ -327,8 +327,9 @@ def _pour_steps() -> tuple[Step, ...]:
         _form(
             "K6.5",
             "pour",
-            "With `pour/computed/pour.PcbDoc` open, open the Polygon Manager. Type how many polygons it "
-            "lists as modified, unpoured or violating.",
+            "With `pour/computed/pour.PcbDoc` open, open the Polygon Pour Manager, where P5 and P5_NONET "
+            "intentionally hold no copper; count either only if the manager lists it. Type how many polygons "
+            "it lists as needing a repour.",
             "int",
             0,
             _POUR_OPEN,

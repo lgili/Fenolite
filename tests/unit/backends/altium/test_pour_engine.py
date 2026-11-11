@@ -121,6 +121,8 @@ def test_keep_out_is_a_void() -> None:
     gnd = _of(result, "GND")
     assert not _covered(gnd, at(12, 12))
     assert not _covered(gnd, at(14.1, 12))
+    assert not _covered(gnd, at(14.1, 14.1))
+    assert _covered(gnd, at(14.18, 14.18))
     assert _covered(gnd, at(14.5, 12))
 
 

@@ -18,6 +18,7 @@ from fenolite.cli._kit import SAMPLES_DIR, build_sample
 from fenolite.core.coords import Point
 from fenolite.geometry import Polygon
 from fenolite.geometry.boolean.clipper import ClipperBackend
+from fenolite.verify.kit.manifest import load_kit
 from fenolite.verify.kit.results import KitVerdict, verify_results
 from fenolite.verify.kit.steps import PROBE_ROWS
 
@@ -46,6 +47,11 @@ def _rows(verdict: KitVerdict) -> dict[str, str]:
 
 def test_a_simulated_run_of_the_pour_steps_passes(kit: Path) -> None:
     """Scenario "A simulated run of the pour steps passes"."""
+    manager = next(step for step in load_kit(kit).steps if step.id == "K6.5")
+    assert manager.expected == 0
+    assert "lists as needing a repour" in manager.instruction
+    assert "P5 and P5_NONET intentionally hold no copper" in manager.instruction
+    assert "count either only if" in manager.instruction
     simulate(kit)
     verdict = _verdict(kit)
     assert verdict.synthetic

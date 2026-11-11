@@ -1156,7 +1156,7 @@ class _Geometry:
             return ()
         return self.backend.offset(polys, delta, join="round", tol=max(tol // 8, 10))
 
-    def grow(self, shape: _Core, by: int, tol: int) -> tuple[Polygon, ...]:
+    def grow(self, shape: _Core, by: int, tol: int, *, round_corners: bool = False) -> tuple[Polygon, ...]:
         """The points within ``width / 2 + by`` of the core, every curve kept outside the true one: a point
         core is a ``disc``; an open polyline or a ring is offset by ``tol + 1`` more than its reach."""
         core, width, filled = shape
@@ -1165,7 +1165,7 @@ class _Geometry:
             ring = Polygon(core)
             if reach <= 0:
                 return (ring,)
-            if width == 0:
+            if width == 0 and not round_corners:
                 # a sharp ring (a rectangular pad, a fill, a region): its void keeps square corners, as the
                 # saved pours of the public corpus show (I2; ``H-A-POUR-CLEARANCE``), a superset of the round
                 # one; a miter of a corner sharper than 60° is squared off at twice the reach
@@ -1602,7 +1602,8 @@ def _pour(
         value = rules.clearance(me, subject, polygons=(polygon.name,), fine=fine_kind(item))
         if isinstance(value, str):
             return (), (), value
-        voids.extend(geometry.grow(item.shape, value + h, tol))
+        # Native positive-clearance keep-out regions round their corners (S-2300, kit P8).
+        voids.extend(geometry.grow(item.shape, value + h, tol, round_corners=item.kind == "keepout"))
     for other, pieces in state.poured:
         if not pieces or not other.box.intersects(reach):
             continue

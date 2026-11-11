@@ -128,8 +128,10 @@ author report, and `H-A-SCHLIB-UPDATE` passes only with the typed value of step 
 Steps K6.2 to K6.11 (change c0215) compare Fenolite's pour with Altium's. K6.2 and K6.9 rebuild every
 polygon of `reference/` in the Polygon Manager, and K6.3 does the same with Tools » Polygon Pours » Repour
 All (`H-A-POUR-SCRIPT`: the two ways give the same copper). K6.4 and K6.10 save `computed/` without a repour,
-K6.5 and K6.6 count the polygons the Polygon Manager and the rule check flag on it (0 each), K6.7 and K6.11
-force a repour of `computed/`, and K6.8 is the value of `PCB.Polygon.AdvancedPour` (off). Every one is a
+K6.5 counts the polygons the Polygon Pour Manager lists as needing a repour, and K6.6 counts polygon
+findings from the rule check (0 each). The `P5` and `P5_NONET` controls are intentionally empty. Only a
+manager flag adds either one to the K6.5 count. K6.7 and K6.11 force a repour of `computed/`, and K6.8
+is the value of `PCB.Polygon.AdvancedPour` (off). Every one is a
 manual step: each that leaves a board ends in a save under a new name, which the script does not do.
 Step K6.12 (change c0463, task 3.1) repours `pour-hatched/reference/` with Repour All and saves it. Only
 `repoured` judges it: its saved board is the record of Altium's hatch (S-2223), from which the hatched pour
