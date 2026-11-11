@@ -29,6 +29,11 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Fixed
 
+- **A straight Altium arc is kept** (c0485): an Altium arc whose three points lie on one line (a very short
+  arc) comes back as the source's arc record from a conversion through KiCad and back, and from
+  `import --to python` built with `build --target altium`. Before, it came back as a straight track. A
+  conversion to KiCad carries each such record in `Fenolite.Altium.StraightArcs`. The writer finds it by the
+  track's ends, layer, width and net, and reports no change for it.
 - **Native bodies are kept through KiCad** (c0484): a conversion from Altium through KiCad and back to Altium
   writes the source's extruded, cylinder and sphere bodies as their records, instead of the STEP model that
   KiCad needed in their place. This covers `import --to python` and `build --target altium`. A conversion to

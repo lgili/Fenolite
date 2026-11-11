@@ -103,6 +103,7 @@ tracked separately in `frozen-v0.json` while the active CLI writer remains v0.
 | `fenolite.altium-rules.v2` | internal | `internal` | Rule records of an Altium source in a KiCad board property (c0457, conditions compared parsed). |
 | `fenolite.altium-schematic-layout.v0` | internal | `internal` | Protected native-layout observation used only by rebuilds. |
 | `fenolite.altium-sheet.v0` | internal | `internal` | Altium-only records of a sheet in a KiCad title-block comment (c0470). |
+| `fenolite.altium-straight-arcs.v0` | internal | `internal` | Arc records of straight Altium arcs in a KiCad board property (c0485). |
 | `fenolite.artifacts.v0` | public | `fenolite.exports.manifest:Manifest` | User-authored input or agent-readable output. |
 | `fenolite.assembly-template.v0` | public | `fenolite.cli.file_formats:AssemblyTemplateFile` | User-authored input or agent-readable output. |
 | `fenolite.base.v0` | internal | `internal` | Protected three-way merge base. |

@@ -628,6 +628,11 @@ def write_altium(source: SourceProject, options: Options) -> Written:
         from fenolite.convert import zonepours
 
         board_items[zonepours.PROPERTY] = zonepours.carrier_text(pours).encode("utf-8")
+    from fenolite.convert import straightarcs
+
+    straight = straightarcs.found(source.design)
+    if straight:  # change c0485: the record of each arc that draws a straight track, for the way back
+        board_items[straightarcs.PROPERTY] = straightarcs.carrier_text(straight).encode("utf-8")
     planes = _carried_planes(source, design)
     if (
         planes.planes or planes.signals or planes.names

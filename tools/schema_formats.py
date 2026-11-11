@@ -106,6 +106,9 @@ FORMATS: dict[str, Format] = {
         "Rule records of an Altium source in a KiCad board property (c0457, conditions compared parsed).",
         "internal",
     ),
+    "fenolite.altium-straight-arcs.v0": Format(
+        "internal", None, "Arc records of straight Altium arcs in a KiCad board property (c0485).", "internal"
+    ),
     "fenolite.altium-schematic-layout.v0": Format(
         "internal", None, "Protected native-layout observation used only by rebuilds.", "internal"
     ),

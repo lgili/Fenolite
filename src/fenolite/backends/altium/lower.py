@@ -564,7 +564,11 @@ def kept_arc(entity: object, points: Sequence[Point], frame: pcbdoc.Frame) -> re
     32-bit integers and two finite doubles, whose radius is not positive, whose angles make a full turn, or
     whose points lie further away (the arc was moved or reshaped, or the board is written in another frame
     than the document's) gives ``None``: the arc is then written from its points."""
-    text = pairs_of(entity).get(ARC_KEY)
+    return _arc_geometry(pairs_of(entity).get(ARC_KEY), points, frame)
+
+
+def _arc_geometry(text: str | None, points: Sequence[Point], frame: pcbdoc.Frame) -> rec.ArcGeometry | None:
+    """``kept_arc`` for the pair's text ``text``."""
     if text is None or len(points) != 3:
         return None
     parts = text.split(",")
@@ -896,6 +900,51 @@ def straight_arc(arc: Arc) -> Track | None:
     )  # fmt: skip
     index = unions.union_of(arc)
     return unions.with_union(track, index) if index else track
+
+
+@dataclass(frozen=True, slots=True)
+class KeptStraightArc:
+    """An arc record of an Altium source whose three points lie on one line, carried through a conversion
+    (change c0485, ``convert.straightarcs``): its pair ``arc`` as the import keeps it (``ARC_KEY``), and the
+    layer, width and net name of the straight track it draws."""
+
+    pair: str
+    layer: str
+    width: int
+    net: str | None
+
+
+def _straight_record(
+    item: Track,
+    net: str | None,
+    kept: dict[tuple[str, int, str | None], list[str]],
+    frame: pcbdoc.Frame,
+) -> rec.ArcGeometry | None:
+    """The carried record (change c0485) whose arc draws ``item``, a track or the track of a straight arc
+    on the net named ``net``: same layer, width and net, its ends within ``ARC_TOLERANCE`` of the record's
+    in ``frame`` (either way round); ``None`` otherwise. A record that is found is taken once."""
+    texts = kept.get((item.layer, item.width, net), [])
+    a, b = item.start, item.end
+    mid = Point((a.x + b.x) // 2, (a.y + b.y) // 2)  # within a nanometre of the record's own middle point
+    for text in texts:
+        found = _arc_geometry(text, (a, mid, b), frame) or _arc_geometry(text, (b, mid, a), frame)
+        if found is not None:
+            texts.remove(text)
+            return found
+    return None
+
+
+def _as_arc(track: Track, geometry: rec.ArcGeometry) -> Arc:
+    """The arc that writes the carried record ``geometry`` in place of ``track`` (change c0485); its points
+    only order the written arcs (``pcbdoc.routed_arcs``)."""
+    a, b = track.start, track.end
+    mid = Point((a.x + b.x) // 2, (a.y + b.y) // 2)
+    arc = Arc(
+        id=track.id, provenance=track.provenance, start=a, mid=mid, end=b, width=track.width,
+        layer=track.layer, net_id=track.net_id, locked=track.locked,
+    )  # fmt: skip
+    index = unions.union_of(track)
+    return unions.with_union(arc, index) if index else arc
 
 
 HOLE_FOOTPRINT_REASON = "a generated hole footprint is written as the free hole it stands for"
@@ -1763,9 +1812,14 @@ def _copper(
     full_drill: bool = False,
     polygon_arcs: Mapping[str, ArcPolygon] | None = None,
     matched: dict[str, ArcPolygon] | None = None,
+    straight_arcs: Sequence[KeptStraightArc] = (),
 ) -> tuple[list[Track], list[Arc], list[Via], list[Zone], dict[str, rec.ArcGeometry]]:
     signal = [name for name in layers if name not in planes]
     records: dict[str, rec.ArcGeometry] = {}
+    straight: dict[tuple[str, int, str | None], list[str]] = {}
+    for item in straight_arcs:  # change c0485: the source's arc records of straight tracks
+        straight.setdefault((item.layer, item.width, item.net), []).append(item.pair)
+    arcs: list[Arc] = []
 
     def named(net_id: str | None) -> str | None:
         return net_names.get(net_id or "")
@@ -1784,9 +1838,12 @@ def _copper(
             problem = "the track has zero length"
         if problem is not None:
             account.skip("track", track.id, problem)
+        elif (kept := _straight_record(track, named(track.net_id), straight, frame)) is not None:
+            records[track.id] = kept  # change c0485: the source's arc record of this track
+            arcs.append(_as_arc(dataclasses.replace(track, net_id=named(track.net_id)), kept))
         else:
             tracks.append(dataclasses.replace(track, net_id=named(track.net_id)))
-    arcs: list[Arc] = []
+    from_tracks = len(arcs)
     straights: list[Track] = []
     for arc in board.arcs:
         problem = layer_problem(arc.layer)
@@ -1801,10 +1858,16 @@ def _copper(
                     rec.arc_from_points(*(frame(p) for p in (arc.start, arc.mid, arc.end)))
                 except ValueError as error:
                     problem = str(error)
-                    straight = straight_arc(arc)
-                    if straight is not None:  # change c0435
+                    line = straight_arc(arc)
+                    if line is not None:  # change c0435
+                        line = dataclasses.replace(line, net_id=named(arc.net_id))
+                        found = _straight_record(line, line.net_id, straight, frame)
+                        if found is not None:  # change c0485: the source's own record, unchanged
+                            records[arc.id] = found
+                            arcs.append(dataclasses.replace(arc, net_id=line.net_id))
+                            continue
                         account.change("arc", arc.id, ARC_STRAIGHT)
-                        straights.append(dataclasses.replace(straight, net_id=named(arc.net_id)))
+                        straights.append(line)
                         continue
         if problem is not None:
             account.skip("arc", arc.id, problem)
@@ -1872,7 +1935,7 @@ def _copper(
             )
         )
     account.wrote("track", len(tracks))
-    account.wrote("arc", len(arcs) + len(straights))
+    account.wrote("arc", len(arcs) - from_tracks + len(straights))
     tracks += straights
     account.wrote("via", len(vias))
     account.wrote("zone", len(zones))
@@ -2220,6 +2283,7 @@ def from_design(
     models: Mapping[str, Sequence[pcbdoc.FootprintModel]] | None = None,
     polygon_arcs: Mapping[str, ArcPolygon] | None = None,
     kept_pours: Mapping[str, pcbdoc.KeptPour] | None = None,
+    straight_arcs: Sequence[KeptStraightArc] = (),
     planes: Mapping[str, CarriedPlane] | None = None,
     frame_origin: Point | None = None,
 ) -> AltiumInputs:
@@ -2295,6 +2359,7 @@ def from_design(
                 models=models,
                 polygon_arcs=polygon_arcs,
                 kept_pours=kept_pours,
+                straight_arcs=straight_arcs,
                 carried_planes=planes,
                 frame_origin=frame_origin,
             )
@@ -2365,6 +2430,7 @@ def _document(
     models: Mapping[str, Sequence[pcbdoc.FootprintModel]] | None = None,
     polygon_arcs: Mapping[str, ArcPolygon] | None = None,
     kept_pours: Mapping[str, pcbdoc.KeptPour] | None = None,
+    straight_arcs: Sequence[KeptStraightArc] = (),
     carried_planes: Mapping[str, CarriedPlane] | None = None,
     frame_origin: Point | None = None,
 ) -> pcbdoc.PcbDocSpec:
@@ -2455,6 +2521,7 @@ def _document(
         full_drill=full_drill,
         polygon_arcs=polygon_arcs,
         matched=matched,
+        straight_arcs=straight_arcs,
     )
     stroke_flags = keepout_lines.flags(board.keepouts)
     texts_, graphics, keepouts, holes = _items(
@@ -2552,6 +2619,7 @@ def write_design(
     storages: Mapping[str, tuple[bytes, bytes]] | None = None,
     polygon_arcs: Mapping[str, ArcPolygon] | None = None,
     kept_pours: Mapping[str, pcbdoc.KeptPour] | None = None,
+    straight_arcs: Sequence[KeptStraightArc] = (),
     planes: Mapping[str, CarriedPlane] | None = None,
     frame_origin: Point | None = None,
     drawn: DrawnSchematic | None = None,
@@ -2606,6 +2674,7 @@ def write_design(
         models=models,
         polygon_arcs=polygon_arcs,
         kept_pours=kept_pours,
+        straight_arcs=straight_arcs,
         planes=planes,
         frame_origin=frame_origin,
     )
@@ -3219,6 +3288,7 @@ __all__ = [
     "dielectric_kinds",
     "from_design",
     "in_frame_of",
+    "KeptStraightArc",
     "kept_arc",
     "moved",
     "net_tie_differs",

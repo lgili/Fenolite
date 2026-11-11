@@ -343,6 +343,15 @@ track and via flags above). Altium Designer's own view of a written lock is step
   track or arc of the model (change c0108, "Locked flag of a free primitive"), after the component
   primitives in `Tracks6` and `Arcs6`, sorted by stack position of the layer, net name, start, end, width
   and entity id. Points are converted like placed points (`pcb-document.md`, frame).
+- **Straight arcs through KiCad (change c0485).** An arc record whose three model points lie on one line (a
+  very short arc) has no centre and radius in the model: it is written as the straight track it draws
+  (c0435), and `import --to python` holds it as one (`import.arc-as-track`). A conversion to KiCad carries,
+  in the board property `Fenolite.Altium.StraightArcs`, each such arc's pair `arc` as read (centre, radius
+  and angles) with its layer, width and net name. The conversion back writes that arc record, not a
+  track, for the track or straight arc of the same layer, width and net whose ends lie within
+  `ARC_TOLERANCE` (2 nm per axis) of the record's in the written document's frame, either way round; each
+  record is taken once and is not counted as a change. The ends find it, not a uuid, so a script's build
+  keeps it too. An edited track finds no record and stays a track.
 - **Vias.** The 321-byte form with the values of the "Via" table and zero in every other byte, the two
   ids included; flags `0C 00` only for a via that is neither locked nor tented: a locked via of the
   model gets `08 00` (change c0108), and a via tented on the top gets bit 5 as well, on the bottom

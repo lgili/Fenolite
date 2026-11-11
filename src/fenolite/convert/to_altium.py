@@ -329,6 +329,22 @@ def _carried_pours(source: SourceProject, design: Design) -> dict[str, KeptPour]
     return zonepours.read_carrier(found.get(zonepours.PROPERTY))
 
 
+def _carried_straight_arcs(source: SourceProject, design: Design) -> list[lower.KeptStraightArc]:
+    """The arc records of straight tracks that a conversion to KiCad carried (change c0485;
+    ``straightarcs.read_carrier`` of the board property ``straightarcs.PROPERTY``); none for a board that
+    does not read or carries none. The writer finds each by its track's ends, layer, width and net."""
+    from fenolite.backends.kicad.boardcarrier import carried as board_carried
+    from fenolite.convert import straightarcs
+
+    if design.board is None or source.path.suffix != ".kicad_pcb":
+        return []
+    try:
+        found = board_carried(source.path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, FormatError):
+        return []
+    return straightarcs.read_carrier(found.get(straightarcs.PROPERTY))
+
+
 def _carried_planes(
     source: SourceProject, design: Design
 ) -> tuple[Design, dict[str, lower.CarriedPlane], dict[str, tuple[str, ...]]]:
@@ -584,6 +600,7 @@ def write(source: SourceProject, options: Options) -> Written:
             storages=kept_storages,  # change c0450
             polygon_arcs=_carried_arcs(source, design),  # change c0463, task 1.3
             kept_pours=_carried_pours(source, design),  # change c0482
+            straight_arcs=_carried_straight_arcs(source, design),  # change c0485
             planes=planes,  # change c0466
             frame_origin=frame_origin,  # change c0467
             drawn=drawing,  # change c0470
