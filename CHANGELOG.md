@@ -16,6 +16,12 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Changed
 
+- Verify c0464 mechanical slot names, enabled flags and both drill layers in Altium 24.5 with an authored regression control that reproduces the historical mismatch counts.
+
+- Confirm that the native Altium save regenerates the built-in superclasses and retains the black solder mask in the native 3D view (c0464).
+
+- Record the Altium 24.5 check of units and mechanical slots in the public Python round trips (c0464).
+
 - Record native Altium confirmation of component classes on the public PCB round trips (c0450).
 
 - Keep Altium component fills, including unnetted copper fills, through import to Python, build and conversion back (c0450).

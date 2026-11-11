@@ -101,6 +101,11 @@ chose does not make it the KiCad layer's. `lower.drill_rows` sends the rows name
 
 ## Evidence
 
-INFERRED (H-A-CONV-BOARD6): Altium opening a `Board6` whose settings come from the source is not yet
-checked; the kit is task 5.1. The keys are copied, so a document that opened before with them holds the
-same text.
+The public kit confirms metric units, mechanical names and flags on row `-04`, native superclass
+recreation on rows `-04` and `-05`, and the black mask in row `-05`'s native 3D view (S-2292, S-2294).
+
+The acceptance control for the unavailable S-2235 board uses authored settings and two drill tracks.
+The historical writer maps the tracks to mechanical slots 3 and 4, renames both and enables them.
+It also disables two unused slots whose source enables them. This recreates the historical two-name,
+four-flag regression at `332b79837`. The corrected return keeps all sixteen slots, the metric display
+and both drill tracks through native open, Save As and reopen (S-2297).
