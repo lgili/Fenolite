@@ -10,7 +10,7 @@ Everything here is pure.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Collection, Iterable, Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
 
@@ -85,10 +85,18 @@ def resolve_aliases(
     return Aliases(parts, modules, MappingProxyType(dict(sorted(nets.items()))), explicit), tuple(issues)
 
 
-def identity_map(old: str, new: str, locators: Iterable[str]) -> Mapping[str, str]:
-    """The uuid each node of a footprint placed under ``old`` takes when it is kept under ``new``: one
-    entry per locator, from ``placement_uuid(old, loc)`` to ``placement_uuid(new, loc)``."""
-    return MappingProxyType({placement_uuid(old, loc): placement_uuid(new, loc) for loc in locators})
+def identity_map(
+    old: str, new: str, locators: Iterable[str], *, altium_fills: Collection[str] = ()
+) -> Mapping[str, str]:
+    """Map each placed node's uuid from the old key to the new key, retaining Altium fill markers."""
+    return MappingProxyType(
+        {
+            placement_uuid(old, loc, altium_fill=loc in altium_fills): placement_uuid(
+                new, loc, altium_fill=loc in altium_fills
+            )
+            for loc in locators
+        }
+    )
 
 
 __all__ = ["NET_ALIAS_UNUSED", "Aliases", "identity_map", "resolve_aliases"]

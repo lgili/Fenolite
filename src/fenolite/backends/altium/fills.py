@@ -12,43 +12,19 @@ uuid and is written as a region.
 from __future__ import annotations
 
 import dataclasses
-import hashlib
-import re
-import uuid
 
 from fenolite.core.evidence import Evidence, Level
+from fenolite.core.ids import ALTIUM_FILL_MARKER as FILL_MARKER
+from fenolite.core.ids import altium_fill_uuid as fill_uuid
+from fenolite.core.ids import is_altium_fill_uuid as is_fill_uuid
 from fenolite.model.board import Graphic
 
 EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-A-CONV-FILL",))
 """A conversion's claim: the fill record written for a tagged rectangle opens in Altium as the source's fill
 (``docs/hypotheses.md``; settled by the kit request of c0450 task 4.2)."""
 
-FILL_MARKER = 0x616C7466696C
-"""The 48-bit ``custom_a`` field of a fill's uuid: the ASCII bytes of ``altfil``."""
 FILLS_LOCATOR = "Fills6/Data#"
 """The locator prefix of a graphic read from a fill record."""
-_VERSION = 8
-_VARIANT = 0b10
-_HASH_BITS = 74
-_CANONICAL = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
-
-
-def fill_uuid(entity_id: str) -> str:
-    """The KiCad uuid of the fill graphic ``entity_id``: version 8, the fill marker in ``custom_a`` and the
-    first 74 bits of the SHA-256 of ``altium-fill:<entity_id>`` in ``custom_b`` and ``custom_c``."""
-    digest = hashlib.sha256(f"altium-fill:{entity_id}".encode()).digest()
-    bits = int.from_bytes(digest, "big") >> (256 - _HASH_BITS)
-    custom_b, custom_c = bits >> 62, bits & ((1 << 62) - 1)
-    value = (FILL_MARKER << 80) | (_VERSION << 76) | (custom_b << 64) | (_VARIANT << 62) | custom_c
-    return str(uuid.UUID(int=value))
-
-
-def is_fill_uuid(text: str) -> bool:
-    """Whether ``text`` is a canonical uuid with the fill marker, version 8 and the RFC variant."""
-    if not _CANONICAL.fullmatch(text):
-        return False
-    value = int(text.replace("-", ""), 16)
-    return value >> 80 == FILL_MARKER and (value >> 76) & 0xF == _VERSION and (value >> 62) & 0b11 == _VARIANT
 
 
 def is_fill(graphic: Graphic) -> bool:

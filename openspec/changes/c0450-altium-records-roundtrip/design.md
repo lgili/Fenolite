@@ -115,3 +115,11 @@ to 32 (`Mech.<n>` of a board that was read, a KiCad user layer of `lower.named_m
 `pcbrecords.mechanical_number`), free or of a component, and writes it with width 0. Copper, the layers of
 the fixed KiCad map (`F.Fab` and the others: their pins keep the refusal), every other layer, drawn rectangles, circles and polygons, and negative widths keep the refusal: the corpus shows width
 0 nowhere else.
+
+## Component fills through Python builds
+
+The public row `-04` keeps its 12 component fill markers in the imported library, but placement replaces
+each child uuid with an unmarked placement uuid. The way back loses six unnetted copper fills and
+writes the other six as regions. Preserve the marker at placement for a marked footprint graphic,
+using the placement uuid as the input to the existing marker generator. Two placements remain
+distinct. Group members and moved-part identity maps use the same marked placement uuid.

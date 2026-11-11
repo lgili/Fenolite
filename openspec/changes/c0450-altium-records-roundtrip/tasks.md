@@ -10,6 +10,14 @@
   row `-04`'s J1 lost its 6 Top Layer fills, which the writer refused as footprint copper); a Fenolite round
   trip of `-04` now keeps 6 of 6. Proof: `uv run pytest tests/unit/backends/altium/test_fill_records.py -n 0`.
 
+- [x] 1.4 Preserve the fill marker on a vendored component graphic during Python build placement,
+  including moved-part identity mapping. Proof:
+  `uv run pytest tests/unit/backends/altium/test_fill_records.py tests/unit/lens/test_moved.py -n 0`.
+  Public row `-04` (S-0199), flow A: the return keeps six unnetted component fills on the top copper
+  layer and six on the source solder-mask layer, all on the same component. KiCad 10.0.6 keeps all
+  twelve marker UUIDs on a native save. Altium 24.5.2.23 opens both copies and enumerates twelve fills
+  in each. The task 4.2 comparisons on rows `-01` and `-08` are separate.
+
 ## 2. Storages
 
 - [x] 2.1 The conversion to KiCad writes the carried storages as board properties and counts the
@@ -32,9 +40,15 @@
 - [x] 4.1 Round trip of public rows `-01`, `-02`, `-04`, `-06` and `-08`: storage diff before and after
   (S-2090). Rows in `pcb-records.md` and `board.md`, and a CHANGELOG line.
   `uv run pytest tests/unit/test_format_facts.py`.
-- [ ] 4.2 altium-rounds-2 opens the round trip of row `-01` and of row `-08` in Altium Designer: fills,
+- [x] 4.2 altium-rounds-2 opens the round trip of row `-01` and of row `-08` in Altium Designer: fills,
   unions, fonts and component classes as in the source (kit request).
   Deferred to v0.8 (coordinator, 2026-11-07): not run before the cut of 0.7.0; the code ships.
+  Altium 24.5.2.23 opened both direct returns and enumerated 2 and 43 fills, respectively, as in the
+  sources. TrueType counts and union member indices matched. Two near-straight members of row `-08`
+  changed from arc to track and kept their union indices, as recorded in c0460 task 2.6. Native
+  save-as retained all 27 and 21 ordinary component classes, respectively, with the same members
+  (S-2292). The inputs' hashes were unchanged. The native object TSV SHA-256 was
+  `a07fda29f89a07cca0417e835a0833e6199140792a16a6d55b1c7c10e4664d5e`.
 - [x] 4.3 KiCad 9.0.9 keeps the board properties on a save (maintainer's run).
   Deferred to v0.8 (coordinator, 2026-11-07): not run before the cut of 0.7.0; the code ships.
   Done 2026-11-07 at the coordinator's word (S-2280): 9.0's `kicad-cli` has no `pcb upgrade`, so the board code of

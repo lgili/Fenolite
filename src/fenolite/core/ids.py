@@ -86,8 +86,34 @@ def is_id(value: str, prefix: str | None = None) -> bool:
     return prefix is None or found == prefix
 
 
+ALTIUM_FILL_MARKER = 0x616C7466696C
+"""Fenolite's version-8 UUID marker for an Altium fill carried by a KiCad graphic."""
+
+_CANONICAL_UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+
+
+def altium_fill_uuid(identity: str) -> str:
+    """A stable fill marker with 74 hash bits for the supplied source or placement identity."""
+    digest = hashlib.sha256(f"altium-fill:{identity}".encode()).digest()
+    bits = int.from_bytes(digest, "big") >> (256 - 74)
+    custom_b, custom_c = bits >> 62, bits & ((1 << 62) - 1)
+    value = (ALTIUM_FILL_MARKER << 80) | (8 << 76) | (custom_b << 64) | (0b10 << 62) | custom_c
+    return str(uuid.UUID(int=value))
+
+
+def is_altium_fill_uuid(text: str) -> bool:
+    """Whether the canonical UUID carries the fill marker, version 8 and the RFC variant."""
+    if not _CANONICAL_UUID.fullmatch(text):
+        return False
+    value = uuid.UUID(text)
+    return value.int >> 80 == ALTIUM_FILL_MARKER and value.version == 8
+
+
 __all__ = [
+    "ALTIUM_FILL_MARKER",
     "FENOLITE_NS",
+    "altium_fill_uuid",
+    "is_altium_fill_uuid",
     "PREFIXES",
     "content_hash",
     "content_id",

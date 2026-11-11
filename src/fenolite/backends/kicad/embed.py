@@ -24,13 +24,13 @@ from typing import get_args
 
 from fenolite.backends.kicad import fpzones, pcb, versions
 from fenolite.backends.kicad import slots as slotlib
-from fenolite.backends.kicad._fpmap import angle_atom, emit_footprint, node
+from fenolite.backends.kicad._fpmap import FP_GRAPHIC_HEADS, angle_atom, emit_footprint, node
 from fenolite.backends.kicad.layers import flip_layer
 from fenolite.backends.kicad.sexpr import Atom, AtomKind, Node, dumps, parse_fragment, walk
 from fenolite.core.coords import Point, Size
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
-from fenolite.core.ids import FENOLITE_NS
+from fenolite.core.ids import FENOLITE_NS, altium_fill_uuid, is_altium_fill_uuid
 from fenolite.core.units import Nm, Udeg
 from fenolite.geometry.shapes import Arc, BBox, Circle
 from fenolite.geometry.transform import Transform
@@ -86,9 +86,10 @@ class FieldDefault:
     position: Point
 
 
-def placement_uuid(key: str, locator: str) -> str:
+def placement_uuid(key: str, locator: str, *, altium_fill: bool = False) -> str:
     """The uuid of the node at ``locator`` of a definition placed under ``key``."""
-    return str(uuid.uuid5(FENOLITE_NS, f"{PLACE_PREFIX}:{key}:{locator}"))
+    native = str(uuid.uuid5(FENOLITE_NS, f"{PLACE_PREFIX}:{key}:{locator}"))
+    return altium_fill_uuid(native) if altium_fill else native
 
 
 def _source_info(defn: FootprintDef) -> versions.FormatInfo | None:
@@ -241,13 +242,21 @@ def _udeg(atom: Atom) -> int:
     return int(value)
 
 
+def _is_marked_fill(item: Node, native: str) -> bool:
+    return item.name in FP_GRAPHIC_HEADS and is_altium_fill_uuid(native)
+
+
 def _uuids(tree: Node, key: str) -> Node:
     """Every ``uuid`` replaced by its placement uuid; group ``members`` follow the new values."""
     mapping: dict[str, str] = {}
+    by_locator: dict[str, str] = {}
     for loc, current in walk(tree):
         found = current.find("uuid")
         if found is not None and found.atoms():
-            mapping[found.atoms()[0].value] = placement_uuid(key, loc)
+            native = found.atoms()[0].value
+            placed = placement_uuid(key, loc, altium_fill=_is_marked_fill(current, native))
+            by_locator[loc] = placed
+            mapping[native] = placed
 
     def visit(current: Node, loc: str) -> Node:
         seen: dict[str, int] = {}
@@ -259,7 +268,8 @@ def _uuids(tree: Node, key: str) -> Node:
             index = seen.get(child.name, 0)
             seen[child.name] = index + 1
             if child.name == "uuid":
-                children.append(node("uuid", Atom.string(placement_uuid(key, loc))))
+                placed = by_locator.get(loc) or placement_uuid(key, loc)
+                children.append(node("uuid", Atom.string(placed)))
             elif child.name == "members":
                 children.append(
                     child.with_children(
@@ -276,17 +286,25 @@ def _uuids(tree: Node, key: str) -> Node:
     return visit(tree, f"/{tree.name}")
 
 
-def uuid_locators(defn: FootprintDef) -> tuple[str, ...]:
+def uuid_locators(defn: FootprintDef, *, altium_fills_only: bool = False) -> tuple[str, ...]:
     """The locators of every node of a placed copy of ``defn`` that holds a ``uuid``: the footprint itself
     and each node that ``place_footprint`` gives ``placement_uuid(key, locator)``. With them a caller can
-    tell the uuids of the same definition placed under another key (``lens.moved.identity_map``)."""
+    tell the uuids of the same definition placed under another key (``lens.moved.identity_map``).
+    With ``altium_fills_only``, return only the locators whose placed uuid carries the Altium fill marker."""
     tree = emit_footprint(defn)
     tree = tree.with_children([c for c in tree.children if not (isinstance(c, Node) and c.name in HEADER)])
-    found = ["/footprint"]
+    found = [] if altium_fills_only else ["/footprint"]
     for loc, current in walk(tree):
-        if loc != "/footprint" and current.find("uuid") is not None:
-            found.append(loc)
-    found += [f"/footprint/property:{name}" for name in MANDATORY_FIELDS if name not in _property_names(tree)]
+        native = current.find("uuid")
+        if loc != "/footprint" and native is not None:
+            if not altium_fills_only or (
+                native.atoms() and _is_marked_fill(current, native.atoms()[0].value)
+            ):
+                found.append(loc)
+    if not altium_fills_only:
+        found += [
+            f"/footprint/property:{name}" for name in MANDATORY_FIELDS if name not in _property_names(tree)
+        ]
     return tuple(found)
 
 

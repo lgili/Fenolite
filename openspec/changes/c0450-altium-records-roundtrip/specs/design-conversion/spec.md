@@ -23,3 +23,15 @@ marker of its stroke as its name.
 - **WHEN** it is converted to KiCad
 - **THEN** the rule area of the line's band is named `Altium.KeepOut/flag24/line/…` with the line's points
   and width
+
+### Requirement: Component fills keep their marker when placed from Python
+
+An imported Altium component fill SHALL keep a fill marker when its vendored footprint is placed by
+the Python build. Its marked KiCad uuid SHALL be deterministic and unique per placement and child.
+The return conversion SHALL write eligible marked graphics as component fill records.
+
+#### Scenario: Component fills survive import, build and conversion
+
+- **GIVEN** an Altium document with an ordinary component overlay fill and an unnetted copper fill
+- **WHEN** it is imported to Python, built and converted back to Altium
+- **THEN** both fills belong to their original component and retain their layers and absent nets

@@ -5,14 +5,20 @@
 import dataclasses
 import math
 from collections import Counter
+from pathlib import Path
 
 from _convert import two_layer
 
+from fenolite.api import run
 from fenolite.backends.altium import fills, lower, pcbdoc
 from fenolite.backends.altium import pcbrecords as rec
 from fenolite.backends.altium.read.pcb import read_pcbdoc
 from fenolite.backends.altium.read.pcbprims import FillRecord, RegionRecord
+from fenolite.backends.kicad.embed import place_footprint, uuid_locators
+from fenolite.backends.kicad.fpitems import drawn_children
+from fenolite.backends.kicad.mod import read_footprint
 from fenolite.core.coords import Point
+from fenolite.lens.moved import identity_map
 from fenolite.model.board import Graphic
 from fenolite.model.design import Design
 
@@ -118,3 +124,84 @@ def test_a_footprint_copper_fill_of_no_net_is_written() -> None:
     document = read_pcbdoc(written.files[f"{design.header.name}.PcbDoc"])
     found = [f for f in document.fills if isinstance(f, FillRecord) and f.prefix.layer == TOP]
     assert [(f.prefix.component is not None, f.prefix.net) for f in found] == [(True, None)]
+
+
+def test_component_fills_survive_import_build_and_conversion(tmp_path: Path) -> None:
+    design = _design()
+    assert design.board is not None
+    first, *rest = design.board.footprints
+    copper = dataclasses.replace(
+        _fill("gra-copper", Point(-MM, -3 * MM), Point(MM, -2 * MM), kind="rect"), layer="F.Cu"
+    )
+    first = dataclasses.replace(first, graphics=(*first.graphics, copper))
+    design = dataclasses.replace(design, board=dataclasses.replace(design.board, footprints=(first, *rest)))
+    initial = lower.write_design(design, allow_lossy=True)
+    source = tmp_path / "source.PcbDoc"
+    source.write_bytes(initial.files[f"{design.header.name}.PcbDoc"])
+
+    def write(*args: str) -> None:
+        planned = run(*args, "--dry-run", cwd=tmp_path)
+        assert planned.exit_code == 0, planned.error
+        done = run(*args, "--confirm", "--plan", str(planned.result["plan_id"]), cwd=tmp_path)
+        assert done.exit_code == 0, done.error
+
+    write(
+        "import", str(source), "--to", "python", "--out", "py", "--allow-lossy",
+        "--licence", "CC0-1.0", "--copyright", "2026 Fenolite contributors",
+    )  # fmt: skip
+    (marked_lib,) = [
+        path
+        for path in (tmp_path / "py" / "lib").glob("*.pretty/*.kicad_mod")
+        if "616c7466-696c-8" in path.read_text(encoding="utf-8")
+    ]
+    definition = read_footprint(marked_lib)
+    component = next(c for c in design.circuit.components if c.id == first.component_id)
+
+    def placed_markers(key: str) -> set[str]:
+        footprint = place_footprint(definition, component=component, at=Point(0, 0), key=key)
+        return {
+            child.item.native_ids["kicad"]
+            for child in drawn_children(footprint)
+            if isinstance(child.item, Graphic) and fills.is_fill(child.item)
+        }
+
+    first_markers = placed_markers("original")
+    other_markers = placed_markers("renamed")
+    assert len(first_markers) == len(other_markers) == 2
+    assert first_markers.isdisjoint(other_markers)
+    renamed = identity_map(
+        "original",
+        "renamed",
+        uuid_locators(definition),
+        altium_fills=uuid_locators(definition, altium_fills_only=True),
+    )
+    assert {renamed[marker] for marker in first_markers} == other_markers
+
+    write("build", str(tmp_path / "py" / "design.py"), "--out", "built")
+    (board,) = (tmp_path / "built").glob("*.kicad_pcb")
+    write(
+        "convert",
+        str(board),
+        "--to",
+        "altium",
+        "--out",
+        "return",
+        "--allow-lossy",
+        "--altium-pour",
+        "outline",
+    )
+    (restored,) = (tmp_path / "return").glob("*.PcbDoc")
+
+    def component_fills(path: Path) -> Counter[tuple[str | None, int, int | None]]:
+        document = read_pcbdoc(path.read_bytes(), strict=True)
+        return Counter(
+            (document.components[item.prefix.component].source_designator, item.prefix.layer, item.prefix.net)
+            for item in document.fills
+            if isinstance(item, FillRecord) and item.prefix.component is not None
+        )
+
+    expected = component_fills(source)
+    assert expected.total() == 2
+    assert {layer for _, layer, _ in expected} == {TOP, rec.LAYER_MAP["F.SilkS"]}
+    assert all(net is None for _, _, net in expected)
+    assert component_fills(restored) == expected

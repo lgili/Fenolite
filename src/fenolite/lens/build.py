@@ -1742,7 +1742,10 @@ def build_design(
         if prepared is not None and part.path in alias_matches:
             # the uuids a footprint kept through an alias takes under its new path (c0069)
             identities[part.path] = identity_map(
-                prepared.aliases[part.path], part.path, (*uuid_locators(extended), *user_locators)
+                prepared.aliases[part.path],
+                part.path,
+                (*uuid_locators(extended), *user_locators),
+                altium_fills=uuid_locators(extended, altium_fills_only=True),
             )
         component = dataclasses.replace(
             part.component,

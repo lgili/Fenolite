@@ -54,3 +54,6 @@ between the two legs, so whatever the second leg needs must travel in it.
   - `docs/formats/kicad/board.md`;
   - `docs/evidence/sources.md` (S-2090 to S-2093);
   - `CHANGELOG.md`.
+
+Component fills retain their marker when the Python build places the vendored footprint, so a return
+from that build also writes the component fill records.

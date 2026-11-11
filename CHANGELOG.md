@@ -16,6 +16,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Changed
 
+- Record native Altium confirmation of component classes on the public PCB round trips (c0450).
+
+- Keep Altium component fills, including unnetted copper fills, through import to Python, build and conversion back (c0450).
+
 - Preserve zero-height TrueType footprint texts when converting a KiCad board back to Altium (c0460). Altium 24.5 also confirmed the TrueType and union membership counts on the three public controls.
 
 - Carry native Altium Net Antennae rules with their original tolerance and report the portable DRC coverage limit (c0465). Altium 24.5.2.23 native probes show width- and topology-dependent results. Legacy Altium rules cannot suppress KiCad dangling findings.
