@@ -1769,11 +1769,15 @@ The repository SHALL hold an acceptance project for the second backend's write s
 - **THEN** every step of the script passes, and the probe `acceptance-v03` records `equal`
 
 ### Requirement: Scope of the acceptance project
-The acceptance project SHALL use every item that the written scope lists: a stack of six copper layers, blind and buried vias, board texts, a keep-out, a non-plated hole, bodies, polygons, rules of every exact kind, a module tree two levels deep, a bus, an output job and a drawing sheet.
+The acceptance project SHALL use every item that the written scope lists: a stack of six copper layers, blind and buried vias, board texts, a keep-out, a non-plated hole, bodies, polygons, rules of every exact kind of the v0.3 written scope, a module tree two levels deep, a bus, an output job and a drawing sheet. The kinds `short` and `antenna`, exact since change c0465, are outside that scope: the project of v0.3 authors neither, and its bytes stay those of v0.3.
 
 #### Scenario: Every written item is used
 - **WHEN** the acceptance project is built for Altium
 - **THEN** each item of the written scope appears in the written documents
+
+#### Scenario: The kinds of change c0465 are outside the acceptance scope
+- **WHEN** `tools/acceptance_v03.py` lists the exact rule kinds the project must use
+- **THEN** the list holds every exact kind of `rulemap.TABLE` but `short` and `antenna`
 
 ### Requirement: Record of the acceptance runs
 `docs/evidence/altium-acceptance.md` SHALL record each run of `tools/acceptance_v03.py` with the versions of Fenolite, KiCad and Altium, the result of each step, and the id of the kit run made on the same tree.
