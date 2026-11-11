@@ -16,6 +16,12 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Changed
 
+- Record the native Power Plane Connect checks on the two public PCB round trips (c0466).
+
+- Carry Altium split plane boundary tracks through KiCad and restore them to the returned plane (c0466). The two public returns preserve the same connected pad identities in Altium 24.5.
+
+- Record the Altium 24.5 plane-connection differences on public PCB round trips (c0466).
+
 - Verify c0464 mechanical slot names, enabled flags and both drill layers in Altium 24.5 with an authored regression control that reproduces the historical mismatch counts.
 
 - Confirm that the native Altium save regenerates the built-in superclasses and retains the black solder mask in the native 3D view (c0464).

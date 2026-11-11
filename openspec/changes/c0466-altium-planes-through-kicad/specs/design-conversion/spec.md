@@ -88,3 +88,16 @@ name that property carries for it.
   named copper layers
 - **WHEN** it is imported to Python, built and the build converted to Altium
 - **THEN** the written chain, its names, the plane nets and the Split Plane polygons are the source's
+
+### Requirement: Split plane boundaries travel with the plane
+
+The Altium to KiCad conversion SHALL carry the unflagged, positive-width netless and unowned track boundaries
+of a carried split plane as geometry. The return SHALL translate them with the split polygons and
+write them as tracks of the restored plane. Records with a polygon index SHALL stay out of this
+carrier. A property written before boundary support SHALL still read.
+
+#### Scenario: Two splits keep their dividing stroke
+
+- **GIVEN** a carried split plane with a netless boundary track and a track with a pull-back polygon index
+- **WHEN** the board is converted to KiCad and then back to Altium
+- **THEN** the dividing track retains its geometry on the plane, and the pull-back track is omitted

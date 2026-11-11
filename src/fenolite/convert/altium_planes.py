@@ -17,9 +17,13 @@ from __future__ import annotations
 
 import dataclasses
 import json
+from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from typing import Any, cast
 
+from fenolite.backends.altium.adapter.units import pcb_length, pcb_point
+from fenolite.backends.altium.pcbdoc import PlaneBoundary
+from fenolite.backends.altium.read.pcbprims import RawPrimitive, TrackRecord
 from fenolite.backends.kicad import boardcarrier
 from fenolite.core.coords import Point
 from fenolite.model.base import ExtBag
@@ -59,6 +63,7 @@ class Plane:
     net: str
     pullback: int
     splits: tuple[Split, ...] = ()
+    boundaries: tuple[PlaneBoundary, ...] = ()
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -137,6 +142,27 @@ def _pullback(fields: Mapping[str, str], index: int) -> int:
     return length[0] if length is not None else PULLBACK
 
 
+def _boundaries(tracks: Sequence[TrackRecord | RawPrimitive]) -> dict[int, list[PlaneBoundary]]:
+    found: dict[int, list[PlaneBoundary]] = defaultdict(list)
+    for track in tracks:
+        if isinstance(track, RawPrimitive):
+            continue
+        prefix = track.prefix
+        if (
+            39 <= prefix.layer <= 54
+            and prefix.net is None
+            and prefix.component is None
+            and prefix.polygon is None
+            and prefix.flags2 == 0
+            and track.sub_polygon in (None, 0)
+            and track.width > 0
+        ):
+            a, b = pcb_point(track.x1, track.y1), pcb_point(track.x2, track.y2)
+            if a != b:
+                found[prefix.layer].append(PlaneBoundary(a, b, pcb_length(track.width)))
+    return found
+
+
 def found(source: Design, target: Design, document: Any) -> Carried:
     """The planes of the imported ``source`` to carry into ``target``, its KiCad conversion, whose rows
     ``altium_to_kicad.copper_rows`` typed: each internal plane of the chain, in order, paired with the
@@ -159,6 +185,7 @@ def found(source: Design, target: Design, document: Any) -> Carried:
     names = [n.name for n in document.nets] if document is not None else []
     fields = dict(document.board.record.fields) if document is not None else {}
     polygons = document.polygons if document is not None else ()
+    boundaries = _boundaries(document.tracks) if document is not None else {}
     planes: list[Plane] = []
     for layer, row in zip(copper, rows, strict=True):
         net = _pair(layer, "plane_net")
@@ -177,7 +204,8 @@ def found(source: Design, target: Design, document: Any) -> Carried:
             splits.append(Split(cast(str, name), tuple(ring)))
         if net is None or not whole or (net not in nets and not (net == MULTIPLE_NETS and splits)):
             continue
-        planes.append(Plane(row, net, pullback, tuple(splits)))
+        tracks = tuple(boundaries.get(index + 38, ())) if splits else ()
+        planes.append(Plane(row, net, pullback, tuple(splits), tracks))
     return Carried(tuple(planes), edge_corner(written), signals, named)
 
 
@@ -201,6 +229,15 @@ def carrier_text(carried: Carried) -> str:
                 "splits": [
                     {"net": split.net, "points": [[p.x, p.y] for p in split.points]} for split in plane.splits
                 ],
+                **(
+                    {
+                        "boundaries": [
+                            [[b.start.x, b.start.y], [b.end.x, b.end.y], b.width] for b in plane.boundaries
+                        ]
+                    }
+                    if plane.boundaries
+                    else {}
+                ),
             }
             for plane in carried.planes
         ],
@@ -210,6 +247,28 @@ def carrier_text(carried: Carried) -> str:
     if carried.names:
         root["names"] = [[row, name] for row, name in carried.names]
     return json.dumps(root, sort_keys=True, separators=(",", ":"))
+
+
+def _read_boundaries(value: object) -> tuple[PlaneBoundary, ...] | None:
+    if not isinstance(value, list):
+        return None
+    found: list[PlaneBoundary] = []
+    for item in cast("list[object]", value):
+        entry = cast("list[object]", item) if isinstance(item, list) else []
+        if len(entry) != 3:
+            return None
+        start, end, width = entry
+        a, b = _point(start), _point(end)
+        if (
+            a is None
+            or b is None
+            or a == b
+            or type(width) is not int
+            or not 0 < width <= pcb_length(2**31 - 1)
+        ):
+            return None
+        found.append(PlaneBoundary(a, b, width))
+    return tuple(found)
 
 
 def read_carrier(data: bytes | None) -> Carried:
@@ -243,7 +302,10 @@ def read_carrier(data: bytes | None) -> Carried:
                 break
         if raw and not splits:
             continue
-        planes.append(Plane(layer, net, pullback, tuple(splits)))
+        boundaries = _read_boundaries(row.get("boundaries", []))
+        if boundaries is None or (boundaries and not splits):
+            continue
+        planes.append(Plane(layer, net, pullback, tuple(splits), boundaries))
     raw_signals = root.get("signals")
     signals: list[tuple[str, int]] = []
     for item in cast("list[object]", raw_signals) if isinstance(raw_signals, list) else []:
@@ -307,7 +369,15 @@ def restored(design: Design, carried: Carried) -> Restored:
             lost.append((layer.id, NET_GONE))
             continue
         moved = tuple(Split(s.net, tuple(Point(p.x + dx, p.y + dy) for p in s.points)) for s in plane.splits)
-        kept[plane.layer] = dataclasses.replace(plane, splits=moved)
+        boundaries = tuple(
+            PlaneBoundary(
+                Point(b.start.x + dx, b.start.y + dy),
+                Point(b.end.x + dx, b.end.y + dy),
+                b.width,
+            )
+            for b in plane.boundaries
+        )
+        kept[plane.layer] = dataclasses.replace(plane, splits=moved, boundaries=boundaries)
     layers: list[Layer] = []
     for layer in board.layers:
         plane = kept.get(layer.name)

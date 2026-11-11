@@ -49,3 +49,5 @@ net and no `(Multiple Nets)` plane.
 - The names of signal copper layers (`Component Side`).
 - A `(Multiple Nets)` plane on the direct path (import to Python, build, convert), which writes no split
   either.
+
+Preserve the netless boundary tracks that separate the split regions of a carried plane.

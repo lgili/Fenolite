@@ -324,7 +324,7 @@ def _carried_planes(
     names = altium_planes.names(made.design, tuple(made.planes))
     planes = {
         row: lower.CarriedPlane(
-            plane.pullback, tuple((s.net, s.points) for s in plane.splits), names.get(row)
+            plane.pullback, tuple((s.net, s.points) for s in plane.splits), names.get(row), plane.boundaries
         )
         for row, plane in made.planes.items()
     }

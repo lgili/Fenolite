@@ -8,6 +8,7 @@ here are authored for Fenolite with the writer; the public rows are read from th
 from __future__ import annotations
 
 import re
+import struct
 from collections import Counter
 from fractions import Fraction
 from pathlib import Path
@@ -17,8 +18,11 @@ from _altium_board6 import at, bare_spec
 
 from fenolite.backends.altium import pcbdoc
 from fenolite.backends.altium import pcbrecords as rec
+from fenolite.backends.altium.cfb import storage_from_paths, write_compound
 from fenolite.backends.altium.libboard import MULTIPLE_NETS, StackSpec, valid_stack
+from fenolite.backends.altium.read.cfb import open_compound
 from fenolite.backends.altium.read.pcb import PcbDocument, read_pcbdoc
+from fenolite.backends.altium.read.pcbprims import TrackRecord
 from fenolite.backends.kicad import boardcarrier
 from fenolite.convert import altium_planes, convert_project
 from fenolite.convert.sources import read_source
@@ -322,3 +326,49 @@ def test_flow_a_keeps_planes_names_and_ids(tmp_path: Path, row: str) -> None:
     fields, before = _fields(written), _fields(original)
     assert [fields[f"PLANE{k}NETNAME"] for k in planes] == [before[f"PLANE{k}NETNAME"] for k in planes]
     assert _splits(written) == _splits(original)
+
+
+def test_split_boundaries_follow_the_plane_through_kicad(tmp_path: Path) -> None:
+    source = _document(tmp_path)
+    document = read_pcbdoc(source.read_bytes())
+    first = next(p for p in document.polygons if p.layer == "PLANE1")
+    a, b = first.vertices[1:3]
+    start, end = (int(a.x), int(a.y)), (int(b.x), int(b.y))
+    tracks = [
+        rec.track_record(39, start, end, 100_000),
+        rec.track_record(39, start, end, 400_000, polygon=0xFFFE),
+    ]
+    streams = open_compound(source.read_bytes()).as_dict()
+    streams["Tracks6/Data"] += b"".join(tracks)
+    streams["Tracks6/Header"] = struct.pack("<I", len(document.tracks) + len(tracks))
+    source.write_bytes(write_compound(storage_from_paths(streams)))
+    original = read_pcbdoc(source.read_bytes(), strict=True)
+
+    text, result, _ = _round_trip(tmp_path, source)
+    carrier = altium_planes.read_carrier(boardcarrier.carried(text)[altium_planes.PROPERTY])
+    assert len(carrier.planes[0].boundaries) == 1
+    assert carrier.planes[1].boundaries == ()
+
+    def plane_tracks(doc: PcbDocument) -> list[tuple[object, ...]]:
+        x = min(v.x for v in doc.board.outline)
+        y = min(v.y for v in doc.board.outline)
+        return [
+            (
+                track.x1 - x,
+                track.y1 - y,
+                track.x2 - x,
+                track.y2 - y,
+                track.width,
+                track.prefix.layer,
+                track.prefix.net,
+                track.prefix.component,
+            )
+            for track in doc.tracks
+            if isinstance(track, TrackRecord)
+            and track.prefix.layer in (39, 40)
+            and track.prefix.polygon is None
+        ]
+
+    assert plane_tracks(result) == plane_tracks(original)
+    assert sum(isinstance(t, TrackRecord) and t.prefix.layer in (39, 40) for t in result.tracks) == 1
+    assert _splits(result) == _splits(original)

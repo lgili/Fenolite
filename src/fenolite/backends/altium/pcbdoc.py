@@ -685,6 +685,15 @@ def model_storage(spec: PcbDocSpec) -> Storage:
 
 
 @dataclass(frozen=True, slots=True)
+class PlaneBoundary:
+    """A split plane's boundary track in the model's frame."""
+
+    start: Point
+    end: Point
+    width: int
+
+
+@dataclass(frozen=True, slots=True)
 class PcbDocSpec:
     """A board: its outline (KiCad frame, in order), its components, its net names and its copper.
 
@@ -753,6 +762,8 @@ class PcbDocSpec:
     """Internal plane id → its ``Split Plane`` polygons that a conversion carried through KiCad (change
     c0466, ``convert.altium_planes``): each a net name and its ring in the frame of the design. A plane with
     splits is written with them instead of the board outline, and may be ``(Multiple Nets)``."""
+    plane_boundaries: Mapping[int, tuple[PlaneBoundary, ...]] = field(default_factory=lambda: {})
+    """Internal plane id to the boundary tracks of its carried splits (c0466)."""
     copper_names: Mapping[int, str] = field(default_factory=lambda: {})
     """Copper layer id → the name the layer is written with instead of Altium's (``pcbrecords.LAYER_NAMES``):
     an internal plane's (39 … 54) and a signal layer's (1 … 32) name a conversion carried through KiCad
@@ -2674,6 +2685,17 @@ def _write(
             )
             wide.append(_wide_entry(number, item.text))
     tracks += routed_tracks(spec.tracks, copper)
+    for layer in stack.planes:
+        for boundary in spec.plane_boundaries.get(layer, ()):
+            tracks.append(
+                rec.track_record(
+                    layer,
+                    _units(frame(boundary.start)),
+                    _units(frame(boundary.end)),
+                    rec.to_units(boundary.width),
+                    union=(long_id(layer), 0),
+                )
+            )
     arcs += routed_arcs(spec.arcs, copper, spec.arc_records)
     filled: dict[str, list[bytes]] = {name: [] for name in COPPER_STORAGES}
     filled["Vias6"] = via_records(

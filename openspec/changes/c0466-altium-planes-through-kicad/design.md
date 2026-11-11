@@ -112,3 +112,15 @@ layers share a name. `docboard.board_text` replaces the default name in each key
 KiCad names a row's Gerber file after its user name (S-2256): a converted board whose layers have their own
 names plots `<board>-Internal Layer 1.g1` where it plotted `<board>-In1_Cu.g1`. The file function is
 unchanged.
+
+## Split boundaries
+
+Altium 24.5.2.23 read the same split polygons, pad positions and Plane Connect rules on the two
+public returns, but lost three native pad connections on the second plane. Adding the original
+netless, unowned boundary tracks of row `-02` to a copy of its return restored both 3.3 V pads.
+Adding only the tracks and arcs with polygon index 65534 did not. The plane carrier gains an
+optional ordered `boundaries` list, each entry containing start, end and width in model nanometres.
+It accepts positive-width, unflagged track records with no net, component or polygon, on a carried plane
+with split polygons. The boundary positions follow the same board translation as split polygons.
+Altium gets native boundary tracks on the restored plane, without a net or a polygon. The
+pull-back strokes are outside this change. Older plane properties without boundaries still read.

@@ -25,9 +25,33 @@
 ## 4. Evidence and docs
 
 - [x] 4.1 Rows in `pcb-copper.md` and `board.md`, S-2250 to S-2252, and the CHANGELOG.
-- [ ] 4.2 Kit: Altium opens the round trip of rows `-01` and `-02` with their planes and splits, and Plane
+- [x] 4.2 Kit: Altium opens the round trip of rows `-01` and `-02` with their planes and splits, and Plane
   Connect finds the pads of the planes' nets connected.
   Deferred to v0.8 (coordinator, 2026-11-07): not run before the cut of 0.7.0; the code ships.
+
+  Native follow-up, 2026-11-10: Altium 24.5.2.23 opened the originals and direct returns of both public
+  rows. The source and return each reported five connected pads on the first plane. The second plane
+  reported 2 to 1 on row `-01` (one 5 V pad lost) and 2 to 0 on row `-02` (two 3.3 V pads lost), using
+  the native pad connection property before running a new DRC. The layer and split geometry record
+  comparisons pass; native connection parity and Plane Connect DRC remain open. The four input
+  hashes were unchanged. Native TSV SHA-256:
+  `0636687e4217ef1a50f9e03073df28e6b80059be2a299205236cbae26cb82244`.
+
+- [x] 4.3 Preserve the split boundaries that the native connection control isolated, keeping older
+  carriers readable. Proof: `uv run pytest tests/unit/convert/test_altium_planes_c0466.py -n 0`,
+  plus native pad connection comparison on rows `-01` and `-02`.
+  The corrected direct returns preserve 74 and 43 boundary tracks. Altium 24.5.2.23 opened both
+  sources and both returns and reported the same pad identities, five on plane 1 and two on plane 2
+  in each pair, before running a new DRC. The input hashes were unchanged. Native TSV SHA-256:
+  `b37413dafbdf20b1783dd27d3500e59ba652f44d23daf4e9f29596ec7ec02035`.
+  Fresh native batch DRC (S-2293) ran on the original and corrected return of both public rows.
+  The return used `--altium-pour outline`.
+  All reported Power Plane Connect rules had zero violations, and no unrouted finding named the
+  recovered pads. This is the plane-specific proof for task 4.2. The overall reports differ:
+  row `-01` has 228 versus 256 unrouted findings and the return reached the 500-violation cap
+  after reporting the plane rule. Row `-02` has 0 versus 31 unrouted findings. The same four
+  inputs have 90 versus 50 polygon-linked region records for row `-01` and 91 versus 79 for
+  row `-02`. These counts do not attribute individual findings or establish full DRC equivalence.
 
 ## 5. Signal layer names (S-2254 to S-2256)
 

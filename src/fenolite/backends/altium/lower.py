@@ -743,6 +743,7 @@ class CarriedPlane:
     pullback: int
     splits: tuple[tuple[str, tuple[Point, ...]], ...] = ()
     name: str | None = None
+    boundaries: tuple[pcbdoc.PlaneBoundary, ...] = ()
 
 
 def _stack(
@@ -2489,6 +2490,9 @@ def _document(
         polygon_arcs=MappingProxyType(matched),
         plane_splits=MappingProxyType(
             {plane_ids[n]: p.splits for n, p in carried_planes.items() if n in planes and p.splits}
+        ),
+        plane_boundaries=MappingProxyType(
+            {plane_ids[n]: p.boundaries for n, p in carried_planes.items() if n in planes and p.boundaries}
         ),
         copper_names=MappingProxyType(_copper_names(board, plane_ids, planes, carried_planes)),
         fill_ids=frozenset(g.id for g in graphics if fills.is_fill(g)),
