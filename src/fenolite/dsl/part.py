@@ -468,6 +468,7 @@ class Part(Edges):
         self.model_refs: list[ModelRef] = []
         self.overrides: FootprintOverrides | None = None
         self.pad_edits: list[tuple[str, dict[str, object]]] = []
+        self._unnumbered_pad_nets: dict[int, Net] = {}
         """The field placement requests of ``field()``, by field name."""
         self.pad_zone_requests: dict[tuple[str, int | None], PadZoneRequest] = {}
         """The requests of ``zone_connection()``, by pad number and index."""
@@ -955,6 +956,25 @@ class Part(Edges):
         if request == FieldRequest(name, locked=locked):
             raise DslError(f"{what}: the request sets nothing")
         self.field_requests[name] = request
+
+    def unnumbered_pad_net(self, index: int, net: Net) -> None:
+        """Assign a concrete net to an unnumbered copper pad by its zero-based footprint order.
+
+        The index counts only pads with an empty number. This sets board connectivity without
+        creating a schematic pin.
+        """
+        what = f"part {self.label}: unnumbered pad net"
+        if self.bom_only:
+            raise DslError(f"{what}: a BOM-only part has no physical pads")
+        if isinstance(index, bool) or not isinstance(index, int) or index < 0:  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: index must be a non-negative int, not {index!r}")
+        if not isinstance(net, Net) or net.deferred:  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: expected a concrete Net, not {net!r}")
+        if index in self._unnumbered_pad_nets:
+            raise DslError(f"{what}: index {index} already has a net")
+        if self.design is not None:
+            self.design.register_net(net)
+        self._unnumbered_pad_nets[index] = net
 
     def zone_connection(
         self, number: str | int, connection: str, *, index: int | None = None, locked: bool = False

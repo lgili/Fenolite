@@ -131,6 +131,8 @@ def test_refused_drawing_calls() -> None:
             lambda: d.dimension("d1", origin, (mm(0), mm(9)), offset=mm(2), direction="horizontal"),
             "direction",
         ),
+        (lambda: d.arc("a2", origin, (mm(1), mm(1)), right, layer="F.Cu", width=mm(0)), "width"),
+        (lambda: d.arc("a3", origin, (mm(1), mm(1)), right, layer="F.Fab", width=mm(0)), "width"),
         (lambda: d.dimension("d2", origin, right, offset=mm(2), precision=5), "precision"),
         # several lines and an empty text are texts (change c0277); a tab and a number are not
         (lambda: d.text("t2", "A\tB", (mm(1), mm(1))), "text"),

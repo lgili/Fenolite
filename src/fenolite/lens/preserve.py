@@ -1100,6 +1100,50 @@ def _with_groups(board: Board, mapping: Mapping[str, str]) -> Board:
     return dataclasses.replace(board, ext={**board.ext, BAG: slots.to_ext(current, bag)})
 
 
+def _merge_pad_nets(
+    kept: FootprintInstance, built: FootprintInstance, path: str, issues: list[Issue]
+) -> tuple[Pad, ...]:
+    numbered = {pad.number: pad.net_id for pad in built.pads if pad.number}
+    existing = [pad for pad in kept.pads if not pad.number]
+    by_uuid = {uuid: pad for pad in existing if (uuid := pad.native_ids.get(BAG))}
+    unnumbered = [pad for pad in built.pads if not pad.number]
+
+    def geometry(pad: Pad) -> tuple[object, ...]:
+        return pad.position, pad.kind, pad.shape, pad.size, pad.rotation, pad.drill, pad.layers
+
+    physical: dict[str, str] = {}
+    for pad in unnumbered:
+        if pad.net_id is None:
+            continue
+        match = by_uuid.get(pad.native_ids.get(BAG, ""))
+        if match is None:
+            key = geometry(pad)
+            candidates = [other for other in existing if geometry(other) == key]
+            if len(candidates) == 1 and sum(geometry(other) == key for other in unnumbered) == 1:
+                match = candidates[0]
+        if (
+            match is None
+            or match.id in physical
+            or match.kind == "np_thru_hole"
+            or not any(layer.endswith(".Cu") for layer in match.layers)
+        ):
+            issues.append(
+                Issue(
+                    "build.pad-unknown",
+                    "error",
+                    "cannot match a netted unnumbered copper pad to the kept footprint",
+                    where=path,
+                    hint="restore the pad identity in KiCad or rebuild with --discard-layout",
+                )
+            )
+            continue
+        physical[match.id] = pad.net_id
+    return tuple(
+        dataclasses.replace(pad, net_id=numbered.get(pad.number) if pad.number else physical.get(pad.id))
+        for pad in kept.pads
+    )
+
+
 def merge_layout(
     built: Design,
     board: Design,
@@ -1203,8 +1247,7 @@ def merge_layout(
                     )
                 node, written = _apply_user_properties(kept_fp, copy, found.path)
                 node = _apply_mandatory_fields(node, copy)
-                pad_nets = {p.number: p.net_id for p in copy.pads}
-                kept_pads = tuple(dataclasses.replace(p, net_id=pad_nets.get(p.number)) for p in node.pads)
+                kept_pads = _merge_pad_nets(node, copy, found.path, issues)
                 # a KiCad file holds no body: the built copy is the only source of its bodies (c0140)
                 placed.append(
                     dataclasses.replace(node, component_id=component.id, pads=kept_pads, bodies=copy.bodies)

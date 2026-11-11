@@ -145,6 +145,7 @@ from fenolite.dsl.convert import (
     pad_edits,
     teardrop_rules,
     two_terminal,
+    unnumbered_pad_nets,
     unused_marks,
 )
 from fenolite.dsl.lock import Lock, hand_refs, read_lock
@@ -1708,6 +1709,7 @@ def _built(
     from fenolite.lens.native_project_context import build_scope as project_scope
     from fenolite.lens.native_rule_context import build_scope
 
+    open_outline = design.outline_path is None and design._board_declared  # pyright: ignore[reportPrivateUsage]
     with (
         fill_scope(native_fill_carrier),
         build_scope(script_path, design.name, ctx.kicad_target, native_rule_binding),
@@ -1751,7 +1753,9 @@ def _built(
             models=model_refs(design),
             overrides=footprint_overrides(design),
             pad_edits=pad_edits(design),
+            physical_pad_nets=unnumbered_pad_nets(design),
             lock_outline=outline_locked(design),
+            open_outline_origin=BOARD_ORIGIN if open_outline else None,
             heights=heights(design),
             unused=unused_marks(design),
             two_terminal=two_terminal(design),
@@ -2292,6 +2296,7 @@ def _run_altium(
             # the catalog definitions too: a design that names only catalog ids has no library (c0077)
             authored_footprints=authored_footprints,
             authored_symbols=authored_symbols,
+            physical_pad_nets=unnumbered_pad_nets(run.design),
         )
         refused = not resolved.files or any(found.severity == "error" for found in resolved.issues)
         script_issues = [

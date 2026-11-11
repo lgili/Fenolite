@@ -74,10 +74,12 @@ def test_netless_copper_and_line_arcs_are_written(tmp_path: Path) -> None:
     assert [row[:2] for row in _where(built, "track", y)] == [row[:2] for row in _where(original, "arc", y)]
 
 
-def test_a_via_table_still_names_its_net() -> None:
+def test_a_single_via_still_requires_a_net() -> None:
     design = Design("t")
     with pytest.raises(DslError, match="net must be a Net"):
-        design.via_table("v", net=None, diameter=mm(0.6), drill=mm(0.3), rows_nm=((0, 0),))  # type: ignore[arg-type]
+        design.via("v", mm(1), mm(1), net=None, diameter=mm(0.6), drill=mm(0.3))  # type: ignore[arg-type]
+    with pytest.raises(DslError, match="net must be a Net"):
+        design.via_table("v", net="N", diameter=mm(0.6), drill=mm(0.3), rows_nm=((0, 0),))  # type: ignore[arg-type]
     design.track_table("t", layer="F.Cu", width=mm(0.2), rows_nm=((0, 0, 1000, 0),))
     design.arc_table("a", layer="F.Cu", width=mm(0.2), rows_nm=((0, 0, 500, 500, 1000, 0),), net=Net("N"))
 

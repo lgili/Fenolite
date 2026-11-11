@@ -22,11 +22,14 @@ code that does not build (a negative silk to silk clearance), one gave a board o
 - A drawing may be on `F.Paste` or `B.Paste` (`H-K-PASTE-DRAWING`): an Altium paste region is code.
 - The Altium reader turns a text's CR LF into a line feed (`H-A-TEXT-CRLF`), and cuts the board shape by a
   board cut-out that crosses it (`altium.import.cutout-notch`, `H-A-CUTOUT-NOTCH`).
+- The Python import preserves truly netless vias and the zero width of curved user drawing arcs.
+- The importer and KiCad build preserve boards without a closed boundary and their individual edges.
+- The importer carries nets on unnumbered copper pads as instance assignments, without schematic pins.
 - A corpus test pins the import result of every public Altium PCB document.
 
 ## Not in this change
 
 - c0426 owns the via whose drill equals its diameter (row 02) and the 1 nm pad-position rounding (row 01).
 - c0428 owns the zone outlines that come out with fewer than three vertices (`zone-outline`).
-- `outline`, `pad-net-unnumbered`, `copper-without-net` and zero-width arcs on mechanical layers do not
-  occur on public data; they stay reported (design, "Open").
+- Non-copper unnumbered pads cannot receive a net. The new physical-pad paths are proved with
+  authored boards.

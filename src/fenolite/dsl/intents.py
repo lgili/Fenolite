@@ -201,7 +201,7 @@ class ViaTableIntent:
     the written board frame. Row ``i`` is the copper item ``via[i]`` of ``key``."""
 
     key: str
-    net: str
+    net: str | None
     diameter: Nm
     drill: Nm
     rows: tuple[tuple[int, int], ...]
@@ -799,8 +799,8 @@ def record_table(
     call = f"{table}_table"
     name = check_key(design, key)
     what = f"{call} {name}"
-    # a track or arc table may lie on no net (change c0375); a via table names its net
-    chosen = _net(net, what, required=table == "via")
+    # Tables may describe copper on no net (c0375 for tracks/arcs, c0427 for vias).
+    chosen = _net(net, what, required=False)
     flag = _locked(locked, what)
     found = _rows(name, call, rows, TABLE_WIDTHS[table])
     intent: TableIntent
@@ -816,9 +816,9 @@ def record_table(
         if span is not None:
             for named in span:
                 _table_layer(design, named, what)
-        assert chosen is not None
         intent = ViaTableIntent(
-            name, chosen.name, size, hole, cast("tuple[tuple[int, int], ...]", found), via_kind, span,
+            name, None if chosen is None else chosen.name, size, hole,
+            cast("tuple[tuple[int, int], ...]", found), via_kind, span,
             _protection(protection, what), flag, teardrop=_teardrop(teardrop, what),
             free=_free(free, what),
         )  # fmt: skip

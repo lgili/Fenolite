@@ -233,13 +233,18 @@ Nothing is connected, so `fenolite check` reports `kicad.erc.pin-not-connected` 
 
 See `library-items` for licensed items from fenolite-library.
 
-
 ## Footprints that close a board outline
 
 `design.line()` and `design.arc()` accept `layer="Edge.Cuts"` for explicit physical root edges.
-Together with footprint edges they must reconstruct the complete logical `board()` outline exactly;
+With a closed outline, these edges and the footprint edges must reconstruct the complete logical outline;
 inconsistent or ambiguous reconstruction refuses with `kicad.board.outline-conflict`. The writer keeps
 those explicit root edges and footprint geometry, without synthetic duplicates. A nearby edge alone
 does not establish ownership; never erase a distinct root line through endpoint clustering.
+
+Use `design.board(outline=())` to preserve an unfinished board without a closed boundary. Draw its
+individual edges on `Edge.Cuts` and give every zone an explicit outline.
+
+`Part.unnumbered_pad_net(index, net)` sets a physical copper pad's net without adding a symbol pin.
+Count all unnumbered pads in library order from zero.
 
 Read next: `parts`, `library-items`, `placement`.

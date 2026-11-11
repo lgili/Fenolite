@@ -377,7 +377,7 @@ PART_ATTRIBUTES: frozenset[str] = frozenset(
         "pad", "pad_map", "pad_zone_requests", "parent", "path", "place", "port", "ports", "prefix",
         "properties", "ref", "request", "take", "two_terminal", "unused_no_connect", "unused_request",
         "value",
-        "value_empty", "value_range", "zone_connection",
+        "unnumbered_pad_net", "value_empty", "value_range", "zone_connection",
         # the placement edges and references of change c0255
         "bottom", "center_x", "center_y", "left", "relative", "right", "top", "turn",
         # the part queries of change c0254

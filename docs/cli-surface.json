@@ -21607,11 +21607,11 @@
                 "required": true
               },
               {
-                "annotation": "Net",
+                "annotation": "Net | None",
                 "default": null,
                 "kind": "KEYWORD_ONLY",
                 "name": "net",
-                "required": true
+                "required": false
               },
               {
                 "annotation": "object",
@@ -24539,6 +24539,24 @@
                 "kind": "KEYWORD_ONLY",
                 "name": "pins",
                 "required": false
+              }
+            ]
+          },
+          "unnumbered_pad_net": {
+            "parameters": [
+              {
+                "annotation": "int",
+                "default": null,
+                "kind": "POSITIONAL_OR_KEYWORD",
+                "name": "index",
+                "required": true
+              },
+              {
+                "annotation": "Net",
+                "default": null,
+                "kind": "POSITIONAL_OR_KEYWORD",
+                "name": "net",
+                "required": true
               }
             ]
           },

@@ -375,12 +375,13 @@ NO_STROKE: Nm = -1
 stroke as ``(width -0.000001)``, the −1 nm of the demo boards' converted art."""
 
 
-def _width(value: object, what: str, *, stroked: bool) -> Nm:
+def _width(value: object, what: str, *, stroked: bool, allow_zero: bool = False) -> Nm:
     if value is None and not stroked:
         return NO_STROKE
     width = as_nm(value, name=f"{what}: width")
-    if width < 0 or (stroked and width == 0):
-        raise DslError(f"{what}: width must be " + ("above 0" if stroked else "at least 0"))
+    positive = stroked and not allow_zero
+    if width < 0 or (positive and width == 0):
+        raise DslError(f"{what}: width must be " + ("above 0" if positive else "at least 0"))
     return width
 
 
@@ -474,12 +475,13 @@ def arc(
     a, m, b = point(start, f"{what}: start"), point(mid, f"{what}: mid"), point(end, f"{what}: end")
     if (m[0] - a[0]) * (b[1] - a[1]) == (m[1] - a[1]) * (b[0] - a[0]):
         raise DslError(f"{what}: the points start, mid and end must be distinct and not on one line")
+    on = drawing_layer(layer, what, (*copper, "Edge.Cuts"), user)
     return GraphicSpec(
         key,
         "arc",
         (a, m, b),
-        drawing_layer(layer, what, (*copper, "Edge.Cuts"), user),
-        _width(width, what, stroked=True),
+        on,
+        _width(width, what, stroked=True, allow_zero=on in user or BOARD_LAYER_KINDS.get(on) == "user"),
         False,
     )
 

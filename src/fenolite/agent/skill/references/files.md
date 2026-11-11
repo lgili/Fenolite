@@ -114,9 +114,9 @@ fitted flag needs `--allow-lossy` (exit 7); an unexplained difference exits 5.
 fenolite import blink/build/blink.kicad_pro --to python --out blink/code --dry-run --json
 ```
 
-The output holds `design.py`, `copper.py` (`track_table`, `arc_table`, `via_table` rows in nm; no `net`:
-copper on no net), `lib/`, `design.lock` and `PROVENANCE.json`. Hierarchies add `sheets/*.py` factories:
-repeated source sheets share one function, local nets stay local, and boundary nets pass as keywords. It
+Output: `design.py`, `copper.py` (`track_table`, `arc_table`, `via_table`; nm rows, omit `net` for no net),
+`lib/`, `design.lock` and `PROVENANCE.json`. Hierarchies add `sheets/*.py`: repeated sheets share a factory,
+local nets stay local, and boundary nets pass as keywords. It
 builds before comparing (`result.equivalence`); `import.unequal` exits 5. Unexpressed items exit 7
 (`FEN-7001`) unless `--allow-lossy`. State `--licence`, `--copyright`, `--source`, `--timestamp`; publish
 where rights allow.

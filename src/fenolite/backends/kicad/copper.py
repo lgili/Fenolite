@@ -343,15 +343,16 @@ def _positive(value: int, what: str, key: str) -> int:
 
 
 def _via_sizes(
-    given: tuple[Nm | None, Nm | None], cls: NetClass | None, net: Net, key: str
+    given: tuple[Nm | None, Nm | None], cls: NetClass | None, net: Net | None, key: str
 ) -> tuple[int, int]:
     diameter = given[0] if given[0] is not None else (cls.via_diameter if cls is not None else None)
     drill = given[1] if given[1] is not None else (cls.via_drill if cls is not None else None)
     if diameter is None or drill is None:
         missing = "diameter" if diameter is None else "drill"
+        reason = "the via has no net class" if net is None else f"the class of {net.name} sets none"
         raise _Refused(
             "kicad.copper.size-missing",
-            f"{key}: no via {missing} is given and the class of {net.name} sets none",
+            f"{key}: no via {missing} is given and {reason}",
             key,
         )
     _positive(diameter, "via diameter", key)
@@ -402,7 +403,7 @@ def _via(
     at: Point,
     sizes: tuple[int, int],
     board: _Board,
-    net: Net,
+    net: Net | None,
     kind: str = "through",
     layers: tuple[str, str] | None = None,
     protection: ViaProtection | None = None,
@@ -420,7 +421,7 @@ def _via(
         diameter=sizes[0],
         drill=sizes[1],
         layers=layers if layers is not None else (board.copper_layers[0], board.copper_layers[-1]),
-        net_id=net.id,
+        net_id=None if net is None else net.id,
         via_type=cast(ViaType, kind),
         protection=protection if protection is not None else ViaProtection(),
         teardrop=teardrop,
@@ -846,7 +847,7 @@ def _resolve_table(board: _Board, intent: TableIntentLike) -> tuple[list[Track],
     arcs: list[Arc] = []
     vias: list[Via] = []
     if kind == "via":
-        net = _required_net(board, intent.net, key, f"{kind} table")
+        net = _named_net(board, intent.net, key)
         sizes = _via_sizes(
             (getattr(intent, "diameter", None), getattr(intent, "drill", None)), None, net, key
         )

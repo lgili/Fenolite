@@ -760,6 +760,10 @@ milled slot (change c0167). An edge of the outline that a footprint's own `Edge.
 connector's notch) is not written again: KiCad joins the footprint's edges to the board's (change c0277;
 `H-K-OUTLINE-FPEDGE`).
 
+`board(outline=())` declares a board without a closed boundary. Use drawing calls on `Edge.Cuts`
+to keep individual unfinished edges. Zones require an explicit outline, and board-relative
+placement, cut-outs, milled slots, and generated outline width require a closed boundary.
+
 `board(..., outline_width=mm("0.23"))` sets one nonnegative stroke width for generated KiCad root
 edges, including cut-outs and slots. Zero is explicit; `None` keeps the existing 0.1 mm default.
 Footprint edges retain their own strokes. An explicit width change follows the outline rebuild policy;
@@ -1339,8 +1343,8 @@ design.via_table(
 - `via_table` takes `kind`, `layers`, `protection`, `teardrop` and `locked` as `via()` does; every table
   takes `locked`. A via table also takes a blind via over both outer layers (`kind="blind"`,
   `layers=("F.Cu", "B.Cu")`), as KiCad writes some (change c0277); `via()` and `via_step` refuse it.
-- `track_table` and `arc_table` without `net` write copper on no net, as a board may hold (change c0375);
-  `via_table` names its net.
+- `track_table`, `arc_table` and `via_table` without `net` write copper on no net (c0375, c0427). A
+  netless via table still needs explicit diameter and drill; the single-via call still requires a net.
 - Row `i` of table `key` is the copper item `seg[i]`, `arc[i]` or `via[i]` of the key: the build gives it
   the copper uuid it derives for that item, so a rebuild keeps it, and the lens treats it as script copper.
 - **Errors at the call.** `DslError` names the key and the row index for a row of the wrong length, a value
@@ -1880,6 +1884,11 @@ hv = design.rule_area("HV", [(mm(0), mm(0)), (mm(20), mm(0)), (mm(20), mm(30))],
   no place in the record and is reported, and an area that forbids nothing is reported and not written
   (`docs/altium.md`, "Rule areas, texts and dimensions").
 
+`Part.unnumbered_pad_net(index, net)` assigns a concrete `Net` to one physical pad with an empty
+number. Count all unnumbered pads in the library footprint's stored order, starting at zero.
+The pad must have copper. Schematic pins and net members are unaffected. A rebuild matches
+the pad by native identity or unique physical geometry and refuses an ambiguous match.
+
 ## Board-only parts
 
 A logo, a stitching via kept as a footprint, a mounting hole: KiCad marks a footprint that has no symbol
@@ -1994,7 +2003,9 @@ design.dimension("width", (mm(0), mm(0)), (mm(50), mm(0)), offset=mm(-5))
   end)` and `polygon(key, points)`** take `layer`, `width` and `net=None`; `rect`, `circle` and `polygon`
   take `fill=False`. `width` is above 0 for a line, an arc and a shape that is not filled, and may be
   `mm(0)` for a filled one, or `None`: a filled shape without an outline, which KiCad writes with a stroke
-  width of −1 nm (`-0.000001`; change c0277). The three points of an arc are not on one line.
+  width of −1 nm (`-0.000001`; change c0277). A curved arc on a user drawing layer can also have
+  explicit width zero. This preserves the file's width on import and build. KiCad 10.0.6 saves it as
+  0.1 mm (c0427). The three points of an arc are not on one line.
 - **`dimension(key, start, end, *, offset, layer="Dwgs.User", direction=None, units="mm", precision=4,
   size=None, thickness=None, width=None, extension_offset=None, text_at=None)`**: a linear dimension.
   Without `direction` it is aligned with the two points; with `horizontal` or `vertical` it measures that

@@ -718,8 +718,9 @@ class Design(Container):
         """``board(planes=…)``: inner layer name → net name, in layer order; empty by default."""
         self.size: tuple[Nm, Nm] | None = None
         """``board(width, height)``: the two lengths; ``None`` before ``board()`` and for ``outline=``."""
+        self._board_declared = False
         self.outline_path: RingSpec | None = None
-        """The board ring of ``board()``, of either form, in the written frame; ``None`` before the call."""
+        """The closed board ring in the written frame, when declared."""
         self.cutout_paths: list[RingSpec] = []
         """The rings of ``cutout()``, in call order."""
         self.slot_specs: dict[str, SlotSpec] = {}
@@ -1130,6 +1131,8 @@ class Design(Container):
         """The board: a rectangle of ``width`` × ``height``, or the closed path ``outline`` (pairs of
         lengths and ``arc_to`` steps in the frame of ``place()``; ``fenolite.dsl.shape`` gives ``rect``,
         ``circle`` and ``slot``), with an even count of 2 to 32 copper layers. Exactly one form is given.
+        Use ``outline=()`` for a board without a closed ring. Its individual edges can be drawn on
+        ``Edge.Cuts``; it has no board-relative placement box.
         An inner layer is a signal layer unless ``planes`` names it: ``planes={"In1.Cu": gnd}`` makes that
         layer an internal plane on that net (a ``Net`` or a net name). A plane holds one net; it is a build
         parameter, as ``copper`` is, and what a target does with it is its build's rule (``docs/dsl.md``).
@@ -1141,7 +1144,7 @@ class Design(Container):
         the full default table. Declared ``User.n`` layers remain independent.
         ``max_curve_error`` is a positive target-project curve approximation length; ``None`` keeps
         its default. It is not a universal guarantee about every geometry algorithm."""
-        if self.outline_path is not None:
+        if self._board_declared:
             raise DslError("board() is called once")
         if isinstance(copper, bool) or not isinstance(copper, int) or copper not in COPPER_COUNTS:  # pyright: ignore[reportUnnecessaryIsInstance]
             extra = f"; {SINGLE_SIDED_HINT}" if copper == 1 and not isinstance(copper, bool) else ""
@@ -1172,7 +1175,9 @@ class Design(Container):
         if outline is not None:
             if width is not None or height is not None:
                 raise DslError("board(): give width and height, or outline=, not both")
-            ring = closed_ring(outline, "board(): outline")
+            ring = None if outline == () else closed_ring(outline, "board(): outline")
+            if ring is None and (locked or stroke is not None):
+                raise DslError("board(): locked and outline_width require a closed outline")
         else:
             if width is None or height is None:
                 raise DslError("board(): give width and height, or outline=")
@@ -1192,6 +1197,7 @@ class Design(Container):
         declared = self._planes(copper, planes)
         self.size = size
         self.outline_path = ring
+        self._board_declared = True
         self.outline_locked = locked
         self.outline_width = stroke
         self.max_curve_error = curve_error
@@ -1418,7 +1424,7 @@ class Design(Container):
         """One cut-out of the board: a closed path as ``board(outline=…)`` takes it. Cut-outs keep their
         call order. The build refuses rings that cross or touch and cut-outs outside the board."""
         if self.outline_path is None:
-            raise DslError("cutout(): call board() first")
+            raise DslError("cutout(): call board() first with a closed outline")
         self.cutout_paths.append(closed_ring(path, "cutout()"))
 
     def slot(
@@ -1440,7 +1446,7 @@ class Design(Container):
         by the edge clearance. Overlapping slots and cut-outs mean their union (``docs/dsl.md``, "Board").
         A drilled slot (a fastener, a press-fit) is ``hole(…, length=…)`` instead."""
         if self.outline_path is None:
-            raise DslError("slot(): call board() first")
+            raise DslError("slot(): call board() first with a closed outline")
         cx, cy = as_nm(x, name="slot(): x"), as_nm(y, name="slot(): y")
         long, wide = slot_size(length, width, "slot()")
         rotation = as_udeg(rot, name="slot(): rot") % HALF_TURN_UDEG
@@ -1480,7 +1486,7 @@ class Design(Container):
         ``impedance_controlled`` marks the dielectric values as requirements, and ``locked`` makes this
         stack-up replace a different one of an existing board (``docs/lens.md``). Fenolite supplies no
         value the script does not give (``docs/dsl.md``, "Stack-up")."""
-        if self.outline_path is None:
+        if not self._board_declared:
             raise DslError("stackup() is called after board()")
         if self.stack is not None:
             raise DslError("stackup() is called once")
@@ -1748,8 +1754,10 @@ class Design(Container):
         (``chamfer`` or ``fillet``) rounds or cuts the corners of the fill by ``smoothing_radius`` (change
         c0277).
         """
-        if self.outline_path is None:
+        if not self._board_declared:
             raise DslError("zone(): call board() first")
+        if outline is None and self.outline_path is None:
+            raise DslError("zone(): give an explicit outline when the board has no closed outline")
         if net is not None and not isinstance(net, Net):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"zone(): net must be a Net or None, not {net!r}")
         if key is not None and (not isinstance(key, str) or not itemlib.AREA_KEY.fullmatch(key)):  # pyright: ignore[reportUnnecessaryIsInstance]
@@ -1922,7 +1930,7 @@ class Design(Container):
         be ``""``, an area that no ``select.area`` matches. ``placement`` (change c0277) makes it a placement
         rule area of KiCad's multichannel tool for the sheet it names, as KiCad names it (``"/CH1/"``).
         """
-        if self.outline_path is None:
+        if not self._board_declared:
             raise DslError("rule_area(): call board() first")
         area = itemlib.rule_area(
             name, outline, layers, forbid, copper=self.copper_layers, key=key, keys=tuple(self.rule_areas),
@@ -1938,7 +1946,7 @@ class Design(Container):
         return area
 
     def _drawing(self, call: str, key: object) -> str:
-        if self.outline_path is None:
+        if not self._board_declared:
             raise DslError(f"{call}(): call board() first")
         return itemlib.drawing_key(key, self.drawings)
 
@@ -2210,7 +2218,7 @@ class Design(Container):
         the build reads (a declared input of the build), at ``at`` on ``layer``, drawn ``scale`` times its
         own size (a positive decimal string such as ``"0.5"``)."""
         what = f"image {key!r}"
-        if self.outline_path is None:
+        if not self._board_declared:
             raise DslError("image(): call board() first")
         if not isinstance(key, str) or not itemlib.DRAWING_KEY.fullmatch(key):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"{what}: the key must match {itemlib.DRAWING_KEY.pattern}")
@@ -2486,7 +2494,7 @@ class Design(Container):
         self,
         key: str,
         *,
-        net: Net,
+        net: Net | None = None,
         diameter: object,
         drill: object,
         rows_nm: object,
@@ -2498,7 +2506,8 @@ class Design(Container):
         free: bool = False,
     ) -> None:
         """Many vias of ``net`` with one size, kind, span, protection, teardrop settings and ``free`` flag:
-        each row is ``(x, y)`` in integer nanometres in the frame of ``place()``."""
+        each row is ``(x, y)`` in integer nanometres in the frame of ``place()``. Without ``net``, the vias
+        lie on no net (change c0427)."""
         from fenolite.dsl import intents
 
         intents.record_table(
@@ -2951,7 +2960,7 @@ class Design(Container):
             if obj.path in self.parts:
                 raise DslError(f"two components have the path {obj.path!r}")
             self.parts[obj.path] = obj
-            for net in obj.connections.values():
+            for net in (*obj.connections.values(), *obj._unnumbered_pad_nets.values()):  # pyright: ignore[reportPrivateUsage] - DSL request state
                 self.register_net(net)
             return
         if obj.path in self.modules:

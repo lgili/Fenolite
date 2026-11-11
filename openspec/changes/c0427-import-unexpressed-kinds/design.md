@@ -46,8 +46,53 @@ line. `design.arc()` takes no such arc, so the import left it out as a `drawing`
 its ends: the stroke it draws. An arc of one point, or whose middle point lies beyond an end, draws no such
 line and stays a `drawing`. The Altium writer does the same for a copper arc (`straight_arc`, change c0435).
 
-## Open
+## Authored reproductions, 2026-11-10
 
-- Zero-width arcs on mechanical layers: KiCad 10.0.6 loads a zero-width `gr_arc` as 0.1 mm, so the DSL's
-  `width > 0` has no faithful spelling; not reproduced on public data.
-- `outline`, `pad-net-unnumbered`, `copper-without-net`: not reproduced on public data.
+`tests/unit/importer/test_remaining_unexpressed_c0427.py` now reproduces the remaining refusal branches
+without private inputs. The baseline used four temporary variants from Fenolite's authored two-sheet board:
+
+| Variant | Reported kind | Current limitation |
+|---|---|---|
+| Remove the root Edge.Cuts graphics | `outline` | The DSL creates a closed board instead of an absent outline. |
+| Add one through via on no net | `copper-without-net` | Via tables currently require a Net; netless tracks and arcs already have support. |
+| Add an unnumbered through pad on GND | `pad-net-unnumbered` | Pin-based connections cannot name that pad. |
+| Add a user-layer arc with width zero | `drawing` | The drawing DSL cannot express that width. This is a reader/import reproduction, not a native Altium run. |
+
+In the baseline, each case refused by default (exit 7). An explicit lossy dry-run reported one omitted
+item without changing source bytes or writing outputs. The slices below address the four authored cases.
+
+## Netless vias in copper tables
+
+A via whose model net is absent uses the existing no-net table sentinel, as tracks and arcs do. The
+emitter omits `net`; `Design.via_table` accepts its absence because diameter and drill are already
+required at the call. Lowering retains the via's geometry, span, protection, flags and key, with no
+net id. The single-via and path-via APIs retain their existing net requirements. A nonempty unresolved
+net id is an error case, not evidence that the source via was netless.
+
+## Zero-width user-layer arcs
+
+A curved board arc on a KiCad user drawing layer can have a stored width of zero. Preserve the
+three points, layer and literal width in `import --to python` and the rebuilt board. KiCad 10.0.6
+normalizes the width to 0.1 mm on a native save of either board. Keep the positive-width requirement
+for copper, edge and other technical layers, and keep collinear zero-width arcs as a reported loss.
+
+## Boards without a closed outline
+
+Use the explicit empty tuple `board(outline=())` to declare the layer table without a logical
+outline. Board declaration is tracked independently of the closed ring. In the model the outline is
+absent, and any supported root edge is emitted as a drawing with its own width. An open boundary can
+therefore be rebuilt without inventing board geometry. Board-relative placement, cut-outs, milled
+slots and implicit zone outlines still require a closed ring. Explicit zone outlines and other
+board drawings do not depend on a ring.
+
+## Nets on unnumbered pads
+
+A physical pad assignment is separate from schematic connectivity. The instance names the
+unnumbered pad by its zero-based index in the vendored footprint's pad order and registers the
+net with the design, even if nothing in the schematic uses it. Build assigns the model net ID
+to the physical pad and reports an error for an absent or non-copper pad. The vendoring path
+removes instance net fields but preserves pad order. The importer uses the same order and
+emits board-level instance calls after any sheet-owned nets become accessible at the root.
+On a rebuild the kept footprint's pads are matched by KiCad UUID, with unique exact physical
+geometry as a fallback. Unmatched assignments stop the build. Several empty pad numbers are
+never collapsed to one net.

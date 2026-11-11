@@ -559,10 +559,9 @@ def _design_model(design: Design) -> ModelDesign:
     )
     modules = tuple(_module(m) for _, m in sorted(design.modules.items()))
     outline = None
-    zones: tuple[Zone, ...] = ()
+    box: tuple[Point, ...] = ()
     if design.outline_path is not None:
         rings = (design.outline_path, *design.cutout_paths)
-        x0, y0 = BOARD_ORIGIN.x, BOARD_ORIGIN.y
         outline = Outline(
             id=key_id("outline"),
             points=rings[0].points,
@@ -586,22 +585,21 @@ def _design_model(design: Design) -> ModelDesign:
         # a zone without an outline takes the box of the board ring's vertices and arc mid points
         bx0, by0, bx1, by1 = ring_box(rings[0])
         box = (Point(bx0, by0), Point(bx1, by0), Point(bx1, by1), Point(bx0, by1))
-        zones = tuple(
-            Zone(
-                id=key_id("zone", name),
-                outline=(
-                    box if spec.outline is None else tuple(Point(x0 + x, y0 + y) for x, y in spec.outline)
-                ),
-                name=spec.name,
-                layers=spec.layers,
-                net_id=key_id("net", spec.net) if spec.net is not None else None,
-                priority=spec.priority,
-                settings=spec.settings,
-                locked=spec.locked,
-                arcs=tuple(OutlineArc(0, edge, Point(x0 + mx, y0 + my)) for edge, (mx, my) in spec.arcs),
-            )
-            for name, spec in sorted(design.zones.items())
+    x0, y0 = BOARD_ORIGIN.x, BOARD_ORIGIN.y
+    zones = tuple(
+        Zone(
+            id=key_id("zone", name),
+            outline=(box if spec.outline is None else tuple(Point(x0 + x, y0 + y) for x, y in spec.outline)),
+            name=spec.name,
+            layers=spec.layers,
+            net_id=key_id("net", spec.net) if spec.net is not None else None,
+            priority=spec.priority,
+            settings=spec.settings,
+            locked=spec.locked,
+            arcs=tuple(OutlineArc(0, edge, Point(x0 + mx, y0 + my)) for edge, (mx, my) in spec.arcs),
         )
+        for name, spec in sorted(design.zones.items())
+    )
     plain_rules = _rules(design)
     from fenolite.dsl.protocol import expand
 
@@ -975,6 +973,15 @@ def footprint_overrides(design: Design) -> Mapping[str, FootprintOverrides]:
     return MappingProxyType(
         {path: part.overrides for path, part in sorted(design.parts.items()) if part.overrides is not None}
     )
+
+
+def unnumbered_pad_nets(design: Design) -> Mapping[str, Mapping[int, str]]:
+    """Physical unnumbered pad assignments by component path and zero-based pad index."""
+    return {
+        path: {index: key_id("net", net.name) for index, net in part._unnumbered_pad_nets.items()}  # pyright: ignore[reportPrivateUsage] - DSL request state
+        for path, part in sorted(design.parts.items())
+        if part._unnumbered_pad_nets  # pyright: ignore[reportPrivateUsage] - DSL request state
+    }
 
 
 def pad_edits(design: Design) -> Mapping[str, tuple[tuple[str, Mapping[str, object]], ...]]:

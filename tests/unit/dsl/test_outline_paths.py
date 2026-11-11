@@ -72,6 +72,21 @@ def test_the_rectangle_form_is_unchanged() -> None:
         design.board(mm(50), mm(30))
 
 
+def test_open_outline_declares_board_without_a_ring() -> None:
+    design = board(outline=())
+    design.line("edge", (mm(0), mm(0)), (mm(10), mm(0)), layer="Edge.Cuts", width=mm("0.2"))
+    model = to_model(design).board
+    assert model is not None and model.outline is None
+    (edge,) = model.graphics
+    assert edge.points == (at(0, 0), at(10, 0)) and edge.width == 200_000
+    with pytest.raises(DslError, match="once"):
+        design.board(mm(50), mm(30))
+    with pytest.raises(DslError, match="closed outline"):
+        design.cutout(shape.circle(mm(5), mm(5), mm(2)))
+    with pytest.raises(DslError, match="closed outline"):
+        Design("paths").board(outline=(), locked=True)
+
+
 # --- Outline shapes in the DSL -----------------------------------------------------------------------
 
 

@@ -1296,10 +1296,12 @@ def _pulled_up(
     return False
 
 
-def _staging(design: Design) -> tuple[int, int]:
-    """Where the staging row starts: right of the box of the outline, arcs included, at its top."""
+def _staging(design: Design, open_outline_origin: Point | None = None) -> tuple[int, int]:
+    """Start the staging row right of the outline box, or right of the script origin without a box."""
     box = outline_box(design)
-    assert box is not None
+    if box is None:
+        assert open_outline_origin is not None
+        return open_outline_origin.x + STAGING_OFFSET, open_outline_origin.y
     return box[2] + STAGING_OFFSET, box[1]
 
 
@@ -1500,7 +1502,9 @@ def build_design(
     models: Mapping[str, Sequence[ModelRef]] = MappingProxyType({}),
     overrides: Mapping[str, FootprintOverrides] = MappingProxyType({}),
     pad_edits: Mapping[str, Sequence[tuple[str, Mapping[str, object]]]] = MappingProxyType({}),
+    physical_pad_nets: Mapping[str, Mapping[int, str]] = MappingProxyType({}),
     lock_outline: bool = False,
+    open_outline_origin: Point | None = None,
     heights: Mapping[str, Nm] | None = None,
     unused: Mapping[str, Sequence[str]] | None = None,
     two_terminal: Sequence[str] = (),
@@ -1531,6 +1535,8 @@ def build_design(
     The outline of the model is judged first (``outline.check_outline``): rings that cross or touch stop
     the build. ``lock_outline`` is ``board(..., locked=True)`` of the script: with an existing board, the
     script's outline then replaces an outline edited in KiCad (``docs/lens.md``, "Outline changes").
+    ``open_outline_origin`` supplies the staging origin when a script explicitly declares a board without
+    a closed boundary.
 
     ``planes`` are the script's internal planes (layer name → net name). Each plane layer gets the KiCad
     row type ``power`` in the written board, after the merge with an existing board; every other copper
@@ -1653,7 +1659,7 @@ def build_design(
         layers=tuple(x.name for x in created_layers(copper) if x.kind == "copper"),
     )
     board = design.board
-    if board is None or board.outline is None:
+    if board is None or (board.outline is None and open_outline_origin is None):
         issues.append(issue("build.no-board", "the design has no board(); nothing can be placed", "board"))
         return _refused(design, issues, libraries, prepared)
     issues += check_outline(design)
@@ -1680,7 +1686,7 @@ def build_design(
             )
         )
     copper_names = tuple(layer.name for layer in layers if layer.kind == "copper")
-    cursor, top = _staging(design)
+    cursor, top = _staging(design, open_outline_origin)
     after = preserve.staging_after(placements)
     if after is not None:
         cursor = max(cursor, after)  # the strategy groups staged as one box come first (change c0255)
@@ -1828,6 +1834,8 @@ def build_design(
                 device.unused_pads if device is not None else (),
             ),
         )
+        if assignments := physical_pad_nets.get(part.path):
+            instance = _physical_pad_nets(instance, assignments, copper_names, part.path, issues)
         components.append(component)
         footprints.append(instance)
     nets = tuple(
@@ -2991,6 +2999,29 @@ def lower_for_schematic(
         circuit=dataclasses.replace(design.circuit, components=components, nets=tuple(nets)),
         board=dataclasses.replace(board, footprints=tuple(footprints)),
     )
+
+
+def _physical_pad_nets(
+    instance: FootprintInstance,
+    assignments: Mapping[int, str],
+    copper: Sequence[str],
+    path: str,
+    issues: list[Issue],
+) -> FootprintInstance:
+    """Apply board-only assignments to unnumbered pads in the footprint's stored order."""
+    pads = list(instance.pads)
+    unnumbered = [offset for offset, pad in enumerate(pads) if not pad.number]
+    for index, net_id in sorted(assignments.items()):
+        if not 0 <= index < len(unnumbered):
+            issues.append(issue("build.pad-unknown", f"unnumbered pad index {index} is absent", path))
+            continue
+        offset = unnumbered[index]
+        pad = pads[offset]
+        if pad.kind == "np_thru_hole" or not set(pad.layers).intersection(copper):
+            issues.append(issue("build.pad-unknown", f"unnumbered pad index {index} has no copper", path))
+            continue
+        pads[offset] = dataclasses.replace(pad, net_id=net_id)
+    return dataclasses.replace(instance, pads=tuple(pads))
 
 
 def _pad_nets(

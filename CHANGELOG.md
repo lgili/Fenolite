@@ -16,6 +16,16 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Changed
 
+- Preserve physical net assignments on unnumbered footprint pads through Python import, KiCad build, and rebuild (c0427).
+
+- Preserve missing and unfinished board outlines, including individual edge widths, through Python import and KiCad rebuild (c0427).
+
+- Preserve curved user drawing arcs of zero stored width through Python import and rebuild (c0427).
+
+- Preserve vias on no net through `import --to python` and `build` (c0427). A via table may omit `net` while keeping its diameter, drill, span and flags; an unresolved nonempty net id is still reported as a loss. The generated CLI surface lists the optional argument.
+
+- Add authored reproducers for c0427's remaining outline, netless-via, unnumbered-netted-pad and zero-width-arc refusals.
+
 - Record the native Power Plane Connect checks on the two public PCB round trips (c0466).
 
 - Carry Altium split plane boundary tracks through KiCad and restore them to the returned plane (c0466). The two public returns preserve the same connected pad identities in Altium 24.5.

@@ -1260,8 +1260,8 @@ fix = "Nothing to do for KiCad; place the picture in Altium if the document need
 see = "Build target"
 
 ["build.pad-unknown"]
-meaning = "Part.edit_pad() names a pad number the part's footprint does not hold; nothing is written."
-fix = "Name a pad number of the footprint, as its library file numbers it."
+meaning = "A pad edit names an absent pad number, or an unnumbered pad net assignment cannot identify a copper pad. Nothing is written."
+fix = "Use the footprint’s pad number or the zero-based index among its unnumbered copper and non-copper pads. On an edited board, restore the original pad identity or rebuild with --discard-layout."
 see = "Build target"
 
 ["build.teardrops-overlap"]

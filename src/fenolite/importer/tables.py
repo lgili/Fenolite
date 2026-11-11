@@ -217,7 +217,7 @@ _ViaGroup = tuple[
 
 
 NO_NET = ""
-"""The net of a track or arc table whose copper lies on no net: the code writes it without ``net``."""
+"""The table net of copper that lies on no net: the code writes it without ``net``."""
 
 
 def _table_net(net_id: str | None, net_names: Mapping[str, str]) -> str | None:
@@ -291,7 +291,7 @@ def copper_tables(board: Board, net_names: Mapping[str, str]) -> Tables:
     holes: dict[str, dict[tuple[object, ...], _ViaGroup]] = {}
     lost = 0
     for via in board.vias:
-        net = net_names.get(via.net_id or "")
+        net = _table_net(via.net_id, net_names)
         reason = (
             "copper-without-net" if net is None
             else "via-protection" if not protection_ok(via.protection)

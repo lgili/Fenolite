@@ -281,7 +281,7 @@ def _outline(design: Design) -> Outline | None:
     return edge_outline(bare) or edge_outline(design)
 
 
-def _physical_edges(design: Design) -> bool:
+def _physical_edges(design: Design, outline: Outline | None) -> bool:
     """Whether chaining made an outline edge differ from its physical owner (c0349), or a root edge is a
     rectangle the outline would write as four lines (c0401).
 
@@ -294,9 +294,8 @@ def _physical_edges(design: Design) -> bool:
 
     board = design.board
     assert board is not None
-    outline = _outline(design)
     if outline is None:
-        return False
+        return True
     roots = [g for g in board.graphics if _kinds(board).get(g.layer) == "edge"]
     if not roots or any(g.kind not in ("line", "arc", "rect") or g.width <= 0 or g.filled for g in roots):
         return False
@@ -325,13 +324,13 @@ def _outline_width(board: Board) -> int | None:
     return None
 
 
-def _losses(board: Board, copper: int, ledger: Ledger) -> None:
+def _losses(board: Board, copper: int, ledger: Ledger, *, closed_outline: bool) -> None:
     """What a DSL board cannot preserve (changes c0281/c0317): mixed or negative outline widths
     (``outline-width``, one row per source width that is not ``OUTLINE_WIDTH``) and its non-copper layer table
     (``layer-table``, the names one side holds and the other does not)."""
     kinds = _kinds(board)
     widths: dict[int, int] = {}
-    if _outline_width(board) is None:
+    if closed_outline and _outline_width(board) is None:
         for graphic in board.graphics:
             if kinds.get(graphic.layer) == "edge" and graphic.width != OUTLINE_WIDTH:
                 widths[graphic.width] = widths.get(graphic.width, 0) + 1
@@ -363,14 +362,13 @@ def _technical_layers(board: Board) -> tuple[str, ...] | None:
     return tuple(name for name in BOARD_LAYER_KINDS if name in held)
 
 
-def _board(design: Design, writer: _Writer, ledger: Ledger) -> tuple[list[list[str]], int]:
-    board = design.board
-    assert board is not None
+def _board(
+    board: Board, outline: Outline | None, writer: _Writer, ledger: Ledger
+) -> tuple[list[list[str]], int]:
     copper = sum(1 for layer in board.layers if layer.kind == "copper")
     chosen = next((count for count in COPPER_COUNTS if count >= copper), COPPER_COUNTS[-1])
     if chosen != copper:
         ledger.add("copper-count", f"{copper} copper layers")
-    outline = _outline(design)
     out: list[list[str]] = []
     extra: list[tuple[str, Expr]] = [("copper", number(chosen))] if chosen != 2 else []
     if board.max_curve_error is not None:
@@ -378,17 +376,12 @@ def _board(design: Design, writer: _Writer, ledger: Ledger) -> tuple[list[list[s
     technical = _technical_layers(board)
     if technical is not None and technical != tuple(BOARD_LAYER_KINDS):
         extra.append(("technical_layers", Tup(tuple(text(name) for name in technical))))
+    if outline is None:
+        out.append(statement(Call("design.board", (), (("outline", Tup(())), *extra))))
+        return out, chosen
     width = _outline_width(board)
     if width is not None and width != OUTLINE_WIDTH:
         extra.append(("outline_width", length(width)))
-    if outline is None:
-        ledger.add("outline", "no closed board outline on Edge.Cuts")
-        xs = [fp.position.x for fp in board.footprints] or [ORIGIN.x]
-        ys = [fp.position.y for fp in board.footprints] or [ORIGIN.y]
-        width = max(max(xs) - ORIGIN.x, 1_000_000) + 1_000_000
-        height = max(max(ys) - ORIGIN.y, 1_000_000) + 1_000_000
-        out.append(statement(Call("design.board", (length(width), length(height)), tuple(extra))))
-        return out, chosen
     mids: dict[int, dict[int, Point]] = {}
     for arc in outline.arcs:
         mids.setdefault(arc.ring, {})[arc.edge] = arc.mid
@@ -981,14 +974,14 @@ def _areas(
     return out
 
 
-def _graphic(graphic: Graphic, key: str, net: Expr | None = None) -> Call | None:
-    made = _graphic_call(graphic, key)
+def _graphic(graphic: Graphic, key: str, net: Expr | None, *, user_layer: bool) -> Call | None:
+    made = _graphic_call(graphic, key, user_layer=user_layer)
     if made is None or net is None:
         return made
     return dataclasses.replace(made, kwargs=(*made.kwargs, ("net", net)))
 
 
-def _graphic_call(graphic: Graphic, key: str) -> Call | None:
+def _graphic_call(graphic: Graphic, key: str, *, user_layer: bool) -> Call | None:
     points = graphic.points
     if graphic.width < 0 and not (graphic.width == -1 and graphic.filled and graphic.kind != "line"):
         return None
@@ -1005,12 +998,13 @@ def _graphic_call(graphic: Graphic, key: str) -> Call | None:
         if graphic.kind == "circle" and a == b:
             return None
         return Call(f"design.{graphic.kind}", (text(key), _xy(a), _xy(b)), (layer, ("width", width), *fill))
-    if graphic.kind == "arc" and len(points) == 3 and graphic.width > 0:
+    arc_width_supported = graphic.width > 0 or (graphic.width == 0 and user_layer)
+    if graphic.kind == "arc" and len(points) == 3 and arc_width_supported:
         a, m, b = points
         if (m.x - a.x) * (b.y - a.y) == (m.y - a.y) * (b.x - a.x):
             # three points on one line, the middle one between the ends: the line it draws (change c0427)
             between = min(a.x, b.x) <= m.x <= max(a.x, b.x) and min(a.y, b.y) <= m.y <= max(a.y, b.y)
-            if a == b or not between:
+            if graphic.width == 0 or a == b or not between:
                 return None
             return Call("design.line", (text(key), _xy(a), _xy(b)), (layer, ("width", width)))
         return Call("design.arc", (text(key), _xy(a), _xy(m), _xy(b)), (layer, ("width", width)))
@@ -1226,7 +1220,13 @@ def _drawings(
         slot = (graphic.layer, graphic.kind)
         counters[slot] = counters.get(slot, 0) + 1
         key = f"{segment(graphic.layer)}/{graphic.kind}/{counters[slot]}"
-        made = None if net is None else _graphic(graphic, key, Raw((net_vars or {})[net]) if net else None)
+        made = (
+            None
+            if net is None
+            else _graphic(
+                graphic, key, Raw((net_vars or {})[net]) if net else None, user_layer=kind == "user"
+            )
+        )
         if made is None:
             ledger.add("drawing", f"{graphic.kind} on {graphic.layer}")
             continue
@@ -1439,9 +1439,9 @@ def _copper_file(tables: Sequence[Table], header: Sequence[str]) -> str:
     body: list[str] = []
     for table in tables:
         rows = Tup(tuple(Tup(tuple(number(v) for v in row)) for row in table.rows))
-        # a track or arc table on no net names none (change c0375)
+        # A copper table on no net omits the net argument (c0375, c0427).
         args: list[tuple[str, Expr]] = []
-        if table.kind == "via" or table.net != NO_NET:
+        if table.net != NO_NET:
             args.append(("net", Sub("n", text(table.net))))
         if table.kind == "via":
             args += [("diameter", length(table.diameter)), ("drill", length(table.drill)), ("rows_nm", rows)]
@@ -1553,11 +1553,11 @@ def emit(source: Source, options: Options) -> Emission:
     if hierarchy.instances:
         writer.taken.update({"module", "path", "refs", "nets"})
     header = options.provenance.header()
-    board_lines, copper_count = _board(design, writer, ledger)
+    outline = _outline(design)
+    board_lines, copper_count = _board(board, outline, writer, ledger)
     if source.backend == "kicad":
         # an Altium document's outline and layers are those of its in-memory conversion, not of its author
-        assert design.board is not None
-        _losses(design.board, copper_count, ledger)
+        _losses(board, copper_count, ledger, closed_outline=outline is not None)
     board_lines += _stackup(board, copper_count, writer, ledger)
     board_lines += _title_block(board, ledger)
     board_lines += _user_lines(board)
@@ -1632,20 +1632,27 @@ def emit(source: Source, options: Options) -> Emission:
             continue
         ledger.teardrops_lost += any(has_teardrops(pad) for pad in footprint.pads)
     # pads by net
+    physical_pad_nets: list[tuple[str, int, str]] = []
+    copper_layers = {layer.name for layer in board.layers if layer.kind == "copper"}
     members: dict[str, dict[tuple[str, str], None]] = {}
     seen: dict[tuple[str, str], str] = {}
     open_pads: set[tuple[str, str]] = set()
     conflicts: set[tuple[str, str]] = set()
     for footprint in placed:
         ref = refs[footprint.component_id]
+        unnumbered_index = 0
         for pad in footprint.pads:
             net = names.get(pad.net_id or "")
-            if net is None:
-                if pad.number:
-                    open_pads.add((ref, pad.number))
-                continue
             if not pad.number:
-                ledger.add("pad-net-unnumbered", f"{ref} on {net}")
+                if net is not None:
+                    if pad.kind == "np_thru_hole" or not copper_layers.intersection(pad.layers):
+                        ledger.add("pad-net-unnumbered", f"{ref} on {net}")
+                    else:
+                        physical_pad_nets.append((ref, unnumbered_index, net))
+                unnumbered_index += 1
+                continue
+            if net is None:
+                open_pads.add((ref, pad.number))
                 continue
             other = seen.get((ref, pad.number))
             if other is not None and other != net:
@@ -1668,7 +1675,7 @@ def emit(source: Source, options: Options) -> Emission:
     used_nets |= {names[z.net_id] for z in board.zones if z.net_id in names}
     numbers = net_numbers(design)
     spellings = net_spellings(design)
-    copper_layers = {layer.name for layer in board.layers if layer.kind == "copper"}
+    used_nets |= {net for _, _, net in physical_pad_nets}
     graphic_nets = (graphic_net(g, numbers, spellings) for g in board.graphics if g.layer in copper_layers)
     used_nets |= {found for found in graphic_nets if found}  # a net only a copper graphic names too (c0427)
     net_vars: dict[str, str] = {}
@@ -1867,7 +1874,7 @@ def emit(source: Source, options: Options) -> Emission:
         grouped,
         net_vars,
         numbers,
-        physical_edges=_physical_edges(design),
+        physical_edges=_physical_edges(design, outline),
         spellings=spellings,
         built=built,
     )
@@ -1913,6 +1920,15 @@ def emit(source: Source, options: Options) -> Emission:
             writer.imports.discard("connect")
         if not net_lines:
             writer.imports.discard("Net")
+    physical_pad_lines = [
+        statement(
+            Call(
+                flat(Sub("design.parts", text("/".join(paths[ref])))) + ".unnumbered_pad_net",
+                (number(index), Raw(net_vars[net])),
+            )
+        )
+        for ref, index, net in physical_pad_nets
+    ]
     copper_line: list[list[str]] = []
     if kept_tables:
         files["copper.py"] = _copper_file(kept_tables, header)
@@ -1935,6 +1951,7 @@ def emit(source: Source, options: Options) -> Emission:
         connect_lines,
         place_lines,
         field_lines,
+        physical_pad_lines,
         zone_lines,
         area_lines,
         drawing_lines,

@@ -226,6 +226,17 @@ def test_designs_without_zones_are_unchanged() -> None:
     assert zones(d) == ()
 
 
+def test_board_without_closed_outline_requires_explicit_zone_outline() -> None:
+    d = Design("zones")
+    d.board(outline=())
+    gnd = Net("GND")
+    with pytest.raises(DslError, match="explicit outline"):
+        d.zone(gnd, layers=("F.Cu",))
+    d.zone(gnd, layers=("F.Cu",), outline=((mm(1), mm(1)), (mm(9), mm(1)), (mm(9), mm(9))))
+    (zone,) = zones(d)
+    assert zone.outline == (Point(101 * MM, 101 * MM), Point(109 * MM, 101 * MM), Point(109 * MM, 109 * MM))
+
+
 def test_zone_on_a_round_board() -> None:
     """A zone without an outline takes the box of the board ring's vertices and arc mid points (c0102)."""
     from fenolite.dsl import arc_to, shape
