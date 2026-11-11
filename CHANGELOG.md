@@ -29,6 +29,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Fixed
 
+- **Box of a STEP surface model** (c0481): `stepbox.model_box` measures a model that holds bounded surfaces
+  and no edge by its trimmed curves. A line or a conic is trimmed by points or by parameters, the angles in
+  the context's plane angle unit. A conversion to Altium writes such a model as a body. Before, it was
+  lost with "the STEP model holds no edge whose box Fenolite can measure".
 - **Altium build of an imported Altium project** (c0480): `build --target altium` of a script that carries an
   Altium source's board records (`Fenolite.Altium.*` verbatim properties, as `import --to python` of an
   Altium project writes them) builds the KiCad project of the script in memory and converts it as

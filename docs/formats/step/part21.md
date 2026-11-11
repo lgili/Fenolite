@@ -122,6 +122,9 @@ The attribute orders are those of the STEP Tools EXPRESS pages of the AP214 AIM 
 | `GLOBAL_UNIT_ASSIGNED_CONTEXT` | units |
 | `SI_UNIT` | prefix (`si_prefix`: `.EXA.` to `.ATTO.`, `$` for none), name (`.METRE.`) |
 | `CONVERSION_BASED_UNIT`, `LENGTH_MEASURE_WITH_UNIT` | name, conversion_factor; value_component, unit_component |
+| `TRIMMED_CURVE` (c0481) | name, basis_curve, trim_1, trim_2, sense_agreement, master_representation; a trim is a set of `trimming_select`: a `CARTESIAN_POINT`, a `PARAMETER_VALUE` or a bare parameter |
+| `LINE`, `VECTOR` (c0481) | name, pnt, dir; name, orientation, magnitude. The line's point at the parameter u is pnt + u · magnitude · orientation |
+| `PLANE_ANGLE_MEASURE_WITH_UNIT`, `PLANE_ANGLE_UNIT` (c0481) | value_component, unit_component; a plane angle unit is an `SI_UNIT` of `.RADIAN.` or a `CONVERSION_BASED_UNIT` (a degree is 0.01745329… radian) |
 
 The rules of the reader:
 
@@ -131,6 +134,14 @@ The rules of the reader:
   whole turn); the control points of a B-spline edge, whose curve lies in their hull; the points of polylines,
   poly loops and coordinate lists. A closed solid lies in the box of its edges unless a face bulges between
   them (a sphere or a torus); a box from control points may exceed the solid.
+- **Surface models (c0481).** A representation that reaches no edge, such as a
+  `GEOMETRICALLY_BOUNDED_SURFACE_SHAPE_REPRESENTATION` of `CURVE_BOUNDED_SURFACE`s, gives the points of its
+  trimmed curves instead.
+  - On a line: its two trims.
+  - On a circle or an ellipse: its two trims and each extreme within the span. A parameter is an angle in
+    the context's plane angle unit (the radian when it names none). The span runs counter-clockwise from
+    `trim_1` to `trim_2` when `sense_agreement` is `.T.`, from `trim_2` to `trim_1` otherwise.
+  - A representation with edges is measured by its edges alone.
 - **Units.** Each representation's points are scaled by the length unit of its context: an `SI_UNIT` of the
   metre with its prefix, or a `CONVERSION_BASED_UNIT` through its `LENGTH_MEASURE_WITH_UNIT` (an inch is
   25.4 mm). A context without a length unit is taken as millimetres.

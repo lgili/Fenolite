@@ -64,7 +64,7 @@ _NEEDED = frozenset(
         "LENGTH_MEASURE_WITH_UNIT", "MEASURE_WITH_UNIT", "SHAPE_DEFINITION_REPRESENTATION",
         "PRODUCT_DEFINITION_SHAPE", "NEXT_ASSEMBLY_USAGE_OCCURRENCE",
         "CONTEXT_DEPENDENT_SHAPE_REPRESENTATION", "EDGE_CURVE", "SURFACE_CURVE", "SEAM_CURVE",
-        "TRIMMED_CURVE",
+        "TRIMMED_CURVE", "LINE", "VECTOR", "PLANE_ANGLE_MEASURE_WITH_UNIT", "PLANE_ANGLE_UNIT",
     }
 )  # fmt: skip
 """The entities whose attributes are parsed; every other instance gives only its references."""
@@ -286,6 +286,42 @@ def _context_mm(model: _Model, context: int) -> float:
     return 1.0
 
 
+def _angle_unit(model: _Model, ident: int, depth: int = 0) -> float | None:
+    """The radians of the plane angle unit ``ident``: an ``SI_UNIT`` of the radian, or a
+    ``CONVERSION_BASED_UNIT`` whose ``PLANE_ANGLE_MEASURE_WITH_UNIT`` gives its value in another unit."""
+    if depth > 8:
+        return None
+    si = _part(model, ident, "SI_UNIT")
+    if si is not None and len(si) >= 2 and si[-1] == ".RADIAN.":
+        return 1.0
+    based = _part(model, ident, "CONVERSION_BASED_UNIT")
+    if based is not None and len(based) >= 2 and isinstance(based[1], _Ref):
+        measure = _part(model, based[1].id, "PLANE_ANGLE_MEASURE_WITH_UNIT") or _part(
+            model, based[1].id, "MEASURE_WITH_UNIT"
+        )
+        if measure is None or len(measure) < 2 or not isinstance(measure[1], _Ref):
+            return None
+        value = measure[0]
+        if isinstance(value, tuple):  # a typed value: PLANE_ANGLE_MEASURE(0.0174…)
+            inner = _items(cast("Part", value)[1])
+            value = inner[0] if inner else None
+        unit = _angle_unit(model, measure[1].id, depth + 1)
+        return value * unit if isinstance(value, float) and unit is not None else None
+    return None
+
+
+def _context_radians(model: _Model, context: int) -> float:
+    """The radians of the plane angle unit of a representation context; 1 (the radian) when it names
+    none (change c0481)."""
+    units = _part(model, context, "GLOBAL_UNIT_ASSIGNED_CONTEXT")
+    for unit in _ids(units[0]) if units else []:
+        if _part(model, unit, "PLANE_ANGLE_UNIT") is not None:
+            found = _angle_unit(model, unit)
+            if found is not None:
+                return found
+    return 1.0
+
+
 def _times(a: Matrix, b: Matrix) -> Matrix:
     rows = [tuple(sum(a[i][k] * b[k][j] for k in range(3)) for j in range(3)) for i in range(3)]
     return (rows[0], rows[1], rows[2])  # type: ignore[return-value]
@@ -465,36 +501,102 @@ def _arc(model: _Model, ident: int) -> list[Vec]:
         d = (p[0] - origin[0], p[1] - origin[1], p[2] - origin[2])
         return math.atan2(sum(d[i] * y[i] for i in range(3)) / b, sum(d[i] * x[i] for i in range(3)) / a)
 
-    def at(t: float) -> Vec:
-        c, s = math.cos(t), math.sin(t)
-        return (
-            origin[0] + a * c * x[0] + b * s * y[0],
-            origin[1] + a * c * x[1] + b * s * y[1],
-            origin[2] + a * c * x[2] + b * s * y[2],
-        )
-
     start, end = vertex(1), vertex(2)
     if start is None or end is None:
         return []
     if edge[4] == ".F.":
         start, end = end, start
-    t0, t1 = angle(start), angle(end)
+    return [start, end, *_extremes(conic, angle(start), angle(end))]
+
+
+def _extremes(conic: tuple[Axes, float, float], t0: float, t1: float) -> list[Vec]:
+    """The points of a circle or ellipse, counter-clockwise from the angle ``t0`` to ``t1`` (a whole turn
+    when they are equal), where a coordinate is extreme."""
+    (_origin, x, y, _z), a, b = conic
     sweep = (t1 - t0) % math.tau
     if sweep < 1e-9:
         sweep = math.tau
-    out = [start, end]
+    out: list[Vec] = []
     for i in range(3):
         extreme = math.atan2(b * y[i], a * x[i])
-        for t in (extreme, extreme + math.pi):
-            if (t - t0) % math.tau <= sweep:
-                out.append(at(t))
+        out += [_on_conic(conic, t) for t in (extreme, extreme + math.pi) if (t - t0) % math.tau <= sweep]
     return out
 
 
-def _geometry(model: _Model, idents: set[int], scale: float) -> list[Vec]:
+def _trimmed(model: _Model, ident: int, radians: float) -> list[Vec]:
+    """The points whose box holds a trimmed curve over a line, a circle or an ellipse (``trimmed_curve``:
+    name, basis_curve, trim_1, trim_2, sense_agreement, …; change c0481): its two ends and, on a conic,
+    each extreme point within its span. A trim is a point, or a parameter: on a line ``point + t ·
+    vector``, on a conic an angle in the context's unit (``radians`` per unit). Without
+    ``sense_agreement`` the span runs from the second trim to the first."""
+    found = _part(model, ident, "TRIMMED_CURVE")
+    basis = _ref(found, 1) if found is not None and len(found) >= 5 else None
+    if found is None or basis is None:
+        return []
+
+    def trim(value: Value) -> tuple[Vec | None, float | None]:
+        point = next((_point(model, item.id) for item in _items(value) if isinstance(item, _Ref)), None)
+        for item in _items(value):
+            if isinstance(item, float):
+                return point, item
+            if isinstance(item, tuple) and cast("Part", item)[0] == "PARAMETER_VALUE":
+                inner = [v for v in _items(cast("Part", item)[1]) if isinstance(v, float)]
+                if inner:
+                    return point, inner[0]
+        return point, None
+
+    (p1, u1), (p2, u2) = trim(found[2]), trim(found[3])
+    line = _part(model, basis, "LINE")
+    if line is not None:
+        origin = _point(model, _ref(line, 1) or 0)
+        vector = _part(model, _ref(line, 2) or 0, "VECTOR")
+        size = vector[2] if vector is not None and len(vector) >= 3 else None
+        if origin is None or vector is None or not isinstance(size, float):
+            return [p for p in (p1, p2) if p is not None]
+        d = _direction(model, vector[1], (0.0, 0.0, 0.0))
+
+        def on_line(u: float | None) -> Vec | None:
+            return None if u is None else tuple(o + u * size * c for o, c in zip(origin, d, strict=True))  # type: ignore[return-value]
+
+        return [p for p in (p1 or on_line(u1), p2 or on_line(u2)) if p is not None]
+    conic = _conic(model, basis)
+    if conic is None:
+        return []
+    (centre, x, y, _z), a, b = conic
+    if a <= 0 or b <= 0:
+        return []
+
+    def angle(p: Vec | None, u: float | None) -> float | None:
+        if p is None:
+            return None if u is None else u * radians
+        d = (p[0] - centre[0], p[1] - centre[1], p[2] - centre[2])
+        return math.atan2(sum(d[i] * y[i] for i in range(3)) / b, sum(d[i] * x[i] for i in range(3)) / a)
+
+    t1, t2 = angle(p1, u1), angle(p2, u2)
+    if t1 is None or t2 is None:
+        return []
+    if found[4] == ".F.":
+        t1, t2 = t2, t1
+    return [_on_conic(conic, t1), _on_conic(conic, t2), *_extremes(conic, t1, t2)]
+
+
+def _on_conic(conic: tuple[Axes, float, float], t: float) -> Vec:
+    (origin, x, y, _z), a, b = conic
+    c, s = math.cos(t), math.sin(t)
+    return (
+        origin[0] + a * c * x[0] + b * s * y[0],
+        origin[1] + a * c * x[1] + b * s * y[1],
+        origin[2] + a * c * x[2] + b * s * y[2],
+    )
+
+
+def _geometry(model: _Model, idents: set[int], scale: float, radians: float = 1.0) -> list[Vec]:
     """The points, in mm in the representation's frame, whose box holds every edge reached: vertices, the
-    extremes of each circular or elliptic edge within its span, curve control points and polygon points."""
+    extremes of each circular or elliptic edge within its span, curve control points and polygon points.
+    A representation that reaches no edge (a surface or wireframe model, change c0481) gives the points of
+    its trimmed curves instead (``_trimmed``)."""
     points: list[Vec] = []
+    edges = any(_part(model, ident, "EDGE_CURVE") is not None for ident in idents)
 
     def add(p: Vec | None) -> None:
         if p is not None:
@@ -524,6 +626,9 @@ def _geometry(model: _Model, idents: set[int], scale: float) -> list[Vec]:
             found = _part(model, ident, "POLYLINE") or _part(model, ident, "POLY_LOOP")
             for ref in _ids(found[1]) if found and len(found) >= 2 else []:
                 add(_point(model, ref))
+        elif "TRIMMED_CURVE" in names and not edges:
+            for p in _trimmed(model, ident, radians):
+                add(p)
         elif "COORDINATES_LIST" in names:
             found = _part(model, ident, "COORDINATES_LIST")
             for row in _items(found[2]) if found and len(found) >= 3 else []:
@@ -552,6 +657,7 @@ def model_box(data: bytes) -> Box | None:
         return None
     model = _read(data.decode("latin-1"))
     scales = {rep: _context_mm(model, context) for rep, (_items, context) in model.shapes.items()}
+    radians = {rep: _context_radians(model, context) for rep, (_items, context) in model.shapes.items()}
     placed, same = _links(model, scales)
     group = {rep: rep for rep in model.shapes}
 
@@ -579,7 +685,7 @@ def model_box(data: bytes) -> Box | None:
     lo = [math.inf] * 3
     hi = [-math.inf] * 3
     for rep, (items, _context) in model.shapes.items():
-        points = _geometry(model, _reachable(model, items, stop), scales.get(rep, 1.0))
+        points = _geometry(model, _reachable(model, items, stop), scales.get(rep, 1.0), radians.get(rep, 1.0))
         if not points:
             continue
         for frame in _instances(root(rep), parents):
