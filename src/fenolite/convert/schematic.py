@@ -340,15 +340,20 @@ class SourceDrawing:
 
     extracted: drawn_read.Extracted
     sheets: tuple[SheetInput, ...]
+    project: str = ""
+    """The settings of the source project (``prjpcb.carried_settings``, change c0479)."""
 
 
 def drawing_of(source: SourceProject) -> SourceDrawing | None:
     """The drawing of ``source``'s sheets: the Altium extractor of design D1 for an Altium project with
     schematic documents; ``None`` for a source without sheets, whose schematic stays generated."""
+    from fenolite.backends.altium.prjpcb import carried_settings
+
     sheets = altium_sheets(source)
     if not sheets:
         return None
-    return SourceDrawing(drawn_read.extract_with_pins(sheets), tuple(sheets))
+    project = carried_settings(source.path.read_bytes(), file=source.path.name)
+    return SourceDrawing(drawn_read.extract_with_pins(sheets), tuple(sheets), project)
 
 
 @dataclass(frozen=True)
@@ -570,7 +575,11 @@ def write_kicad_drawing(
         return WrittenDrawing({}, generated.issues, dict(changes))
     carriers = {
         sheet.key: sheet_carrier.altium_sheet(
-            sheet.opaques, found.sheet_records.get(sheet.key, ""), found.altium_fields.get(sheet.key, {})
+            sheet.opaques,
+            found.sheet_records.get(sheet.key, ""),
+            _with_project(found.altium_fields.get(sheet.key, {}), drawing.project)
+            if sheet.key == found.drawn.root
+            else found.altium_fields.get(sheet.key, {}),
         )
         for sheet in found.drawn.sheets
     }
@@ -583,6 +592,14 @@ def write_kicad_drawing(
         files[f"lib/{nickname}.kicad_sym"] = symembed.write_symbol_library(definitions, target=target)
     files["sym-lib-table"] = write_lib_table(LibTable("symbol", generated.rows), target=target)
     return WrittenDrawing(files, generated.issues, dict(changes))
+
+
+def _with_project(fields: Mapping[str, Mapping[str, str]], project: str) -> Mapping[str, Mapping[str, str]]:
+    """The root sheet's carrier ``fields`` with the source project's settings (change c0479)."""
+    if not project:
+        return fields
+    key = drawn_read.TOPS_KEY
+    return {**fields, key: {**fields.get(key, {}), drawn_read.PROJECT_FIELD: project}}
 
 
 def kicad_drawing(source: SourceProject, design: Design) -> tuple[DrawnSchematic | None, tuple[Issue, ...]]:

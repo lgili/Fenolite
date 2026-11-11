@@ -116,6 +116,11 @@ class ProjectSheets:
     sheets: tuple[SheetFile, ...]
     links: tuple[SheetLink, ...] = ()
     """Per component of a drawn conversion (change c0470), how the board links to its sheet record."""
+    project: str = ""
+    """The carried settings of the source project (``prjpcb.carried_settings``, change c0479)."""
+    paths: tuple[tuple[str, str], ...] = ()
+    """``(designator, unique id path)`` of each drawn component: the sheet symbols' unique ids from the top
+    sheet and the component's, each after a backslash, as a project variant names it (change c0479)."""
 
     @property
     def channels(self) -> bool:

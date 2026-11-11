@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import re
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, replace
 from types import MappingProxyType
 from typing import TYPE_CHECKING
@@ -36,7 +36,14 @@ from fenolite.core.coords import Point
 from fenolite.core.errors import FenoliteError, FormatError, Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model.design import Design
-from fenolite.model.drawn import DrawnInstance, DrawnSchematic, DrawnSheet, DrawnSheetRef, DrawnSymbol
+from fenolite.model.drawn import (
+    DrawnInstance,
+    DrawnLabel,
+    DrawnSchematic,
+    DrawnSheet,
+    DrawnSheetRef,
+    DrawnSymbol,
+)
 from fenolite.model.drawn_connect import (
     UnitInfo,
     bus_group_parts,
@@ -1136,9 +1143,8 @@ class _Sheet:
             held_label = self.sheet_fields.get(
                 f"label_at:{label.kind}:{label.at.x},{label.at.y}"
             ) or self.sheet_fields.get(f"label:{index}", {})
-            kind = "hierarchical" if label.kind == "local" and label.text in ports else label.kind
-            if label.kind == "local" and label.text in powers and label.text not in ports:
-                kind = "global"
+            native = f"label_at:local:{label.at.x},{label.at.y}" in self.sheet_fields
+            kind = written_kind(label, ports, powers, native=native)
             # a power port stands for a KiCad global label: the carrier keeps its kind and shape (c0470)
             uid = unique_id(at) if self.carry and kind == "global" else ""
             own = self.spellings.get((label.at.x, label.at.y))
@@ -1589,7 +1595,7 @@ def lower_drawn(
         state.harness_types = harness_types
         state.aliases = _aliases(drawn, sheet)
         state.definitions = definitions.get(sheet.key, {})
-        state.sheet_fields = fields.get(sheet.key, {})
+        state.sheet_fields = _styling_fields(fields.get(sheet.key, {}))
         state.lone_harness, state.spellings = carried(fields.get(sheet.key, {}))
         state.power_in = power_in
         state.origin = sheet.key if carry and counts[instance.sheet] > 1 and sheet.key not in channels else ""
@@ -1615,8 +1621,37 @@ def lower_drawn(
     )
     bindings = _canonical_local_bindings(written, design, repeated_files)
     written = _global_local_names(written, issues, bindings=bindings)
-    links = sheet_links(found, drawn, specs, channels, tops=tops) if carry else ()
-    return ProjectSheets("modules" if len(written) > 1 else "flat", tuple(written), links)
+    every = sheet_links(found, drawn, specs, channels, tops=tops)
+    links = every if carry else ()
+    held = fields.get(drawn.root, {}).get(drawn_read.TOPS_KEY, {}).get(drawn_read.PROJECT_FIELD, "")
+    paths = tuple(
+        (link.ref, "".join(f"\\{part}" for part in (link.symbols, link.unique_id) if part)) for link in every
+    )
+    return ProjectSheets("modules" if len(written) > 1 else "flat", tuple(written), links, held, paths)
+
+
+def written_kind(
+    label: DrawnLabel, ports: Collection[str], powers: Collection[str], *, native: bool = False
+) -> str:
+    """The kind a drawn label is written as: a local label that shares its text with a hierarchical label of
+    its sheet (``ports``) as a port, one that shares it with a power symbol (``powers``) as a power port,
+    since Altium joins a net label to neither (``H-A-IMP-DUP-NAME``, change c0470); a net label of an Altium
+    source (``native``, its carried ``label_at:local`` fields) joined them in Altium and stays one (c0479)."""
+    if label.kind != "local" or native:
+        return label.kind
+    if label.text in ports:
+        return "hierarchical"
+    return "global" if label.text in powers else "local"
+
+
+def _styling_fields(fields: Mapping[str, Mapping[str, str]]) -> Mapping[str, Mapping[str, str]]:
+    """``fields`` without the carried project settings, which style no sheet (change c0479)."""
+    project = fields.get(drawn_read.TOPS_KEY, {})
+    if drawn_read.PROJECT_FIELD not in project:
+        return fields
+    rest = {k: v for k, v in project.items() if k != drawn_read.PROJECT_FIELD}
+    out = {k: v for k, v in fields.items() if k != drawn_read.TOPS_KEY}
+    return {**out, drawn_read.TOPS_KEY: rest} if rest else out
 
 
 def channel_sheets(

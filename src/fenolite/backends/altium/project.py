@@ -36,7 +36,7 @@ from fenolite.backends.altium.layout import (
 from fenolite.backends.altium.pcbdoc import PcbDocResult, PcbDocSpec, write_pcbdoc_result
 from fenolite.backends.altium.pcblib import LibFootprint, write_pcblib
 from fenolite.backends.altium.pour import PourMode
-from fenolite.backends.altium.prjpcb import write_prjpcb
+from fenolite.backends.altium.prjpcb import retarget_variants, write_prjpcb
 from fenolite.backends.altium.schdoc import Frame, write_schdoc
 from fenolite.backends.altium.schlib import storage_name, write_schlib
 from fenolite.backends.altium.symbols import generic_symbol
@@ -690,6 +690,8 @@ def write_project(
             draftsman=f"{name}.PCBDwf" if draftsman is not None else None,
             parameters=draftsman.parameters if draftsman is not None else tuple(title_parameters),
             channels=planned.channels,
+            # the source project's settings, its variants naming the written components (change c0479)
+            carried=retarget_variants(planned.project, dict(planned.paths)),
         )
     for sheet in planned.sheets:
         frame = (frames or {}).get(sheet.file)

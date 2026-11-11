@@ -745,3 +745,36 @@ def test_component_template_with_unwritten_owner_is_refused(
     assert reply.exit_code == 3
     assert reply.error["code"] == "FEN-3004"
     assert not (tmp_path / "out").exists()
+
+
+def test_carried_project_settings_reach_the_project_file(tmp_path: Path) -> None:
+    """Change c0479: the source project's settings that ``schematic.toml`` carries on its root sheet go into
+    the written ``.PrjPcb``: ``[Design]`` keys merged, other sections appended."""
+    from fenolite.backends.altium import drawn_read
+    from fenolite.backends.altium.read.project import read_project
+    from fenolite.backends.kicad import sheet_carrier
+
+    script = copy_source(tmp_path / "source", "flat")
+    source = script.parent / "schematic.toml"
+    settings = (
+        "[Design]\nAllowSheetEntryNetNames=0\n[Electrical Rules Check]\nType1=1\n"
+        "[ProjectVariant1]\nDescription=DNP\nVariationCount=1\n"
+        "Variation1=Designator=R1|UniqueId=\\SOURCEID|Kind=1|AlternatePart=\n"
+    )
+    carrier = sheet_carrier.AltiumSheet("", (), {drawn_read.TOPS_KEY: {drawn_read.PROJECT_FIELD: settings}})
+    source.write_text(
+        source.read_text(encoding="utf-8") + f"\n{sheet_carrier.TOML_PREFIX}root {carrier.text()}\n",
+        encoding="utf-8",
+    )
+    reply = build(script, tmp_path, "--confirm")
+    assert reply.exit_code == 0, (reply.error, (reply.envelope or {}).get("issues"))
+    project = read_project(next((tmp_path / "out").glob("*.PrjPcb")).read_bytes())
+    design = project.ini.section("Design")
+    assert design is not None and design.get("AllowSheetEntryNetNames") == "0"
+    assert project.ini.section("Electrical Rules Check") is not None
+    variant = project.ini.section("ProjectVariant1")
+    assert variant is not None
+    written = dict(f.partition("=")[::2] for f in (variant.get("Variation1") or "").split("|"))["UniqueId"]
+    assert written != "\\SOURCEID" and written.count("\\") == 1
+    sheets = b"".join(path.read_bytes() for path in (tmp_path / "out").glob("*.SchDoc"))
+    assert f"UNIQUEID={written[1:]}".encode() in sheets  # the variant names R1 as written

@@ -29,6 +29,19 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Fixed
 
+- **Altium project settings carried** (c0479): an Altium project imported to Python or converted to KiCad
+  keeps the settings of its `.PrjPcb` (net identifier options, compiler error levels and connection matrix,
+  annotation, variants, output groups, parameters; every section but the document list) in the root sheet's
+  `Fenolite.Altium.Sheet` carrier, and `build --target altium` and `convert --to altium` merge them into the
+  written project (`prjpcb.carried_settings`, `write_prjpcb(carried=...)`). Before, the written project fell
+  back to Altium's defaults, so a project that turns sheet-entry net names off compiled with
+  `Nets ... has multiple names` warnings. Each `Variation<n>` of a carried project variant names the
+  unique id path of the written component of its designator (`prjpcb.retarget_variants`,
+  `ProjectSheets.paths`), so Altium links the variant to the rebuilt components. A net label of an Altium
+  source stays a net label when the project comes back from KiCad, even when its sheet has a port or power
+  port of its text (`drawn.written_kind`): Altium joined them in the source, and as a port it no longer
+  named its net under the carried `AllowPortNetNames=0`.
+
 - Run the KiCad 10 routing completion scale file in a dedicated serial CI partition with the existing time and proposal assertions (c0478).
 
 - **Clean-room harness regression** (c0476): replaced private-derived example data with an authored

@@ -18,16 +18,21 @@ Altium takes the net classes from the directives of the schematic (``H-A-ECO-PRJ
 
 Change c0166 gives projects with harness definitions explicit net-label naming priority, avoiding
 additional names synthesized from harness sheet entries; projects without harnesses keep their bytes.
+
+Change c0479 carries the settings of a converted or imported source project (``carried_settings``) and
+merges them into the written file (``write_prjpcb(carried=...)``).
 """
 
 # evidence: see project
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+import re
+from collections.abc import Mapping, Sequence
 
 from fenolite.backends.altium.ascii import LINE_END, text_problem
 from fenolite.backends.altium.cfb import name_key
+from fenolite.backends.altium.read.ini import parse_ini
 
 VERSION = "1.0"
 SHEET_CLASS_KEYS: tuple[tuple[str, str], ...] = (
@@ -84,6 +89,7 @@ def write_prjpcb(
     draftsman: str | None = None,
     parameters: Sequence[tuple[str, str]] = (),
     channels: bool = False,
+    carried: str = "",
 ) -> bytes:
     """``[Design]``, ``Version=1.0``, an empty line, ``[Document1]`` and ``DocumentPath=<schematic>``; then,
     each after an empty line as ``[Document<i>]`` and ``DocumentPath=<file>``, numbered from 2: each module
@@ -141,9 +147,110 @@ def write_prjpcb(
         if not name or "=" in name:
             raise ValueError("project parameter names must be non-empty and contain no equals sign")
         lines += ["", f"[Parameter{index}]", f"Name={name}", f"Value={value}"]
+    if carried:
+        lines = _merged(lines, carried)
     if all(line.isascii() for line in lines):
         return b"".join(line.encode("ascii") + LINE_END for line in lines)
     return UTF8_BOM + b"".join(line.encode("utf-8") + LINE_END for line in lines)
 
 
-__all__ = ["CHANNEL_KEYS", "CLASS_GENERATION", "CLASS_SECTION", "SHEET_CLASS_KEYS", "VERSION", "write_prjpcb"]
+_NOT_CARRIED = re.compile(r"(Generated)?Document[1-9][0-9]*")
+"""The sections a written project lists itself: its documents."""
+
+
+def carried_settings(data: bytes, *, file: str = "") -> str:
+    """The settings of the source project ``data`` that a written project carries (change c0479): every
+    section in file order but ``Document<n>`` and ``GeneratedDocument<n>``, and ``[Design]`` without
+    ``Version``, as INI text with ``\\n`` line ends; ``""`` when nothing is left."""
+    lines: list[str] = []
+    for section in parse_ini(data, file=file).sections:
+        if not section.name or _NOT_CARRIED.fullmatch(section.name):
+            continue
+        entries = [e for e in section.entries if not (section.name == "Design" and e.key == "Version")]
+        if section.name == "Design" and not entries:
+            continue
+        lines += [f"[{section.name}]", *(f"{e.key}={e.value}" for e in entries)]
+    return "".join(f"{line}\n" for line in lines)
+
+
+_VARIATION = re.compile(r"Variation[1-9][0-9]*")
+
+
+def retarget_variants(carried: str, paths: Mapping[str, str]) -> str:
+    """``carried`` with the ``UniqueId`` of each ``Variation<n>`` of a ``[ProjectVariant<n>]`` set to the
+    unique id path that ``paths`` gives its ``Designator``: a rebuilt project gives its components new
+    unique ids, which the variant must name (change c0479). A designator ``paths`` lacks keeps its id."""
+    out: list[str] = []
+    variant = False
+    for line in carried.splitlines():
+        if line.startswith("[") and line.endswith("]"):
+            variant = line[1:-1].rstrip("0123456789") == "ProjectVariant"
+        key, sep, value = line.partition("=")
+        if variant and sep and _VARIATION.fullmatch(key):
+            fields = [field.partition("=") for field in value.split("|")]
+            designator = next((v for k, _, v in fields if k == "Designator"), "")
+            if designator in paths:
+                value = "|".join(f"{k}{s}{paths[designator] if k == 'UniqueId' else v}" for k, s, v in fields)
+        out.append(f"{key}{sep}{value}")
+    return "".join(f"{line}\n" for line in out)
+
+
+def _sections(lines: Sequence[str]) -> list[tuple[str, list[str]]]:
+    found: list[tuple[str, list[str]]] = []
+    for line in lines:
+        if line.startswith("[") and line.endswith("]"):
+            found.append((line[1:-1], []))
+        elif line and found:
+            found[-1][1].append(line)
+    return found
+
+
+def _family(section: str) -> str:
+    return section.rstrip("0123456789")
+
+
+def _merged(lines: Sequence[str], carried: str) -> list[str]:
+    """The written ``lines`` with the ``carried`` settings (change c0479): a carried ``[Design]`` key replaces
+    the written one in place and the others follow it; the carried sections of a family that the file writes
+    (``Parameter``, ``PrjClassGen``) take the place of its written ones; the rest come last, in carried
+    order."""
+    held = _sections(carried.splitlines())
+    design: dict[str, str] = {}
+    for name, entries in held:
+        if name == "Design":
+            design.update((key, value) for key, _, value in (entry.partition("=") for entry in entries))
+    families: dict[str, list[tuple[str, list[str]]]] = {}
+    for name, entries in held:
+        if name != "Design":
+            families.setdefault(_family(name), []).append((name, entries))
+    sections: list[tuple[str, list[str]]] = []
+    replaced: set[str] = set()
+    for name, entries in _sections(lines):
+        if name == "Design":
+            keys = [entry.partition("=")[0] for entry in entries]
+            entries = [
+                f"{key}={design[key]}" if key in design else e for key, e in zip(keys, entries, strict=True)
+            ]
+            sections.append((name, entries + [f"{k}={v}" for k, v in design.items() if k not in keys]))
+        elif _family(name) in families:
+            replaced.add(_family(name))
+            sections += families.pop(_family(name))  # once, where the family's first written section was
+        elif _family(name) not in replaced:
+            sections.append((name, entries))
+    sections += [section for found in families.values() for section in found]
+    out: list[str] = []
+    for name, entries in sections:
+        out += [*([""] if out else []), f"[{name}]", *entries]
+    return out
+
+
+__all__ = [
+    "CHANNEL_KEYS",
+    "CLASS_GENERATION",
+    "CLASS_SECTION",
+    "SHEET_CLASS_KEYS",
+    "VERSION",
+    "carried_settings",
+    "retarget_variants",
+    "write_prjpcb",
+]
