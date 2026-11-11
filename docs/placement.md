@@ -463,6 +463,148 @@ The board is the layout authority (`docs/lens.md`). A part that `place` moved on
 board, so the next `fenolite build` keeps it there. A part with a locked `place()` in the script goes
 back to the script's placement; `place` warns about it with `place.script-locked`.
 
+## Joint optimization proposals (c0477)
+
+```sh
+fenolite place BOARD --strategy optimize --constraints placement.json --dry-run --json
+```
+
+The [request schema](../schemas/fenolite.placement-optimization.v0.json) uses exact footprint
+IDs, optional allowed angles in microdegrees and a bounded work budget. The strategy uses
+board coordinates in nm and keeps the current side. With no angle list it keeps the
+current orientation. Locked, excluded and copper-attached footprints stay fixed. Regions,
+margins and sampling parameters come from the request.
+
+The reply lists sampled domains, fixed reasons, blockers, the deepest partial assignment and
+complete proposals. It ranks them by reviewed pad-to-pad distance, missing channel inputs,
+estimated channel overflow, half-perimeter wire length and movement. Reviewed `proximity`
+intents seed poses near fixed endpoints and use two physical pad IDs. Required maximum
+distances are hard constraints.
+Unknown reviewed intent is reported without scoring it. Each proposal lists unavailable checks
+and conservative extents. Exploration creates no board writes or confirmable plan.
+
+On rectangular outlines with supported copper and rules, the estimator samples three cuts
+per axis on each routing layer. It uses pad, hole, track, via and cutout bounds and the
+known track widths and clearances of affected nets. A recognized differential pair with
+known dimensions claims one combined lane. Ambiguous layers and unsupported geometry
+appear in `missing_inputs`. The `channel_overflow_by_layer` values are congestion estimates
+in nm of unserved lane width summed across the measured cuts.
+
+Add a reviewed intent with `kind: "escape"`, `required: true`, two exact physical pads of
+one net and a positive `max_distance_nm` to require a bounded routing probe. For escape
+intent the distance is a limit on the provisional track length. Set `budget.probe_expansions`
+to allocate work across the shortlist and all its probe subjects. Every candidate has the
+same per-subject limit. The probe checks same-layer connections without vias and reserves
+each successful provisional route for the next subject. If the shortlist fails the probes,
+bounded refinement tries nearby poses with the same subject set and per-subject limit. Required failures appear as
+`probe:<intent-key>:<status>`; successful candidates report the track length and work for
+each checked connection in `probes`.
+Review repeats the probes. Differential pairs, zones and other unsupported geometry can
+block this check. The probe's result covers the supplied scope and budget. Confirmation
+writes only the component poses. For a gate drive and its tracked return, use one
+`gate-loop` intent with four pads in order: the two drive endpoints followed by the two
+return endpoints. Each pair must share its own net. The two paths must coexist and each
+must meet the supplied length limit. Plane returns and coupled routing are unavailable in
+this placement probe.
+
+### Review and apply a KiCad candidate
+
+Save the full JSON reply, choose an ID from `result.optimization.candidates`, and review that
+specific candidate. Open the saved reply in the viewer with
+`fenolite view working.kicad_pcb --placement proposals.json --serve`, or export a standalone
+page. Take `PLAN_ID` from `result.plan_id` of the review reply.
+
+```sh
+fenolite place working.kicad_pcb --strategy optimize --constraints placement.json --dry-run --json > proposals.json
+fenolite place working.kicad_pcb --strategy optimize --constraints placement.json --proposal proposals.json --candidate ID --dry-run --json
+fenolite place working.kicad_pcb --strategy optimize --constraints placement.json --proposal proposals.json --candidate ID --confirm --plan PLAN_ID --json
+```
+
+Review rechecks the exact poses on the current board and verifies the staged KiCad readback.
+Confirmation replays those staged bytes. Keep the board, its project rules, the request and
+the proposal fixed between review and confirmation. When an input changes, generate and
+review a new proposal. Applied placements follow the existing layout precedence on rebuild.
+
+### Review from a served viewer
+
+```sh
+fenolite view working.kicad_pcb --placement proposals.json --placement-request placement.json --serve --allow-actions
+```
+
+Open Project Review and choose **Refine placement** to use the same explicit request with
+the current board and anchors. Under Actions choose **Apply placement candidate** and select
+the candidate you reviewed. The dialog previews the staged board before you confirm. A board
+change invalidates an earlier proposal and plan. A static export provides the candidate overlays
+for inspection.
+
+### Plan declared blocks in Python
+
+`fenolite.placement.floorplan.bind_blocks` binds captured block layouts to the model's exact
+footprints, pads and ports. Give each block reviewed origin alternatives, the fixed footprint
+IDs and a layout projector. For a captured layout, use
+`functools.partial(fenolite.reuse.blocklayout.apply_block_layout, saved_layout)` as the projector. Rigid blocks keep one transform across their members. Flexible blocks use the transformed
+positions as member seeds. `plan_block_regions` compares the hierarchy with net-weighted
+coarsening under the supplied area and region restrictions. `search_region_placements` expands
+the region choices using the board frame and a whole-board judge. It tries bounded reassignments
+across shared boundaries and reports every block that cannot fit. This API requires a resolved
+Fenolite design with block instances and captured layouts.
+
+### Use an Altium board
+
+Pass a `.PcbDoc` or a `.PrjPcb` with exactly one readable PCB as `BOARD` to generate proposals
+from native Altium geometry. To apply positions and open the result in Altium, convert into
+a separate working directory, then optimize and review that KiCad copy.
+
+```sh
+fenolite convert source.PcbDoc --to kicad --out working --dry-run --json
+fenolite convert source.PcbDoc --to kicad --out working --confirm --plan PLAN_ID --json
+```
+
+Use the generated `.kicad_pcb` as the placement input. Prepare the request with the working
+board's footprint IDs and pad IDs, since conversion can change identities. The following
+prints the identities from the authored blink board after conversion. Adjust the path to
+match the conversion output.
+
+```sh
+uv run python - working/blink.kicad_pcb <<'PYTHON'
+import sys
+from pathlib import Path
+from fenolite.backends.kicad.pcb import read_board
+from fenolite.backends.kicad.replace import footprint_ref
+
+design = read_board(Path(sys.argv[1]))
+assert design.board is not None
+for fp in design.board.footprints:
+    print(footprint_ref(design, fp), fp.id, [(pad.number, pad.id) for pad in fp.pads])
+PYTHON
+```
+
+For a first run, set `selected` to the footprint IDs you want to move and use the request below
+with those IDs. Add reviewed proximity intents when you have confirmed the physical endpoints
+that should stay close. Review any fixed reasons, especially when the board already has copper.
+
+```json
+{
+  "schema": "fenolite.placement-optimization.v0",
+  "selected": ["FOOTPRINT_ID"],
+  "budget": {"evaluations": 64, "beam_width": 2},
+  "constraints": {"max_candidates": 12, "pitch": 500000}
+}
+```
+
+After applying the placement to the KiCad copy, review the conversion report and export a new
+`.PcbDoc` to another directory.
+
+```sh
+fenolite convert working/blink.kicad_pcb --to altium --out exported --altium-pour outline --dry-run --json
+fenolite convert working/blink.kicad_pcb --to altium --out exported --altium-pour outline --confirm --plan PLAN_ID --json
+```
+
+Each conversion uses its own plan ID. Inspect the reported conversion losses. The `outline`
+option writes polygon outlines for repouring in Altium. Open the exported board in Altium
+Designer, repour as applicable and run native DRC. Fenolite tests the exported file by
+rereading it. Native editing of the source `.PcbDoc` remains gated on Altium Designer evidence.
+
 ## Constrained proposals (c0096)
 
 `placement.constrained.propose_placement` consumes a neutral `BoardFrame`, explicit

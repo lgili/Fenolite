@@ -12,6 +12,7 @@ from fenolite.cli.results.common import (
     ProtocolResult,
 )
 from fenolite.placement import constrained as constrained_rows
+from fenolite.placement.optimization_contract import PlacementOptimization
 from fenolite.safety.refs import Ref
 
 
@@ -355,6 +356,7 @@ class PlaceResult(ProtocolResult):
     )
     measures: PlaceMeasures = field(metadata={"optional": True})
     moved: list[PlaceMovedItem] = field(metadata={"optional": True})
+    optimization: PlacementOptimization = field(metadata={"optional": True})
     placement: PlacePlacement = field(metadata={"optional": True})
     preview: None | PlacePreview = field(metadata={"optional": True})
     regions: PlaceRegions = field(metadata={"optional": True})

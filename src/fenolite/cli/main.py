@@ -654,6 +654,12 @@ def _perform(command: Command, args: argparse.Namespace, ctx: Context, started: 
     plan_id: str | None = None
     if writes:
         depends = list(staged.depends) if staged is not None else _digests(outcome.depends, ctx.cwd)
+        current_dependencies = dict(depends)
+        for path, expected in outcome.expected_inputs:
+            if path not in current_dependencies or current_dependencies[path] != expected:
+                return _failed(
+                    command, _stale(f"{_named(path)} changed during review", _named(path)), started, Result()
+                )
         plan_id = plans.plan_id(command.name, arguments, str(ctx.cwd), depends, rows)
         if not confirm:
             warning = _stage(command, outcome, arguments, ctx, plan_id, rows, depends)

@@ -38,7 +38,7 @@ from fenolite.geometry.thick import Thick, thick_touch
 from fenolite.geometry.transform import Transform
 from fenolite.model import canonical
 from fenolite.model.board import Arc, Track, Via, ViaProtection, Zone, ZoneHatch, ZoneSettings
-from fenolite.model.circuit import Component
+from fenolite.model.circuit import Component, component_path, components_under
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef
 from fenolite.reuse.codes import issue
@@ -402,17 +402,8 @@ def pad_contains(pad: BoardPad, point: Point, layers: Sequence[str] = ()) -> boo
     )
 
 
-def component_path(component: Component) -> str:
-    return component.properties.get("fenolite.path", component.path or component.ref)
-
-
 def instance_parts(design: Design, instance: str) -> dict[str, Component]:
-    prefix = f"{instance}/"
-    return {
-        component_path(c)[len(prefix) :]: c
-        for c in design.circuit.components
-        if component_path(c).startswith(prefix)
-    }
+    return components_under(design.circuit, instance)
 
 
 def local_nets(design: Design, instance: str) -> dict[str, str]:

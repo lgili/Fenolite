@@ -133,6 +133,7 @@ class Live:
         actions: ActionTools | None = None,
         document_builder: Callable[[Document], dict[str, Any]] | None = None,
         dependency_key: Callable[[Document], str] | None = None,
+        placement_binding: Callable[[Document], actions.PlacementBinding | None] | None = None,
     ) -> None:
         self.tree, self.build, self.overlays, self.open_id, self.log = (
             tree,
@@ -154,6 +155,7 @@ class Live:
         self.checks: dict[str, dict[str, Any]] = {}
         """The check findings of a document as placed by its last run (c0302), by document id."""
         self.actions = actions
+        self.placement_binding = placement_binding
         self.token = secrets.token_hex(16) if actions is not None else ""
         """The session token of the action routes (c0303): given only to a guarded ``GET /actions``."""
         self.receipts: list[dict[str, Any]] = []
@@ -179,6 +181,14 @@ class Live:
             why = conflicts.current(context.resolve, doc.file)
             if why is not None:
                 out["actions"].pop("take", None)
+            if context.placement is not None and context.placement.candidates:
+                option = out["actions"]["placement"]["options"]["candidate"]
+                option["type"] = "choice"
+                option["choices"] = list(context.placement.candidates)
+            else:
+                out["actions"].pop("placement", None)
+        else:
+            out["actions"].pop("placement", None)
         return out
 
     def _context(self, doc_id: str) -> actions.Context:
@@ -201,6 +211,9 @@ class Live:
             proposals_view.ids_of(cast("dict[str, Any]", held)) if isinstance(held, dict) else (None, None)
         )
         proposal_context: dict[str, Any] = {}
+        doc = self.tree.document(doc_id)
+        if doc is not None and self.placement_binding is not None:
+            proposal_context["placement"] = self.placement_binding(doc)
         if isinstance(held, dict):
             held = cast("dict[str, Any]", held)
             doc = self.tree.document(doc_id)
@@ -531,6 +544,10 @@ class Live:
             if state is not None:
                 state.proposals_stale = False
                 self._rebuild(doc, state)  # future action contexts use the new IDs too
+        if found.command == "placement" and derived.get("placement"):
+            state = self.states.get(job.doc)
+            if state is not None:
+                self._rebuild(doc, state)
         if "check" in derived:
             with self.lock:
                 self.checks[job.doc] = derived["check"]

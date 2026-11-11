@@ -519,7 +519,7 @@ def _solve(axis: AxisLike, horizontal: bool, own: _Measure, ref: _Measure | None
     return rcentre - centre
 
 
-def _cycles(nodes: Sequence[str], edges: Mapping[str, Sequence[str]]) -> list[list[str]]:
+def dependency_cycles(nodes: Sequence[str], edges: Mapping[str, Sequence[str]]) -> list[list[str]]:
     """The strongly connected components of ``nodes`` that hold a cycle, each in path order (Tarjan)."""
     index: dict[str, int] = {}
     low: dict[str, int] = {}
@@ -698,7 +698,7 @@ def _frame(
         done.add(path)
         _resolve_node(state, frame, path, nodes[path], offset)
     if remaining:
-        cycles = _cycles(list(remaining), remaining)
+        cycles = dependency_cycles(list(remaining), remaining)
         in_cycle = {p for component in cycles for p in component}
         for component in cycles:
             state.issues.append(

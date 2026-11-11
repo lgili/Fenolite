@@ -156,6 +156,21 @@ c0123): a model in which pins share a pad would need every reader of the map to 
 stands for."""
 
 
+def component_path(component: Component) -> str:
+    """The resolved hierarchical identity of a component."""
+    return component.properties.get("fenolite.path", component.path or component.ref)
+
+
+def components_under(circuit: Circuit, instance: str) -> dict[str, Component]:
+    """Components by local path under one resolved hierarchy node."""
+    prefix = f"{instance}/"
+    return {
+        path[len(prefix) :]: component
+        for component in circuit.components
+        if (path := component_path(component)).startswith(prefix)
+    }
+
+
 def pin_pad_map_problems(component: Component) -> tuple[tuple[str, str], ...]:
     """What is wrong with the pin-to-pad map of ``component``, as (pin, message), in map order: a pair
     with an empty pin or pad, a pair that occurs twice, and a pad that two pins name. For a component

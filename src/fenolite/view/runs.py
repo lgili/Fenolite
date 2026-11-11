@@ -22,7 +22,7 @@ from typing import Any, Protocol, cast
 
 from fenolite.view.project import Document, ProjectTree
 
-ALLOWED = ("check", "analyze", "ready", "equivalent", "roles", "proposals")
+ALLOWED = ("check", "analyze", "ready", "equivalent", "roles", "proposals", "placement")
 """The commands a page may run: each is read-only. ``roles`` (change c0305) runs as ``roles --check`` on the
 board, with no option: its writing options are the Confirm roles action of ``actions``. ``proposals``
 (change c0280) runs as ``route --router octilinear --propose`` on a KiCad board, with no option: it writes
@@ -56,6 +56,8 @@ class Choices:
     levels: tuple[int, ...] = ()
     """``equivalent --level``."""
     frames: tuple[str, ...] = ()
+    placement_request: Path | None = None
+    placement_doc: str | None = None
     """``equivalent --frame``."""
 
 
@@ -188,6 +190,7 @@ def request(body: Any, tree: ProjectTree, choices: Choices = Choices()) -> RunRe
         "ready": {"no_kicad"},
         "roles": set[str](),
         "proposals": set[str](),
+        "placement": set[str](),
     }.get(str(command), {"b", "level", "frame"})
     for key in options:
         if key in NEVER or key not in allowed_keys:
@@ -221,6 +224,17 @@ def request(body: Any, tree: ProjectTree, choices: Choices = Choices()) -> RunRe
         if doc.kind != "pcb" or path.suffix.lower() != KICAD_BOARD or is_altium(tree, path):
             return RunRefused(f"proposals reads a KiCad board, and {doc.name} is not one")
         return RunRequest("proposals", doc.id, path, {"path": _relative(tree, path)})
+    if command == "placement":
+        if choices.placement_request is None or choices.placement_doc != doc.id:
+            return RunRefused("this document has no explicit placement request in the session")
+        if doc.kind != "pcb" or path.suffix.lower() != KICAD_BOARD or is_altium(tree, path):
+            return RunRefused("served placement refinement needs a KiCad board")
+        return RunRequest(
+            "placement",
+            doc.id,
+            path,
+            {"path": _relative(tree, path), "request": str(choices.placement_request)},
+        )
     if command == "ready":
         project = _project(tree)
         target = project if project is not None and project.suffix.lower() == KICAD_PROJECT else path
@@ -278,6 +292,7 @@ def offered(choices: Choices) -> dict[str, Json]:
         "ready": {"options": {"no_kicad": {"type": "boolean", "default": False}}},
         "roles": {"options": {}},
         "proposals": {"options": {}},
+        **({"placement": {"options": {}, "doc": choices.placement_doc}} if choices.placement_request else {}),
         "equivalent": {
             "options": {
                 "b": {"type": "document"},

@@ -10,6 +10,7 @@ import { $, esc, showInfo } from "../core/dom";
 import { flip } from "../core/input";
 import { S, st, view } from "../core/state";
 import { fit } from "../core/viewport";
+import { shareNet } from "../sch/project-nets";
 import { set3D } from "../three/view3d";
 import { Icon } from "../ui/icons";
 import { showSection } from "../ui/section";
@@ -34,7 +35,9 @@ export function FindingsPanel({ groups, byG }: { groups: any[], byG: Map<string,
     out.push(<GroupRow key={"g:" + g.id} g={g} idx={idx} />);
     if (!st.ovOpen.has(g.id)) return;
     if (g.note) out.push(<div key={"n:" + g.id} class="fnote">{g.note}</div>);
-    for (const i of idx) out.push(<div key={"o:" + i} class={"ov" + (i === st.selOv ? " sel" : "")} onClick={() => gotoFinding(i)}>{S.overlays[i].label}</div>);
+    for (const i of idx) out.push(<div key={"o:" + i} class={"ov" + (i === st.selOv ? " sel" : "")}
+      role="button" tabIndex={0} onClick={() => gotoFinding(i)}
+      onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); gotoFinding(i); } }}>{S.overlays[i].label}</div>);
   };
   for (const g of groups) { const idx = byG.get(g.id) || []; if (idx.length) rows(g, idx); }
   if (zero.length) {   // c0300: the groups with no finding fold into one line; each stays a result, one click away
@@ -60,7 +63,19 @@ export function gotoFinding(i) {
   const b = o.bbox ? [Math.min(o.bbox[0], ...xs), Math.min(o.bbox[1], ...ys), Math.max(o.bbox[2], ...xs), Math.max(o.bbox[3], ...ys)] : [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
   if (o.layer && (o.layer.startsWith("B.") !== view.mirror)) flip();
   const g = (S.meta.findings || []).find(x => x.id === ovGroup(o));
+  const pads = (o.pad_ids || []).map(id => (S.pads || []).find(p => p.id === id)).filter(Boolean);
+  if (o.component_id) {
+    const matches = S.comps.map((c, ci) => c.id === o.component_id ? ci : -1).filter(ci => ci >= 0);
+    if (matches.length === 1) st.selComp = matches[0];
+  }
+  if (pads.length === 2 && pads[0].net && pads[0].net === pads[1].net) {
+    st.selNet = S.nets.indexOf(pads[0].net);
+    if (st.selNet >= 0) shareNet(pads[0].net);
+  }
   fit([b[0] - 4, b[1] - 4, b[2] + 4, b[3] + 4]); buildFindings();
-  inspect(() => imodel("finding", g ? g.title : ovGroup(o), [isection("Finding", [irow("Group", g ? g.title : ovGroup(o)), irow("Item", o.label),
-    irow("Layer", o.layer), irow("Rule", g && g.note)])], { subtitle: "Review finding", target: { overlay: i, comp: -1, net: -1 } }));
+  const placement = ovGroup(o).startsWith("placement-");
+  inspect(() => imodel("finding", g ? g.title : ovGroup(o), [isection(placement ? "Placement" : "Finding", [
+    irow("Group", g ? g.title : ovGroup(o)), irow("Item", o.label),
+    irow("Pads", pads.map(p => p.label).join(", ")), irow("Layer", o.layer), irow("Rule", g && g.note)
+  ])], { subtitle: placement ? "Placement candidate" : "Review finding", target: { overlay: i, comp: st.selComp, net: st.selNet } }));
 }

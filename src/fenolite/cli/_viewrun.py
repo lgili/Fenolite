@@ -95,7 +95,9 @@ class ChildRunner:
     ) -> None:
         # ``proposals`` (change c0280) is no command of its own: its words are a fixed ``route`` line
         self.catalog = Catalog(
-            commands, read_only=True, only=[name for name in ALLOWED if name != "proposals"]
+            commands,
+            read_only=True,
+            only=[name for name in ALLOWED if name not in ("proposals", "placement")],
         )
         self.root, self.timeout, self.executable = root.resolve(), timeout, executable
         self._preview = preview
@@ -109,6 +111,17 @@ class ChildRunner:
             return ["roles", "--check", "--", str(request.arguments["path"])]
         if request.command == "proposals":  # change c0280: read-only, it writes nothing
             return ["route", "--router", "octilinear", "--propose", "--", str(request.arguments["path"])]
+        if request.command == "placement":
+            return [
+                "place",
+                "--strategy",
+                "optimize",
+                "--constraints",
+                str(request.arguments["request"]),
+                "--dry-run",
+                "--",
+                str(request.arguments["path"]),
+            ]
         return self.catalog.command_line(tool_name(request.command), request.arguments, dry_run=False)
 
     def start(self, request: RunRequest, on_progress: ProgressSink) -> ChildHandle:

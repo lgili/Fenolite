@@ -46,6 +46,17 @@ Loading does not run the operation. Missing/mismatched input hashes remain histo
 a matching hash binds only the named document. Original hints and Locate support reviewing findings,
 not marking them fixed. Export generation alone does not attest successful readback or fabrication readiness.
 
+## Placement proposals
+
+Use `--placement FILE` with the full JSON reply of `place --strategy optimize`.
+The original board shows candidate groups and exact pad links. With
+`--serve --placement-request FILE`, rerun the request after editing anchors.
+`--allow-actions` offers candidate review with explicit plan confirmation.
+
+```fenolite-cmd
+fenolite view board --placement proposals.json --export placement.html --dry-run --json
+```
+
 ## Route proposals
 
 After the critical routes and power copper, inspect the remaining connections with `--proposals run`

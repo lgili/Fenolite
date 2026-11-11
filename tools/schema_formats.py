@@ -155,6 +155,18 @@ FORMATS: dict[str, Format] = {
     "fenolite.package.v0": public("PackageFile"),
     "fenolite.part.v0": public("PartFile"),
     "fenolite.pins.v0": public("PinsFile"),
+    "fenolite.placement-optimization.v0": Format(
+        "public",
+        "fenolite.placement.optimization_contract:OptimizationRequest",
+        "Read-only optimization request.",
+        "result",
+    ),
+    "fenolite.placement-optimization-result.v0": Format(
+        "public",
+        "fenolite.placement.optimization_contract:PlacementOptimization",
+        "Read-only placement shortlist.",
+        "result",
+    ),
     "fenolite.placement-request.v0": public("PlacementRequestFile"),
     "fenolite.placements.v0": public("PlacementsFile"),
     "fenolite.proposal.v0": public("ProposalFile"),

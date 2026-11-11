@@ -6162,6 +6162,19 @@
           "required": false,
           "type": "string"
         },
+        "--candidate": {
+          "aliases": [
+            "--candidate"
+          ],
+          "choices": null,
+          "default": null,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": false,
+          "required": false,
+          "type": "string"
+        },
         "--confirm": {
           "aliases": [
             "--confirm"
@@ -6410,6 +6423,19 @@
           "required": false,
           "type": "string"
         },
+        "--proposal": {
+          "aliases": [
+            "--proposal"
+          ],
+          "choices": null,
+          "default": null,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": false,
+          "required": false,
+          "type": "string"
+        },
         "--region": {
           "aliases": [
             "--region"
@@ -6461,6 +6487,7 @@
             "grid",
             "group",
             "manual",
+            "optimize",
             "regions",
             "reuse"
           ],
@@ -10022,6 +10049,32 @@
           ],
           "choices": null,
           "default": [],
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": false,
+          "required": false,
+          "type": "string"
+        },
+        "--placement": {
+          "aliases": [
+            "--placement"
+          ],
+          "choices": null,
+          "default": null,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": false,
+          "required": false,
+          "type": "string"
+        },
+        "--placement-request": {
+          "aliases": [
+            "--placement-request"
+          ],
+          "choices": null,
+          "default": null,
           "deprecated": null,
           "experimental": false,
           "nargs": null,

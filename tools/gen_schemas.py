@@ -266,6 +266,18 @@ def _targets() -> list[Target]:
             False,
         ),
         Target(
+            "fenolite.placement-optimization.v0",
+            "fenolite.placement.optimization_contract:OptimizationRequest",
+            "schemas/fenolite.placement-optimization.v0.json",
+            False,
+        ),
+        Target(
+            "fenolite.placement-optimization-result.v0",
+            "fenolite.placement.optimization_contract:PlacementOptimization",
+            "schemas/fenolite.placement-optimization-result.v0.json",
+            False,
+        ),
+        Target(
             "fenolite.review.v0", "fenolite.view.review:ReviewFile", "schemas/fenolite.review.v0.json", False
         ),
     ]

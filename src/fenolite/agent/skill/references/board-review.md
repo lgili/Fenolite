@@ -202,4 +202,15 @@ design.waive("circuit.rating-voltage", "C1:voltage", reason="bench is current-li
   in passing. It was not recorded, a later step broke it, and the owner had to say it again. A rule given
   in passing is a decision: write it down at once.
 
+## Propose component positions
+
+```fenolite-cmd
+fenolite place board --strategy optimize --constraints placement.json --dry-run --json
+```
+
+Inspect `result.optimization` on KiCad or Altium. Review a KiCad candidate with
+`--proposal FILE --candidate ID --dry-run` before plan confirmation. For Altium application,
+convert to a KiCad copy and export after placement. Reviewed `escape` intents require a
+path limit and `budget.probe_expansions`. For `gate-loop`, give drive pads then return pads.
+
 Read next: `board-practice`, `board-completion`, `checks`.

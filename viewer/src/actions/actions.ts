@@ -21,7 +21,7 @@ import { buildReceipts } from "../panels/receipts";
 import { markStale, runCall, RUNS } from "../review/runs";
 import { refreshInspector } from "../panels/inspector";
 export const ACTS = { failed:false, enabled:false, token:"", offer:null, doc:null, reason:"", receipts:[], job:null, timer:0, request:null, saved:null, open:null };
-export const ACT_FORMS = ["fill", "tidy", "silk", "testpoints", "export", "bom"];
+export const ACT_FORMS = ["placement", "fill", "tidy", "silk", "testpoints", "export", "bom"];
 function actHeaders() { return { "Content-Type": "application/json", "X-Fenolite-Action": "1", "X-Fenolite-Token": ACTS.token }; }
 export async function actionsLoad() {
   if (!LIVE || PREVIEW_MODE || !DOC) return;

@@ -144,6 +144,8 @@ tracked separately in `frozen-v0.json` while the active CLI writer remains v0.
 | `fenolite.part.v1` | public | `fenolite.cli.file_record_formats:PartFile` | Prepared mirror; v0 remains readable. |
 | `fenolite.pins.v0` | public | `fenolite.cli.file_record_formats:PinsFile` | User-authored input or agent-readable output. |
 | `fenolite.pins.v1` | public | `fenolite.cli.file_record_formats:PinsFile` | Prepared mirror; v0 remains readable. |
+| `fenolite.placement-optimization-result.v0` | public | `fenolite.placement.optimization_contract:PlacementOptimization` | Read-only placement shortlist. |
+| `fenolite.placement-optimization.v0` | public | `fenolite.placement.optimization_contract:OptimizationRequest` | Read-only optimization request. |
 | `fenolite.placement-request.v0` | public | `fenolite.cli.file_formats:PlacementRequestFile` | User-authored input or agent-readable output. |
 | `fenolite.placement-request.v1` | public | `fenolite.cli.file_formats:PlacementRequestFile` | Prepared mirror; v0 remains readable. |
 | `fenolite.placements.v0` | public | `fenolite.cli.file_formats:PlacementsFile` | User-authored input or agent-readable output. |

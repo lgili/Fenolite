@@ -1,0 +1,429 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.placement-optimization.v0",
+  "title": "OptimizationRequest",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "enum": [
+        "fenolite.placement-optimization.v0"
+      ]
+    },
+    "selected": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "budget": {
+      "$ref": "#/$defs/OptimizationBudget"
+    },
+    "constraints": {
+      "$ref": "#/$defs/PlacementConstraints"
+    },
+    "rotations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/AllowedRotations"
+      }
+    },
+    "seed": {
+      "type": "integer"
+    },
+    "intent": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PlacementIntent"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "selected",
+    "budget"
+  ],
+  "$defs": {
+    "AllowedRotations": {
+      "type": "object",
+      "properties": {
+        "footprint_id": {
+          "type": "string"
+        },
+        "rotations": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "footprint_id",
+        "rotations"
+      ]
+    },
+    "Evidence": {
+      "description": "A level plus the oracle that produced it and the hypotheses it depends on.",
+      "type": "object",
+      "properties": {
+        "level": {
+          "enum": [
+            "ALTIUM-VERIFIED(kit)",
+            "KICAD-VERIFIED",
+            "ORACLE-VERIFIED",
+            "CORPUS-VERIFIED",
+            "ALTIUM-VERIFIED(author-report)",
+            "INFERRED",
+            "UNKNOWN",
+            "UNVERIFIED"
+          ]
+        },
+        "oracle": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hypotheses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "GroupRegion": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "footprint_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "outline": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Point"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "footprint_ids",
+        "outline"
+      ]
+    },
+    "MechanicalConstraints": {
+      "type": "object",
+      "properties": {
+        "board_thickness": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "allowed_penetrations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/MechanicalVolume"
+          }
+        },
+        "obstacles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/MechanicalVolume"
+          }
+        },
+        "missing_assembly": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "MechanicalIntent": {
+      "description": "Declared mechanical provenance; a measured coordinate is still not a qualified fit.",
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "frame": {
+          "enum": [
+            "board"
+          ]
+        },
+        "tolerance": {
+          "type": "integer"
+        },
+        "source": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "measured",
+            "estimated",
+            "proposed"
+          ]
+        },
+        "evidence": {
+          "$ref": "#/$defs/Evidence"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "key"
+      ]
+    },
+    "MechanicalReservation": {
+      "description": "Use one existing drill; declared volumes are in the board frame and never create a Hole.",
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "footprint_id": {
+          "type": "string"
+        },
+        "pad_id": {
+          "type": "string"
+        },
+        "volumes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/MechanicalVolume"
+          }
+        },
+        "fixed": {
+          "type": "boolean"
+        },
+        "intent": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MechanicalIntent"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "footprint_id",
+        "pad_id"
+      ]
+    },
+    "MechanicalVolume": {
+      "description": "An explicitly supplied board-frame reservation volume, in integer nm.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "outline": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Point"
+          }
+        },
+        "z_min": {
+          "type": "integer"
+        },
+        "z_max": {
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "exact",
+            "conservative"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "outline",
+        "z_min",
+        "z_max"
+      ]
+    },
+    "OptimizationBudget": {
+      "type": "object",
+      "properties": {
+        "evaluations": {
+          "type": "integer"
+        },
+        "beam_width": {
+          "type": "integer"
+        },
+        "probe_expansions": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "evaluations",
+        "beam_width"
+      ]
+    },
+    "PadIdentity": {
+      "type": "object",
+      "properties": {
+        "footprint_id": {
+          "type": "string"
+        },
+        "pad_id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "footprint_id",
+        "pad_id"
+      ]
+    },
+    "PlacementConstraints": {
+      "type": "object",
+      "properties": {
+        "pitch": {
+          "type": "integer"
+        },
+        "edge_clearance": {
+          "type": "integer"
+        },
+        "gap": {
+          "type": "integer"
+        },
+        "max_candidates": {
+          "type": "integer"
+        },
+        "reservations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/MechanicalReservation"
+          }
+        },
+        "regions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GroupRegion"
+          }
+        },
+        "volumes": {
+          "$ref": "#/$defs/MechanicalConstraints"
+        },
+        "source_frame": {
+          "type": "string"
+        },
+        "source_hashes": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "items": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "PlacementIntent": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "endpoints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PadIdentity"
+          }
+        },
+        "origin": {
+          "enum": [
+            "suggested",
+            "confirmed",
+            "declared"
+          ]
+        },
+        "source": {
+          "type": "string"
+        },
+        "rule_version": {
+          "type": "string"
+        },
+        "rationale": {
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "max_distance_nm": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "kind",
+        "endpoints",
+        "origin",
+        "source",
+        "rule_version",
+        "rationale"
+      ]
+    },
+    "Point": {
+      "description": "A position in nanometres.",
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "integer"
+        },
+        "y": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "x",
+        "y"
+      ]
+    }
+  }
+}

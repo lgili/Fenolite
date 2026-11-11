@@ -26,6 +26,7 @@ import hashlib
 import json
 import re
 import sys
+import tempfile
 import threading
 import time
 import webbrowser
@@ -44,12 +45,13 @@ from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
+from fenolite.cli.placement_view import PlacementOverlay
 from fenolite.core.errors import FormatError
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model.board import area_owners, rule_areas
 from fenolite.model.design import Design
 from fenolite.placement import legality
-from fenolite.view import export, meshes, models, project_review, review, server, themes
+from fenolite.view import actions, export, meshes, models, project_review, review, server, themes
 from fenolite.view import proposals as proposals_view
 from fenolite.view import roles as roles_view
 from fenolite.view.altium_layers import native_view
@@ -167,6 +169,16 @@ def _register(parser: argparse.ArgumentParser) -> None:
         "--proposals",
         metavar="FILE|run",
         help="join a route --propose reply to its board; run: propose first (read-only)",
+    )
+    parser.add_argument(
+        "--placement",
+        metavar="FILE",
+        help="draw a saved place --strategy optimize reply on its original board",
+    )
+    parser.add_argument(
+        "--placement-request",
+        metavar="FILE",
+        help="with --serve: explicit scope for placement refinement and reviewed application",
     )
     parser.add_argument(
         "--report",
@@ -1129,6 +1141,18 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     if original_tree.source == "sheet" and len(tree.documents) > 1 and not args.doc:
         raise FormatError("select one explicit sheet instance with --doc", file=args.path, locator="instance")
     file_items, file_groups = overlay_files(args.overlay, ctx)
+    placement_state: tuple[PlacementOverlay, Path] | None = None
+    placement_request = (ctx.cwd / args.placement_request).resolve() if args.placement_request else None
+    if placement_request is not None and not args.serve:
+        raise CliError("FEN-2001", "--placement-request needs --serve", where="--placement-request")
+    if placement_request is not None and not placement_request.is_file():
+        raise CliError("FEN-3001", "the placement request does not exist", where="--placement-request")
+    if args.placement is not None:
+        try:
+            saved = (ctx.cwd / args.placement).resolve()
+            placement_state = (PlacementOverlay.read(json.loads(saved.read_text(encoding="utf-8"))), saved)
+        except (OSError, ValueError, FormatError, KeyError, TypeError) as exc:
+            raise CliError("FEN-3004", f"--placement: {exc}", where="--placement") from None
     kicad = theme_of(args.theme, ctx)
     store = SceneCache.at(args.cache, tree.root)
     theme_key = json.dumps(kicad, sort_keys=True) if kicad is not None else ""
@@ -1152,6 +1176,24 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         groups = [dict(g) for g in file_groups] if with_files else []
         meta = scene["meta"] | {"notes": list(scene["meta"].get("notes", [])), "findings": groups}
         scene = scene | {"overlays": items, "meta": meta}
+        if placement_state is not None and with_files:
+            placement, _ = placement_state
+            if meta["sha256"] != placement.source_sha256:
+                meta["notes"].append("The saved placement proposal belongs to another board revision.")
+            else:
+                backend = registry.for_path(path)
+                if isinstance(backend, BoardFrame):
+                    design = backend.read(path).content
+                    if (
+                        isinstance(design, Design)
+                        and hashlib.sha256(path.read_bytes()).hexdigest() == meta["sha256"]
+                    ):
+                        try:
+                            added, proposed_groups = placement.overlays(design, backend, scene)
+                        except (KeyError, ValueError) as exc:
+                            raise CliError("FEN-3004", f"--placement: {exc}", where="--placement") from None
+                        items.extend(added)
+                        groups.extend(proposed_groups)
         if not args.no_review:
             add_findings(read_board(path), scene, silk_gap=silk_gap, mask_expansion=mask_expansion)
         return scene
@@ -1159,6 +1201,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     doc = tree.document(args.doc) if args.doc else tree.first_viewable()
     if args.doc and doc is None:
         raise CliError("FEN-2001", f"--doc: the project holds no document {args.doc!r}", where="--doc")
+    if placement_request is not None and actions.availability(tree, doc) is not None:
+        raise CliError("FEN-2001", "--placement-request needs a selected KiCad board", where="--doc")
     reply = check_reply(args.check, ctx, tree, doc.file if doc is not None else None)
     reports = reports_of(args.report, ctx)
     roles = Roles(args.roles, ctx)
@@ -1273,6 +1317,25 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
 
     result["cache"] = {"where": args.cache, "hits": store.hits, "misses": store.misses}
     if args.serve:
+        placement_temp: tempfile.TemporaryDirectory[str] | None = None
+
+        def placement_binding(document: Document) -> actions.PlacementBinding | None:
+            current = placement_state
+            if current is None or placement_request is None or document != doc or document.file is None:
+                return None
+            overlay, proposal = current
+            try:
+                digest = hashlib.sha256(document.file.read_bytes()).hexdigest()
+            except OSError:
+                return None
+            if digest != overlay.source_sha256:
+                return None
+            return actions.PlacementBinding(
+                placement_request,
+                proposal,
+                digest,
+                tuple(candidate.id for candidate in overlay.proposal.candidates),
+            )
 
         def build(path: Path) -> dict[str, Any]:
             built = make(path, with_files=doc is not None and path == doc.file)
@@ -1298,6 +1361,17 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
 
         def derive(path: Path, command: str, envelope: dict[str, Any]) -> dict[str, Any]:
             """What the page shows of a finished run (change c0302)."""
+            nonlocal placement_state, placement_temp
+            if command == "placement":
+                overlay = PlacementOverlay.read(envelope)
+                if placement_temp is None:
+                    placement_temp = tempfile.TemporaryDirectory(prefix="fenolite-placement-")
+                text = json.dumps(envelope, ensure_ascii=False)
+                digest = hashlib.sha256(text.encode()).hexdigest()
+                saved = Path(placement_temp.name) / (digest + ".json")
+                saved.write_text(text, encoding="utf-8")
+                placement_state = (overlay, saved)
+                return {"placement": True}
             if command == "build":  # c0250: replace the failed reply after its reviewed take
                 session[_session_key(tree, path)] = envelope
                 scene = cached(path)
@@ -1346,11 +1420,16 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             refine=None if args.no_models else refine,
             runner=runner,
             runs_enabled=not args.no_run,
-            choices=_choices(),
+            choices=dataclasses.replace(
+                _choices(),
+                placement_request=placement_request,
+                placement_doc=doc.id if doc else None,
+            ),
             derive=derive,
             actions=runner if args.allow_actions else None,
             document_builder=build_document,
             dependency_key=bindings.dependency_key,
+            placement_binding=placement_binding,
         )
         try:
             httpd = server.serve(live, port)
@@ -1368,7 +1447,11 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         if not args.no_browser:
             webbrowser.open(url)
         started = time.monotonic()
-        server.run(live, httpd, until=SERVE_STOP)
+        try:
+            server.run(live, httpd, until=SERVE_STOP)
+        finally:
+            if placement_temp is not None:
+                placement_temp.cleanup()
         result["serve"] = cast(
             "dict[str, Any]", {"url": url, "seconds": round(time.monotonic() - started, 1)}
         )
@@ -1384,6 +1467,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         *([args.check] if args.check and args.check != "run" else []),
         *([args.roles] if args.roles and args.roles != "run" else []),
         *([args.proposals] if args.proposals and args.proposals != "run" else []),
+        *([args.placement] if args.placement else []),
     ]
     return Result(
         result=result,

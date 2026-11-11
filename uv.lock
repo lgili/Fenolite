@@ -254,6 +254,7 @@ source = { editable = "." }
 [package.optional-dependencies]
 dev = [
     { name = "hypothesis" },
+    { name = "jsonschema" },
     { name = "pyright" },
     { name = "pytest" },
     { name = "pytest-xdist" },
@@ -279,6 +280,7 @@ suppliers = [
 requires-dist = [
     { name = "gerbonara", marker = "python_full_version >= '3.12' and extra == 'oracles'", specifier = ">=1.6" },
     { name = "hypothesis", marker = "extra == 'dev'", specifier = ">=6.100" },
+    { name = "jsonschema", marker = "extra == 'dev'", specifier = ">=4.26" },
     { name = "keyring", marker = "extra == 'suppliers'", specifier = ">=25" },
     { name = "kicad-python", marker = "extra == 'kicad-ipc'", specifier = ">=0.8" },
     { name = "mcp", marker = "extra == 'oracles'", specifier = "==2.3.0" },

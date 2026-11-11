@@ -158,6 +158,13 @@ written by `--export`. It is built from the TypeScript sources in `viewer/src/` 
     `{"schema", "groups": [{"id", "title", "color", "note"}], "items": [{"group", "kind": "line" | "path" |
     "point", "points_nm": [[x, y], ...], "label", "layer"}]}`, in the board frame of the model (nanometres,
     Y down).
+  - **Placement proposals.** `--placement FILE` reads a complete saved `place --strategy optimize --json`
+    reply and binds it to the digest of the board shown. Each candidate has a Findings group for move
+    vectors, exact pad relationships, before and after pad distances, scope, layer overflow and
+    routing-probe results. Use the keyboard to open a group and locate its move or pad link.
+    A same-net pad link highlights its exact net. With `--serve --placement-request FILE`,
+    **Refine placement** runs the fixed scope on the current KiCad board. Add `--allow-actions`
+    to choose a current placement candidate and review its plan before confirmation.
 - **Document notes** (left): what the scene had to assume.
 
 ## What the scene shows, and what it states

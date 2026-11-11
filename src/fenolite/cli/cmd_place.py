@@ -50,7 +50,7 @@ from fenolite.backends.kicad.outline import board_outline
 from fenolite.backends.kicad.projectset import project_set, resolve_board
 from fenolite.backends.kicad.replace import PlacementError, footprint_ref, move_footprint
 from fenolite.checks import placement as placement_rules
-from fenolite.cli import place_group, place_reuse
+from fenolite.cli import place_group, place_optimize, place_reuse, plans
 from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli._kicadtool import board_format
 from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
@@ -79,10 +79,13 @@ from fenolite.placement.constrained import PlacementProposal, propose_placement
 from fenolite.placement.constraints import PlacementConstraints, PlacementRequest
 from fenolite.placement.grid import DEFAULT_GAP, DEFAULT_MARGIN, DEFAULT_PITCH
 from fenolite.placement.legality import forbids_footprints
+from fenolite.placement.optimization_contract import OptimizationRequest, PlacementOptimization
+from fenolite.placement.pose_projection import project_poses
 from fenolite.placement.preview import placement_preview
+from fenolite.placement.protection import PlacementScope
 
 HELP = "place staged parts on the board in a grid, or move named parts (edits the board)"
-STRATEGIES = ("grid", "manual", "constrained", "regions", "reuse", "group")
+STRATEGIES = ("grid", "manual", "constrained", "regions", "reuse", "group", "optimize")
 SIDES: tuple[Side, ...] = ("top", "bottom")
 CACHE_DIR = ".fenolite"
 MOVE_HINT = "write --move REF=X,Y[,ROT[,SIDE]] with units, for example --move R1=12mm,8mm,90,top"
@@ -141,7 +144,7 @@ def _register(parser: argparse.ArgumentParser) -> None:
         default=None,
         help="grid (default): place every part that is off the board; manual: only the --move parts; "
         "regions: each domain of parts in its own region of the board; reuse: copy a block of --from; "
-        "group: turn or shift parts with their copper",
+        "group: turn or shift parts with their copper; optimize: propose joint placement without writing",
     )
     parser.add_argument(
         "--move",
@@ -168,7 +171,7 @@ def _register(parser: argparse.ArgumentParser) -> None:
         help="write an illegal placement, and move parts that are locked on the board",
     )
     parser.add_argument(
-        "--constraints", default=None, metavar="FILE", help="constrained: integer JSON request"
+        "--constraints", default=None, metavar="FILE", help="constrained or optimize: integer JSON request"
     )
     parser.add_argument(
         "--max-candidates", type=int, default=None, help="constrained: bounded candidates per part"
@@ -205,6 +208,12 @@ def _register(parser: argparse.ArgumentParser) -> None:
         choices=("x", "y"),
         default=None,
         help="regions: the axis along which the default bands follow each other (default: the longer side)",
+    )
+    parser.add_argument(
+        "--proposal", metavar="FILE", help="optimize: saved result containing the reviewed pose set"
+    )
+    parser.add_argument(
+        "--candidate", metavar="ID", help="optimize: review the exact candidate from --proposal"
     )
     place_reuse.register(parser)
     place_group.register(parser)
@@ -467,17 +476,33 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         if place_group.implied(args)
         else "grid"
     )
+    reviewing = args.candidate is not None or args.proposal is not None
+    if reviewing:
+        if strategy != "optimize" or args.candidate is None or args.proposal is None:
+            raise CliError("FEN-2001", "--candidate and --proposal are paired options for optimize")
+        if args.confirm:
+            # A valid staged confirmation is replayed before the dispatcher calls this command.
+            raise CliError("FEN-4002", "candidate confirmation needs a current staged plan")
+        if not args.dry_run:
+            raise CliError("FEN-2001", "review the candidate with --dry-run first")
     if moves and strategy != "manual":
         raise CliError("FEN-2001", "--move needs --strategy manual", where="--move", hint="drop --strategy")
     if args.only is not None and strategy not in ("grid", "constrained", "regions", "reuse"):
         raise CliError("FEN-2001", "--only narrows the grid strategy", where="--only", hint="drop --only")
     if strategy == "constrained" and args.force:
         raise CliError("FEN-2001", "constrained placement cannot use --force", where="--force")
-    if strategy != "constrained" and any(
-        value is not None for value in (args.constraints, args.max_candidates, args.preview_dir)
+    if strategy not in ("constrained", "optimize") and args.constraints is not None:
+        raise CliError("FEN-2001", "--constraints needs --strategy constrained or optimize")
+    if strategy != "constrained" and (args.max_candidates is not None or args.preview_dir is not None):
+        raise CliError("FEN-2001", "--max-candidates and --preview-dir need --strategy constrained")
+    if strategy == "optimize" and (
+        args.constraints is None
+        or args.force
+        or args.out is not None
+        or any(value is not None for value in (args.pitch, args.margin, args.gap))
     ):
         raise CliError(
-            "FEN-2001", "--constraints, --max-candidates and --preview-dir need --strategy constrained"
+            "FEN-2001", "optimize needs --constraints FILE and takes its geometry options from that file"
         )
     region_options = parse_options(args)
     if region_options.given and strategy != "regions":
@@ -499,10 +524,40 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     if pitch <= 0 or gap < 0 or margin < 0:
         raise CliError("FEN-2001", "--pitch must be positive, and --gap and --margin not negative")
     given = Path(args.path)
-    board_path = resolve_board(given if given.is_absolute() else ctx.cwd / given)
+    given = given if given.is_absolute() else ctx.cwd / given
+    if strategy == "optimize" and given.suffix.lower() in (".pcbdoc", ".prjpcb"):
+        if reviewing:
+            raise CliError(
+                "FEN-2001",
+                "Altium documents support proposal inspection here. "
+                "Use a reviewed KiCad conversion for applying poses.",
+            )
+        return place_optimize.propose_altium(given, ctx.cwd / str(args.constraints))
+    board_path = resolve_board(given)
+    depends: tuple[str, ...] = ()
+    expected: tuple[tuple[str, str | None], ...] = ()
+    if reviewing:
+        cache = board_path.parent / CACHE_DIR
+        depends = depends_on(
+            ctx.cwd,
+            board_path,
+            board_path.with_suffix(".kicad_pro"),
+            board_path.with_suffix(".kicad_dru"),
+            ctx.cwd / str(args.constraints),
+            ctx.cwd / str(args.proposal),
+            *(cache / name for name, _, _ in canonical.LAYER_FILES),
+        )
+        expected = tuple((name, plans.digest_of(ctx.cwd / name)) for name in depends)
     data = board_path.read_bytes()
     reader_issues: list[Issue] = []
-    design = kicad_pcb.read_board(board_path, issues=reader_issues)
+    if strategy == "optimize":
+        try:
+            text = data.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise CliError("FEN-3004", f"{board_path.name} is not UTF-8 text") from exc
+        design = kicad_pcb.read_board(text, file=board_path.name, issues=reader_issues)
+    else:
+        design = kicad_pcb.read_board(board_path, issues=reader_issues)
     assert design.board is not None
     info = kicad_pcb.source_info(design)
     major = info.major if info is not None and info.major in versions.TARGET_MAJORS else ctx.kicad_target
@@ -515,6 +570,73 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     unmoved = design
     paths = _paths(design)
     issues: list[Issue] = [found for found in reader_issues if found.severity != "info"]
+    if strategy == "optimize":
+        request_path = ctx.cwd / str(args.constraints)
+        try:
+            request = cast(
+                OptimizationRequest,
+                canonical.loads(
+                    request_path.read_text(encoding="utf-8"), OptimizationRequest, file=request_path.name
+                ),
+            )
+            saved = None
+            chosen = None
+            if reviewing:
+                saved_path = ctx.cwd / str(args.proposal)
+                raw: Any = json.loads(saved_path.read_text(encoding="utf-8"))
+                if isinstance(raw, dict):
+                    envelope = cast(dict[str, Any], raw)
+                    if envelope.get("command") == "place":
+                        raw = envelope["result"]["optimization"]
+                saved = cast(
+                    PlacementOptimization,
+                    canonical.loads(json.dumps(raw), PlacementOptimization, file=saved_path.name),
+                )
+                matches = [row for row in saved.candidates if row.id == args.candidate]
+                if len(matches) != 1:
+                    raise ValueError("saved result must contain the selected candidate exactly once")
+                chosen = matches[0]
+            locked = _script_locked(_cache(board_path.parent))
+            optimization = place_optimize.propose(
+                _query_outline(design),
+                board_path,
+                request,
+                frozenset(ident for ident, path in paths.items() if path in locked),
+                review=chosen,
+                expected_fingerprint=saved.input_sha256 if saved is not None else None,
+            )
+            review_writes: tuple[PlannedWrite, ...] = ()
+            if reviewing:
+                poses = optimization.candidates[0].poses
+                projected = project_poses(
+                    design, PlacementScope(optimization.movable, tuple(optimization.fixed.items())), poses
+                )
+                emitted = kicad_pcb.write_board(projected, target=major)
+                reread = kicad_pcb.read_board(emitted.text, file=board_path.name)
+                place_optimize.verify_kicad_readback(projected, reread)
+                review_writes = (
+                    PlannedWrite(depends_on(ctx.cwd, board_path)[0], emitted.text.encode(), "kicad_pcb"),
+                )
+        except (OSError, UnicodeError, ValueError, FormatError, KeyError, TypeError) as error:
+            raise CliError("FEN-3004", f"optimization input: {error}", where="--constraints") from None
+        return Result(
+            result={
+                "board": board_path.name,
+                "strategy": strategy,
+                "optimization": canonical.to_data(dataclasses.asdict(optimization)),
+            },
+            issues=tuple(issues),
+            input=InputRef(
+                path=board_path.name,
+                sha256=hashlib.sha256(data).hexdigest(),
+                kind="kicad_pcb",
+                format_version=None,
+            ),
+            evidence=CONSTRAINED_EVIDENCE,
+            writes=review_writes,
+            depends=depends,
+            expected_inputs=expected,
+        )
     definitions = _Definitions(board_path.parent, major)
     moved_ids: list[str] = []
     proposal: PlacementProposal | None = None

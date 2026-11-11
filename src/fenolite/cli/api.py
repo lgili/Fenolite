@@ -135,6 +135,9 @@ class Result:
     """A filtered result for plan storage: transient supplier offers must not outlive their reply.
     Writes, inputs, issues and receipts are always controlled by the dispatcher."""
 
+    expected_inputs: tuple[tuple[str, str | None], ...] = ()
+    """Optional dependency digests captured before review, in the same path frame as depends."""
+
     def __post_init__(self) -> None:
         if self.staged_result is not None:
             if set(self.staged_result) & {"plan", "plan_id", "receipt", "written"}:

@@ -2839,6 +2839,22 @@ when every help page parsed, `UNVERIFIED` otherwise and with `--no-run`.
 
 ## place
 
+`--strategy optimize --constraints FILE` proposes placements for a KiCad board or an Altium
+`.PcbDoc` or single-PCB `.PrjPcb`.
+`FILE` uses `fenolite.placement-optimization.v0`. The additive `result.optimization` field uses
+`fenolite.placement-optimization-result.v0` and carries input fingerprint, fixed scope, work,
+truncation, blockers, partial poses and complete candidates with scores and missing evidence.
+Poses are board-frame integer nanometres and integer microdegrees. The search stages no writes.
+On KiCad input, pass `--proposal FILE --candidate ID --dry-run` to recheck one exact
+candidate and prepare a plan. `FILE` accepts the complete JSON reply or its
+`result.optimization` object. Confirm with the same arguments and
+`--confirm --plan PLAN_ID`. The plan binds the consumed inputs, including board and rule
+dependencies. A required reviewed `escape` intent uses an explicit positive path-length limit and
+`budget.probe_expansions` for a bounded same-layer pad-connection probe. A refused required
+probe blocks the candidate. Native Altium input supports proposals. Application for Altium
+is available through a converted KiCad working copy and a separate Altium export.
+See [placement](placement.md#joint-optimization-proposals-c0477).
+
 `fenolite place PATH [--strategy grid|manual|constrained|regions|reuse|group] [--move REF=X,Y[,ROT[,SIDE]]]...
 [--only REF,…] [--pitch L] [--gap L] [--margin L] [--force] [-o OUT]` moves footprints of the board that `PATH` names
 (a `.kicad_pcb`, a `.kicad_pro` or a project folder) and runs no tool but with `--drc` ("Layout reuse"). It is a mutating command: nothing
@@ -4678,7 +4694,7 @@ commands as tools to a client of the Model Context Protocol on standard input an
 
 ## view
 
-`fenolite view PATH [--doc ID] [--overlay FILE]... [--theme THEME] [--cache user|project|off]
+`fenolite view PATH [--doc ID] [--overlay FILE]... [--placement FILE] [--theme THEME] [--cache user|project|off]
 [--compare OLD] [--variant NAME] [--check FILE|run] [--roles FILE|run] [--proposals FILE|run] [--report FILE]... [--select REF] [--marks FILE] [--serve [--port N] [--no-browser] [--run-timeout SECONDS] [--no-run] [--allow-actions|--edit]] [--export FILE [--docs ID,...]] [--no-review] [--no-models]
 [--silk-gap MM] [--mask-expansion MM]` shows the boards and the sheets of a project without the tool that made them (changes c0176,
 c0177, c0178 and c0193; `docs/viewer.md`). `PATH` is an Altium `.PrjPcb`, a KiCad `.kicad_pro`, a project folder, a
@@ -4844,6 +4860,13 @@ board, an Altium `.SchDoc` or a KiCad `.kicad_sch`, a library: `.SchLib`, `.PcbL
 - **`--overlay FILE`** reads the JSON reply of `fenolite analyze`: every distance row's clearance and
   creepage paths are drawn, and a row that an error or warning names is marked as a finding. It also reads a
   findings file of the schema `fenolite.view_overlay.v0` (change c0193; `docs/viewer.md`).
+- **`--placement FILE`** reads a full `place --strategy optimize --json` reply. A matching board
+  digest enables read-only overlays for candidate moves, pad links, scores and known limits.
+  A stale board shows a document note.
+- **`--placement-request FILE`** binds the selected KiCad board and the explicit optimization
+  scope for the served **Refine placement** run. The page sends no file paths. With
+  `--allow-actions`, it can stage a plan for a current candidate ID. The existing plan dialog
+  and explicit confirmation apply the reviewed bytes. Source edits stale the proposal and plan.
 - **Exit codes.** 0; 2 (`FEN-2001`) for `--serve` with `--export`, a bad `--port`, a port in use (hint: `--port 0`),
   a negative length, an unknown `--doc`, or a
   path that is neither a project file, a board, a sheet, a library nor a drawing; 3 (`FEN-3001`) for a missing

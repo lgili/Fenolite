@@ -1916,6 +1916,13 @@ function buildRunPanel() {
             s.appendChild(b);
             b.onclick = () => { const chosen = picked(s, "kind"); startRun("analyze", chosen.length ? { kinds: chosen } : {}); };
         }));
+    if (cmds.placement?.doc === DOC.id)
+        panel.appendChild(runBox("Placement", s => {
+            const button = document.createElement("button");
+            button.textContent = "Refine placement";
+            button.onclick = () => startRun("placement", {});
+            s.appendChild(button);
+        }));
     if (cmds.ready && !runAltium())
         panel.appendChild(runBox("Readiness", s => {
             s.innerHTML += '<label class="runOpt"><input type="checkbox" id="runNoKicad"> without kicad-cli (ERC and DRC skipped)</label>';
@@ -2082,6 +2089,13 @@ function runFinished(job) {
     RUNS.results.set(job.doc, { ...(RUNS.results.get(job.doc) || {}), [job.command]: job });
     if (job.command === "check")
         RUNS.stale.delete(job.doc); // fresh results for the current files
+    if (job.command === "placement" && job.placement) {
+        invalidateScene(job.doc);
+        if (DOC?.id === job.doc) {
+            openDoc(DOC, true);
+            actionsLoad();
+        }
+    }
     const sc = SCENES.get(job.doc);
     if (sc)
         runApply(sc, job);
@@ -2198,7 +2212,7 @@ function runStrip() {
 // The client, the action forms of the Project review and Waive live here; the dialog is dialogs/plan-review,
 // the list of this session's writes panels/receipts.
 const ACTS = { failed: false, enabled: false, token: "", offer: null, doc: null, reason: "", receipts: [], job: null, timer: 0, request: null, saved: null, open: null };
-const ACT_FORMS = ["fill", "tidy", "silk", "testpoints", "export", "bom"];
+const ACT_FORMS = ["placement", "fill", "tidy", "silk", "testpoints", "export", "bom"];
 function actHeaders() { return { "Content-Type": "application/json", "X-Fenolite-Action": "1", "X-Fenolite-Token": ACTS.token }; }
 async function actionsLoad() {
     if (!LIVE || PREVIEW_MODE || !DOC)
@@ -4375,7 +4389,10 @@ function FindingsPanel({ groups, byG }) {
         if (g.note)
             out.push(preact.h("div", { key: "n:" + g.id, class: "fnote" }, g.note));
         for (const i of idx)
-            out.push(preact.h("div", { key: "o:" + i, class: "ov" + (i === st.selOv ? " sel" : ""), onClick: () => gotoFinding(i) }, S.overlays[i].label));
+            out.push(preact.h("div", { key: "o:" + i, class: "ov" + (i === st.selOv ? " sel" : ""), role: "button", tabIndex: 0, onClick: () => gotoFinding(i), onKeyDown: e => { if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    gotoFinding(i);
+                } } }, S.overlays[i].label));
     };
     for (const g of groups) {
         const idx = byG.get(g.id) || [];
@@ -4420,10 +4437,24 @@ function gotoFinding(i) {
     if (o.layer && (o.layer.startsWith("B.") !== view.mirror))
         flip();
     const g = (S.meta.findings || []).find(x => x.id === ovGroup(o));
+    const pads = (o.pad_ids || []).map(id => (S.pads || []).find(p => p.id === id)).filter(Boolean);
+    if (o.component_id) {
+        const matches = S.comps.map((c, ci) => c.id === o.component_id ? ci : -1).filter(ci => ci >= 0);
+        if (matches.length === 1)
+            st.selComp = matches[0];
+    }
+    if (pads.length === 2 && pads[0].net && pads[0].net === pads[1].net) {
+        st.selNet = S.nets.indexOf(pads[0].net);
+        if (st.selNet >= 0)
+            shareNet(pads[0].net);
+    }
     fit([b[0] - 4, b[1] - 4, b[2] + 4, b[3] + 4]);
     buildFindings();
-    inspect(() => imodel("finding", g ? g.title : ovGroup(o), [isection("Finding", [irow("Group", g ? g.title : ovGroup(o)), irow("Item", o.label),
-            irow("Layer", o.layer), irow("Rule", g && g.note)])], { subtitle: "Review finding", target: { overlay: i, comp: -1, net: -1 } }));
+    const placement = ovGroup(o).startsWith("placement-");
+    inspect(() => imodel("finding", g ? g.title : ovGroup(o), [isection(placement ? "Placement" : "Finding", [
+            irow("Group", g ? g.title : ovGroup(o)), irow("Item", o.label),
+            irow("Pads", pads.map(p => p.label).join(", ")), irow("Layer", o.layer), irow("Rule", g && g.note)
+        ])], { subtitle: placement ? "Placement candidate" : "Review finding", target: { overlay: i, comp: st.selComp, net: st.selNet } }));
 }
 // ---- panels/roles.tsx
 // ================================================================== the Net roles panel (c0305)

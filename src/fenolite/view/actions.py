@@ -14,6 +14,7 @@ shows every action as unavailable. Standard library only.
 
 from __future__ import annotations
 
+import hashlib
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -120,6 +121,11 @@ ACTIONS: Mapping[str, Action] = {
         },
         note="stored as a KiCad DRC exclusion in the project file",
     ),
+    "placement": Action(
+        "place",
+        "Apply placement candidate",
+        {"candidate": Option("placement-candidate", required=True, label="reviewed candidate")},
+    ),
     "move": Action(
         "place",
         "Move or rotate a part",
@@ -217,6 +223,14 @@ class ActionRefused:
 
 
 @dataclass(frozen=True, slots=True)
+class PlacementBinding:
+    request: Path
+    proposal: Path
+    source_sha256: str
+    candidates: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class Context:
     """What the server knows of the document: its board's part references, its session's check findings (as
     the page lists them, ``check_overlay`` order), the nets and groups its role data shows as inferred
@@ -233,6 +247,7 @@ class Context:
     proposal_stale: bool = False
     route_unavailable: str = ""
     resolve: Json | None = None
+    placement: PlacementBinding | None = None
 
 
 def availability(tree: ProjectTree, doc: Document | None) -> str | None:
@@ -306,6 +321,14 @@ def confined(root: Path, value: Any, name: str, *, suffix: str = "") -> str | Ac
 def _typed(key: str, option: Option, value: Any, context: Context, root: Path) -> Any:  # noqa: C901, PLR0911 - one table
     """The checked value of one option, or an :class:`ActionRefused`."""
     kind = option.kind
+    if kind == "placement-candidate":
+        if (
+            not isinstance(value, str)
+            or context.placement is None
+            or value not in context.placement.candidates
+        ):
+            return ActionRefused("choose a current placement candidate of this board")
+        return value
     if kind == "boolean":
         return value if isinstance(value, bool) else ActionRefused(f"{key}: true or false")
     if kind == "length":
@@ -476,6 +499,29 @@ def plan(body: Any, tree: ProjectTree, context: Context = Context()) -> ActionRe
         return ActionRequest(
             name, doc.id, "build", words, doc.file, dict(binding) | {"cwd": str(tree.root.resolve())}
         )
+    if name == "placement":
+        binding = context.placement
+        assert doc.file is not None and binding is not None
+        try:
+            digest = hashlib.sha256(doc.file.read_bytes()).hexdigest()
+        except OSError:
+            return ActionRefused("the placement board is unavailable")
+        if digest != binding.source_sha256:
+            return ActionRefused("the board changed; rerun placement for the current anchors")
+        words = (
+            "place",
+            "--strategy",
+            "optimize",
+            "--constraints",
+            str(binding.request),
+            "--proposal",
+            str(binding.proposal),
+            "--candidate",
+            values["candidate"],
+            "--",
+            doc.file.resolve().relative_to(tree.root.resolve()).as_posix(),
+        )
+        return ActionRequest(name, doc.id, "place", words, doc.file)
     flags = _flags(name, values)
     if isinstance(flags, ActionRefused):
         return flags

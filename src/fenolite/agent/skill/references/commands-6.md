@@ -31,6 +31,8 @@ Back to [the command index](commands.md).
 - `--check FILE|run`: draw the findings of a check, build or sync reply; run: check first
 - `--roles FILE|run`: draw a roles --check reply on its board; run: run it first
 - `--proposals FILE|run`: join a route --propose reply to its board; run: propose first (read-only)
+- `--placement FILE`: draw a saved place --strategy optimize reply on its original board
+- `--placement-request FILE`: with --serve: explicit scope for placement refinement and reviewed application
 - `--report FILE` (repeatable): recorded convert/export JSON for project review; repeat for different commands
 - `--select REF`: open at this part or net
 - `--marks FILE`: review marks: list them; --serve saves new ones there

@@ -168,6 +168,7 @@ def test_offered_lists_every_action(tree: ProjectTree) -> None:
             "export",
             "fill",
             "move",
+            "placement",
             "roles",
             "route-accept",
             "route-reject",

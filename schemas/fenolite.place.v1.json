@@ -48,6 +48,9 @@
         "$ref": "#/$defs/PlaceMovedItem"
       }
     },
+    "optimization": {
+      "$ref": "#/$defs/PlacementOptimization"
+    },
     "placement": {
       "$ref": "#/$defs/PlacePlacement"
     },
@@ -208,6 +211,97 @@
         "max_distance_nm",
         "status",
         "reason"
+      ]
+    },
+    "OptimizationCandidate": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "poses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProposedPose"
+          }
+        },
+        "score": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "missing_inputs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "channel_overflow_by_layer": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true
+        },
+        "probes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PadProbe"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "id",
+        "poses",
+        "score",
+        "missing_inputs"
+      ]
+    },
+    "PadIdentity": {
+      "type": "object",
+      "properties": {
+        "footprint_id": {
+          "type": "string"
+        },
+        "pad_id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "footprint_id",
+        "pad_id"
+      ]
+    },
+    "PadProbe": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "length_nm": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expanded": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "key",
+        "status"
       ]
     },
     "PlaceGroup": {
@@ -1460,6 +1554,174 @@
         "where"
       ]
     },
+    "PlacementIntent": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "endpoints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PadIdentity"
+          }
+        },
+        "origin": {
+          "enum": [
+            "suggested",
+            "confirmed",
+            "declared"
+          ]
+        },
+        "source": {
+          "type": "string"
+        },
+        "rule_version": {
+          "type": "string"
+        },
+        "rationale": {
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "max_distance_nm": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "key",
+        "kind",
+        "endpoints",
+        "origin",
+        "source",
+        "rule_version",
+        "rationale",
+        "required",
+        "max_distance_nm"
+      ]
+    },
+    "PlacementOptimization": {
+      "type": "object",
+      "properties": {
+        "input_sha256": {
+          "type": "string"
+        },
+        "termination": {
+          "enum": [
+            "complete",
+            "budget_exhausted",
+            "cancelled",
+            "missing_inputs"
+          ]
+        },
+        "candidates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OptimizationCandidate"
+          }
+        },
+        "unplaced": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "fixed": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "x-fenolite-map": true
+        },
+        "movable": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sampled": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true
+        },
+        "domain_truncated": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "intent": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResolvedIntent"
+          }
+        },
+        "score_fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "work": {
+          "type": "integer"
+        },
+        "beam_pruned": {
+          "type": "boolean"
+        },
+        "blockers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "partial": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProposedPose"
+          }
+        },
+        "schema": {
+          "enum": [
+            "fenolite.placement-optimization-result.v0"
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "input_sha256",
+        "termination",
+        "candidates",
+        "unplaced",
+        "fixed",
+        "movable",
+        "sampled",
+        "domain_truncated",
+        "intent",
+        "score_fields",
+        "work",
+        "beam_pruned",
+        "blockers",
+        "partial",
+        "schema"
+      ]
+    },
     "Point": {
       "description": "A position in nanometres.",
       "type": "object",
@@ -1475,6 +1737,33 @@
       "required": [
         "x",
         "y"
+      ]
+    },
+    "ProposedPose": {
+      "type": "object",
+      "properties": {
+        "footprint_id": {
+          "type": "string"
+        },
+        "position": {
+          "$ref": "#/$defs/Point"
+        },
+        "rotation": {
+          "type": "integer"
+        },
+        "side": {
+          "enum": [
+            "top",
+            "bottom"
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "footprint_id",
+        "position",
+        "rotation",
+        "side"
       ]
     },
     "ProtocolIssueSummary": {
@@ -1585,6 +1874,50 @@
       "required": [
         "failed",
         "preserved"
+      ]
+    },
+    "ResolvedIntent": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "effective": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PlacementIntent"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "alternatives": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PlacementIntent"
+          }
+        },
+        "problem": {
+          "anyOf": [
+            {
+              "enum": [
+                "conflict",
+                "missing_endpoint"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "key",
+        "effective",
+        "alternatives",
+        "problem"
       ]
     },
     "Unplaced": {

@@ -6,6 +6,27 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Initial placement optimization infrastructure (c0477) resolves schematic pins to physical
+  pads, keeps reviewed intent separate from suggestions, and identifies bypass candidates from
+  both supply and return connections. It also recognizes oscillator and signal-path bindings,
+  projects reviewed power objectives, protects saved copper, and samples bounded pose domains.
+  Candidate projection preserves footprint-local geometry. Bounded joint search and scoped
+  refinement can reconsider early placements and make coordinated changes.
+  The opt-in `place --strategy optimize` CLI generates read-only proposals with ranked poses,
+  work limits and explicit diagnostics for KiCad and Altium boards. A selected KiCad candidate can
+  be reviewed and confirmed by staged plan, including on a copy converted from Altium. A separate
+  export writes a new `.PcbDoc`. Reviewed pad proximity seeds poses near fixed parts,
+  and a channel estimate ranks candidates on supported outlines. Required same-net escape
+  intents probe exact pad routes with shared provisional occupancy. A reviewed gate loop checks
+  its drive and tracked return together. The viewer draws candidate and pad overlays and can
+  rerun an explicit scope and review an exact candidate in a served session. The Python
+  floorplanner binds captured blocks and checks alternatives within assigned regions.
+  The development extra declares the validator used by the placement JSON Schema tests.
+  The static viewer test reads the exported UTF-8 HTML consistently on Windows.
+  Native Altium edits remain gated.
+
 ### Fixed
 
 - Run the KiCad 10 routing completion scale file in a dedicated serial CI partition with the existing time and proposal assertions (c0478).

@@ -165,6 +165,12 @@ export function buildRunPanel() {
     const b = document.createElement("button"); b.id = "runAnalyze"; b.textContent = "Analyze"; s.appendChild(b);
     b.onclick = () => { const chosen = picked(s, "kind"); startRun("analyze", chosen.length ? { kinds: chosen } : {}); };
   }));
+  if (cmds.placement?.doc === DOC.id) panel.appendChild(runBox("Placement", s => {
+    const button = document.createElement("button");
+    button.textContent = "Refine placement";
+    button.onclick = () => startRun("placement", {});
+    s.appendChild(button);
+  }));
   if (cmds.ready && !runAltium()) panel.appendChild(runBox("Readiness", s => {
     s.innerHTML += '<label class="runOpt"><input type="checkbox" id="runNoKicad"> without kicad-cli (ERC and DRC skipped)</label>';
     const b = document.createElement("button"); b.id = "runReady"; b.textContent = "Check readiness"; s.appendChild(b);

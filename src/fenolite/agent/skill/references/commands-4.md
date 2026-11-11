@@ -49,20 +49,22 @@ Back to [the command index](commands.md).
 `fenolite place [OPTIONS] PATH`
 
 - `PATH`: a .kicad_pcb, a .kicad_pro or a project folder
-- `--strategy {constrained,grid,group,manual,regions,reuse}`: grid (default): place every part that is off the board; manual: only the --move parts; regions: each domain of parts in its own region of the board; reuse: copy a block of --from; group: turn or shift parts with their copper
+- `--strategy {constrained,grid,group,manual,optimize,regions,reuse}`: grid (default): place every part that is off the board; manual: only the --move parts; regions: each domain of parts in its own region of the board; reuse: copy a block of --from; group: turn or shift parts with their copper; optimize: propose joint placement without writing
 - `--move REF=X,Y[,ROT[,SIDE]]` (repeatable): move one part (repeatable; implies --strategy manual): lengths with a unit, from the top-left corner of the outline, Y down; ROT in degrees; SIDE top or bottom
 - `--only REF,REF`: grid, regions: place only these parts; reuse: the parts of the block
 - `--pitch L`: grid step (default 0.5mm)
 - `--gap L`: space kept around a part (default 0.5mm)
 - `--margin L`: distance kept from the outline's box (default 1mm)
 - `--force`: write an illegal placement, and move parts that are locked on the board
-- `--constraints FILE`: constrained: integer JSON request
+- `--constraints FILE`: constrained or optimize: integer JSON request
 - `--max-candidates MAX_CANDIDATES` (integer): constrained: bounded candidates per part
 - `--preview-dir DIR`: constrained: write both copper SVG views
 - `--barrier REF[,REF...]` (repeatable): regions: parts (isolators, transformers) that separate the domains; each is placed across the boundary between the two regions it joins (repeatable)
 - `--group NAME=GLOB[,GLOB...]` (repeatable): regions: a domain of the parts whose reference matches a glob, in band order (repeatable; default: the islands of nets once the --barrier parts are removed)
 - `--region NAME=X1,Y1,X2,Y2` (repeatable): regions: the rectangle of the group NAME, lengths with a unit from the top-left corner of the outline, Y down (repeatable; default: one band of the outline per domain)
 - `--split {x,y}`: regions: the axis along which the default bands follow each other (default: the longer side)
+- `--proposal FILE`: optimize: saved result containing the reviewed pose set
+- `--candidate ID`: optimize: review the exact candidate from --proposal
 - `--from REFERENCE`: reuse (implied): the board that holds the block to copy onto the --only parts, the first the anchor
 - `--anchor REF`: reuse: the part the block is fitted on
 - `--map TARGET=REFERENCE` (repeatable): reuse: a part whose reference part has another reference

@@ -5,6 +5,8 @@
 // the strip shows its command, last progress record, elapsed time and Cancel; the results land on the scene of
 // the job's document, and are drawn only while that document is the one shown (the navigation guard).
 // The client and the run state live here; the strip is panels/run-strip, the Run controls panels/project-review.
+import { actionsLoad } from "../actions/actions";
+import { invalidateScene, openDoc } from "../core/documents";
 import { draw } from "../board/draw";
 import { PREVIEW_MODE } from "../core/env";
 import { DOC, MM, PROJECT, S, SCENES } from "../core/state";
@@ -74,6 +76,10 @@ function runFinished(job) {
   }
   RUNS.results.set(job.doc, { ...(RUNS.results.get(job.doc) || {}), [job.command]: job });
   if (job.command === "check") RUNS.stale.delete(job.doc);   // fresh results for the current files
+  if (job.command === "placement" && job.placement) {
+    invalidateScene(job.doc);
+    if (DOC?.id === job.doc) { openDoc(DOC, true); actionsLoad(); }
+  }
   const sc = SCENES.get(job.doc); if (sc) runApply(sc, job);
   const n = (job.envelope?.issues || []).length;
   runSay("done", `${job.command} finished: exit ${job.exit}, ${n} finding${n === 1 ? "" : "s"}.` + (job.note ? ` ${job.note}` : "") + (DOC && DOC.id !== job.doc ? " Results kept for their document." : ""));
