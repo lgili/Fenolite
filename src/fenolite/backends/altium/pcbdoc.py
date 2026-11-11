@@ -531,6 +531,10 @@ class FootprintModel:
     layer: int = 0
     """The mechanical layer (57 to 72) the source body lay on, for a model that comes back with the same
     bytes and placement (change c0464); 0, Mechanical 13 or 14 by the footprint's side."""
+    kept: tuple[tuple[bytes, bytes], ...] = ()
+    """For a generated model that comes back unchanged on its unmoved footprint, the source records of the
+    extruded, cylinder and sphere bodies it stands for, each with its shape-based twin (change c0484): they
+    are written in its place."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -556,6 +560,9 @@ class PlacedBody:
     ``ID`` of its ``Models`` entry; ``None`` for an extruded body."""
     checksum: str = ""
     """The ``MODEL.CHECKSUM`` of a body that names a model; empty, the stand-in."""
+    records: tuple[bytes, bytes] | None = None
+    """A source body's record as read and its shape-based twin (change c0484), written with ``component``
+    in place of the other fields."""
 
 
 def body_vertices(outline: Sequence[Point], frame: Frame) -> list[tuple[int, int]]:
@@ -609,6 +616,11 @@ def body_records(spec: PcbDocSpec, frame: Frame) -> tuple[list[bytes], list[byte
         where = body.body_id or f"body {index}"
         if not 0 <= body.component < len(spec.components):
             raise ValueError(f"{where}: the component index {body.component} names no component")
+        if body.records is not None:  # change c0484: the source's records, with the component index
+            index_bytes = struct.pack("<H", body.component)
+            plain.append(body.records[0][:12] + index_bytes + body.records[0][14:])
+            shape.append(body.records[1][:12] + index_bytes + body.records[1][14:])
+            continue
         vertices = body_vertices(body.outline, frame)
         if len(vertices) < 3:
             raise ValueError(f"{where}: {BODY_NO_OUTLINE}")

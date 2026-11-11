@@ -243,6 +243,15 @@ write each body as a model file (`docs/conversion.md`, "Bodies").
 | A cylinder (type 2) is written as the cylinder in its square outline, from `STANDOFFHEIGHT` to `OVERALLHEIGHT`, when the outline is a square (sides within 1 µm) and the body has no turn about X or Y. A sphere (type 3) is written as the sphere in its square outline, centred between its two heights, when the square's side equals the height span within 1 µm. Any other cylinder or sphere is written as the prism over its outline, the box that Z2 shows holds the shape. A square outline turned with its component keeps its own centre and side | S-1604 (the outline is the square around the shape: 1 mm for the cylinder of radius 0.5 mm, 2 mm for the sphere of radius 1 mm, standoff −1 mm and overall +1 mm) | INFERRED | H-A-IMP-BODY |
 | A type outside 0 to 3 is written as the prism over its outline, with the reason "its model type is not one Fenolite knows" | S-0303 | INFERRED | H-A-IMP-BODY |
 
+Fenolite's choice on the way back (change c0484): the records of the extruded, cylinder and sphere bodies
+of a generated model travel through KiCad as read, each with its `ShapeBasedComponentBodies6` twin, in the
+board property `Fenolite.Altium.Bodies`. The Altium writer writes them, with only the component index of
+the prefix changed (body bytes 7 and 8), when the footprint holds the same model bytes, unmoved, at the same
+place, turn and side; it then embeds no generated model. The outline vertices stay the doubles of the source
+in its board frame, which is right only on a footprint that did not move. On the maintainer's board
+(private, codes and counts only), F2 and F5 then hold the source's body types: 175 model bodies, 18
+extruded bodies and 3 cylinders.
+
 ## Agent observations in AD 24.5 (S-1604)
 
 Part Z ran on AD 24.5.2.23 as an agent run, not a kit form, so these facts carry no native label, and the

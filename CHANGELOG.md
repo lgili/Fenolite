@@ -29,6 +29,12 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Fixed
 
+- **Native bodies are kept through KiCad** (c0484): a conversion from Altium through KiCad and back to Altium
+  writes the source's extruded, cylinder and sphere bodies as their records, instead of the STEP model that
+  KiCad needed in their place. This covers `import --to python` and `build --target altium`. A conversion to
+  KiCad carries the records in the board property `Fenolite.Altium.Bodies`, keyed by the generated model's
+  bytes and its footprint's pose. A footprint that moved, or a model that changed, comes back as before.
+
 - **The source's project layout is kept** (c0483): an Altium project converted to KiCad and back, or
   imported with `import --to python` and built with `build --target altium`, keeps its sheet file names, its
   document folders and order, and the documents Fenolite does not model: output jobs, Draftsman documents,

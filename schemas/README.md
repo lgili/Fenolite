@@ -84,6 +84,7 @@ tracked separately in `frozen-v0.json` while the active CLI writer remains v0.
 
 | ID | Classification | Wire class or owner | Reason |
 |---|---|---|---|
+| `fenolite.altium-bodies.v0` | internal | `internal` | Records of Altium parametric bodies in a KiCad board property (c0484). |
 | `fenolite.altium-frame.v0` | internal | `internal` | Origin of an Altium source in a KiCad board property (c0467). |
 | `fenolite.altium-graduation.v0` | internal | `internal` | Packaged graduation policy. |
 | `fenolite.altium-kit-form.v0` | internal | `internal` | Kit-specific manual form. |

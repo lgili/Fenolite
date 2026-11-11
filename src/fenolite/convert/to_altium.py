@@ -32,11 +32,14 @@ from fenolite.backends.kicad.outline import edge_outline
 from fenolite.convert import altium_links, altium_planes, altium_strings, codes, pads, schematic
 from fenolite.convert.direction import Direction, Options, TargetLimitError, Written
 from fenolite.convert.models import (
+    BODIES_PROPERTY,
     HEIGHTS_PROPERTY,
     IDS_PROPERTY,
     CarriedIds,
     HeightKey,
+    KeptKey,
     footprint_models,
+    read_bodies,
     read_heights,
     read_ids,
     read_layers,
@@ -391,21 +394,28 @@ def _carried_origin(source: SourceProject, design: Design) -> Point | None:
 
 def _stored_models(
     source: SourceProject,
-) -> tuple[dict[HeightKey, tuple[int, int]], CarriedIds, dict[HeightKey, int]]:
+) -> tuple[
+    dict[HeightKey, tuple[int, int]],
+    CarriedIds,
+    dict[HeightKey, int],
+    dict[KeptKey, tuple[tuple[bytes, bytes], ...]],
+]:
     """The stored heights, the source identities and the body layers of the embedded models a conversion to
     KiCad placed (change c0449, task 4.3; ``models.read_heights``, ``models.read_ids`` and, change c0464,
-    ``models.read_layers`` of the board properties ``models.HEIGHTS_PROPERTY`` and ``models.IDS_PROPERTY``);
-    none for a board that does not read or carries none."""
+    ``models.read_layers`` of the board properties ``models.HEIGHTS_PROPERTY`` and ``models.IDS_PROPERTY``),
+    and the source records of the bodies of each generated model (change c0484, ``models.read_bodies`` of
+    ``models.BODIES_PROPERTY``); none for a board that does not read or carries none."""
     from fenolite.backends.kicad.boardcarrier import carried as board_carried
 
     if source.path.suffix != ".kicad_pcb":
-        return {}, CarriedIds(), {}
+        return {}, CarriedIds(), {}, {}
     try:
         found = board_carried(source.path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, FormatError):
-        return {}, CarriedIds(), {}
+        return {}, CarriedIds(), {}, {}
     heights = found.get(HEIGHTS_PROPERTY)
-    return read_heights(heights), read_ids(found.get(IDS_PROPERTY)), read_layers(heights)
+    bodies = read_bodies(found.get(BODIES_PROPERTY))
+    return read_heights(heights), read_ids(found.get(IDS_PROPERTY)), read_layers(heights), bodies
 
 
 def _schematic_dnp(design: Design, sch: Design | None) -> Design:

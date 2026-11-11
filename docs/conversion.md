@@ -494,6 +494,15 @@ outline" with the reason. A body whose geometry is not proved (`projection_unkno
 `body` or `model` loss gives a `convert.lossy` warning, like every loss, and `import --to python` keeps the
 issues and gives the conversion's report as `result.report`, so the import never loses one silently. The import also writes every model file the conversion writes.
 
+The way back writes the source's records again (change c0484). The conversion to KiCad carries, in the
+board property `Fenolite.Altium.Bodies`, the records of the bodies each generated model stands for, as read
+with their shape-based twins, when every one of them is an extruded body, a cylinder or a sphere. The key
+is the SHA-256 of the model's bytes and its footprint's place, turn and side in KiCad, not the footprint's
+uuid, so a script's build keeps them too. A footprint that holds the same model, unmoved in its frame, at
+the same pose gets those records, with its new component index, in place of the model body, and the
+generated STEP is not embedded; the model counts as written under `model`. Any other footprint gets its
+generated model as a model body.
+
 Unsupported imported rules are reported. Libraries and projects use
 relative paths. Loading with DRC (9.0.9 and 10.0.6), agreement with KiCad 10.0.6's own importer and
 the generated schematics' netlist and ERC are KICAD-VERIFIED on the public corpus (2026-10-15); the

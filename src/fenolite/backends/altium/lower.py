@@ -1713,20 +1713,36 @@ def _place_model(
     if rec.to_units(model.height) <= rec.to_units(model.standoff):
         account.skip(MODEL_KIND, model.ident, "the model has no height above the face it stands on")
         return
-    placed_bodies.append(
-        pcbdoc.PlacedBody(
-            component=component,
-            layer=model.layer if model.layer in rec.BODY_LAYERS else rec.body_layer("", bottom=bottom),
-            outline=model.outline,
-            height=model.height,
-            standoff=model.standoff,
-            bottom=bottom,
-            model_id=pcbdoc.record_id(model.model),
-            body_id=model.ident,
-            model=model.model,
-            checksum=model.checksum,
+    if model.kept and all(min(len(a), len(b)) > 14 and a[5] in rec.BODY_LAYERS for a, b in model.kept):
+        # change c0484: the source's extruded, cylinder and sphere bodies in place of their generated model
+        placed_bodies.extend(
+            pcbdoc.PlacedBody(
+                component=component,
+                layer=pair[0][5],
+                outline=model.outline,
+                height=model.height,
+                standoff=model.standoff,
+                bottom=bottom,
+                body_id=f"{model.ident}/{n}",
+                records=pair,
+            )
+            for n, pair in enumerate(model.kept)
         )
-    )
+    else:
+        placed_bodies.append(
+            pcbdoc.PlacedBody(
+                component=component,
+                layer=model.layer if model.layer in rec.BODY_LAYERS else rec.body_layer("", bottom=bottom),
+                outline=model.outline,
+                height=model.height,
+                standoff=model.standoff,
+                bottom=bottom,
+                model_id=pcbdoc.record_id(model.model),
+                body_id=model.ident,
+                model=model.model,
+                checksum=model.checksum,
+            )
+        )
     if model.changed:
         account.change(MODEL_KIND, model.ident, model.changed)
     else:

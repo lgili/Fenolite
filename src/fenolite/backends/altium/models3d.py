@@ -151,4 +151,33 @@ def body_forms(path: Path) -> tuple[BodyForm, ...]:
     return tuple(out)
 
 
-__all__ = ["EVIDENCE", "MODELS", "SHAPES", "STEP", "body_forms", "body_models", "model_records"]
+SHAPE_STORAGE = "ShapeBasedComponentBodies6"
+
+
+def body_records(path: Path) -> dict[str, tuple[bytes, bytes]]:
+    """Per framed component body of the PCB document at ``path`` that belongs to a component, by the
+    locator of ``body_forms``, its record as read with its ``ShapeBasedComponentBodies6`` twin of the same
+    index (change c0484); nothing when the two storages do not hold as many records."""
+    doc = read_pcbdoc(path.read_bytes(), file=path.name)
+    plain = read_bodies(doc.storages.get(BODY_STORAGE, {}).get("Data") or b"", storage=BODY_STORAGE)
+    shapes = read_bodies(doc.storages.get(SHAPE_STORAGE, {}).get("Data") or b"", shape_based=True)
+    if len(plain) != len(shapes):
+        return {}
+    return {
+        f"{BODY_STORAGE}/Data#{a.index}": (a.raw, b.raw)
+        for a, b in zip(plain, shapes, strict=True)
+        if a.framed and b.framed and a.component is not None and a.component == b.component
+    }
+
+
+__all__ = [
+    "EVIDENCE",
+    "MODELS",
+    "SHAPES",
+    "SHAPE_STORAGE",
+    "STEP",
+    "body_forms",
+    "body_models",
+    "body_records",
+    "model_records",
+]

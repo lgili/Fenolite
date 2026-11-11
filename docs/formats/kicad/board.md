@@ -1146,7 +1146,9 @@ change c0464 the Altium id of its body's mechanical layer 1 to 16 when it has on
 whose bodies share one such layer has an entry with that layer and no heights);
 `docs/conversion.md`, "Models to Altium") and their identities as `Fenolite.Altium.ModelIds` (schema
 `fenolite.altium-model-ids.v0`: per model SHA-256 its record's `ID` and `CHECKSUM`, per placed model, keyed
-as the heights are, its body's `MODEL.CHECKSUM`).
+as the heights are, its body's `MODEL.CHECKSUM`), and change c0484 the source records of the bodies of each
+generated model as `Fenolite.Altium.Bodies` (schema `fenolite.altium-bodies.v0`: per model its SHA-256, its
+footprint's place in nm, turn in µdeg and side, and the records as read with their shape-based twins, base64).
 
 ## Authored native TAB value observations
 

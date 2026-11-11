@@ -82,6 +82,9 @@ FORMATS: dict[str, Format] = {
     "fenolite.altium-planes.v0": Format(
         "internal", None, "Internal planes of an Altium source in a KiCad board property (c0466).", "internal"
     ),
+    "fenolite.altium-bodies.v0": Format(
+        "internal", None, "Records of Altium parametric bodies in a KiCad board property (c0484).", "internal"
+    ),
     "fenolite.altium-pours.v0": Format(
         "internal", None, "Poured regions of Altium polygons in a KiCad board property (c0482).", "internal"
     ),

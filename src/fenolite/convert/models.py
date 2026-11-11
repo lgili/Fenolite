@@ -26,6 +26,8 @@ stand-in checksum: no entry of another model can match it.
 
 from __future__ import annotations
 
+import base64
+import binascii
 import hashlib
 import json
 import math
@@ -306,6 +308,91 @@ def read_ids(data: bytes | None) -> CarriedIds:
     )
 
 
+BODIES_PROPERTY = "Fenolite.Altium.Bodies"
+"""The board property that carries the source records of the bodies each generated model stands for
+(change c0484)."""
+BODIES_SCHEMA = "fenolite.altium-bodies.v0"
+KeptKey = tuple[str, int, int, int, str]
+"""A generated model as KiCad holds it on its footprint: the SHA-256 (hex) of its bytes, the footprint's
+place (nm), its turn (µdeg, in [0, 360°)) and its side."""
+
+
+def kept_key(sha256: str, footprint: FootprintInstance) -> KeptKey:
+    """The ``KeptKey`` of the generated model of bytes ``sha256`` on ``footprint``."""
+    return (
+        sha256,
+        footprint.position.x,
+        footprint.position.y,
+        footprint.rotation % FULL_TURN,
+        footprint.side,
+    )
+
+
+def _b64(data: bytes) -> str:
+    return base64.b64encode(data).decode("ascii")
+
+
+def bodies_text(found: Iterable[tuple[KeptKey, tuple[tuple[bytes, bytes], ...]]]) -> str:
+    """The carrier's JSON text: the schema and one entry per generated model, sorted by key."""
+    entries = [
+        {
+            "sha256": sha,
+            "position": [x, y],
+            "rotation": rotation,
+            "side": side,
+            "records": [[_b64(plain), _b64(shape)] for plain, shape in pairs],
+        }
+        for (sha, x, y, rotation, side), pairs in sorted(found)
+    ]
+    return json.dumps({"schema": BODIES_SCHEMA, "models": entries}, sort_keys=True, separators=(",", ":"))
+
+
+def _pairs(value: object) -> tuple[tuple[bytes, bytes], ...] | None:
+    items = cast("list[object]", value) if isinstance(value, list) else []
+    pairs: list[tuple[bytes, bytes]] = []
+    for item in items:
+        pair = cast("list[object]", item) if isinstance(item, list) else []
+        if len(pair) != 2 or not all(isinstance(v, str) for v in pair):
+            return None
+        try:
+            plain, shape = (base64.b64decode(cast(str, v).encode("ascii"), validate=True) for v in pair)
+        except (ValueError, binascii.Error):
+            return None
+        pairs.append((plain, shape))
+    return tuple(pairs) or None
+
+
+def read_bodies(data: bytes | None) -> dict[KeptKey, tuple[tuple[bytes, bytes], ...]]:
+    """The carried body records by ``KeptKey``; nothing for no property, another schema or text that is no
+    carrier. An entry that is not well formed is left out, and so is a key whose entries disagree: that
+    generated model then comes back as a model body."""
+    if not data:
+        return {}
+    try:
+        loaded: object = json.loads(data.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError):
+        return {}
+    root = cast("dict[str, object]", loaded) if isinstance(loaded, dict) else {}
+    if root.get("schema") != BODIES_SCHEMA:
+        return {}
+    found: dict[KeptKey, tuple[tuple[bytes, bytes], ...]] = {}
+    clash: set[KeptKey] = set()
+    for row in _rows(root, "models"):
+        sha, side, rotation = row.get("sha256"), row.get("side"), _int(row.get("rotation"))
+        position = row.get("position")
+        place = [_int(v) for v in cast("list[object]", position)] if isinstance(position, list) else []
+        pairs = _pairs(row.get("records"))
+        if not isinstance(sha, str) or side not in ("top", "bottom") or rotation is None or pairs is None:
+            continue
+        x, y = (place[0], place[1]) if len(place) == 2 else (None, None)
+        if x is None or y is None:
+            continue
+        key = (sha, x, y, rotation % FULL_TURN, str(side))
+        if found.setdefault(key, pairs) != pairs:
+            clash.add(key)
+    return {key: value for key, value in found.items() if key not in clash}
+
+
 @dataclass(frozen=True, slots=True)
 class Placed:
     """What ``place_models`` gives: per footprint instance id its placements, the model files (path below
@@ -325,6 +412,10 @@ class Placed:
     layers: tuple[tuple[HeightKey, int], ...] = ()
     """The key of each generated model whose bodies lie on one mechanical layer 1 to 16, with that layer, for
     the way back (change c0464)."""
+    kept: tuple[tuple[str, str, tuple[tuple[bytes, bytes], ...]], ...] = ()
+    """Per generated model whose every body is an extruded body, a cylinder or a sphere of the source
+    document: its footprint's id, the SHA-256 (hex) of its bytes and those bodies' records as read, each
+    with its shape-based twin, for the way back (change c0484)."""
 
 
 def model_file(library: str, footprint: str, data: bytes) -> str:
@@ -462,6 +553,7 @@ def place_models(
     forms: Iterable[BodyForm] = (),
     documents: Mapping[str, tuple[Iterable[BodyModel], Iterable[BodyForm]]] | None = None,
     frames: Mapping[str, FootprintInstance] | None = None,
+    records: Mapping[str, tuple[bytes, bytes]] | None = None,
 ) -> Placed:
     """The placements of ``footprints``' embedded models (bodies of kind ``model``, matched to ``models`` by
     the body's locator) and of a generated STEP model per footprint for its other bodies, matched to
@@ -470,7 +562,11 @@ def place_models(
     A body read from another document (an Embedded Board Array's copy, change c0428) is matched to the
     models and forms of ``documents`` under its provenance's file name, and its model is placed in the frame
     of ``frames[footprint.id]``, the footprint it was copied from: a copy moves a footprint and its models
-    together, so their relative pose is the source's."""
+    together, so their relative pose is the source's.
+
+    ``records`` (``models3d.body_records``, change c0484) gives the source document's body records by
+    locator: a generated model whose every body is an extruded body, a cylinder or a sphere with a record
+    is listed in ``Placed.kept`` with those records."""
     default = ({model.locator: model for model in models}, {form.locator: form for form in forms})
     held = {
         file: ({m.locator: m for m in found}, {f.locator: f for f in shapes})
@@ -486,8 +582,11 @@ def place_models(
     heights: list[StoredHeights] = []
     ids: list[StoredIds] = []
     generated_layers: list[tuple[HeightKey, int]] = []
+    kept: list[tuple[str, str, tuple[tuple[bytes, bytes], ...]]] = []
+    records = records or {}
     for footprint in footprints:
         found: list[ModelPlacement] = []
+        native: dict[str, tuple[bytes, bytes] | None] = {}
         generated: list[tuple[str, step.Solid, str]] = []
         name = name_of(footprint)
         frame = frames.get(footprint.id, footprint)
@@ -533,6 +632,8 @@ def place_models(
                     changed[body.id] = PLACED
                     bodies_changed[body.id] = CARRIED
                     continue
+            native_form = form_of is default[1] and shape in ("extruded", "cylinder", "sphere")
+            native[body.id] = records.get(where) if native_form else None  # change c0484
             made = body_solid(body, footprint.side, shape, form.rotation if form is not None else (0, 0, 0))
             if made.solid is None:
                 bodies_lost[body.id] = made.reason
@@ -557,9 +658,13 @@ def place_models(
                 for ident, _, reason in generated:
                     bodies_changed[ident] = reason
                 shared = {on.get(ident, 0) for ident, _, _ in generated}
+                digest = hashlib.sha256(data).hexdigest()
                 if len(shared) == 1 and (layer := shared.pop()):  # change c0464: their one layer
-                    key = height_key(hashlib.sha256(data).hexdigest(), (0, 0, 0), (0, 0, 0), footprint.side)
+                    key = height_key(digest, (0, 0, 0), (0, 0, 0), footprint.side)
                     generated_layers.append((key, layer))
+                pairs = [native.get(ident) for ident, _, _ in generated]
+                if all(pairs):  # change c0484: every body has its source records
+                    kept.append((footprint.id, digest, tuple(p for p in pairs if p is not None)))
         if found:
             placements[footprint.id] = tuple(found)
     return Placed(
@@ -572,6 +677,7 @@ def place_models(
         tuple(heights),
         tuple(ids),
         tuple(generated_layers),
+        tuple(kept),
     )
 
 
@@ -682,12 +788,16 @@ def model_name(path: Path) -> str:
     return _NAME_UNSAFE.sub("_", path.name) or "model.step"
 
 
+_UNMOVED = ((0, 0, 0), (0, 0, 0))
+
+
 def footprint_models(
     footprints: Iterable[FootprintInstance],
     root: Path,
     stored: Mapping[HeightKey, tuple[int, int]] | None = None,
     ids: CarriedIds | None = None,
     layers: Mapping[HeightKey, int] | None = None,
+    bodies: Mapping[KeptKey, tuple[tuple[bytes, bytes], ...]] | None = None,
 ) -> dict[str, tuple[pcbdoc.FootprintModel, ...]]:
     """Per footprint instance id, its ``model`` children as the Altium write takes them (change c0449):
     each child whose STEP file the project folder ``root`` holds, unscaled and with a box, as a model with
@@ -698,7 +808,10 @@ def footprint_models(
     A model whose bytes ``ids`` names (``read_ids``) keeps its source record's ``ID`` and ``CHECKSUM``, and
     with its placement its body's ``MODEL.CHECKSUM``; any other model gets the ``ID`` of its bytes and its
     file name (``pcbrecords.model_id``) and the stand-in checksum. A model whose ``HeightKey`` ``layers``
-    holds (``read_layers``, change c0464) goes back on its source body's mechanical layer."""
+    holds (``read_layers``, change c0464) goes back on its source body's mechanical layer. A generated model
+    that ``bodies`` holds (``read_bodies``, change c0484: the same bytes on a footprint at the same place,
+    turn and side), unmoved in its footprint, keeps the source records of the bodies it stands for."""
+    bodies = bodies or {}
     stored = stored or {}
     layers = layers or {}
     ids = ids or CarriedIds()
@@ -748,6 +861,7 @@ def footprint_models(
                     changed=HIDDEN if ref.hidden else "",
                     checksum=ids.bodies.get(placed, ""),
                     layer=layers.get(placed, 0),
+                    kept=bodies.get(kept_key(key.hex(), footprint), ()) if placed[1:3] == _UNMOVED else (),
                 )
             )
         if made:
@@ -757,6 +871,8 @@ def footprint_models(
 
 __all__ = [
     "AltiumPose",
+    "BODIES_PROPERTY",
+    "BODIES_SCHEMA",
     "BODY_KIND",
     "CARRIED",
     "EVIDENCE",
@@ -767,6 +883,7 @@ __all__ = [
     "IDS_PROPERTY",
     "IDS_SCHEMA",
     "KIND",
+    "KeptKey",
     "NOT_CYLINDER",
     "NOT_SPHERE",
     "NO_DATA",
@@ -778,6 +895,7 @@ __all__ = [
     "StoredHeights",
     "StoredIds",
     "altium_pose",
+    "bodies_text",
     "body_solid",
     "footprint_models",
     "height_key",
@@ -789,7 +907,9 @@ __all__ = [
     "model_stem",
     "place_models",
     "placement",
+    "read_bodies",
     "read_heights",
+    "kept_key",
     "read_layers",
     "read_ids",
     "rotation_matrix",

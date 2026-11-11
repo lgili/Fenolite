@@ -611,6 +611,13 @@ def write_altium(source: SourceProject, options: Options) -> Written:
         from fenolite.convert.models import IDS_PROPERTY, ids_text
 
         board_items[IDS_PROPERTY] = ids_text(placed.ids).encode("utf-8")
+    if placed.kept:  # change c0484: the source records of each generated model's bodies, for the way back
+        from fenolite.convert.models import BODIES_PROPERTY, bodies_text, kept_key
+
+        written = {fp.id: fp for fp in design.board.footprints} if design.board is not None else {}
+        board_items[BODIES_PROPERTY] = bodies_text(
+            (kept_key(sha, written[ident]), pairs) for ident, sha, pairs in placed.kept if ident in written
+        ).encode("utf-8")
     arcs = _carried_arcs(source, design)
     if arcs:  # change c0463, task 1.3: the arc vertices of each chorded polygon, for the way back
         from fenolite.convert import zonearcs
@@ -791,6 +798,7 @@ def _placed_models(source: SourceProject, design: Design, name: str, copied: Cop
     none when the source has no board. The bodies of an array's copies take the models of their referenced
     document, in the frame of the footprint they were copied from (change c0428)."""
     from fenolite.backends.altium.backend import AltiumBackend
+    from fenolite.backends.altium.models3d import body_records
     from fenolite.convert.altium_to_kicad import board_document
 
     board, prepared = source.design.board, design.board
@@ -811,6 +819,7 @@ def _placed_models(source: SourceProject, design: Design, name: str, copied: Cop
             if document is None or path.name != document.name
         },
         copied.frames if copied is not None else None,
+        body_records(document) if document is not None else None,  # change c0484
     )
 
 
