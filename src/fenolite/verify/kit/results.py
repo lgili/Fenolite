@@ -51,6 +51,7 @@ JUDGED_CHECKS = frozenset(
         "pour-match",
         "pour-same",
         "pour-kept",
+        "pour-drc",
         "slots-readback",
     }
 )

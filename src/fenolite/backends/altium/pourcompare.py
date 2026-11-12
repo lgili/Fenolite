@@ -49,6 +49,7 @@ from fenolite.core.coords import Point
 from fenolite.core.units import Nm
 from fenolite.geometry.boolean.clipper import ClipperBackend
 from fenolite.geometry.errors import GeometryError
+from fenolite.geometry.index import SpatialIndex
 from fenolite.geometry.polygon import Polygon
 from fenolite.geometry.predicates import FillRule, Location, floor_sqrt
 from fenolite.geometry.shapes import BBox
@@ -269,14 +270,20 @@ class _Copper:
             items = [entry for entry in self.by_layer.get(layer, []) if entry[1] == net]
             copper = [poly for entry in items for poly in entry[2]] + list(pours.get(layer, ()))
             regions = self.backend.union(copper) if copper else ()
+            region_index = SpatialIndex[int].build((region.bbox(), i) for i, region in enumerate(regions))
+            hole_indices = [
+                SpatialIndex[tuple[Point, ...]].build((BBox.of_points(hole), hole) for hole in region.holes)
+                for region in regions
+            ]
             for key, _, _, found, point in items:
                 keys.add(key)
                 find(key)
-                for number, region in enumerate(regions):
-                    if (
-                        region.bbox().intersects(found)
-                        and region.locate(point, FillRule.EVENODD) != Location.OUTSIDE
-                    ):
+                probe = BBox(point.x, point.y, point.x, point.y)
+                for number in region_index.query(found):
+                    region = regions[number]
+                    holes = hole_indices[number].query(probe)
+                    where = region._locate(point, holes, FillRule.EVENODD)  # pyright: ignore[reportPrivateUsage]
+                    if where != Location.OUTSIDE:
                         parent[find(key)] = find((layer, number))
                         break
         grouped: dict[object, set[_Key]] = {}

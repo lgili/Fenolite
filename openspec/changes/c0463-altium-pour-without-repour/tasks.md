@@ -98,11 +98,76 @@ Rules for every task:
   fails on 15 polygons (`-01` 4, `-02` 2, `-04` 4, `-06` 3, `-08` 2): known differences, design D7. The pour of `-08` takes longer than the 60 s of `test_pour_time`; it has its own limit (D7).
   Status: closed as a measured known difference (design D7), 2026-11-07, coordinator decision: 80 of 81 polygons poured, M1 fails on 15 of 81 (`-01` 4, `-02` 2, `-04` 4, `-06` 3,
   `-08` 2). Proof passed (focused set with `FENOLITE_HEAVY=1`).
+  Rerun (2026-11-10, S-2304): the smaller exact cut cells and keep-out restriction correction pour
+  all 33 polygons of row `-08`. The published and fresh native references give the same M1–M4
+  verdicts by index. All 33 meet M1 and the remaining findings are pinned per criterion.
+  Follow-up (2026-11-10, S-2306): on row `-08`, the engine had treated a component keep-out fill with
+  no restrictions as copper. The isolated P14 comparison passes M1 after the engine applies only the
+  actual copper-pour restriction of keep-out primitives. Authored fill controls verify that bytes 0
+  and 24 allow copper and byte 4 excludes it (`test_pour_engine.py`).
+
+- [x] 4.4 Correct the solid-pour 45° relief conductor origins of through-hole copper capsules.
+  S-2308 confirms independently authored horizontal and vertical plated slots and a round-drilled
+  pad with elongated copper. Public row `-06` P7/P9 now meet M1. P6 remains open at 1.47584 and the
+  rectangular pad control still differs. The separate 90° control stopped before a native save.
+  Proof: `test_pour_engine.py`, `test_pourrecord_c0463.py`, and the S-2308 comparison.
+
+- [x] 4.5 Resolve the legacy outer-edge clipping of public row `-02` without removing true board
+  cut-outs. S-2311 confirms seven authored native controls for ordinary and explicit edge clearances,
+  straight and curved outlines, interior and edge-crossing cut-outs, and Keep-Out stroke restrictions.
+  All 14 authored M1 comparisons pass. Public row `-02` P18/P17 pass M1 at 0.222 and 0.188, with M2
+  still open. Row `-03` retains its ordinary clearance around the true cut-out and the separate no-net
+  copper border tracks. Row `-01` uses the original Keep-Out stroke geometry rather than an inferred
+  outer-board obstacle. Proof: `test_pour_engine.py`, `test_pour_rules.py`, focused public census, and
+  the S-2311 native comparison. The remaining D7 differences stay open.
+
+- [x] 4.6 Match the void around a simple top-layer octagonal SMD pad of another net in a solid pour.
+  S-2314 confirms that Altium grows the dimensions before chamfering. All three authored boards pass
+  M1–M4 with six octagons and six rectangles at each gap. The largest M2 difference on public row
+  `-02` P18, 0.113452 mm² around D4, disappears. Two local P18 differences and 17 P17 differences still
+  fail M2. Proof: `test_solid_pour_void_of_a_simple_octagonal_smd_pad` and S-2314.
+
+- [x] 4.7 Scope the 90° solid-pour SMD relief check to the air gaps of facing relief pads of the same
+  net (S-2309). The 36 focused engine tests passed and all 12 native peer-direction probes agree at
+  the east conductor. A full-width receiver allows an extension to be clipped at the facing gap;
+  ten authored circular controls pass M1–M4, as does public row `-06` P6 with neck removal off
+  (S-2317). With its original setting, P6 passes M1 (0.19821) and M3, with M2 and M4 still open.
+
+- [x] 4.8 Validate the native octagonal void through the computed writer's readback check. Preserve
+  the correct void and refuse a known clearance intrusion around the same authored shape. S-2314's
+  three native controls all write and pass readback in one round. Proof:
+  `test_solid_pour_void_of_a_simple_octagonal_smd_pad` and the S-2314 writer comparison.
+
+- [x] 4.9 Apply the native Hole and THPad clearance cells to concentric plated drills in solid pours
+  and in the written copper self-check (S-2312). Compare the authored native controls, exercise
+  acceptance and rejection through the computed writer, and repin the measured public row `-08`
+  outcomes from the integrated engine.
+  Completed 2026-11-11. All 33 polygons pour and pass M1 against the published and fresh native
+  inputs. P75 and P89 clear M3. The per-index findings match the oracle on both references.
+  Published comparison SHA-256 `f713ed740b51525019b7303b74ac5a2f9ee9358e6502bdbe55a965ac15df5ef9`.
+  Native comparison SHA-256 `26a030f5ee4bb22224083549a822e7134a72934fb50caae259eb1c2b10abe74f`.
+- [x] 4.10 Apply the solid polygon area cutoff before adding thermal spokes (S-2321). Prove the
+  small and large clear receivers, an independent `REMOVEDEAD=FALSE` control and native replay.
+  Completed 2026-11-11. The two authored native boards and the K6 reference retain their prior
+  comparisons except for the corrected small clear receiver, which now meets M1–M4. The three
+  focused regression cases and the computed writer pass. Comparison SHA-256
+  `acd9cda4a485e8961c71e12f5cd4843b3ce68139666ee2d18c666d7904ff845f`.
+- [x] 4.11 Match the native chord at acute tips with sufficiently long straight sides (S-2322).
+  Proof: rotated native controls, the same-component guard, focused engine and writer tests,
+  and the isolated public P14/P65 replay.
+  Completed 2026-11-11. All 18 rotated and long-rim native controls pass M1–M4. The guarded
+  replay clears the targeted P14/P65 local pockets and restores P65's missing same-net contact.
+  The focused engine, computed writer, comparison and K6 record tests pass.
+- [x] 4.12 Retain isolated rotated right-angle caps (S-2322). Prove the native diamond matrix,
+  the linked-ring control and the isolated public row `-04` P11 difference.
+  Completed 2026-11-11. The four isolated native controls match exactly. The two linked-ring
+  controls retain their earlier behavior. On P11 the 0.002149315 mm² pocket clears and the
+  separate 0.001654949 mm² pocket remains. The focused engine, writer and K6 records pass.
 
 ## 5. Graduation
 
-- [ ] 5.1 K6 round of `pour`, `pour4` and `pour-hatched` on Altium Designer 24.5. Proof: the kit report,
-  recorded as S-2225.
+- [x] 5.1 K6 round of `pour`, `pour4` and `pour-hatched` on Altium Designer 24.5. Proof: the kit report,
+  recorded as S-2302.
   Recorded 2026-11-07 as S-2225; the task stays open for v0.8. K6.1, K6.4 and K6.6 pass; K6.2 (the reference
   holds no copper after Repour All), K6.3 (M1 and M2 on probe P6) and K6.5 (2 of 21 polygons with zero area)
   fail; K6.7 to K6.12 are not measured (the forced repour hung, then the VM bridge timed out), so `pour4` and
@@ -113,6 +178,16 @@ Rules for every task:
   hold 3 of 3 poured polygons and pass their geometry comparisons. The `pour-hatched` native reference
   holds 10 of 10 and passes K6.12's positive probe check. A separate geometry comparison still
   differs on P8 (self-touching) and P9 (crossing). These are observations from the repour saves.
+  The current computed board reports zero Modified Polygons and zero Violating Polygons in the Polygon
+  Pour Manager. The complete native K6.6 DRC report has 42 raw findings, exactly one naming a polygon:
+  the expected unrouted-net diagnostic on the netless, empty `P5_NONET`. The report check retains all
+  findings and allows only this fixture diagnostic, after verifying the control's net and absence of
+  copper. K6.6 passes the scoped check.
+  Final run (2026-11-10): `fenolite kit verify` exits 0. K6.1–K6.7 and K6.9–K6.12 pass using
+  their native results, including the separate Polygon Pour Manager and Tools repours. K6.8 stays
+  skipped because the setting is absent in Altium 24.5 (S-1572 and S-1579), the approved validation
+  version. Kit SHA-256 `a326436bd40cb796b0dd06849c5a2e086cb805ba5cea0b9b1ce8c36ebb442fa5`;
+  report SHA-256 `31a370dd86708cd7245fae6764840dd483de1051fc88b55098ba60a265f286ef`.
 - [x] 5.2 Flow B with the default keep-out clearance: 28 of 28 polygons poured, and Altium DRC with no
   Repour equal per rule to the DRC after Repour on the same return. Proof: S-2301.
   S-2226 recorded the private board's transition from 0 of 28 to 28 of 28 poured in-process. The private
@@ -128,5 +203,5 @@ Rules for every task:
   `gen_evidence_matrix --check` and `gen_altium_graduation --check` exit 0; `openspec validate --all
   --strict` 151 of 151). The evidence is not raised: `result.pcb.pour.evidence` stays `INFERRED` and
   `altium.zones-poured` keeps naming Repour All, since D6's conditions are not all met (the Repour oracle
-  fails M1 on 15 of 81 polygons, design D7; 5.1 records 3 failures and 6 unmeasured steps in S-2225). Raising it is the
+  fails M1 on the public rows in design D7). The completed K6 and Flow B tasks do not change that requirement. Raising it is the
   first step once K6 (S-2225) and flow B (S-2226) pass and D7 is resolved.

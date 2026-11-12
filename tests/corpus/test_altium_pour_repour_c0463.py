@@ -61,7 +61,7 @@ ORACLE: dict[str, tuple[dict[str, int], dict[str, tuple[str, ...]]]] = {
             "P33 F.Cu": ("M1", "M2", "M3"), "P35 F.Cu": ("M1", "M2", "M3", "M4"),
         },
     ),
-    "altium-third-party-pcbdoc-02": ({}, {"P18 F.Cu": ("M1", "M2"), "P17 B.Cu": ("M1", "M2")}),
+    "altium-third-party-pcbdoc-02": ({}, {"P18 F.Cu": ("M2",), "P17 B.Cu": ("M2",)}),
     "altium-third-party-pcbdoc-03": ({}, {"P0 B.Cu": ("M2", "M3", "M4")}),
     "altium-third-party-pcbdoc-04": (
         {},
@@ -75,8 +75,8 @@ ORACLE: dict[str, tuple[dict[str, int], dict[str, tuple[str, ...]]]] = {
     "altium-third-party-pcbdoc-06": (
         {},
         {
-            "P8 F.Cu": ("M2", "M3"), "P7 F.Cu": ("M1", "M2", "M3", "M4"), "P6 F.Cu": ("M1", "M2", "M3", "M4"),
-            "P0 F.Cu": ("M2",), "P9 B.Cu": ("M1", "M2", "M3"),
+            "P8 F.Cu": ("M2", "M3"), "P7 F.Cu": ("M2", "M4"), "P6 F.Cu": ("M2", "M4"),
+            "P0 F.Cu": ("M2",), "P9 B.Cu": ("M2",),
         },
     ),
     "altium-third-party-pcbdoc-07": (
@@ -88,15 +88,16 @@ ORACLE: dict[str, tuple[dict[str, int], dict[str, tuple[str, ...]]]] = {
         },
     ),
     "altium-third-party-pcbdoc-08": (
-        {"neck-bound": 1},
+        {},
         {
-            "P107 F.Cu": ("M2", "M3", "M4"), "P65 F.Cu": ("M2", "M4"), "P72 F.Cu": ("M2",),
+            "P107 F.Cu": ("M2", "M3", "M4"), "P65 F.Cu": ("M2",), "P72 F.Cu": ("M2",),
             "P74 F.Cu": ("M2",), "P86 F.Cu": ("M2",), "P78 F.Cu": ("M2",), "P83 F.Cu": ("M2",),
             "P82 F.Cu": ("M2",),
             "P81 F.Cu": ("M2",), "P77 F.Cu": ("M2",), "P76 F.Cu": ("M2",), "P69 F.Cu": ("M2",),
-            "P100 B.Cu": ("M1", "M2", "M3", "M4"), "P73 B.Cu": ("M2",), "P14 B.Cu": ("M1", "M2", "M4"),
-            "P85 B.Cu": ("M2",), "P70 B.Cu": ("M2",), "P75 In2.Cu": ("M2", "M3"), "P90 In2.Cu": ("M2",),
-            "P106 In3.Cu": ("M2", "M3", "M4"), "P89 In3.Cu": ("M2", "M3"), "P105 In3.Cu": ("M2", "M3"),
+            "P100 B.Cu": ("M2", "M3", "M4"), "P73 B.Cu": ("M2",), "P14 B.Cu": ("M2",),
+            "P85 B.Cu": ("M2",), "P70 B.Cu": ("M2",),
+            "P102 In2.Cu": ("M2", "M3", "M4"), "P75 In2.Cu": ("M2",), "P90 In2.Cu": ("M2",),
+            "P106 In3.Cu": ("M2", "M3", "M4"), "P89 In3.Cu": ("M2",), "P105 In3.Cu": ("M2", "M3"),
             "P101 In3.Cu": ("M2",), "P56 In3.Cu": ("M2",), "P98 In4.Cu": ("M2", "M3", "M4"),
             "P99 In1.Cu": ("M2", "M3", "M4"),
         },
@@ -120,13 +121,20 @@ refused for a connect or rule scope. Rows 01 to 08 hold the same refusals and fa
 Task 4.3 (S-2227) reads ``-02``: its Clearance with the in-footprint pad-pair flag maps for the pour (which
 pairs no pads), a polygon cut-out keeps no clearance, and a via without a pad joins a polygon of its net.
 All 12 polygons pour; against the repour only the GND planes ``P18 F.Cu`` and ``P17 B.Cu`` fail (M1 ratios
-4.46 and 3.98: Altium pours to the board's edge where its one Clearance gives 0.15 mm, unexplained, a known
-difference). On ``-06`` one polygon moves from ``rule-unmapped`` to ``depends-on-refused``.
+4.46 and 3.98 before S-2311). S-2311 corrected outer clipping where there is no Board Outline Clearance
+record; those polygons now pass M1 at 0.222 and 0.188 and still fail M2. On ``-06`` one polygon moves
+from ``rule-unmapped`` to ``depends-on-refused``.
 
 The pour then reads the Clearance matrices of ``-06`` and ``-08`` cell by cell and the Board Outline
 Clearance matrix of ``-06`` by its outline cells (S-2227): every polygon of ``-06`` pours, and P6, P7 and P9
 fail M1 (1.48, 2.23, 2.45); 32 of 33 of ``-08`` pour, one is refused ``neck-bound``, and P100 and P14 fail
-M1 (2.83, 24.4). Known differences of change c0463 (design D7)."""
+M1 (2.83, 24.4). Known differences of change c0463 (design D7).
+
+The 2026-11-10 native replay (S-2304) has the same normalized reference geometry as S-2224.
+The exact-cell retry measures all 33 polygons and the keep-out restriction correction removes
+M1 from P100/P14 and M4 from P14. P102 meets M1 and fails M2, M3 and M4. Every other
+per-polygon failed-criterion list remains unchanged in that replay. The round plated drill
+correction clears M3 on P75 and P89 on the published and native references."""
 
 
 def _record() -> dict[str, object]:

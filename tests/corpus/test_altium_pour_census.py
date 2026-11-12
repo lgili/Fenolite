@@ -165,8 +165,8 @@ POUR_CENSUS: dict[str, tuple[int, dict[str, int], dict[str, tuple[str, ...]]]] =
         12,
         {},
         {
-            "F.Cu GND_L01_P018": ("M1", "M2"), "F.Cu NETC6_1_L01_P002": ("M2",),
-            "B.Cu GND_L04_P017": ("M1", "M2"),
+            "F.Cu GND_L01_P018": ("M2",), "F.Cu NETC6_1_L01_P002": ("M2",),
+            "B.Cu GND_L04_P017": ("M2",),
         },
     ),
     "altium-third-party-pcbdoc-03": (1, {}, {"B.Cu GND_L02_P000": ("M2", "M3", "M4")}),
@@ -187,9 +187,9 @@ POUR_CENSUS: dict[str, tuple[int, dict[str, int], dict[str, tuple[str, ...]]]] =
         10,
         {},
         {
-            "F.Cu GND_L01_P008": ("M2", "M3"), "F.Cu GND_L01_P007": ("M1", "M2", "M3", "M4"),
-            "F.Cu GND_L01_P006": ("M1", "M2", "M3", "M4"), "F.Cu VBUS_L01_P000": ("M2",),
-            "B.Cu GND_L02_P009": ("M1", "M2", "M3"),
+            "F.Cu GND_L01_P008": ("M2", "M3"), "F.Cu GND_L01_P007": ("M2", "M4"),
+            "F.Cu GND_L01_P006": ("M2", "M4"), "F.Cu VBUS_L01_P000": ("M2",),
+            "B.Cu GND_L02_P009": ("M2",),
         },
     ),
     "altium-third-party-pcbdoc-07": (
@@ -202,12 +202,12 @@ POUR_CENSUS: dict[str, tuple[int, dict[str, int], dict[str, tuple[str, ...]]]] =
     ),
     "altium-third-party-pcbdoc-08": (
         33,
-        {"neck-bound": 1},
+        {},
         {
-            "F.Cu NONET_L-01_P-001": ("M2",), "F.Cu BB_SYS_L01_P065": ("M2", "M4"), "F.Cu \u00b8": ("M2",),
+            "F.Cu NONET_L-01_P-001": ("M2",), "F.Cu BB_SYS_L01_P065": ("M2",), "F.Cu \u00b8": ("M2",),
             "B.Cu NONET_L-01_P-001": ("M2",), "B.Cu 3V3_WIFI_L06_P070": ("M2",),
             "In2.Cu NONET_L-01_P-001": ("M2",), "In3.Cu NONET_L-01_P-001": ("M2",),
-            "In3.Cu \u00b8": ("M2", "M3"), "In4.Cu NONET_L-01_P-001": ("M2", "M3", "M4"),
+            "In3.Cu \u00b8": ("M2",), "In4.Cu NONET_L-01_P-001": ("M2", "M3", "M4"),
             "In1.Cu NONET_L-01_P-001": ("M2", "M3", "M4"),
         },
     ),
@@ -253,9 +253,10 @@ counts stay those above.
 
 Task 4.3 (S-2227) reads ``-02``: the pour reads a Clearance with the in-footprint pad-pair flag as if the
 flag were off (it pairs no pads), a polygon cut-out keeps no clearance, and a via without a pad joins a
-polygon of its net. All 12 polygons pour; the GND planes fail M1 (4.46 and 3.98) by a band along the
-board's edge that Altium pours and its one Clearance keeps free, and ``P002`` fails M2 against the saved
-pour only. On ``-06`` the pad-pair record maps, so one polygon is refused ``depends-on-refused`` instead.
+polygon of its net. All 12 polygons pour. S-2311 corrected the two GND planes' M1 by preserving the
+polygon outline where the document has no Board Outline Clearance rule. The GND planes still fail M2,
+and ``P002`` fails M2 against the saved pour only. On ``-06`` the pad-pair record maps, so one polygon is
+refused ``depends-on-refused`` instead.
 
 Task 5.2 (2026-11-06): on every row no polygon is refused ``rule-scope`` or ``connect-scope``. The polygons
 refused ``rule-unmapped`` (``-06``, ``-08``) were refused for records that the design names and ``map_rules``
@@ -266,7 +267,10 @@ Change c0463, task 4.3 (S-2227), reads those records for the pour (``pour.pour_r
 matrix whose arc and track, or fill and region, cells differ is read cell by cell for the polygon's row, and
 a Board Outline Clearance matrix whose outline and cut-out cells differ keeps the outline's value from both.
 ``POUR_UNREAD`` is empty. Every polygon of ``-06`` pours; of ``-08`` all but one, whose exact neck cut exceeds
-its resource bound (``neck-bound``)."""
+its resource bound (``neck-bound``). One bounded exact retry with smaller cells now measures all 33,
+including P102 (M1 passes; M2–M4 fail against the published regions). The later polygons on the same
+layer share its display name, so the aggregated verdict for that key is unchanged. The round plated drill
+correction clears M3 for P75 and P89. P89 changes the aggregated In3.Cu pin."""
 
 
 @pytest.mark.parametrize("item", DOCUMENTS, ids=lambda item: item.id)

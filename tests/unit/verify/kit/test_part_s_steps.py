@@ -109,6 +109,7 @@ def test_part_s_can_be_checked_without_requalifying_old_native_cases(kit: Path) 
         "pour-match",
         "pour-same",
         "pour-kept",
+        "pour-drc",
         "slots-readback",
     ],
 )

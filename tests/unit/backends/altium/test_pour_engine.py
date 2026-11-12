@@ -12,15 +12,23 @@ import importlib.util
 import pytest
 from _altium_pour import MIL, Board, at, clearance, mm, pad, rect, track, via, zone
 
-from fenolite.backends.altium.pour import PolygonPour, PourReading, PourResult, area, pour_reading
+from fenolite.backends.altium import pcbdoc, pcbrecords
+from fenolite.backends.altium import pour as engine
+from fenolite.backends.altium.adapter.copper import is_keepout, record_restrictions
+from fenolite.backends.altium.cfb import storage_from_paths, write_compound
+from fenolite.backends.altium.pour import PolygonPour, PourReading, PourResult, area, pour_reading, read_pour
+from fenolite.backends.altium.pourcompare import pour_pieces
+from fenolite.backends.altium.read.cfb import open_compound
 from fenolite.backends.altium.read.pcb import PolygonRecord
+from fenolite.backends.altium.read.pcbprims import FillRecord, PadRecord
 from fenolite.backends.altium.read.pcbprops import PropertyRecord
-from fenolite.core.coords import Point
+from fenolite.core.coords import Point, Size
 from fenolite.geometry import Polygon
 from fenolite.geometry.polygon import keyhole_ring
 from fenolite.geometry.predicates import Location, point_in_ring
 from fenolite.geometry.thick import Thick, thick_closer_than, thick_gap_floor, thick_touch
-from fenolite.model.board import Keepout, ZoneSettings
+from fenolite.geometry.transform import rotate_point
+from fenolite.model.board import Graphic, Keepout, Padstack, PadstackLayer, ZoneSettings
 from fenolite.model.rules import Rule, Selector
 
 pytestmark = pytest.mark.skipif(importlib.util.find_spec("pyclipper") is None, reason="needs the geo extra")
@@ -93,6 +101,159 @@ def test_clearance_around_a_pad_of_another_net() -> None:
     assert thick_gap_floor(_thick(piece), vin) <= mm(0.3) + ARC
 
 
+@pytest.mark.parametrize("intrudes", [False, True])
+def test_solid_pour_void_of_a_simple_octagonal_smd_pad(
+    monkeypatch: pytest.MonkeyPatch, intrudes: bool
+) -> None:
+    """The pad dimensions grow by clearance before its corners are cut (S-2314)."""
+    board = Board(
+        zones=(zone("z1", "GND"),),
+        pads=(
+            pad("octagon", "OTHER", 10, 10, size=(1.5, 0.75)),
+            pad("rectangle", "OTHER", 20, 10, size=(1.5, 0.75)),
+        ),  # fmt: skip
+        vias=(via("tie", "GND", 30, 20),),
+        rules=(clearance(0.2),),
+    )
+    spec = board.spec()
+    first = board.base().document.pads[0]
+    assert isinstance(first, PadRecord) and first.prefix.net is not None
+    octagon = pcbrecords.pad_record(
+        name=first.name, layer=first.prefix.layer, x=first.x, y=first.y, size=first.size_top,
+        shape=3, rotation=first.rotation, net=first.prefix.net,
+    )  # fmt: skip
+    write = pcbdoc._write
+
+    def authored_write(*args, **kwargs):
+        # Inject the authored raw pad on both passes, leaving the normal writer/self-check in place.
+        source = open_compound(write(*args, **kwargs))
+        streams = {key: source.read(key) for key in source.streams()}
+        assert streams["Pads6/Data"].count(first.raw) == 1
+        streams["Pads6/Data"] = streams["Pads6/Data"].replace(first.raw, octagon, 1)
+        return write_compound(storage_from_paths(streams))
+
+    def with_intrusion(reading, **options):
+        result = pour_reading(reading, **options)
+        intrusion = Polygon(tuple(_flip(p) for p in rect(10.78, 10.41, 10.8, 10.43)))
+        return PourResult(
+            tuple(
+                dataclasses.replace(p, pieces=(*p.pieces, intrusion)) if p.poured else p
+                for p in result.polygons
+            )
+        )
+
+    monkeypatch.setattr(pcbdoc, "_write", authored_write)
+    if intrudes:
+        monkeypatch.setattr(engine, "pour_reading", with_intrusion)
+    data = pcbdoc.write_pcbdoc_result(spec, filename="pour.PcbDoc", pour="computed")
+    reading = read_pour(data.data)
+    assert isinstance(reading.document.pads[0], PadRecord) and reading.document.pads[0].shape_top == 3
+    assert data.pour is not None
+    if intrudes:
+        assert data.pour.refused == (("copper-check", "z1", "F.Cu"),)
+        assert not pour_pieces(reading, 0)
+        return
+    assert data.pour.poured == 1 and not data.pour.refused
+    copper = dataclasses.replace(_of(pour_reading(reading), "GND"), pieces=pour_pieces(reading, 0))
+    assert _covered(copper, at(10.87, 10.5))
+    assert not _covered(copper, at(20.87, 10.5))
+    assert not _covered(copper, at(10.8, 10.429))
+    assert _covered(copper, at(10.97, 10))
+
+
+def _round_drill_board(diameter: float, *, own: bool, th: int, hole: int) -> pcbdoc.PcbDocSpec:
+    layer = "In1.Cu"
+    stack = ("F.Cu", layer, "In2.Cu", "B.Cu")
+    drilled = pad("p1", "GND" if own else "VIN", 20, 15, shape="circle", size=(3.4, 3.4),
+                  kind="thru_hole", drill=2)  # fmt: skip
+    sizes = (3.4, diameter, 3.4, 3.4)
+    parts = tuple(
+        PadstackLayer(name, "circle", Size(mm(size), mm(size)))
+        for name, size in zip(stack, sizes, strict=True)
+    )
+    drilled = dataclasses.replace(
+        drilled,
+        pad=dataclasses.replace(drilled.pad, layers=stack, padstack=Padstack(id="stack", layers=parts)),
+    )
+    settings = ZoneSettings(thermal_gap=mm(0.25), thermal_spoke_width=mm(0.25), min_thickness=mm(0.15))
+    board = Board(
+        zones=(zone("z1", "GND", layer=layer, settings=settings),),
+        pads=(drilled,),
+        vias=(via("v1", "GND", 30, 20),),
+        rules=(clearance(0.1524),),
+    ).spec()
+    (rule,) = board.design_rules
+    matrix = (
+        f"ClearanceObj_THPad-ClearanceObj_Poly:{th * 10_000};"
+        f"ClearanceObj_Hole-ClearanceObj_Poly:{hole * 10_000}"
+    )
+    keys = tuple((k, matrix if k == "OBJECTCLEARANCES" else v) for k, v in rule.keys)
+    return dataclasses.replace(
+        board, copper_layers=stack, design_rules=(dataclasses.replace(rule, keys=keys),)
+    )
+
+
+def _round_drill_pour(diameter: float, *, own: bool, th: int = 6, hole: int = 6) -> PolygonPour:
+    board = _round_drill_board(diameter, own=own, th=th, hole=hole)
+    data = pcbdoc.write_pcbdoc_result(
+        board, filename="round-drill.PcbDoc", pour="computed", pour_regions=False
+    )
+    return _of(pour_reading(read_pour(data.data)), "GND", "In1.Cu")
+
+
+@pytest.mark.parametrize(
+    ("diameter", "th", "hole", "radius"),
+    [(1.6, 6, 6, 1.1524), (2, 16, 6, 1.1524), (2.4, 6, 16, 1.4064), (2.4, 16, 6, 1.6064)],
+)
+def test_clearance_of_a_concentric_round_plated_drill(
+    diameter: float, th: int, hole: int, radius: float
+) -> None:
+    """S-2312: a pad with no annular ring takes the hole cell. A pad with a ring keeps both clearances."""
+    pour = _round_drill_pour(diameter, own=False, th=th, hole=hole)
+    assert not _covered(pour, at(20 + radius - 0.03, 15))
+    assert _covered(pour, at(20 + radius + 0.03, 15))
+
+
+def test_relief_air_gap_reaches_a_concentric_round_plated_drill() -> None:
+    """S-2312: the own-net relief of a pad below drill size matches the pad equal to drill size."""
+    below = _round_drill_pour(1.6, own=True)
+    equal = _round_drill_pour(2, own=True)
+    above = _round_drill_pour(2.4, own=True)
+    assert below.pieces == equal.pieces
+    assert above.pieces != equal.pieces
+
+
+def test_written_pour_keeps_the_hole_cell_for_a_plated_pad_without_an_annular_ring() -> None:
+    """A correctly poured 6 mil Hole void survives the writer self-check even with a 16 mil TH Pad cell."""
+    board = _round_drill_board(2, own=False, th=16, hole=6)
+    written = pcbdoc.write_pcbdoc_result(board, filename="round-drill.PcbDoc", pour="computed")
+    assert written.pour is not None and not written.pour.refused
+    document = read_pour(written.data).document
+    (polygon,) = document.polygons
+    assert polygon.layer == "MID1"
+    assert document.regions
+
+
+@pytest.mark.parametrize(("diameter", "hole"), [(1.6, 6), (2.4, 16)])
+def test_written_pour_refuses_copper_too_close_to_the_drill(
+    monkeypatch: pytest.MonkeyPatch, diameter: float, hole: int
+) -> None:
+    """The checker reads the real drill even if the test engine made its void with a smaller drill."""
+    from fenolite.backends.altium import pour as engine
+
+    real = engine.pour_reading
+
+    def smaller(reading: PourReading, **options: object) -> PourResult:
+        pads = tuple(dataclasses.replace(pad, drill=mm(1.5)) if pad.drill else pad for pad in reading.pads)
+        return real(dataclasses.replace(reading, pads=pads), **options)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(engine, "pour_reading", smaller)
+    board = _round_drill_board(diameter, own=False, th=6, hole=hole)
+    written = pcbdoc.write_pcbdoc_result(board, filename="round-drill.PcbDoc", pour="computed")
+    assert written.pour is not None
+    assert written.pour.refused == (("copper-check", "z1", "In1.Cu"),)
+
+
 def test_board_edge_and_its_clearance() -> None:
     """Input I17: a polygon on the board's outline keeps the Board Outline Clearance from the edge."""
     edge = Rule(id="r_edge", name="edge", kind="edge_clearance", selector_a=Selector("all"), min=mm(0.5))
@@ -107,6 +268,69 @@ def test_board_edge_and_its_clearance() -> None:
     inset = mm(0.5) - 3  # the rule as it reads back from the document's unit
     assert box.x0 - x0 >= inset and box.y0 - y0 >= inset and x1 - box.x1 >= inset and y1 - box.y1 >= inset
     assert box.x0 - x0 <= mm(0.5) + ARC
+
+
+@pytest.mark.parametrize("cutout", [False, True])
+def test_generic_clearance_keeps_outer_overhang_and_board_cutout(cutout: bool) -> None:
+    """An ordinary clearance does not clip the outer board shape. A real cut-out still excludes copper."""
+    board = Board(
+        zones=(zone("z1", "GND", rect(-2, 4, 12, 14)),),
+        vias=(via("v1", "GND", 8, 9),),
+        rules=(clearance(0.15),),
+    )
+    spec = dataclasses.replace(board.spec(), cutouts=(rect(4, 6, 6, 11),) if cutout else ())
+    data = pcbdoc.write_pcbdoc_result(spec, filename="pour.PcbDoc", pour="computed", pour_regions=False)
+    result = pour_reading(read_pour(data.data))
+    copper = _of(result, "GND")
+    assert _covered(copper, at(-1, 9))
+    assert _covered(copper, at(0.05, 9))
+    assert _covered(copper, at(5, 8)) is not cutout
+    assert _covered(copper, at(6.05, 8)) is not cutout
+    assert _covered(copper, at(6.25, 8))
+
+
+def test_no_net_copper_border_still_keeps_generic_clearance() -> None:
+    """A copper track on the board outline keeps its ordinary clearance, independently of that outline."""
+    settings = ZoneSettings(island_removal="never")
+    board = Board(
+        zones=(zone("z1", "GND", rect(-2, 4, 12, 14), settings=settings),),
+        vias=(via("v1", "GND", 8, 9),),
+        tracks=(track("border", None, (0, 0), (0, 30), width=0.2),),
+        rules=(clearance(0.3),),
+    )
+    _, result = board.pour()
+    copper = _of(result, "GND")
+    assert not _covered(copper, at(0.2, 9))
+    assert _covered(copper, at(0.5, 9))
+    assert _covered(copper, at(-1, 9))
+
+
+@pytest.mark.parametrize("restrictions", [None, 0, 4])
+def test_keepout_layer_strokes_restrict_copper_on_every_layer(restrictions: int | None) -> None:
+    """A free Keep-Out track and arc affect all copper layers with the pour bit or in the legacy form."""
+    layer = "Altium.KeepOut"
+    line = Graphic(id="kl", kind="line", layer=layer, points=(at(0, 0), at(0, 30)), width=mm(0.2))
+    arc = Graphic(id="ka", kind="arc", layer=layer, points=(at(4, 5), at(5, 9), at(4, 13)), width=mm(0.2))
+    shape = rect(-2, 4, 12, 14)
+    board = Board(
+        zones=(zone("z1", "GND", shape), zone("z2", "GND", shape, layer="B.Cu")),
+        vias=(via("v1", "GND", 8, 9),),
+        rules=(clearance(0.15),),
+    )
+    spec = dataclasses.replace(
+        board.spec(),
+        graphics=(line, arc),
+        keepout_strokes={} if restrictions is None else {line.id: restrictions, arc.id: restrictions},
+        layer_ids={layer: pcbrecords.KEEPOUT_LAYER},
+    )
+    data = pcbdoc.write_pcbdoc_result(spec, filename="pour.PcbDoc", pour="computed", pour_regions=False)
+    result = pour_reading(read_pour(data.data))
+    for side in ("F.Cu", "B.Cu"):
+        copper = _of(result, "GND", layer=side)
+        assert _covered(copper, at(-1, 9)) is (restrictions == 0)
+        assert _covered(copper, at(0.1, 9)) is (restrictions == 0)
+        assert _covered(copper, at(5.1, 9)) is (restrictions == 0)
+        assert _covered(copper, at(6, 9))
 
 
 def test_keep_out_is_a_void() -> None:
@@ -137,6 +361,28 @@ def test_polygon_cutout_keeps_no_clearance() -> None:
     assert not _covered(gnd, at(12, 12))
     assert not _covered(gnd, at(13.95, 12))
     assert _covered(gnd, at(14.05, 12))
+
+
+@pytest.mark.parametrize(("restrictions", "pours_inside"), [(0, True), (24, True), (4, False)])
+def test_a_keepout_fill_applies_only_its_pour_restriction(restrictions: int, pours_inside: bool) -> None:
+    """A keep-out fill is a rule area. Only its copper-pour bit can remove copper (S-1711)."""
+    graphic = Graphic(id="k1", kind="rect", layer="F.Cu", points=(at(10, 10), at(14, 14)), filled=True)
+    board = Board(
+        zones=(zone("z1", "GND"),),
+        vias=(via("v1", "GND", 30, 20),),
+        rules=(clearance(0.2),),
+    )
+    spec = dataclasses.replace(board.spec(), graphics=(graphic,), keepout_strokes={graphic.id: restrictions})
+    written = pcbdoc.write_pcbdoc_result(
+        spec, filename="keepout-fill.PcbDoc", pour="computed", pour_regions=False
+    )
+    reading = read_pour(written.data)
+    (fill,) = reading.document.fills
+    assert isinstance(fill, FillRecord) and is_keepout(fill) and record_restrictions(fill) == restrictions
+    gnd = _of(pour_reading(reading), "GND")
+    assert _covered(gnd, at(12, 12)) is pours_inside
+    assert _covered(gnd, at(14.1, 12)) is pours_inside
+    assert _covered(gnd, at(14.5, 12))
 
 
 def test_a_via_without_a_pad_joins_its_polygon() -> None:
@@ -182,6 +428,84 @@ def test_relief_of_a_pad_of_the_polygons_net() -> None:
         assert not _covered(gnd, at(20 + dx, 15 + dy)), (dx, dy)
     pad_shape = _pad_shape(reading, 20, 15)
     assert any(thick_touch(_thick(piece), pad_shape) for piece in gnd.pieces)
+
+
+@pytest.mark.parametrize(
+    ("peer_x", "lateral", "neck", "east_spoke"),
+    (
+        (None, False, True, True),
+        (21.75, False, True, False),
+        (22.5, False, True, True),
+        (20.0, True, True, True),
+        (21.75, False, False, True),
+    ),
+)
+def test_solid_smd_relief_avoids_the_gap_of_a_facing_smd_pad(
+    peer_x: float | None, lateral: bool, neck: bool, east_spoke: bool
+) -> None:
+    """A forward peer gap can suppress a conductor when neck removal narrows its receiver."""
+    pads = [pad("main", "GND", 20, 15, size=(1.72, 0.48))]
+    if lateral:
+        pads.append(pad("peer", "GND", 20, 15.54, size=(1.2, 0.42)))
+    elif peer_x is not None:
+        pads.append(pad("peer", "GND", peer_x, 14.64, shape="circle", size=(0.51, 0.51)))
+    settings = ZoneSettings(thermal_gap=mm(0.3), thermal_spoke_width=mm(0.2), min_thickness=mm(0.15))
+    board = Board(
+        zones=(zone("z1", "GND", settings=settings),),
+        pads=tuple(pads),
+        tracks=(
+            track("trunk", "GND", (20, 15), (21.15, 15), 0.2),
+            track("up", "GND", (21.15, 15), (21.15, 15.6), 0.2),
+            track("down", "GND", (21.15, 15), (21.15, 14.64), 0.2),
+        ),
+        rules=(clearance(0.3),),
+    )
+    reading = board.base()
+    if not neck:
+        reading = _with_record(reading, REMOVENECKS="FALSE")
+    poured = _of(pour_reading(reading), "GND")
+    assert _covered(poured, at(21, 15)) is east_spoke
+    assert _covered(poured, at(19, 15))
+
+
+@pytest.mark.parametrize("rotation", (0, 90_000_000))
+def test_solid_angled_relief_starts_at_the_end_of_a_plated_capsule(rotation: int) -> None:
+    """The plated capsule reaches toward each spoke from its own end (S-2308)."""
+    slot = pad("slot", "GND", 10, 15, shape="oval", size=(1.6, 0.8), kind="thru_hole", drill=0.4,
+               rotation=rotation)  # fmt: skip
+    slot = dataclasses.replace(
+        slot,
+        pad=dataclasses.replace(
+            slot.pad,
+            padstack=Padstack(id="slot-stack", hole_shape="slot", hole_length=mm(1.2)),
+        ),
+    )
+    control = pad("round-hole", "GND", 30, 15, shape="oval", size=(1.6, 0.8), kind="thru_hole", drill=0.4)
+    settings = ZoneSettings(thermal_gap=mm(0.3), thermal_spoke_width=mm(0.3))
+    reading = Board(
+        zones=(zone("z", "GND", settings=settings),), pads=(slot, control), rules=(clearance(0.3),)
+    ).base()
+    rules = tuple(
+        dataclasses.replace(
+            rule,
+            record=dataclasses.replace(
+                rule.record,
+                fields=tuple(
+                    (key, "45 Angle" if key.endswith("POLYGONRELIEFANGLE") else value)
+                    for key, value in rule.record.fields
+                ),
+            ),
+        )
+        for rule in reading.document.rules
+    )
+    reading = dataclasses.replace(reading, document=dataclasses.replace(reading.document, rules=rules))
+    gnd = _of(pour_reading(reading), "GND")
+    x, y = (0.82, 0.42) if rotation == 0 else (0.42, 0.82)
+    for sx, sy in ((1, 1), (1, -1), (-1, 1), (-1, -1)):
+        assert _covered(gnd, at(10 + sx * x, 15 + sy * y))
+    assert not _covered(gnd, at(10.18, 15.18))
+    assert _covered(gnd, at(30.82, 15.42))  # the same copper shape around a round hole uses its end
+    assert not _covered(gnd, at(30.18, 15.18))
 
 
 def test_relief_conductor_over_its_pad_outside_the_outline() -> None:
@@ -267,6 +591,97 @@ def test_necks_below_and_above_the_width() -> None:
         assert _covered(_of(result, "GND"), at(middle, 15)) is kept, width
 
 
+def test_a_short_neck_between_round_clearance_rims_is_cut_by_chords() -> None:
+    """The two narrow copper lobes beside the severed kit P3 neck are removed, and the wider neck stays."""
+    board = Board(
+        zones=(zone("z1", "GND", rect(1, 1.5, 39, 28.5)),),
+        tracks=(
+            track("a", "VIN", (16, 1), (16, 6), width=0.3),
+            track("b", "VIN", (16, 6.8143), (16, 12), width=0.3),
+            track("c", "VIN", (16, 12.8397), (16, 29), width=0.3),
+        ),
+        vias=(via("v1", "GND", 30, 25),),
+        rules=(clearance(0.2),),
+    )
+    reading = _with_record(board.base(), ARCRESOLUTION="0.125mil")
+    gnd = _of(pour_reading(reading), "GND")
+    assert not _covered(gnd, at(15.952, 6.40715))
+    assert not _covered(gnd, at(16.048, 6.40715))
+    assert _covered(gnd, at(16, 12.41985))
+
+
+@pytest.mark.parametrize(
+    ("angle", "rotation", "chord_reach"),
+    [(30, 17, 245_346), (45, 0, 165_935), (45, 17, 165_935),
+     (60, 17, 127_001), (75, 0, 104_312), (85, 17, 93_993)],
+)  # fmt: skip
+def test_an_acute_corner_chord_meets_both_long_sides(angle: int, rotation: int, chord_reach: int) -> None:
+    """S-2322 measures the same length to the native chord on each of two straight sides."""
+    apex = at(10, 10)
+
+    def offset(length: int, degrees: int) -> Point:
+        return rotate_point(Point(length, 0), (degrees + rotation) * 1_000_000)
+
+    def translated(*points: Point) -> Point:
+        return Point(apex.x + sum(p.x for p in points), apex.y + sum(p.y for p in points))
+
+    ray_a = offset(3_500_000, 180)
+    ray_b = offset(3_500_000, 180 - angle)
+    back = offset(1_000_000, 180 - angle // 2)
+    outline = (
+        translated(ray_a), apex, translated(ray_b), translated(ray_b, back), translated(ray_a, back),
+    )  # fmt: skip
+    anchor = translated(offset(2_600_000, 180 - angle // 2))
+    settings = ZoneSettings(connection="solid", min_thickness=127_000)
+    board = Board(
+        zones=(zone("z1", "GND", outline, settings=settings),),
+        vias=(via("v1", "GND", anchor.x / 1_000_000, anchor.y / 1_000_000),),
+        rules=(clearance(0.1524),),
+    )
+    _, result = board.pour()
+    copper = _of(result, "GND")
+    inset = offset(1_000, 180 - angle // 2)
+    for ray in (180, 180 - angle):
+        assert not _covered(copper, translated(offset(chord_reach - 5_000, ray), inset))
+        assert _covered(copper, translated(offset(chord_reach + 5_000, ray), inset))
+
+
+def test_an_acute_corner_cut_cannot_cross_a_void(monkeypatch: pytest.MonkeyPatch) -> None:
+    from fenolite.backends.altium import pour
+    from fenolite.geometry.boolean.clipper import ClipperBackend
+
+    apex = Point(0, 0)
+    side_a, side_b = Point(3_500_000, 0), Point(3_500_000, 3_500_000)
+    hole = (Point(80_000, 10_000), Point(80_000, 65_000), Point(220_000, 65_000), Point(220_000, 10_000))
+    copper = Polygon((apex, side_a, Point(4_000_000, 500_000), side_b), (hole,))
+    geometry = pour._Geometry(ClipperBackend())  # pyright: ignore[reportPrivateUsage]
+    chord = pour._acute_chord  # pyright: ignore[reportPrivateUsage]
+    candidate = chord(apex, side_b, side_a, 153_303)
+    assert candidate is not None and geometry.minus((candidate,), (copper,))
+
+    checked: list[Point] = []
+
+    def without_target(point: Point, before: Point, after: Point, reach: int) -> Polygon | None:
+        checked.append(point)
+        return None if point == apex else chord(point, before, after, reach)
+
+    opened = geometry.open((copper,), 127_000, ARC // 4)
+    monkeypatch.setattr(pour, "_acute_chord", without_target)
+    assert opened == geometry.open((copper,), 127_000, ARC // 4)
+    assert apex in checked
+
+
+def test_neck_removal_preserves_rotated_right_angle_corners() -> None:
+    from fenolite.backends.altium.pour import _Geometry  # pyright: ignore[reportPrivateUsage]
+    from fenolite.geometry.boolean.clipper import ClipperBackend
+
+    radius = 2_540_000
+    diamond = Polygon((Point(0, -radius), Point(radius, 0), Point(0, radius), Point(-radius, 0)))
+    geometry = _Geometry(ClipperBackend())
+    (copper,) = geometry.open((diamond,), 127_000, ARC // 4)
+    assert all(copper.locate(apex) is Location.BOUNDARY for apex in diamond.outer)
+
+
 def test_a_pinch_the_opening_closes_again_is_parted() -> None:
     """Input I10 (S-2227): two discs of 300 µm whose waist is narrower than the neck width of 200 µm. The
     opening's discs, grown back, would join them again at the waist; the pour parts them there. A waist wider
@@ -281,6 +696,28 @@ def test_a_pinch_the_opening_closes_again_is_parted() -> None:
         opened = geometry.open(copper, 200_000, 50)
         assert len(opened) == pieces, apart
         assert sum(area(piece) for piece in opened) > area(copper[0]) * 9 // 10
+
+
+def test_a_dense_neck_cut_retries_with_smaller_exact_cells(monkeypatch: pytest.MonkeyPatch) -> None:
+    from fenolite.backends.altium.pour import _certified_neck_cut  # pyright: ignore[reportPrivateUsage]
+    from fenolite.geometry.boolean import _exact_noding
+    from fenolite.geometry.boolean._exact_cut import exact_difference
+    from fenolite.geometry.boolean._exact_noding import Budget, Limits
+    from fenolite.geometry.errors import GeometryError
+
+    def rectangle(x0: int, y0: int, x1: int, y1: int) -> Polygon:
+        return Polygon((Point(x0, y0), Point(x1, y0), Point(x1, y1), Point(x0, y1)))
+
+    subject = (rectangle(0, 0, 100_000, 25_000),)
+    cut = tuple(rectangle(x, 7_000, x + 5_000, 18_000) for x in range(10_000, 90_000, 10_000))
+    expected = exact_difference(subject, cut, Budget()).polygons
+    limits = Limits(input_edges=72, comparisons=75)
+    with pytest.raises(GeometryError, match="index-comparison budget exceeded"):
+        exact_difference(subject, cut, Budget(limits))
+    budget = Budget(limits)
+    monkeypatch.setattr(_exact_noding, "Budget", lambda: budget)
+    assert _certified_neck_cut(subject, cut, 1) == expected
+    assert budget.work > limits.comparisons
 
 
 def test_a_spike_of_almost_no_angle_is_opened() -> None:
@@ -320,6 +757,42 @@ def test_islands_below_the_area_whatever_they_connect() -> None:
     assert _covered(gnd, at(20 + large / 2 + 0.4, 10 + large / 2))
     threshold = 2500 * MIL * MIL / 10**8  # 2500 mil² in nm² (``AREATHRESHOLD`` in square file units)
     assert all(area(piece) >= threshold for piece in gnd.pieces)
+
+
+@pytest.mark.parametrize(
+    ("large", "cutoff", "kept"), [(False, False, True), (False, True, False), (True, True, True)]
+)
+def test_solid_area_cutoff_precedes_thermal_spokes(large: bool, cutoff: bool, kept: bool) -> None:
+    """A sub-threshold receiver stays removed even if its thermal spoke could attach it (S-2321)."""
+    x, y = 20.0, 15.0
+    half_height, end = (1.45, 2.50) if large else (0.58, 1.50)
+    outline = tuple(
+        at(x + dx, y + dy)
+        for dx, dy in (
+            (-3, -2), (-0.8, -2), (-0.8, -0.3), (0.75, -0.3), (0.75, -half_height),
+            (end, -half_height), (end, half_height), (0.75, half_height), (0.75, 0.3),
+            (-0.8, 0.3), (-0.8, 2), (-3, 2),
+        )
+    )  # fmt: skip
+    settings = ZoneSettings(
+        thermal_gap=mm(0.254),
+        thermal_spoke_width=mm(0.508),
+        min_thickness=mm(0.127),
+        island_removal="below_area" if cutoff else "never",
+        min_island_area=1_600_000_000_000,
+    )
+    board = Board(
+        zones=(zone("z1", "GND", outline, settings=settings),),
+        pads=(pad("p1", "GND", x, y, size=(0.8, 1.0)),),
+        rules=(clearance(0.1524),),
+    )
+    reading = _with_record(board.base(), REMOVEDEAD="FALSE")
+    gnd = _of(pour_reading(reading), "GND")
+    assert _covered(gnd, at(x - 2, y))
+    assert _covered(gnd, at(x + 0.5, y)) is kept
+    assert _covered(gnd, at(x + 1.2, y)) is kept
+    written = pcbdoc.write_pcbdoc_result(board.spec(), filename="thermal-island.PcbDoc", pour="computed")
+    assert written.pour is not None and not written.pour.refused
 
 
 def test_dead_copper() -> None:

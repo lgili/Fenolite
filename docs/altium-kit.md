@@ -128,9 +128,9 @@ author report, and `H-A-SCHLIB-UPDATE` passes only with the typed value of step 
 Steps K6.2 to K6.11 (change c0215) compare Fenolite's pour with Altium's. K6.2 and K6.9 rebuild every
 polygon of `reference/` in the Polygon Manager, and K6.3 does the same with Tools » Polygon Pours » Repour
 All (`H-A-POUR-SCRIPT`: the two ways give the same copper). K6.4 and K6.10 save `computed/` without a repour,
-K6.5 counts the polygons the Polygon Pour Manager lists as needing a repour, and K6.6 counts polygon
-findings from the rule check (0 each). The `P5` and `P5_NONET` controls are intentionally empty. Only a
-manager flag adds either one to the K6.5 count. K6.7 and K6.11 force a repour of `computed/`, and K6.8
+K6.5 counts the polygons the Polygon Pour Manager lists as needing a repour. The `P5` and `P5_NONET`
+controls are intentionally empty and count only when flagged. K6.6 retains the complete batch DRC text
+report and checks its polygon findings. K6.7 and K6.11 force a repour of `computed/`, and K6.8
 is the value of `PCB.Polygon.AdvancedPour` (off). Every one is a
 manual step: each that leaves a board ends in a save under a new name, which the script does not do.
 Step K6.12 (change c0463, task 3.1) repours `pour-hatched/reference/` with Repour All and saves it. Only
@@ -240,6 +240,7 @@ without `kit.json`.
 | `pour-match` | Fenolite's pour of the same sample (`computed/`) meets M1 to M5 of `pourcompare` against the saved board for every polygon; each failure names its probe, its criterion and its place |
 | `pour-same` | the saved board meets M1 to M4 of `pourcompare` against the board that the step named by the check saved (K6.2 for K6.3 and K6.7, K6.9 for K6.11) |
 | `pour-kept` | the regions of every polygon of the saved board equal those Fenolite wrote within one unit of the document |
+| `pour-drc` | the complete native report has no polygon finding except the one expected `Dead Copper - Net Not Assigned` finding under `Un-Routed Net Constraint` on the netless, empty `P5_NONET` control. The raw report retains every finding |
 
    Before any of these, a result file is told by its content: when it is of another kind of document than
    the step wants (a schematic saved under the name of the board, a library under the name of a sheet), the

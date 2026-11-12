@@ -85,7 +85,7 @@ def test_values_equal_the_copper_check() -> None:
 
 def test_edge_clearance() -> None:
     """The governing Board Outline Clearance of a polygon (I17). A document without a Board Outline
-    Clearance record keeps the governing Clearance to the board's edge (S-2224, row -03)."""
+    Clearance record keeps the governing Clearance to its board cut-outs (S-2311)."""
     edge = Rule(id="r_edge", name="edge", kind="edge_clearance", selector_a=Selector("all"), min=mm(0.5))
     reading = _board(clearance(0.2), edge).base()
     rules = Clearances(reading)

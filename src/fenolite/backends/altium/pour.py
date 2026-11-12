@@ -31,6 +31,7 @@ from typing import Final, Literal
 
 from fenolite.backends.altium.adapter.arcring import once, record_outline  # change c0463: shared
 from fenolite.backends.altium.adapter.layers import MULTI
+from fenolite.backends.altium.adapter.pads import SHAPE_OCTAGON
 from fenolite.backends.altium.connectstyle import (
     Connection,
     ConnectStyle,
@@ -51,6 +52,7 @@ from fenolite.geometry import Arc as GeoArc
 from fenolite.geometry import Polygon
 from fenolite.geometry.boolean.clipper import ClipperBackend
 from fenolite.geometry.errors import BackendUnavailable, GeometryError
+from fenolite.geometry.index import SpatialIndex
 from fenolite.geometry.polygon import area2, convex_hull
 from fenolite.geometry.predicates import floor_sqrt
 from fenolite.geometry.shapes import BBox
@@ -372,6 +374,8 @@ class PourObject:
     """For a pad or the hole of a pad: ``smd``, ``th`` or ``npth`` (``model.rules.PAD_TYPES``)."""
     hole: Nm | None = None
     """The diameter of the object's hole: of a via, of a pad with a hole, of a free hole (change c0462)."""
+    concentric_drill: Nm | None = None
+    """The drill diameter of a round plated hole centered on its circular copper pad."""
 
 
 def _box(core: Sequence[Point], width: int) -> BBox:
@@ -403,6 +407,17 @@ class LayerObjects:
         board = design.board
         assert board is not None
         self.board: Board = board
+        self.octagonal_smd = {
+            pad.id: pad.size
+            for footprint in board.footprints
+            for pad in footprint.pads
+            if pad.kind == "smd"
+            and pad.layers == ("F.Cu",)
+            and pad.padstack is None
+            and "altium" in pad.ext
+            and ("shape", str(SHAPE_OCTAGON)) in pad.ext["altium"].payload
+        }
+        """Native simple top-layer octagons, kept as opaque custom pads by the neutral model (S-2314)."""
         self.copper = tuple(layer.name for layer in board.layers if layer.kind == "copper")
         circuit = design.circuit
         classes = {c.id: c.name for c in circuit.netclasses}
@@ -433,6 +448,27 @@ class LayerObjects:
         self._unshaped(board)
         for items in self.by_layer.values():
             items.sort(key=lambda o: (o.kind, o.entity_id, o.box.as_tuple()))
+
+    def octagonal_void(self, polygon: PourPolygon, item: PourObject, clearance: Nm) -> Polygon | None:
+        """The S-2314 void for a foreign pad in a solid pour, or ``None`` for other obstacles."""
+        size = self.octagonal_smd.get(item.entity_id)
+        at = item.center
+        if (
+            size is None
+            or at is None
+            or polygon.hatch is not None
+            or (polygon.net is not None and polygon.net == item.net)
+        ):
+            return None
+        w, h = size.w + 2 * clearance, size.h + 2 * clearance
+        x, y = (w + 1) // 2, (h + 1) // 2
+        cut = (min(w, h) + 2) // 4
+        corners = (
+            Point(-x + cut, -y), Point(x - cut, -y), Point(x, -y + cut), Point(x, y - cut),
+            Point(x - cut, y), Point(-x + cut, y), Point(-x, y - cut), Point(-x, -y + cut),
+        )  # fmt: skip
+        turned = (rotate_point(p, item.rotation) for p in corners)
+        return Polygon(once(tuple(Point(at.x + p.x, at.y + p.y) for p in turned)))
 
     def _net(self, net_id: str | None) -> str | None:
         return self._names.get(net_id) if net_id is not None else None
@@ -522,6 +558,10 @@ class LayerObjects:
                     "pad", pad.net, shape, pad.pad_id, ref=ref, connect=kind, center=pad.position,
                     rotation=pad.rotation, pad_type=pad_type, hole=drill,
                 )  # fmt: skip
+                if drill is not None and pad_type == "th" and pad.hole == entry.core == (pad.position,):
+                    item = replace(
+                        item, concentric_drill=drill, box=_box(entry.core, max(entry.width, drill))
+                    )
                 self._add(entry.layer, item)
             if pad.hole and pad.drill and pad.kind != "smd":
                 net = pad.net if pad.kind == "thru_hole" else None
@@ -588,11 +628,17 @@ class LayerObjects:
 
     def _copper_records(self, reading: PourReading, tol: int) -> None:
         """The copper that the import keeps as graphics, shaped from its records with the net of their
-        prefix (I18): the tracks and arcs of components, every fill, and the free copper regions (``KIND=0``,
-        no keep-out, no board cut-out, no polygon). A region is its outline: its holes are left filled, so
-        its void is never too small."""
+        prefix (I18): the tracks and arcs of components, fills, and free copper regions (``KIND=0``,
+        no keep-out, no board cut-out, no polygon). Keep-out primitives use their rule areas (I16). A region
+        is its outline: its holes are left filled, so its void is never too small. A free stroke on the
+        Keep-Out layer that restricts poured copper is a keep-out on every copper layer (S-2311)."""
         from fenolite.backends.altium.adapter import units
-        from fenolite.backends.altium.adapter.copper import is_board_cutout
+        from fenolite.backends.altium.adapter.copper import (
+            RESTRICTION_BYTE,
+            is_board_cutout,
+            is_keepout,
+            keepout_layer_restrictions,
+        )
         from fenolite.backends.altium.read.pcbprims import ArcRecord, FillRecord, TrackRecord
         from fenolite.core.trig import FULL_TURN
 
@@ -611,21 +657,39 @@ class LayerObjects:
             self.keepout_regions.add(f"{storage}/Data#{index}")
             self._add(layer, self._object(kind, net(net_index), shape, f"{storage}:{index}"))
 
+        def stroke_kind(item: TrackRecord | ArcRecord) -> ObjectType | None:
+            if item.prefix.polygon is not None:
+                return None
+            if item.prefix.component is None:
+                restrictions = keepout_layer_restrictions(item)
+                if restrictions is not None:
+                    return "keepout" if restrictions & KEEPOUT_COPPER else None
+                # Altium upgrades legacy Keep-Out strokes with no restriction byte to all bits (S-2311).
+                if item.prefix.layer == KEEPOUT_LAYER and len(item.raw) - 5 <= RESTRICTION_BYTE[type(item)]:
+                    return "keepout"
+                return None
+            if is_keepout(item):
+                return None
+            return "track" if isinstance(item, TrackRecord) else "arc"
+
+        def stroke(
+            storage: str, index: int, item: TrackRecord | ArcRecord, kind: ObjectType, shape: _Core
+        ) -> None:
+            if kind == "keepout":
+                obstacle = self._object(kind, None, shape, f"{storage}:{index}")
+                for layer in self.copper:
+                    self._add(layer, obstacle)
+            else:
+                owned(storage, index, item.prefix.layer, kind, shape, item.prefix.net)
+
         for index, item in enumerate(document.tracks):
-            if (
-                isinstance(item, TrackRecord)
-                and item.prefix.component is not None
-                and item.prefix.polygon is None
-            ):
-                core = (units.pcb_point(item.x1, item.y1), units.pcb_point(item.x2, item.y2))
-                shape = (core, units.pcb_length(item.width), False)
-                owned("Tracks6", index, item.prefix.layer, "track", shape, item.prefix.net)
+            if not isinstance(item, TrackRecord) or (kind := stroke_kind(item)) is None:
+                continue
+            core = (units.pcb_point(item.x1, item.y1), units.pcb_point(item.x2, item.y2))
+            shape = (core, units.pcb_length(item.width), False)
+            stroke("Tracks6", index, item, kind, shape)
         for index, item in enumerate(document.arcs):
-            if (
-                not isinstance(item, ArcRecord)
-                or item.prefix.component is None
-                or item.prefix.polygon is not None
-            ):
+            if not isinstance(item, ArcRecord) or (kind := stroke_kind(item)) is None:
                 continue
             start, _ = units.angle(item.start_angle)
             end, _ = units.angle(item.end_angle)
@@ -641,9 +705,9 @@ class LayerObjects:
             except (GeometryError, ValueError):
                 continue
             width = units.pcb_length(item.width) + 2 * sag
-            owned("Arcs6", index, item.prefix.layer, "arc", (core, width, False), item.prefix.net)
+            stroke("Arcs6", index, item, kind, (core, width, False))
         for index, item in enumerate(document.fills):
-            if not isinstance(item, FillRecord) or item.prefix.polygon is not None:
+            if not isinstance(item, FillRecord) or item.prefix.polygon is not None or is_keepout(item):
                 continue
             a, b = units.pcb_point(item.x1, item.y1), units.pcb_point(item.x2, item.y2)
             rotation, _ = units.angle(item.rotation)
@@ -738,10 +802,10 @@ TWIN_FORMS: Mapping[str, str] = {"Arc": "Track", "Region": "Fill"}
 """The object kinds of a Clearance matrix that one neutral kind holds (``read.rules.TWIN_KINDS``) → the kind
 that stands for both. The import refuses a matrix whose twins differ (``matrix-kind``); the pour asks only
 the polygon's row, so it reads the matrix with each twin as the kind that stands for it and takes the
-polygon's clearance to an arc, a track, a fill or a region from its own cell (``FINE_KINDS``; change c0463,
-task 4.3; rows ``-06`` and ``-08``)."""
-FINE_KINDS = ("Arc", "Track", "Fill", "Region")
-"""The object kinds whose cell with ``Poly`` the pour reads from a matrix that ``TWIN_FORMS`` reads."""
+polygon's clearance to an arc, a track, a fill or a region from its own cell (change c0463, task 4.3,
+rows ``-06`` and ``-08``). The Hole cell also has no neutral rule (S-2312)."""
+FINE_KINDS = ("Arc", "Track", "Fill", "Region", "Hole")
+"""The object kinds whose cell with ``Poly`` the pour reads separately from the neutral rule."""
 _MATRIX_ENTRY = re.compile(r"ClearanceObj_([A-Za-z]+)-ClearanceObj_([A-Za-z]+):(\d+)")
 
 
@@ -815,8 +879,8 @@ def pour_rule_fields(
     records: Sequence[RuleRecord],
 ) -> tuple[list[tuple[tuple[str, str], ...]], frozenset[int], dict[int, dict[str, Nm]]]:
     """The fields of the rule ``records`` as the pour reads them (change c0463, task 4.3), the indexes of the
-    records the import does not read and the pour reads (``_pads_judged``, ``_edges_judged``), and, by index,
-    the cells of each matrix read with ``TWIN_FORMS``."""
+    records the import does not read and the pour reads, and, by index, the additional polygon cells
+    of each Clearance matrix."""
     from fenolite.backends.altium.read.rules import matrix_problem
 
     footprint_pads = frozenset(
@@ -846,12 +910,21 @@ def pour_rule_fields(
             continue
         if kind != "Clearance":
             continue
-        matrix, gap = record.record.get("OBJECTCLEARANCES"), record.record.get("GAP")
-        if not matrix_problem(matrix or "", gap):
+        matrix, gap = record.record.get("OBJECTCLEARANCES") or "", record.record.get("GAP")
+        if not matrix:
+            continue
+        problem = matrix_problem(matrix, gap)
+        # A Hole cell, including the default GAP when only the THPad cell changes, has no neutral rule.
+        if not problem and not any(kind in matrix for kind in ("ClearanceObj_Hole", "ClearanceObj_THPad")):
             continue
         judged = _twins_judged(fields[i])
-        if judged is not None and not matrix_problem(dict(judged[0]).get("OBJECTCLEARANCES") or "", gap):
+        if judged is None:
+            continue
+        if not problem:
+            fine[i] = {"Hole": judged[1]["Hole"]}
+        elif not matrix_problem(dict(judged[0]).get("OBJECTCLEARANCES") or "", gap):
             fields[i], fine[i] = judged
+            read.add(i)
     return fields, frozenset(read), fine
 
 
@@ -967,20 +1040,21 @@ class Clearances:
             layers=layers,
             document=scope_document(reading.document, layers),
         )
-        rules = (
-            *(design.rules.rules if design.rules is not None else ()),
-            *(
-                rule
-                for rule, i in zip(mapping.ruleset.rules, mapping.rule_records, strict=True)
-                if i in extra or i in fine
-            ),
-        )
-        self._fine: list[tuple[Rule, dict[str, Nm]]] = [
-            (rule, fine[i])
+        imported = design.rules.rules if design.rules is not None else ()
+        added = [
+            (rule, i)
             for rule, i in zip(mapping.ruleset.rules, mapping.rule_records, strict=True)
-            if i in fine
+            if i in extra
         ]
-        """Each rule of a matrix read by ``TWIN_FORMS`` with the clearance of ``Poly`` to ``FINE_KINDS``."""
+        rules = (*imported, *(rule for rule, _ in added))
+        holes = {f"Rules6/Data#{i}": {"Hole": cells["Hole"]} for i, cells in fine.items()}
+        self._fine = {
+            rule.id: holes[rule.provenance.locator]
+            for rule in imported
+            if rule.provenance is not None and rule.provenance.locator in holes
+        }
+        self._fine.update({rule.id: fine[i] for rule, i in added if i in fine})
+        """The additional polygon clearance cells for each rule, keyed by its model id."""
 
         keepout: list[Rule] = []
         read_scopes: set[int] = set()
@@ -1006,13 +1080,16 @@ class Clearances:
 
         self._clearance = candidates("clearance")
         self._edge = candidates("edge_clearance")
-        self._edge_records = any(
+        self.has_outline_clearance = any(
             (record.record.get("RULEKIND") or "") == "BoardOutlineClearance"
             for record in reading.document.rules
         )
         """Whether the document holds a Board Outline Clearance record, read or not (S-2224)."""
         self.largest: Nm = max(
-            (*(c.rule.min or 0 for c in self._clearance), *(v for _, f in self._fine for v in f.values())),
+            (
+                *(c.rule.min or 0 for c in self._clearance),
+                *(v for cells in self._fine.values() for v in cells.values()),
+            ),
             default=0,
         )
         """The largest clearance a rule of the reading gives."""
@@ -1059,19 +1136,35 @@ class Clearances:
             elif rule is None or rule.severity == "ignore" or rule.min is None:
                 found = "no-clearance"
             else:
-                none: dict[str, Nm] = {}
-                cells = next((f for r, f in self._fine if r is rule), none) if fine is not None else none
-                found = cells.get(fine or "", rule.min)
+                found = self._fine.get(rule.id, {}).get(fine or "", rule.min)
             self._memo[key] = found
             self._memo[(b, a, polygons, fine)] = found
         return found
 
+    def obstacle(
+        self, polygon: RuleSubject, subject: RuleSubject, item: PourObject, *, name: str
+    ) -> tuple[_Core, Nm] | str:
+        """The physical foreign-net shape and its governing gap, shared by the pour and writer self-check."""
+        value = self.clearance(polygon, subject, polygons=(name,), fine=fine_kind(item))
+        if isinstance(value, str):
+            return value
+        core, width, _ = item.shape
+        drill = item.concentric_drill
+        if drill is None:
+            return item.shape, value
+        hole_gap = self.clearance(polygon, subject, polygons=(name,), fine="Hole")
+        if isinstance(hole_gap, str):
+            return hole_gap
+        # With no annular ring only Hole applies. Otherwise the two concentric voids union (S-2312).
+        if drill >= width or (drill + 1) // 2 + hole_gap > (width + 1) // 2 + value:
+            return (core, drill, False), hole_gap
+        return item.shape, value
+
     def edge(self, a: RuleSubject) -> Nm | str:
-        """The governing Board Outline Clearance of ``a``, 0 when none governs. A document that holds no
-        Board Outline Clearance record keeps the governing Clearance between ``a`` and the board's edge, an
-        object of no net on ``a``'s layer (``H-A-POUR-EDGE``; S-2224, row -03), or the reason it is
-        unknown."""
-        if not self._edge_records:
+        """The governing Board Outline Clearance of ``a``, 0 when none governs. Without that rule type,
+        look up the ordinary Clearance to a board cut-out, an object of no net on ``a``'s layer (S-2311).
+        The outer board edge has no constraint in that case."""
+        if not self.has_outline_clearance:
             edge = RuleSubject(item_kind="board", layer=a.layer)
             found = self.clearance(a, edge, polygons=(a.zone,) if a.zone else ())
             return 0 if found == "no-clearance" else found
@@ -1100,9 +1193,9 @@ def edge_reach(clearance: Nm) -> Nm:
     corners stand at most ``EDGE_SAG`` outside the circle (Altium's voids around round objects are such
     polygons too, with the polygon's ``ARCRESOLUTION`` as their bound: 48 and 104 sides on row -04).
     Altium's repour of the public rows keeps its pour 162.35 µm from every straight edge of rows -04 and -07
-    for a rule of 150 µm (n = 8), 305.86 µm on row -05 for 300 µm (n = 16) and 137.47 µm on row -03 for a
-    governing Clearance of 127 µm (n = 8), and its chords along an arc of the edge touch the circle that far
-    from it (S-2224, S-2227): the edge grown by a
+    for a rule of 150 µm (n = 8) and 305.86 µm on row -05 for 300 µm (n = 16). At the row -03 board cut-out
+    the governing Clearance of 127 µm (n = 8) leaves 137.47 µm. Its chords along an arc of the edge touch
+    the circle that far from it (S-2224, S-2227, S-2311): the edge grown by a
     regular polygon around the circle of the clearance, a corner along each axis. An edge along another
     direction may hold the pour nearer than this, never farther."""
     from fenolite.core.trig import FULL_TURN, ONE, cos_sin_fixed
@@ -1182,12 +1275,12 @@ class _Geometry:
     def open(self, polys: Sequence[Polygon], width: int, tol: int) -> tuple[Polygon, ...]:
         """The neck removal of I10 (``H-A-POUR-NECK``), as the saved pours of the public corpus show it: the
         copper that a round opening by a disc of diameter ``width`` removes, piece by piece. A piece at a
-        convex corner sharper than 89.5° goes with its convex hull, so the tip is cut by the chord between
-        the ends of the opening's arc (the saved pours hold no convex corner below 75° and only 16 between
-        75° and 89.9° among 2853); the sliver the opening takes off a corner of 89.5° or more (within half
-        the width of it) comes back, so the corner stays sharp; every other piece is a neck and stays
-        removed. Copper that grows back from two parts of the eroded copper is parted where the two meet
-        (``_pinches``). The result is cut back to ``polys``: nothing grows."""
+        convex corner sharper than 89.5° has a chord at the tangent distance along its angle bisector
+        when both sides reach the chord and its tip belongs to one copper component (S-2322).
+        Other acute corners use the local opening hull. The sliver the opening takes off a corner of
+        89.5° or more (within half the width of it) comes back, so the corner stays sharp. Every other
+        piece is a neck and stays removed. Copper that grows back from two parts of the eroded copper
+        is parted where the two meet (``_pinches``). The result is cut back to ``polys``: nothing grows."""
         half = width // 2
         if half <= 0 or not polys:
             return tuple(polys)
@@ -1197,13 +1290,27 @@ class _Geometry:
         if not removed:
             return tuple(polys)
         corners = _convex_corners(polys, half)
-        cut: list[Polygon] = []  # the necks and the hulls of the tips; Clipper's difference unites them
+        rings_at_vertex = {
+            point: index
+            for index, ring in enumerate(ring for poly in polys for ring in poly.rings())
+            for point in ring
+        }
+        cut: list[Polygon] = []
+        supported: set[Point] = set()
         for piece in removed:
-            found = [(v, corners[v]) for v in piece.outer if v in corners]
+            found = [(v, corners[v][0]) for v in piece.outer if v in corners]
             tips = [(v, reach) for v, reach in found if reach]
             box = piece.bbox()
             whole = box.width + box.height + tol + 1  # a disc this wide about a vertex holds the whole piece
             for apex, reach in tips:
+                if apex in supported:
+                    continue
+                _, before, after, owner = corners[apex]
+                chord = _acute_chord(apex, before, after, reach)
+                if chord is not None and not self.minus((chord,), (owner,)):
+                    cut.append(chord)
+                    supported.add(apex)
+                    continue
                 # the tip only: the part of the piece within the reach of the opening's arc at this corner (a
                 # spike of almost no angle reaches farther than the piece: row -06)
                 local = self.meet((piece,), (disc(apex, min(reach * 3 // 2 + half, whole), tol),))
@@ -1211,8 +1318,28 @@ class _Geometry:
                 hull = convex_hull(points) if points else ()
                 if len(hull) >= 3:
                     cut.append(Polygon(hull))
-            if found and not tips and max(box.width, box.height) <= half + tol:
-                continue  # the sliver the round opening takes off a corner of 89.5° or more stays
+            if found and not tips:
+                apex = found[0][0]
+                extent = max(box.width, box.height)
+                limit = half + tol
+                if extent <= limit or (
+                    len(found) == 1
+                    and extent <= 2 * limit
+                    and all((p.x - apex.x) ** 2 + (p.y - apex.y) ** 2 <= limit**2 for p in piece.outer)
+                ):
+                    continue  # preserve the nonacute corner even if its box is wider after rotation
+            if (
+                not found
+                and not piece.holes
+                and half <= min(box.width, box.height)
+                and max(box.width, box.height) <= 2 * width
+            ):
+                boundaries = {rings_at_vertex[p] for p in piece.outer if p in rings_at_vertex}
+                if len(boundaries) == 2:
+                    # Altium cuts a short neck between two clearance rims with chords (kit P3).
+                    hull = convex_hull(piece.outer)
+                    if len(hull) >= 3:
+                        piece = Polygon(hull)
             cut.append(piece)
         cut.extend(self._pinches(eroded, half, tol))
         return _certified_neck_cut(polys, cut, tol) if cut else tuple(polys)
@@ -1271,7 +1398,16 @@ def _certified_neck_cut(subject: Sequence[Polygon], cut: Sequence[Polygon], tol:
     from fenolite.geometry.boolean._exact_cut import exact_difference
     from fenolite.geometry.boolean._exact_noding import Budget
 
-    return _without_debris(exact_difference(subject, cut, Budget()).polygons, tol)
+    budget = Budget()
+    try:
+        result = exact_difference(subject, cut, budget)
+    except GeometryError as error:
+        if error.message != "exact geometry index-comparison budget exceeded":
+            raise
+        # A denser cell can exhaust its index cap before reaching its edge cap. Keep the same
+        # operation budget and let finer cells divide the index work on one retry.
+        result = exact_difference(subject, cut, budget, strip_edges=max(1, budget.limits.input_edges // 4))
+    return _without_debris(result.polygons, tol)
 
 
 def _resource_bound(error: GeometryError) -> bool:
@@ -1282,11 +1418,10 @@ def _resource_bound(error: GeometryError) -> bool:
     return isinstance(error, ResourceLimit) or error.message.endswith("budget exceeded")
 
 
-def _convex_corners(polys: Sequence[Polygon], radius: int) -> dict[Point, int]:
-    """The convex corners of the copper ``polys`` (on the left of each ring in normal form), each with the
-    distance from the corner to where a circle of ``radius`` inscribed in it touches its edges,
-    ``radius / tan(α/2)``, for a corner sharper than 89.5° (``ACUTE_COS``), else 0."""
-    found: dict[Point, int] = {}
+def _convex_corners(polys: Sequence[Polygon], radius: int) -> dict[Point, tuple[int, Point, Point, Polygon]]:
+    """The convex corners of the copper with their neighbours, component and tangent distance
+    ``radius / tan(α/2)`` for a corner sharper than 89.5° (``ACUTE_COS``), else 0."""
+    found: dict[Point, tuple[int, Point, Point, Polygon]] = {}
     for poly in polys:
         for ring in poly.rings():
             count = len(ring)
@@ -1301,8 +1436,30 @@ def _convex_corners(polys: Sequence[Polygon], radius: int) -> dict[Point, int]:
                 l1 = floor_sqrt(v1[0] * v1[0] + v1[1] * v1[1])
                 l2 = floor_sqrt(v2[0] * v2[0] + v2[1] * v2[1])
                 acute = dot * ACUTE_SCALE > ACUTE_COS * l1 * l2
-                found[apex] = -(-radius * (l1 * l2 + dot) // -cross) if acute else 0
+                reach = -(-radius * (l1 * l2 + dot) // -cross) if acute else 0
+                found[apex] = reach, before, after, poly
     return found
+
+
+def _acute_chord(apex: Point, before: Point, after: Point, reach: int) -> Polygon | None:
+    """The triangular tip cut at ``reach`` along the bisector, when the chord fits both straight sides."""
+    scale = 1024
+    ax, ay = before.x - apex.x, before.y - apex.y
+    bx, by = after.x - apex.x, after.y - apex.y
+    length_a = floor_sqrt((ax * ax + ay * ay) * scale**2)
+    length_b = floor_sqrt((bx * bx + by * by) * scale**2)
+    lengths = length_a * length_b
+    dot = (ax * bx + ay * by) * scale**2
+    # The length along each side is reach / cos(α/2), with cos²(α/2) = (1 + cos(α)) / 2.
+    span = floor_sqrt(2 * reach**2 * lengths * scale**2 // (lengths + dot))
+    if span > min(length_a, length_b):
+        return None
+    points = (
+        apex,
+        Point(apex.x + round(Fraction(ax * span, length_a)), apex.y + round(Fraction(ay * span, length_a))),
+        Point(apex.x + round(Fraction(bx * span, length_b)), apex.y + round(Fraction(by * span, length_b))),
+    )
+    return Polygon(points) if area2(points) else None
 
 
 def area(poly: Polygon) -> Fraction:
@@ -1338,6 +1495,21 @@ def _board_area(reading: PourReading, geometry: _Geometry, tol: int) -> tuple[Po
         except GeometryError:
             continue
     return geometry.minus((outer,), holes)
+
+
+def _board_cutouts(reading: PourReading) -> tuple[Polygon, ...]:
+    """True board cut-outs, including cut-outs that the import merged into the outer ring as notches."""
+    from fenolite.backends.altium.adapter.copper import is_board_cutout, region_points
+
+    found: list[Polygon] = []
+    for region in reading.document.regions:
+        if not isinstance(region, RegionRecord) or not is_board_cutout(region):
+            continue
+        try:
+            found.append(Polygon(region_points(region.outline)))
+        except GeometryError:
+            continue
+    return tuple(found)
 
 
 def connect_document(reading: PourReading) -> ScopeDocument:
@@ -1385,6 +1557,12 @@ def _bar(center: Point, angle: int, length: int, width: int) -> Polygon:
     return Polygon(tuple(Point(center.x + p.x, center.y + p.y) for p in turned))
 
 
+def _projected_width(polygon: Polygon, normal: Point) -> int:
+    """The span of the polygon's outer ring along a non-unit normal."""
+    positions = [point.x * normal.x + point.y * normal.y for point in polygon.outer]
+    return max(positions) - min(positions)
+
+
 @dataclass(slots=True)
 class _Layer:
     poured: list[tuple[PourPolygon, tuple[Polygon, ...]]] = field(default_factory=lambda: [])
@@ -1399,6 +1577,7 @@ class _Context:
     styles: tuple[ConnectStyle, ...]
     cutouts: Mapping[str, tuple[tuple[BBox, Polygon], ...]]
     board: tuple[Polygon, ...]
+    board_cutouts: tuple[Polygon, ...]
     reach: Nm
     """How far beyond a polygon's outline an object can shape its pour: the largest clearance, air gap
     and conductor width of the reading."""
@@ -1440,6 +1619,7 @@ def pour_reading(
         styles,
         _polygon_cutouts(reading),
         board or (),
+        () if rules.has_outline_clearance else _board_cutouts(reading),
         rules.largest + widest + tol + 1,
     )
     layers: dict[str, _Layer] = {}
@@ -1561,7 +1741,10 @@ def _pour(
         if box.intersects(reach):
             return (), (), "unshaped-pad" if _what == "pad" else "unshaped-copper"
     try:
-        area_now = geometry.meet((Polygon(polygon.outline),), context.board)
+        outline = (Polygon(polygon.outline),)
+        area_now = (
+            geometry.meet(outline, context.board) if rules.has_outline_clearance else geometry.union(outline)
+        )
     except GeometryError:
         return (), (), "outline"
     cut = [ring for box, ring in context.cutouts.get(layer, ()) if box.intersects(reach)]
@@ -1570,13 +1753,17 @@ def _pour(
             area_now = geometry.minus(area_now, geometry.union(cut))
         except GeometryError:
             return (), (), "polygon-cutout"
-    edge = rules.edge(me)
-    if isinstance(edge, str):
-        return (), (), edge
-    edge = edge_reach(edge)
-    if edge + h > 0:  # no margin: Altium's pour reaches the edge's polygon itself (S-2224)
-        inner = geometry.offset(context.board, -(edge + h), tol)
-        area_now = geometry.meet(area_now, inner)
+    if rules.has_outline_clearance or context.board_cutouts:
+        edge = rules.edge(me)
+        if isinstance(edge, str):
+            return (), (), edge
+        margin = edge_reach(edge) + h
+        if rules.has_outline_clearance and margin > 0:
+            inner = geometry.offset(context.board, -margin, tol)
+            area_now = geometry.meet(area_now, inner)
+        elif context.board_cutouts:
+            void = geometry.offset(context.board_cutouts, margin, tol) if margin else context.board_cutouts
+            area_now = geometry.minus(area_now, void)
     voids: list[Polygon] = []
     joins: list[tuple[PourObject, Connection]] = []
     same: list[PourObject] = []
@@ -1592,6 +1779,9 @@ def _pour(
             found = governing_connection(context.styles, subject, me, item.connect, polygon.name)
             if isinstance(found, str):
                 return (), (), found
+            if item.concentric_drill is not None and item.concentric_drill > item.shape[1]:
+                # Altium's relief air gap starts at the larger of the drilled extent and copper (S-2312).
+                item = replace(item, shape=(item.shape[0], item.concentric_drill, False))
             joins.append((item, found))
             same.append(item)
             continue
@@ -1599,11 +1789,17 @@ def _pour(
             same.append(item)
             if polygon.pour_over == "all":
                 continue
-        value = rules.clearance(me, subject, polygons=(polygon.name,), fine=fine_kind(item))
-        if isinstance(value, str):
-            return (), (), value
-        # Native positive-clearance keep-out regions round their corners (S-2300, kit P8).
-        voids.extend(geometry.grow(item.shape, value + h, tol, round_corners=item.kind == "keepout"))
+        obstacle = rules.obstacle(me, subject, item, name=polygon.name)
+        if isinstance(obstacle, str):
+            return (), (), obstacle
+        shape, value = obstacle
+        # A region vertex rounds to the native file unit and back to nanometres.
+        octagon = objects.octagonal_void(polygon, item, value + UNIT_SLACK_NM + 1)
+        if octagon is not None:
+            voids.append(octagon)
+        else:
+            # Native positive-clearance keep-out regions round their corners (S-2300, kit P8).
+            voids.extend(geometry.grow(shape, value + h, tol, round_corners=item.kind == "keepout"))
     for other, pieces in state.poured:
         if not pieces or not other.box.intersects(reach):
             continue
@@ -1617,13 +1813,14 @@ def _pour(
             return (), (), value
         voids.extend(geometry.offset(pieces, value + h + tol + 1, tol))
     forbidden = geometry.union(voids)
-    gaps = [
-        g
+    gaps = {
+        item: geometry.grow(item.shape, join.air_gap + h, tol)
         for item, join in joins
         if join.style in ("relief", "none")
-        for g in geometry.grow(item.shape, join.air_gap + h, tol)
-    ]
-    copper = geometry.minus(area_now, geometry.union([*forbidden, *gaps]))
+    }
+    copper = geometry.minus(
+        area_now, geometry.union([*forbidden, *(g for pieces in gaps.values() for g in pieces)])
+    )
     tracks: tuple[PourTrack, ...] = ()
     if polygon.hatch is not None:
         copper, tracks = _hatched(polygon.hatch, copper, joins, forbidden, area_now, geometry, tol)
@@ -1637,7 +1834,10 @@ def _pour(
                 raise  # any other refusal of the exact cut reaches the build (c0332)
             return (), (), "neck-bound"  # the exact cut's resource bound (``_certified_neck_cut``; row -08)
     if polygon.hatch is None:
-        conductors = _conductors(joins, copper, forbidden, area_now, geometry, tol)
+        if polygon.islands is not None:
+            # A sub-threshold receiver is removed before a spoke can attach it (S-2321).
+            copper = tuple(piece for piece in copper if area(piece) >= polygon.islands)
+        conductors = _conductors(joins, gaps, copper, forbidden, area_now, geometry, tol)
         if conductors:
             copper = geometry.union([*copper, *conductors])
     pieces = list(copper)
@@ -1650,7 +1850,11 @@ def _pour(
         for other, others in state.poured:
             if other.net == net and polygon.pour_over != "none":
                 touch.extend(others)
-        pieces = [piece for piece in pieces if geometry.meet((piece,), touch)]
+        if len(pieces) > 1 and len(touch) > 1:
+            contacts = SpatialIndex[Polygon].build((contact.bbox(), contact) for contact in touch)
+            pieces = [piece for piece in pieces if geometry.meet((piece,), contacts.query(piece.bbox()))]
+        else:
+            pieces = [piece for piece in pieces if geometry.meet((piece,), touch)]
     if tracks and len(pieces) < len(copper):  # a removed piece takes its tracks with it
         tracks = tuple(t for t in tracks if _on(pieces, t))
     return tuple(pieces), tracks, ""
@@ -1728,6 +1932,7 @@ def _hatched(
 
 def _conductors(
     joins: Sequence[tuple[PourObject, Connection]],
+    gaps: Mapping[PourObject, tuple[Polygon, ...]],
     copper: Sequence[Polygon],
     forbidden: Sequence[Polygon],
     area_now: Sequence[Polygon],
@@ -1736,24 +1941,79 @@ def _conductors(
 ) -> list[Polygon]:
     """The relief conductors of I6: bars of the conductor width from each pad's or via's centre, turned with
     a pad, within the pad grown by the air gap and the conductor width, and within the polygon or the pad
-    itself (Altium draws a conductor over the part of its pad outside the polygon's outline, S-2224 row
-    -07); a bar that would enter another net's clearance, leave both or reach no copper is left out."""
+    itself (S-2224 row -07). A through-hole copper capsule in 45° mode starts at the copper endpoint
+    facing each spoke (S-2308). A bar that would enter another net's clearance, leave both or reach no
+    copper is left out. A 90° SMD relief avoids a facing SMD relief pad's air gap (S-2309). A bar whose
+    extension alone meets that gap can still join a full-width receiver, clipped at the peer gap (S-2317)."""
+    if not any(join.style == "relief" for _, join in joins):
+        return []
+    blocked = SpatialIndex[Polygon].build((piece.bbox(), piece) for piece in forbidden)
+    receivers = SpatialIndex[Polygon].build((piece.bbox(), piece) for piece in copper)
+    smd_gaps = [
+        (item, item.box.inflate(join.air_gap + tol + UNIT_SLACK_NM), gaps[item])
+        for item, join in joins
+        if item.pad_type == "smd" and join.style == "relief"
+    ]
     found: list[Polygon] = []
     for item, join in joins:
         if join.style != "relief" or item.center is None:
             continue
-        core, width, _ = item.shape
+        core, width, filled = item.shape
         radius = max(max(abs(p.x - item.center.x), abs(p.y - item.center.y)) for p in core) * 2 + width
         length = radius + join.air_gap + join.conductor_width
         step = 360_000_000 // join.conductors
         turn = item.rotation if item.kind == "pad" else 0
         ring = geometry.grow(item.shape, join.air_gap + join.conductor_width, tol)
         within = geometry.union([*area_now, *_pad(item, geometry, tol)])
+        neighbors: list[tuple[Point, tuple[Polygon, ...]]] = []
+        if item.pad_type == "smd" and join.angle == 0 and join.conductors == 4:
+            reach = item.box.inflate(join.air_gap + join.conductor_width + tol + UNIT_SLACK_NM)
+            neighbors = [
+                (peer.center, pieces)
+                for peer, box, pieces in smd_gaps
+                if peer is not item and peer.center is not None and box.intersects(reach)
+            ]
         for k in range(join.conductors):
-            bar = _bar(item.center, join.angle + turn + k * step, length, join.conductor_width)
+            angle = join.angle + turn + k * step
+            origin = item.center
+            if item.pad_type == "th" and join.angle == 45_000_000 and len(core) == 2 and not filled:
+                # Select the end of the copper capsule that faces the spoke (S-2308).
+                start, end = core
+                direction = rotate_point(Point(length, 0), angle)
+                advance = (end.x - start.x) * direction.x + (end.y - start.y) * direction.y
+                if advance:
+                    origin = end if advance > 0 else start
+            bar = _bar(origin, angle, length, join.conductor_width)
             spoke = geometry.meet(geometry.meet((bar,), ring), within)
-            if not spoke or geometry.meet(spoke, forbidden) or not geometry.meet(spoke, copper):
+            if not spoke:
                 continue
+            box = BBox.of_points([point for piece in spoke for point in piece.outer])
+            if geometry.meet(spoke, blocked.query(box)):
+                continue
+            receiver = geometry.meet(spoke, receivers.query(box))
+            if not receiver:
+                continue
+            if neighbors:
+                direction = rotate_point(Point(length, 0), angle)
+                peer_gaps = [
+                    gap
+                    for center, pieces in neighbors
+                    if (center.x - origin.x) * direction.x + (center.y - origin.y) * direction.y > 0
+                    for gap in pieces
+                ]
+                if geometry.meet(spoke, peer_gaps):
+                    span = geometry.meet(spoke, gaps[item])
+                    if geometry.meet(span, peer_gaps):
+                        continue
+                    normal = rotate_point(Point(0, length), angle)
+                    width = _projected_width(bar, normal)
+                    if all(_projected_width(part, normal) < width for part in receiver):
+                        continue
+                    spoke = tuple(
+                        part
+                        for part in geometry.minus(spoke, peer_gaps)
+                        if geometry.meet((part,), span) and geometry.meet((part,), receiver)
+                    )
             found.extend(spoke)
     return found
 
@@ -1809,7 +2069,8 @@ def check_pour(reading: PourReading, result: PourResult) -> tuple[int, ...]:
     poured polygons of ``result`` whose copper, as ``reading`` (the written document read back) holds it,
     touches an object of another net or comes nearer to it than the governing clearance, judged with the
     exact predicates of the copper check (``geometry.thick``) on the fills of the import, and on the tracks
-    and arcs of a hatched polygon (``poured_tracks``), which the import does not read as fills."""
+    and arcs of a hatched polygon (``poured_tracks``), which the import does not read as fills. For a
+    simple octagonal SMD pad in a solid pour, test the fill against its native clearance void (S-2314)."""
     from fenolite.geometry.thick import Thick, thick_closer_than
 
     polygons = {p.index: p for p in polygons_of(reading)}
@@ -1838,22 +2099,34 @@ def check_pour(reading: PourReading, result: PourResult) -> tuple[int, ...]:
             box = BBox.of_points(core).inflate((width + 1) // 2)
             fills.setdefault(polygon.layer, []).append((pour.index, pour.net, shape, box))
     failed: set[int] = set()
+    geometry: _Geometry | None = None
     for layer, found in fills.items():
         for index, net, shape, box in found:
             if index in failed:
                 continue
-            name = polygons[index].name
+            polygon = polygons[index]
+            name = polygon.name
             me = rule_subject(layer, "zone", net, objects.netclass.get(net, DEFAULT_CLASS), zone=name)
             near = box.inflate(rules.largest + 1)
             for item in objects.by_layer.get(layer, []):
                 if (net is not None and item.net == net) or not item.box.intersects(near):
                     continue
                 subject = object_subject(layer, item)
-                value = rules.clearance(me, subject, polygons=(name,), fine=fine_kind(item))
-                if isinstance(value, str):
+                obstacle = rules.obstacle(me, subject, item, name=name)
+                if isinstance(obstacle, str):
                     continue
-                core, width, filled = item.shape
-                if thick_closer_than(shape, Thick(core, width, filled), value):
+                (core, width, filled), value = obstacle
+                octagon = objects.octagonal_void(polygon, item, value)
+                if octagon is None:
+                    violates = thick_closer_than(shape, Thick(core, width, filled), value)
+                else:
+                    if geometry is None:
+                        geometry = _Geometry(ClipperBackend())
+                    try:
+                        violates = bool(geometry.meet((Polygon(shape.core),), (octagon,)))
+                    except GeometryError:
+                        violates = True
+                if violates:
                     failed.add(index)
                     break
             if index in failed:

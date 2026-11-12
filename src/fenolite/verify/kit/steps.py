@@ -23,7 +23,7 @@ StepKind = Literal["file", "form"]
 ValueType = Literal["bool", "int", "text"]
 Check = Literal[
     "resave", "netlist", "parity", "poured", "copper.clearance", "messages", "listing", "present",
-    "repoured", "pour-match", "pour-same", "pour-kept", "slots-readback",
+    "repoured", "pour-match", "pour-same", "pour-kept", "pour-drc", "slots-readback",
 ]  # fmt: skip
 
 STEP_ID = re.compile(r"K([1-9])\.([1-9][0-9]?)")
@@ -86,6 +86,8 @@ CHECKS: Mapping[str, str] = MappingProxyType(
         "against the saved board for every polygon, and a failure names its probe",
         "pour-same": "the saved board meets M1 to M4 of `pourcompare` against the board that the named step "
         "saved",
+        "pour-drc": "the native DRC report names no polygon violation except the expected dead-copper "
+        "diagnostic of the netless, unpoured P5_NONET control",
         "pour-kept": "the regions of every polygon of the saved board equal those that Fenolite wrote within "
         "one unit of the document",
     }
@@ -327,21 +329,23 @@ def _pour_steps() -> tuple[Step, ...]:
         _form(
             "K6.5",
             "pour",
-            "With `pour/computed/pour.PcbDoc` open, open the Polygon Pour Manager, where P5 and P5_NONET "
-            "intentionally hold no copper; count either only if the manager lists it. Type how many polygons "
-            "it lists as needing a repour.",
+            "Type how many polygons the Polygon Pour Manager lists as needing a repour with "
+            "`pour/computed/pour.PcbDoc` open. P5 and P5_NONET intentionally hold no copper, so count "
+            "either only if the manager lists it as needing a repour.",
             "int",
             0,
             _POUR_OPEN,
         ),
-        _form(
+        _file(
             "K6.6",
             "pour",
-            "Run Design » Design Rule Check on `pour/computed/pour.PcbDoc`. Type how many of the violations "
-            "it reports name a polygon.",
-            "int",
-            0,
+            "Run Tools » Design Rule Check on `pour/computed/pour.PcbDoc` and retain its batch text report "
+            "as `results/pour/polygon-drc.drc`. The one expected finding is Dead Copper - Net Not Assigned "
+            "on the intentionally netless, empty P5_NONET control.",
+            "pour/polygon-drc.drc",
             _POUR_OPEN,
+            document="pour/computed/pour.PcbDoc",
+            checks=("pour-drc",),
         ),
         _forced("K6.7", "pour", "K6.2", _POUR_INPUTS),
         _form(

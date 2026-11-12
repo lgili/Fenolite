@@ -133,10 +133,14 @@ class Polygon:
 
     def locate(self, p: Point, rule: FillRule = FillRule.NONZERO) -> Location:
         """``INSIDE``, ``OUTSIDE`` or ``BOUNDARY``; points inside a hole are ``OUTSIDE``."""
+        return self._locate(p, self.holes, rule)
+
+    def _locate(self, p: Point, holes: Sequence[Ring], rule: FillRule) -> Location:
+        """Locate a point after the caller has selected the holes that can contain it."""
         where = point_in_ring(p, self.outer, rule)
         if where != Location.INSIDE:
             return where
-        for hole in self.holes:
+        for hole in holes:
             in_hole = point_in_ring(p, hole, rule)
             if in_hole == Location.BOUNDARY:
                 return Location.BOUNDARY

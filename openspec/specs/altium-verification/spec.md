@@ -773,7 +773,7 @@ The kit SHALL hold the samples `pour` (two copper layers) and `pour4` (four copp
 | K6.3 | pour | Tools » Polygon Pours » Repour All on `reference/` by hand and save | file | `repoured`, `pour-same` with K6.2 |
 | K6.4 | pour | open `computed/` and save it without a repour | file | `resave`, `pour-kept` |
 | K6.5 | pour | the number of polygons of `computed/` that the Polygon Pour Manager lists as needing a repour | form, int | 0 |
-| K6.6 | pour | the number of violations of Design » Design Rule Check on `computed/` that name a polygon | form, int | 0 |
+| K6.6 | pour | retain the native batch DRC text report for `computed/` | file | `pour-drc` |
 | K6.7 | pour | Force Repour All on `computed/` and save | file | `repoured`, `pour-match`, `pour-same` with K6.2 |
 | K6.8 | pour | whether `PCB.Polygon.AdvancedPour` is off | form, bool | true |
 | K6.9 | pour4 | as K6.2 | file | `repoured`, `pour-match` |
@@ -785,6 +785,7 @@ The kit SHALL hold the samples `pour` (two copper layers) and `pour4` (four copp
 - `pour-match`: `pourcompare.compare_pours` of the saved board against Fenolite's computed pour of the same sample passes M1 to M5 for every polygon.
 - `pour-same`: the saved board against the board of the named step passes M1 to M4.
 - `pour-kept`: the regions of every polygon of the saved board equal those Fenolite wrote within one unit.
+- `pour-drc`: the complete native batch DRC report has no polygon finding except one exact `Dead Copper - Net Not Assigned` finding under `Un-Routed Net Constraint` for the authored netless, empty `P5_NONET` on Top Layer. The report retains every finding, and any other polygon finding fails.
 - The steps MUST name the hypotheses of the design of change c0215 that they settle: K6.2, K6.7, K6.9 and K6.11 `H-A-POUR-KIT`; K6.3 `H-A-POUR-SCRIPT`; K6.4, K6.5, K6.6 and K6.10 `H-A-POUR-OPEN` and `H-A-POUR-REGION`; K6.8 `H-A-POUR-ENGINE`.
 - The verdict of `pour-match` MUST name each failing probe. An input row of a probe (`H-A-POUR-CLEARANCE` to `H-A-POUR-VIAPAD`) MUST be settled by the probes that name it (the column "settled by" of the design of change c0215), not by whole steps: it passes when every `pour-match` passes for each of those probes, so that one failing probe fails only the rows it names.
 

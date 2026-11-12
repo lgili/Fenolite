@@ -111,6 +111,14 @@ def simulate(
             ).encode()
             if scripted:
                 log.append(f"{step.id} {DONE}")
+        elif "pour-drc" in step.checks:
+            data = (
+                b"Protel Design System Design Rule Check\n"
+                b"Processing Rule : Un-Routed Net Constraint ( (All) )\n"
+                b"Rule Violations :0\n"
+                b"Processing Rule : Modified Polygon (Allow modified: No), (Allow shelved: No)\n"
+                b"Rule Violations :0\nViolations Detected : 0\n"
+            )
         elif "listing" in step.checks:
             data = b"routed.GTL\nrouted.GBL\nrouted.TXT\nrouted.pdf\n"
         elif step.result.endswith(".html"):

@@ -80,6 +80,15 @@ All notable changes to Fenolite are documented here. The format follows
   named its net under the carried `AllowPortNetNames=0`.
 
 - Run the KiCad 10 routing completion scale file in a dedicated serial CI partition with the existing time and proposal assertions (c0478).
+- Preserve solid Altium thermal spokes when foreign clearance clips the extension after a safe copper connection (c0463).
+- Preserve isolated right-angle Altium copper caps after rotation (c0463). The measured public P65 contact also agrees with the native reference.
+
+- Cut measured long-sided Altium acute neck tips along the native chord when the cut stays inside the copper component (c0463).
+
+- Remove undersized solid Altium copper receivers before their thermal spokes can attach them (c0463).
+
+- Speed up Altium repour connectivity comparisons by indexing region and hole bounds before exact point checks (c0463).
+- Limit solid Altium thermal relief intersection checks to copper and obstacle bounds touched by the spoke (c0463).
 
 - **Clean-room harness regression** (c0476): replaced private-derived example data with an authored
   fixture and removed private-project references from change documentation.
@@ -90,6 +99,8 @@ All notable changes to Fenolite are documented here. The format follows
 - Round the clearance corners of Altium filled keep-out regions. The K6 kit checks the
   positive-clearance region against Altium 24.5 and retains exact polygon cut-out outlines.
 
+- Apply only the copper-pour restriction of Altium keep-out fills, tracks and arcs during computed pours.
+
 ### Changed
 
 - Archive c0477 after complete CI and coverage passed on `a4ff6f02b` (run `43014842233`).
@@ -99,6 +110,32 @@ All notable changes to Fenolite are documented here. The format follows
 - Archive c0464, c0465, c0475 after complete CI and coverage passed on `c904cfceb` (run `42956587864`).
 
 - Archive c0427, c0450, c0460, c0466 after complete CI and coverage passed on `9b19a5bdd` (run `42935899720`).
+
+- Integrate the c0463 release-line pour work on `dev`: native acute neck cuts, connected thermal
+  extensions, the solid area cutoff before spokes, isolated right-angle caps, the drill and thermal
+  retention, indexed connectivity bounds and the pinned measured K6 results.
+
+- Record native chamfered terminal and thermal receiver comparisons, including side-obstruction air gaps, under the existing c0463 graduation criteria. Refresh the measured public drill-clearance verdicts.
+
+- Measure native terminal neck cuts on straight-to-curved Altium tapers at three thresholds and arc resolutions (c0463).
+
+- Speed up Altium dead-copper removal by checking contacts whose bounds intersect each polygon piece (c0463).
+
+- Respect concentric round plated drill clearances and thermal air gaps in Altium computed pours (c0463). The writer checks the same drill clearance on readback.
+
+- Preserve valid octagonal clearances through the Altium computed writer's readback check (c0463).
+
+- Match Altium solid-pour clearance around simple octagonal top-layer SMD pads (c0463).
+
+- Record native Altium flag-isolation results for the remaining public row -04 neck-removal differences (c0463). Authored controls reproduce the missed cut beside foreign pads.
+
+- Respect facing same-net SMD pad gaps when placing 90° Altium solid-pour relief conductors (c0463).
+
+- Record the Altium 24.5 thermal relief controls for clearance beyond the air gap and copper of the same net.
+
+- Preserve Altium polygon overhangs when a document lacks a Board Outline Clearance rule, while keeping clearance from board cut-outs (c0463).
+
+- Start solid-pour 45° relief conductors at the facing copper endpoint of elongated through-hole pads (c0463).
 
 - Record native Flow B DRC parity for the authored 28-polygon default keep-out case in Altium 24.5.
 
@@ -1135,6 +1172,15 @@ All notable changes to Fenolite are documented here. The format follows
 - **Public URL paths in residue scans** (c0316): distinguish HTTP(S) path components from local user paths while retaining file URI, query, fragment, private-token, blob and other structural checks across supported encodings, archives and history.
 
 ### Fixed
+
+- **Altium computed pour** (c0463): retry dense exact neck cuts with smaller cells under the same operation budget.
+
+- **Altium computed pour** (c0463): trim short opened necks between distinct copper rims using chords.
+
+- **Altium kit** (c0463): record eleven applicable native K6 checks passing in Altium Designer 24.5.
+
+- **Altium kit K6.6** (c0463): retain the native DRC report, declare its manifest check and recognize the expected
+  diagnostic for the netless, empty `P5_NONET` control.
 
 - **Altium kit K6.5** (c0463): count polygons the manager flags for repour. The two authored empty controls count only when flagged.
 

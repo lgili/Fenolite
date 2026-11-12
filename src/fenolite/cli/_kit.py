@@ -539,6 +539,46 @@ def pour_problems(check: str, own: Path, saved: Path) -> list[str]:
         return [f"Fenolite cannot read the saved board: {error}"]
 
 
+def _polygon_drc_problems(own: Path, saved: Path) -> list[str]:
+    """Check the complete text DRC report and exclude only the verified authored negative control."""
+    from fenolite.backends.altium.pour import polygons_of, read_pour
+    from fenolite.backends.altium.pourcompare import pour_pieces
+
+    raw = saved.read_bytes()
+    text = (
+        raw.decode("utf-16")
+        if raw.startswith((b"\xff\xfe", b"\xfe\xff"))
+        else raw.decode("utf-8-sig", errors="replace")
+    )
+    lines = text.splitlines()
+    violations = [line.strip() for line in lines if re.match(r"^\s*Violation\b", line)]
+    totals = re.findall(r"^Violations Detected\s*:\s*([0-9]+)\s*$", text, re.MULTILINE)
+    rules = re.findall(r"^Processing Rule\s*:\s*(.+)$", text, re.MULTILINE)
+    if (
+        not lines
+        or lines[0] != "Protel Design System Design Rule Check"
+        or not all(
+            any(rule.startswith(kind) for rule in rules) for kind in ("Modified Polygon", "Un-Routed Net")
+        )
+        or len(totals) != 1
+        or int(totals[0]) != len(violations)
+        or len(violations) >= 500
+    ):
+        return ["the native DRC report is incomplete or its violation count reached the report limit"]
+    expected = (
+        "Violation between Un-Routed Net Constraint: Polygon (P5_NONET) on Top Layer "
+        "Dead Copper - Net Not Assigned."
+    )
+    findings = [line for line in violations if re.search(r"\bpolygons?\b", line, re.IGNORECASE)]
+    expected_index = next((i for i, line in enumerate(findings) if " ".join(line.split()) == expected), None)
+    if expected_index is not None:
+        board = read_pour(own.read_bytes(), file=own.name)
+        controls = [p for p in polygons_of(board) if p.name == "P5_NONET" and p.layer == "F.Cu"]
+        if len(controls) == 1 and controls[0].net is None and not pour_pieces(board, controls[0].index):
+            findings.pop(expected_index)
+    return findings
+
+
 def judge_document(check: str, own: Path, saved: Path) -> list[str]:
     """What the machine check ``check`` of a kit step finds on ``saved``, the file a run left, against
     ``own``, the kit's document: one message per problem, none for a pass.
@@ -553,6 +593,8 @@ def judge_document(check: str, own: Path, saved: Path) -> list[str]:
     repour), else on the kit's own board (the step leaves Altium's report, which is archived as it is).
     """
     try:
+        if check == "pour-drc":
+            return _polygon_drc_problems(own, saved)
         if not (check == COPPER_STAGE and saved.suffix.casefold() != ".pcbdoc"):
             other = kind_problems(own, saved)
             if other:

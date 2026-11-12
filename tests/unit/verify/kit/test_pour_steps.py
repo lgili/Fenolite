@@ -14,7 +14,7 @@ from _simulate import simulate, simulated_judge
 
 from fenolite.backends.altium import pour as engine
 from fenolite.backends.altium.pour import PourReading, PourResult, polygons_of
-from fenolite.cli._kit import SAMPLES_DIR, build_sample
+from fenolite.cli._kit import SAMPLES_DIR, build_sample, judge_document
 from fenolite.core.coords import Point
 from fenolite.geometry import Polygon
 from fenolite.geometry.boolean.clipper import ClipperBackend
@@ -60,6 +60,33 @@ def test_a_simulated_run_of_the_pour_steps_passes(kit: Path) -> None:
     assert all(step.outcome == "pass" for step in group), [(s.id, s.reasons) for s in group if s.reasons]
     rows = _rows(verdict)
     assert all(rows[ident] == "pass" for ident in POUR_ROWS), {i: rows[i] for i in POUR_ROWS}
+
+
+def test_pour_drc_excludes_only_the_exact_empty_control(kit: Path) -> None:
+    """The raw report remains intact and every other polygon violation fails K6.6."""
+    expected = (
+        "Violation between Un-Routed Net Constraint: Polygon  (P5_NONET) on Top Layer "
+        "Dead Copper - Net Not Assigned."
+    )
+    nearby_name = expected.replace("P5_NONET", "P5_NONET2")
+    other_rule = expected.replace("Un-Routed Net Constraint", "Modified Polygon")
+    other_reason = expected.replace("Dead Copper - Net Not Assigned", "Connectivity incomplete")
+    simulate(kit)
+    board = kit / "pour/computed/pour.PcbDoc"
+    saved = kit / "results/pour/polygon-drc.drc"
+    for additional in ((nearby_name,), (other_rule,), (other_reason,), (expected,), ()):
+        rows = (expected, *additional)
+        report = (
+            "Protel Design System Design Rule Check\n"
+            "Processing Rule : Un-Routed Net Constraint ( (All) )\n"
+            + "\n".join(rows)
+            + "\nProcessing Rule : Modified Polygon (Allow modified: No), (Allow shelved: No)\n"
+            + f"Violations Detected : {len(rows)}\n"
+        )
+        saved.write_bytes(report.encode())
+        assert judge_document("pour-drc", board, saved) == list(additional)
+        assert saved.read_bytes() == report.encode()
+    assert _step(_verdict(kit), "K6.6").outcome == "pass"
 
 
 def test_a_repour_that_did_not_run(kit: Path) -> None:
