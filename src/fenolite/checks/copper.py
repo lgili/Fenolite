@@ -815,10 +815,12 @@ def _hole_clearance_findings(
     subject: _Subjects,
     paired: Sequence[CopperFinding],
     tolerance: Nm = 0,
-) -> tuple[list[CopperFinding], int]:
+    tolerance_source: str = "",
+) -> tuple[list[CopperFinding], int, int]:
     """One ``copper.hole-clearance`` per hole and copper item whose gap to the hole's wall is below the
     hole clearance in force (``ClearanceResolver.hole``; change c0403), on the first layer, in ``layers``
-    order, where it is, at the closest place on that layer; and the number of shape pairs judged.
+    order, where it is, at the closest place on that layer; the number of shape pairs judged; and the number
+    of hole and item pairs closer than the hole clearance that only ``tolerance`` passed (change c0490).
 
     The copper of the hole's own item is left out, and for a hole with a net the copper of that net: the
     hole clearance holds between different nets, and an unplated hole has none. A pair that already has a
@@ -829,7 +831,7 @@ def _hole_clearance_findings(
     found: list[CopperFinding] = []
     grow = resolver.max_hole
     if not holes or grow <= 0:
-        return found, 0
+        return found, 0, 0
     reported = {
         frozenset((f.items[0].entity_id, f.items[1].entity_id)) for f in paired if f.code in _PAIR_CODES
     }
@@ -839,7 +841,8 @@ def _hole_clearance_findings(
         index = SpatialIndex[int].build((thick_bbox(s.wide), n) for n, s in enumerate(shapes))
         indexes[layer] = (shapes, index)
     judged = 0
-    for hole in holes:
+    tolerated: set[tuple[int, int]] = set()
+    for n_hole, hole in enumerate(holes):
         owner = hole.ref.entity_id
         box = thick_bbox(hole.shape).inflate(grow)
         done: set[int] = set()
@@ -867,6 +870,8 @@ def _hole_clearance_findings(
                 judged += 1
                 value = limit.value - tolerance
                 if value <= 0 or not thick_closer_than(shape.wide, hole.shape, value):
+                    if tolerance and thick_closer_than(shape.wide, hole.shape, limit.value):
+                        tolerated.add((n_hole, shape.item))
                     continue
                 gap = thick_gap_floor(shape.wide, hole.shape)
                 best = closest.get(shape.item)
@@ -874,19 +879,39 @@ def _hole_clearance_findings(
                     closest[shape.item] = (gap, shape.wide, limit)
             for k, (gap, copper, limit) in sorted(closest.items()):
                 done.add(k)
-                found.append(_hole_clearance(items.items[k], hole, layer, gap, copper, limit))
-    return found, judged
+                found.append(
+                    _hole_clearance(
+                        items.items[k], hole, layer, gap, copper, limit, tolerance, tolerance_source
+                    )
+                )
+        tolerated -= {(n_hole, k) for k in done}
+    return found, judged, len(tolerated)
+
+
+def _tolerance_clause(tolerance: Nm, source: str) -> str:
+    """The clause a finding judged with a positive tolerance ends its clearance with (change c0490); empty
+    for a tolerance of 0, so that a strict check says what it said before."""
+    if not tolerance:
+        return ""
+    return f", less a tolerance of {_mm(tolerance)} mm" + (f" ({source})" if source else "")
 
 
 def _hole_clearance(
-    item: _Item, hole: _Hole, layer: str, gap: int, copper: Thick, limit: Clearance
+    item: _Item,
+    hole: _Hole,
+    layer: str,
+    gap: int,
+    copper: Thick,
+    limit: Clearance,
+    tolerance: Nm = 0,
+    tolerance_source: str = "",
 ) -> CopperFinding:
     assert limit.value is not None and limit.severity is not None
     at = thick_witness(copper, hole.shape)
     message = (
         f"{item.ref.kind} {item.ref.where} of {item.ref.net} is {_mm(gap)} mm from the drill of "
         f"{hole.ref.kind} {hole.ref.where} on {layer} at {_point(at)}; the hole clearance is "
-        f"{_mm(limit.value)} mm ({limit.source})"
+        f"{_mm(limit.value)} mm ({limit.source}){_tolerance_clause(tolerance, tolerance_source)}"
     )
     return CopperFinding(
         HOLE_CLEARANCE,
@@ -1022,8 +1047,13 @@ class _Judge:
         areas: _Areas,
         tolerance: Nm = 0,
         shorts: Sequence[Rule] = (),
+        tolerance_source: str = "",
     ) -> None:
         self.tolerance = tolerance
+        self.tolerance_source = tolerance_source
+        self.tolerated = 0
+        """The item pairs closer than the rule that only the tolerance passed (change c0490)."""
+        self._near = False
         self.shorts = tuple(shorts)
         """The rules of kind ``short`` (change c0465): the governing one sets the severity of a short."""
         self.allowed = 0
@@ -1076,7 +1106,11 @@ class _Judge:
         value = found.value - self.tolerance  # the tool's own tolerance (change c0281)
         if value <= 0:
             return None
-        return found if thick_closer_than(first.wide, second.wide, value) else None
+        if thick_closer_than(first.wide, second.wide, value):
+            return found
+        if self.tolerance and thick_closer_than(first.wide, second.wide, found.value):
+            self._near = True
+        return None
 
     def _refs(self, a: int, b: int) -> tuple[CopperRef, CopperRef]:
         first, second = sorted(
@@ -1122,6 +1156,7 @@ class _Judge:
                     ),
                 )
         unset = False
+        self._near = False
         for rank in dict.fromkeys(entry[0] for entry in ordered):
             layer = self.layers[rank]
             found = self._resolve(a, b, layer)
@@ -1143,6 +1178,7 @@ class _Judge:
                 message = (
                     f"copper of {refs[0].net} and {refs[1].net} is {_mm(gap)} mm apart on {layer} at "
                     f"{_point(at)}; the clearance is {_mm(found.value)} mm ({found.source})"
+                    f"{_tolerance_clause(self.tolerance, self.tolerance_source)}"
                 )
                 return CopperFinding(
                     "copper.clearance",
@@ -1161,6 +1197,7 @@ class _Judge:
                     ),
                 )
         self.unset += unset
+        self.tolerated += self._near
         return None
 
 
@@ -1180,6 +1217,7 @@ def _run(
     tolerance: Nm = 0,
     min_hole_clearance: Nm | None = None,
     allowances: Sequence[Rule] | None = None,
+    tolerance_source: str = "",
 ) -> CopperReport:
     if type(arc_tol) is not int or arc_tol < 1:
         raise ValueError(f"arc_tol is an int of at least 1 nm, got {arc_tol!r}")
@@ -1210,6 +1248,7 @@ def _run(
     hole_count = 0
     hole_judged = 0
     allowed = 0
+    tolerated = 0
     if board is not None:
         items = _Items(design, pads, arc_tol)
         used = {layer for item in items.items for layer in item.shapes}
@@ -1221,7 +1260,7 @@ def _run(
         )
         areas = _Areas(board, items)
         rule_areas = areas.named
-        judge = _Judge(items, layers, resolver, areas, tolerance, shorts)
+        judge = _Judge(items, layers, resolver, areas, tolerance, shorts, tolerance_source)
         for (a, b), shapes in sorted(pairs.items()):
             found = judge.pair(a, b, shapes)
             if found is not None:
@@ -1240,9 +1279,10 @@ def _run(
         holes = _holes(board, pads, items)
         findings += _hole_findings(holes, board_edges, arc_tol)
         hole_count = len(holes)
-        near, hole_judged = _hole_clearance_findings(
-            holes, items, layers, resolver, judge.subject, findings, tolerance
+        near, hole_judged, hole_tolerated = _hole_clearance_findings(
+            holes, items, layers, resolver, judge.subject, findings, tolerance, tolerance_source
         )
+        tolerated = judge.tolerated + hole_tolerated
         findings += near
         counts.update(
             judged=judge.judged,
@@ -1304,6 +1344,8 @@ def _run(
     )
     if allowed:  # left out when none was, so a design without allowances gives the bytes it gave
         summary["allowed"] = {"copper.short": allowed}
+    if tolerated:
+        summary["tolerated"] = tolerated
     issues = (*(f.to_issue() for f in findings), *sorted(others, key=_sort_key))
     with_areas = board is not None and bool(all_rule_areas(board))
     evidence = Evidence.combine(EVIDENCE, *((AREA_EVIDENCE,) if with_areas else ()), *inputs)
@@ -1334,13 +1376,17 @@ def check_copper(
     tolerance: Nm = 0,
     min_hole_clearance: Nm | None = None,
     allowances: Sequence[Rule] | None = None,
+    tolerance_source: str = "",
 ) -> CopperReport:
     """The shorts, clearance violations, zone overlaps and edge clearance violations of the copper of
     ``design.board``.
 
     ``tolerance`` (nm, from ``DesignRules.clearance_tolerance``; change c0281) is how far below the value
     in force a pair's gap may be before it is a clearance finding, as the tool's DRC allows; edge
-    clearance keeps the strict rule.
+    clearance keeps the strict rule. ``tolerance_source`` (``DesignRules.tolerance_source``; change c0490)
+    names where the tolerance comes from: a finding judged with a positive tolerance ends its clearance with
+    ``, less a tolerance of <mm> mm (<source>)``, and ``summary["tolerated"]`` counts the pairs closer than
+    the rule that only the tolerance passed (absent when none was).
 
     ``pads`` are the board-frame pad records of ``BoardFrame.board_pads(design)``, or ``None`` when no
     frame is available (pads are then left out and reported). ``min_clearance``, ``rules_over_classes`` and
@@ -1371,6 +1417,7 @@ def check_copper(
         tolerance=tolerance,
         min_hole_clearance=min_hole_clearance,
         allowances=allowances,
+        tolerance_source=tolerance_source,
     )
 
 
@@ -1505,6 +1552,7 @@ def copper_stage(
         min_edge_clearance=rules.min_edge_clearance if rules is not None else None,
         edge_floor_over_rules=rules.edge_floor_over_rules if rules is not None else False,
         tolerance=rules.clearance_tolerance if rules is not None else 0,
+        tolerance_source=rules.tolerance_source if rules is not None else "",
         min_hole_clearance=rules.min_hole_clearance if rules is not None else None,
         allowances=(*allowance_rules(checked), *allowances),
     )

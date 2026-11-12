@@ -53,6 +53,7 @@ def judged(backend: object, design: Design, project: ProjectSet) -> tuple[Copper
         min_clearance=rules.min_clearance,
         rules_over_classes=rules.rules_over_classes,
         floor_over_rules=rules.floor_over_rules,
+        tolerance=rules.clearance_tolerance,  # each tool's own (change c0490)
     )
     (anchor,) = [pad.position for pad in pads if pad.ref == "U1" and pad.number == "1"]
     return report, anchor

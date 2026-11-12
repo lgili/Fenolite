@@ -29,6 +29,13 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Fixed
 
+- **The copper check states the Altium grid tolerance** (c0490): the Altium rules view no longer lowers
+  every clearance rule by 9 nm. It keeps the document's values and gives a tolerance of 4 file units
+  (11 nm, `GRID_TOLERANCE_UNITS`, `H-A-CHK-GRID-TOL`) in `DesignRules.clearance_tolerance`, with its source
+  in the new `DesignRules.tolerance_source`. A `copper.clearance` or `copper.hole-clearance` judged with a
+  tolerance names the rule's own value and ends with `, less a tolerance of <mm> mm (<source>)` (`KiCad's
+  DRC epsilon` for KiCad); `summary.tolerated` counts the pairs that only the tolerance passed. Pairs 10
+  and 11 nm short of an Altium rule are now passed; a check with no tolerance says what it said before.
 - Proposed (spec only) changes c0490 to c0496: the copper check tolerates the Altium unit grid and says
   so, `copper.hole-clearance` leaves out copper of an unplated pad's own net, imported Altium texts keep
   their lower-left anchor in KiCad, `silk --designators` places designators on dense boards with an

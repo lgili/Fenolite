@@ -577,6 +577,7 @@ def copper_guard(
         min_edge_clearance=rules.min_edge_clearance,
         edge_floor_over_rules=rules.edge_floor_over_rules,
         tolerance=rules.clearance_tolerance,
+        tolerance_source=rules.tolerance_source,
         min_hole_clearance=rules.min_hole_clearance,
         allowances=allowances,
     )
@@ -647,6 +648,8 @@ def altium_copper_guard(
         min_clearance=rules.min_clearance,
         rules_over_classes=rules.rules_over_classes,
         floor_over_rules=rules.floor_over_rules,
+        tolerance=rules.clearance_tolerance,
+        tolerance_source=rules.tolerance_source,
         inputs=(read.evidence, rules.evidence),
         edges=edges,
         min_edge_clearance=rules.min_edge_clearance,

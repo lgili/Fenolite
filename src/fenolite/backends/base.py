@@ -1062,6 +1062,8 @@ class DesignRules:
     clearance_tolerance: Nm = 0
     """How far below the value in force the tool still accepts a gap (change c0281): the copper check
     reports a pair only when its gap is below ``value − clearance_tolerance``."""
+    tolerance_source: str = ""
+    """Where ``clearance_tolerance`` comes from, as a finding judged with it names it (change c0490)."""
     min_hole_clearance: Nm | None = None
 
 

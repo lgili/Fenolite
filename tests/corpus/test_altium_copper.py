@@ -34,7 +34,7 @@ from _corpus import CorpusItem, heavy_enabled, manifest_items, require
 
 from fenolite.backends.altium.backend import (
     ALTIUM_PASSED_UNITS,
-    CLEARANCE_SLACK_NM,
+    CLEARANCE_TOLERANCE_NM,
     UNIT_SLACK_NM,
     AltiumBackend,
     _with_removed_pads,  # pyright: ignore[reportPrivateUsage]
@@ -132,7 +132,9 @@ def test_copper(item: CorpusItem) -> None:
     stage = document_copper(design, project=project, validator=backend, evidence=read.pcb.evidence)
     summary = stage.summary
     rules = backend.design_rules(design, project)
-    report = check_copper(rules.design, pads=backend.board_pads(rules.design))
+    report = check_copper(
+        rules.design, pads=backend.board_pads(rules.design), tolerance=rules.clearance_tolerance
+    )
 
     # the import makes no copper of what is drawn on an internal plane (change c0124): the board that
     # is checked is the board that was read, with every track and arc, and none of them lies on a plane
@@ -170,7 +172,9 @@ def test_copper(item: CorpusItem) -> None:
     kept = {frozenset(entry.entity_id for entry in f.items) for f in report.findings}
     rounding = [f for f in unslacked.findings if frozenset(e.entity_id for e in f.items) not in kept]
     assert all(
-        f.code == "copper.clearance" and f.clearance is not None and f.clearance - f.gap <= CLEARANCE_SLACK_NM
+        f.code == "copper.clearance"
+        and f.clearance is not None
+        and f.clearance - f.gap <= CLEARANCE_TOLERANCE_NM
         for f in rounding
     ), item.id
     assert len(unslacked.findings) == len(report.findings) + len(rounding), item.id
@@ -329,9 +333,8 @@ def test_vias_without_inner_pads() -> None:
     rules source (the drill as diameter on the named layers) none of the 29 remains, no finding names
     such a via on a named layer, and the pour of each of the 28 places stands at the generic clearance
     from the via's HOLE, to the rounding of the pour's points. What remains is the class of the evidence
-    page: clearance findings 10 to 13 nm short of the rule, none of them with a pour (8 and 9 nm short
-    before change c0152, whose slack passes them)."""
-    from fenolite.backends.altium.backend import _with_unit_slack  # pyright: ignore[reportPrivateUsage]
+    page: clearance findings 12 to 13 nm short of the rule, none of them with a pour (8 to 11 nm short
+    before changes c0152 and c0490, whose tolerance passes them)."""
     from fenolite.checks.copper import _clean_ring  # pyright: ignore[reportPrivateUsage]
     from fenolite.geometry import Thick, thick_gap_floor
 
@@ -377,16 +380,16 @@ def test_vias_without_inner_pads() -> None:
     pads = backend.board_pads(rules.design)
 
     # before: the same rules, every via with its one diameter on every layer
-    plain = _with_unit_slack(_without_zone_clearance(design))
+    plain = _without_zone_clearance(design)
     assert plain.board is not None and plain.board.vias == design.board.vias
-    before = check_copper(plain, pads=pads)
+    before = check_copper(plain, pads=pads, tolerance=CLEARANCE_TOLERANCE_NM)
     false = [
         found
         for found in before.findings
         if any(e.entity_id in bare and found.layer in bare[e.entity_id] for e in found.items)
     ]
     assert Counter(found.code for found in false) == {"copper.short": 28, "copper.clearance": 1}
-    assert Counter(f.code for f in before.findings) == {"copper.short": 28, "copper.clearance": 9}
+    assert Counter(f.code for f in before.findings) == {"copper.short": 28, "copper.clearance": 2}
     vias = {via.id: via for via in design.board.vias}
     zones = {zone.id: zone for zone in design.board.zones}
     touched: set[str] = set()
@@ -409,8 +412,8 @@ def test_vias_without_inner_pads() -> None:
     assert len(touched) == 7 and all(len(bare[ident]) == 4 for ident in touched)
 
     # after: the view of the rules source
-    after = check_copper(rules.design, pads=pads)
-    assert Counter(found.code for found in after.findings) == {"copper.clearance": 8}
+    after = check_copper(rules.design, pads=pads, tolerance=rules.clearance_tolerance)
+    assert Counter(found.code for found in after.findings) == {"copper.clearance": 1}
     gone = {_key(f) for f in before.findings} - {_key(f) for f in after.findings}
     assert gone == {_key(f) for f in false}
     assert {_key(f) for f in after.findings} <= {_key(f) for f in before.findings}
@@ -418,7 +421,7 @@ def test_vias_without_inner_pads() -> None:
         assert not any(e.entity_id in bare and found.layer in bare[e.entity_id] for e in found.items)
         assert "fill" not in {entry.kind for entry in found.items}
         assert found.gap is not None and found.clearance is not None
-        assert 10 - CLEARANCE_SLACK_NM <= found.clearance - found.gap <= 13 - CLEARANCE_SLACK_NM, found.where
+        assert CLEARANCE_TOLERANCE_NM < found.clearance - found.gap <= 13, found.where
     assert after.summary["items"]["via"] == 2160  # type: ignore[index]  # the parts are counted
 
 
@@ -427,12 +430,11 @@ ALTIUM_CHECKED = "altium-third-party-pcbdoc-03"
 
 
 def _lowered_by_the_unit_alone(design: Design) -> Design:
-    """``design``, whose clearance rules the rules source lowered by ``CLEARANCE_SLACK_NM``, with them
-    lowered by ``UNIT_SLACK_NM`` alone, as before change c0152."""
+    """``design`` with its clearance rules lowered by ``UNIT_SLACK_NM`` alone, as before change c0152."""
     held = design.rules
     assert held is not None
     rules = tuple(
-        dataclasses.replace(rule, min=rule.min + CLEARANCE_SLACK_NM - UNIT_SLACK_NM)
+        dataclasses.replace(rule, min=rule.min - UNIT_SLACK_NM)
         if rule.kind == "clearance" and rule.min is not None
         else rule
         for rule in held.rules
@@ -460,7 +462,7 @@ def test_the_pairs_that_altium_passes() -> None:
     assert project is not None
     rules = backend.design_rules(read.pcb.design, project)
     pads = backend.board_pads(rules.design)
-    after = check_copper(rules.design, pads=pads)
+    after = check_copper(rules.design, pads=pads, tolerance=rules.clearance_tolerance)
     assert [f for f in after.findings if f.code == "copper.clearance"] == []
 
     before = [

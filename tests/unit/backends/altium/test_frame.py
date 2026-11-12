@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from fenolite.backends.altium import frame
-from fenolite.backends.altium.backend import CLEARANCE_SLACK_NM, AltiumBackend
+from fenolite.backends.altium.backend import CLEARANCE_TOLERANCE_NM, AltiumBackend
 from fenolite.backends.altium.frame import corner_radius, shape_entries
 from fenolite.backends.base import BoardFrame, DesignRulesSource, DocumentParity, ProjectSet
 from fenolite.core.coords import Point, Size
@@ -240,14 +240,15 @@ def test_rules_source_of_a_built_sample() -> None:
     assert rules.min_clearance is None and rules.rules_over_classes and not rules.floor_over_rules
     assert rules.opaque_clearance_rules == 0 and rules.unread == () and rules.left_out == ()
     assert rules.evidence.level is Level.INFERRED
-    # a polygon has no clearance of its own, and the clearance rules carry the slack (c0131, c0152)
+    # a polygon has no clearance of its own; the rules keep their values and the tolerance is apart (c0490)
     assert design.board is not None and rules.design.board is not None
     assert {zone.settings.clearance for zone in design.board.zones} == {500_000}
     assert {zone.settings.clearance for zone in rules.design.board.zones} == {0}
     read = {rule.name: rule.min for rule in design.rules.rules if rule.kind == "clearance"}  # type: ignore[union-attr]
     held = {rule.name: rule.min for rule in rules.design.rules.rules if rule.kind == "clearance"}  # type: ignore[union-attr]
     assert read == {"Clearance": 200_000, "Clearance_PWR": 200_000}
-    assert held == {name: value - CLEARANCE_SLACK_NM for name, value in read.items()}
+    assert held == read and rules.clearance_tolerance == CLEARANCE_TOLERANCE_NM == 11
+    assert rules.tolerance_source == "4 units of the Altium grid"
     other = [rule for rule in rules.design.rules.rules if rule.kind != "clearance"]  # type: ignore[union-attr]
     assert other == [rule for rule in design.rules.rules if rule.kind != "clearance"]  # type: ignore[union-attr]
     assert rules.design.board.tracks == design.board.tracks

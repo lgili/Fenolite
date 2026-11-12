@@ -64,6 +64,8 @@ def check_placement_constraints(
         min_clearance=rules.min_clearance if rules else None,
         rules_over_classes=rules.rules_over_classes if rules else True,
         floor_over_rules=rules.floor_over_rules if rules else False,
+        tolerance=rules.clearance_tolerance if rules else 0,
+        tolerance_source=rules.tolerance_source if rules else "",
     )
     findings = [
         PlacementCopperFinding(

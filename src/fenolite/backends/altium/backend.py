@@ -119,7 +119,7 @@ rectangular pad; the slack of a pair covers every pair but a rectangular pad aga
 judged with a band of 1 001 nm, which is far above all of these. Measured on the eight public PCB
 documents: every finding that the slack takes away is 1 to 4 nm short.
 
-The check lowers the rules by ``CLEARANCE_SLACK_NM``, which is at least this (change c0152)."""
+The check judges with ``CLEARANCE_TOLERANCE_NM``, which is at least this (changes c0152, c0490)."""
 ALTIUM_PASSED_UNITS = Fraction(7, 2)
 """The shortfall, in file units, of the closest pair that Altium's own clearance check was seen to pass
 (change c0152; ``ALTIUM-VERIFIED(author-report)``, S-0616; ``docs/formats/altium/import.md``, "Clearance
@@ -131,17 +131,22 @@ nm, inside the rule. The shortfall is in the document, not in the conversion (th
 it is, and the copper check passes no more than that."""
 ALTIUM_PASSED_NM = ALTIUM_PASSED_UNITS * FILE_UNIT_NM
 """``ALTIUM_PASSED_UNITS`` in nanometres, 8.89 nm."""
-CLEARANCE_SLACK_NM = max(UNIT_SLACK_NM, -(-ALTIUM_PASSED_NM.numerator // ALTIUM_PASSED_NM.denominator))
-"""By how much the copper check lowers every clearance rule of a PCB document: 9 nm (change c0152).
+GRID_TOLERANCE_UNITS = 4
+"""The tolerance of the copper check of a PCB document, in file units (change c0490,
+``H-A-CHK-GRID-TOL``; ``docs/formats/altium/import.md``, "Clearance of the copper check").
 
-The larger of the slack of the unit (``UNIT_SLACK_NM``, 5 nm, change c0131) and Altium's observed
-tolerance in whole nanometres. The tolerance is rounded up, not down, because the check compares the
-model's gap, which is itself whole nanometres: a document gap 8.89 nm short is read 8 or 9 nm short, and a
-rule lowered by 8 still reports the pairs Altium passes. Rounding up passes at most 0.11 nm more than
-Altium was seen to pass, below the model's resolution of 1 nm. Being at least 6.36 nm, it also covers the
-worst case of the conversion for a pad against a rectangular pad that c0131 left open. KiCad boards are not
-judged with it: the slack lives in this backend's rules view, and ``checks.copper`` stays strict at the
-nanometre."""
+The least whole number of units that covers the two roundings measured on authored documents: copper that
+Altium saved closer than its rule and that its own check passes (``ALTIUM_PASSED_UNITS``, 3.5 units) and a
+rule saved in mil with four decimals, whose last digit holds the metric value to half a unit (0.00005 mil,
+0.5 unit). Together 4 units. A pour that Fenolite computed is never covered by it."""
+CLEARANCE_TOLERANCE_NM = -(-GRID_TOLERANCE_UNITS * FILE_UNIT_NM.numerator // FILE_UNIT_NM.denominator)
+"""``GRID_TOLERANCE_UNITS`` in whole nanometres, rounded up: 11 nm (10.16). Rounded up because the model's
+gap is itself whole nanometres, as for c0152. It covers the slack of the unit (``UNIT_SLACK_NM``, c0131),
+Altium's observed tolerance (``ALTIUM_PASSED_NM``, c0152) and the worst case of the conversion for a pad
+against a rectangular pad (6.36 nm). The rules keep the document's values: the rules view gives it as
+``DesignRules.clearance_tolerance``. KiCad boards are not judged with it."""
+TOLERANCE_SOURCE = f"{GRID_TOLERANCE_UNITS} units of the Altium grid"
+"""Where the tolerance comes from, as a finding names it (``DesignRules.tolerance_source``)."""
 _PROJECT_SKIPS = ("altium.project.document-outside", "altium.project.document-missing")
 _DOCUMENT_INDEX = re.compile(r"\bdocument (\d+)\b")
 
@@ -508,14 +513,15 @@ class AltiumBackend:
 
         The import already holds the rules that map. What this adds is what the copper check must know
         beyond them: a polygon has no clearance of its own, so the clearance of every zone is 0 (the value
-        ``checks.clearance`` reads as "none") and the clearance rules alone decide; every clearance rule is
-        lowered by ``CLEARANCE_SLACK_NM``, so that copper at exactly its clearance in the document's unit is
-        no finding in nanometres, nor copper as far inside it as Altium's own check was seen to pass (change
-        c0152); and ``opaque_clearance_rules`` counts the ``Clearance`` records that the rule table does
-        not map and that apply to something (not disabled, and not scoped to a kind of layer the board
-        lacks: ``read.rules.NOT_APPLYING``), read from ``Rules6/Data`` alone and mapped with the copper
-        layers of ``design``, as the import maps them. A governing rule replaces class
-        values, and there is no board minimum. An internal plane is drawn in negative: the objects on its
+        ``checks.clearance`` reads as "none") and the clearance rules alone decide; the clearance rules
+        keep the document's values and ``clearance_tolerance`` is ``CLEARANCE_TOLERANCE_NM``, so that copper
+        at exactly its clearance in the document's unit is no finding in nanometres, nor copper as far
+        inside it as Altium's own check was seen to pass (changes c0152, c0490); and
+        ``opaque_clearance_rules`` counts the ``Clearance`` records that the rule table does not map and
+        that apply to something (not disabled, and not scoped to a kind of layer the board lacks:
+        ``read.rules.NOT_APPLYING``), read from ``Rules6/Data`` alone and mapped with the copper layers of
+        ``design``, as the import maps them. A governing rule replaces class values, and there is no board
+        minimum. An internal plane is drawn in negative: the objects on its
         layer cut the plane and are no copper, and the import makes no entity of them (change c0124), so
         nothing is taken out here; ``left_out`` names the planes, whose own copper the document does not
         hold, with the number of objects the import left out. A via without a pad shape on some layers is
@@ -538,7 +544,7 @@ class AltiumBackend:
         from fenolite.backends.altium.read.pcb import read_rule_fields
         from fenolite.backends.altium.read.rules import NOT_APPLYING, map_rules
 
-        checked = _with_unit_slack(_without_zone_clearance(_with_removed_pads(design)))
+        checked = _without_zone_clearance(_with_removed_pads(design))
         opaque = 0
         cells = (0, 0)
         failed: tuple[tuple[str, str], ...] = ((file, unread),) if data is None else ()
@@ -569,6 +575,8 @@ class AltiumBackend:
             clearance_cells=cells,
             min_edge_clearance=_board_outline_clearance(checked),
             edge_floor_over_rules=False,
+            clearance_tolerance=CLEARANCE_TOLERANCE_NM,
+            tolerance_source=TOLERANCE_SOURCE,
         )
 
     def parity_side(self, schematic: Design, board: Design) -> SideOutcome:
@@ -798,22 +806,6 @@ def _board_outline_clearance(design: Design) -> Nm | None:
         key=lambda r: (r.priority != 0, -r.priority, r.name, r.id),
     )
     return wide[-1].min if wide else None
-
-
-def _with_unit_slack(design: Design) -> Design:
-    """``design`` with every clearance rule lowered by ``CLEARANCE_SLACK_NM`` (a value at or below it is
-    kept): the slack of one file unit per item of a pair, or Altium's observed tolerance where that is
-    larger. Both hold for every pair, so lowering each rule by one constant applies them pair by pair."""
-    held = design.rules
-    if held is None or not any(rule.kind == "clearance" for rule in held.rules):
-        return design
-    rules = tuple(
-        dataclasses.replace(rule, min=rule.min - CLEARANCE_SLACK_NM)
-        if rule.kind == "clearance" and rule.min is not None and rule.min > CLEARANCE_SLACK_NM
-        else rule
-        for rule in held.rules
-    )
-    return dataclasses.replace(design, rules=dataclasses.replace(held, rules=rules))
 
 
 _BACKEND: Backend = AltiumBackend()
