@@ -769,9 +769,13 @@ class _Hole:
     layers: tuple[str, ...] | None = None
 
 
-def _holes(board: Board, pads: Sequence[BoardPad] | None, items: _Items) -> list[_Hole]:
+def _holes(
+    board: Board, pads: Sequence[BoardPad] | None, items: _Items, *, unplated_nets: bool = True
+) -> list[_Hole]:
     """Every drilled hole of the board: the drill of each pad of ``pads`` (unplated ones included), of each
-    via, and each board hole. A hole that cannot be shaped is counted in ``items.unsupported``."""
+    via, and each board hole. A hole that cannot be shaped is counted in ``items.unsupported``. A hole has
+    its pad's or via's net; an unplated pad's hole has none when ``unplated_nets`` is false (change c0491:
+    KiCad's DRC judges copper of an unplated pad's own net, ``H-G-HOLE-SAME-NET``)."""
     found: list[_Hole] = []
 
     def add(
@@ -794,8 +798,14 @@ def _holes(board: Board, pads: Sequence[BoardPad] | None, items: _Items) -> list
         holder = record.ref or record.footprint_id
         where = f"{holder}-{record.number}" if record.number else holder
         ref = CopperRef("pad", where, record.pad_id, items.net_name(record.net_id), record.footprint_id)
-        net_id = None if record.kind == "np_thru_hole" else record.net_id
-        add(ref, record.hole, record.drill, net_id=net_id, component=record.ref or None)
+        unplated = record.kind == "np_thru_hole" and not unplated_nets
+        add(
+            ref,
+            record.hole,
+            record.drill,
+            net_id=None if unplated else record.net_id,
+            component=record.ref or None,
+        )
     for via in board.vias:
         span = items.span(via.layers, via.via_type == "through")
         add(items.ref_of("via", via, via.net_id), (via.position,), via.drill, net_id=via.net_id, layers=span)
@@ -823,7 +833,9 @@ def _hole_clearance_findings(
     of hole and item pairs closer than the hole clearance that only ``tolerance`` passed (change c0490).
 
     The copper of the hole's own item is left out, and for a hole with a net the copper of that net: the
-    hole clearance holds between different nets, and an unplated hole has none. A pair that already has a
+    hole clearance holds between different nets. A hole has the net of its pad, plated or not, or of its
+    via (change c0491); a board hole and a pad without a net have none, and every copper near them is
+    judged. A pair that already has a
     ``copper.short`` or ``copper.clearance`` finding is left out too, as KiCad's DRC reports one violation
     per item pair (``H-K-DRU-KIND-2``). The gap is exact and strict below the hole clearance less
     ``tolerance``, the tool's own tolerance that the pair clearance takes too (change c0281; change c0420,
@@ -1218,6 +1230,7 @@ def _run(
     min_hole_clearance: Nm | None = None,
     allowances: Sequence[Rule] | None = None,
     tolerance_source: str = "",
+    hole_clearance_same_net: bool = False,
 ) -> CopperReport:
     if type(arc_tol) is not int or arc_tol < 1:
         raise ValueError(f"arc_tol is an int of at least 1 nm, got {arc_tol!r}")
@@ -1276,7 +1289,7 @@ def _run(
                 judged=board_edges.judged,
                 unset_items=board_edges.unset,
             )
-        holes = _holes(board, pads, items)
+        holes = _holes(board, pads, items, unplated_nets=not hole_clearance_same_net)
         findings += _hole_findings(holes, board_edges, arc_tol)
         hole_count = len(holes)
         near, hole_judged, hole_tolerated = _hole_clearance_findings(
@@ -1377,6 +1390,7 @@ def check_copper(
     min_hole_clearance: Nm | None = None,
     allowances: Sequence[Rule] | None = None,
     tolerance_source: str = "",
+    hole_clearance_same_net: bool = False,
 ) -> CopperReport:
     """The shorts, clearance violations, zone overlaps and edge clearance violations of the copper of
     ``design.board``.
@@ -1396,7 +1410,9 @@ def check_copper(
     (``min_edge_clearance`` and ``edge_floor_over_rules`` from ``DesignRules``); ``None`` judges no edge.
     ``min_hole_clearance`` (``DesignRules.min_hole_clearance``; change c0403) is the board minimum of the
     clearance between a drilled hole and the copper of another item (``ClearanceResolver.hole``); with
-    neither it nor a ``hole_clearance`` rule no hole is judged against copper.
+    neither it nor a ``hole_clearance`` rule no hole is judged against copper. Copper of a hole's own net is
+    not judged against it; ``hole_clearance_same_net`` (``DesignRules.hole_clearance_same_net``; change
+    c0491) judges an unplated pad's hole against copper of the pad's net, as KiCad's DRC does.
     ``allowances`` are the rules of kinds ``short`` and ``antenna`` (change c0465); ``None`` takes those of
     ``design.rules``. A short whose governing ``short`` rule has severity ``ignore`` stays listed as ``info``
     and ends with `` (allowed by rule <name>)``; ``warning`` makes it a warning; ``summary["allowed"]``
@@ -1418,6 +1434,7 @@ def check_copper(
         min_hole_clearance=min_hole_clearance,
         allowances=allowances,
         tolerance_source=tolerance_source,
+        hole_clearance_same_net=hole_clearance_same_net,
     )
 
 
@@ -1553,6 +1570,7 @@ def copper_stage(
         edge_floor_over_rules=rules.edge_floor_over_rules if rules is not None else False,
         tolerance=rules.clearance_tolerance if rules is not None else 0,
         tolerance_source=rules.tolerance_source if rules is not None else "",
+        hole_clearance_same_net=rules.hole_clearance_same_net if rules is not None else False,
         min_hole_clearance=rules.min_hole_clearance if rules is not None else None,
         allowances=(*allowance_rules(checked), *allowances),
     )

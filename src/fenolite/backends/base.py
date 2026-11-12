@@ -1064,6 +1064,9 @@ class DesignRules:
     reports a pair only when its gap is below ``value − clearance_tolerance``."""
     tolerance_source: str = ""
     """Where ``clearance_tolerance`` comes from, as a finding judged with it names it (change c0490)."""
+    hole_clearance_same_net: bool = False
+    """Whether the tool judges an unplated pad's hole against copper of the pad's own net (change c0491):
+    KiCad's DRC does (``H-G-HOLE-SAME-NET``), Altium's Clearance rule holds between different nets."""
     min_hole_clearance: Nm | None = None
 
 

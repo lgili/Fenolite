@@ -231,3 +231,48 @@ def test_hole_clearance_takes_the_tool_tolerance() -> None:
         made.track("SIG", Point(mm(5), y), Point(mm(15), y), width=mm(0.2))
         report = check_copper(made.build(), pads=made.pads, min_hole_clearance=floor, tolerance=tolerance)
         assert len(codes(report, HOLE_CLEARANCE)) == expected, (short, tolerance)
+
+
+# --- the net of an unplated pad (change c0491) -------------------------------------------------------------
+
+
+def _same_net_board(pad_net: str | None, via_net: str) -> Copper:
+    """Scenario boards of "Copper against drilled holes": the unplated pad ``MH1`` of ``pad_net``, a ``GND``
+    zone fill whose edge is 0.1 mm from the wall and a via of ``via_net`` 0.1 mm from the wall."""
+    made = Copper()
+    _npth(made)
+    made.net("GND")
+    made.pads[-1] = dataclasses.replace(made.pads[-1], net_id=made.net(pad_net))
+    edge = mm(10 + 1.5 + 0.1)
+    fill = (Point(mm(2), edge), Point(mm(18), edge), Point(mm(18), mm(18)), Point(mm(2), mm(18)))
+    made.zone("GND", fill, fills=(fill,), clearance=0)
+    made.via(via_net, Point(mm(10 - 1.5 - 0.1 - 0.3), mm(10)), diameter=mm(0.6))
+    return made
+
+
+def _hole_findings(made: Copper) -> list[tuple[str, str]]:
+    report = check_copper(made.build(), pads=made.pads, min_hole_clearance=mm(0.25))
+    return sorted((found.items[0].kind, found.items[0].net) for found in codes(report, HOLE_CLEARANCE))
+
+
+def test_copper_of_the_net_of_an_unplated_pad() -> None:
+    """Scenario "Copper of the net of an unplated pad": no finding for the pad's own net; a via of
+    another net is one."""
+    assert _hole_findings(_same_net_board("GND", "GND")) == []
+    assert _hole_findings(_same_net_board("GND", "N1")) == [("via", "N1")]
+
+
+def test_an_unplated_pad_without_a_net() -> None:
+    """Scenario "An unplated pad without a net": all copper near it is judged, as before."""
+    assert _hole_findings(_same_net_board(None, "GND")) == [("fill", "GND"), ("via", "GND")]
+
+
+def test_the_kicad_view_judges_the_pads_own_net() -> None:
+    """KiCad's DRC judges copper of an unplated pad's own net (``H-G-HOLE-SAME-NET``): with
+    ``hole_clearance_same_net`` the verdict is the one of a pad without a net."""
+    made = _same_net_board("GND", "GND")
+    report = check_copper(
+        made.build(), pads=made.pads, min_hole_clearance=mm(0.25), hole_clearance_same_net=True
+    )
+    found = sorted((f.items[0].kind, f.items[0].net) for f in codes(report, HOLE_CLEARANCE))
+    assert found == [("fill", "GND"), ("via", "GND")]

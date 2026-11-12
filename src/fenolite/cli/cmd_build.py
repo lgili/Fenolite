@@ -578,6 +578,7 @@ def copper_guard(
         edge_floor_over_rules=rules.edge_floor_over_rules,
         tolerance=rules.clearance_tolerance,
         tolerance_source=rules.tolerance_source,
+        hole_clearance_same_net=rules.hole_clearance_same_net,
         min_hole_clearance=rules.min_hole_clearance,
         allowances=allowances,
     )

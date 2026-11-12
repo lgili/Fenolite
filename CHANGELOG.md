@@ -29,6 +29,11 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Fixed
 
+- **`copper.hole-clearance` leaves out copper of an unplated pad's own net on Altium documents** (c0491):
+  an unplated pad's hole now carries its pad's net, so a mounting hole tied to a net is no longer reported
+  against the pour and vias of that net, as Altium's `DifferentNets` Clearance holds. KiCad's DRC was
+  measured (10.0.6) to report that pair, so the KiCad rules view sets the new
+  `DesignRules.hole_clearance_same_net` and keeps its verdict (`H-G-HOLE-SAME-NET`).
 - **The copper check states the Altium grid tolerance** (c0490): the Altium rules view no longer lowers
   every clearance rule by 9 nm. It keeps the document's values and gives a tolerance of 4 file units
   (11 nm, `GRID_TOLERANCE_UNITS`, `H-A-CHK-GRID-TOL`) in `DesignRules.clearance_tolerance`, with its source

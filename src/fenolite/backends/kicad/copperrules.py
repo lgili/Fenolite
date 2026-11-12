@@ -137,6 +137,7 @@ def design_rules_from_texts(
         edge_floor_over_rules=major in lowering.FLOOR_OVER_RULES.get(EDGE_KEY, frozenset()),
         clearance_tolerance=KICAD_DRC_EPSILON_NM,
         tolerance_source="KiCad's DRC epsilon",
+        hole_clearance_same_net=True,
         min_hole_clearance=hole,
     )
 
