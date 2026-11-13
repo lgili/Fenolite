@@ -40,11 +40,14 @@ from fenolite.backends.altium.edit.session import (
 )
 
 
-def open(path: str | Path, *, gates: Mapping[str, bool] | None = None) -> Session | SchematicSession:  # noqa: A001
-    """A session on the Altium PCB document or schematic document at ``path``, by its suffix."""
+def open(  # noqa: A001
+    path: str | Path, *, gates: Mapping[str, bool] | None = None, project: str | Path | None = None
+) -> Session | SchematicSession:
+    """A session on the Altium PCB document or schematic document at ``path``, by its suffix; ``project``
+    names the ``.PrjPcb`` whose sheets a schematic session checks designators against (change c0499)."""
     target = Path(path)
     if target.suffix.lower() == ".schdoc":
-        return open_schematic(target, gates=gates)
+        return open_schematic(target, gates=gates, project=project)
     if target.suffix.lower() == ".pcbdoc":
         return open_document(target, gates=gates)
     raise ValueError(f"{target.name}: an edit session opens a .PcbDoc or a .SchDoc")

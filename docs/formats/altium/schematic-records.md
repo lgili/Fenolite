@@ -951,6 +951,18 @@ read circuit or of a converted drawing may start or end with a space, which Feno
 whether Altium Designer trims it is a kit question.
 Every other text stays printable 7-bit ASCII. A bus line holds `LINEWIDTH=2` and the colour of a wire.
 
+## What an edit session adds (change c0499)
+
+`edit.SchematicSession` appends records at the end of `FileHeader` and sets the header's `WEIGHT` to the new
+count. Each row is `INFERRED` until Part J case J34 passes (`H-A-EDIT-SCH-ADD`).
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| `add_part` appends a component record and every record it owns, at any depth, binary pins included, in their order; each `OWNERINDEX` names the new index of its owner, each `UNIQUEID` is new, and the designator record 34 holds the new designator or the old one with its number replaced by `?` | S-0130, S-0131 | INFERRED | H-A-EDIT-SCH-ADD |
+| A new wire (27), net label (25), power port (17) or junction (29) is a copy of the first record of its kind in the sheet (a power port of the same `TEXT` first) without its `_FRAC` keys, with new `LOCATION`, `X<n>`/`Y<n>` and `LOCATIONCOUNT`, `TEXT`, `ORIENTATION`, `STYLE` and `UNIQUEID` where the copy holds the key | S-0130, S-0131 | INFERRED | H-A-EDIT-SCH-ADD |
+| With no record of its kind in the sheet, a wire is `RECORD=27`, `OWNERPARTID=-1`, `LINEWIDTH=1`, `COLOR=8388608` and its points; a net label `RECORD=25`, `OWNERPARTID=-1`, `LOCATION`, `TEXT`, `FONTID=1`, `COLOR=8388608`; a power port `RECORD=17`, `OWNERPARTID=-1`, `LOCATION`, `STYLE=2`, `ORIENTATION`, `SHOWNETNAME=T`, `TEXT`, `FONTID=1`, `COLOR=8388608`; a junction `RECORD=29`, `OWNERPARTID=-1`, `LOCATION`, `COLOR=8388608`: the forms of `schdoc` and of the drawn writer | S-0130, S-0131 | INFERRED | H-A-EDIT-SCH-ADD |
+| A new wire end that lies inside a segment of another wire, not at its end, gets a junction record at that point, unless one is there | S-0130 | INFERRED | H-A-EDIT-SCH-ADD |
+
 ## Drawn-sheet writer (c0276)
 
 The drawn writer reuses the record forms above: component/pin records, wires 27, buses 26,

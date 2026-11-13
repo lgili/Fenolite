@@ -140,10 +140,22 @@ off):*
 33. **J33** Close Altium, zip the folder without the `History` and `Project Outputs` folders, and send it.
     Expected: Fenolite runs `fenolite kit verify`'s path scan before anything is read.
 
-*Phase C, board edits (change c0497; J34 is the case of change c0499). The files of `phase-c/` are written by
-`FENOLITE_ALTIUM_PART_J=<folder> uv run pytest tests/unit/backends/altium/edit/test_part_j_c0497.py` from the
-authored boards of `tests/unit/backends/altium/edit/board_ops.py`, each operation's gate forced on for the kit
-only:*
+*Phase C, project and board edits (changes c0499 and c0497). The files of `phase-c/` are written by
+`FENOLITE_ALTIUM_PART_J=<folder> uv run pytest tests/unit/backends/altium/edit/test_part_j_c0499.py
+tests/unit/backends/altium/edit/test_part_j_c0497.py`, J34 from a copy of the kit project and J35 to J39 from
+the authored boards of `tests/unit/backends/altium/edit/board_ops.py`, each operation's gate forced on for the
+kit only:*
+
+34. **J34** (J-part) Open `phase-c/J34/edit.PrjPcb`. Its sheet holds `R9`, copied from `R1` 500 mil to the
+    right (`add_part`, then `annotate` from `R?`), its pin 1 wired 200 mil left to a new `GND` power port with
+    a net label `GND` on the wire (`add_wire`, `add_power_port`, `add_net_label`). Its board holds the component
+    `R9` added from `phase-c/older-body.PcbDoc` (whose `R1` carries an extruded body of the smaller key set) and
+    linked to the part `R9` (`add_component`, `link`). Run **Project » Compile PCB Project**, then **Design »
+    Update PCB Document edit.PcbDoc** without executing it, look at `R9` in 3D, then save both documents, close
+    and reopen the project. Expected: no repair message; Compile reports no message that the kit project lacks;
+    Update PCB proposes no change; the body of `R9` shows in 3D; the saved project keeps `R9`, its wire, port,
+    label, body and link (`H-A-EDIT-SCH-ADD`, `H-A-EDIT-LINK`, and `H-A-EDIT-ADD` for the body). Report any
+    Compile warning about the footprint library or the room.
 
 35. **J35** (J-text) Open `phase-c/texts.PcbDoc` and `phase-c/text-edited.PcbDoc`, in which `D1`'s designator
     is moved 1 mm up and `R1`'s designator, on the bottom and mirrored, is turned by 90° about its centre.
@@ -182,7 +194,7 @@ to J20 of `H-A-EDIT-SCH`; J21 of `H-A-EDIT-LIBRARY`. J23 to J25 settle `H-A-EDIT
 operation's gate. The integrity rows are observed in phase A and settled in phase B: `H-A-INTEG-SUBPOLY` by
 J16 and J26, `H-A-INTEG-POURINDEX` by J17 and J27, `H-A-INTEG-ID` by J12, J13 and J28,
 `H-A-INTEG-PARAMCOUNT` by J1, J6 and J29, `H-A-INTEG-PARAMORPHAN` by J11 and J30, `H-A-INTEG-MODEL` by J31
-and `H-A-INTEG-LAYER` by J14 and J32. Phase C settles `H-A-EDIT-TEXT` by J35, `H-A-EDIT-CUTOUT` by J36, `H-A-EDIT-TENT` by J37 and `H-A-EDIT-DRAWING` by J38, and adds J39 to `H-A-EDIT-SHAPE`; each decides its gate (`text`, `cutout`, `tenting`, `board_drawing`). Saved native files stay outside the repository; only measured facts,
+and `H-A-INTEG-LAYER` by J14 and J32. Phase C settles `H-A-EDIT-SCH-ADD` and `H-A-EDIT-LINK` by J34, which decides the gates `add_part`, `annotate` and `create` of the schematic session and `link`; it settles `H-A-EDIT-TEXT` by J35, `H-A-EDIT-CUTOUT` by J36, `H-A-EDIT-TENT` by J37 and `H-A-EDIT-DRAWING` by J38, and adds J39 to `H-A-EDIT-SHAPE`; each decides its gate (`text`, `cutout`, `tenting`, `board_drawing`). Saved native files stay outside the repository; only measured facts,
 digests and sizes are committed.
 
 ## What Fenolite does with the files

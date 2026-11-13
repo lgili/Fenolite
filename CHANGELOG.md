@@ -8,6 +8,13 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Added
 
+- A part added to an existing Altium project through the edit sessions (c0499): the schematic session gains
+  `add_part`, `annotate` (checked against every sheet of `edit.open(..., project=)`), `add_wire` (with a
+  junction where an end lands inside another wire), `add_net_label` and `add_power_port`, cloned from records
+  of the sheet; the PCB session gains `link`, which writes a component's source keys and sheet class from its
+  part and refuses a footprint or comment Update PCB would change. `add_component` now copies a body of
+  another key set as it is and the embedded model a body names. New gates `add_part`, `annotate`, `create`
+  (schematic) and `link` stay off until Part J case J34 passes.
 - Board edits of an Altium PCB document (c0497): the edit session moves and turns a component's
   `Designator` and `Comment` text, narrows a free `Text` by layer and place, adds board cut-outs (a notch
   across the outline is cut out of `Board6` and `BoardRegions`) and polygon cut-outs, sets via tenting and

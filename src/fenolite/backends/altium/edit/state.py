@@ -182,6 +182,12 @@ class State:
                     out.append(Storage(entry.name, walk(entry.entries, f"{path}{entry.name}/")))
                 else:
                     out.append((entry[0], streams.get(f"{path}{entry[0]}", entry[1])))
+            held = {e.name if isinstance(e, Storage) else e[0] for e in entries}
+            # a stream an operation added to an existing storage (a copied model, change c0499)
+            for name, data in streams.items():
+                rest = name[len(path) :]
+                if path and name.startswith(path) and "/" not in rest and rest not in held:
+                    out.append((rest, data))
             return tuple(out)
 
         return write_compound(walk(self.tree, ""))

@@ -231,3 +231,98 @@ def test_set_rule_refuses_a_gap_that_differs_from_its_generic_clearance(board: P
 def test_delete_a_polygon_compacts_the_pour_indices(board: Path, tmp_path: Path) -> None:
     doc = _commit(_session(board).delete(edit.Polygon("GND")), tmp_path / "poly.PcbDoc")
     assert [(p.name, p.pour_index) for p in doc.polygons] == [("VIN", 0)]
+
+
+# --- bodies and models of an added component (change c0499, D5) ----------------------------------------
+
+STEP = b"ISO-10303-21;\nHEADER;\nENDSEC;\nDATA;\n#1=CARTESIAN_POINT('',(0.,0.,0.));\nENDSEC;\n"
+
+
+def _bodied(*, ref: str, short: bool = False, model: bool = False) -> bytes:
+    """The blink board, authored for Fenolite, with one body on the component ``ref``: extruded in the saved
+    key set, extruded in the smaller (``short``) key set, or naming an embedded ``model``."""
+    import dataclasses
+
+    from _altium import blink_pcbdoc_spec
+
+    from fenolite.backends.altium.pcbdoc import EmbeddedModel, PcbDocSpec, PlacedBody, write_pcbdoc
+    from fenolite.core.coords import Point
+
+    spec, _ = blink_pcbdoc_spec()
+    assert isinstance(spec, PcbDocSpec)
+    index = next(n for n, c in enumerate(spec.components) if c.ref == ref)
+    at = spec.components[index].at
+    corners = ((-1, -1), (1, -1), (1, 1), (-1, 1))
+    outline = tuple(Point(at.x + mm(dx), at.y + mm(dy)) for dx, dy in corners)
+    body = PlacedBody(component=index, layer=MECHANICAL_13, outline=outline, height=mm(1),
+                      model_id=pcbrec.body_model_id(f"{ref}-body") if not model else pcbrec.model_id(STEP),
+                      model=EmbeddedModel(STEP, "part.step", at) if model else None)  # fmt: skip
+    if short:
+        vertices = [(pcbrec.to_units(p.x), pcbrec.to_units(p.y)) for p in outline]
+        plain, shape = (
+            pcbrec.body_record(
+                MECHANICAL_13, vertices, component=index, standoff=0, overall=pcbrec.to_units(mm(1)),
+                bottom=False, form="short", shape_based=based,
+            )
+            for based in (False, True)
+        )  # fmt: skip
+        body = dataclasses.replace(body, records=(plain, shape))
+    return write_pcbdoc(dataclasses.replace(spec, bodies=(body,)), filename="bodies.PcbDoc")
+
+
+def _bodies(data: bytes) -> list[bytes]:
+    return State.of(data).get("ComponentBodies6")
+
+
+def _add(tmp_path: Path, target: bytes, source: bytes, ref: str) -> tuple[edit.Receipt, Path]:
+    (tmp_path / "target.PcbDoc").write_bytes(target)
+    session = _session(tmp_path / "target.PcbDoc").add_component(source, ref, designator="R9")
+    out = tmp_path / "out.PcbDoc"
+    return session.commit(out, backup=False), out
+
+
+def test_add_component_copies_an_older_body_as_it_is(tmp_path: Path) -> None:
+    """Scenario "An older body copied": a body of the smaller key set is copied byte for byte but its
+    component index, with no new integrity finding."""
+    target, source = _bodied(ref="D1"), _bodied(ref="R1", short=True)
+    [older] = _bodies(source)
+    assert len(rec.split(older)[1][0]) != len(rec.split(_bodies(target)[0])[1][0])
+    receipt, out = _add(tmp_path, target, source, "R1")
+    assert receipt.written, receipt.issues
+    data = out.read_bytes()
+    added = _bodies(data)[-1]
+    assert added == rec.set_prefix(older, component=len(read_pcbdoc(target).components))
+    assert integrity.check_pcbdoc(data) == integrity.check_pcbdoc(target)
+
+
+def test_add_component_body_of_another_frame_is_no_template(tmp_path: Path) -> None:
+    """A body whose head constants differ from the document's bodies refuses (``altium.edit.no-template``)."""
+    source = _bodied(ref="R1", short=True)
+    state = State.of(source)
+    raw = state.get("ComponentBodies6")[0]
+    kind, subs = rec.split(raw)
+    bent = bytes((kind,)) + struct.pack("<I", len(subs[0])) + subs[0][:13] + b"\x01" + subs[0][14:]
+    state.replace("ComponentBodies6", 0, bent)
+    receipt, out = _add(tmp_path, _bodied(ref="D1"), state.data(), "R1")
+    assert [i.code for i in receipt.issues] == ["altium.edit.no-template"] and not out.exists()
+
+
+def _models(data: bytes) -> list[str]:
+    return [ident for ident, _ in ops._model_entries(State.of(data))]
+
+
+def test_add_component_copies_a_model_body_with_its_model(tmp_path: Path) -> None:
+    """Scenario "A model body copied with its model", and a model the target holds is shared."""
+    source = _bodied(ref="R1", model=True)
+    receipt, out = _add(tmp_path, _bodied(ref="D1"), source, "R1")
+    assert receipt.written, receipt.issues
+    data = out.read_bytes()
+    assert _models(data) == _models(source) and len(_models(data)) == 1
+    streams = State.of(data).streams
+    assert streams["Models/0"] == State.of(source).streams["Models/0"]
+    assert struct.unpack("<I", streams["Models/Header"]) == (1,)
+    assert not [i for i in integrity.check_pcbdoc(data) if "model" in i.code]
+    (tmp_path / "shared").mkdir()
+    shared, again = _add(tmp_path / "shared", source, source, "R1")
+    assert shared.written, shared.issues
+    assert _models(again.read_bytes()) == _models(source)

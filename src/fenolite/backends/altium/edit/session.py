@@ -48,7 +48,8 @@ from fenolite.core.evidence import Evidence, Level
 from fenolite.core.io import atomic_write
 
 OPERATIONS = ("delete", "move", "rotate", "flip", "set_property", "clone", "add_component", "remap_layer",
-              "set_rule", "set_outline", "create", "text", "cutout", "tenting", "board_drawing")  # fmt: skip
+              "set_rule", "set_outline", "create", "text", "cutout", "tenting", "board_drawing",
+              "link")  # fmt: skip
 ROWS: Mapping[str, tuple[str, ...]] = MappingProxyType(
     {
         "delete": ("H-A-EDIT-DELETE", "H-A-EDIT-SHAPE", "H-A-EDIT-KIT"),
@@ -66,6 +67,7 @@ ROWS: Mapping[str, tuple[str, ...]] = MappingProxyType(
         "cutout": ("H-A-EDIT-CUTOUT", "H-A-SLOT-KIT", "H-A-EDIT-KIT"),
         "tenting": ("H-A-EDIT-TENT", "H-A-PCB-CU-VIATENT", "H-A-EDIT-KIT"),
         "board_drawing": ("H-A-EDIT-DRAWING", "H-A-EDIT-CREATE", "H-A-EDIT-KIT"),
+        "link": ("H-A-EDIT-LINK", "H-A-EDIT-KIT"),
     }
 )
 """The rows of ``docs/hypotheses.md`` each operation rests on."""
@@ -191,6 +193,19 @@ class Session:
             ops.add_component(state, State.of(data), ref, new_designator=designator, at=at, nets=given)
 
         return self._queue("add_component", f"add the component {ref} as {designator or ref}", run)
+
+    def link(self, component: str, *, project: str | Path, part: str, sheet: str | None = None) -> Session:
+        """Link the component ``component`` to the part ``part`` of the ``.PrjPcb`` ``project`` (on the sheet
+        file ``sheet`` when given): its five source keys, ``CHANNELOFFSET`` and its sheet's component class
+        (change c0499, D4)."""
+        from fenolite.backends.altium.edit import link
+
+        where = Path(project)
+
+        def run(state: State) -> None:
+            link.link(state, component, link.project_parts(where), part, sheet)
+
+        return self._queue("link", f"link the component {component} to the part {part}", run)
 
     def remap_layer(self, old: str, new: str) -> Session:
         return self._queue("remap_layer", f"remap {old} to {new}", lambda s: ops.remap_layer(s, old, new))

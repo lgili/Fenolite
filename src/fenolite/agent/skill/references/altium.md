@@ -122,6 +122,10 @@ fenolite check blink/altium/lamp.PcbDoc --stages altium.board-drawing --json
 `altium.edit.gate-opened`, evidence `UNVERIFIED`. The opt-in stage `altium.board-drawing` compares a
 mechanical layer's outline drawing with the board shape (`altium.board-drawing.mismatch`, `.none`).
 
+To add a part to a project in Python: `edit.open(sheet, project=prj)` then `add_part`, `annotate`, `add_wire`,
+`add_net_label`, `add_power_port` (gates `add_part`, `annotate`, `create`); on the board `add_component`
+then `link(ref, project=prj, part=ref)` (gate `link`), which writes the source keys Update PCB matches.
+
 ```fenolite-cmd
 fenolite explain altium.import.pcb-net-conflict --json
 fenolite explain import.arc-as-track --json

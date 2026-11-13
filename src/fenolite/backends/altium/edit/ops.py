@@ -25,6 +25,7 @@ import math
 import re
 import secrets
 import string
+import struct
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from fractions import Fraction
@@ -1320,6 +1321,9 @@ def add_component(
     for storage, positions in owned.items():
         for position in positions:
             _same_form(state, storage, source.get(storage)[position])
+    _copy_models(
+        state, source, [source.get("ComponentBodies6")[p] for p in owned.get("ComponentBodies6", [])]
+    )
     state.append("Components6", rec.set_property(record.raw, changes))
     wide = source.wide()
     next_wide = max(state.wide(), default=-1) + 1
@@ -1344,8 +1348,51 @@ def add_component(
             state.append(storage, raw)
 
 
+OUTLINE_STORAGES = frozenset(
+    {"Regions6", "ShapeBasedRegions6", "ComponentBodies6", "ShapeBasedComponentBodies6"}
+)
+"""The storages whose first subrecord is the 18-byte head, the property text and the outline
+(``pcb-bodies.md``, "Record"): its length tells nothing of the form (change c0499, D5)."""
+
+
+def _outline_form(sub: bytes, storage: str) -> bytes | None:
+    """The form of a region or body subrecord: the head bytes that are constants of the form (9 to 12, and for
+    a body 1 to 6 and 13 to 17) and the vertex size, or ``None`` when its text length or its vertices do not
+    fit the subrecord. A region's flags, net and hole count are values, not form."""
+    if len(sub) < 26:
+        return None
+    (length,) = struct.unpack_from("<I", sub, 18)
+    at = 22 + length
+    if at + 4 > len(sub):
+        return None
+    (count,) = struct.unpack_from("<I", sub, at)
+    size = 37 if storage in SHAPE_BASED else 16
+    rest = len(sub) - at - 4
+    body = storage.endswith("ComponentBodies6")
+    fits = rest in (count * size, (count + 1) * size) if body else rest >= count * size
+    if not fits:
+        return None
+    head = sub[1:7] + sub[9:18] if body else sub[9:13]
+    return head + bytes((size,))
+
+
 def _same_form(state: State, storage: str, raw: bytes) -> None:
     layer = rec.prefix_of(raw)[0]
+    if storage in OUTLINE_STORAGES:
+        forms = {
+            _outline_form(rec.split(r)[1][0], storage)
+            for r in state.get(storage)
+            if r[0] == raw[0] and rec.prefix_of(r)[0] == layer
+        } - {None}
+        found = _outline_form(rec.split(raw)[1][0], storage)
+        if found is not None and (not forms or found in forms):
+            return
+        raise Refused(
+            "altium.edit.no-template",
+            f"the {KIND_NAMES.get(raw[0], storage)} records on {LAYER_NAMES.get(layer, layer)} "
+            "of the document are of another form than the source's",
+            f"{storage}/Data",
+        )
     lengths = {
         len(rec.split(r)[1][0]) for r in state.get(storage) if r[0] == raw[0] and rec.prefix_of(r)[0] == layer
     }
@@ -1356,6 +1403,57 @@ def _same_form(state: State, storage: str, raw: bytes) -> None:
             "of the document are of another form than the source's",
             f"{storage}/Data",
         )
+
+
+def _model_entries(state: State) -> list[tuple[str, bytes]]:
+    """The records of ``Models/Data`` as ``(ID upper-case, the record with its 32-bit length)``, in order;
+    record ``n`` names the stream ``Models/<n>`` (``pcb-bodies.md``, "Embedded models and their
+    placement")."""
+    data = state.streams.get(f"{state.name('Models')}/Data", b"")
+    out: list[tuple[str, bytes]] = []
+    at = 0
+    while at + 4 <= len(data):
+        (size,) = struct.unpack_from("<I", data, at)
+        raw = data[at : at + 4 + size]
+        if len(raw) < 4 + size:
+            break
+        out.append((rec.keys_of(raw[4:].rstrip(b"\0")).get("ID", "").upper(), raw))
+        at += 4 + size
+    return out
+
+
+def _copy_models(state: State, source: State, bodies: list[bytes]) -> None:
+    """Append to ``Models`` the entry and stream of each model that a body of ``bodies`` names
+    (``MODEL.MODELTYPE=1``) and the document lacks; a model the document holds (same ``ID``) is shared
+    (change c0499, D5)."""
+    wanted: list[str] = []
+    for raw in bodies:
+        keys = rec.region_keys(raw)
+        ident = keys.get("MODELID", "").upper()
+        if keys.get("MODEL.MODELTYPE", "").strip() == "1" and ident and ident not in wanted:
+            wanted.append(ident)
+    held = [ident for ident, _ in _model_entries(state)]
+    missing = [ident for ident in wanted if ident not in held]
+    if not missing:
+        return
+    _assert(state.has("Models"), "the document has no Models storage for the model of a body", "Models")
+    entries = {ident: (n, raw) for n, (ident, raw) in enumerate(_model_entries(source))}
+    name, kept = state.name("Models"), source.name("Models")
+    data = state.streams[f"{name}/Data"]
+    count = len(held)
+    for ident in missing:
+        _assert(
+            ident in entries, f"the source's Models storage lacks the model {ident} a body names", "Models"
+        )
+        n, raw = entries[ident]
+        stream = source.streams.get(f"{kept}/{n}")
+        _assert(stream is not None, f"the source lacks the stream Models/{n} of the model {ident}", "Models")
+        data += raw
+        state.streams[f"{name}/{count}"] = stream  # type: ignore[assignment]
+        count += 1
+    state.streams[f"{name}/Data"] = data
+    state.streams[f"{name}/Header"] = struct.pack("<I", count)
+    state.touched.add(name)
 
 
 def _add_pad_entry(state: State, source: State, old_pad: int, new_pad: int, taken: set[str]) -> None:

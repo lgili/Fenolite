@@ -2,7 +2,8 @@
 # Copyright (c) 2026 Fenolite contributors
 """The edit session of a binary Altium schematic document (capability altium-edit, "Edit session on an
 Altium document"; change c0241, task 3.4): ``move``, ``set_property`` and ``delete`` of a part, with the
-net-signature guard.
+net-signature guard; ``add_part``, ``annotate``, ``add_wire``, ``add_net_label`` and ``add_power_port``
+(change c0499, design D1 to D3).
 
 A part is named by its designator. Its records are the component record and every record it owns, through
 ``OWNERINDEX``, at any depth (``docs/formats/altium/schematic-records.md``). A move adds whole 10-mil units to
@@ -25,7 +26,7 @@ from pathlib import Path
 from types import MappingProxyType
 
 from fenolite.backends.altium.cfb import Entry, Storage, write_compound
-from fenolite.backends.altium.edit.ops import Refused
+from fenolite.backends.altium.edit.ops import Refused, new_id
 from fenolite.backends.altium.edit.records import keys_of, set_keys
 from fenolite.backends.altium.edit.session import EDIT_ISSUE_CODES, Receipt
 from fenolite.backends.altium.read.cfb import open_compound
@@ -35,12 +36,15 @@ from fenolite.core.errors import FormatError, Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.io import atomic_write
 
-OPERATIONS = ("move", "set_property", "delete")
+OPERATIONS = ("move", "set_property", "delete", "add_part", "annotate", "create")
 SCHEMATIC_GATES: Mapping[str, bool] = MappingProxyType(dict.fromkeys(OPERATIONS, False))
 ROWS: Mapping[str, tuple[str, ...]] = MappingProxyType(
-    dict.fromkeys(OPERATIONS, ("H-A-EDIT-SCH", "H-A-EDIT-KIT"))
+    {
+        **dict.fromkeys(("move", "set_property", "delete"), ("H-A-EDIT-SCH", "H-A-EDIT-KIT")),
+        **dict.fromkeys(("add_part", "annotate", "create"), ("H-A-EDIT-SCH-ADD", "H-A-EDIT-KIT")),
+    }
 )
-EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-A-EDIT-KIT", "H-A-EDIT-SCH"))
+EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-A-EDIT-KIT", "H-A-EDIT-SCH", "H-A-EDIT-SCH-ADD"))
 UNIT_NM = 254_000
 """One schematic unit, 10 mil, in nanometres."""
 PIN_RECORD = 2
@@ -121,11 +125,14 @@ def _shift_pin(payload: bytes, du: int, dv: int) -> bytes:
     return bytes(out)
 
 
-def move(sheet: _Sheet, part: Part, dx: int, dy: int) -> None:
+def _units(dx: int, dy: int) -> tuple[int, int]:
     if dx % UNIT_NM or dy % UNIT_NM:
         raise Refused("altium.edit.assertion", "a schematic move is a whole number of 10-mil units")
-    du, dv = dx // UNIT_NM, dy // UNIT_NM
-    for index in _owned(sheet, _part(sheet, part.designator)):
+    return dx // UNIT_NM, dy // UNIT_NM
+
+
+def _shift(sheet: _Sheet, indices: list[int], du: int, dv: int) -> None:
+    for index in indices:
         kind, payload = sheet.frames[index]
         if kind == 1:
             sheet.frames[index] = (kind, _shift_pin(payload, du, dv))
@@ -138,6 +145,11 @@ def move(sheet: _Sheet, part: Part, dx: int, dy: int) -> None:
                 changes[key] = str(int(value) + (du if axis == "X" else dv))
         if changes:
             sheet.set(index, changes)
+
+
+def move(sheet: _Sheet, part: Part, dx: int, dy: int) -> None:
+    du, dv = _units(dx, dy)
+    _shift(sheet, _owned(sheet, _part(sheet, part.designator)), du, dv)
 
 
 def set_property(sheet: _Sheet, part: Part, name: str, value: str, old: str) -> None:
@@ -169,21 +181,259 @@ def delete(sheet: _Sheet, part: Part) -> None:
             shift = sum(1 for r in removed if r < int(owner))
             if shift:
                 sheet.set(new, {"OWNERINDEX": str(int(owner) - shift)})
+    _weight(sheet)
+
+
+def _weight(sheet: _Sheet) -> None:
+    """The header's ``WEIGHT``: the record count."""
     nul = sheet.header.endswith(b"\0")
-    sheet.header = set_keys(sheet.header.rstrip(b"\0"), {"WEIGHT": str(len(frames))}) + (
+    sheet.header = set_keys(sheet.header.rstrip(b"\0"), {"WEIGHT": str(len(sheet.frames))}) + (
         b"\0" if nul else b""
     )
 
 
-def net_signature(document: SchDocument) -> frozenset[tuple[frozenset[tuple[str, str]], tuple[str, ...]]]:
-    """Each local net of the sheet as its pins (designator, pin) and its identifiers' texts."""
+# --- additions (change c0499) ---------------------------------------------------------------------
+
+Point = tuple[int, int]
+"""A point of a sheet in nanometres, in Altium's frame of the sheet (X right, Y up), a whole number of 10-mil
+units."""
+_FRAC = re.compile(r"_FRAC$")
+_POINTS = re.compile(r"^(X|Y)\d+(_FRAC)?$|^LOCATIONCOUNT$")
+WRITTEN: Mapping[str, tuple[tuple[str, str], ...]] = MappingProxyType(
+    {
+        "27": (("RECORD", "27"), ("OWNERPARTID", "-1"), ("LINEWIDTH", "1"), ("COLOR", "8388608")),
+        "25": (("RECORD", "25"), ("OWNERPARTID", "-1"), ("LOCATION.X", "0"), ("LOCATION.Y", "0"),
+               ("TEXT", ""), ("FONTID", "1"), ("COLOR", "8388608")),
+        "17": (("RECORD", "17"), ("OWNERPARTID", "-1"), ("LOCATION.X", "0"), ("LOCATION.Y", "0"),
+               ("STYLE", "2"), ("ORIENTATION", "0"), ("SHOWNETNAME", "T"), ("TEXT", ""), ("FONTID", "1"),
+               ("COLOR", "8388608")),
+        "29": (("RECORD", "29"), ("OWNERPARTID", "-1"), ("LOCATION.X", "0"), ("LOCATION.Y", "0"),
+               ("COLOR", "8388608")),
+    }
+)  # fmt: skip
+"""The forms of a new wire, net label, power port and junction when the sheet holds no record of the kind:
+those of ``schdoc`` (wires, labels and power ports) and ``drawn`` (junctions), the forms Fenolite's builds
+write (``schematic-records.md``, "What the writer sets")."""
+
+
+def _unit(value: int, what: str) -> int:
+    if value % UNIT_NM:
+        raise Refused("altium.edit.assertion", f"{what} is not a whole number of 10-mil units")
+    return value // UNIT_NM
+
+
+def _at(point: Point, what: str) -> tuple[int, int]:
+    return _unit(point[0], what), _unit(point[1], what)
+
+
+def _ids(sheet: _Sheet) -> set[str]:
+    return {v.upper() for i in range(len(sheet.frames)) if (v := sheet.props(i).get("UNIQUEID"))}
+
+
+def _designators(sheet: _Sheet) -> set[str]:
+    return {
+        p["TEXT"]
+        for i in range(len(sheet.frames))
+        if (p := sheet.props(i)).get("RECORD") == "34" and "TEXT" in p and p.get("OWNERINDEX", "").isdigit()
+    }
+
+
+def _drop(payload: bytes, dropped: Callable[[str], bool]) -> bytes:
+    """A record's text without the keys for which ``dropped`` (given the upper-case key) holds."""
+    nul = payload.endswith(b"\0")
+    pieces = payload.rstrip(b"\0").split(b"|")
+    kept = [p for p in pieces if not (b"=" in p and dropped(p.partition(b"=")[0].decode("latin-1").upper()))]
+    return b"|".join(kept) + (b"\0" if nul else b"")
+
+
+def load(data: bytes, file: str = "") -> _Sheet:
+    """The frames of the binary sheet ``data``."""
+    compound = open_compound(data, file=file)
+    stream = next(p for p in compound.streams() if p.upper() == "FILEHEADER")
+    frames = deframe(compound.read(stream), where=stream)
+    return _Sheet(frames[0].payload, [(f.kind, f.payload) for f in frames[1:]])
+
+
+def add_part(
+    sheet: _Sheet, source: _Sheet, designator: str, new_designator: str | None, at: Point | None
+) -> str:
+    """Append the part ``designator`` of ``source`` with every record it owns (D1); its designator."""
+    name = new_designator or re.sub(r"\d+$|$", "?", designator, count=1)
+    if new_designator is not None and new_designator in _designators(sheet):
+        raise Refused(
+            "altium.edit.assertion", f"the sheet holds a part {new_designator!r} already", "FileHeader"
+        )
+    du, dv = (0, 0) if at is None else _units(*at)
+    root = _part(source, designator)
+    owned = _owned(source, root)
+    base = len(sheet.frames)
+    placed = {old: base + k for k, old in enumerate(owned)}
+    taken = _ids(sheet)
+    for old in owned:
+        kind, payload = source.frames[old]
+        sheet.frames.append((kind, payload))
+        if kind != 0:
+            continue
+        index = len(sheet.frames) - 1
+        props = source.props(old)
+        changes: dict[str, str] = {}
+        owner = props.get("OWNERINDEX", "")
+        if owner.isdigit() and int(owner) in placed:
+            changes["OWNERINDEX"] = str(placed[int(owner)])
+        if "UNIQUEID" in props:
+            changes["UNIQUEID"] = new_id(taken)
+        if props.get("RECORD") == "34" and owner == str(root):
+            changes["TEXT"] = name
+        if changes:
+            sheet.set(index, changes)
+    _shift(sheet, list(placed.values()), du, dv)
+    _weight(sheet)
+    return name
+
+
+def annotate(sheet: _Sheet, part: Part, designator: str, old: str, others: Mapping[str, set[str]]) -> None:
+    """Set the text of the part's designator record (D2); ``others`` holds the designators of each other
+    sheet of the project."""
+    root = _part(sheet, part.designator)
+    [index] = [
+        i
+        for i in _owned(sheet, root)
+        if sheet.props(i).get("RECORD") == "34" and sheet.props(i).get("OWNERINDEX") == str(root)
+    ]  # fmt: skip
+    held = sheet.props(index).get("TEXT", "")
+    if held != old:
+        raise Refused(
+            "altium.edit.assertion",
+            f"the designator of {part.designator} is {held!r}, not the stated {old!r}",
+        )
+    if designator in _designators(sheet):
+        raise Refused(
+            "altium.edit.assertion", f"another part of the sheet is named {designator!r}", "FileHeader"
+        )
+    for name, refs in others.items():
+        if designator in refs:
+            raise Refused(
+                "altium.edit.assertion", f"the sheet {name} of the project holds {designator!r}", name
+            )
+    sheet.set(index, {"TEXT": designator})
+
+
+def _template(sheet: _Sheet, record: str, text: str | None = None) -> bytes:
+    """A new record of kind ``record``: a copy of the first of the sheet (of the same ``TEXT`` first), with
+    no ``_FRAC`` key, else the written form."""
+    found = [i for i in range(len(sheet.frames)) if sheet.props(i).get("RECORD") == record]
+    same = [i for i in found if text is not None and sheet.props(i).get("TEXT") == text]
+    if same or found:
+        return _drop(sheet.frames[(same or found)[0]][1], lambda key: _FRAC.search(key) is not None)
+    return b"|" + b"|".join(f"{k}={v}".encode("ascii") for k, v in WRITTEN[record]) + b"\0"
+
+
+def _append(sheet: _Sheet, payload: bytes, changes: Mapping[str, str]) -> None:
+    keys = keys_of(payload.rstrip(b"\0"))
+    given = dict(changes)
+    if "UNIQUEID" in keys:
+        given["UNIQUEID"] = new_id(_ids(sheet))
+    sheet.frames.append((0, payload))
+    sheet.set(len(sheet.frames) - 1, given)
+    _weight(sheet)
+
+
+def _segments(sheet: _Sheet) -> list[tuple[tuple[int, int], tuple[int, int]]]:
+    out: list[tuple[tuple[int, int], tuple[int, int]]] = []
+    for i in range(len(sheet.frames)):
+        p = sheet.props(i)
+        if p.get("RECORD") != "27":
+            continue
+        count = int(p.get("LOCATIONCOUNT", "0") or 0)
+        points = [(int(p.get(f"X{n}", "0")), int(p.get(f"Y{n}", "0"))) for n in range(1, count + 1)]
+        out += list(zip(points, points[1:], strict=False))
+    return out
+
+
+def _inside(point: tuple[int, int], a: tuple[int, int], b: tuple[int, int]) -> bool:
+    """``point`` on the segment ``a``–``b`` and at neither end."""
+    (x, y), (ax, ay), (bx, by) = point, a, b
+    if point in (a, b) or (bx - ax) * (y - ay) != (by - ay) * (x - ax):
+        return False
+    return min(ax, bx) <= x <= max(ax, bx) and min(ay, by) <= y <= max(ay, by)
+
+
+def add_wire(sheet: _Sheet, points: list[Point]) -> None:
+    """A wire through ``points`` (D3), and a junction at each end that lies inside another wire's segment."""
+    if len(points) < 2:
+        raise Refused("altium.edit.assertion", "a wire has two points or more")
+    units = [_at(p, "a wire point") for p in points]
+    segments = _segments(sheet)
+    template = _drop(_template(sheet, "27"), lambda key: _POINTS.match(key) is not None)
+    changes = {"LOCATIONCOUNT": str(len(units))}
+    for n, (x, y) in enumerate(units, start=1):
+        changes |= {f"X{n}": str(x), f"Y{n}": str(y)}
+    _append(sheet, template, changes)
+    junctions = {
+        (int(p.get("LOCATION.X", "0")), int(p.get("LOCATION.Y", "0")))
+        for i in range(len(sheet.frames))
+        if (p := sheet.props(i)).get("RECORD") == "29"
+    }
+    for end in (units[0], units[-1]):
+        if end not in junctions and any(_inside(end, a, b) for a, b in segments):
+            _append(sheet, _template(sheet, "29"), {"LOCATION.X": str(end[0]), "LOCATION.Y": str(end[1])})
+            junctions.add(end)
+
+
+def add_mark(
+    sheet: _Sheet, record: str, text: str, at: Point, orientation: int, style: str | None = None
+) -> None:
+    """A net label (record 25) or a power port (record 17) at ``at`` (D3)."""
+    x, y = _at(at, "the location")
+    payload = _template(sheet, record, text if record == "17" else None)
+    keys = keys_of(payload.rstrip(b"\0"))
+    changes = {"LOCATION.X": str(x), "LOCATION.Y": str(y), "TEXT": text}
+    if orientation or "ORIENTATION" in keys:
+        changes["ORIENTATION"] = str(orientation % 4)
+    if style is not None:
+        changes["STYLE"] = style
+    _append(sheet, payload, changes)
+
+
+def _project_sheets(project: Path, file: str) -> tuple[dict[str, set[str]], bool]:
+    """The designators of each sheet of the project but ``file``, and whether ``file`` is a repeated sheet."""
+    from fenolite.backends.altium.adapter.netlist import NetOptions, SheetInput, resolve
+    from fenolite.backends.altium.read.project import load_project
+
+    loaded = load_project(project)
+    sheets: list[SheetInput] = []
+    for item in loaded.documents:
+        if item.document.kind == "schematic" and item.present and item.file is not None:
+            sheets.append(
+                SheetInput(item.file.name, "", read_schematic(item.file.read_bytes(), file=item.file.name))
+            )
+    resolved = resolve(sheets, NetOptions.from_project(loaded), [])
+    repeated = any(
+        i.repeated and resolved.sheets[i.sheet].input.file.lower() == file.lower() for i in resolved.instances
+    )
+    others = {
+        data.input.file: {g.ref for g in data.groups}
+        for data in resolved.sheets
+        if data.input.file.lower() != file.lower()
+    }
+    return others, repeated
+
+
+def net_signature(
+    document: SchDocument, renames: Mapping[str, str] | None = None
+) -> frozenset[tuple[frozenset[tuple[str, str]], tuple[str, ...]]]:
+    """Each local net of the sheet as its pins (designator, pin) and its identifiers' texts; ``renames``
+    maps a designator to the one an annotation gave it (change c0499, D2)."""
+    names = dict(renames or {})
     from fenolite.backends.altium.adapter.connectivity import local_nets
     from fenolite.backends.altium.adapter.parts import part_groups
 
     groups = part_groups(document)
     out: set[tuple[frozenset[tuple[str, str]], tuple[str, ...]]] = set()
     for net in local_nets(document, groups):
-        pins = frozenset((groups[p.group].ref, p.designator) for p in net.pins)
+        pins = frozenset(
+            (names.get(groups[p.group].ref, groups[p.group].ref), p.designator) for p in net.pins
+        )
         out.add((pins, tuple(sorted(i.text for i in net.idents))))
     return frozenset(out)
 
@@ -195,6 +445,11 @@ class SchematicSession:
     gates: Mapping[str, bool] = field(default_factory=lambda: SCHEMATIC_GATES)
     queued: list[tuple[str, str, Callable[[_Sheet], None]]] = field(default_factory=lambda: [])
     declared: bool = False
+    project: Path | None = None
+    """The ``.PrjPcb`` whose other sheets ``annotate`` checks designators against (change c0499)."""
+    renames: dict[str, str] = field(default_factory=lambda: dict[str, str]())
+    """Each annotated designator's new text, which the net-signature guard accepts."""
+    _others: dict[str, set[str]] | None = None
 
     def move(self, part: Part, dx: int, dy: int) -> SchematicSession:
         self.queued.append(("move", f"move {part.designator}", lambda s: move(s, part, dx, dy)))
@@ -208,6 +463,66 @@ class SchematicSession:
     def delete(self, part: Part) -> SchematicSession:
         self.queued.append(("delete", f"delete {part.designator}", lambda s: delete(s, part)))
         return self
+
+    def add_part(
+        self, from_doc: str | Path | bytes, designator: str, *, new_designator: str | None = None,
+        at: Point | None = None,
+    ) -> SchematicSession:  # fmt: skip
+        """Copy the part ``designator`` of the binary sheet ``from_doc`` into this one, as ``new_designator``
+        (else its number replaced by ``?``), moved by ``at`` (nm, whole 10-mil units) (change c0499, D1)."""
+        data = from_doc if isinstance(from_doc, bytes) else Path(from_doc).read_bytes()
+
+        def run(sheet: _Sheet) -> None:
+            add_part(sheet, load(data), designator, new_designator, at)
+
+        label = f"add the part {designator} as {new_designator or designator}"
+        self.queued.append(("add_part", label, run))
+        return self
+
+    def annotate(self, part: Part, designator: str, *, old: str) -> SchematicSession:
+        """Give the part ``part`` the designator ``designator``, stating its old text ``old``; a designator
+        that another part of the sheet, or of the ``project=`` of ``open``, holds refuses (change c0499,
+        D2)."""
+
+        def run(sheet: _Sheet) -> None:
+            annotate(sheet, part, designator, old, self._project_others())
+
+        self.renames[part.designator] = designator
+        self.queued.append(("annotate", f"annotate {part.designator} as {designator}", run))
+        return self
+
+    def add_wire(self, points: list[Point]) -> SchematicSession:
+        """A wire through ``points``; a junction where an end lies inside another wire (change c0499, D3)."""
+        given = list(points)
+        self.queued.append(("create", f"add a wire of {len(given)} points", lambda s: add_wire(s, given)))
+        return self
+
+    def add_net_label(self, text: str, at: Point, *, orientation: int = 0) -> SchematicSession:
+        """A net label ``text`` at ``at`` (change c0499, D3)."""
+        self.queued.append(
+            ("create", f"add the net label {text}", lambda s: add_mark(s, "25", text, at, orientation))
+        )
+        return self
+
+    def add_power_port(
+        self, text: str, at: Point, *, orientation: int = 0, style: str | None = None
+    ) -> SchematicSession:
+        """A power port ``text`` at ``at``; ``style`` ``None`` takes the style of the template (change c0499,
+        D3)."""
+        label = f"add the power port {text}"
+        self.queued.append(("create", label, lambda s: add_mark(s, "17", text, at, orientation, style)))
+        return self
+
+    def _project_others(self) -> dict[str, set[str]]:
+        if self.project is None:
+            return {}
+        if self._others is None:
+            others, repeated = _project_sheets(self.project, self.path.name)
+            if repeated:
+                message = f"{self.path.name} is a repeated sheet; its designators take a channel suffix"
+                raise Refused("altium.edit.assertion", message, self.path.name)
+            self._others = others
+        return self._others
 
     def declare_connectivity(self) -> SchematicSession:
         """Allow a change of the sheet's net signature."""
@@ -230,7 +545,7 @@ class SchematicSession:
         compound = open_compound(self.data, file=self.path.name)
         stream = next(p for p in compound.streams() if p.upper() == "FILEHEADER")
         frames = deframe(compound.read(stream), where=stream)
-        sheet = _Sheet(frames[0].payload, [(f.kind, f.payload) for f in frames[1:]])
+        sheet = load(self.data, self.path.name)
         for _gate, label, run in self.queued:
             try:
                 run(sheet)
@@ -255,7 +570,7 @@ class SchematicSession:
             issue = _issue("altium.edit.readback", f"the edited sheet does not read back: {error}")
             return Receipt(False, None, None, (issue,), labels, evidence=EVIDENCE)
         before = read_schematic(self.data, file=self.path.name)
-        if not self.declared and net_signature(before) != net_signature(after):
+        if not self.declared and net_signature(before, self.renames) != net_signature(after):
             issue = _issue(
                 "altium.edit.connectivity",
                 "the net signature of the sheet changed, and the session does not declare it",
@@ -272,13 +587,16 @@ def _issue(code: str, message: str, where: str = "", hint: str = "") -> Issue:
     return Issue(code, severity if isinstance(severity, str) else severity[0], message, where, hint)
 
 
-def open_schematic(path: str | Path, *, gates: Mapping[str, bool] | None = None) -> SchematicSession:
+def open_schematic(
+    path: str | Path, *, gates: Mapping[str, bool] | None = None, project: str | Path | None = None
+) -> SchematicSession:
     target = Path(path)
     data = target.read_bytes()
     document = read_schematic(data, file=target.name)
     if document.form != "binary":
         raise ValueError(f"{target.name}: a schematic session opens the binary form only")
-    return SchematicSession(target, data, MappingProxyType({**SCHEMATIC_GATES, **(gates or {})}))
+    gated = MappingProxyType({**SCHEMATIC_GATES, **(gates or {})})
+    return SchematicSession(target, data, gated, project=None if project is None else Path(project))
 
 
 __all__ = ["EVIDENCE", "OPERATIONS", "ROWS", "SCHEMATIC_GATES", "Part", "SchematicSession", "net_signature",

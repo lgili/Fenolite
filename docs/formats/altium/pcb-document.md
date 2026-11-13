@@ -151,6 +151,16 @@ sessions (`fenolite.backends.altium.edit`) and the integrity check rely on none 
 | Rotating a component by 90 degrees moves its pads, texts and tracks about its origin and writes `ROTATION= 9.00000000000000E+0001` | S-1420 | INFERRED | H-A-EDIT-ROTATE |
 | `PrimitiveGuids` grows when primitives are added; its form is not decoded, and an edit session leaves it as it is | S-1420 | INFERRED | H-A-EDIT-IDS |
 
+### The link written by an edit session (change c0499)
+
+What `edit.Session.link` writes (`H-A-EDIT-LINK`, `INFERRED` until Part J case J34 passes).
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| `link` sets, in the component's `Components6` record, `SOURCEUNIQUEID` to the part's unique-id path (`\<sheet symbol id>…\<part id>`), `SOURCEHIERARCHICALPATH` (empty on the top sheet, else `<top sheet stem>\<sheet symbol designator>…`), `SOURCEDESIGNATOR`, `SOURCELIBREFERENCE` and `SOURCECOMPONENTLIBRARY` from the part, and `CHANNELOFFSET` one more than the largest of the other components of the same hierarchical path | S-0164, S-0188 | INFERRED | H-A-EDIT-LINK |
+| `link` adds the designator as the next `M<n>` member of the component class (`KIND=1`) named after the part's sheet symbol, or after the sheet's stem on the top sheet, when `Classes6` holds that class; the members stay together where the first stood | S-0164, S-0188 | INFERRED | H-A-EDIT-LINK |
+| `link` refuses a part whose current footprint model (record 45 `MODELNAME`) differs from the component's `PATTERN`, or whose `Comment` differs from the component's comment text: Update PCB would propose that change | S-0164, S-0188 | INFERRED | H-A-EDIT-LINK |
+
 ## Embedded board arrays (change c0173)
 
 What public pages say about Altium's panel object, the Embedded Board Array, read on 2026-10-16. No public

@@ -1273,6 +1273,15 @@ def test_altium_teaches_the_pcbdoc_edit_mode() -> None:
         assert code in text, code
 
 
+def test_altium_teaches_adding_a_part_to_a_project() -> None:
+    """Change c0499: the schematic additions, ``open(project=)`` and ``link`` with their gates."""
+    text = (SKILL / "references/altium.md").read_text()
+    words = ["`edit.open(sheet, project=prj)`", "`add_part`", "`annotate`", "`add_wire`", "`add_net_label`"]
+    words += ["`add_power_port`", "`link(ref, project=prj, part=ref)`", "(gate `link`)"]
+    for word in words:
+        assert word in text, word
+
+
 def test_viewer_teaches_actual_project_instance_context() -> None:
     page = guide.page("viewer")
     for words in (
