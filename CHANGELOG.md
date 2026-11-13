@@ -29,6 +29,11 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Fixed
 
+- Adding a zone far from the others no longer changes the pours Fenolite writes for other nets (c0496):
+  a conversion back to Altium keeps the source's carried pour per polygon, not for the whole document, and
+  pours only the new or changed polygons and those within their reach (`altium.pour-changed` names each
+  carried polygon poured again, and why). The computed pour no longer reads the arc tolerance of other
+  polygons (`H-A-POUR-LOCAL`).
 - `fenolite silk --designators` places designators on dense boards (c0493): rings of places out to
   `--reach` (2 mm), heights stepping down to `--min-size` by `--size-step`, `--over-body` as a last resort,
   and another part's courtyard only adds cost instead of blocking. `--model altium` places and checks by

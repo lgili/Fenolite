@@ -238,5 +238,16 @@ is not below the grid refuses `hatched`.
   check finds no fault that the source's own pour does not have. Otherwise it pours. The source's saved
   pour can fail Fenolite's check (10 of 28 polygons of the maintainer's board, private, codes and counts
   only), so the check is judged against the source's own result.
+- **The source's pour, per polygon** (change c0496). The carried pour is kept per polygon, not for the whole
+  document. A polygon keeps its carried regions when its vertices, net and `LAYER` match, no new or changed
+  polygon of its layer comes within the document's largest clearance of its outline, and no polygon poured
+  again before it within that reach. The other polygons are poured, with the kept polygons' regions as fixed
+  copper. A kept polygon that the copper check fails, where its source does not, is poured again in the next
+  round, and only that polygon. Each matched polygon poured again is reported with `altium.pour-changed`
+  (warning), naming why. `H-A-POUR-LOCAL` states the property that makes this sound: the pour of a polygon
+  reads only its record, the rules that apply to it, the objects within its outline grown by its largest
+  clearance and the polygons that pour before it on its layer. Each arc tolerance has its own objects and
+  board area, so no other polygon's `ARCRESOLUTION` changes a polygon's chords
+  (`tests/unit/backends/altium/test_pour_stable_c0496.py`).
 - **Polygon Connect Style.** The records of change c0215, Decision 11: the Advanced form, one rule per
   net scoped `InNet` and one `All` rule.

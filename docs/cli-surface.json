@@ -11000,6 +11000,12 @@
         "info"
       ]
     },
+    "altium.pour-changed": {
+      "experimental": true,
+      "severities": [
+        "warning"
+      ]
+    },
     "altium.pour-unavailable": {
       "experimental": true,
       "severities": [

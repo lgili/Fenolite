@@ -1588,21 +1588,21 @@ def pour_reading(
     *,
     backend: ClipperBackend | None = None,
     refuse: Mapping[int, str] | None = None,
+    fixed: Mapping[int, tuple[Polygon, ...]] | None = None,
 ) -> PourResult:
     """The pour of every polygon of ``reading`` (capability altium-pour, "Pour engine"). ``refuse`` maps a
-    polygon index to a reason that refuses it before it is poured (the self-check of the writer)."""
+    polygon index to a reason that refuses it before it is poured (the self-check of the writer). ``fixed``
+    maps a polygon index to copper that is taken as that polygon's pour, not computed (a carried pour,
+    change c0496)."""
     polygons = polygons_of(reading)
     if not polygons:
         return PourResult(())
     geometry = _Geometry(backend if backend is not None else ClipperBackend())
     forced = dict(refuse or {})
-    tol = min(p.tol for p in polygons)
-    objects = LayerObjects(reading, tol)
     rules = Clearances(reading)
     styles = read_connect_styles(  # change c0462: the full grammar, with the document's names
         [record.fields for record in reading.document.rules], connect_document(reading)
     )
-    board = _board_area(reading, geometry, tol)
     widest = max(
         (
             c.air_gap + c.conductor_width
@@ -1612,28 +1612,43 @@ def pour_reading(
         ),
         default=0,
     )
-    context = _Context(
-        geometry,
-        objects,
-        rules,
-        styles,
-        _polygon_cutouts(reading),
-        board or (),
-        () if rules.has_outline_clearance else _board_cutouts(reading),
-        rules.largest + widest + tol + 1,
-    )
+    contexts: dict[int, tuple[_Context, bool]] = {}
+
+    def context_of(tol: int) -> tuple[_Context, bool]:
+        """The context of a polygon of arc tolerance ``tol``, and whether the board has an area. Each
+        tolerance has its own (change c0496): a polygon's pour reads no other polygon's ``ARCRESOLUTION``."""
+        if tol not in contexts:
+            board = _board_area(reading, geometry, tol)
+            contexts[tol] = (
+                _Context(
+                    geometry,
+                    LayerObjects(reading, tol),
+                    rules,
+                    styles,
+                    _polygon_cutouts(reading),
+                    board or (),
+                    () if rules.has_outline_clearance else _board_cutouts(reading),
+                    rules.largest + widest + tol + 1,
+                ),
+                board is not None,
+            )
+        return contexts[tol]
+
     layers: dict[str, _Layer] = {}
     out: dict[int, PolygonPour] = {}
     for polygon in sorted(polygons, key=lambda p: (p.pour_index, p.index)):
         state = layers.setdefault(polygon.layer, _Layer())
+        context, has_board = context_of(polygon.tol)
         reason = polygon.reason or forced.get(polygon.index, "")
-        if not reason and board is None:
+        if not reason and not has_board:
             reason = "no-board"
         if not reason:
             reason = _depends(polygon, state, context)
         pieces: tuple[Polygon, ...] = ()
         tracks: tuple[PourTrack, ...] = ()
-        if not reason:
+        if fixed is not None and polygon.index in fixed:
+            pieces, reason = fixed[polygon.index], ""
+        elif not reason:
             pieces, tracks, reason = _pour(polygon, state, context)
         if reason:
             pieces, tracks = (), ()

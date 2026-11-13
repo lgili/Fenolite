@@ -102,6 +102,7 @@ from fenolite.model.board import (
 
 if TYPE_CHECKING:
     from fenolite.backends.altium.pour import PourReading
+    from fenolite.geometry.polygon import Polygon
 
 NET_TIE_KIND = "4"
 """The ``COMPONENTKIND`` value written for a net tie (change c0420, N1): the kind Net Tie, the one the public
@@ -3000,6 +3001,8 @@ def _kept_classes(written: Sequence[bytes], data: bytes) -> list[bytes]:
 
 ZONES_POURED = "altium.zones-poured"
 ZONE_UNPOURED = "altium.zone-unpoured"
+POUR_CHANGED = "altium.pour-changed"
+"""A polygon whose carried pour matches is computed again, with the input that changed it (change c0496)."""
 REPOUR_ALL = "Tools » Polygon Pours » Repour All"
 RULE_POLYGON_CONNECT = 20
 """The rule-kind number of Polygon Connect Style (``connectstyle.KIND_NUMBER``)."""
@@ -3150,9 +3153,14 @@ class PcbDocResult:
     issues: tuple[Issue, ...] = ()
 
 
-def _pour_regions(document: PcbDocument, pours: PourResult) -> list[tuple[bytes, bytes]]:
+def _pour_regions(
+    document: PcbDocument,
+    pours: PourResult,
+    carry: Mapping[int, tuple[list[tuple[bytes, bytes]], KeptPour]] | None = None,
+) -> list[tuple[bytes, bytes]]:
     """The region records of every poured polygon of ``pours``, polygon by polygon in record order: each
-    piece in binary units, the outer ring clockwise and the holes anticlockwise in the file's frame."""
+    piece in binary units, the outer ring clockwise and the holes anticlockwise in the file's frame. The
+    carried records of each polygon of ``carry`` take its place in that order (change c0496)."""
     from fenolite.backends.altium.adapter.copper import layer_of_text
 
     def units(ring: Sequence[Point], clockwise: bool) -> list[tuple[int, int]]:
@@ -3171,7 +3179,13 @@ def _pour_regions(document: PcbDocument, pours: PourResult) -> list[tuple[bytes,
         return cleaned
 
     out: list[tuple[bytes, bytes]] = []
-    for pour in pours.polygons:
+    carry = carry or {}
+    computed = {pour.index: pour for pour in pours.polygons}
+    for index in sorted({*computed, *carry}):
+        if index in carry:
+            out.extend(carry[index][0])
+            continue
+        pour = computed[index]
         if not pour.poured or pour.tracks:  # a hatch is written as tracks (``_pour_tracks``)
             continue
         record = document.polygons[pour.index]
@@ -3215,14 +3229,23 @@ def _pour_tracks(document: PcbDocument, pours: PourResult) -> list[bytes]:
     return out
 
 
-def _write_poured(spec: PcbDocSpec, filename: str, document: PcbDocument, pours: PourResult) -> bytes:
-    """``_write`` of a computed pour with the copper of ``pours``: regions, and tracks of hatched pours."""
+def _write_poured(
+    spec: PcbDocSpec,
+    filename: str,
+    document: PcbDocument,
+    pours: PourResult,
+    carry: Mapping[int, tuple[list[tuple[bytes, bytes]], KeptPour]] | None = None,
+) -> bytes:
+    """``_write`` of a computed pour with the copper of ``pours``: regions, and tracks of hatched pours. A
+    polygon of ``carry`` is written with its carried region records (change c0496)."""
+    carry = carry or {}
+    computed = PourResult(tuple(p for p in pours.polygons if p.index not in carry), pours.evidence)
     return _write(
         spec,
         filename,
         computed=True,
-        pour_records=_pour_regions(document, pours),
-        pour_tracks=_pour_tracks(document, pours),
+        pour_records=_pour_regions(document, computed, carry),
+        pour_tracks=_pour_tracks(document, computed),
     )
 
 
@@ -3259,10 +3282,13 @@ def write_pcbdoc_result(
     base = _write(spec, filename, computed=True)
     reading = read_pour(base, file=filename)
     order = [(zone.id, layer) for zone, layer, _ in polygon_order(spec.zones, _spec_copper(spec))]
-    kept = _carried_pour_records(spec, reading, order)
-    if kept is not None:  # change c0482: the source's own pour, while the copper check finds no new fault
-        records, matched = kept
-        data = _write(spec, filename, computed=True, pour_records=records)
+    matched = _carried_pour_records(spec, reading, order)
+    changed: dict[int, str] = {}
+    carry = _local_carry(reading, matched, changed)
+    if matched and len(carry) == len(order):  # change c0482: the source's own pour of every polygon
+        data = _write(
+            spec, filename, computed=True, pour_records=[r for i in sorted(carry) for r in carry[i][0]]
+        )
         written = read_pour(data, file=filename)
         polygons = polygons_of(written)
         held = PourResult(
@@ -3272,22 +3298,35 @@ def write_pcbdoc_result(
             )
         )
         failed = check_pour(written, held)
-        if all(matched[index].source_failed for index in failed):
+        if all(carry[index][1].source_failed for index in failed):
             summary = PourSummary(len(polygons), (), POUR_EVIDENCE, kept=True)
             return PcbDocResult(data if pour_regions else base, summary, issues)
+        for index in failed:  # change c0496: only the polygons the check fails are computed
+            if not carry[index][1].source_failed:
+                carry.pop(index)
+                changed[index] = "the copper check finds a fault that the source's own pour does not have"
     refused: dict[int, str] = {}
     rounds = 0
     while True:
         rounds += 1
-        result = pour_reading(reading, backend=backend, refuse=refused)
-        data = _write_poured(spec, filename, reading.document, result)
+        fixed = _carried_pieces(spec, filename, carry)
+        result = pour_reading(reading, backend=backend, refuse=refused, fixed=fixed)
+        data = _write_poured(spec, filename, reading.document, result, carry)
         failed = check_pour(read_pour(data, file=filename), result)
+        dropped = [i for i in failed if i in carry and not carry[i][1].source_failed]
+        failed = tuple(i for i in failed if i not in carry)
+        for index in dropped:  # a carried polygon the check fails is computed in the next round
+            carry.pop(index)
+            changed[index] = "the copper check finds a fault that the source's own pour does not have"
+        if dropped and rounds < POUR_ROUNDS:
+            continue
         if not failed or rounds >= POUR_ROUNDS:
             for index in failed:
                 refused[index] = "copper-check"
-            if failed:
-                result = pour_reading(reading, backend=backend, refuse=refused)
-                data = _write_poured(spec, filename, reading.document, result)
+            if failed or dropped:
+                fixed = _carried_pieces(spec, filename, carry)
+                result = pour_reading(reading, backend=backend, refuse=refused, fixed=fixed)
+                data = _write_poured(spec, filename, reading.document, result, carry)
             break
         refused.update((index, "copper-check") for index in failed)
     summary = PourSummary(
@@ -3300,7 +3339,19 @@ def write_pcbdoc_result(
         evidence=POUR_EVIDENCE,
         rounds=rounds,
     )
-    return PcbDocResult(data if pour_regions else base, summary, issues)
+    notes = tuple(
+        Issue(
+            POUR_CHANGED,
+            "warning",
+            f"the polygon of zone {order[index][0]} on {order[index][1]} is poured again by Fenolite, not "
+            f"written with the source's regions: {why}",
+            where=f"zone/{order[index][0]}",
+            hint=REPOUR_ALL,
+        )
+        for index, why in sorted(changed.items())
+        if index < len(order)
+    )
+    return PcbDocResult(data if pour_regions else base, summary, (*issues, *notes))
 
 
 def _reindexed(raw: bytes, polygon: int) -> bytes:
@@ -3311,18 +3362,17 @@ def _reindexed(raw: bytes, polygon: int) -> bytes:
 
 def _carried_pour_records(
     spec: PcbDocSpec, reading: PourReading, order: Sequence[tuple[str, str]]
-) -> tuple[list[tuple[bytes, bytes]], list[KeptPour]] | None:
-    """The carried region records of every polygon of ``reading`` (the document written without a pour), in
-    record order and indexed for it, with the carried pour of each polygon (change c0482); ``None`` unless
-    each polygon has a carried pour whose vertices, net and layer are the written polygon's and whose every
-    region has its shape-based twin. A carried pour is found by its vertices, net and layer, not by its
+) -> dict[int, tuple[list[tuple[bytes, bytes]], KeptPour]]:
+    """The carried region records of each polygon of ``reading`` (the document written without a pour) that
+    has a carried pour (change c0482), indexed for it, with that carried pour; per polygon since change c0496.
+    A polygon is left out unless its carried pour's vertices, net and layer are the written polygon's and
+    every region has its shape-based twin. A carried pour is found by its vertices, net and layer, not by its
     zone: a script's build gives its zones other ids than the conversion that carried them."""
     if not spec.kept_pours or len(reading.document.polygons) != len(order):
-        return None
+        return {}
     carried = {(kept.vertices, kept.net, kept.layer): kept for kept in spec.kept_pours.values()}
     zones = {zone.id: zone for zone in spec.zones}
-    found: list[tuple[bytes, bytes]] = []
-    matched: list[KeptPour] = []
+    found: dict[int, tuple[list[tuple[bytes, bytes]], KeptPour]] = {}
     for index, (zone_id, _layer) in enumerate(order):
         zone = zones.get(zone_id)
         record = reading.document.polygons[index]
@@ -3330,13 +3380,74 @@ def _carried_pour_records(
         layer = record.record.get("LAYER") or ""
         kept = carried.get((vertices, zone.net_id, layer)) if zone is not None else None
         if kept is None:
-            return None
-        for plain, shape in kept.regions:
-            if shape is None or len(plain) < 12 or len(shape) < 12:
-                return None
-            found.append((_reindexed(plain, index), _reindexed(shape, index)))
-        matched.append(kept)
-    return found, matched
+            continue
+        twins = [(plain, shape) for plain, shape in kept.regions if shape is not None]
+        if len(twins) != len(kept.regions) or any(min(len(a), len(b)) < 12 for a, b in twins):
+            continue
+        found[index] = ([(_reindexed(a, index), _reindexed(b, index)) for a, b in twins], kept)
+    return found
+
+
+def _local_carry(
+    reading: PourReading,
+    matched: Mapping[int, tuple[list[tuple[bytes, bytes]], KeptPour]],
+    changed: dict[int, str],
+) -> dict[int, tuple[list[tuple[bytes, bytes]], KeptPour]]:
+    """The carried polygons of ``matched`` that no new or changed polygon can change (change c0496): no new or
+    changed polygon of their layer comes within the document's largest clearance of their outline, and no
+    computed one that pours before them does. ``changed`` gets the reason of each matched polygon left out."""
+    from fenolite.backends.altium.pour import Clearances, polygons_of
+
+    if not matched:
+        return {}
+    polygons = sorted(polygons_of(reading), key=lambda p: (p.pour_index, p.index))
+    reach = Clearances(reading).largest + 1
+    kept = dict(matched)
+    for at, polygon in enumerate(polygons):
+        if polygon.index not in kept:
+            continue
+        box = polygon.box.inflate(reach)
+        for before, other in enumerate(polygons):
+            if other is polygon or other.layer != polygon.layer or not other.box.intersects(box):
+                continue
+            if other.index not in matched:
+                why = "a new or changed polygon of its layer comes within the clearance of its outline"
+            elif before < at and other.index not in kept:
+                why = "a polygon that pours before it within its clearance is poured again"
+            else:
+                continue
+            kept.pop(polygon.index)
+            changed[polygon.index] = why
+            break
+    return kept
+
+
+def _carried_pieces(
+    spec: PcbDocSpec, filename: str, carry: Mapping[int, tuple[list[tuple[bytes, bytes]], KeptPour]]
+) -> dict[int, tuple[Polygon, ...]]:
+    """The copper of each carried polygon in the frame of the import, as its region records hold it: the
+    pour treats it as the fixed copper of a polygon that pours before the others (change c0496)."""
+    from fenolite.backends.altium.adapter.copper import region_points
+    from fenolite.backends.altium.read.pcb import read_pcbdoc
+    from fenolite.geometry.errors import GeometryError
+    from fenolite.geometry.polygon import Polygon
+
+    if not carry:
+        return {}
+    records = [r for index in sorted(carry) for r in carry[index][0]]
+    document = read_pcbdoc(_write(spec, filename, computed=True, pour_records=records), file=filename)
+    pieces: dict[int, tuple[Polygon, ...]] = {}
+    for index in carry:
+        found: list[Polygon] = []
+        for region in document.regions_of(index):
+            try:
+                found.append(
+                    Polygon(region_points(region.outline), tuple(region_points(h) for h in region.holes))
+                )
+            except (GeometryError, ValueError):
+                continue  # shortcut: a ring the geometry cannot hold is no obstacle; the check judges it
+        pieces[index] = tuple(found)
+    return pieces
 
 
 def _spec_copper(spec: PcbDocSpec) -> _Copper:

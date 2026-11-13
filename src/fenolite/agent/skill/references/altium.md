@@ -64,6 +64,7 @@ and draws `Harness` interfaces. `--copper-from BOARD.kicad_pcb` copies routed co
 Polygons are poured by Fenolite with Altium's rules (`--altium-pour computed`, the default; needs
 `fenolite[geo]`); `altium.zones-poured` marks that copper experimental, and Repour All in Altium gives
 Altium's own. `altium.zone-unpoured` names a polygon left unpoured; `--altium-pour outline` pours none.
+`altium.pour-changed` names a polygon whose carried pour is poured again, and why.
 
 Read `altium.not-lowered` locators. A `track_width` rule needs both limits (page `rules`).
 

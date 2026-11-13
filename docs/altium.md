@@ -1084,6 +1084,7 @@ An author report never raises the build's evidence level.
 | `altium.zones-unpoured` | info | polygons are written without poured copper (pour mode `outline`) |
 | `altium.zones-poured` | info | polygons are poured by Fenolite (pour mode `computed`, experimental) |
 | `altium.zone-unpoured` | warning | one polygon is written with its outline only: the reason the engine refused it |
+| `altium.pour-changed` | warning | a polygon whose carried pour matches is poured again by Fenolite: the message names why |
 | `altium.pour-unavailable` | warning | the default pour mode needs the `geo` extra: the polygons are written unpoured |
 | `altium.plane-zone-merged` | info | a zone on a plane layer with the plane's net is left to the plane |
 | `altium.placement-from-board` | info | components are placed as the board of `--copper-from` places them, not as the script requests |

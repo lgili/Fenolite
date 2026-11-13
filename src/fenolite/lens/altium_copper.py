@@ -84,6 +84,7 @@ COPPER_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "altium.zones-unpoured": "info",
         "altium.zones-poured": "info",
         "altium.zone-unpoured": "warning",
+        "altium.pour-changed": "warning",
         "altium.pour-unavailable": "warning",
         "altium.plane-zone-merged": "info",
         "altium.placement-from-board": "info",

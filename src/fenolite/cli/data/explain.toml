@@ -844,6 +844,11 @@ meaning = "A build's default pour mode computed needs the geo extra, which is no
 fix = "Install the geo extra (pip install 'fenolite[geo]', or uv sync --extra geo in a checkout) and build again, or ask for --altium-pour outline to write the polygons unpoured without this warning."
 see = "Build target"
 
+["altium.pour-changed"]
+meaning = "A polygon whose pour a conversion carried is poured again by Fenolite, not written with the source's regions: a new or changed polygon comes near it, or the copper check finds a fault its source does not have (the message names which)."
+fix = "Repour the polygon in Altium (Tools » Polygon Pours » Repour All) if Altium's own copper is wanted."
+see = "Build target"
+
 ["altium.zone-unpoured"]
 meaning = "Fenolite could not compute the pour of this polygon (the message names the reason), so it is written with its outline only."
 fix = "Repour the polygon in Altium (Tools » Polygon Pours » Repour All), or remove what the reason names."

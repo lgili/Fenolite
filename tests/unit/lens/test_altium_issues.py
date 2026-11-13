@@ -654,7 +654,7 @@ def test_closed_set() -> None:
         produced.setdefault(found.code, set()).add(found.severity)
     for found in (*run_c0087_cases(), *run_draftsman_cases()):
         produced.setdefault(found.code, set()).add(found.severity)
-    for found in run_pour_cases():
+    for found in (*run_pour_cases(), *run_pour_changed_case()):
         produced.setdefault(found.code, set()).add(found.severity)
     for found in run_request_case():
         produced.setdefault(found.code, set()).add(found.severity)
@@ -715,7 +715,7 @@ def run_dropped_case() -> list[Issue]:
 
 
 GEO = importlib.util.find_spec("pyclipper") is not None
-POUR_CODES_WITH_GEO = {"altium.zones-poured", "altium.zone-unpoured"}
+POUR_CODES_WITH_GEO = {"altium.zones-poured", "altium.zone-unpoured", "altium.pour-changed"}
 """The codes of a computed pour (change c0215), which only a build with the geo extra gives."""
 
 
@@ -748,6 +748,36 @@ def run_pour_cases() -> tuple[Issue, ...]:
         with mock.patch.dict(sys.modules, {"pyclipper": None}):
             found += routed_build(Path(folder) / "c", pour=None).issues
     return tuple(found)
+
+
+def run_pour_changed_case() -> tuple[Issue, ...]:
+    """Change c0496: a carried pour whose polygon a new polygon of another net overlaps is poured again
+    (``altium.pour-changed``)."""
+    if not GEO:
+        return ()
+    import dataclasses
+
+    from _altium_pour import FILENAME, Board, rect, via, zone
+
+    from fenolite.backends.altium import pcbdoc
+    from fenolite.backends.altium.read.pcb import read_pcbdoc
+
+    first = zone("a", "GND", rect(1, 1, 12, 9))
+    source = Board(zones=(first,), vias=(via("v1", "GND", 4, 4),)).write().data
+    document = read_pcbdoc(source, file=FILENAME)
+    (polygon,) = document.polygons
+    regions = tuple(r.raw for r in document.regions_of(0))
+    shapes = tuple(r.raw for r in document.shape_regions if getattr(r, "prefix", None) is not None)
+    kept = pcbdoc.KeptPour(
+        tuple((v.x, v.y) for v in polygon.vertices),
+        "GND",
+        tuple(zip(regions, shapes, strict=True)),
+        polygon.record.get("LAYER") or "",
+    )
+    over = Board(zones=(first, zone("d", "AUX", rect(8, 2, 16, 8), priority=5)),
+                 vias=(via("v1", "GND", 4, 4), via("v2", "AUX", 14, 4)))  # fmt: skip
+    spec = dataclasses.replace(over.spec(), kept_pours={"0": kept})
+    return pcbdoc.write_pcbdoc_result(spec, filename=FILENAME, pour="computed").issues
 
 
 def run_request_case() -> tuple[Issue, ...]:
@@ -872,6 +902,7 @@ def test_the_table() -> None:
         "altium.zones-unpoured": "info",
         "altium.zones-poured": "info",
         "altium.zone-unpoured": "warning",
+        "altium.pour-changed": "warning",
         "altium.pour-unavailable": "warning",
         "altium.plane-zone-merged": "info",
         "altium.placement-from-board": "info",
