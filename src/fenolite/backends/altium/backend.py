@@ -457,6 +457,13 @@ class AltiumBackend:
 
         return check_pcbdoc(path.read_bytes(), file=path.name), EVIDENCE
 
+    def board_drawing_findings(self, path: Path) -> tuple[tuple[Issue, ...], Evidence]:
+        """The findings of the stage ``altium.board-drawing`` on the PCB document at ``path``
+        (``edit.drawing.check_pcbdoc``; change c0497) and the evidence of its comparison."""
+        from fenolite.backends.altium.edit.drawing import EVIDENCE, check_pcbdoc
+
+        return tuple(check_pcbdoc(path.read_bytes(), file=path.name)), EVIDENCE
+
     def stage_evidence(self) -> Mapping[str, Evidence]:
         """The evidence this backend adds to a check stage, by stage name (``roundtrip.STAGE_EVIDENCE``)."""
         from fenolite.backends.altium.roundtrip import STAGE_EVIDENCE

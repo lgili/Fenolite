@@ -380,3 +380,29 @@ def test_create_is_behind_its_gate(board: Path, tmp_path: Path) -> None:
     assert issue.code == "altium.edit.gate" and "H-A-EDIT-CREATE" in issue.message
     assert edit.ROWS["set_outline"] == ("H-A-EDIT-SHAPE", "H-A-EDIT-KIT")
     assert OPEN["create"] and not edit.GATES["create"]
+
+
+def test_region_outline(ops_board: Callable[[str], Path]) -> None:
+    """Change c0497 (D7): a free keep-out region given a ring 1 mm larger on each side, its keys kept."""
+    from tests.unit.backends.altium.edit.board_ops import KEEPOUT
+
+    path = ops_board("drawn")
+    item = edit.Region("Keep-Out Layer", (mm(25), mm(20)))
+    old = [(mm(x), mm(y)) for x, y in KEEPOUT]
+    new = [(mm(24), mm(19)), (mm(29), mm(19)), (mm(29), mm(24)), (mm(24), mm(24))]
+    before = path.read_bytes()
+    receipt = _commit(path, path.with_name("out.PcbDoc"), lambda s: s.set_outline(item, new, old=old))
+    assert receipt.written, receipt.issues
+    after = path.with_name("out.PcbDoc").read_bytes()
+    assert _diff(before, after) == {"Regions6": (1, 1), "ShapeBasedRegions6": (1, 1)}
+    view = View(State.of(after))
+    for storage in ("Regions6", "ShapeBasedRegions6"):
+        held = [
+            p for p in State.of(after).typed(storage) if isinstance(p, RegionRecord) and p.prefix.layer == 56
+        ]
+        [region] = [p for p in held if rec.region_keys(p.raw).get("KEEPOUTRESTRICTIONS") == "1"]
+        assert [(round(v.x), round(v.y)) for v in region.outline][:4] == [view.units(p) for p in new]
+        assert rec.split(region.raw)[1][0][2] == 2
+    wrong = [(mm(x + 1), mm(y)) for x, y in KEEPOUT]
+    receipt = _commit(path, path.with_name("bad.PcbDoc"), lambda s: s.set_outline(item, new, old=wrong))
+    assert [i.code for i in receipt.issues] == ["altium.edit.assertion"]

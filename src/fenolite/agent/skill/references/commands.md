@@ -26,7 +26,7 @@ Usage shows required arguments (`[X]`: optional). Each argument below names its 
 | `copper` | yes | generate the power and ground copper of a KiCad board from its net roles (writes with --confirm) |
 | `diff` | yes | list the differences between two boards, libraries, built models or Altium files, gate them by kind, or merge them into a third KiCad board (runs no tool) |
 | `doctor` | no | report the external tools Fenolite can use: kicad-cli candidates and their commands, java, docker |
-| `edit` | yes | write a design script, a TOML file or a library table from a new text or exact edits, through a plan |
+| `edit` | yes | write a design script, a TOML file or a library table from a new text or exact edits, or edit an Altium PCB document with session operations, through a plan |
 | `equivalent` | no | say whether two designs are equivalent, level by level, and locate each difference |
 | `explain` | no | say what an error code or an issue code means and what to do about it |
 | `export` | yes | export fabrication files through kicad-cli on a copy of the project (writes under DIR) |

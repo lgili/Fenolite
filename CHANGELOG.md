@@ -8,6 +8,14 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Added
 
+- Board edits of an Altium PCB document (c0497): the edit session moves and turns a component's
+  `Designator` and `Comment` text, narrows a free `Text` by layer and place, adds board cut-outs (a notch
+  across the outline is cut out of `Board6` and `BoardRegions`) and polygon cut-outs, sets via tenting and
+  mask expansion on a `Vias` selector with a stated count, redraws the board shape on a mechanical layer, and
+  gives a free `Region` a new outline. `fenolite edit PATH.PcbDoc --ops-file FILE [--gate NAME]` runs these
+  operations under the write protocol (`altium.edit.gate-opened`, `UNVERIFIED`), and the opt-in check stage
+  `altium.board-drawing` compares a mechanical layer's outline drawing with the board shape. Every new gate
+  stays off until its Part J case (J35 to J39) passes.
 - Initial placement optimization infrastructure (c0477) resolves schematic pins to physical
   pads, keeps reviewed intent separate from suggestions, and identifies bypass candidates from
   both supply and return connections. It also recognizes oscillator and signal-path bindings,

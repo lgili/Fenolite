@@ -2238,6 +2238,7 @@ opt-in too (change c0241): it judges the index tables of each PCB document (belo
 | `roundtrip.rta0` | RT-A0 of every compound file of the set: a copy through the reader and the compound writer keeps every storage and stream | `EVIDENCE_RT_A0`; `UNVERIFIED` when a copy fails |
 | `roundtrip.rta1` | RT-A1 of every document: every typed stream gives equal records after encoding and reading again | the reader's level per kind; `UNVERIFIED` when a stream fails |
 | `roundtrip.rta2` | RT-A2 on built input: the stored model against the readings of the documents the build wrote, inside the written scope (`docs/altium.md`, "Round trips"); footprints, pads and copper are compared, and no kind is only counted | `INFERRED` (`H-A-VER-RTA2-3`) |
+| `altium.board-drawing` | opt-in. The drawing of the board shape on a mechanical layer compared with the outline and the board cut-outs (`fenolite.backends.altium.edit.drawing`; change c0497) | `INFERRED` (`H-A-EDIT-DRAWING`) |
 | `altium.integrity` | opt-in. The integrity check of each PCB document (`fenolite.backends.altium.edit.integrity`): the faults of its index tables that the native tool may refuse. `where` is `<document>:<stream>#<position>`, and the hint names the rule's row of `docs/hypotheses.md` | `INFERRED` (`H-A-INTEG-*`): every finding is a `warning` until Part J phase B confirms its row |
 | `roundtrip.rta3` | opt-in. RT-A3: the project file (else the PCB document, else the first schematic) is read, its model is written as new Altium documents in a temporary folder, and those are read again; the two models are compared inside the written scope | `INFERRED` (`H-A-VER-RTA3`); `UNVERIFIED` when a difference is reported |
 
@@ -2313,6 +2314,11 @@ carries `ORACLE-VERIFIED`, `KICAD-VERIFIED` or `ALTIUM-VERIFIED`: only Fenolite 
   region's layer byte and its `V7_LAYER` key name two layers) and the `info` note
   `altium.integrity.parameters-unjudged` (`PrimitiveParameters` holds data, whose form no source gives).
   The summary holds `documents`. The stage is skipped with `not-judged` without a PCB document.
+- **`altium.board-drawing`** (opt-in, change c0497). On each mechanical layer whose free tracks and arcs close
+  a ring within 0.01 mm of the box of the `Board6` outline, each edge of the board shape (the outline and every
+  free board cut-out) with no drawn edge on it within 0.01 mm, and each drawn edge on no shape edge, gives
+  `altium.board-drawing.mismatch` (warning) at its middle. A document with no such layer gives the `info`
+  `altium.board-drawing.none`. Its evidence is `INFERRED` (`H-A-EDIT-DRAWING`).
 
 ### Altium edit sessions
 
@@ -2333,6 +2339,13 @@ refused commit writes nothing and its receipt's exit code is 5. The codes are:
   groups), or a schematic's net signature, changed and the session does not declare it;
 - `altium.edit.integrity`: a new finding of the integrity check on the edited document (a warning while
   its row is unconfirmed).
+- `altium.edit.gate-opened` (warning, change c0497): `fenolite edit PATH.PcbDoc --gate NAME` opened that gate
+  for the run; the reply's evidence is `UNVERIFIED`.
+
+The board edits of change c0497 are `move` and `rotate` of `Designator(ref)` and `Comment(ref)` (gate `text`),
+`add_board_cutout` and `add_polygon_cutout` (gate `cutout`), `set_via_mask` with a `Via` or
+`Vias(net, hole, diameter)` and its `count` (gate `tenting`), `draw_board_shape` (gate `board_drawing`) and
+`set_outline` of a free `Region` (gate `set_outline`). `Text(text, layer, at)` narrows a free text.
 
 ### Copper guard of an Altium build
 
@@ -4650,8 +4663,8 @@ fiducials and tooling holes (change c0173; `docs/panels.md`). `PANEL.py` is a pa
 
 `fenolite edit PATH (--content-file FILE | --edits-file FILE)` writes a text file of a design through the
 write protocol (change c0196): a design script (`*.py`), a TOML file (`*.toml`, such as `placements.toml`) or
-a library table (`fp-lib-table`, `sym-lib-table`). Any other file is `FEN-2001`; KiCad and Altium documents
-are written by the commands that own them.
+a library table (`fp-lib-table`, `sym-lib-table`). An Altium `*.PcbDoc` takes `--ops-file` (below). Any other
+file is `FEN-2001`; KiCad documents are written by the commands that own them.
 
 - `--content-file` holds the whole new text; the file is created when it does not exist.
 - `--edits-file` holds a JSON list of `{"old": ..., "new": ...}` pairs, applied in order to the text as it
@@ -4665,6 +4678,29 @@ are written by the commands that own them.
   `diff_truncated`. An unchanged text plans no write.
 - The input files are inputs of the plan: a confirmation refuses (`FEN-4002`) when one changed since the dry
   run.
+
+`fenolite edit PATH.PcbDoc --ops-file FILE [--gate NAME]...` (change c0497) runs the operations of an Altium
+edit session (`fenolite.backends.altium.edit`, "Altium edit sessions") on a saved PCB document under the same
+protocol. `--content-file` and `--edits-file` on a `.PcbDoc`, and `--ops-file` or `--gate` on another file, are
+`FEN-2001`.
+
+- The file is a JSON list. Each entry is `{"op": <Session method>, "item": <item>, ...keyword arguments}`; `op`
+  is one of `delete`, `move`, `rotate`, `flip`, `set_property`, `clone`, `remap_layer`, `set_rule`,
+  `set_outline`, `add_arc`, `add_fill`, `add_region`, `add_polygon`, `declare_connectivity` (its `nets`),
+  `add_board_cutout`, `add_polygon_cutout`, `set_via_mask` and `draw_board_shape`. An item is a tagged object
+  whose `kind` is `track`, `arc`, `fill`, `via`, `vias`, `component`, `polygon`, `text`, `region`,
+  `designator` or `comment`, with the fields of that item, for example `{"kind": "via", "at": ["12.5mm",
+  "3mm"], "net": "GND"}`. A length is integer nanometres or text with a unit, a point a list of two lengths.
+  An unknown op, item kind or argument, or a value of the wrong form, is `FEN-2001` naming the entry's index.
+- The session's commit gates run as in Python (`apply`, then `verify`); nothing is written on `--dry-run`, and
+  `--confirm --plan ID` writes the reviewed bytes. The session's issues keep their codes: an error among them
+  (`altium.edit.gate`, `altium.edit.assertion`, ...) plans no write and exits 5.
+- `--gate NAME` (repeatable) opens one gate of `edit.GATES` for this run, as `edit.open(path, gates=...)` does;
+  each gives `altium.edit.gate-opened` (warning) and the reply's evidence is `UNVERIFIED`. `edit.GATES` stays
+  all off. A name that is no gate is `FEN-2001`.
+- `result` holds `path`, `kind` (`pcbdoc`), `changed`, `operations` (the session's labels), `records` (per
+  storage, the records `removed` and `added`), `stale_pours` (the polygons whose pour a polygon cut-out
+  removed) and `redrawn` (the tracks and arcs `draw_board_shape` removed, by layer).
 
 ## mcp
 

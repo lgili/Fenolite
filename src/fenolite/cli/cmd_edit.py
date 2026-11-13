@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""``fenolite edit PATH (--content-file FILE | --edits-file FILE)``: write a text file of a design through the
-write protocol (capability cli-contract, "Edit command" and "Edit checks without running"; change c0196;
-``docs/cli-contract.md``, "edit").
+"""``fenolite edit PATH (--content-file FILE | --edits-file FILE | --ops-file FILE)``: write a text file of a
+design through the write protocol (capability cli-contract, "Edit command" and "Edit checks without
+running"; change c0196; ``docs/cli-contract.md``, "edit").
 
 The files are those a design is written in: a design script (``*.py``), a TOML file (``*.toml``) and the
 library tables (``fp-lib-table``, ``sym-lib-table``), UTF-8 text of at most 1 MB. ``--content-file`` gives the
@@ -10,6 +10,9 @@ whole new text; ``--edits-file`` a JSON list of ``{"old", "new"}`` pairs, applie
 stands, each ``old`` found exactly once. The result must parse (``ast.parse`` for a script, ``tomllib`` for
 TOML) before it is planned; the script is never imported or run. The plan carries a unified diff; the file
 keeps its line ends.
+
+An Altium ``*.PcbDoc`` takes ``--ops-file`` instead: a JSON list of edit-session operations, run by
+``edit_pcbdoc.run_pcbdoc`` (change c0497).
 """
 
 from __future__ import annotations
@@ -29,7 +32,10 @@ from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 
-HELP = "write a design script, a TOML file or a library table from a new text or exact edits, through a plan"
+HELP = (
+    "write a design script, a TOML file or a library table from a new text or exact edits, or edit an Altium "
+    "PCB document with session operations, through a plan"
+)
 LIMIT = 1_000_000
 """The largest file, before and after the edit, in bytes."""
 DIFF_LINES = 400
@@ -42,10 +48,23 @@ EXAMPLE_CONTENT = "fenolite-edit-example.new"
 
 def _register(parser: argparse.ArgumentParser) -> None:
     parser.description = HELP + "; see docs/cli-contract.md, 'edit'."
-    parser.add_argument("path", metavar="PATH", help="a *.py, a *.toml, an fp-lib-table or a sym-lib-table")
+    parser.add_argument(
+        "path",
+        metavar="PATH",
+        help="a *.py, a *.toml, an fp-lib-table, a sym-lib-table or an Altium *.PcbDoc",
+    )
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--content-file", metavar="FILE", help="a file holding the whole new text")
     source.add_argument("--edits-file", metavar="FILE", help='a JSON list of {"old": ..., "new": ...} pairs')
+    source.add_argument(
+        "--ops-file",
+        metavar="FILE",
+        help='a *.PcbDoc only: a JSON list of {"op": ..., "item": {...}, ...} operations',
+    )
+    parser.add_argument(
+        "--gate", metavar="NAME", action="append", default=[],
+        help="a *.PcbDoc only: open the edit session's gate NAME for this run (UNVERIFIED; repeatable)",
+    )  # fmt: skip
 
 
 def _kind(path: Path) -> str:
@@ -140,6 +159,16 @@ def _shown(path: Path, cwd: Path) -> str:
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
     given = Path(str(args.path))
     path = given if given.is_absolute() else ctx.cwd / given
+    if path.suffix.lower() == ".pcbdoc":
+        from fenolite.cli.edit_pcbdoc import run_pcbdoc
+
+        if args.ops_file is None:
+            raise CliError("FEN-2001", "a .PcbDoc is edited with --ops-file", where="--ops-file",
+                           hint="--content-file and --edits-file write text files")  # fmt: skip
+        return run_pcbdoc(path, _given(ctx, str(args.ops_file), "--ops-file"), list(args.gate), ctx.cwd)
+    if args.ops_file is not None or args.gate:
+        option = "--ops-file" if args.ops_file is not None else "--gate"
+        raise CliError("FEN-2001", f"{option} edits an Altium *.PcbDoc, not {path.name}", where=option)
     kind = _kind(path)
     created = not path.exists()
     if not created and not path.is_file():

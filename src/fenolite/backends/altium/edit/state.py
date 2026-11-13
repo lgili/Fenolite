@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import struct
 from collections import Counter
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 
 from fenolite.backends.altium.cfb import Entry, Storage, write_compound
@@ -57,6 +57,8 @@ class State:
     removed: Counter[tuple[str, bytes]] = field(default_factory=lambda: Counter[tuple[str, bytes]]())
     added: Counter[tuple[str, bytes]] = field(default_factory=lambda: Counter[tuple[str, bytes]]())
     touched: set[str] = field(default_factory=lambda: set[str]())
+    post: list[Callable[[State], None]] = field(default_factory=lambda: list[Callable[["State"], None]]())
+    """Checks an operation leaves for the end of the session: each raises ``ops.Refused`` (change c0497)."""
     _names: dict[str, str] = field(default_factory=lambda: {})
 
     @classmethod

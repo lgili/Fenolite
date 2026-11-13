@@ -2603,6 +2603,32 @@
           "required": false,
           "type": "string"
         },
+        "--gate": {
+          "aliases": [
+            "--gate"
+          ],
+          "choices": null,
+          "default": [],
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": false,
+          "required": false,
+          "type": "string"
+        },
+        "--ops-file": {
+          "aliases": [
+            "--ops-file"
+          ],
+          "choices": null,
+          "default": null,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": false,
+          "required": false,
+          "type": "string"
+        },
         "--plan": {
           "aliases": [
             "--plan"
@@ -10368,6 +10394,18 @@
     "FEN-7004": 7
   },
   "issue_codes": {
+    "altium.board-drawing.mismatch": {
+      "experimental": false,
+      "severities": [
+        "warning"
+      ]
+    },
+    "altium.board-drawing.none": {
+      "experimental": false,
+      "severities": [
+        "info"
+      ]
+    },
     "altium.bus-flattened": {
       "experimental": true,
       "severities": [
@@ -10438,6 +10476,12 @@
       "experimental": false,
       "severities": [
         "error"
+      ]
+    },
+    "altium.edit.gate-opened": {
+      "experimental": false,
+      "severities": [
+        "warning"
       ]
     },
     "altium.edit.integrity": {

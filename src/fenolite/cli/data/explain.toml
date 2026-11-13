@@ -5623,6 +5623,21 @@ meaning = "The document the operations made does not read back with the strict r
 fix = "Report it with the operations: it is a bug of the session."
 see = "check"
 
+["altium.edit.gate-opened"]
+meaning = "fenolite edit PATH.PcbDoc --gate NAME opened that gate of the Altium edit session for this run. The rows behind it are not confirmed by Part J of the kit, so the written records are UNVERIFIED."
+fix = "Open the written document in Altium Designer and check the edit, or leave the gate closed until its Part J case passes."
+see = "edit"
+
+["altium.board-drawing.mismatch"]
+meaning = "An edge of the board shape (the Board6 outline or a board cut-out) has no track or arc drawn on it within 0.01 mm on the mechanical layer, or a drawn track or arc lies on no edge of the board shape."
+fix = "Redraw the layer from the board shape: fenolite edit PATH.PcbDoc --ops-file with a draw_board_shape entry, or Session.draw_board_shape."
+see = "check"
+
+["altium.board-drawing.none"]
+meaning = "No mechanical layer of the PCB document draws a closed ring on the box of the board outline, so the stage altium.board-drawing compared nothing."
+fix = "Nothing to fix when the board has no drawing. To compare a layer that lacks part of the ring, call edit.drawing.compare(state, layer) in Python."
+see = "check"
+
 ["altium.edit.unexpected-change"]
 meaning = "A stream outside the edited storages, or a record beyond those the operations declared, changed. Nothing is written."
 fix = "Report it with the operations: it is a bug of the session."

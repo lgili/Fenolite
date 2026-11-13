@@ -56,3 +56,13 @@ def test_a_planted_fault_is_a_warning_with_its_document(monkeypatch: pytest.Monk
 def test_the_stage_does_not_run_by_default(monkeypatch: pytest.MonkeyPatch, board: Path) -> None:
     _, env = _check(monkeypatch, str(board), "--stages", "roundtrip.rta0")
     assert "altium.integrity" not in {s["name"] for s in env["result"]["stages"]}
+
+
+def test_board_drawing_stage(monkeypatch: pytest.MonkeyPatch, ops_board: Any, board: Path) -> None:
+    """Change c0497: the opt-in stage ``altium.board-drawing``."""
+    assert "altium.board-drawing" in OPT_IN_DOCUMENT_STAGES
+    code, env = _check(monkeypatch, str(ops_board("drawn")), "--stages", "altium.board-drawing")
+    [stage] = [s for s in env["result"]["stages"] if s["name"] == "altium.board-drawing"]
+    assert code == 0 and stage["status"] == "ok" and env["issues"] == []
+    code, env = _check(monkeypatch, str(board), "--stages", "altium.board-drawing")
+    assert [i["code"] for i in env["issues"]] == ["altium.board-drawing.none"]

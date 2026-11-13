@@ -15,7 +15,19 @@ from __future__ import annotations
 from collections.abc import Mapping
 from pathlib import Path
 
-from fenolite.backends.altium.edit.ops import Arc, Component, Fill, Polygon, Region, Text, Track, Via
+from fenolite.backends.altium.edit.ops import (
+    Arc,
+    Comment,
+    Component,
+    Designator,
+    Fill,
+    Polygon,
+    Region,
+    Text,
+    Track,
+    Via,
+    Vias,
+)
 from fenolite.backends.altium.edit.schematic import SCHEMATIC_GATES, Part, SchematicSession, open_schematic
 from fenolite.backends.altium.edit.session import (
     EVIDENCE,
@@ -45,7 +57,9 @@ __all__ = [
     "ROWS",
     "SCHEMATIC_GATES",
     "Arc",
+    "Comment",
     "Component",
+    "Designator",
     "Fill",
     "Part",
     "Polygon",
@@ -56,5 +70,6 @@ __all__ = [
     "Text",
     "Track",
     "Via",
+    "Vias",
     "open",
 ]

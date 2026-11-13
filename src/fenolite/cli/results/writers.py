@@ -1007,6 +1007,13 @@ class KitResult(ProtocolResult):
 
 
 @dataclass(frozen=True, kw_only=True)
+class EditRecordsItem:
+    added: int
+    removed: int
+    storage: str
+
+
+@dataclass(frozen=True, kw_only=True)
 class EditResult(ProtocolResult):
     changed: bool = field(metadata={"optional": True})
     created: bool = field(metadata={"optional": True})
@@ -1015,4 +1022,8 @@ class EditResult(ProtocolResult):
     kind: str = field(metadata={"optional": True})
     lines_added: int = field(metadata={"optional": True})
     lines_removed: int = field(metadata={"optional": True})
+    operations: list[str] = field(metadata={"optional": True})
     path: str = field(metadata={"optional": True})
+    records: list[EditRecordsItem] = field(metadata={"optional": True})
+    redrawn: dict[str, int] = field(metadata={"optional": True})
+    stale_pours: list[str] = field(metadata={"optional": True})

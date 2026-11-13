@@ -36,6 +36,7 @@ from fenolite.backends.altium.libboard import long_id
 from fenolite.backends.altium.pcbrecords import (
     FLIP_PAIRS,
     LAYER_NAMES,
+    layer_text,
     mil_text,
     to_units,
     v7_layer,
@@ -156,9 +157,36 @@ class Polygon:
 
 @dataclass(frozen=True, slots=True)
 class Text:
-    """A free text by the string it shows."""
+    """A free text by the string it shows; ``layer`` keeps the texts on that layer, ``at`` the nearest one
+    whose anchor lies within ``REACH`` of it (change c0497)."""
 
     text: str
+    layer: str | None = None
+    at: Point | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class Designator:
+    """The designator text of the component ``ref`` (change c0497)."""
+
+    ref: str
+
+
+@dataclass(frozen=True, slots=True)
+class Comment:
+    """The comment text of the component ``ref`` (change c0497)."""
+
+    ref: str
+
+
+@dataclass(frozen=True, slots=True)
+class Vias:
+    """Every via of ``net`` (``None``: every via) whose hole and diameter (nm), when given, match within
+    ``TOLERANCE``: the selector of a bulk edit (change c0497)."""
+
+    net: str | None = None
+    hole: int | None = None
+    diameter: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -169,7 +197,7 @@ class Region:
     corner: Point
 
 
-Item = Track | Arc | Fill | Via | Component | Polygon | Text | Region
+Item = Track | Arc | Fill | Via | Component | Polygon | Text | Region | Designator | Comment
 
 
 def describe(item: Item) -> str:
@@ -190,7 +218,11 @@ def describe(item: Item) -> str:
     if isinstance(item, Polygon):
         return f"the polygon {item.name}"
     if isinstance(item, Text):
-        return f"the text {item.text!r}"
+        return f"the text {item.text!r}" + (f" on {item.layer}" if item.layer else "")
+    if isinstance(item, Designator):
+        return f"the designator of {item.ref}"
+    if isinstance(item, Comment):
+        return f"the comment of {item.ref}"
     return f"the region on {item.layer} at {mm(item.corner)}"
 
 
@@ -243,9 +275,47 @@ class View:
             ]
             _assert(len(found) == 1, f"{len(found)} polygons are named {item.name!r}, not one", "Polygons6")
             return "Polygons6", found[0]
+        if isinstance(item, Designator | Comment):
+            return "Texts6", self.component_text(item)
         storage, distance = self._distance(item)
         held = [(d, i) for i, p in enumerate(self.state.typed(storage)) if (d := distance(p)) is not None]
+        if isinstance(item, Text) and not any(d <= REACH for d, _ in held):
+            layer = None if item.layer is None else self.layer_id(item.layer)
+            free = [
+                repr(self.shown(p)) for p in self.state.typed("Texts6")
+                if isinstance(p, TextRecord) and p.prefix.component is None
+                and (layer is None or p.prefix.layer == layer)
+            ]  # fmt: skip
+            where = f" on {item.layer}" if item.layer else ""
+            raise Refused(
+                "altium.edit.assertion",
+                f"0 records match {describe(item)}, not one; the free texts{where}: "
+                + (", ".join(free[:5]) or "none"),
+                "Texts6/Data",
+            )
         return storage, _nearest(held, f"{describe(item)}", f"{storage}/Data")
+
+    def shown(self, p: TextRecord) -> str:
+        wide = self.state.wide()
+        return wide[p.wide_index][1] if p.wide_index is not None and p.wide_index in wide else p.short_text
+
+    def component_text(self, item: Designator | Comment) -> int:
+        """The position in ``Texts6`` of the one long text of the component whose designator or comment
+        byte is set (change c0497, D2)."""
+        index = self.component(item.ref)
+        owned = [
+            (i, self.state.typed("Texts6")[i])
+            for i in component_primitives(self.state, index).get("Texts6", [])
+        ]
+        texts = [(i, p) for i, p in owned if isinstance(p, TextRecord)]
+        if any(p.is_designator is None for _, p in texts):
+            raise Refused("altium.edit.no-template", f"a text of {item.ref} is of the short form, which does "
+                          "not say whether it is the designator or the comment", "Texts6/Data")  # fmt: skip
+        found = [i for i, p in texts if (p.is_designator if isinstance(item, Designator) else p.is_comment)]
+        _assert(
+            len(found) == 1, f"{item.ref} holds {len(found)} such texts, not one: {describe(item)}", "Texts6"
+        )
+        return found[0]
 
     def _distance(self, item: Item) -> tuple[str, Callable[[Primitive], float | None]]:
         """The storage of ``item`` and the distance of a record from what ``item`` states, in units, or
@@ -300,12 +370,18 @@ class View:
             )
         if isinstance(item, Text):
             wide = {index: text for index, (_, text) in self.state.wide().items()}
+            layer = None if item.layer is None else self.layer_id(item.layer)
+            at = None if item.at is None else self.units(item.at)
 
             def text(p: Primitive) -> float | None:
                 if not isinstance(p, TextRecord) or p.prefix.component is not None:
                     return None
+                if layer is not None and p.prefix.layer != layer:
+                    return None
                 shown = wide.get(p.wide_index, p.short_text) if p.wide_index is not None else p.short_text
-                return 0 if shown == item.text else None
+                if shown != item.text:
+                    return None
+                return 0 if at is None else _gap((p.x, p.y), at)
 
             return "Texts6", text
         if isinstance(item, Region):
@@ -1294,36 +1370,377 @@ def _add_pad_entry(state: State, source: State, old_pad: int, new_pad: int, take
             return
 
 
+# --- board edits (change c0497) ----------------------------------------------------------------------
+
+AUTOPOSITION = {"designator": "NAMEAUTOPOSITION", "comment": "COMMENTAUTOPOSITION"}
+"""The ``Components6`` keys of a text's position mode (``pcb-records.md``, "Edit session board fields",
+S-2325): a text moved or turned by a session is written with its key left out, the mode of a text placed by
+hand (``H-A-EDIT-TEXT``)."""
+TEXT_BOX_AT = 124
+"""The width of a text's box in a long text record (``pcb-records.md``, "Text", S-0816); 0 when not stored."""
+
+
+def _manual(state: State, view: View, item: Designator | Comment) -> None:
+    index = view.component(item.ref)
+    record = view.components[index]
+    key = AUTOPOSITION["designator" if isinstance(item, Designator) else "comment"]
+    if record.get(key) is not None:
+        state.replace("Components6", index, rec.replace_run(record.raw, lambda name: name == key, []))
+
+
+def move_text(
+    state: State, item: Designator | Comment, dx: int, dy: int, expect: Mapping[str, object]
+) -> None:
+    """The anchor of a component's text shifted; its position-mode key left out (design D2)."""
+    _assert(not expect, "no old value can be stated for a text move")
+    view = View(state)
+    _, position = view.find(item)
+    raw = state.get("Texts6")[position]
+    x, y = rec.unpack(raw, 13, "<2i")
+    state.replace("Texts6", position, rec.patch(raw, 13, "<2i", int(x) + to_units(dx), int(y) + to_units(dy)))  # type: ignore[call-overload]
+    _manual(state, view, item)
+
+
+def _text_box(text: TextRecord, shown: str) -> tuple[int, int]:
+    body = rec.split(text.raw)[1][0]
+    stored = rec.unpack(text.raw, TEXT_BOX_AT, "<i")[0] if len(body) >= TEXT_BOX_AT + 4 else 0
+    width = stored if isinstance(stored, int) and stored > 0 else len(shown) * text.height
+    return width, text.height
+
+
+def _turned_vector(x: float, y: float, degrees: float) -> tuple[float, float]:
+    return rec.quarter_turn(0.0, 0.0, degrees)(x, y)
+
+
+def rotate_text(
+    state: State, item: Designator | Comment, degrees: float, old_rotation: float, about: str
+) -> None:
+    """The text turned by ``degrees`` about its box centre (``about="centre"``) or its anchor: the anchor of
+    the turned box is written, its bottom-left corner, its bottom-right one when the text is mirrored
+    (design D2)."""
+    _assert(about in ("centre", "anchor"), f"a text turns about its centre or its anchor, not {about!r}")
+    view = View(state)
+    _, position = view.find(item)
+    text = state.typed("Texts6")[position]
+    assert isinstance(text, TextRecord)
+    where = f"Texts6/Data#{position}"
+    _assert(math.isclose(text.rotation % 360, old_rotation % 360, abs_tol=1e-6),
+            f"the rotation is {text.rotation:g}°, not the stated {old_rotation:g}°", where)  # fmt: skip
+    new = (text.rotation + degrees) % 360
+    anchor: tuple[float, float] = (text.x, text.y)
+    if about == "centre":
+        _assert(text.font_type != 1, 'turn a TrueType text about its anchor with about="anchor"', where)
+        width, height = _text_box(text, view.shown(text))
+        half = ((-width if text.mirrored else width) / 2, height / 2)
+        old_half, new_half = _turned_vector(*half, text.rotation), _turned_vector(*half, new)
+        anchor = (text.x + old_half[0] - new_half[0], text.y + old_half[1] - new_half[1])
+    raw = rec.patch(text.raw, 13, "<2i", round(anchor[0]), round(anchor[1]))
+    state.replace("Texts6", position, rec.patch(raw, 27, "<d", new))
+    _manual(state, view, item)
+
+
+VIA_FORM = 246
+"""The shortest via subrecord that holds the back solder-mask expansion at 242."""
+TENT_TOP, TENT_BOTTOM = 0x20, 0x40
+"""Bits 5 and 6 of a via's first flags byte (``pcb-copper.md``, "Via", ``H-A-PCB-CU-VIATENT``)."""
+
+
+def via_positions(view: View, selector: Via | Vias) -> list[int]:
+    if isinstance(selector, Via):
+        return [view.find(selector)[1]]
+    net = None if selector.net is None else view.net_index(selector.net)
+    hole, diameter = _width(selector.hole), _width(selector.diameter)
+    return [
+        i for i, p in enumerate(view.state.typed("Vias6"))
+        if isinstance(p, ViaRecord) and (net is None or _net(p.prefix.net) == net)
+        and _same(p.hole, hole) and _same(p.diameter, diameter)
+    ]  # fmt: skip
+
+
+def set_via_mask(
+    state: State, selector: Via | Vias, *, tented_top: bool, tented_bottom: bool, expansion: int | None,
+    count: int,
+) -> None:  # fmt: skip
+    """Bits 5 and 6 of each selected via's first flags byte, the manual mask cache state 2 at 66 when a side
+    is tented or ``expansion`` (nm) is given, and the expansion at 54 and 242 (design D5)."""
+    view = View(state)
+    positions = via_positions(view, selector)
+    what = describe(selector) if isinstance(selector, Via) else f"Vias(net={selector.net!r})"
+    _assert(
+        len(positions) == count, f"{what} takes {len(positions)} vias, not the stated {count}", "Vias6/Data"
+    )
+    for position in positions:
+        raw = state.get("Vias6")[position]
+        body = rec.split(raw)[1][0]
+        if len(body) < VIA_FORM:
+            raise Refused("altium.edit.no-template", f"the via {position} is shorter than {VIA_FORM} bytes "
+                          "and holds no back solder-mask expansion", f"Vias6/Data#{position}")  # fmt: skip
+        flags = body[1] & ~(TENT_TOP | TENT_BOTTOM)
+        flags |= (TENT_TOP if tented_top else 0) | (TENT_BOTTOM if tented_bottom else 0)
+        raw = rec.patch(raw, 1, "<B", flags)
+        if tented_top or tented_bottom or expansion is not None:
+            raw = rec.patch(raw, 66, "<B", 2)
+        if expansion is not None:
+            raw = rec.patch(rec.patch(raw, 54, "<i", to_units(expansion)), 242, "<i", to_units(expansion))
+        state.replace("Vias6", position, raw)
+
+
+def set_region_outline(state: State, item: Region, outline: list[Point], old: list[Point]) -> None:
+    """The free region ``item`` with the ring ``outline`` (line vertices) in ``Regions6`` and its twin, its
+    keys, flags, layer and net kept (design D7)."""
+    view = View(state)
+    storage, position = view.find(item)
+    region = state.typed(storage)[position]
+    assert isinstance(region, RegionRecord)
+    where = f"{storage}/Data#{position}"
+    held = [(round(v.x), round(v.y)) for v in region.outline]
+    _assert(len(held) == len(old), f"the region has {len(held)} vertices, not the stated {len(old)}", where)
+    for number, (point, stated) in enumerate(zip(held, old, strict=True)):
+        _assert(
+            _gap(point, view.units(stated)) <= REACH,
+            f"vertex {number} of the region is not the stated one",
+            where,
+        )
+    _assert(len(outline) >= 3, "an outline needs three vertices")
+    vertices = [view.units(p) for p in outline]
+    twins = _twins(state, region.raw)
+    state.replace(storage, position, rec.region_outline(region.raw, vertices, shape_based=False))
+    for twin in twins:
+        other = state.get("ShapeBasedRegions6")[twin]
+        state.replace("ShapeBasedRegions6", twin, rec.region_outline(other, vertices, shape_based=True))
+
+
+def _inside(ring: list[tuple[int, int]], outline: list[tuple[int, int]]) -> bool:
+    from fenolite.geometry.predicates import Location
+    from fenolite.geometry.rings import ring_locations, rings_cross
+    from fenolite.geometry.vector import Point as GeoPoint
+
+    a = [GeoPoint(x, y) for x, y in ring]
+    b = [GeoPoint(x, y) for x, y in outline]
+    return not rings_cross(a, b) and ring_locations(a, b) == {Location.INSIDE}
+
+
+def add_board_cutout(state: State, ring: list[Point], *, notch: bool) -> None:
+    """A board cut-out of ``ring`` (nm, no closing vertex): a free region with ``KIND=0`` and
+    ``ISBOARDCUTOUT=TRUE`` and its twin, cloned from a cut-out of the document or in the writer's form; with
+    ``notch``, a ring across the outline cut out of ``Board6`` and ``BoardRegions`` instead (design D3)."""
+    from fenolite.backends.altium.edit import drawing
+    from fenolite.backends.altium.pcbrecords import cutout_region
+
+    view = View(state)
+    _assert(len(ring) >= 3, "a cut-out needs three vertices")
+    vertices = [view.units(p) for p in ring]
+    outline = drawing.outline_vertices(state)
+    inside = _inside(vertices, drawing.polygonised(outline)[0])
+    if not notch:
+        _assert(
+            inside,
+            "the cut-out crosses the board outline; give notch=True to cut it out of the outline",
+            "Board6",
+        )
+        _add_cutout_region(state, vertices, cutout_region)
+        return
+    _assert(not inside, "the notch lies inside the board outline; add it without notch=True", "Board6")
+    try:
+        kept, chorded = drawing.outline_less(outline, vertices)
+    except ValueError as error:
+        raise Refused("altium.edit.assertion", f"the notch: {error}", "Board6") from error
+    record = state.properties("Board6")[0]
+    state.replace("Board6", 0, _with_board_outline(record.raw, kept))
+    if state.has("BoardRegions") and state.get("BoardRegions"):
+        raw = state.get("BoardRegions")[0]
+        state.replace("BoardRegions", 0, rec.region_outline(raw, chorded, shape_based=False))
+
+
+def _with_board_outline(raw: bytes, vertices: list[tuple[int, int, dict[str, str] | None]]) -> bytes:
+    zero = angle_text(0)
+    fields: list[tuple[str, str]] = []
+    for number, (x, y, arc) in enumerate((*vertices, (*vertices[0][:2], None))):
+        keys = arc or {"KIND": "0", "CX": "0mil", "CY": "0mil", "SA": zero, "EA": zero, "R": "0mil"}
+        fields += [(f"KIND{number}", keys["KIND"]), (f"VX{number}", mil_text(x)),
+                   (f"VY{number}", mil_text(y)),
+                   (f"CX{number}", keys["CX"]), (f"CY{number}", keys["CY"]), (f"SA{number}", keys["SA"]),
+                   (f"EA{number}", keys["EA"]), (f"R{number}", keys["R"])]  # fmt: skip
+    return rec.replace_run(raw, lambda key: OUTLINE_KEY.fullmatch(key) is not None, fields)
+
+
+def _cutout_template(state: State) -> bytes | None:
+    for raw in state.get("Regions6") if state.has("Regions6") else []:
+        keys = rec.region_keys(raw)
+        free = rec.prefix_of(raw)[2:] == (rec.NO_INDEX, rec.NO_INDEX)
+        if free and keys.get("ISBOARDCUTOUT") == "TRUE" and keys.get("KIND", "0") == "0":
+            return raw
+    return None
+
+
+def _add_cutout_region(state: State, vertices: list[tuple[int, int]], form: Callable[..., bytes]) -> None:
+    template = _cutout_template(state)
+    if template is None:
+        state.append("Regions6", form(vertices))
+        if state.has("ShapeBasedRegions6"):
+            state.append("ShapeBasedRegions6", form(vertices, shape_based=True))
+        return
+    twins = _twins(state, template)
+    state.append("Regions6", rec.region_outline(template, vertices, shape_based=False))
+    for twin in twins:
+        other = state.get("ShapeBasedRegions6")[twin]
+        state.append("ShapeBasedRegions6", rec.region_outline(other, vertices, shape_based=True))
+
+
+def add_polygon_cutout(state: State, ring: list[Point], *, layer: str) -> list[str]:
+    """A free region with ``KIND=1`` on a copper layer or Multi-Layer; the pour of each polygon on that
+    layer whose outline meets the ring is removed. The names of those polygons (design D4)."""
+    from fenolite.backends.altium.pcbrecords import region_record
+    from fenolite.geometry.polygon import Polygon as GeoPolygon
+    from fenolite.geometry.polygon import polygons_intersect
+    from fenolite.geometry.vector import Point as GeoPoint
+
+    view = View(state)
+    number = view.layer_id(layer)
+    _assert(
+        1 <= number <= 32 or number == 74,
+        f"a polygon cut-out lies on a copper layer or Multi-Layer, not {layer}",
+    )
+    _assert(len(ring) >= 3, "a cut-out needs three vertices")
+    vertices = [view.units(p) for p in ring]
+    free = [raw for raw in state.get("Regions6") if rec.prefix_of(raw)[2:] == (rec.NO_INDEX, rec.NO_INDEX)]
+    template = next((raw for raw in free if rec.region_keys(raw).get("KIND") == "1"), None)
+
+    def written(points: list[tuple[int, int]], shape_based: bool = False) -> bytes:
+        return region_record(number, points, shape_based=shape_based, polygon_cutout=True)
+
+    if template is None:
+        _add_cutout_region(state, vertices, written)
+    else:
+        twins = _twins(state, template)
+        state.append("Regions6", relayer(rec.region_outline(template, vertices, shape_based=False), number))
+        for twin in twins:
+            other = state.get("ShapeBasedRegions6")[twin]
+            state.append(
+                "ShapeBasedRegions6", relayer(rec.region_outline(other, vertices, shape_based=True), number)
+            )
+    cut = GeoPolygon(tuple(GeoPoint(x, y) for x, y in vertices))
+    stale: list[str] = []
+    for index, polygon in enumerate(state.properties("Polygons6") if state.has("Polygons6") else []):
+        if number != 74 and (polygon.get("LAYER") or "").upper() != layer_text(number):
+            continue
+        outline = [(x, y) for x, y, _ in _outline(polygon)[:-1]]
+        if len(outline) >= 3 and polygons_intersect(
+            GeoPolygon(tuple(GeoPoint(x, y) for x, y in outline)), cut
+        ):
+            for storage, positions in _poured(state, index).items():
+                state.remove(storage, positions)
+            stale.append(_polygon_name(polygon))
+    return stale
+
+
+def draw_board_shape(state: State, layer: str, *, width: int, old_count: int | None) -> int:
+    """The free tracks and arcs of the mechanical ``layer`` replaced by the edges of the board shape; their
+    old number must be ``old_count`` when given. The number removed (design D6)."""
+    from fenolite.backends.altium.edit import drawing
+
+    view = View(state)
+    number = view.layer_id(layer)
+    _assert(drawing.mechanical(number), f"the board shape is drawn on a mechanical layer, not on {layer}")
+    _assert(width > 0, "a drawing needs a width above zero")
+    old = drawing.drawn_edges(state, number)
+    held = f"{layer} holds {len(old)} free tracks and arcs, not the stated {old_count}"
+    _assert(old_count is None or len(old) == old_count, held, "Tracks6/Data")
+    templates = {
+        kind: _drawing_template(state, storage, kind, number)
+        for storage, kind in (("Tracks6", TRACK), ("Arcs6", ARC))
+    }
+    for storage in ("Tracks6", "Arcs6"):
+        state.remove(storage, {position for s, position, _ in old if s == storage})
+    for edge in drawing.board_shape(state):
+        if edge.centre is None:
+            raw = templates[TRACK]
+            if raw is None:
+                raise Refused(
+                    "altium.edit.no-template",
+                    "the document holds no track on a mechanical layer to copy",
+                    "Tracks6/Data",
+                )
+            raw = rec.patch(raw, 13, "<5i", *map(round, (*edge.a, *edge.b)), to_units(width))
+            state.append("Tracks6", raw)
+        else:
+            raw = templates[ARC]
+            if raw is None:
+                raise Refused(
+                    "altium.edit.no-template",
+                    "the document holds no arc on a mechanical layer to copy",
+                    "Arcs6/Data",
+                )
+            raw = rec.patch(raw, 13, "<3i", *map(round, (*edge.centre, edge.radius)))
+            raw = rec.patch(rec.patch(raw, 25, "<2d", edge.start, edge.end), 41, "<i", to_units(width))
+            state.append("Arcs6", raw)
+
+    def drawn(after: State) -> None:
+        found = drawing.compare(after, number)
+        _assert(
+            not found,
+            f"{layer} differs from the board shape after the redraw: {found[0].message if found else ''}",
+        )
+
+    state.post.append(drawn)
+    return len(old)
+
+
+def _drawing_template(state: State, storage: str, kind: int, layer: int) -> bytes | None:
+    """A free record of ``kind`` on ``layer``, else on any mechanical layer moved to ``layer``."""
+    from fenolite.backends.altium.edit import drawing
+
+    raws = state.get(storage) if state.has(storage) else []
+    free = [raw for raw in raws if raw[0] == kind and rec.prefix_of(raw)[2:] == (rec.NO_INDEX, rec.NO_INDEX)]
+    for raw in free:
+        if on_layer(raw, layer):
+            return rec.set_prefix(raw, net=rec.NO_INDEX)
+    for raw in free:
+        if drawing.mechanical(rec.prefix_of(raw)[0]):
+            return relayer(rec.set_prefix(raw, net=rec.NO_INDEX), layer)
+    return None
+
+
 __all__ = [
-    "REACH",
     "Arc",
+    "Comment",
     "Component",
+    "Designator",
     "Fill",
     "Item",
     "Point",
     "Polygon",
+    "REACH",
     "Refused",
     "Region",
     "Text",
     "Track",
     "Via",
+    "Vias",
     "View",
     "add_arc",
+    "add_board_cutout",
     "add_component",
     "add_fill",
     "add_polygon",
+    "add_polygon_cutout",
     "add_region",
     "clone",
     "delete",
     "describe",
+    "draw_board_shape",
     "flip",
     "held_ids",
     "move",
+    "move_text",
     "new_id",
     "remap_layer",
     "rotate",
+    "rotate_text",
     "rotation_text",
     "set_outline",
     "set_property",
+    "set_region_outline",
     "set_rule",
+    "set_via_mask",
 ]

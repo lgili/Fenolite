@@ -254,8 +254,9 @@ def test_part_j_names_the_cases_with_their_expected_outcomes() -> None:
     with an expected outcome, the kit's files, the folder, and every hypothesis of the edit session and of
     the integrity rules named by at least one case."""
     part = _part_j()
-    assert [int(n) for n in re.findall(r"^\d+\. \*\*J(\d+)\*\*", part, re.M)] == list(range(1, 34))
-    for case in range(1, 34):
+    cases = [*range(1, 34), *range(35, 40)]  # J34 is change c0499's; J35 to J39 are c0497's phase C
+    assert [int(n) for n in re.findall(r"^\d+\. \*\*J(\d+)\*\*", part, re.M)] == cases
+    for case in cases:
         found = re.search(rf"\*\*J{case}\*\*(.+?)(?=\n\d+\. \*\*J|\n\nSend)", part, re.S)
         assert found is not None, case
         assert "Expected" in found.group(1), case
@@ -266,7 +267,7 @@ def test_part_j_names_the_cases_with_their_expected_outcomes() -> None:
         assert name in part, name
     register = _page("hypotheses.md")
     rows = re.findall(r"^\| (H-A-(?:EDIT|INTEG)-[A-Z]+) \|", register, re.M)
-    assert len(rows) == 23
+    assert len(rows) == 27
     for row in rows:
         assert f"`{row}`" in part, row
         line = next(line for line in register.splitlines() if line.startswith(f"| {row} |"))

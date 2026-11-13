@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import shutil
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -34,3 +35,25 @@ def board(kit_board: Path, tmp_path: Path) -> Path:
     target = tmp_path / "board"
     shutil.copytree(kit_board, target)
     return target / "edit.PcbDoc"
+
+
+@pytest.fixture(scope="session")
+def board_ops(kit_board: Path, tmp_path_factory: pytest.TempPathFactory) -> dict[str, bytes]:
+    """The test boards of change c0497 (``board_ops``), by name."""
+    from tests.unit.backends.altium.edit import board_ops as boards
+
+    data = (kit_board / "edit.PcbDoc").read_bytes()
+    folder = tmp_path_factory.mktemp("c0497")
+    return {"drawn": boards.drawn(data), "vias": boards.vias(data), "texts": boards.texts(data, folder)}
+
+
+@pytest.fixture
+def ops_board(board_ops: dict[str, bytes], tmp_path: Path) -> Callable[[str], Path]:
+    """Write the c0497 board ``name`` to ``tmp_path/<name>.PcbDoc``; its path."""
+
+    def write(name: str) -> Path:
+        path = tmp_path / f"{name}.PcbDoc"
+        path.write_bytes(board_ops[name])
+        return path
+
+    return write

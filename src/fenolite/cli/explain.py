@@ -24,6 +24,7 @@ TABLES: tuple[tuple[str, str], ...] = (
     ("fenolite.analysis.codes", "ISSUE_CODES"),
     ("fenolite.api.trials", "ISSUE_CODES"),
     ("fenolite.backends.altium.adapter.codes", "IMPORT_ISSUE_CODES"),
+    ("fenolite.backends.altium.edit.drawing", "DRAWING_ISSUE_CODES"),
     ("fenolite.backends.altium.edit.integrity", "INTEGRITY_ISSUE_CODES"),
     ("fenolite.backends.altium.edit.session", "EDIT_ISSUE_CODES"),
     ("fenolite.backends.altium.read.pcbprops", "PCB_READ_ISSUE_CODES"),

@@ -113,6 +113,16 @@ index-table faults (`altium.integrity.*`) in a PCB document. Python edit session
 (`altium.edit.gate`).
 
 ```fenolite-cmd
+fenolite edit blink/altium/lamp.PcbDoc --ops-file ops.json --gate tenting --dry-run --json
+fenolite check blink/altium/lamp.PcbDoc --stages altium.board-drawing --json
+```
+
+`edit X.PcbDoc --ops-file` runs a JSON list of session operations (`{"op": "set_via_mask", "item": {"kind":
+"vias", "net": "GND"}, ...}`) through the plan. `--gate NAME` opens one gate for the run:
+`altium.edit.gate-opened`, evidence `UNVERIFIED`. The opt-in stage `altium.board-drawing` compares a
+mechanical layer's outline drawing with the board shape (`altium.board-drawing.mismatch`, `.none`).
+
+```fenolite-cmd
 fenolite explain altium.import.pcb-net-conflict --json
 fenolite explain import.arc-as-track --json
 ```

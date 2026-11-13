@@ -1262,6 +1262,17 @@ def test_altium_teaches_the_integrity_stage_and_the_edit_gate() -> None:
     assert "`altium.integrity.*`" in text and "`altium.edit.gate`" in text
 
 
+def test_altium_teaches_the_pcbdoc_edit_mode() -> None:
+    """Change c0497: ``edit X.PcbDoc --ops-file``, ``--gate`` and the stage ``altium.board-drawing``."""
+    text = (SKILL / "references/altium.md").read_text()
+    assert (
+        "fenolite edit blink/altium/lamp.PcbDoc --ops-file ops.json --gate tenting --dry-run --json" in text
+    )
+    assert "fenolite check blink/altium/lamp.PcbDoc --stages altium.board-drawing --json" in text
+    for code in ("`altium.edit.gate-opened`", "`altium.board-drawing.mismatch`", "`.none`"):
+        assert code in text, code
+
+
 def test_viewer_teaches_actual_project_instance_context() -> None:
     page = guide.page("viewer")
     for words in (

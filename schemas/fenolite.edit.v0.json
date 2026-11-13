@@ -46,12 +46,57 @@
     "lines_removed": {
       "type": "integer"
     },
+    "operations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "path": {
       "type": "string"
+    },
+    "records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/EditRecordsItem"
+      }
+    },
+    "redrawn": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "x-fenolite-map": true
+    },
+    "stale_pours": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     }
   },
   "additionalProperties": true,
   "$defs": {
+    "EditRecordsItem": {
+      "type": "object",
+      "properties": {
+        "added": {
+          "type": "integer"
+        },
+        "removed": {
+          "type": "integer"
+        },
+        "storage": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "added",
+        "removed",
+        "storage"
+      ]
+    },
     "ProtocolIssueSummary": {
       "type": "object",
       "properties": {

@@ -74,10 +74,11 @@ c0113) judges the placement rules of a built project on the pad positions of the
 every board. ``roles.rules`` (change c0222) judges the net roles of the PCB document with the judge that
 ``fenolite check`` passes. ``circuit.rules`` (change c0252) judges the interface parameters of the
 ``.fenolite/`` model of a built project and reads no document."""
-OPT_IN_DOCUMENT_STAGES: tuple[str, ...] = ("roundtrip.rta3", "altium.integrity")
+OPT_IN_DOCUMENT_STAGES: tuple[str, ...] = ("roundtrip.rta3", "altium.integrity", "altium.board-drawing")
 """The stages that run only when ``--stages`` names them (change c0090): RT-A3 writes a whole project
 into a temporary folder and reads it again. ``altium.integrity`` (change c0241) reads the index tables of
-each PCB document of a backend that has them (``DocumentIntegrity``)."""
+each PCB document of a backend that has them (``DocumentIntegrity``). ``altium.board-drawing`` (change c0497)
+compares the drawing of the board shape on a mechanical layer with the board shape (``DocumentIntegrity``)."""
 ALL_DOCUMENT_STAGES: tuple[str, ...] = (*DOCUMENT_STAGES, *OPT_IN_DOCUMENT_STAGES)
 CONTAINER_LEVELS: Mapping[str, ContainerLevel] = {"roundtrip.rta0": "RT-A0", "roundtrip.rta1": "RT-A1"}
 _READING_STAGES = frozenset(
@@ -496,8 +497,7 @@ def run_document_checks(
             usable, built=built, cache_error=cache_error, devices=devices, classes=classes, waivers=waivers
         )
 
-    def integrity() -> StageResult:
-        name = "altium.integrity"
+    def integrity(name: str = "altium.integrity") -> StageResult:
         boards = documents.of_role("pcb")
         if not isinstance(validator, DocumentIntegrity) or not boards:
             return skipped(name, "not-judged")
@@ -506,7 +506,11 @@ def run_document_checks(
         checked: list[str] = []
         for document in boards:
             try:
-                issues, evidence = validator.integrity_findings(documents.root / document.name)
+                path = documents.root / document.name
+                if name == "altium.integrity":
+                    issues, evidence = validator.integrity_findings(path)
+                else:
+                    issues, evidence = validator.board_drawing_findings(path)
             except FormatError as error:
                 errors.setdefault(document.name, error)
                 continue
@@ -531,6 +535,7 @@ def run_document_checks(
         "roundtrip.rta2": rta2,
         "roundtrip.rta3": rta3,
         "altium.integrity": integrity,
+        "altium.board-drawing": lambda: integrity("altium.board-drawing"),
     }
     results = tuple(runners[name]() for name in selected)
     input_issues = [refused(name, error) for name, error in errors.items()]

@@ -140,6 +140,38 @@ off):*
 33. **J33** Close Altium, zip the folder without the `History` and `Project Outputs` folders, and send it.
     Expected: Fenolite runs `fenolite kit verify`'s path scan before anything is read.
 
+*Phase C, board edits (change c0497; J34 is the case of change c0499). The files of `phase-c/` are written by
+`FENOLITE_ALTIUM_PART_J=<folder> uv run pytest tests/unit/backends/altium/edit/test_part_j_c0497.py` from the
+authored boards of `tests/unit/backends/altium/edit/board_ops.py`, each operation's gate forced on for the kit
+only:*
+
+35. **J35** (J-text) Open `phase-c/texts.PcbDoc` and `phase-c/text-edited.PcbDoc`, in which `D1`'s designator
+    is moved 1 mm up and `R1`'s designator, on the bottom and mirrored, is turned by 90° about its centre.
+    Then move `D1` and `R1` by 2 mm in X in Altium and save as `phase-c/text-saved.PcbDoc`. Expected: no repair
+    message; both designators show at the written place and turn, the centre of `R1`'s designator box where it
+    was within 0.01 mm; after the component move each designator keeps its place relative to its component
+    (`H-A-EDIT-TEXT`).
+36. **J36** (J-cutout) Open `phase-c/cutout-inner.PcbDoc` (a 4 × 2 mm board cut-out added inside the board,
+    Mechanical 1 redrawn), `phase-c/cutout-notch.PcbDoc` (a 4 × 4 mm notch across the right edge, written into
+    the board outline) and `phase-c/polygon-cutout.PcbDoc` (a 2 × 2 mm polygon cut-out on the Bottom Layer in
+    `GND`, whose pour was removed). Look at the board shape in
+    3D, then **Tools » Polygon Pours » Repour All**, and save each as `phase-c/<name>-saved.PcbDoc`. Expected:
+    no repair message; the inner cut-out is a hole, the notch is part of the outline with no Board Outline
+    Clearance collision, and the repoured `GND` leaves the polygon cut-out empty (`H-A-EDIT-CUTOUT`,
+    `H-A-SLOT-KIT`).
+37. **J37** (J-tent) Open `phase-c/tent.PcbDoc`: the six `GND` vias tented on both sides, the `VIN` via at
+    (30, 16) mm tented on the top only, the one at (32, 16) mm untented with a 0.05 mm expansion, and the one at
+    (34, 16) mm untented. Run the Gerber output of the solder masks and send the two mask files. Expected: no
+    repair message; the mask opening of each via is the one its state names (`H-A-EDIT-TENT`,
+    `H-A-PCB-CU-VIATENT`).
+38. **J38** (J-drawing) Open `phase-c/drawing.PcbDoc`, whose Mechanical 1 is redrawn from the board shape with
+    0.2 mm tracks and arcs, and compare it with the board shape in 2D. Expected: no repair message; every edge
+    of the outline, its arc corner and the board cut-out is drawn, and nothing else (`H-A-EDIT-DRAWING`).
+39. **J39** (J-region) Open `phase-c/region.PcbDoc`, in which the keep-out region at (25, 20) mm is given a
+    ring 1 mm larger on each side, run the design rule check, and save it as `phase-c/region-saved.PcbDoc`.
+    Expected: no repair message; the keep-out shows the new ring with its restrictions, and the rule check
+    measures from it (`H-A-EDIT-SHAPE`).
+
 Send the Altium Designer version (`AD <major>.<minor>`, from **Help » About**), the date, the SHA-256 of
 each file sent (the kit's own are in `SHA256SUMS`), and one outcome per case, in the form of the native
 acceptance inventory (date, version, case, file hash, step, expected and observed outcome). J1 and J2 settle
@@ -150,7 +182,7 @@ to J20 of `H-A-EDIT-SCH`; J21 of `H-A-EDIT-LIBRARY`. J23 to J25 settle `H-A-EDIT
 operation's gate. The integrity rows are observed in phase A and settled in phase B: `H-A-INTEG-SUBPOLY` by
 J16 and J26, `H-A-INTEG-POURINDEX` by J17 and J27, `H-A-INTEG-ID` by J12, J13 and J28,
 `H-A-INTEG-PARAMCOUNT` by J1, J6 and J29, `H-A-INTEG-PARAMORPHAN` by J11 and J30, `H-A-INTEG-MODEL` by J31
-and `H-A-INTEG-LAYER` by J14 and J32. Saved native files stay outside the repository; only measured facts,
+and `H-A-INTEG-LAYER` by J14 and J32. Phase C settles `H-A-EDIT-TEXT` by J35, `H-A-EDIT-CUTOUT` by J36, `H-A-EDIT-TENT` by J37 and `H-A-EDIT-DRAWING` by J38, and adds J39 to `H-A-EDIT-SHAPE`; each decides its gate (`text`, `cutout`, `tenting`, `board_drawing`). Saved native files stay outside the repository; only measured facts,
 digests and sizes are committed.
 
 ## What Fenolite does with the files

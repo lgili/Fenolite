@@ -60,7 +60,7 @@ def test_scope_and_evidence() -> None:
     assert Evidence.combine(EVIDENCE_RT_A3, import_evidence.EVIDENCE).level is Level.INFERRED
     assert AltiumBackend().stage_evidence()["roundtrip.rta3"] is EVIDENCE_RT_A3
     assert isinstance(AltiumBackend(), ModelWriter)
-    assert OPT_IN_DOCUMENT_STAGES == ("roundtrip.rta3", "altium.integrity")
+    assert OPT_IN_DOCUMENT_STAGES == ("roundtrip.rta3", "altium.integrity", "altium.board-drawing")
     assert "roundtrip.rta3" not in DOCUMENT_STAGES
     assert ALL_DOCUMENT_STAGES == (*DOCUMENT_STAGES, *OPT_IN_DOCUMENT_STAGES)
 

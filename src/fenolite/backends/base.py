@@ -1394,6 +1394,10 @@ class DocumentIntegrity(Protocol):
 
     def integrity_findings(self, path: Path) -> tuple[tuple[Issue, ...], Evidence]: ...
 
+    def board_drawing_findings(self, path: Path) -> tuple[tuple[Issue, ...], Evidence]:
+        """The findings of the stage ``altium.board-drawing`` (change c0497)."""
+        ...
+
 
 @runtime_checkable
 class BodyComparer(Protocol):

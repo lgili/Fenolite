@@ -28,7 +28,18 @@ from pathlib import Path
 from types import MappingProxyType
 
 from fenolite.backends.altium.edit import connectivity, integrity, ops
-from fenolite.backends.altium.edit.ops import Component, Item, Point, Polygon, Refused
+from fenolite.backends.altium.edit.ops import (
+    Comment,
+    Component,
+    Designator,
+    Item,
+    Point,
+    Polygon,
+    Refused,
+    Region,
+    Via,
+    Vias,
+)
 from fenolite.backends.altium.edit.state import State
 from fenolite.backends.altium.read.pcb import read_pcbdoc
 from fenolite.backends.altium.read.pcbprops import parse_blocks
@@ -37,7 +48,7 @@ from fenolite.core.evidence import Evidence, Level
 from fenolite.core.io import atomic_write
 
 OPERATIONS = ("delete", "move", "rotate", "flip", "set_property", "clone", "add_component", "remap_layer",
-              "set_rule", "set_outline", "create")  # fmt: skip
+              "set_rule", "set_outline", "create", "text", "cutout", "tenting", "board_drawing")  # fmt: skip
 ROWS: Mapping[str, tuple[str, ...]] = MappingProxyType(
     {
         "delete": ("H-A-EDIT-DELETE", "H-A-EDIT-SHAPE", "H-A-EDIT-KIT"),
@@ -51,6 +62,10 @@ ROWS: Mapping[str, tuple[str, ...]] = MappingProxyType(
         "set_rule": ("H-A-EDIT-RULE", "H-A-EDIT-KIT"),
         "set_outline": ("H-A-EDIT-SHAPE", "H-A-EDIT-KIT"),
         "create": ("H-A-EDIT-CREATE", "H-A-EDIT-IDS", "H-A-EDIT-KIT"),
+        "text": ("H-A-EDIT-TEXT", "H-A-EDIT-KIT"),
+        "cutout": ("H-A-EDIT-CUTOUT", "H-A-SLOT-KIT", "H-A-EDIT-KIT"),
+        "tenting": ("H-A-EDIT-TENT", "H-A-PCB-CU-VIATENT", "H-A-EDIT-KIT"),
+        "board_drawing": ("H-A-EDIT-DRAWING", "H-A-EDIT-CREATE", "H-A-EDIT-KIT"),
     }
 )
 """The rows of ``docs/hypotheses.md`` each operation rests on."""
@@ -65,8 +80,11 @@ EDIT_ISSUE_CODES: Mapping[str, Severity | tuple[Severity, ...]] = MappingProxyTy
         "altium.edit.unexpected-change": "error",
         "altium.edit.connectivity": "error",
         "altium.edit.integrity": ("error", "warning"),
+        "altium.edit.gate-opened": "warning",
     }
 )
+DRAWING_WIDTH = 100_000
+"""0.1 mm: the width of the tracks and arcs ``add_board_cutout(drawing=...)`` draws (change c0497)."""
 HYPOTHESES = tuple(sorted({row for rows in ROWS.values() for row in rows}))
 EVIDENCE = Evidence(Level.INFERRED, hypotheses=HYPOTHESES)
 """``INFERRED``: no operation's phase B case has run; the writes are experimental and gated off."""
@@ -110,6 +128,10 @@ class Session:
     gates: Mapping[str, bool] = field(default_factory=lambda: GATES)
     queued: list[_Queued] = field(default_factory=lambda: list[_Queued]())
     declared_nets: set[str] = field(default_factory=lambda: set[str]())
+    stale_pours: list[str] = field(default_factory=lambda: list[str]())
+    """The polygons whose pour a polygon cut-out removed (change c0497)."""
+    redrawn: dict[str, int] = field(default_factory=lambda: dict[str, int]())
+    """The tracks and arcs each ``draw_board_shape`` removed, by layer (change c0497)."""
 
     def _queue(self, gate: str, label: str, run: Callable[[State], None]) -> Session:
         self.queued.append(_Queued(gate, label, run))
@@ -121,13 +143,29 @@ class Session:
         return self._queue("delete", f"delete {ops.describe(item)}", lambda s: ops.delete(s, item))
 
     def move(self, item: Item, dx: int, dy: int, *, expect: Mapping[str, object] | None = None) -> Session:
-        """Move ``item`` by ``(dx, dy)`` nanometres; ``expect`` states other old values (``width``, ...)."""
+        """Move ``item`` by ``(dx, dy)`` nanometres; ``expect`` states other old values (``width``, ...). A
+        ``Designator`` or ``Comment`` moves its anchor, behind the gate ``text`` (change c0497)."""
         given = dict(expect or {})
         label = f"move {ops.describe(item)} by ({dx / 1e6:g}, {dy / 1e6:g}) mm"
+        if isinstance(item, Designator | Comment):
+            return self._queue("text", label, lambda s: ops.move_text(s, item, dx, dy, given))
         return self._queue("move", label, lambda s: ops.move(s, item, dx, dy, given))
 
-    def rotate(self, item: Component, degrees: float, *, old_rotation: float) -> Session:
+    def rotate(
+        self,
+        item: Component | Designator | Comment,
+        degrees: float,
+        *,
+        old_rotation: float,
+        about: str = "centre",
+    ) -> Session:
+        """Turn a component, or a component's text about its box centre or its ``about="anchor"`` (change
+        c0497)."""
         label = f"rotate {ops.describe(item)} by {degrees:g}°"
+        if isinstance(item, Designator | Comment):
+            return self._queue(
+                "text", label, lambda s: ops.rotate_text(s, item, degrees, old_rotation, about)
+            )
         return self._queue("rotate", label, lambda s: ops.rotate(s, item, degrees, old_rotation))
 
     def flip(self, item: Component, *, old_side: str = "TOP") -> Session:
@@ -161,12 +199,70 @@ class Session:
         label = f"set {key} of the rule {name!r} to {value}"
         return self._queue("set_rule", label, lambda s: ops.set_rule(s, name, key, value, old))
 
-    def set_outline(self, item: Polygon, outline: Sequence[Point], *, old: Sequence[Point]) -> Session:
-        """Give the polygon ``item`` the outline ``outline`` (line vertices, nanometres), stating its old
-        vertices ``old``; its pour is removed (change c0452)."""
+    def set_outline(
+        self, item: Polygon | Region, outline: Sequence[Point], *, old: Sequence[Point]
+    ) -> Session:
+        """Give the polygon or free region ``item`` the outline ``outline`` (line vertices, nanometres),
+        stating its old vertices ``old``; a polygon's pour is removed (change c0452), a region keeps its keys
+        (change c0497)."""
         new, held = list(outline), list(old)
         label = f"set the outline of {ops.describe(item)} to {len(new)} vertices"
+        if isinstance(item, Region):
+            return self._queue("set_outline", label, lambda s: ops.set_region_outline(s, item, new, held))
         return self._queue("set_outline", label, lambda s: ops.set_outline(s, item, new, held))
+
+    def add_board_cutout(
+        self, ring: Sequence[Point], *, notch: bool = False, drawing: str | None = None
+    ) -> Session:
+        """Add a board cut-out of ``ring`` (nm, no closing vertex); ``notch`` cuts a ring across the outline
+        out of it; ``drawing`` redraws that mechanical layer in the same commit (change c0497, D3)."""
+        points = list(ring)
+        kind = "notch" if notch else "board cut-out"
+        self._queue(
+            "cutout",
+            f"add a {kind} of {len(points)} vertices",
+            lambda s: ops.add_board_cutout(s, points, notch=notch),
+        )
+        if drawing is not None:
+            self.draw_board_shape(drawing, width=DRAWING_WIDTH, old_count=None)
+        return self
+
+    def add_polygon_cutout(self, ring: Sequence[Point], *, layer: str) -> Session:
+        """Add a polygon cut-out of ``ring`` on ``layer``; the pour of each polygon it meets is removed and
+        named in the receipt (change c0497, D4)."""
+        points = list(ring)
+
+        def run(state: State) -> None:
+            self.stale_pours += ops.add_polygon_cutout(state, points, layer=layer)
+
+        return self._queue("cutout", f"add a polygon cut-out of {len(points)} vertices on {layer}", run)
+
+    def set_via_mask(
+        self, selector: Via | Vias, *, tented_top: bool, tented_bottom: bool, expansion: int | None = None,
+        count: int,
+    ) -> Session:  # fmt: skip
+        """Tent the selected vias on each side and set their solder-mask expansion (nm); ``count`` states how
+        many vias the selector takes (change c0497, D5)."""
+        sides = "+".join(s for s, on in (("top", tented_top), ("bottom", tented_bottom)) if on) or "no side"
+        what = ops.describe(selector) if isinstance(selector, Via) else f"{count} vias"
+        label = f"tent {what} on {sides}" + (
+            "" if expansion is None else f", expansion {expansion / 1e6:g} mm"
+        )
+
+        def run(state: State) -> None:
+            ops.set_via_mask(state, selector, tented_top=tented_top, tented_bottom=tented_bottom,
+                             expansion=expansion, count=count)  # fmt: skip
+
+        return self._queue("tenting", label, run)
+
+    def draw_board_shape(self, layer: str, *, width: int, old_count: int | None) -> Session:
+        """Redraw the mechanical ``layer`` from the board shape with tracks and arcs ``width`` wide, stating
+        how many free tracks and arcs it holds (``None``: read when applied; change c0497, D6)."""
+
+        def run(state: State) -> None:
+            self.redrawn[layer] = ops.draw_board_shape(state, layer, width=width, old_count=old_count)
+
+        return self._queue("board_drawing", f"draw the board shape on {layer}", run)
 
     def add_arc(
         self, centre: Point, radius: int, start: float, end: float, *, width: int, layer: str,
@@ -221,11 +317,18 @@ class Session:
                 for q in closed
             ]  # fmt: skip
         state = State.of(self.data, file=self.path.name)
+        self.stale_pours.clear()
+        self.redrawn.clear()
         for queued in self.queued:
             try:
                 queued.run(state)
             except Refused as refusal:
                 return None, [_issue(refusal.code, f"{queued.label}: {refusal.message}", refusal.where)]
+        for check in state.post:
+            try:
+                check(state)
+            except Refused as refusal:
+                return None, [_issue(refusal.code, refusal.message, refusal.where)]
         return state, []
 
     def commit(self, out: str | Path, *, backup: bool = True) -> Receipt:
@@ -246,7 +349,7 @@ def _records(data: bytes) -> dict[str, Counter[bytes]]:
     state = State.of(data)
     out: dict[str, Counter[bytes]] = {}
     for storage in (*ops.COMPONENT_STORAGES, "Components6", "Polygons6", "Rules6", "Nets6",
-                    "UniqueIDPrimitiveInformation", "WideStrings6"):  # fmt: skip
+                    "UniqueIDPrimitiveInformation", "WideStrings6", "Board6", "BoardRegions"):  # fmt: skip
         if state.has(storage):
             out[state.name(storage)] = Counter(state.get(storage))
     return out
