@@ -120,6 +120,23 @@ def test_annotate_a_designator_of_another_sheet_of_the_project(sheet: Path, tmp_
     assert free.commit(tmp_path / "free.SchDoc", backup=False).written
 
 
+def test_annotate_on_a_repeated_sheet_refuses(tmp_path: Path) -> None:
+    """Requirement "Annotation": a part of a repeated sheet takes its designator from the channel, so the
+    annotation refuses; the two-channel project of ``_altium_channels``, authored for Fenolite."""
+    import _altium_channels as two
+
+    for name, data in two.files().items():
+        (tmp_path / name).write_bytes(data)
+    child = tmp_path / two.CHILD
+    out = tmp_path / "never.SchDoc"
+    session = _session(child, project=tmp_path / two.PROJECT)
+    receipt = session.annotate(edit.Part("R1"), "R5", old="R1").commit(out)
+    assert [i.code for i in receipt.issues] == ["altium.edit.assertion"], receipt.issues
+    assert "repeated sheet" in receipt.issues[0].message and not out.exists()
+    top = _session(tmp_path / two.TOP, project=tmp_path / two.PROJECT)
+    assert top.annotate(edit.Part("U1"), "U5", old="U1").commit(tmp_path / "top.SchDoc", backup=False).written
+
+
 def _net_of(path: Path, ref: str, pin: str) -> tuple[str, ...]:
     document = read_schematic(path.read_bytes())
     groups = part_groups(document)
