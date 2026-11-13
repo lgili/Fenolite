@@ -1508,6 +1508,11 @@ meaning = "A circuit waiver of the design script (design.waive with a digest) na
 fix = "Judge the finding again. To accept it as it is now, copy the digest its hint ends with into the waiver and build again."
 see = "check"
 
+["check.waiver-location-old"]
+meaning = "A waiver of the design script names a zone or a rule area by its old file locator (such as zone[3]), which DRC findings no longer print: they name a zone as 'zone <name> (<net>, <layers>)'. The waiver still matched, once, as the new location the message gives. 'where' is the waiver's name."
+fix = "Name the item in the waiver as the finding's 'where' prints it. The old form is dropped in the next minor version."
+see = "check"
+
 ["convert.changed"]
 meaning = "Items of the kind that 'where' names are written in another form that compares equal, such as a polygon written unpoured or a schematic generated from the circuit. The message counts them per reason."
 fix = "Nothing to do; repour the polygons in the target tool. result.report lists every reason."

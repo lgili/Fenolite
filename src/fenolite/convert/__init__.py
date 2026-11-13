@@ -63,7 +63,12 @@ class LossyConversionError(FenoliteError):
 
     cli_code = "FEN-7001"
 
-    def __init__(self, issues: tuple[Issue, ...], report: ConversionReport) -> None:
+    def __init__(
+        self,
+        issues: tuple[Issue, ...],
+        report: ConversionReport,
+        examples: Mapping[str, tuple[str, ...]] | None = None,
+    ) -> None:
         self.issues = issues
         self.report = report
         self.refused = tuple(found.where for found in issues if found.where in report.refused)
@@ -73,7 +78,19 @@ class LossyConversionError(FenoliteError):
             "lists it"
         )
         also = f"; --allow-lossy also loses items of {', '.join(others)}" if others else ""
-        super().__init__(f"the conversion would lose items of the source ({', '.join(self.refused)}){also}")
+        # change c0495: per kind its count, its reasons with their counts and up to three examples
+        rows = [row for row in report.rows if row.lost]
+        parts: list[str] = []
+        for row in rows:
+            reasons = ", ".join(f"{r.count} {r.reason}" for r in row.reasons if r.outcome == "lost")
+            shown = (examples or {}).get(row.kind, ())
+            example = f"; for example {', '.join(shown)}" if shown else ""
+            parts.append(f"{row.kind}: {row.lost} ({reasons}){example}")
+        total = sum(row.lost for row in rows)
+        super().__init__(
+            f"the conversion would lose {total} item(s) of the source ({', '.join(self.refused)}){also}: "
+            + "; ".join(parts)
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,6 +121,31 @@ def lossy_issue(row: ReportRow) -> Issue:
     """The ``convert.lossy`` warning of a kind with losses, whatever its loss class (change c0429)."""
     message = f"{row.lost} of {row.source} {row.kind} item(s) of the source are not converted: "
     return issue("convert.lossy", message + _per_reason(row, "lost"), where=row.kind)
+
+
+def lost_examples(design: Design, report: ConversionReport, most: int = 3) -> dict[str, tuple[str, ...]]:
+    """Up to ``most`` lost items per kind of ``report`` as ``<layer> <kind>`` (change c0495), from the board
+    entities of ``design`` whose ids the report's lost reasons name; an id with no such entity is left out."""
+    board = design.board
+    if board is None:
+        return {}
+    found: dict[str, str] = {}
+    for name, group in (
+        ("drawing", board.graphics),
+        ("text", board.texts),
+        ("track", board.tracks),
+        ("arc", board.arcs),
+        ("dimension", board.dimensions),
+    ):
+        for entity in group:
+            kind: object = getattr(entity, "kind", "") or name
+            found[entity.id] = f"{entity.layer} {kind}"
+    examples: dict[str, tuple[str, ...]] = {}
+    for row in report.rows:
+        ids = [i for r in row.reasons if r.outcome == "lost" for i in r.ids if i in found]
+        if ids:
+            examples[row.kind] = tuple(found[i] for i in ids[:most])
+    return examples
 
 
 def changed_issue(row: ReportRow) -> Issue:
@@ -206,7 +248,11 @@ def convert_project(
     written = direction.write(read, Options(kicad_version=kicad_version, bodies=bodies, name=name, pour=pour))
     report = written.report
     if report.refused and not allow_lossy:  # every loss is listed, not only the refused ones (c0434)
-        raise LossyConversionError(tuple(lossy_issue(row) for row in report.rows if row.lost), report)
+        raise LossyConversionError(
+            tuple(lossy_issue(row) for row in report.rows if row.lost),
+            report,
+            lost_examples(read.design, report),
+        )
     return Conversion(
         files=written.files,
         report=report,

@@ -34,7 +34,7 @@ def test_tools_listed() -> None:
     assert [d["name"] for d in CATALOG.definitions()] == [tool_name(name) for name in PUBLIC]
     for definition in CATALOG.definitions():
         command = COMMANDS[definition["title"]]
-        own = {a.name for a in describe(command).arguments} - {"dry_run", "confirm", "plan"}
+        own = {a.dest for a in describe(command).arguments} - {"dry_run", "confirm", "plan"}
         properties = set(definition["inputSchema"]["properties"])
         left_out = LEFT_OUT.get(command.name, frozenset()) | READ_TOOLS.get(command.name, frozenset())
         assert own - left_out <= properties, definition["name"]

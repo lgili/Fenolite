@@ -419,3 +419,18 @@ def test_circuit_waiver_expired(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     assert digest != now
     assert env["result"]["waivers"]["expired"] == ["circuit.rating-voltage:C1:voltage"]  # type: ignore[index]
     assert code == 5
+
+
+def test_a_waiver_naming_the_old_zone_locator() -> None:
+    """Change c0495: a waiver that names a zone by ``zone[N]`` matches the new location once and warns."""
+    from fenolite.checks.waivers import LOCATION_OLD, with_new_locations
+    from fenolite.model.findings import Waiver as ModelWaiver
+
+    old = ModelWaiver(
+        name="island", code="kicad.drc.isolated-copper", items=("/kicad_pcb/zone[2]",), reason="ok"
+    )
+    (renamed,), issues = with_new_locations([old], {"/kicad_pcb/zone[2]": "zone (GND, F.Cu)"})
+    assert renamed.items == ("zone (GND, F.Cu)",)
+    assert [(i.code, i.severity, i.where) for i in issues] == [(LOCATION_OLD, "warning", "island")]
+    same, none = with_new_locations([renamed], {"/kicad_pcb/zone[2]": "zone (GND, F.Cu)"})
+    assert same == (renamed,) and none == []

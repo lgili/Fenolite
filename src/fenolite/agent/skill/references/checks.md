@@ -69,8 +69,8 @@ fenolite check blink/build --stages circuit.rules --json
 - An issue also has a `hint`, often empty: `explain` gives the fix of a code.
 - **Accepting one finding.** `design.waive(code, *items, reason=)` in the script (page `rules`) lists
   a `copper.*` or `kicad.drc.*` finding as `info` with its reason, so the exit code no longer counts it.
-  A waiver that matches nothing gives `check.waiver-unmatched`. Fix the copper first; waive only what is
-  meant, and prefer a rule when a selector can name the items.
+  A waiver that matches nothing gives `check.waiver-unmatched`; one naming a zone as `zone[N]` gives
+  `check.waiver-location-old` (name it as `where` prints it). Prefer a rule.
 - **Accepting a KiCad finding in the project.** For a project you do not build from a script,
   `--exclude CODE:ITEM_A:ITEM_B --reason TEXT` stores the exclusion in the `.kicad_pro`, as KiCad's DRC
   dialog does: the code and the items as the finding's `where` prints them, in either order (leave

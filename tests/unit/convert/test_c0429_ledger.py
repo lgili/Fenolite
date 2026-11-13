@@ -121,7 +121,10 @@ def test_a_refuse_loss_still_refuses(monkeypatch: pytest.MonkeyPatch) -> None:
         convert_project(TWO_LAYER, to="altium", pour="outline")
     assert [found.where for found in refused.value.issues] == ["pad", "rule"]
     assert refused.value.refused == ("pad",)
-    assert str(refused.value).endswith("(pad); --allow-lossy also loses items of rule")
+    assert str(refused.value) == (  # the per-kind list of change c0495 follows the refused kinds
+        "the conversion would lose 2 item(s) of the source (pad); --allow-lossy also loses items of rule: "
+        "pad: 1 (1 authored loss); rule: 1 (1 authored loss)"
+    )
     conversion = convert_project(TWO_LAYER, to="altium", pour="outline", allow_lossy=True)
     lossy = [found.where for found in conversion.issues if found.code == "convert.lossy"]
     assert lossy == ["pad", "rule"] == [row.kind for row in conversion.report.rows if row.lost]

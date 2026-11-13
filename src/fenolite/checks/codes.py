@@ -110,6 +110,7 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "check.waiver-unmatched": ("warning",),
         "check.allowance-unresolved": ("info",),
         "check.waiver-expired": ("warning",),  # change c0274: a circuit waiver whose digest changed
+        "check.waiver-location-old": ("warning",),  # change c0495: a waiver names a zone by zone[N]
         "check.exclusion-stale": ("warning",),
         "check.exclusion-unmatched": ("error",),
         "check.exclusion-ambiguous": ("error",),

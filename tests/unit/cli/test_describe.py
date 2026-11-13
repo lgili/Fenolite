@@ -18,7 +18,18 @@ from fenolite.cli.main import main
 
 COMMANDS = discover()
 NAMES = sorted(COMMANDS)
-ARGUMENT_KEYS = ["name", "flags", "kind", "type", "choices", "default", "required", "repeatable", "help"]
+ARGUMENT_KEYS = [
+    "name",
+    "dest",
+    "flags",
+    "kind",
+    "type",
+    "choices",
+    "default",
+    "required",
+    "repeatable",
+    "help",
+]
 GLOBAL_FLAGS = [
     "--json", "--text", "--fields", "--limit", "--cursor", "--format", "--progress", "--seed", "--timestamp",
     "--no-backup", "--kicad-version", "--allow-lossy",
@@ -191,3 +202,23 @@ def test_hidden_command_is_described() -> None:
     description = describe(COMMANDS["_echo"])
     assert description.summary == "" and "--text-body" in _flags(description.arguments)
     assert dataclasses.is_dataclass(description)
+
+
+def test_the_power_paths_of_analyze() -> None:
+    """Change c0495, scenario "The power paths of analyze": an option is named by its flag."""
+    (path,) = [a for a in describe(COMMANDS["analyze"]).arguments if "--path" in a.flags]
+    assert (path.name, path.dest) == ("path", "power_paths")
+    assert path.to_json()["dest"] == "power_paths"
+
+
+@pytest.mark.parametrize("name", NAMES)
+def test_flag_names(name: str) -> None:
+    """Change c0495, scenario "Every command": an option's name is one of its flags without the dashes; a
+    positional keeps its destination."""
+    for argument in describe(COMMANDS[name]).arguments:
+        if argument.flags:
+            assert any(flag.lstrip("-") == argument.name for flag in argument.flags), argument
+            long = [flag for flag in argument.flags if flag.startswith("--")]
+            assert not long or "--" + argument.name == long[0], argument  # a short-only option keeps "-o"
+        else:
+            assert argument.name == argument.dest

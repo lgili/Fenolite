@@ -43,13 +43,27 @@ class BoardView:
     input: InputRef
 
 
+BOARD_SUFFIXES = ".kicad_pcb, .PcbDoc"
+"""The board files the built-in ``BoardFrame`` backends read (KiCad, Altium), for a hint (change c0495)."""
+
+
 def load_board(given: str, ctx: Context) -> BoardView:
     """The board that ``given`` names (a board file, a project file or a project folder)."""
     source = Path(given)
-    board = resolve_board(source if source.is_absolute() else ctx.cwd / source)
+    path = source if source.is_absolute() else ctx.cwd / source
+    # change c0495: a KiCad project resolves as before; any other file goes to the backend that reads it
+    kicad = path.is_dir() or path.suffix in (".kicad_pcb", ".kicad_pro")
+    board = resolve_board(path) if kicad else path
     backend = registry.for_path(board)
     if backend is None or not isinstance(backend, BoardFrame):
-        raise CliError("FEN-2001", f"no backend gives the board frame of {board.name}", where=board.name)
+        raise CliError(
+            "FEN-2001",
+            f"{board.name} is not a board Fenolite reads",
+            hint=f"pass a board file ({BOARD_SUFFIXES}), a .kicad_pro or a project folder",
+            where=board.name,
+        )
+    if not board.is_file():
+        raise CliError("FEN-2001", f"{board.name} does not exist", where=board.name)
     found: list[Issue] = []
     read = backend.read(board, issues=found)
     design = read.content
@@ -66,7 +80,7 @@ def load_board(given: str, ctx: Context) -> BoardView:
         input=InputRef(
             path=board.name,
             sha256=hashlib.sha256(board.read_bytes()).hexdigest(),
-            kind="kicad_pcb",
+            kind="kicad_pcb" if kicad else board.suffix.lower().lstrip("."),
             format_version=None,
         ),
     )

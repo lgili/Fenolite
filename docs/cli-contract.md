@@ -1107,7 +1107,8 @@ only. Each argument has exactly these fields:
 
 | field | content |
 |---|---|
-| `name` | the name the parser stores the value under |
+| `name` | an option's first long flag without its dashes, such as `path` for `--path` (its short flag without the dash when it has no long one); a positional's destination (change c0495) |
+| `dest` | the name the parser stores the value under, such as `power_paths` (change c0495); MCP tool properties use it |
 | `flags` | the option strings, such as `["-o", "--output"]`; empty for a positional |
 | `kind` | `positional`, `option` (takes a value) or `flag` (takes none) |
 | `type` | `integer`, `number`, `boolean` (a flag) or `string` |
@@ -2033,6 +2034,7 @@ repeat.
 | `copper.hole-clearance` | error, warning | copper closer to a drilled hole's wall than the hole clearance in force; the governing rule sets the severity, the board minimum gives an error; `where` names the copper item and the hole's item. No waiver applies |
 | `copper.track-width` | error, warning | the build's copper guard: tracks or arcs of a net narrower than the `min` of the `track_width` rule that governs them; the rule sets the severity; one per net and rule, `where` is the net name, the message gives the narrowest width, the rule and its `min` |
 | `check.waiver-unmatched` | warning | a waiver of the design script that was judged matched no finding; `where` is the waiver's name |
+| `check.waiver-location-old` | warning | a waiver names a zone or rule area by its old `zone[N]` locator; it still matches, and the message gives the new location to write (change c0495) |
 | `check.allowance-unresolved` | info | an allowance could not resolve a DRC entry's item or stub, or a legacy Altium Net Antennae rule governs it. The entry keeps its severity and `where` gives its code (change c0465) |
 | `check.waiver-expired` | warning | a `circuit.*` waiver whose code and item match a finding under another digest: the value or the limit judged changed since the waiver; `where` is the waiver's name, the message names both digests |
 | `check.exclusion-stale` | warning | a DRC exclusion stored in the KiCad project no longer applies: `moved` or `gone` |

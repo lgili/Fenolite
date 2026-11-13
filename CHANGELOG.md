@@ -29,6 +29,15 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Fixed
 
+- **Four small CLI fixes** (c0495): (a) `capabilities --command` names an option by its first long flag
+  without the dashes (`path` for `--path`) and keeps the parser's name in the new key `dest`; the meaning of
+  `name` changes for options whose destination differs from their flag. MCP tool properties keep using
+  `dest`. (b) `net` and the other commands that load a board read an Altium `.PcbDoc` through the backend
+  registry (`input.kind` `pcbdoc`); a file no backend reads gives `FEN-2001` naming the file and the read
+  suffixes. (c) DRC findings name a zone `zone <name> (<net>, <layers>)` (`#k` when two read the same) and a
+  rule area `rule area <name> (<layers>)`; a waiver that names the old `zone[N]` locator still matches and
+  gives the new `check.waiver-location-old` warning. (d) `FEN-7001` from a conversion gives the total, each
+  kind's count and reasons with their counts, and up to three examples with their layer.
 - **`copper.hole-clearance` leaves out copper of an unplated pad's own net on Altium documents** (c0491):
   an unplated pad's hole now carries its pad's net, so a mounting hole tied to a net is no longer reported
   against the pour and vias of that net, as Altium's `DifferentNets` Clearance holds. KiCad's DRC was

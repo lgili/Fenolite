@@ -38,6 +38,7 @@ class CapabilitiesCommandArgumentsItem:
     default: Any = field(
         metadata={"description": "Parser-declared JSON default; its shape follows the described argument."}
     )
+    dest: str = field(metadata={"description": "The parser destination; name is the flag (change c0495)."})
     flags: list[str]
     help: str
     kind: str
@@ -126,6 +127,7 @@ class CapabilitiesExtrasValue:
 class CapabilitiesGlobalArgumentsItem:
     choices: list[int | str] | None
     default: bool | int | None | str
+    dest: str = field(metadata={"description": "The parser destination; name is the flag (change c0495)."})
     flags: list[str]
     help: str
     kind: str

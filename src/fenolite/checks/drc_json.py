@@ -78,18 +78,47 @@ def item_locations(design: Design | None, oracle: str) -> Mapping[str, str]:
         add(fp, ref)
         for pad in fp.pads:
             add(pad, f"{ref}-{pad.number}" if pad.number and ref else ref)
-    for group in (
-        board.tracks,
-        board.arcs,
-        board.vias,
-        board.zones,
-        board.keepouts,
-        board.graphics,
-        board.texts,
-    ):
+    for group in (board.tracks, board.arcs, board.vias, board.graphics, board.texts):
         located(group)
+    for entity, location in _area_locations(design):
+        add(entity, location)
     counts = Counter(native for native, _ in found)
     return {native: location for native, location in found if counts[native] == 1}
+
+
+def _area_locations(design: Design) -> list[tuple[Entity, str]]:
+    """A zone as ``zone <name> (<net>, <layers>)`` (``zone (<net>, <layers>)`` without a name), with ``#k``,
+    its index in ``board.zones`` from 1, when two zones read the same; a rule area as ``rule area <name>
+    (<layers>)`` (change c0495)."""
+    board = design.board
+    assert board is not None
+    nets = {net.id: net.name for net in design.circuit.nets}
+    texts: list[tuple[Entity, str]] = []
+    for zone in board.zones:
+        net = nets.get(zone.net_id or "", "no net")
+        texts.append(
+            (zone, f"zone {zone.name} ({net}, {','.join(zone.layers)})".replace("zone  (", "zone ("))
+        )
+    counts = Counter(text for _, text in texts)
+    found = [
+        (entity, f"{text}#{k}" if counts[text] > 1 else text)
+        for k, (entity, text) in enumerate(texts, start=1)
+    ]
+    for area in board.keepouts:
+        found.append((area, f"rule area {area.name} ({','.join(area.layers)})".replace("area  (", "area (")))
+    return found
+
+
+def old_area_locators(design: Design | None) -> dict[str, str]:
+    """The file locator each zone and rule area was named by before change c0495 → its location now, for
+    a waiver that still names the old one (``check.waiver-location-old``)."""
+    if design is None or design.board is None:
+        return {}
+    return {
+        entity.provenance.locator: location
+        for entity, location in _area_locations(design)
+        if entity.provenance is not None and entity.provenance.locator
+    }
 
 
 def sanitise(text: str, *, source: str) -> str:
@@ -166,6 +195,7 @@ __all__ = [
     "format_position",
     "issue_severity",
     "item_locations",
+    "old_area_locators",
     "sanitise",
     "type_code",
 ]

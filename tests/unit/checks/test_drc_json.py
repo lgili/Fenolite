@@ -200,3 +200,49 @@ def test_order_follows_the_report() -> None:
         "fake.drc.a-type",
         "fake.drc.b-type",
     ]
+
+
+def _zones_board() -> Design:
+    """The authored board with a rule area and two ``GND`` zones on ``F.Cu``, one named ``GND top``, as
+    copies of its own zone with their own ids and locators (change c0495)."""
+    design = _design()
+    assert design.board is not None
+    (zone,) = design.board.zones
+    assert zone.provenance is not None
+    copies = tuple(
+        dataclasses.replace(
+            zone,
+            id=f"{zone.id}-{k}",
+            name=name,
+            layers=("F.Cu",),
+            native_ids={"kicad": f"c0495000-0000-4000-8000-00000000000{k}"},
+            provenance=dataclasses.replace(zone.provenance, locator=f"/kicad_pcb/zone[{k + 1}]"),
+        )
+        for k, name in ((1, "GND top"), (2, ""))
+    )
+    return dataclasses.replace(design, board=dataclasses.replace(design.board, zones=(zone, *copies)))
+
+
+def test_isolated_copper_of_a_named_zone() -> None:
+    """Scenario "Isolated copper of a named zone": the finding names the zone from the model."""
+    design = _zones_board()
+    violation = DrcViolation(
+        "isolated_copper", "island", "warning", (_item("c0495000-0000-4000-8000-000000000002"),)
+    )
+    (found,) = finding_issues(_report(violation), oracle="kicad", design=design)
+    assert found.where == "zone (GND, F.Cu)" and "zone[" not in found.where
+    locations = item_locations(design, "kicad")
+    assert locations["c0495000-0000-4000-8000-000000000001"] == "zone GND top (GND, F.Cu)"
+    assert "rule area (F.Cu)" in locations.values()
+
+
+def test_two_zones_that_read_the_same() -> None:
+    design = _zones_board()
+    assert design.board is not None
+    first, second, third = design.board.zones
+    board = dataclasses.replace(
+        design.board, zones=(first, second, dataclasses.replace(third, name="GND top"))
+    )
+    locations = item_locations(dataclasses.replace(design, board=board), "kicad")
+    assert locations["c0495000-0000-4000-8000-000000000001"] == "zone GND top (GND, F.Cu)#2"
+    assert locations["c0495000-0000-4000-8000-000000000002"] == "zone GND top (GND, F.Cu)#3"

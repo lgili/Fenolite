@@ -37,6 +37,7 @@ STAGE_NOT_RUN = "stage-not-run"
 NOT_REPEATABLE = "not-repeatable"
 UNMATCHED = "check.waiver-unmatched"
 EXPIRED = "check.waiver-expired"
+LOCATION_OLD = "check.waiver-location-old"
 CIRCUIT_PREFIX = "circuit."
 
 
@@ -119,6 +120,33 @@ def apply_waivers(
             counts[waiver.name] = counts.get(waiver.name, 0) + 1
         issues.append(waived(candidate.issue, matching[0]) if matching else candidate.issue)
     return tuple(issues), counts
+
+
+def with_new_locations(
+    waivers: Iterable[Waiver], renamed: Mapping[str, str]
+) -> tuple[tuple[Waiver, ...], list[Issue]]:
+    """``waivers`` with each item that names an old locator of ``renamed`` (``zone[N]``, change c0495)
+    replaced by the location the finding prints now, and one ``check.waiver-location-old`` per waiver so
+    renamed. The old form is matched for one minor version."""
+    kept: list[Waiver] = []
+    issues: list[Issue] = []
+    for waiver in waivers:
+        items = tuple(renamed.get(item, item) for item in waiver.items)
+        if items != waiver.items:
+            old = ", ".join(item for item in waiver.items if item in renamed)
+            issues.append(
+                issue(
+                    LOCATION_OLD,
+                    f"the waiver names {old} by the old locator; it matched as "
+                    f"{', '.join(renamed[item] for item in waiver.items if item in renamed)}",
+                    where=waiver.name,
+                    hint="name the items as the finding's 'where' prints them; the old form goes in the next "
+                    "minor version",
+                )
+            )
+            waiver = dataclasses.replace(waiver, items=items)
+        kept.append(waiver)
+    return tuple(kept), issues
 
 
 def copper_waivers(waivers: Iterable[Waiver]) -> tuple[Waiver, ...]:

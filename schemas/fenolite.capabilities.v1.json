@@ -336,6 +336,10 @@
         "default": {
           "description": "Parser-declared JSON default; its shape follows the described argument."
         },
+        "dest": {
+          "type": "string",
+          "description": "The parser destination; name is the flag (change c0495)."
+        },
         "flags": {
           "type": "array",
           "items": {
@@ -365,6 +369,7 @@
       "required": [
         "choices",
         "default",
+        "dest",
         "flags",
         "help",
         "kind",
@@ -680,6 +685,10 @@
             }
           ]
         },
+        "dest": {
+          "type": "string",
+          "description": "The parser destination; name is the flag (change c0495)."
+        },
         "flags": {
           "type": "array",
           "items": {
@@ -709,6 +718,7 @@
       "required": [
         "choices",
         "default",
+        "dest",
         "flags",
         "help",
         "kind",

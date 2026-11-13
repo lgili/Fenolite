@@ -38,10 +38,18 @@ from fenolite.checks.drc_json import (
     finding_types,
     format_position,
     item_locations,
+    old_area_locators,
     type_code,
 )
 from fenolite.checks.stages import StageResult, ran
-from fenolite.checks.waivers import UNREPEATABLE_TYPES, Candidate, apply_waivers, drc_waivers, judge
+from fenolite.checks.waivers import (
+    UNREPEATABLE_TYPES,
+    Candidate,
+    apply_waivers,
+    drc_waivers,
+    judge,
+    with_new_locations,
+)
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence
 from fenolite.model.design import Design
@@ -315,7 +323,8 @@ def drc_stage(
         )
     limits = _limits(outcome, oracle)
     summary: dict[str, object] = {**_summary(outcome, oracle.name), "limits": limits}
-    own = drc_waivers(waivers, oracle.name)
+    own, renamed = with_new_locations(drc_waivers(waivers, oracle.name), old_area_locators(design))
+    issues += renamed
     if outcome.report is not None:
         entries = finding_entries(outcome.report, oracle=oracle.name, design=design)
         rules = (*allowances, *(allowance_rules(design) if design is not None else ()))

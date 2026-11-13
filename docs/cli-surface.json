@@ -12133,6 +12133,12 @@
         "warning"
       ]
     },
+    "check.waiver-location-old": {
+      "experimental": false,
+      "severities": [
+        "warning"
+      ]
+    },
     "check.waiver-unmatched": {
       "experimental": false,
       "severities": [

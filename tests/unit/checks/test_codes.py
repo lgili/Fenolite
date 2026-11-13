@@ -86,6 +86,7 @@ TABLE = {
     "check.waiver-unmatched": ("warning",),
     "check.allowance-unresolved": ("info",),
     "check.waiver-expired": ("warning",),  # c0274
+    "check.waiver-location-old": ("warning",),  # c0495
     "check.exclusion-stale": ("warning",),
     "check.exclusion-unmatched": ("error",),
     "check.exclusion-ambiguous": ("error",),

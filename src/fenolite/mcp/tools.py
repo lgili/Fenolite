@@ -125,14 +125,14 @@ class Tool:
 def _tool(command: Command, shared: Mapping[str, Argument]) -> Tool:
     left_out = LEFT_OUT.get(command.name, frozenset()) | READ_TOOLS.get(command.name, frozenset())
     mutates = _mutates(command)
-    own = [a for a in describe(command).arguments if a.name not in WRITE_FLAGS and a.name not in left_out]
+    own = [a for a in describe(command).arguments if a.dest not in WRITE_FLAGS and a.dest not in left_out]
     names = (*GLOBALS, *(WRITING_GLOBALS if mutates else ()))
     arguments = (*own, *(shared[name] for name in names))
     properties: Json = {}
     for argument in arguments:
-        if argument.name in properties:
-            raise ValueError(f"{command.name}: two arguments named {argument.name!r}")
-        properties[argument.name] = _schema(argument, described=argument.name not in shared)
+        if argument.dest in properties:
+            raise ValueError(f"{command.name}: two arguments named {argument.dest!r}")
+        properties[argument.dest] = _schema(argument, described=argument.dest not in shared)
     properties["fields"] = {"type": "array", "items": {"type": "string"}}
     if command.name == "library":
         # Actions are positional words, so dropping flags alone is not an exclusion.
@@ -171,7 +171,7 @@ def _tool(command: Command, shared: Mapping[str, Argument]) -> Tool:
         "inputSchema": {
             "type": "object",
             "properties": properties,
-            "required": [a.name for a in own if a.required],
+            "required": [a.dest for a in own if a.required],
             "additionalProperties": False,
         },
         "annotations": {
@@ -195,7 +195,7 @@ def _check(argument: Argument, value: Any) -> list[Any]:
     """``value`` as the list of values it gives on the command line; raises :class:`InputRefused`."""
     values = cast("list[Any]", value) if isinstance(value, list) else [value]
     if isinstance(value, list) and not argument.repeatable:
-        raise InputRefused(f"{argument.name}: one value, not a list", where=argument.name)
+        raise InputRefused(f"{argument.dest}: one value, not a list", where=argument.dest)
     expected = {"string": (str,), "integer": (int,), "number": (int, float), "boolean": (bool,)}[
         argument.type
     ]
@@ -203,11 +203,11 @@ def _check(argument: Argument, value: Any) -> list[Any]:
         wrong_bool = isinstance(item, bool) and argument.type != "boolean"
         if wrong_bool or not isinstance(item, expected):
             raise InputRefused(
-                f"{argument.name}: expected {argument.type}, got {item!r}", where=argument.name
+                f"{argument.dest}: expected {argument.type}, got {item!r}", where=argument.dest
             )
         if argument.choices is not None and item not in argument.choices:
             choices = ", ".join(map(str, argument.choices))
-            raise InputRefused(f"{argument.name}: {item!r} is not one of {choices}", where=argument.name)
+            raise InputRefused(f"{argument.dest}: {item!r} is not one of {choices}", where=argument.dest)
     return values
 
 
@@ -235,7 +235,7 @@ class Catalog:
         only: Iterable[str] | None = None,
         allow_edit: bool = False,
     ) -> None:
-        shared = {argument.name: argument for argument in global_arguments()}
+        shared = {argument.dest: argument for argument in global_arguments()}
         wanted = None if only is None else set(only)
         public = {name: c for name, c in commands.items() if not c.hidden and name not in NOT_TOOLS}
         if wanted is not None and wanted - set(public):
@@ -283,16 +283,16 @@ class Catalog:
         if unknown:
             raise InputRefused(f"{name} takes no argument {unknown[0]!r}", where=unknown[0])
         arguments = {k: v for k, v in arguments.items() if k not in tool.inputs} | dict(given or {})
-        missing = [a.name for a in tool.arguments if a.required and arguments.get(a.name) is None]
+        missing = [a.dest for a in tool.arguments if a.required and arguments.get(a.dest) is None]
         if missing:
             raise InputRefused(f"{name} needs {missing[0]!r}", where=missing[0])
         options: list[str] = []
         positionals: list[str] = []
         for argument in tool.arguments:
-            value = arguments.get(argument.name)
+            value = arguments.get(argument.dest)
             if value is None:
                 continue
-            if argument.name == "fields":
+            if argument.dest == "fields":
                 if not isinstance(value, list) or not all(
                     isinstance(v, str) for v in cast("list[Any]", value)
                 ):
@@ -301,7 +301,7 @@ class Catalog:
             elif argument.kind == "positional":
                 positionals += [str(v) for v in _check(argument, value)]
             else:
-                options += _words(argument, tool.actions[argument.name], value)
+                options += _words(argument, tool.actions[argument.dest], value)
         words = [tool.command, *options]
         if dry_run:
             words.append("--dry-run")

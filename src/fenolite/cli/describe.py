@@ -27,7 +27,8 @@ class Argument:
     """One argument of a command line."""
 
     name: str
-    """The name the parser stores the value under."""
+    """An option's first long flag without its dashes (its first flag when it has no long one); a
+    positional's destination (change c0495)."""
     flags: tuple[str, ...]
     """The option strings; empty for a positional."""
     kind: Kind
@@ -41,10 +42,13 @@ class Argument:
     repeatable: bool
     """Whether it may be given more than once or takes several values."""
     help: str
+    dest: str = ""
+    """The name the parser stores the value under (change c0495)."""
 
     def to_json(self) -> dict[str, Any]:
         return {
             "name": self.name,
+            "dest": self.dest,
             "flags": list(self.flags),
             "kind": self.kind,
             "type": self.type,
@@ -110,8 +114,11 @@ def _argument(action: argparse.Action) -> Argument:
     choices = None if action.choices is None else tuple(sorted(_json_value(c) for c in action.choices))
     several = action.nargs in ("*", "+") or (isinstance(action.nargs, int) and action.nargs > 1)
     required = action.nargs not in ("?", "*") if positional else bool(action.required)
+    long = [flag for flag in action.option_strings if flag.startswith("--")]
+    name = action.dest if positional else (long or list(action.option_strings))[0].lstrip("-")
     return Argument(
-        name=action.dest,
+        name=name,
+        dest=action.dest,
         flags=tuple(action.option_strings),
         kind=kind,
         type=value_type,

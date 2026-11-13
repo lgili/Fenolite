@@ -4,7 +4,7 @@
   "schemas/fenolite.blocks.v0.json": "56e2ffb891eb77f88d429f485a37350e0eb16b90a498ed18aa9a871d18dd6f4d",
   "schemas/fenolite.bom.v0.json": "94a94bc78b91d4a001ed06c24e1e31a3ecd95d5c7655900fd37590daff9786d3",
   "schemas/fenolite.build.v0.json": "7e27b3caaffff275538b1491663ce63df37a045e63c93cc7a0d3a26d67e88635",
-  "schemas/fenolite.capabilities.v0.json": "36e6d7ead0ae4336f9086cc2891d01423a70ca4454543ef731a48eb9d3865bac",
+  "schemas/fenolite.capabilities.v0.json": "bd9448f6e46ae97d527f1bf878a6f1422f36105224919f746e280c8308bdaa03",
   "schemas/fenolite.catalog.v0.json": "f89f431137d02639df352f8898cad27bd334b75a72c0d60e9deb52ba6cc2ad10",
   "schemas/fenolite.check.v0.json": "8e67486414ed11f851394468dfd7341872370635dadc8660d1de81f3f0d6a02f",
   "schemas/fenolite.convert.v0.json": "0e4c3beb9e427f45f96c487104ca5ae335a6706de9657999e21ccc0588f856b8",
