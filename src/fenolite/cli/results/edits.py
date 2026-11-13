@@ -524,6 +524,69 @@ class RouteRunsItem:
 
 
 @dataclass(frozen=True, kw_only=True)
+class PathBlocker:
+    at: list[int]
+    clearance: int
+    kind: str
+    label: str
+    layer: str
+    net: str | None
+
+
+@dataclass(frozen=True, kw_only=True)
+class PathWallItem(PathBlocker):
+    refused: int
+
+
+@dataclass(frozen=True, kw_only=True)
+class PathGap:
+    a: PathBlocker
+    b: PathBlocker
+    free: int
+
+
+@dataclass(frozen=True, kw_only=True)
+class PathRun:
+    layer: str
+    points: list[list[int]]
+
+
+@dataclass(frozen=True, kw_only=True)
+class PathFound:
+    length: int
+    runs: list[PathRun]
+    vias: list[list[int]]
+    width: int
+
+
+@dataclass(frozen=True, kw_only=True)
+class PathRefusal:
+    proven: bool
+    reason: str
+    wall: list[PathWallItem]
+    widest_gap: PathGap | None
+
+
+@dataclass(frozen=True, kw_only=True)
+class PathChannel:
+    grid_limited: bool
+    high: int | None
+    low: int | None
+    path: PathFound | None
+    pinch: PathGap | None
+    undecided: bool
+
+
+@dataclass(frozen=True, kw_only=True)
+class PathResult(ProtocolResult):
+    board: str = field(metadata={"optional": True})
+    channel: PathChannel = field(metadata={"optional": True})
+    net: str = field(metadata={"optional": True})
+    path: PathFound | None = field(metadata={"optional": True})
+    refusal: PathRefusal | None = field(metadata={"optional": True})
+
+
+@dataclass(frozen=True, kw_only=True)
 class RouteResult(ProtocolResult):
     native_check: proposal_wire.NativeCheck = field(metadata={"optional": True})
     board: str = field(metadata={"optional": True})

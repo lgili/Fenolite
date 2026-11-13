@@ -106,7 +106,7 @@ HOME: Mapping[str, tuple[str, ...]] = {
     "placement": ("place", "pads", "neighbors", "region"),
     "routing": ("route", "tidy", "fill", "net", "fetch"),
     "route-proposals": ("route",),
-    "route-search": ("route",),
+    "route-search": ("route", "path"),
     "rules": ("analyze",),
     "checks": ("check", "ready", "explain", "netlist", "parity", "doctor", "capabilities"),
     "files": ("inspect", "diff", "equivalent", "roundtrip", "fmt", "restore", "view", "import"),
@@ -123,7 +123,11 @@ HOME: Mapping[str, tuple[str, ...]] = {
 before the change that adds it) is not asked for."""
 
 TEACHES: Mapping[str, tuple[str, ...]] = {
-    "route-search": ("search=fallback", "search-max-vias=N", "search-role-limit", "result.role_fields"),
+    "route-search": (
+        "search=fallback", "search-max-vias=N", "search-role-limit", "result.role_fields",
+        "--widest", "--gate clone", "route.no-path", "route.path-limit", "route.via-template",
+        "route.repour-needed", "route.altium-edit-unconfirmed", "result.channel",
+    ),
     "board-completion": (
         "result.completion", "post-fill connectivity", "not-attempted", "separate transactions",
     ),

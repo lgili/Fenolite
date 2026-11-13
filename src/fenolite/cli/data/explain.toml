@@ -4077,6 +4077,31 @@ meaning = "The external router is not the version that Fenolite was tested with.
 fix = "Use the pinned version for results that can be repeated."
 see = "route"
 
+["route.no-path"]
+meaning = "fenolite path or fenolite.api.find_route found no path: the search explored every state it could reach. The detail says whether the refusal is proven (every gap of the wall is narrower than the track plus both clearances) or grid-limited (a track may pass off the grid through the widest free gap it names)."
+fix = "Read result.refusal: a proven wall needs copper moved or a narrower track; a grid-limited one may pass with a finer --grid."
+see = "path"
+
+["route.path-limit"]
+meaning = "The search of fenolite path stopped at a bound (--max-states, --timeout) before it found a path or explored every state; nothing is proven."
+fix = "Raise --max-states or --timeout, use a coarser --grid, or narrow --layers."
+see = "path"
+
+["route.via-template"]
+meaning = "The found path needs a via, but the Altium document holds no via of the net with the job's via size to clone (or no track to clone); nothing was queued."
+fix = "Place one via of the net with that size in Altium, or search with --max-vias 0."
+see = "path"
+
+["route.repour-needed"]
+meaning = "A .PcbDoc was searched with --pours refilled: the saved pours were not obstacles, and nothing repours the polygons of an edited document."
+fix = "Repour the polygons in Altium and run its DRC, or search with --pours kept."
+see = "path"
+
+["route.altium-edit-unconfirmed"]
+meaning = "fenolite path writes the found copper into a .PcbDoc by clone operations of an edit session, whose gate the Part J kit has not confirmed (H-A-EDIT-CLONE)."
+fix = "Open the written document in Altium and run its DRC before you trust it."
+see = "path"
+
 ["route.unrouted"]
 meaning = "A selected net is still not fully routed, or the router reports open connections."
 fix = "Route the rest by hand, give the router more passes, or free some space."
@@ -4621,6 +4646,11 @@ see = "testpoints"
 meaning = "Two test points that share an access side are closer, centre to centre, than --min-pitch asks; 'where' names both."
 fix = "Move one of the two, or lower --min-pitch to the pitch of the test fixture."
 see = "testpoints"
+
+["api.pending-edit"]
+meaning = "fenolite.api.read_board read an Altium edit session: the board is the document as a commit of its queued operations would write it, not the file on disk. The message names the number of queued operations."
+fix = "Nothing to fix; commit the session to write the board, or read the file to see it as saved."
+see = "path"
 
 ["trial.not-refilled"]
 meaning = "fenolite.api.trial ran with refill on a kicad-cli older than 10.0, which cannot refill zones: both copies were checked with their stored fills, so a new finding against a zone may be one a refill would remove."

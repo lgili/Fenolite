@@ -205,94 +205,42 @@ KEEPOUT_NO_AREA = "a keep-out line that covers no area"
 KEEPOUT_NO_OUTLINE = "a keep-out drawing has no supported outline"
 
 
-def _keepout_rings(graphic: Any) -> list[tuple[Any, ...]] | None:
-    """The rings a drawing on the Keep-Out layer keeps out (change c0407): a filled polygon or rectangle (a
-    region or a fill) and a closed outline of width 0 their outline; a line, an arc, a circle and each side of
-    an outline drawn with a width the band that width covers, one ring per stroke, as KiCad 10.0.6 imports
-    keep-out tracks (``pcb-records.md``, "Regions and keep-outs"). ``None`` for a drawing of another kind;
-    ``GeometryError`` or ``ValueError`` when it covers no area."""
-    from fenolite.core.coords import Point
-    from fenolite.geometry.bands import arc_band, segment_band
-    from fenolite.geometry.polygon import Polygon
-
-    points = tuple(graphic.points)
-    if graphic.kind == "rect" and len(points) == 2:
-        a, b = points
-        points = (a, Point(b.x, a.y), b, Point(a.x, b.y))
-    if graphic.kind in ("polygon", "rect") and (graphic.filled or graphic.width <= 0):
-        return [Polygon(points[:-1] if points[0] == points[-1] else points).outer]
-    if graphic.kind in ("polygon", "rect"):
-        ring = points[:-1] if points[0] == points[-1] else points
-        return [segment_band(a, ring[(i + 1) % len(ring)], graphic.width) for i, a in enumerate(ring)]
-    if graphic.kind == "line" and len(points) == 2:
-        return [segment_band(points[0], points[1], graphic.width)]
-    if graphic.kind == "arc" and len(points) == 3:
-        return [arc_band(points[0], points[1], points[2], graphic.width)]
-    if graphic.kind == "circle" and len(points) == 2:
-        centre, edge = points
-        dx, dy = edge.x - centre.x, edge.y - centre.y
-        far = Point(centre.x - dx, centre.y - dy)
-        return [
-            arc_band(edge, Point(centre.x - dy, centre.y + dx), far, graphic.width),
-            arc_band(far, Point(centre.x + dy, centre.y - dx), edge, graphic.width),
-        ]
-    return None
-
-
-ALL_RESTRICTIONS = 0x1F
-"""The restrictions of a drawing of the Keep-Out layer whose value is not known (change c0410): all."""
-_KEEPOUT_RECORD = re.compile(r"(Tracks6|Arcs6|Fills6|Regions6)/Data#(\d+)")
-
-
-def _restrictions(value: int) -> tuple[bool, bool, bool, bool]:
-    """The restrictions of the rule areas a drawing of the Keep-Out layer gives, from the restrictions value
-    of its keep-out record (S-1711, change c0420, N3): 1 vias, 2 tracks, 4 poured copper, 8 and 16 together
-    pads (``pcb-records.md``, "Regions and keep-outs"). (vias, tracks, poured copper, pads)."""
-    return bool(value & 0x01), bool(value & 0x02), bool(value & 0x04), value & 0x18 == 0x18
-
-
 def keepout_restrictions(source: SourceProject, design: Design) -> dict[str, int]:
     """The restrictions value of each drawing of the Keep-Out layer (a board's or a footprint's) that is a
     keep-out, by graphic id, read from its record in the source document (change c0420, N2 and N3;
     ``adapter.copper.keepout_layer_restrictions``), as ``zone_outlines`` reads a polygon. A drawing whose
     record is not found, or that is no keep-out, has no entry."""
-    from fenolite.backends.altium.adapter.copper import keepout_layer_restrictions
+    from fenolite.backends.altium.keepout_areas import KEEPOUT_LAYER, record_value
 
     board = design.board
     if board is None:
         return {}
-    drawn = [g for g in board.graphics if g.layer == "Altium.KeepOut"]
-    drawn += [g for fp in board.footprints for g in fp.graphics if g.layer == "Altium.KeepOut"]
+    drawn = [g for g in board.graphics if g.layer == KEEPOUT_LAYER]
+    drawn += [g for fp in board.footprints for g in fp.graphics if g.layer == KEEPOUT_LAYER]
     found = board_document(source, design)
     documents: dict[str, Any] = {}
     held: dict[str, int] = {}
     for graphic in drawn:
-        where = graphic.provenance
-        match = _KEEPOUT_RECORD.fullmatch(where.locator if where else "")
-        document = _source_document(source, found, where, documents) if match else None
-        if document is None or match is None:
-            continue
-        records = {"Tracks6": document.tracks, "Arcs6": document.arcs, "Fills6": document.fills}
-        records["Regions6"] = document.regions
-        items, index = records[match.group(1)], int(match.group(2))
-        value = keepout_layer_restrictions(items[index]) if index < len(items) else None
+        document = _source_document(source, found, graphic.provenance, documents)
+        value = record_value(graphic, document)
         if value is not None:
             held[graphic.id] = value
     return held
 
 
 def keepouts(design: Design, ledger: Ledger, restrictions: Mapping[str, int] | None = None) -> Design:
-    """The drawings of the Keep-Out layer as rule areas on every copper layer (``_keepout_rings``): a filled
-    shape one area, a keep-out track or arc the band of its width (change c0407). A drawing that covers no
-    area, or of a kind without an outline, is an explicit loss. Each area forbids tracks, vias, pads and
-    poured copper (change c0410): a Keep-Out layer keep-out applies on every copper layer (S-1710), and KiCad
+    """The drawings of the Keep-Out layer as rule areas on every copper layer
+    (``keepout_areas.keepout_rings``): a filled shape one area, a keep-out track or arc the band of its
+    width (change c0407). A drawing that covers no area, or of a kind without an outline, is an explicit
+    loss. Each area forbids tracks, vias, pads and poured copper (change c0410): a Keep-Out layer keep-out
+    applies on every copper layer (S-1710), and KiCad
     10.0.6 imports a keep-out track or region there with all four (``pcb-records.md``, "Regions and
     keep-outs"); a drawing whose id ``restrictions`` names (``keepout_restrictions``) forbids only what its
     keep-out record forbids (change c0420, N2 and N3). A drawing of a footprint gives a rule area of that
     footprint, in its pad frame (change c0411); a free drawing one of the board. A track, arc or circle
     without a keep-out record (one ``restrictions`` lacks) names each of its areas with its stroke
     (``keepout_lines.marker``), so the Altium writer gives it back as that stroke (change c0442)."""
-    from fenolite.backends.altium import keepout_lines
+    from fenolite.backends.altium import keepout_areas, keepout_lines
     from fenolite.geometry.errors import GeometryError
 
     board = design.board
@@ -300,14 +248,12 @@ def keepouts(design: Design, ledger: Ledger, restrictions: Mapping[str, int] | N
     copper = tuple(layer.name for layer in board.layers if layer.kind == "copper")
 
     def areas_of(graphic: Any, kind: str) -> list[Keepout]:
-        value = (restrictions or {}).get(graphic.id, ALL_RESTRICTIONS)
-        no_vias, no_tracks, no_copper_pour, no_pads = _restrictions(value)
         try:
-            rings = _keepout_rings(graphic)
+            made = keepout_areas.areas_of(graphic, copper, (restrictions or {}).get(graphic.id))
         except (GeometryError, ValueError, IndexError, TypeError):
             ledger.drop(kind, graphic.id, KEEPOUT_NO_AREA)
             return []
-        if rings is None:
+        if made is None:
             ledger.drop(kind, graphic.id, KEEPOUT_NO_OUTLINE)
             return []
         filled = graphic.kind in ("polygon", "rect") and (graphic.filled or graphic.width <= 0)
@@ -315,17 +261,8 @@ def keepouts(design: Design, ledger: Ledger, restrictions: Mapping[str, int] | N
         # a plain stroke (no keep-out record) carries itself in the name of its areas (change c0442)
         plain = restrictions is not None and graphic.id not in restrictions
         return [
-            Keepout(
-                id=derived_id("kpo", "conversion", graphic.id if index == 0 else f"{graphic.id}:{index}"),
-                outline=ring,
-                layers=copper,
-                no_tracks=no_tracks,
-                no_vias=no_vias,
-                no_pads=no_pads,
-                no_copper_pour=no_copper_pour,
-                name=(keepout_lines.marker(graphic, index) or "") if plain else "",
-            )
-            for index, ring in enumerate(rings)
+            dataclasses.replace(area, name=(keepout_lines.marker(graphic, index) or "") if plain else "")
+            for index, area in enumerate(made)
         ]
 
     areas = list(board.keepouts)

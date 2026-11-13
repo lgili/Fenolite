@@ -22,6 +22,7 @@ from fenolite.cli.errors import REGISTRY
 
 TABLES: tuple[tuple[str, str], ...] = (
     ("fenolite.analysis.codes", "ISSUE_CODES"),
+    ("fenolite.api.board", "ISSUE_CODES"),
     ("fenolite.api.trials", "ISSUE_CODES"),
     ("fenolite.backends.altium.adapter.codes", "IMPORT_ISSUE_CODES"),
     ("fenolite.backends.altium.edit.drawing", "DRAWING_ISSUE_CODES"),

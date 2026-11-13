@@ -5978,6 +5978,269 @@
       },
       "paged": null
     },
+    "path": {
+      "default_limit": null,
+      "deprecated": null,
+      "experimental": false,
+      "mutates": true,
+      "options": {
+        "--confirm": {
+          "aliases": [
+            "--confirm"
+          ],
+          "choices": null,
+          "default": false,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": 0,
+          "positional": false,
+          "required": false,
+          "type": "boolean"
+        },
+        "--dry-run": {
+          "aliases": [
+            "--dry-run"
+          ],
+          "choices": null,
+          "default": false,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": 0,
+          "positional": false,
+          "required": false,
+          "type": "boolean"
+        },
+        "--from": {
+          "aliases": [
+            "--from"
+          ],
+          "choices": null,
+          "default": null,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": false,
+          "required": true,
+          "type": "string"
+        },
+        "--gate": {
+          "aliases": [
+            "--gate"
+          ],
+          "choices": [
+            "clone"
+          ],
+          "default": null,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": false,
+          "required": false,
+          "type": "string"
+        },
+        "--grid": {
+          "aliases": [
+            "--grid"
+          ],
+          "choices": null,
+          "default": "0.1mm",
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": false,
+          "required": false,
+          "type": "string"
+        },
+        "--layers": {
+          "aliases": [
+            "--layers"
+          ],
+          "choices": null,
+          "default": null,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": false,
+          "required": false,
+          "type": "string"
+        },
+        "--max-states": {
+          "aliases": [
+            "--max-states"
+          ],
+          "choices": null,
+          "default": 200000,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": false,
+          "required": false,
+          "type": "integer"
+        },
+        "--max-vias": {
+          "aliases": [
+            "--max-vias"
+          ],
+          "choices": null,
+          "default": null,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": false,
+          "required": false,
+          "type": "integer"
+        },
+        "--net": {
+          "aliases": [
+            "--net"
+          ],
+          "choices": null,
+          "default": null,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": false,
+          "required": true,
+          "type": "string"
+        },
+        "--out": {
+          "aliases": [
+            "-o",
+            "--out"
+          ],
+          "choices": null,
+          "default": null,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": false,
+          "required": false,
+          "type": "string"
+        },
+        "--plan": {
+          "aliases": [
+            "--plan"
+          ],
+          "choices": null,
+          "default": null,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": false,
+          "required": false,
+          "type": "string"
+        },
+        "--pours": {
+          "aliases": [
+            "--pours"
+          ],
+          "choices": [
+            "kept",
+            "refilled"
+          ],
+          "default": null,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": false,
+          "required": false,
+          "type": "string"
+        },
+        "--resolution": {
+          "aliases": [
+            "--resolution"
+          ],
+          "choices": null,
+          "default": null,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": false,
+          "required": false,
+          "type": "string"
+        },
+        "--timeout": {
+          "aliases": [
+            "--timeout"
+          ],
+          "choices": null,
+          "default": null,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": false,
+          "required": false,
+          "type": "number"
+        },
+        "--to": {
+          "aliases": [
+            "--to"
+          ],
+          "choices": null,
+          "default": null,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": false,
+          "required": true,
+          "type": "string"
+        },
+        "--widest": {
+          "aliases": [
+            "--widest"
+          ],
+          "choices": null,
+          "default": false,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": 0,
+          "positional": false,
+          "required": false,
+          "type": "boolean"
+        },
+        "--width": {
+          "aliases": [
+            "--width"
+          ],
+          "choices": null,
+          "default": null,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": false,
+          "required": false,
+          "type": "string"
+        },
+        "-o": {
+          "aliases": [
+            "-o",
+            "--out"
+          ],
+          "choices": null,
+          "default": null,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": false,
+          "required": false,
+          "type": "string"
+        },
+        "path": {
+          "aliases": [
+            "path"
+          ],
+          "choices": null,
+          "default": null,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": true,
+          "required": true,
+          "type": "string"
+        }
+      },
+      "paged": null
+    },
     "pick": {
       "default_limit": 20,
       "deprecated": null,
@@ -11616,6 +11879,12 @@
         "warning"
       ]
     },
+    "api.pending-edit": {
+      "experimental": false,
+      "severities": [
+        "info"
+      ]
+    },
     "assembly.template-invalid": {
       "experimental": false,
       "severities": [
@@ -16313,6 +16582,12 @@
         "error"
       ]
     },
+    "route.altium-edit-unconfirmed": {
+      "experimental": false,
+      "severities": [
+        "warning"
+      ]
+    },
     "route.bad-item": {
       "experimental": false,
       "severities": [
@@ -16373,6 +16648,12 @@
         "warning"
       ]
     },
+    "route.no-path": {
+      "experimental": false,
+      "severities": [
+        "warning"
+      ]
+    },
     "route.optimizer-cut": {
       "experimental": false,
       "severities": [
@@ -16404,6 +16685,12 @@
       ]
     },
     "route.partial": {
+      "experimental": false,
+      "severities": [
+        "info"
+      ]
+    },
+    "route.path-limit": {
       "experimental": false,
       "severities": [
         "info"
@@ -16467,6 +16754,12 @@
       "experimental": false,
       "severities": [
         "error"
+      ]
+    },
+    "route.repour-needed": {
+      "experimental": false,
+      "severities": [
+        "warning"
       ]
     },
     "route.resumed": {
@@ -16533,6 +16826,12 @@
       "experimental": false,
       "severities": [
         "warning"
+      ]
+    },
+    "route.via-template": {
+      "experimental": false,
+      "severities": [
+        "error"
       ]
     },
     "route.width-below-job": {
@@ -17203,6 +17502,116 @@
           }
         ]
       },
+      "Channel": {
+        "fields": {
+          "board": {
+            "annotation": "str"
+          },
+          "evidence": {
+            "annotation": "Evidence"
+          },
+          "grid_limited": {
+            "annotation": "bool"
+          },
+          "high": {
+            "annotation": "Nm"
+          },
+          "issues": {
+            "annotation": "tuple[Issue, ...]"
+          },
+          "low": {
+            "annotation": "Nm | None"
+          },
+          "path": {
+            "annotation": "RouteFound | None"
+          },
+          "pinch": {
+            "annotation": "Gap | None"
+          },
+          "undecided": {
+            "annotation": "bool"
+          }
+        },
+        "kind": "class",
+        "methods": {
+          "__eq__": {
+            "parameters": [
+              {
+                "annotation": null,
+                "default": null,
+                "kind": "POSITIONAL_OR_KEYWORD",
+                "name": "other",
+                "required": true
+              }
+            ]
+          }
+        },
+        "parameters": [
+          {
+            "annotation": "str",
+            "default": null,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "board",
+            "required": true
+          },
+          {
+            "annotation": "Nm | None",
+            "default": null,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "low",
+            "required": true
+          },
+          {
+            "annotation": "Nm",
+            "default": null,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "high",
+            "required": true
+          },
+          {
+            "annotation": "bool",
+            "default": null,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "grid_limited",
+            "required": true
+          },
+          {
+            "annotation": "bool",
+            "default": null,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "undecided",
+            "required": true
+          },
+          {
+            "annotation": "Gap | None",
+            "default": null,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "pinch",
+            "required": true
+          },
+          {
+            "annotation": "RouteFound | None",
+            "default": null,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "path",
+            "required": true
+          },
+          {
+            "annotation": "tuple[Issue, ...]",
+            "default": null,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "issues",
+            "required": true
+          },
+          {
+            "annotation": "Evidence",
+            "default": null,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "evidence",
+            "required": true
+          }
+        ]
+      },
       "ConversionResult": {
         "fields": {
           "conversion": {
@@ -17720,6 +18129,242 @@
             "default": null,
             "kind": "POSITIONAL_OR_KEYWORD",
             "name": "error",
+            "required": true
+          }
+        ]
+      },
+      "RouteFound": {
+        "fields": {
+          "length": {
+            "annotation": "Nm",
+            "writable": false
+          },
+          "net": {
+            "annotation": "str"
+          },
+          "runs": {
+            "annotation": "tuple[tuple[str, tuple[Point, ...]], ...]"
+          },
+          "via_diameter": {
+            "annotation": "Nm"
+          },
+          "via_drill": {
+            "annotation": "Nm"
+          },
+          "vias": {
+            "annotation": "tuple[Point, ...]"
+          },
+          "width": {
+            "annotation": "Nm"
+          }
+        },
+        "kind": "class",
+        "methods": {
+          "__eq__": {
+            "parameters": [
+              {
+                "annotation": null,
+                "default": null,
+                "kind": "POSITIONAL_OR_KEYWORD",
+                "name": "other",
+                "required": true
+              }
+            ]
+          },
+          "queue_on": {
+            "parameters": [
+              {
+                "annotation": "Session",
+                "default": null,
+                "kind": "POSITIONAL_OR_KEYWORD",
+                "name": "session",
+                "required": true
+              }
+            ]
+          },
+          "result": {
+            "parameters": [
+              {
+                "annotation": "Design",
+                "default": null,
+                "kind": "POSITIONAL_OR_KEYWORD",
+                "name": "design",
+                "required": true
+              }
+            ]
+          }
+        },
+        "parameters": [
+          {
+            "annotation": "str",
+            "default": null,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "net",
+            "required": true
+          },
+          {
+            "annotation": "Nm",
+            "default": null,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "width",
+            "required": true
+          },
+          {
+            "annotation": "tuple[tuple[str, tuple[Point, ...]], ...]",
+            "default": null,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "runs",
+            "required": true
+          },
+          {
+            "annotation": "tuple[Point, ...]",
+            "default": null,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "vias",
+            "required": true
+          },
+          {
+            "annotation": "Nm",
+            "default": null,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "via_diameter",
+            "required": true
+          },
+          {
+            "annotation": "Nm",
+            "default": null,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "via_drill",
+            "required": true
+          }
+        ]
+      },
+      "RouteRefusal": {
+        "fields": {
+          "proven": {
+            "annotation": "bool"
+          },
+          "reason": {
+            "annotation": "str"
+          },
+          "wall": {
+            "annotation": "tuple[WallItem, ...]"
+          },
+          "widest": {
+            "annotation": "Gap | None"
+          }
+        },
+        "kind": "class",
+        "methods": {
+          "__eq__": {
+            "parameters": [
+              {
+                "annotation": null,
+                "default": null,
+                "kind": "POSITIONAL_OR_KEYWORD",
+                "name": "other",
+                "required": true
+              }
+            ]
+          }
+        },
+        "parameters": [
+          {
+            "annotation": "str",
+            "default": null,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "reason",
+            "required": true
+          },
+          {
+            "annotation": "bool",
+            "default": null,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "proven",
+            "required": true
+          },
+          {
+            "annotation": "tuple[WallItem, ...]",
+            "default": null,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "wall",
+            "required": true
+          },
+          {
+            "annotation": "Gap | None",
+            "default": null,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "widest",
+            "required": true
+          }
+        ]
+      },
+      "RouteSearch": {
+        "fields": {
+          "board": {
+            "annotation": "str"
+          },
+          "evidence": {
+            "annotation": "Evidence"
+          },
+          "found": {
+            "annotation": "RouteFound | None"
+          },
+          "issues": {
+            "annotation": "tuple[Issue, ...]"
+          },
+          "refusal": {
+            "annotation": "RouteRefusal | None"
+          }
+        },
+        "kind": "class",
+        "methods": {
+          "__eq__": {
+            "parameters": [
+              {
+                "annotation": null,
+                "default": null,
+                "kind": "POSITIONAL_OR_KEYWORD",
+                "name": "other",
+                "required": true
+              }
+            ]
+          }
+        },
+        "parameters": [
+          {
+            "annotation": "str",
+            "default": null,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "board",
+            "required": true
+          },
+          {
+            "annotation": "RouteFound | None",
+            "default": null,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "found",
+            "required": true
+          },
+          {
+            "annotation": "RouteRefusal | None",
+            "default": null,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "refusal",
+            "required": true
+          },
+          {
+            "annotation": "tuple[Issue, ...]",
+            "default": null,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "issues",
+            "required": true
+          },
+          {
+            "annotation": "Evidence",
+            "default": null,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "evidence",
             "required": true
           }
         ]
@@ -18344,6 +18989,88 @@
           }
         ]
       },
+      "find_route": {
+        "kind": "function",
+        "parameters": [
+          {
+            "annotation": "Any",
+            "default": null,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "board",
+            "required": true
+          },
+          {
+            "annotation": "str",
+            "default": null,
+            "kind": "KEYWORD_ONLY",
+            "name": "net",
+            "required": true
+          },
+          {
+            "annotation": "Endpoint",
+            "default": null,
+            "kind": "KEYWORD_ONLY",
+            "name": "start",
+            "required": true
+          },
+          {
+            "annotation": "Endpoint",
+            "default": null,
+            "kind": "KEYWORD_ONLY",
+            "name": "end",
+            "required": true
+          },
+          {
+            "annotation": "Nm",
+            "default": null,
+            "kind": "KEYWORD_ONLY",
+            "name": "width",
+            "required": true
+          },
+          {
+            "annotation": "Sequence[str] | None",
+            "default": null,
+            "kind": "KEYWORD_ONLY",
+            "name": "layers",
+            "required": false
+          },
+          {
+            "annotation": "Nm",
+            "default": 100000,
+            "kind": "KEYWORD_ONLY",
+            "name": "grid",
+            "required": false
+          },
+          {
+            "annotation": "int",
+            "default": 200000,
+            "kind": "KEYWORD_ONLY",
+            "name": "max_states",
+            "required": false
+          },
+          {
+            "annotation": "int",
+            "default": 2,
+            "kind": "KEYWORD_ONLY",
+            "name": "max_vias",
+            "required": false
+          },
+          {
+            "annotation": "str | None",
+            "default": null,
+            "kind": "KEYWORD_ONLY",
+            "name": "pours",
+            "required": false
+          },
+          {
+            "annotation": "float | None",
+            "default": null,
+            "kind": "KEYWORD_ONLY",
+            "name": "timeout",
+            "required": false
+          }
+        ]
+      },
       "format_length": {
         "kind": "function",
         "parameters": [
@@ -18366,6 +19093,88 @@
             "default": null,
             "kind": "KEYWORD_ONLY",
             "name": "places",
+            "required": false
+          }
+        ]
+      },
+      "free_channel": {
+        "kind": "function",
+        "parameters": [
+          {
+            "annotation": "Any",
+            "default": null,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "board",
+            "required": true
+          },
+          {
+            "annotation": "str",
+            "default": null,
+            "kind": "KEYWORD_ONLY",
+            "name": "net",
+            "required": true
+          },
+          {
+            "annotation": "Endpoint",
+            "default": null,
+            "kind": "KEYWORD_ONLY",
+            "name": "start",
+            "required": true
+          },
+          {
+            "annotation": "Endpoint",
+            "default": null,
+            "kind": "KEYWORD_ONLY",
+            "name": "end",
+            "required": true
+          },
+          {
+            "annotation": "Sequence[str] | None",
+            "default": null,
+            "kind": "KEYWORD_ONLY",
+            "name": "layers",
+            "required": false
+          },
+          {
+            "annotation": "Nm",
+            "default": 100000,
+            "kind": "KEYWORD_ONLY",
+            "name": "grid",
+            "required": false
+          },
+          {
+            "annotation": "int",
+            "default": 200000,
+            "kind": "KEYWORD_ONLY",
+            "name": "max_states",
+            "required": false
+          },
+          {
+            "annotation": "int",
+            "default": 0,
+            "kind": "KEYWORD_ONLY",
+            "name": "max_vias",
+            "required": false
+          },
+          {
+            "annotation": "Nm",
+            "default": 10000,
+            "kind": "KEYWORD_ONLY",
+            "name": "resolution",
+            "required": false
+          },
+          {
+            "annotation": "str | None",
+            "default": null,
+            "kind": "KEYWORD_ONLY",
+            "name": "pours",
+            "required": false
+          },
+          {
+            "annotation": "float | None",
+            "default": null,
+            "kind": "KEYWORD_ONLY",
+            "name": "timeout",
             "required": false
           }
         ]
@@ -18431,7 +19240,7 @@
         "kind": "function",
         "parameters": [
           {
-            "annotation": "PathInput",
+            "annotation": "PathInput | Session",
             "default": null,
             "kind": "POSITIONAL_OR_KEYWORD",
             "name": "path",

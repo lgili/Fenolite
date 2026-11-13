@@ -2,12 +2,15 @@
 # Copyright (c) 2026 Fenolite contributors
 """Stable issue codes emitted by routing plugins and commands, mapped to their severity. The ``route.role-*``
 codes are those of the role mode (change c0244; ``docs/routing.md``, "Role mode"), the ``route.proposal-*``
-codes those of the proposal mode (change c0280; ``docs/routing.md``, "Proposals")."""
+codes those of the proposal mode (change c0280; ``docs/routing.md``, "Proposals"); ``route.no-path``,
+``route.path-limit``, ``route.via-template``, ``route.repour-needed`` and ``route.altium-edit-unconfirmed``
+those of ``fenolite path`` (change c0501)."""
 
 from fenolite.core.errors import Severity
 
 ISSUE_CODES: dict[str, Severity] = {
     "route.bad-item": "error",
+    "route.altium-edit-unconfirmed": "warning",
     "route.budget-exhausted": "warning",
     "route.check-refused": "warning",
     "route.constraint-not-sent": "warning",
@@ -17,14 +20,17 @@ ISSUE_CODES: dict[str, Severity] = {
     "route.incomplete": "error",
     "route.net-declared": "info",
     "route.no-layer": "warning",
+    "route.no-path": "warning",
     "route.optimizer-cut": "info",
     "route.option-ignored": "warning",
     "route.pair-not-routed": "warning",
     "route.pair-skipped": "warning",
     "route.pair-uncoupled": "info",
     "route.partial": "info",
+    "route.path-limit": "info",
     "route.plane-net": "info",
     "route.project-unread": "warning",
+    "route.repour-needed": "warning",
     "route.proposal-conflict": "error",
     "route.proposal-findings": "warning",
     "route.proposal-limit": "info",
@@ -44,6 +50,7 @@ ISSUE_CODES: dict[str, Severity] = {
     "route.tool-missing": "error",
     "route.tool-unpinned": "warning",
     "route.unrouted": "warning",
+    "route.via-template": "error",
     "route.width-below-job": "warning",
     "route.width-below-minimum": "error",
     "route.zone-net-skipped": "info",

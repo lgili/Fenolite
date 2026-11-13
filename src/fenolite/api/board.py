@@ -18,6 +18,7 @@ import os
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING, Any, TypeAlias
 
 from fenolite.analysis.boundary import OVERLAP_NEEDS_GEO, board_boundary
 from fenolite.analysis.connectivity import ConnectivityReport, NetIsland, net_islands
@@ -38,11 +39,14 @@ from fenolite.api.sides import (
 from fenolite.backends import registry
 from fenolite.backends.base import BoardFrame, BoardPad
 from fenolite.backends.kicad.projectset import resolve_board
-from fenolite.core.errors import Issue
+from fenolite.core.errors import Issue, Severity
 from fenolite.core.evidence import Evidence
 from fenolite.core.units import Nm
 from fenolite.geometry.errors import BACKEND_UNAVAILABLE
 from fenolite.model.design import Design
+
+if TYPE_CHECKING:
+    from fenolite.backends.altium.edit.session import Session
 
 PathInput = str | os.PathLike[str]
 """A path as ``str`` or ``Path``."""
@@ -71,8 +75,11 @@ class Board:
     evidence: Evidence
 
 
-BoardInput = Board | PathInput
-"""A ``Board``, or the path of a board, a KiCad project file or a project folder."""
+BoardInput: TypeAlias = "Board | PathInput | Session"
+"""A ``Board``, the path of a board, a KiCad project file or a project folder, or an Altium edit
+``Session`` (its pending edits; change c0501)."""
+ISSUE_CODES: dict[str, Severity] = {"api.pending-edit": "info"}
+"""The codes of a board read (change c0501)."""
 
 
 def read_design(
@@ -86,10 +93,15 @@ def read_design(
     return read_side(os.fspath(path), kicad_cli=kicad_cli, timeout=timeout)
 
 
-def read_board(path: PathInput) -> Board:
+def read_board(path: PathInput | Session) -> Board:
     """The board at ``path`` (a board file, a KiCad project file or a project folder) with its board-frame
-    pads. Raises ``SideMissingError`` for a missing path and ``SideUsageError`` for a file that is not a
-    board; a reader's error keeps its type."""
+    pads, or the board of the pending edits of an Altium edit ``Session`` (change c0501). Raises
+    ``SideMissingError`` for a missing path and ``SideUsageError`` for a file that is not a board or a
+    refused queue; a reader's error keeps its type."""
+    from fenolite.backends.altium.edit.session import Session
+
+    if isinstance(path, Session):
+        return _pending(path)
     given = existing(Path(os.fspath(path)))
     board = resolve_board(given) if given.is_dir() or given.suffix == ".kicad_pro" else given
     backend = registry.for_path(board)
@@ -105,7 +117,30 @@ def read_board(path: PathInput) -> Board:
     return Board(board.name, digest, backend.name, design, pads, notices(found), read.evidence)
 
 
-def _board(given: BoardInput) -> Board:
+def _pending(session: Session) -> Board:
+    """The board of ``Session.pending()`` (change c0501, design D1): read from the bytes a commit would
+    write, with ``api.pending-edit`` naming the number of queued operations."""
+    from fenolite.backends.altium.backend import AltiumBackend
+
+    name = session.path.name
+    data, refused = session.pending()
+    if data is None:
+        message = "; ".join(i.message for i in refused) or "the queued edits are refused"
+        raise SideUsageError(message, where=name, hint="read the session's issues")
+    backend = AltiumBackend()
+    found: list[Issue] = []
+    read = backend.board_from_bytes(data, file=name, issues=found)
+    design = read.content
+    if not isinstance(design, Design) or design.board is None:
+        raise SideUsageError(f"{name} is not a board", where=name, hint="pass a board file")
+    pads = backend.board_pads(design, issues=found)
+    count = len(session.queued)
+    found.append(Issue("api.pending-edit", "info", f"the board of {name} with {count} queued edits", name))
+    digest = hashlib.sha256(data).hexdigest()
+    return Board(name, digest, backend.name, design, pads, notices(found), read.evidence)
+
+
+def _board(given: Any) -> Board:
     return given if isinstance(given, Board) else read_board(given)
 
 

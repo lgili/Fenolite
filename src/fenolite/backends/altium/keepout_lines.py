@@ -121,7 +121,8 @@ is stored in board coordinates by KiCad and turned back into the pad frame, whic
 
 def band(kind: str, points: Sequence[Point], width: int, second: bool) -> tuple[Point, ...]:
     """The ring of the band that a stroke covers, as a conversion makes its rule area (``convert``'s
-    ``_keepout_rings``): a segment's or an arc's band, or one half of a circle's; a fill's corners."""
+    ``keepout_areas.keepout_rings``): a segment's or an arc's band, or one half of a circle's; a fill's
+    corners."""
     from fenolite.geometry.bands import arc_band, segment_band
 
     if kind == FILL:

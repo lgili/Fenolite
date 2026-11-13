@@ -30,6 +30,26 @@ Back to [the command index](commands.md).
 - `--kicad-cli PATH`: the kicad-cli to run
 - `--timeout SECONDS` (number, default `300.0`): kicad-cli timeout (300)
 
+## path
+
+`fenolite path [OPTIONS] --net NET --from A --to B PATH`
+
+- `PATH`: a .kicad_pcb or a .PcbDoc
+- `--net NET`: the net to route
+- `--from A`: REF-PIN or X,Y@LAYER (mm)
+- `--to B`: REF-PIN or X,Y@LAYER (mm)
+- `--width W`: search one connection of this track width (mm)
+- `--widest`: measure the widest track that fits; never writes
+- `--layers L1,L2`: the copper layers a track may use
+- `--grid G` (default `0.1mm`): the search grid (default 0.1mm)
+- `--max-states N` (integer, default `200000`): search state bound
+- `--max-vias N` (integer): default 2, 0 with --widest
+- `--resolution R`: channel bracket (default 10um)
+- `--pours {kept,refilled}`: kept (.PcbDoc) or refilled (.kicad_pcb)
+- `--timeout S` (number): seconds for the command
+- `--gate {clone}`: open the clone gate of a .PcbDoc
+- `-o`, `--out FILE`: write to this file instead of replacing PATH
+
 ## pick
 
 `fenolite pick [OPTIONS] PATH`
@@ -182,12 +202,3 @@ Back to [the command index](commands.md).
 - `--reject NET` (repeatable): store the net as a confirmed signal, so it is not inferred again (repeatable)
 - `--accept-group NAME` (repeatable): store this inferred group as confirmed (repeatable)
 - `--reject-group NAME` (repeatable): never infer this group again (repeatable)
-
-## roundtrip
-
-`fenolite roundtrip [OPTIONS] PATH`
-
-- `PATH`: a KiCad S-expression file, or a project for rt2
-- `--level {rt0,rt1,rt2,rta0,rta1,rta2,rta3}`: the level to reach (default rt1); for Altium input the one level to judge (default rta1)
-- `--kicad-cli PATH`: the kicad-cli of rt2
-- `--timeout SECONDS` (number, default `300.0`): kicad-cli timeout (300)

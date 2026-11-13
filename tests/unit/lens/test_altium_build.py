@@ -269,6 +269,7 @@ def test_evidence() -> None:
     # change c0465: the writer writes Short-Circuit and Net Antennae records with the public keys (S-2243);
     # what Altium's DRC makes of them is the kit of task 6.1, so the UNVERIFIED rows are no claim of the build
     viewer |= {"H-A-RULE-ANTENNA", "H-A-RULE-SHORT"}
+    viewer |= {"H-A-PCBX-KEEPOUT-GAP"}  # the routing question of `fenolite path` (c0501), never the build
     rows = {r.id for r in register if r.id.startswith(stems)} - refuted - viewer
     # change c0173: the PCB document writer writes the flattened panel; the array rows that its kit has not
     # measured (H-A-PANEL-RECORD, H-A-PANEL-LAYERKIND) are no claim of the build yet

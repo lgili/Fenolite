@@ -131,6 +131,10 @@ class Result:
     """Called by the dispatcher once, after the writes of this result were all written."""
     fail_on_warning: bool = False
     """The block-test convention treats warnings as incomplete tests (exit 5); other commands keep exit 0."""
+    fail_on_codes: tuple[str, ...] = ()
+    """Issue codes that make the run exit 5 whatever their severity: ``path`` refuses with
+    ``route.path-limit`` (info) when its search stopped at a bound (change c0501). Never staged: such a result
+    plans no write."""
     staged_result: dict[str, Any] | None = None
     """A filtered result for plan storage: transient supplier offers must not outlive their reply.
     Writes, inputs, issues and receipts are always controlled by the dispatcher."""

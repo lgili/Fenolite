@@ -58,7 +58,7 @@ ALLOWED: dict[str, set[str]] = {
     "exports": {"model", "geometry", "backends*"},
     "convert": {"model", "geometry", "backends*"},
     "verify": {"model", "geometry", "backends*"},
-    "api": {"model", "geometry", "backends*", "checks", "analysis", "convert", "lens"},
+    "api": {"model", "geometry", "backends*", "checks", "analysis", "convert", "lens", "routing"},
     "agent": {"cli"},
     "mcp": {"cli", "agent"},
     "panel": {"model", "geometry", "backends*", "checks", "convert", "dsl"},
@@ -376,6 +376,7 @@ def test_layering() -> None:
         ("checks", "analysis", False),
         ("analysis", "roles", False),
         ("api", "roles", False),
+        ("api", "routing", True),
         ("cli", "roles", True),
     ],
 )

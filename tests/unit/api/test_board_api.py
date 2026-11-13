@@ -122,3 +122,32 @@ def test_hermetic(monkeypatch: pytest.MonkeyPatch) -> None:
     analyze_current(board)
     analyze_distances(board)
     assert tree_snapshot(BOARD.parent) == before
+
+
+def test_read_board_of_a_pending_session(tmp_path: Path) -> None:
+    """Scenario "A pending edit session": the Part J kit board, authored for Fenolite, with one queued move
+    of a track by 1 mm (change c0501)."""
+    from fenolite.backends.altium import edit
+    from tests.unit.backends.altium.test_part_j import build_board
+
+    build_board(tmp_path)
+    path = tmp_path / "edit.PcbDoc"
+    before = path.read_bytes()
+    on_disk = read_board(path)
+    assert on_disk.design.board is not None
+    session = edit.open(path, gates={"move": True})
+    assert isinstance(session, edit.Session)
+    session.move(edit.Track((10_000_000, 5_000_000), (20_000_000, 5_000_000), "GND"), 1_000_000, 0)
+    board = read_board(session)
+    assert board.design.board is not None
+    old = {(t.start.x, t.start.y, t.end.x, t.end.y) for t in on_disk.design.board.tracks}
+    new = {(t.start.x, t.start.y, t.end.x, t.end.y) for t in board.design.board.tracks}
+    [(ax, ay, bx, by)], [moved] = old - new, new - old
+    # the document's unit is 1/10 000 mil: a coordinate rounds by at most a nanometre
+    assert all(abs(m - w) <= 1 for m, w in zip(moved, (ax + 1_000_000, ay, bx + 1_000_000, by), strict=True))
+    assert board.sha256 != on_disk.sha256 and path.read_bytes() == before
+    assert [i.code for i in board.issues if i.code == "api.pending-edit"] == ["api.pending-edit"]
+    refused = edit.open(path, gates={})
+    assert isinstance(refused, edit.Session)
+    with pytest.raises(SideUsageError):
+        read_board(refused.move(edit.Track((0, 0), (1, 0), None), 1, 0))

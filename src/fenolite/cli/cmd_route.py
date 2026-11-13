@@ -58,6 +58,7 @@ from pathlib import Path
 
 from fenolite import __version__
 from fenolite.analysis.connectivity import connectivity
+from fenolite.api.route import DEFAULTS, job_checks, net_values
 from fenolite.backends.base import BoardPad, DesignRules, ProjectSet
 from fenolite.backends.kicad import fanout, pro
 from fenolite.backends.kicad.backend import KicadBackend
@@ -68,7 +69,6 @@ from fenolite.backends.kicad.outline import board_outline
 from fenolite.backends.kicad.pcb import read_board, source_info, write_board
 from fenolite.backends.kicad.projectset import resolve_board
 from fenolite.checks.clearance import ClearanceResolver
-from fenolite.checks.copper import check_copper, frame_edges
 from fenolite.checks.widths import track_width_findings
 from fenolite.cli import _external_candidates, _gate, _propose, _roleroute, plans
 from fenolite.cli._boardview import to_json
@@ -82,7 +82,6 @@ from fenolite.core.errors import FormatError, Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
 from fenolite.core.units import Nm, format_length
-from fenolite.model.circuit import Net, NetClass
 from fenolite.model.design import Design
 from fenolite.model.rules import Rule, RuleSet, RuleSubject, Selector
 from fenolite.routing.escape import PartPad, parse, requests
@@ -104,7 +103,6 @@ from fenolite.routing.registry import routers
 from fenolite.routing.select import rip, unrouted
 
 HELP = "route selected KiCad board nets with a registered Fenolite routing plugin"
-DEFAULTS = (200_000, 200_000, 600_000, 300_000)
 
 
 def _safe_log(lines: tuple[str, ...], cwd: Path) -> list[str]:
@@ -353,16 +351,7 @@ def _edge_clearance(design: Design) -> Nm:
     )
 
 
-def _net_values(net: Net, classes: dict[str, NetClass], default_class: NetClass | None) -> tuple[Nm, ...]:
-    """Track width, clearance, via diameter and via drill of ``net``: its class, else the project's
-    ``Default`` class, else the command's constants."""
-    netclass = classes.get(net.netclass_id or "")
-    return tuple(
-        getattr(netclass, key, None) or getattr(default_class, key, None) or fallback
-        for key, fallback in zip(
-            ("track_width", "clearance", "via_diameter", "via_drill"), DEFAULTS, strict=True
-        )
-    )
+_net_values = net_values
 
 
 PLAN_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-ROUTE-PLAN",))
@@ -1005,44 +994,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     )
 
 
-def _job_checks(design: Design, rules: DesignRules) -> dict[str, object]:
-    """The job extras ``clearance`` and ``copper_check`` (capability routing, "Clearance and copper check in
-    job extras"; change c0228): the clearance in force between two rule subjects under the project's
-    rules, and the copper check of a design with those rules, the board edge and the board-frame pads,
-    its zone fills left out (routing makes them stale; ``fill`` pours them again)."""
-    resolver = ClearanceResolver(
-        design,
-        min_clearance=rules.min_clearance,
-        rules_over_classes=rules.rules_over_classes,
-        floor_over_rules=rules.floor_over_rules,
-    )
-    backend = KicadBackend()
-
-    def clearance(a: RuleSubject, b: RuleSubject) -> Nm:
-        return resolver.resolve(a, b).value or 0
-
-    def copper_check(checked: Design) -> list[tuple[str, str, tuple[str, ...], int]]:
-        board = checked.board
-        if board is not None:
-            zones = tuple(dataclasses.replace(zone, fills=(), filled=False) for zone in board.zones)
-            checked = dataclasses.replace(checked, board=dataclasses.replace(board, zones=zones))
-        edges, _ = frame_edges(backend, checked)
-        report = check_copper(
-            checked,
-            pads=backend.board_pads(checked),
-            min_clearance=rules.min_clearance,
-            rules_over_classes=rules.rules_over_classes,
-            floor_over_rules=rules.floor_over_rules,
-            edges=edges,
-            min_edge_clearance=rules.min_edge_clearance,
-            edge_floor_over_rules=rules.edge_floor_over_rules,
-        )
-        return [
-            (found.code, found.layer, tuple(sorted({item.entity_id for item in found.items})), found.gap)
-            for found in report.findings
-        ]
-
-    return {"clearance": clearance, "copper_check": copper_check}
+_job_checks = job_checks
+"""The job extras, shared with ``fenolite.api.route`` (change c0501, design D2)."""
 
 
 PAIRS_HINT_FALLBACK = "kicadroutingtools, once its pair gate holds"

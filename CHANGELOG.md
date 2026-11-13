@@ -8,6 +8,14 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Added
 
+- Route search and free channel on an existing board (c0501): `fenolite path PATH --net N --from A --to B`
+  with `--width W` (plans the found copper; a `.PcbDoc` is written through edit-session clones and needs
+  `--gate clone`) or `--widest` (measures `result.channel`, never writes). The search uses the board's own
+  rules, rule areas and Altium Keep-Out layer areas (`AltiumBackend.rule_areas`), and a refusal names the
+  wall of blockers, the widest gap and whether the wall is proven (`route.no-path`, `route.path-limit`,
+  exit 5). `fenolite.api` gains `find_route`, `free_channel`, `RouteSearch`, `RouteFound`,
+  `RouteRefusal` and `Channel`; `read_board` accepts an open edit `Session` (its pending bytes, info
+  `api.pending-edit`), and `Session.pending()` returns those bytes.
 - Islands of a net with their members, and a what-if cut, from Python (c0500): `NetIsland.members` lists each
   track, arc, via, pad and fill of an island (`IslandItem`), `net_islands(..., without=)` leaves out named
   tracks, arcs, vias or zones first (an unknown name raises `KeyError`; saved fills are not repoured), and

@@ -679,3 +679,40 @@ Review `result.next` and prepare acceptance with `--dry-run`; confirmation write
 Tool-byte changes invalidate the plan. External geometry is not promised deterministic. See the
 agent guide `route-proposals` for scope limits, discovery, refusal reasons and replay controls.
 Native pinned-router CI is still pending; no native compatibility claim is made by unit tests.
+
+## Routing an existing board
+
+`fenolite path` and `fenolite.api.find_route` (change c0501) run the bounded search of c0365 on a board that
+is already laid out: a `.kicad_pcb`, a `.PcbDoc`, or the pending edits of an Altium edit session. The job
+takes the board's own rules (the backend's `design_rules`, `ClearanceResolver` as the clearance in force per
+pair of items, so a net-class clearance or a rule between two named nets applies as the copper check
+applies it). The routing world (`octilinear.World`) holds, beside pads, holes, tracks, arcs, vias and the
+edge:
+
+- the rule areas in force (`model.board.rule_areas`, and on an Altium document the keep-outs of the Keep-Out
+  layer with the restrictions of their records, `backends.altium.keepout_areas`, which a conversion uses
+  too): one that forbids tracks refuses a track that overlaps it, one that forbids vias a via barrel; one that
+  forbids only poured copper, pads or footprints refuses nothing. Overlap only: whether Altium's clearance
+  rule also keeps a gap to a keep-out is open (`H-A-PCBX-KEEPOUT-GAP`);
+- each copper graphic of the board, at the clearance in force;
+- with `pours=kept` (the default for a `.PcbDoc`, where nothing repours an edited document), the saved fills
+  of other nets' zones. A `.kicad_pcb` defaults to `refilled`: it is filled again after routing.
+
+`World.blocker` names the first item that refuses a segment (`kind`: `pad`, `hole`, `track`, `via`, `zone`,
+`graphic`, `keepout`, `edge`, `placed`). A search that ends with `no-room` lists its wall (the items that
+refused edges, merged, at most 12) and is `proven` when, for the wall items ordered by angle round the start,
+every free gap between two neighbours (their exact distance less both clearances) is narrower than the
+track; otherwise it is grid-limited and names the widest free gap. A search cut by a bound proves nothing.
+
+On a `.PcbDoc` the found copper is written as clones of a track of the net on each layer and of a via of the
+net of the job's via size (`RouteFound.queue_on`), through `Session.commit`'s read-back and connectivity
+gates, with the net's own connectivity declared; the command needs `--gate clone`.
+
+## Free channel
+
+`fenolite path --widest` and `fenolite.api.free_channel` bisect the track width between two points: a found
+path raises `low` (the path is kept and accepted again by `World.fits`), a `no-room` refusal lowers `high`,
+until `high - low` is at most the resolution (default 10 µm, a search bound like the grid). A probe cut by a
+bound stops with `undecided`. `high` is proven only when the refusal that set it was proven; `pinch` is that
+refusal's widest free gap with its two items. The world keeps 2 µm (`MARGIN`) beyond each clearance, so
+`high` may lie up to 4 µm below the exact width of the board's rules.

@@ -48,7 +48,8 @@ from fenolite.geometry import (
     thick_closer_than,
     touch_groups,
 )
-from fenolite.model.board import Track
+from fenolite.geometry import Circle as GeoCircle
+from fenolite.model.board import Graphic, Keepout, Track, rule_areas
 from fenolite.model.design import Design
 from fenolite.model.pairs import pair_base
 from fenolite.model.rules import RuleSubject, Selector
@@ -203,6 +204,33 @@ class _Obstacle:
     net: str | None
     subject: RuleSubject
     box: BBox
+    kind: str = "track"
+    label: str = ""
+    forbids: tuple[bool, bool] | None = None
+    """``(tracks, vias)`` of a rule area (change c0501): it refuses only what it forbids, at clearance 0."""
+
+
+BLOCKER_KINDS = ("pad", "hole", "track", "via", "zone", "graphic", "keepout", "edge", "placed")
+
+
+@dataclass(frozen=True, slots=True)
+class Blocker:
+    """The item that refuses a segment (``World.blocker``; change c0501, design D3): its kind (one of
+    ``BLOCKER_KINDS``), net, layer, place (the centre of its box), the clearance in force, its label (a
+    pad's ``REF-PIN``, a rule area's name) and its copper."""
+
+    kind: str
+    net: str | None
+    layer: str
+    where: Point
+    clearance: Nm
+    shape: Thick
+    label: str = ""
+
+    @property
+    def key(self) -> tuple[str, str | None, str, Point, str]:
+        """One item: a pad's copper on two layers is two items."""
+        return (self.kind, self.net, self.layer, self.where, self.label)
 
 
 @dataclass(frozen=True, slots=True)
@@ -246,6 +274,31 @@ def thick(points: Sequence[Point], width: int, filled: bool = False) -> Thick | 
         return Thick(tuple(points), width, filled)
     except (GeometryError, ValueError):
         return None
+
+
+def _graphic_thick(graphic: Graphic) -> Thick | None:
+    """The copper of a graphic on a copper layer, as the copper check draws it: the stroke of its outline,
+    and its inside when it is filled."""
+    width, points = max(graphic.width, 0), graphic.points
+    try:
+        if graphic.kind == "line":
+            return thick(points, width)
+        if graphic.kind == "arc":
+            return thick(GeoArc(*points).polygonize(ARC_TOL), width + 2 * ARC_TOL)
+        if graphic.kind == "circle":
+            ring = GeoCircle.from_kicad(points[0], points[1]).polygonize(ARC_TOL)
+        elif graphic.kind == "rect":
+            a, b = points
+            ring = (a, Point(b.x, a.y), b, Point(a.x, b.y))
+        else:
+            ring = points
+    except (GeometryError, ValueError, TypeError):
+        return None
+    return thick(ring, width, True) if graphic.filled else thick((*ring, ring[0]), width)
+
+
+def _centre(box: BBox) -> Point:
+    return Point((box.x0 + box.x1) // 2, (box.y0 + box.y1) // 2)
 
 
 class World:
@@ -309,7 +362,11 @@ class World:
                     (
                         layer,
                         self._obstacle(
-                            shape, net, RuleSubject("pad", net, self.class_of.get(net or ""), ref, layer)
+                            shape,
+                            net,
+                            RuleSubject("pad", net, self.class_of.get(net or ""), ref, layer),
+                            "pad",
+                            f"{ref}-{number}",
                         ),
                     )
                 )
@@ -326,6 +383,8 @@ class World:
                                     shape,
                                     net,
                                     RuleSubject("pad", net, self.class_of.get(net or ""), ref, layer),
+                                    "hole",
+                                    f"{ref}-{number}",
                                 ),
                             )
                         )
@@ -388,12 +447,16 @@ class World:
                     (
                         layer,
                         self._obstacle(
-                            disc, net, RuleSubject("via", net, self.class_of.get(net or ""), layer=layer)
+                            disc,
+                            net,
+                            RuleSubject("via", net, self.class_of.get(net or ""), layer=layer),
+                            "via",
                         ),
                     )
                 )
             if net:
                 self.net_copper.setdefault(net, []).append([(layer, disc) for layer in span])
+        found.extend(self._other_copper(job, net_ids))
         self.by_layer: dict[str, list[_Obstacle]] = {layer: [] for layer in self.layers}
         for layer, obstacle in found:
             self.by_layer.setdefault(layer, []).append(obstacle)
@@ -404,8 +467,57 @@ class World:
         }
         self.placed: list[tuple[str, str, Thick, RuleSubject]] = []
 
-    def _obstacle(self, shape: Thick, net: str | None, subject: RuleSubject) -> _Obstacle:
-        return _Obstacle(shape, net, subject, thick_bbox(shape))
+    def _obstacle(
+        self,
+        shape: Thick,
+        net: str | None,
+        subject: RuleSubject,
+        kind: str = "track",
+        label: str = "",
+        forbids: tuple[bool, bool] | None = None,
+    ) -> _Obstacle:
+        return _Obstacle(shape, net, subject, thick_bbox(shape), kind, label, forbids)
+
+    def _other_copper(self, job: RoutingJob, net_ids: Mapping[str, object]) -> list[tuple[str, _Obstacle]]:
+        """The rule areas, the copper graphics and, with ``extra["pours"] == "kept"``, the saved fills of
+        the zones (change c0501, design D3)."""
+        board = job.design.board
+        assert board is not None
+        found: list[tuple[str, _Obstacle]] = []
+        names = {ident: cast(str, getattr(net, "name", "")) for ident, net in net_ids.items()}
+        given = cast("tuple[Keepout, ...]", job.extra.get("rule_areas", ()))
+        areas = {area.id: area for area in (*rule_areas(board), *given)}
+        for area in areas.values():
+            if not (area.no_tracks or area.no_vias) or len(area.outline) < 3:
+                continue
+            shape = thick(area.outline, 0, True)
+            if shape is None:
+                continue
+            for layer in area.layers:
+                subject = RuleSubject("zone", None, None, layer=layer)
+                obstacle = self._obstacle(
+                    shape, None, subject, "keepout", area.name, (area.no_tracks, area.no_vias)
+                )
+                found.append((layer, obstacle))
+        for graphic in board.graphics:
+            if graphic.layer not in self.layers:
+                continue
+            shape = _graphic_thick(graphic)
+            if shape is None:
+                continue
+            net = names.get(graphic.net_id or "")
+            subject = RuleSubject("graphic", net, self.class_of.get(net or ""), layer=graphic.layer)
+            found.append((graphic.layer, self._obstacle(shape, net, subject, "graphic")))
+        if job.extra.get("pours") == "kept":
+            for zone in board.zones:
+                net = names.get(zone.net_id or "")
+                for fill in zone.fills:
+                    shape = thick(fill.polygon, 0, True) if len(fill.polygon) >= 3 else None
+                    if shape is None or fill.layer not in self.layers:
+                        continue
+                    subject = RuleSubject("zone", net, self.class_of.get(net or ""), layer=fill.layer)
+                    found.append((fill.layer, self._obstacle(shape, net, subject, "zone", zone.name)))
+        return found
 
     def span(self, layers: Sequence[str]) -> tuple[str, ...]:
         """The job layers from the first to the last of ``layers`` in stack order."""
@@ -433,32 +545,51 @@ class World:
     def subject(self, net: str, layer: str, pair: str | None = None) -> RuleSubject:
         return RuleSubject("track", net, self.class_of.get(net), layer=layer, diff_pair=pair)
 
-    def fits(self, net: str, layer: str, points: Polyline, width: Nm, pair: str | None = None) -> bool:
+    def fits(
+        self, net: str, layer: str, points: Polyline, width: Nm, pair: str | None = None, *, via: bool = False
+    ) -> bool:
         """True when every segment of ``points`` keeps the clearance in force plus ``MARGIN`` from every
-        other net's item on ``layer`` and from the job copper, and the edge clearance from the outline."""
+        other net's item on ``layer`` and from the job copper, and the edge clearance from the outline;
+        ``blocker(...) is None``."""
+        return self.blocker(net, layer, points, width, pair, via=via) is None
+
+    def blocker(
+        self, net: str, layer: str, points: Polyline, width: Nm, pair: str | None = None, *, via: bool = False
+    ) -> Blocker | None:
+        """The first item that refuses a segment of ``points`` on ``layer`` at ``width``, or ``None``. With
+        ``via`` the segment is a via barrel: a rule area refuses it when it forbids vias, else when it forbids
+        tracks (change c0501, design D3). A degenerate segment is refused as ``placed`` with no copper."""
         mine = self.subject(net, layer, pair)
         items = self.by_layer.get(layer, [])
         tree = self.index.get(layer)
         for p, q in zip(points, points[1:], strict=False):
             shape = thick((p, q), width)
             if shape is None:
-                return False
+                return Blocker("placed", None, layer, p, 0, Thick((p,), 0))
             box = thick_bbox(shape).inflate(self.reach)
-            for i in tree.query(box) if tree is not None else ():
+            for i in sorted(tree.query(box)) if tree is not None else ():
                 item = items[i]
+                if item.forbids is not None:
+                    if not item.forbids[1 if via else 0]:
+                        continue
+                    if thick_closer_than(shape, item.shape, MARGIN):
+                        return Blocker("keepout", None, layer, _centre(item.box), 0, item.shape, item.label)
+                    continue
                 if item.net == net:
                     continue
-                if thick_closer_than(shape, item.shape, self.clearance(mine, item.subject) + MARGIN):
-                    return False
+                gap = self.clearance(mine, item.subject)
+                if thick_closer_than(shape, item.shape, gap + MARGIN):
+                    return Blocker(item.kind, item.net, layer, _centre(item.box), gap, item.shape, item.label)
             for other, on, placed, subject in self.placed:
                 if other == net or on != layer:
                     continue
-                if thick_closer_than(shape, placed, self.clearance(mine, subject) + MARGIN):
-                    return False
+                gap = self.clearance(mine, subject)
+                if thick_closer_than(shape, placed, gap + MARGIN):
+                    return Blocker("placed", other, layer, _centre(thick_bbox(placed)), gap, placed)
             for ring in self.edges:
                 if thick_closer_than(shape, ring, max(self.edge, 1)):
-                    return False
-        return True
+                    return Blocker("edge", None, layer, _centre(thick_bbox(ring)), self.edge, ring)
+        return None
 
     def ends_ok(self, net: str, layer: str, points: Polyline) -> bool:
         """True when no end of ``points`` makes an acute angle with a track of ``net`` that ends there."""

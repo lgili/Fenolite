@@ -66,7 +66,7 @@ not change for any item it already judged.
 
 Whether Altium's clearance rule also keeps a track at a distance from a keep-out is not known from a
 source. The world follows Fenolite's own copper check (overlap), and the hypothesis row
-`H-A-ROUTE-KEEPOUT-GAP` (INFERRED) records the open question; task 2.3's bench is the kit case that would
+`H-A-PCBX-KEEPOUT-GAP` (INFERRED) records the open question; task 2.3's bench is the kit case that would
 settle it.
 
 ## D4 Walls and proof of a refusal
@@ -149,6 +149,10 @@ Result: `result.path` (`runs`, `vias`, `length`), or `result.refusal` (`reason`,
 `result.channel` (`low`, `high`, `grid_limited`, `pinch`, `path`). Exit 0 with a path or a channel, 5 with a
 refusal (`route.no-path`, warning, or `route.path-limit`, info, when the search was cut).
 
+Decision (maintainer, 2026-11-13): `queue_on` declares the routed net's connectivity (joining islands changes
+the signature); template vias match within 10 nm; a `.PcbDoc` write needs `--gate clone`, checked before the
+search. The full list is in `tasks.md`, "Decisions".
+
 ## Codes
 
 | code | severity | when |
@@ -162,7 +166,7 @@ refusal (`route.no-path`, warning, or `route.path-limit`, info, when the search 
 ## Format evidence needed
 
 - Keep-Out layer restrictions: existing rows of `pcb-records.md` ("Regions and keep-outs"), `INFERRED`.
-- New row `H-A-ROUTE-KEEPOUT-GAP`: whether Altium's clearance rule keeps a track away from a keep-out it may
+- New row `H-A-PCBX-KEEPOUT-GAP`: whether Altium's clearance rule keeps a track away from a keep-out it may
   not cross. Until a kit case decides it, the world tests overlap only.
 - The written tracks and vias rest on `H-A-EDIT-CLONE` (pending, kit J12).
 
@@ -178,4 +182,4 @@ refusal (`route.no-path`, warning, or `route.path-limit`, info, when the search 
 
 | id | statement |
 |---|---|
-| `H-A-ROUTE-KEEPOUT-GAP` | Altium Designer's clearance rule keeps a track away from a keep-out by the rule's gap, rather than only forbidding overlap, so a route that meets the gap passes Altium's DRC |
+| `H-A-PCBX-KEEPOUT-GAP` | Altium Designer's clearance rule keeps a track away from a keep-out by the rule's gap, rather than only forbidding overlap, so a route that meets the gap passes Altium's DRC |

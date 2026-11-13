@@ -1328,6 +1328,43 @@ hold `propose: null`. See `docs/routing.md`, "Proposals".
 
 `fenolite route --router freerouting` runs Freerouting through a Specctra design file. `--router-path` names its jar (or `docker:<image>`), `--router-option max-passes=N` its passes, `--router-option optimize=on` adds a run with its optimizer on the time left (the optimizer is off otherwise), and `--router-option fanout=off` turns its fanout stage off (it is on by default); its automatic neck-down is always off; the board needs a closed outline. The design file declares only the nets of the job, and one run is made per tier. `--router kicadroutingtools` runs one process per group of nets of equal track width and via sizes; `--router-option group-nets=N` splits a group, and its options `nets`, `output` and `overwrite` are ignored. Its issues also carry the `specctra.*` codes: `specctra.unknown-padstack` and `specctra.session-moved` (error, no copper is taken), `specctra.pad-approximated` and `specctra.plane-skipped` (warning: a zone on a plane layer without an outline gives no plane), `specctra.rounded`, `specctra.renamed`, `specctra.unknown-list`, `specctra.rule-not-sent` (a rule the file cannot carry) and `specctra.rule-widened` (a layer clause dropped from a clearance rule) (info). The file declares the plane layers `(type power)` with one plane per zone, keeps nets to their layers with `use_layer`, and carries class clearances, class-to-class clearances, widths per layer and the edge clearance (`docs/routing.md`, "What each router is given"). While the router is listed with `sends_data_offsite: true`, the command exits 2 without `--allow-offsite`. See `docs/routing.md`. The jar is `--router-path`, else `FENOLITE_FREEROUTING_JAR`, else the file that `fenolite fetch freerouting --confirm` installed in the tools folder ([fetch](#fetch)); without a jar the command exits 6 with `FEN-6001` and the hint `run 'fenolite fetch freerouting --confirm'`. `route` itself opens no network connection.
 
+## path
+
+`fenolite path PATH --net NET --from A --to B (--width W | --widest)` (change c0501) searches one connection,
+or measures the widest free channel of a net, on an existing `.kicad_pcb` or `.PcbDoc` with the board's own
+rules: the clearance in force of its design rules and net classes (`design_rules` of its backend and the
+copper check's `ClearanceResolver`), its rule areas (a `.PcbDoc`'s Keep-Out layer keep-outs with the
+restrictions of their records), its copper graphics and, with `--pours kept` (the default for a `.PcbDoc`;
+`refilled` for a `.kicad_pcb`), the saved fills of other nets' zones. `A` and `B` are each `REF-PIN` or
+`X,Y@LAYER` in millimetres of the board frame of the model (`fenolite inspect`); an unknown pad, net or layer
+exits 2 with `FEN-2001` and the closest names in the hint. Options: `--layers L1,L2` (default the ends'
+layers and the copper layers between), `--grid` (default 0.1 mm), `--max-states` (default 200 000),
+`--max-vias` (default 2 with `--width`, 0 with `--widest`), `--resolution` (default 10 µm, `--widest` only),
+`--pours kept|refilled` and `--timeout` (seconds of the command). The grid, the state bound and the
+resolution are search bounds, never manufacturing values.
+
+With `--width` the reply holds `result.path` (`width`, `runs` of `layer` and `points`, `vias`, `length`) or
+`result.refusal` (`reason`, `proven`, `wall`: up to 12 items of `kind`, `net`, `layer`, `label`, `at`,
+`clearance`, `refused`; `widest_gap`: `a`, `b`, `free`). A refusal exits 5 with `route.no-path` or
+`route.path-limit`. A found path is written only through the mutation protocol: `--dry-run` plans it and
+`--confirm --plan ID` writes the reviewed bytes. A `.kicad_pcb` is written as `fenolite route` writes it; a
+`.PcbDoc` as an edit session commit of `clone` operations (the read-back and connectivity gates of
+`Session.commit`, the net's own connectivity declared), and only with `--gate clone` (else exit 2,
+`FEN-2001`): its reply holds `route.altium-edit-unconfirmed` and the session's `INFERRED` evidence. With
+`--widest` the command never writes: `result.channel` holds `low` (`null`: no path at the smallest width),
+`high`, `grid_limited`, `undecided`, `pinch` (the widest free gap of the refusal that set `high`) and `path`
+(the path at `low`). Lengths are integer nanometres. See `docs/routing.md`, "Routing an existing board" and
+"Free channel".
+
+| code | severity | when |
+|---|---|---|
+| `route.no-path` | warning | a complete search found no path; whether the refusal is proven is in `result.refusal` |
+| `route.path-limit` | info | the search stopped at a bound; nothing is proven |
+| `route.via-template` | error | no via of the net has the job's via size to clone (or no track to clone) |
+| `route.repour-needed` | warning | a `.PcbDoc` searched with `--pours refilled` |
+| `route.altium-edit-unconfirmed` | warning | a `.PcbDoc` written with `--gate clone` |
+| `api.pending-edit` | info | `fenolite.api.read_board` read the pending edits of an Altium edit session |
+
 ## fill
 
 `fenolite fill PATH [--from REFILLED] [-o FILE] [--kicad-cli PATH] [--timeout SECONDS]` computes zone
@@ -5378,6 +5415,7 @@ of ranges, references, provenance and hashes in addition to JSON Schema types.
 | `pads` | [`v0`](../schemas/fenolite.pads.v0.json) | [`v1`](../schemas/fenolite.pads.v1.json) | `fenolite.result.pads.v1` |
 | `panel` | [`v0`](../schemas/fenolite.panel.v0.json) | [`v1`](../schemas/fenolite.panel.v1.json) | `fenolite.result.panel.v1` |
 | `parity` | [`v0`](../schemas/fenolite.parity.v0.json) | [`v1`](../schemas/fenolite.parity.v1.json) | `fenolite.result.parity.v1` |
+| `path` | [`v0`](../schemas/fenolite.path.v0.json) | [`v1`](../schemas/fenolite.path.v1.json) | `fenolite.result.path.v1` |
 | `pick` | [`v0`](../schemas/fenolite.pick.v0.json) | [`v1`](../schemas/fenolite.pick.v1.json) | `fenolite.result.pick.v1` |
 | `place` | [`v0`](../schemas/fenolite.place.v0.json) | [`v1`](../schemas/fenolite.place.v1.json) | `fenolite.result.place.v1` |
 | `pnp` | [`v0`](../schemas/fenolite.pnp.v0.json) | [`v1`](../schemas/fenolite.pnp.v1.json) | `fenolite.result.pnp.v1` |

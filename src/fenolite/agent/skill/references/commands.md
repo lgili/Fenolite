@@ -52,6 +52,7 @@ Usage shows required arguments (`[X]`: optional). Each argument below names its 
 | `pads` | no | list the pads of a board in the board frame: position, layers, net (runs no tool) |
 | `panel` | yes | write a panel of copies of one built board |
 | `parity` | no | compare the board of a KiCad project with its schematic, and symbol pins with footprint pads: without kicad-cli for a project that fenolite build wrote, and for an Altium project (writes nothing) |
+| `path` | yes | search one connection or the widest free channel of a net on an existing board |
 | `pick` | yes | list the picks of a design's query parts, rank candidates, update picks, or propose rows |
 | `place` | yes | place staged parts on the board in a grid, or move named parts (edits the board) |
 | `pnp` | yes | the placement (pick-and-place) table of a board, through a column template (writes FILE with --out) |
@@ -113,6 +114,7 @@ Usage shows required arguments (`[X]`: optional). Each argument below names its 
 | `pads` | [Arguments](commands-3.md#pads) |
 | `panel` | [Arguments](commands-4.md#panel) |
 | `parity` | [Arguments](commands-4.md#parity) |
+| `path` | [Arguments](commands-4.md#path) |
 | `pick` | [Arguments](commands-4.md#pick) |
 | `place` | [Arguments](commands-4.md#place) |
 | `pnp` | [Arguments](commands-4.md#pnp) |
@@ -123,7 +125,7 @@ Usage shows required arguments (`[X]`: optional). Each argument below names its 
 | `render` | [Arguments](commands-4.md#render) |
 | `restore` | [Arguments](commands-4.md#restore) |
 | `roles` | [Arguments](commands-4.md#roles) |
-| `roundtrip` | [Arguments](commands-4.md#roundtrip) |
+| `roundtrip` | [Arguments](commands-5.md#roundtrip) |
 | `route` | [Arguments](commands-5.md#route) |
 | `silk` | [Arguments](commands-5.md#silk) |
 | `skill` | [Arguments](commands-5.md#skill) |

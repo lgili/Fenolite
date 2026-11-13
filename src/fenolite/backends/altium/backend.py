@@ -54,6 +54,7 @@ from fenolite.backends.base import (
 from fenolite.core.errors import FormatError, Issue
 from fenolite.core.evidence import Evidence
 from fenolite.core.units import Nm
+from fenolite.model.board import Keepout
 from fenolite.model.circuit import with_normal_pin_maps
 from fenolite.model.design import Design
 
@@ -224,6 +225,16 @@ class AltiumBackend:
         if issues is not None:
             issues.extend(found)
         return ReadResult(design, (*found, *design.validate()), EVIDENCE)
+
+    def rule_areas(self, design: Design, data: bytes) -> tuple[Keepout, ...]:
+        """The rule areas in force on the board of ``design``, the import of the PCB document ``data``: its
+        own and those the drawings of the Keep-Out layer give, with the restrictions of their keep-out
+        records (``keepout_areas.rule_areas``; change c0501, design D3). A conversion makes the same areas."""
+        from fenolite.backends.altium import keepout_areas
+        from fenolite.backends.altium.read.pcb import read_pcbdoc
+
+        file = design.board.provenance.file if design.board and design.board.provenance else ""
+        return keepout_areas.rule_areas(design, read_pcbdoc(data, file=file))
 
     def _sheet(self, path: Path, found: list[Issue]) -> ReadResult:
         from fenolite.backends.altium.adapter.board import header

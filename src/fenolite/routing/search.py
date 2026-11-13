@@ -10,14 +10,14 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from math import isqrt
+from math import atan2, isqrt
 from typing import cast
 
 from fenolite.core.coords import Point
 from fenolite.core.units import parse_length
-from fenolite.geometry import Location, point_in_ring
+from fenolite.geometry import Location, Thick, point_in_ring, thick_bbox, thick_gap_floor
 from fenolite.model.pairs import net_bases, pair_nets
-from fenolite.routing.octilinear import Polyline, World, length, shapes, simplify
+from fenolite.routing.octilinear import Blocker, Polyline, World, length, shapes, simplify
 from fenolite.routing.protocol import JobSubject, RoutingJob
 from fenolite.routing.search_fields import Evaluator, Fields, board_fingerprint
 from fenolite.routing.search_grid import SearchResult, State, Stop, astar
@@ -72,14 +72,61 @@ def options(given: Mapping[str, str]) -> tuple[str, Limits | None]:
     return mode, limits
 
 
+WALL_ITEMS = 12
+"""At most this many wall items are reported (change c0501, design D4); the proof uses them all."""
+
+
+@dataclass(frozen=True, slots=True)
+class WallItem:
+    """An item that refused edges at the edge of the explored states, and how many (change c0501)."""
+
+    blocker: Blocker
+    refused: int
+
+
+@dataclass(frozen=True, slots=True)
+class Gap:
+    """The free gap between two neighbouring wall items: their exact distance less both clearances in
+    force, in nanometres (negative when the clearances overlap)."""
+
+    a: Blocker
+    b: Blocker
+    free: int
+
+
 @dataclass(frozen=True, slots=True)
 class Outcome:
-    """Complete geometry or an honest reason; diagnostics are not a recommendation."""
+    """Complete geometry or an honest reason; diagnostics are not a recommendation. A ``no-room`` refusal
+    names its ``wall`` and whether it is ``proven``; ``widest`` is the widest free gap between two
+    neighbouring wall items (change c0501, design D4)."""
 
     runs: tuple[tuple[str, Polyline], ...] = ()
     vias: tuple[Point, ...] = ()
     reason: str = ""
     stats: SearchResult | None = None
+    wall: tuple[WallItem, ...] = ()
+    proven: bool = False
+    widest: Gap | None = None
+
+
+def _gap(a: Blocker, b: Blocker) -> int:
+    return thick_gap_floor(a.shape, b.shape) - a.clearance - b.clearance
+
+
+def prove(met: dict[tuple[object, ...], WallItem], start: Point, width: int) -> tuple[bool, Gap | None]:
+    """Whether the wall ``met`` of a ``no-room`` search closes against a track of ``width`` (design D4): the
+    items in order of the angle of their place round ``start``, each free gap between two neighbours (the
+    last and the first included) below ``width``. The widest free gap is returned with its two items."""
+    items = sorted(
+        (item.blocker for item in met.values()),
+        key=lambda b: (atan2(b.where.y - start.y, b.where.x - start.x), b.key),
+    )
+    if not items:
+        return False, None
+    pairs = [(items[i], items[(i + 1) % len(items)]) for i in range(len(items))]
+    gaps = [Gap(a, b, _gap(a, b)) for a, b in pairs]
+    widest = max(gaps, key=lambda g: g.free)
+    return all(g.free < width for g in gaps), widest
 
 
 def _direction(a: Point, b: Point) -> int:
@@ -131,13 +178,29 @@ class _Graph:
         self.heads = _anchors(subject.a.at, limits.grid)
         self.tails = _anchors(subject.b.at, limits.grid)
         self.edges: dict[tuple[State, State], Polyline] = {}
+        self.met: dict[tuple[object, ...], WallItem] = {}
+        self.edge = tuple(Thick((*ring, ring[0]), 0) for ring in rings if len(ring) >= 3)
+
+    def _refused(self, blocker: Blocker) -> None:
+        key = (*blocker.key, blocker.shape.core)
+        held = self.met.get(key)
+        self.met[key] = WallItem(blocker, 1 if held is None else held.refused + 1)
 
     def inside(self, at: Point) -> bool:
         positions = tuple(point_in_ring(at, ring) for ring in self.rings)
         return Location.BOUNDARY not in positions and sum(p is Location.INSIDE for p in positions) % 2 == 1
 
-    def fits(self, layer: int, points: Polyline, width: int, incoming: int = -1) -> bool:
-        if self.stop() is not None or not all(self.inside(p) for p in points):
+    def fits(
+        self, layer: int, points: Polyline, width: int, incoming: int = -1, *, via: bool = False
+    ) -> bool:
+        if self.stop() is not None:
+            return False
+        if not all(self.inside(p) for p in points):
+            outside = next(p for p in points if not self.inside(p))
+            ring = min(self.edge, key=lambda r: (thick_gap_floor(r, Thick((outside,), 2)), r.core))
+            box = thick_bbox(ring)
+            where = Point((box.x0 + box.x1) // 2, (box.y0 + box.y1) // 2)
+            self._refused(Blocker("edge", None, self.job.layers[layer], where, 0, ring))
             return False
         if self.fields is not None and not self.fields.allows(
             self.subject.net, self.job.layers[layer], points, width
@@ -149,10 +212,13 @@ class _Graph:
             or any(not _turn(a, b) for a, b in zip(directions, directions[1:], strict=False))
         ):
             return False
-        return len(points) < 2 or (
-            self.world.fits(self.subject.net, self.job.layers[layer], points, width)
-            and self.world.ends_ok(self.subject.net, self.job.layers[layer], points)
-        )
+        if len(points) < 2:
+            return True
+        found = self.world.blocker(self.subject.net, self.job.layers[layer], points, width, via=via)
+        if found is not None:
+            self._refused(found)
+            return False
+        return self.world.ends_ok(self.subject.net, self.job.layers[layer], points)
 
     def neighbours(self, state: State) -> tuple[tuple[State, int], ...]:
         at = Point(state.x, state.y)
@@ -219,7 +285,7 @@ class _Graph:
             ):
                 probe = (at, Point(at.x + 1, at.y))
                 # Through barrel, including inner layers not allowed for signal tracks.
-                if all(self.fits(i, probe, s.via_diameter) for i in range(len(self.job.layers))):
+                if all(self.fits(i, probe, s.via_diameter, via=True) for i in range(len(self.job.layers))):
                     for layer in self.allowed:
                         if layer != state.layer:
                             add(State(at.x, at.y, layer, 8, state.vias + 1), (), s.via_diameter * 1000)
@@ -238,7 +304,13 @@ class _Graph:
             stop=self.stop,
         )
         if not result.path:
-            return Outcome(reason=result.termination, stats=result)
+            if result.termination != "no-room":
+                return Outcome(reason=result.termination, stats=result)
+            proven, widest = prove(self.met, s.a.at, s.width)
+            wall = tuple(
+                sorted(self.met.values(), key=lambda w: (-w.refused, w.blocker.where.x, w.blocker.where.y))
+            )[:WALL_ITEMS]
+            return Outcome(reason="no-room", stats=result, wall=wall, proven=proven, widest=widest)
         runs: list[tuple[str, Polyline]] = []
         vias: list[Point] = []
         for a, b in zip(result.path, result.path[1:], strict=False):

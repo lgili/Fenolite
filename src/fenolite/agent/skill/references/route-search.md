@@ -53,4 +53,22 @@ fenolite route board --router octilinear --propose --requirements limits.toml --
 proven uncovered. Conservative bounds give no electrical certification or score. Changed
 requirements, roles, profile or project rules invalidate the reviewed plan.
 
+## Route or measure on an existing board
+
+`fenolite path` searches one connection on an existing `.kicad_pcb` or `.PcbDoc` with that board's own
+rules, keep-outs and copper. Ends are `REF-PIN` or `X,Y@LAYER` in mm. `--width W` plans the found copper
+through the mutation protocol; a `.PcbDoc` needs `--gate clone` (edit-session clones, warning
+`route.altium-edit-unconfirmed`: run Altium's DRC). `--widest` measures the widest track that fits and
+never writes: `result.channel` gives `low`/`high` (nm) and the `pinch` gap.
+
+```fenolite-cmd
+fenolite path board.kicad_pcb --net GND --from D1-1 --to 30,15@F.Cu --widest --grid 0.5mm --json
+fenolite path board.PcbDoc --net SIG --from U1-3 --to R2-1 --width 0.3mm --gate clone --dry-run --json
+```
+
+A refusal exits 5 with `result.refusal`: `route.no-path` (the `wall` items and `widest_gap`; `proven`
+only when every neighbour gap is narrower than the track) or `route.path-limit` (bounds stopped the
+search, nothing proven). `route.via-template` means the `.PcbDoc` has no via of that size to clone;
+`route.repour-needed` means `--pours refilled` ignored pours a `.PcbDoc` keeps until Altium repours.
+
 Read next: `route-proposals`, `board-routing`, `board-completion`.

@@ -114,3 +114,38 @@ def keepout_library() -> bytes:
               layers=("F.Cu", "F.Mask", "F.Paste"))  # fmt: skip
     footprint = LibFootprint(FootprintDef(id="fp", name="KO", pads=(pad,)), extra_primitives=extra)
     return write_pcblib([footprint], filename="keepouts.PcbLib")
+
+
+BAND = ((10, 15), (50, 15))
+"""A keep-out track of the Keep-Out layer whose restrictions are 2, tracks only (change c0501)."""
+PADS_ONLY = ((20, 25), (40, 35))
+"""The corners of a keep-out fill of the Keep-Out layer whose restrictions are 24, pads only."""
+
+
+def restricted_document() -> bytes:
+    """The board with a 1 mm keep-out track ``BAND`` (restrictions 2) and a keep-out fill ``PADS_ONLY``
+    (restrictions 24), both on the Keep-Out layer (change c0501)."""
+    from fenolite.backends.altium.libboard import long_id
+
+    original = pcbdoc.free_records
+
+    def free_records(spec: PcbDocSpec, copper: pcbdoc._Copper) -> pcbdoc._Free:  # pyright: ignore[reportPrivateUsage]
+        out = original(spec, copper)
+
+        def at(x: int, y: int) -> tuple[int, int]:
+            return pcbdoc._units(copper.frame(Point(x * MM, y * MM)))  # pyright: ignore[reportPrivateUsage]
+
+        long_layer = long_id(rec.KEEPOUT_LAYER)
+        width = rec.to_units(MM)
+        out.tracks.append(
+            rec.track_record(rec.KEEPOUT_LAYER, at(*BAND[0]), at(*BAND[1]), width, keepout=(long_layer, 2))
+        )
+        a, b = (at(*p) for p in PADS_ONLY)
+        out.fills.append(rec.fill_record(rec.KEEPOUT_LAYER, long_layer, a, b, 0.0, keepout=24))
+        return out
+
+    pcbdoc.free_records = free_records  # type: ignore[assignment]
+    try:
+        return write_pcbdoc(PcbDocSpec(outline=BOARD), filename="restricted.PcbDoc")
+    finally:
+        pcbdoc.free_records = original  # type: ignore[assignment]

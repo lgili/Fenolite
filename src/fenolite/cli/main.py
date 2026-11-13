@@ -757,6 +757,10 @@ def _perform(command: Command, args: argparse.Namespace, ctx: Context, started: 
             else f"{n_failures} finding(s) at the failure threshold"
         )
         error = CliError("FEN-5001", detail, where=command.name).info()
+    elif code is ExitCode.OK and any(issue.code in outcome.fail_on_codes for issue in outcome.issues):
+        named = sorted({issue.code for issue in outcome.issues if issue.code in outcome.fail_on_codes})
+        code = ExitCode.FINDINGS
+        error = CliError("FEN-5001", f"refused: {', '.join(named)}", where=command.name).info()
     elif code is ExitCode.OK and outcome.fail_on_warning:
         n_warnings = sum(
             1 for issue in outcome.issues if issue.severity == "warning" and issue.code != "cli.deprecated"

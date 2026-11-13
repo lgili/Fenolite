@@ -50,6 +50,7 @@
   "schemas/fenolite.pads.v0.json": "4d17126406b99ee02bc860800e9ae48f518676af878e2a9fa1dc6a4435413234",
   "schemas/fenolite.panel.v0.json": "28b0e039fd95ea9a1e140eac8e893352a7fc5b70f908d46994f0ad5730e0427b",
   "schemas/fenolite.parity.v0.json": "03d4c915118b51d0ab4f61de2a1e9a1822decf882365a9a64ee0fe0f0e0586f3",
+  "schemas/fenolite.path.v0.json": "e8409c39a67f75ef06eb1c52474a790c006977302d7bec198df320e2af7a5b9b",
   "schemas/fenolite.pick.v0.json": "f92871b663041aa099c269d374c31900f968a27c48ca7f25f965648544b80bb6",
   "schemas/fenolite.place.v0.json": "a97688aeab31570d76327e27c9b645143d740abe84e4fe0f18ee5ea52a9a1db2",
   "schemas/fenolite.placement-optimization-result.v0.json": "b7d24fc6fba24612974c22b09bacd7d00f4e1b4dd8b4a1c856971a8eb31c65b3",

@@ -51,6 +51,7 @@ remain under their model-version directory. Internal formats carry no release pr
 | `pads` | `fenolite.result.pads.v0` | `fenolite.result.pads.v1` | `fenolite.cli.results.analyses:PadsResult` |
 | `panel` | `fenolite.result.panel.v0` | `fenolite.result.panel.v1` | `fenolite.cli.results.writers:PanelResult` |
 | `parity` | `fenolite.result.parity.v0` | `fenolite.result.parity.v1` | `fenolite.cli.results.checks:ParityResult` |
+| `path` | `fenolite.result.path.v0` | `fenolite.result.path.v1` | `fenolite.cli.results.edits:PathResult` |
 | `pick` | `fenolite.result.pick.v0` | `fenolite.result.pick.v1` | `fenolite.cli.results.discovery:PickResult` |
 | `place` | `fenolite.result.place.v0` | `fenolite.result.place.v1` | `fenolite.cli.results.edits:PlaceResult` |
 | `pnp` | `fenolite.result.pnp.v0` | `fenolite.result.pnp.v1` | `fenolite.cli.results.outputs:PnpResult` |

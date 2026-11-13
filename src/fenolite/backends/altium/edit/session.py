@@ -346,6 +346,12 @@ class Session:
                 return None, [_issue(refusal.code, refusal.message, refusal.where)]
         return state, []
 
+    def pending(self) -> tuple[bytes | None, list[Issue]]:
+        """The bytes a commit of the queued operations would write before its read-back, or ``None`` and
+        the issues of a refused operation (change c0501, D1). Nothing is written and the queue stays."""
+        state, issues = self.apply()
+        return (None, issues) if state is None else (state.data(), [])
+
     def commit(self, out: str | Path, *, backup: bool = True) -> Receipt:
         labels = tuple(q.label for q in self.queued)
         state, issues = self.apply()

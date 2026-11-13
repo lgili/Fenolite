@@ -1,0 +1,428 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.result.path.v0",
+  "title": "PathResult",
+  "type": "object",
+  "properties": {
+    "plan": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolPlan"
+      }
+    },
+    "plan_id": {
+      "type": "string"
+    },
+    "issues_summary": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProtocolIssueSummary"
+      }
+    },
+    "recovery": {
+      "$ref": "#/$defs/ProtocolRecovery"
+    },
+    "page": {
+      "$ref": "#/$defs/ProtocolPage"
+    },
+    "board": {
+      "type": "string"
+    },
+    "channel": {
+      "$ref": "#/$defs/PathChannel"
+    },
+    "net": {
+      "type": "string"
+    },
+    "path": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PathFound"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "refusal": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PathRefusal"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "PathBlocker": {
+      "type": "object",
+      "properties": {
+        "at": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "clearance": {
+          "type": "integer"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "net": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "at",
+        "clearance",
+        "kind",
+        "label",
+        "layer",
+        "net"
+      ]
+    },
+    "PathChannel": {
+      "type": "object",
+      "properties": {
+        "grid_limited": {
+          "type": "boolean"
+        },
+        "high": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "low": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "path": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PathFound"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pinch": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PathGap"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "undecided": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "grid_limited",
+        "high",
+        "low",
+        "path",
+        "pinch",
+        "undecided"
+      ]
+    },
+    "PathFound": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "type": "integer"
+        },
+        "runs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PathRun"
+          }
+        },
+        "vias": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          }
+        },
+        "width": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "length",
+        "runs",
+        "vias",
+        "width"
+      ]
+    },
+    "PathGap": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "$ref": "#/$defs/PathBlocker"
+        },
+        "b": {
+          "$ref": "#/$defs/PathBlocker"
+        },
+        "free": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "a",
+        "b",
+        "free"
+      ]
+    },
+    "PathRefusal": {
+      "type": "object",
+      "properties": {
+        "proven": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "wall": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PathWallItem"
+          }
+        },
+        "widest_gap": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PathGap"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "proven",
+        "reason",
+        "wall",
+        "widest_gap"
+      ]
+    },
+    "PathRun": {
+      "type": "object",
+      "properties": {
+        "layer": {
+          "type": "string"
+        },
+        "points": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "layer",
+        "points"
+      ]
+    },
+    "PathWallItem": {
+      "type": "object",
+      "properties": {
+        "at": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "clearance": {
+          "type": "integer"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "net": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "refused": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "at",
+        "clearance",
+        "kind",
+        "label",
+        "layer",
+        "net",
+        "refused"
+      ]
+    },
+    "ProtocolIssueSummary": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "by_severity": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "counts indexed by severity"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "count",
+        "by_severity"
+      ]
+    },
+    "ProtocolPage": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "next": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "limit",
+        "offset",
+        "total",
+        "next"
+      ]
+    },
+    "ProtocolPlan": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "overwrite": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "kind",
+        "bytes",
+        "sha256",
+        "overwrite"
+      ]
+    },
+    "ProtocolRecovery": {
+      "type": "object",
+      "properties": {
+        "failed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "preserved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "failed",
+        "preserved"
+      ]
+    }
+  }
+}

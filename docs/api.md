@@ -74,7 +74,7 @@ project folder.
 | Name | Returns | What |
 | --- | --- | --- |
 | `read_design(path, *, kicad_cli=None, timeout=300.0)` | `ReadSide` | any design that `fenolite equivalent` reads: a board or document, a KiCad project or folder, a root schematic with its sheets, a `.fenolite/` folder |
-| `read_board(path)` | `Board` | a board with its board-frame pads |
+| `read_board(path)` | `Board` | a board with its board-frame pads; given an Altium edit `Session`, the board of its pending edits (`Session.pending()`, with `api.pending-edit`; change c0501) |
 | `connectivity(board, *, nets=None)` | `ConnectivityReport` | the islands and open connections of each net, as `fenolite net` and `fenolite ready` count them (`docs/analyses.md`, "Open connections") |
 | `islands(board, *, nets=None, without=())` | `dict[str, tuple[NetIsland, ...]]` | the counted islands of each net with their `members` (`IslandItem`: `kind`, `id`, `where`, `layers`), after leaving out the tracks, arcs, vias or zones that `without` names (model id, native id or locator; an unknown name raises `KeyError`); `docs/analyses.md`, "Open connections" |
 | `analyze_current(board, *, temp_rise_mk=None, copper_thickness=None, via_plating=None, requirements=None)` | `AnalysisReport` | the current capacity of each track, arc and via, as `fenolite analyze --kinds current` |
@@ -140,6 +140,33 @@ matches the record it names (`tests/unit/api/test_frames_c0500.py`).
 Explicit `equivalent(..., level="S")` compares actual drawn schematics and resolved connectivity, with
 one schematic level in the existing result shape. Integer/default requests retain their exact result
 bytes. See `docs/equivalence.md` for input and option constraints.
+
+## Route search and free channel
+
+Change c0501. `board` is a `Board`, the path of a `.kicad_pcb`, a KiCad project or folder or a `.PcbDoc`,
+or an Altium edit `Session` (its pending edits). The routing job takes the board's own rules (`design_rules`
+of its backend, `ClearanceResolver` as the clearance in force) and rule areas. `start` and `end` are each
+`REF-PIN`, `X,Y@LAYER` in millimetres, or a `(Point, layer)` pair. Nothing is written and no process is
+started; lengths are integer nanometres.
+
+| Name | Returns | What |
+| --- | --- | --- |
+| `find_route(board, *, net, start, end, width, layers=None, grid=100_000, max_states=200_000, max_vias=2, pours=None, timeout=None)` | `RouteSearch` | one connection by the bounded search of `routing.search` |
+| `free_channel(board, *, net, start, end, layers=None, grid=100_000, max_states=200_000, max_vias=0, resolution=10_000, pours=None, timeout=None)` | `Channel` | the widest track that fits, bracketed by `routing.channel.widest` |
+
+- **`RouteSearch`** (frozen): `board`, `found` (`RouteFound` or `None`), `refusal` (`RouteRefusal` or
+  `None`), `issues` (`route.no-path`, `route.path-limit`, `route.repour-needed`) and `evidence`.
+- **`RouteFound`** (frozen): `net`, `width`, `runs` (layer, points), `vias`, `via_diameter`, `via_drill`,
+  `length`; `result(design)` gives the copper as a `RoutingResult` for `routing.merge.apply`, and
+  `queue_on(session)` queues it on an Altium edit session as `clone` operations (one per segment, one per
+  via; `route.via-template` and nothing queued when no via of the net has the via size) and declares the
+  net's connectivity.
+- **`RouteRefusal`** (frozen): `reason`, `proven`, `wall` (`WallItem`: `blocker`, `refused`) and `widest`
+  (`Gap`: `a`, `b`, `free`).
+- **`Channel`** (frozen): `board`, `low` (`None`: no path at the smallest width tried), `high`,
+  `grid_limited`, `undecided`, `pinch` (`Gap`), `path` (`RouteFound` at `low`), `issues` and `evidence`.
+- An unknown pad, net or layer raises `EndpointError` (a `SideUsageError`) with the closest names in its hint.
+  See `docs/routing.md`, "Routing an existing board" and "Free channel".
 
 ## Trial edits
 
