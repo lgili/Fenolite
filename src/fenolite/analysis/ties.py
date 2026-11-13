@@ -232,9 +232,9 @@ def _nodes(
     return [grouped[key] for key in sorted(grouped)] + fills
 
 
-def _names(design: Design) -> dict[str, set[str]]:
+def item_names(design: Design) -> dict[str, set[str]]:
     """The names a user may give a track, an arc, a via or a zone: its model id, its native ids and its
-    locator, per model id."""
+    locator, per model id (public since change c0500: ``net_islands(without=)`` resolves by it)."""
     board = design.board
     assert board is not None
     found: dict[str, set[str]] = {}
@@ -483,7 +483,7 @@ def analyze_ties(
         return TieReport()
     records = tuple(pads or ())
     copper = net_copper(design, pads=pads, arc_tol=arc_tol)
-    names = _names(design)
+    names = item_names(design)
     rows: list[TieRow] = []
     issues: list[Issue] = []
     for tie in ties:
@@ -573,4 +573,5 @@ __all__ = [
     "TieRow",
     "analyze_ties",
     "isolation_islands",
+    "item_names",
 ]

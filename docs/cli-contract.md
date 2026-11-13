@@ -4237,6 +4237,15 @@ are open.
   Fenolite's choice and may differ from the items KiCad names; fills are judged as stored. `fenolite
   check` stays the gate, with KiCad's DRC.
 
+- **`--islands`** (change c0500) adds `result.net.island_list`: one entry per counted island, each with
+  `pads`, `members` (`kind`, `id`, `where`, `layers`, one per pad, track, arc, via and fill) and `zones`.
+  `islands` stays the count. **`--without ITEM[,ITEM...]`** (repeatable, implies `--islands`) leaves out
+  the tracks, arcs, vias or zones it names (model id, native id or locator) and adds `result.net.cut`:
+  `removed` (the `where` of each), `islands_before`, `islands_after`, `split` and, when the net has a zone,
+  `note` "saved fills are not repoured". A locator is valid for the read that gave it. An unknown item
+  exits 2 with `FEN-2001` and the closest names in the hint; either option without `NAME` exits 2 with
+  `FEN-2001`. `paged` covers `net.island_list`.
+
 Every length is integer nanometres, in the frame of the board file. An unknown net exits 2 with
 `FEN-2001`, and the hint names the closest net names. The evidence is the lowest of the board reader,
 of the board frame and of the open-connections query (`H-K-CONN-PARITY`); an item that the query could

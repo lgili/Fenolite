@@ -5583,6 +5583,32 @@
       "experimental": false,
       "mutates": false,
       "options": {
+        "--islands": {
+          "aliases": [
+            "--islands"
+          ],
+          "choices": null,
+          "default": false,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": 0,
+          "positional": false,
+          "required": false,
+          "type": "boolean"
+        },
+        "--without": {
+          "aliases": [
+            "--without"
+          ],
+          "choices": null,
+          "default": [],
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": false,
+          "required": false,
+          "type": "string"
+        },
         "name": {
           "aliases": [
             "name"
@@ -5610,7 +5636,7 @@
           "type": "string"
         }
       },
-      "paged": "nets|net.pads"
+      "paged": "nets|net.pads|net.island_list"
     },
     "netlist": {
       "default_limit": null,
@@ -17399,6 +17425,107 @@
           }
         ]
       },
+      "Frame": {
+        "fields": {
+          "native": {
+            "annotation": "bool"
+          },
+          "origin": {
+            "annotation": "Point"
+          },
+          "y_up": {
+            "annotation": "bool"
+          }
+        },
+        "kind": "class",
+        "methods": {
+          "__eq__": {
+            "parameters": [
+              {
+                "annotation": null,
+                "default": null,
+                "kind": "POSITIONAL_OR_KEYWORD",
+                "name": "other",
+                "required": true
+              }
+            ]
+          },
+          "from_board": {
+            "parameters": [
+              {
+                "annotation": "Point",
+                "default": null,
+                "kind": "POSITIONAL_OR_KEYWORD",
+                "name": "p",
+                "required": true
+              }
+            ]
+          },
+          "from_native": {
+            "parameters": [
+              {
+                "annotation": "int",
+                "default": null,
+                "kind": "POSITIONAL_OR_KEYWORD",
+                "name": "x",
+                "required": true
+              },
+              {
+                "annotation": "int",
+                "default": null,
+                "kind": "POSITIONAL_OR_KEYWORD",
+                "name": "y",
+                "required": true
+              }
+            ]
+          },
+          "to_board": {
+            "parameters": [
+              {
+                "annotation": "Point",
+                "default": null,
+                "kind": "POSITIONAL_OR_KEYWORD",
+                "name": "p",
+                "required": true
+              }
+            ]
+          },
+          "to_native": {
+            "parameters": [
+              {
+                "annotation": "Point",
+                "default": null,
+                "kind": "POSITIONAL_OR_KEYWORD",
+                "name": "p",
+                "required": true
+              }
+            ]
+          }
+        },
+        "parameters": [
+          {
+            "annotation": "Point",
+            "default": null,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "origin",
+            "required": true
+          },
+          {
+            "annotation": "bool",
+            "default": null,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "y_up",
+            "required": true
+          },
+          {
+            "annotation": "bool",
+            "default": false,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "native",
+            "required": false
+          }
+        ]
+      },
       "ReadSide": {
         "fields": {
           "backend": {
@@ -17930,6 +18057,18 @@
           }
         ]
       },
+      "altium_to_nm": {
+        "kind": "function",
+        "parameters": [
+          {
+            "annotation": "int",
+            "default": null,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "u",
+            "required": true
+          }
+        ]
+      },
       "analyze_current": {
         "kind": "function",
         "parameters": [
@@ -18021,6 +18160,18 @@
             "kind": "KEYWORD_ONLY",
             "name": "insulation",
             "required": false
+          }
+        ]
+      },
+      "board_frame": {
+        "kind": "function",
+        "parameters": [
+          {
+            "annotation": "BoardInput",
+            "default": null,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "board",
+            "required": true
           }
         ]
       },
@@ -18189,6 +18340,89 @@
             "default": null,
             "kind": "KEYWORD_ONLY",
             "name": "presentation",
+            "required": false
+          }
+        ]
+      },
+      "format_length": {
+        "kind": "function",
+        "parameters": [
+          {
+            "annotation": "Nm",
+            "default": null,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "nm",
+            "required": true
+          },
+          {
+            "annotation": "str",
+            "default": "mm",
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "unit",
+            "required": false
+          },
+          {
+            "annotation": "int | None",
+            "default": null,
+            "kind": "KEYWORD_ONLY",
+            "name": "places",
+            "required": false
+          }
+        ]
+      },
+      "islands": {
+        "kind": "function",
+        "parameters": [
+          {
+            "annotation": "BoardInput",
+            "default": null,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "board",
+            "required": true
+          },
+          {
+            "annotation": "Collection[str] | None",
+            "default": null,
+            "kind": "KEYWORD_ONLY",
+            "name": "nets",
+            "required": false
+          },
+          {
+            "annotation": "Collection[str]",
+            "default": [],
+            "kind": "KEYWORD_ONLY",
+            "name": "without",
+            "required": false
+          }
+        ]
+      },
+      "nm_to_altium": {
+        "kind": "function",
+        "parameters": [
+          {
+            "annotation": "Nm",
+            "default": null,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "nm",
+            "required": true
+          }
+        ]
+      },
+      "parse_length": {
+        "kind": "function",
+        "parameters": [
+          {
+            "annotation": "str",
+            "default": null,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "text",
+            "required": true
+          },
+          {
+            "annotation": "str | None",
+            "default": null,
+            "kind": "KEYWORD_ONLY",
+            "name": "default_unit",
             "required": false
           }
         ]

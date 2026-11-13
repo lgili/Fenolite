@@ -138,6 +138,16 @@ tool; `pads` are the board-frame pad records of the backend, as for every analys
   connection holds its two ends (`kind`, `where`, `position`, `layers`) and `length`, the straight
   distance in nanometres. A missing via shows as two tracks 0 nm apart on two layers. The result does not
   depend on the order of the board's items.
+- **Members and removal** (change c0500). `analysis.connectivity.net_islands(design, *, pads, nets=None,
+  without=())` and `fenolite.api.islands` give each counted island with its `members`, one `IslandItem`
+  (`kind`, `id`, `where`, `layers`) per track, arc, via, pad or fill, and its `zones`. `without` names
+  tracks, arcs, vias or zones by model id, native id or locator (the names of `ties.item_names`, as
+  `--tie-item` takes them); their copper is left out before grouping, and a name that matches nothing
+  raises `KeyError`. Pads cannot be removed: `--kinds ties --tie REF` covers a part. A locator is valid
+  for the read that gave it, since an edit renumbers records.
+- **No repour after a cut.** Zones are judged on their saved fills. After a removal a fill keeps its saved
+  shape: it does not grow into the freed space, and its thermals stay where they were saved. A cut can
+  show an island that a repour would join again.
 - **A net of one pad** has one island and nothing open; so has each net `unconnected-(…)` that a built
   board holds for a pin on no net.
 

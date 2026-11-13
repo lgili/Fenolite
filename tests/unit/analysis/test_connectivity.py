@@ -248,3 +248,58 @@ def test_islands_agree_with_the_equivalence_check() -> None:
         held = found[ids[net.name]]
         assert len(held) == net.islands, net.name
         assert sorted(piece.pads for piece in held) == sorted(net.pads), net.name
+
+
+# --- members and removal (change c0500) ---------------------------------------------------------------
+
+
+def _bench() -> Design:
+    return ob.open_bench(10).design
+
+
+def _islands(design: Design, net: str, without: tuple[str, ...] = ()) -> tuple[conn.NetIsland, ...]:
+    return conn.net_islands(design, pads=board_pads(design), nets=[net], without=without)[net]
+
+
+def test_members_of_each_island() -> None:
+    """Scenario "Members of each island": the stub net holds a pad-and-stub island and a far pad."""
+    design = _bench()
+    near, far = _islands(design, ob.net_name("stub"))
+    assert [m.kind for m in near.members] == ["pad", "track"] and near.members[0].where.startswith("RA")
+    track = near.members[1]
+    assert track.layers == ("F.Cu",) and track.where and track.id
+    assert [(m.kind, m.where) for m in far.members] == [("pad", far.pads[0])]
+
+
+def _joined(design: Design) -> tuple[str, list[str]]:
+    net = ob.net_name("joined")
+    ids = {n.id for n in design.circuit.nets if n.name == net}
+    assert design.board is not None
+    return net, [t.id for t in design.board.tracks if t.net_id in ids]
+
+
+def test_a_cut_splits_the_net() -> None:
+    """Scenario "A cut splits the net"."""
+    design = _bench()
+    net, tracks = _joined(design)
+    assert len(_islands(design, net)) == 1
+    after = _islands(design, net, tuple(tracks))
+    assert len(after) == 2 and all(m.kind == "pad" for island in after for m in island.members)
+
+
+def test_a_parallel_path_keeps_it_whole() -> None:
+    """Scenario "A parallel path keeps it whole": a copy of the track under another id."""
+    design = _bench()
+    net, tracks = _joined(design)
+    assert design.board is not None
+    first = next(t for t in design.board.tracks if t.id == tracks[0])
+    twin = dataclasses.replace(first, id="t2", native_ids={}, provenance=None)
+    board = dataclasses.replace(design.board, tracks=(*design.board.tracks, twin))
+    [island] = _islands(dataclasses.replace(design, board=board), net, tuple(tracks))
+    assert len(island.pads) == 2 and ("track", "t2") in {(m.kind, m.id) for m in island.members}
+
+
+def test_an_unknown_name_raises() -> None:
+    """Scenario "An unknown name"."""
+    with pytest.raises(KeyError, match="t9"):
+        _islands(_bench(), ob.net_name("joined"), ("t9",))

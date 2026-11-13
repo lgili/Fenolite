@@ -21,12 +21,14 @@ from fenolite.api.board import (
     analyze_current,
     analyze_distances,
     connectivity,
+    islands,
     read_board,
     read_design,
 )
 from fenolite.api.commands import Reply, run
 from fenolite.api.conversion import ConversionResult, convert
 from fenolite.api.equivalence import EquivalenceResult, Side, equivalent
+from fenolite.api.frames import Frame, altium_to_nm, board_frame, format_length, nm_to_altium, parse_length
 from fenolite.api.sides import (
     ReadSide,
     SideError,
@@ -42,6 +44,7 @@ __all__ = [
     "ConversionResult",
     "EquivalenceResult",
     "ExtraMissingError",
+    "Frame",
     "ReadSide",
     "Reply",
     "Side",
@@ -50,11 +53,17 @@ __all__ = [
     "SideUsageError",
     "ToolMajorError",
     "ToolMissingError",
+    "altium_to_nm",
     "analyze_current",
     "analyze_distances",
+    "board_frame",
     "connectivity",
     "convert",
     "equivalent",
+    "format_length",
+    "islands",
+    "nm_to_altium",
+    "parse_length",
     "read_board",
     "read_design",
     "run",

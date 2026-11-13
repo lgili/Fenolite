@@ -1282,6 +1282,20 @@ def test_altium_teaches_adding_a_part_to_a_project() -> None:
         assert word in text, word
 
 
+def test_altium_teaches_the_frame_helpers() -> None:
+    """Change c0500: the board frame and the unit helpers of ``fenolite.api``."""
+    text = (SKILL / "references/altium.md").read_text()
+    for word in ("`fenolite.api.board_frame(board)`", "`to_board(p)`", "`altium_to_nm`", "`nm_to_altium`"):
+        assert word in text, word
+
+
+def test_grounds_teaches_net_islands_and_cuts() -> None:
+    """Change c0500: ``net NAME --islands`` and ``--without`` on the grounds page."""
+    text = (SKILL / "references/board-grounds.md").read_text()
+    for word in ("`net NAME --islands`", "`--without`", "`cut.split`", "net board GND --islands"):
+        assert word in text, word
+
+
 def test_viewer_teaches_actual_project_instance_context() -> None:
     page = guide.page("viewer")
     for words in (

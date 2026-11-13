@@ -49,15 +49,17 @@ in `result.net.cut.note` when the net has a zone.
 
 ```json
 {"net": {"...": "the existing view",
-  "islands": [{"pads": ["R1-1", "R2-2"],
+  "island_list": [{"pads": ["R1-1", "R2-2"],
                "members": [{"kind": "track", "id": "…", "where": "Tracks6/Data#12", "layers": ["F.Cu"]}],
                "zones": ["…"]}],
   "cut": {"removed": ["Tracks6/Data#12"], "islands_before": 1, "islands_after": 2, "split": true,
           "note": "saved fills are not repoured"}}}
 ```
 
+The list is `island_list`: `islands` already is the island count of the view (an int), and the
+existing keys stay unchanged (decided 2026-11-13 by the implementer, under the maintainer's delegation).
 `--islands` needs `NAME`, because islands of every net would be a page of thousands of items. Without
-`NAME` it exits 2 (`FEN-2001`). `--without` implies `--islands`. `paged` gains `net.islands`. The view's
+`NAME` it exits 2 (`FEN-2001`). `--without` implies `--islands`. `paged` gains `net.island_list`. The view's
 existing keys are unchanged.
 
 ## D5 Frames and units
@@ -107,6 +109,6 @@ the authored documents, so the two cannot drift.
 ## Risks
 
 - `members` makes the `net` reply large on a ground pour with thousands of track pieces. Mitigation:
-  `--islands` needs one net and `paged` covers `net.islands`. `--fields` already trims.
+  `--islands` needs one net and `paged` covers `net.island_list`. `--fields` already trims.
 - Locators are `<Storage>/Data#<index>`, which an edit renumbers. A name from one read is valid for that
   read only, and the docs say so.

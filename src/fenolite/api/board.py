@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from fenolite.analysis.boundary import OVERLAP_NEEDS_GEO, board_boundary
-from fenolite.analysis.connectivity import ConnectivityReport
+from fenolite.analysis.connectivity import ConnectivityReport, NetIsland, net_islands
 from fenolite.analysis.connectivity import connectivity as net_connectivity
 from fenolite.analysis.current import analyze_current as current_report
 from fenolite.analysis.distance import analyze_distances as distance_report
@@ -122,6 +122,17 @@ def connectivity(board: BoardInput, *, nets: Collection[str] | None = None) -> C
     ready`` count them; ``nets`` limits the report to the nets of those names."""
     read = _board(board)
     return net_connectivity(read.design, pads=read.pads, nets=nets)
+
+
+def islands(
+    board: BoardInput, *, nets: Collection[str] | None = None, without: Collection[str] = ()
+) -> dict[str, tuple[NetIsland, ...]]:
+    """The counted islands of each net with their members (``analysis.connectivity.net_islands``);
+    ``without`` names tracks, arcs, vias or zones (model id,
+    native id or locator) whose copper is left out first, and an unknown name raises ``KeyError`` (change
+    c0500). Saved fills are not poured again after a cut."""
+    read = _board(board)
+    return net_islands(read.design, pads=read.pads, nets=nets, without=without)
 
 
 def analyze_current(

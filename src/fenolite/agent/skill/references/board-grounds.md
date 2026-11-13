@@ -66,11 +66,15 @@ that floods past a gap creates a second tie, and no other check notices it.
 - **Give each decoupling capacitor a direct ground via,** not one thermal spoke. Join a control ground
   pour to its other face with several vias, not one.
 
+`net NAME --islands` lists each island with its members; `--without` names tracks, arcs, vias or zones
+to cut and reports `cut.split`. Saved fills are not repoured, so pour again before you trust a split.
+
 ```fenolite-cmd
 fenolite analyze board.kicad_pcb --kinds ties --tie NT1 --domains PWR=Q*,CTL=U* --json
 fenolite analyze board.kicad_pcb --kinds domains --barrier U5 --json
 fenolite analyze board.kicad_pcb --kinds ties --sense ISENSE_P,ISENSE_N --json
-fenolite net board GND --json
+fenolite net board GND --islands --json
+fenolite net board GND --without ID[,ID] --json
 fenolite pads board R10 --json
 ```
 

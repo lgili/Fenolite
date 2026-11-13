@@ -190,10 +190,12 @@ Back to [the command index](commands.md).
 
 ## net
 
-`fenolite net PATH [NAME]`
+`fenolite net [OPTIONS] PATH [NAME]`
 
 - `PATH`: a .kicad_pcb, a .kicad_pro or a project folder
 - `NAME`: the net to describe (default: list all)
+- `--islands`: with NAME: list each island of the net with its members
+- `--without ITEM[,ITEM...]` (repeatable): with NAME: the islands without these tracks, arcs, vias or zones (id, native id or locator)
 
 ## netlist
 

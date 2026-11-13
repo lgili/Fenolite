@@ -59,8 +59,17 @@
             "$ref": "#/$defs/NetNetCopperItem"
           }
         },
+        "cut": {
+          "$ref": "#/$defs/NetNetCut"
+        },
         "fill_islands": {
           "type": "integer"
+        },
+        "island_list": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NetNetIslandListItem"
+          }
         },
         "islands": {
           "type": "integer"
@@ -153,6 +162,92 @@
         "layer",
         "length",
         "tracks"
+      ]
+    },
+    "NetNetCut": {
+      "type": "object",
+      "properties": {
+        "islands_after": {
+          "type": "integer"
+        },
+        "islands_before": {
+          "type": "integer"
+        },
+        "note": {
+          "type": "string"
+        },
+        "removed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "split": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "islands_after",
+        "islands_before",
+        "removed",
+        "split"
+      ]
+    },
+    "NetNetIslandListItem": {
+      "type": "object",
+      "properties": {
+        "members": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NetNetIslandListItemMembersItem"
+          }
+        },
+        "pads": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "zones": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "members",
+        "pads",
+        "zones"
+      ]
+    },
+    "NetNetIslandListItemMembersItem": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "where": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "id",
+        "kind",
+        "layers",
+        "where"
       ]
     },
     "NetNetOpenItem": {

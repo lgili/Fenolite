@@ -453,11 +453,37 @@ class NetNetZonesItem:
 
 
 @dataclass(frozen=True, kw_only=True)
+class NetNetCut:
+    islands_after: int
+    islands_before: int
+    note: str = field(metadata={"optional": True})
+    removed: list[str]
+    split: bool
+
+
+@dataclass(frozen=True, kw_only=True)
+class NetNetIslandListItemMembersItem:
+    id: str
+    kind: str
+    layers: list[str]
+    where: str
+
+
+@dataclass(frozen=True, kw_only=True)
+class NetNetIslandListItem:
+    members: list[NetNetIslandListItemMembersItem]
+    pads: list[str]
+    zones: list[str]
+
+
+@dataclass(frozen=True, kw_only=True)
 class NetNet:
     box: NetNetBox
     class_: str | None = field(metadata={"name": "class"})
     copper: list[NetNetCopperItem]
+    cut: NetNetCut = field(metadata={"optional": True})
     fill_islands: int
+    island_list: list[NetNetIslandListItem] = field(metadata={"optional": True})
     islands: int
     name: str
     open: list[NetNetOpenItem]

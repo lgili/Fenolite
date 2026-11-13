@@ -152,7 +152,7 @@ def _items(shapes: Sequence[CopperShape], anchors: _Anchors) -> list[_Item]:
     fills: list[_Item] = []
     for shape in shapes:
         if shape.kind == "fill":
-            fills.append(_Item("fill", shape.where, [(shape.layer, shape.shape)]))
+            fills.append(_Item("fill", shape.where, [(shape.layer, shape.shape)], entity_id=shape.entity_id))
             continue
         key = (shape.kind, shape.entity_id, shape.where)
         item = grouped.get(key)
@@ -350,6 +350,47 @@ def connectivity(
 
 
 @dataclass(frozen=True, slots=True)
+class IslandItem:
+    """One item of an island (change c0500): its kind (``pad``, ``track``, ``arc``, ``via``, ``fill``), its
+    model id (a fill's is its zone's), ``where`` (``REF-PIN`` for a pad, else the provenance locator, the
+    names ``check`` and ``analyze`` use) and its sorted copper layers. A locator names the item in the read
+    it came from only: an edit renumbers it."""
+
+    kind: str
+    id: str
+    where: str
+    layers: tuple[str, ...]
+
+
+def _members(items: Sequence[_Item]) -> tuple[IslandItem, ...]:
+    merged: dict[tuple[str, str, str], set[str]] = defaultdict(set)
+    for item in items:
+        merged[item.kind, item.entity_id, item.where].update(layer for layer, _ in item.shapes)
+    found = [
+        IslandItem(kind, ident, where, tuple(sorted(layers)))
+        for (kind, ident, where), layers in merged.items()
+    ]
+    return tuple(sorted(found, key=lambda m: (m.kind, m.where, m.id)))
+
+
+def removed_ids(design: Design, without: Collection[str]) -> set[str]:
+    """The model ids of the tracks, arcs, vias and zones that ``without`` names (model id, native id or
+    locator, as ``--tie-item`` takes them); ``KeyError`` for a name that matches nothing."""
+    from fenolite.analysis.ties import item_names
+
+    if not without:
+        return set()
+    names = item_names(design) if design.board is not None else {}
+    out: set[str] = set()
+    for name in without:
+        found = {ident for ident, held in names.items() if name in held}
+        if not found:
+            raise KeyError(name)
+        out |= found
+    return out
+
+
+@dataclass(frozen=True, slots=True)
 class NetIsland:
     """One counted island of a net with what it is made of (change c0280): its pads (``REF-PIN``), its
     anchors as the ends of ``OpenConnection`` spell them, its items as ``(kind, entity_id)`` (``fill`` for a
@@ -360,6 +401,9 @@ class NetIsland:
     ends: tuple[LinkEnd, ...]
     items: frozenset[tuple[str, str]]
     zones: frozenset[str]
+    members: tuple[IslandItem, ...] = ()
+    """One ``IslandItem`` per pad, track, arc, via and fill of the island, sorted by kind, ``where`` and id
+    (change c0500)."""
 
     def holds(self, end: LinkEnd) -> bool:
         """Whether ``end`` is one of the island's anchors."""
@@ -372,9 +416,13 @@ def net_islands(
     pads: Sequence[BoardPad] | None,
     nets: Collection[str] | None = None,
     pour: PourCopper | None = None,
+    without: Collection[str] = (),
 ) -> dict[str, tuple[NetIsland, ...]]:
-    """The counted islands of each net, as ``connectivity`` counts them, with their items and zones (change
-    c0280, for the subjects of ``fenolite route --propose``)."""
+    """The counted islands of each net, as ``connectivity`` counts them, with their items, zones and
+    members (change c0280, for the subjects of ``fenolite route --propose``). ``without`` names tracks,
+    arcs, vias or zones whose copper is left out first (change c0500); ``KeyError`` for an unknown name.
+    shortcut: saved fills are not repoured after a cut; pass pour= when the pour engine is wanted."""
+    cut = removed_ids(design, without)
     copper = net_copper(design, pads=pads) if pour is None else pour.copper
     anchors = _anchors(design, pads)
     wanted = None if nets is None else set(nets)
@@ -385,6 +433,8 @@ def net_islands(
             continue
         poured = [i for i in pour.islands if i.net == name] if pour is not None else []
         rows: list[NetIsland] = []
+        if cut:
+            shapes = [s for s in shapes if s.kind == "pad" or s.entity_id not in cut]
         for members in _groups(shapes, anchors, [i.joins for i in poured]):
             if not any(item.kind in COUNTED for item in members):
                 continue
@@ -399,6 +449,7 @@ def net_islands(
                     tuple(sorted((end for item in members for end in _ends(item)), key=_end_key)),
                     frozenset((item.kind, item.entity_id) for item in members),
                     frozenset(zones),
+                    _members(members),
                 )
             )
         rows.sort(key=lambda island: (island.pads, [_end_key(end) for end in island.ends]))
@@ -408,6 +459,7 @@ def net_islands(
 
 __all__ = [
     "COUNTED",
+    "IslandItem",
     "EVIDENCE",
     "POUR_EVIDENCE",
     "ConnectivityReport",

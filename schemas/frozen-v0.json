@@ -45,7 +45,7 @@
   "schemas/fenolite.model.v0/schematic.json": "a050e795711f85a773670f320e578e010e394acf76523653ccdd35d67d005151",
   "schemas/fenolite.models.v0.json": "aebc308fc6a65e70025fb97189feda27a573abab828c611454c1dad04458f9f7",
   "schemas/fenolite.neighbors.v0.json": "b3746927a9a3e007a2153cdaaeb43037e87e1916b4950c9d125eb0a44edce834",
-  "schemas/fenolite.net.v0.json": "935d438287bfd5539e9081f278c61b61d499dc92db0ce5d1fa291f87125ea1d8",
+  "schemas/fenolite.net.v0.json": "6e1ab9a403b17b6eef70e966a4903a95b442a3761fd5b5b25947b6666361251a",
   "schemas/fenolite.netlist.v0.json": "5274ca2d5c8f1bd73193a810232ad0916ac5166e361a4c68e4de164002ce6d30",
   "schemas/fenolite.pads.v0.json": "4d17126406b99ee02bc860800e9ae48f518676af878e2a9fa1dc6a4435413234",
   "schemas/fenolite.panel.v0.json": "28b0e039fd95ea9a1e140eac8e893352a7fc5b70f908d46994f0ad5730e0427b",

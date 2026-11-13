@@ -76,6 +76,7 @@ project folder.
 | `read_design(path, *, kicad_cli=None, timeout=300.0)` | `ReadSide` | any design that `fenolite equivalent` reads: a board or document, a KiCad project or folder, a root schematic with its sheets, a `.fenolite/` folder |
 | `read_board(path)` | `Board` | a board with its board-frame pads |
 | `connectivity(board, *, nets=None)` | `ConnectivityReport` | the islands and open connections of each net, as `fenolite net` and `fenolite ready` count them (`docs/analyses.md`, "Open connections") |
+| `islands(board, *, nets=None, without=())` | `dict[str, tuple[NetIsland, ...]]` | the counted islands of each net with their `members` (`IslandItem`: `kind`, `id`, `where`, `layers`), after leaving out the tracks, arcs, vias or zones that `without` names (model id, native id or locator; an unknown name raises `KeyError`); `docs/analyses.md`, "Open connections" |
 | `analyze_current(board, *, temp_rise_mk=None, copper_thickness=None, via_plating=None, requirements=None)` | `AnalysisReport` | the current capacity of each track, arc and via, as `fenolite analyze --kinds current` |
 | `analyze_distances(board, *, pairs=(), within=None, requirements=None, board_thickness=None, groove=None, insulation=False)` | `AnalysisReport` | gaps, clearance and creepage between nets (and with `insulation` the distance through the laminate), as `fenolite analyze --kinds clearance,creepage` |
 
@@ -95,6 +96,39 @@ project folder.
 
 The other analyses (power, insulation alone, lengths, ties, domains, crossings, returns) take more inputs
 than a short signature holds: call `run("analyze", ...)`.
+
+## Frames and units
+
+A board has three frames (change c0500). Scripts read the model through `read_board` and convert with a
+`Frame`; no float appears in any of them.
+
+| frame | unit | Y | origin | who uses it |
+| --- | --- | --- | --- | --- |
+| native | 1/10 000 mil (2.54 nm) | up | Altium's absolute zero | the raw records of a `.PcbDoc` |
+| model | nm | down | the native zero | `Design`, `check`, `net`, `analyze` |
+| board | nm | up | the board origin (`ORIGINX`, `ORIGINY`) | the Altium editor, `edit` sessions |
+
+| Name | What |
+| --- | --- |
+| `board_frame(board)` | the `Frame` of a `Board` or a board path: for Altium the board origin with `y_up` true; for any other backend origin (0, 0), `y_up` false, so `to_board` is the identity |
+| `Frame` | `origin` (the board origin in the model frame), `y_up`, and `from_native(x, y)`, `to_native(p)`, `to_board(p)`, `from_board(p)`; the two native methods raise `SideUsageError` on a non-Altium board |
+| `altium_to_nm(units)`, `nm_to_altium(nm)` | native units to nanometres and back, half to even (`core.units.u_to_nm`, `nm_to_u`) |
+| `format_length(nm, unit)`, `parse_length(text)` | those of `fenolite.core.units`: the display and the parse of a length |
+
+A unit lambda such as `lambda u: u * 254 / 100` becomes:
+
+```python
+from fenolite.api import board_frame, format_length, read_board
+
+board = read_board("board.PcbDoc")
+frame = board_frame(board)
+pad = board.design.board.footprints[0].position  # model frame, nm, Y down
+p = frame.to_board(pad)  # what the Altium editor shows
+print(format_length(p.x, "mm"), format_length(p.y, "mm"))
+```
+
+An edit session places items in the board frame: `edit.Track(start, end)` built from `frame.to_board`
+matches the record it names (`tests/unit/api/test_frames_c0500.py`).
 
 ## Comparison and conversion
 

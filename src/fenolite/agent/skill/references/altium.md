@@ -126,6 +126,9 @@ To add a part to a project in Python: `edit.open(sheet, project=prj)` then `add_
 `add_net_label`, `add_power_port` (gates `add_part`, `annotate`, `create`); on the board `add_component`
 then `link(ref, project=prj, part=ref)` (gate `link`), which writes the source keys Update PCB matches.
 
+`fenolite.api.board_frame(board)`: `to_board(p)` maps a model point to the editor's frame;
+`altium_to_nm`, `nm_to_altium` convert units.
+
 ```fenolite-cmd
 fenolite explain altium.import.pcb-net-conflict --json
 fenolite explain import.arc-as-track --json

@@ -361,8 +361,25 @@ __all__ = [
     "EDGE_JOIN_NM",
     "EVIDENCE",
     "board_edges",
+    "board_origin",
     "board_pads",
     "corner_radius",
     "placed_extents",
     "shape_entries",
 ]
+
+
+def board_origin(design: Design) -> Point:
+    """The board origin (``ORIGINX``, ``ORIGINY`` of ``Board6``, which the import keeps as the ``origin``
+    pair of the board's bag, ``import.md``) in the model frame: Y negated; (0, 0) when the board holds none
+    (change c0500)."""
+    board = design.board
+    held = board.ext.get("altium") if board is not None else None
+    text = next((value for key, value in held.payload if key == "origin"), None) if held is not None else None
+    if text is None:
+        return Point(0, 0)
+    try:  # the mil text Altium writes (``1000mil``); round() of a Fraction is half to even
+        x, y = (round(Fraction(part.strip().removesuffix("mil")) * 25_400) for part in text.split(","))
+    except (ValueError, ZeroDivisionError):
+        return Point(0, 0)
+    return Point(x, -y)

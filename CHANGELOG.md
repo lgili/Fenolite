@@ -8,6 +8,14 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Added
 
+- Islands of a net with their members, and a what-if cut, from Python (c0500): `NetIsland.members` lists each
+  track, arc, via, pad and fill of an island (`IslandItem`), `net_islands(..., without=)` leaves out named
+  tracks, arcs, vias or zones first (an unknown name raises `KeyError`; saved fills are not repoured), and
+  `ties.item_names` is public. `fenolite.api` gains `islands`, `Frame`, `board_frame`, `altium_to_nm`,
+  `nm_to_altium`, `format_length` and `parse_length`, and `backends.altium.frame.board_origin` reads the
+  board origin of an imported `.PcbDoc`. Fill items of an island now carry their zone id. `fenolite net
+  PATH NAME --islands [--without ITEM]` adds `result.net.island_list` and `result.net.cut` (`islands`
+  stays the count).
 - A part added to an existing Altium project through the edit sessions (c0499): the schematic session gains
   `add_part`, `annotate` (checked against every sheet of `edit.open(..., project=)`), `add_wire` (with a
   junction where an end lands inside another wire), `add_net_label` and `add_power_port`, cloned from records
