@@ -66,7 +66,7 @@ def test_route_a_return_trace_on_an_altium_document_written(bench: Path) -> None
                     shape = Thick(copper.core, copper.width, copper.filled)
                     assert thick_gap_floor(segment, shape) >= 200_000
     plan = envelope["result"]["plan_id"]
-    assert [row["path"] for row in envelope["result"]["plan"]] == [f"built/{bench.name}"]
+    assert [Path(row["path"]).as_posix() for row in envelope["result"]["plan"]] == [f"built/{bench.name}"]
     code, written, err = _cli("path", str(bench), *ARGS, "--gate", "clone", "--confirm", "--plan", plan)
     assert code == 0, (written, err)
     assert written["receipt"]["written"][0]["path"].endswith("bench.PcbDoc")

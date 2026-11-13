@@ -55,9 +55,15 @@ def _board(folder: Path, copper_net: int) -> Path:
     return board
 
 
-@pytest.mark.parametrize(("copper_net", "reported"), [(1, 3), (2, 3)])
-def test_kicad_judges_the_pads_own_net(tmp_path: Path, copper_net: int, reported: int) -> None:
-    board = _board(tmp_path, copper_net)
-    run = runner().drc(board, files={"hole.kicad_pro": tmp_path / "hole.kicad_pro"})
+def _hole_clearances(folder: Path, copper_net: int) -> int:
+    folder.mkdir()
+    board = _board(folder, copper_net)
+    run = runner().drc(board, files={"hole.kicad_pro": folder / "hole.kicad_pro"})
     assert run.report is not None, run.run.stderr
-    assert [v.type for v in run.report.violations].count("hole_clearance") == reported
+    return [v.type for v in run.report.violations].count("hole_clearance")
+
+
+def test_kicad_judges_the_pads_own_net(tmp_path: Path) -> None:
+    # KiCad 10.0.6 reports 3 and KiCad 9 reports 2 for each net; the claim is that the own net counts like N1
+    own, control = _hole_clearances(tmp_path / "own", 1), _hole_clearances(tmp_path / "control", 2)
+    assert own == control >= 2
