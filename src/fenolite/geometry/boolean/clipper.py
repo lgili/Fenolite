@@ -15,15 +15,30 @@ Every result is in normal form (``normalize_polygons``).
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
 from typing import Any, cast
 
 from fenolite.geometry.boolean._extra import load_extra
 from fenolite.geometry.boolean.base import COORD_LIMIT, Join, Operand, as_polygons, check_domain
 from fenolite.geometry.errors import OUT_OF_RANGE, GeometryError
+from fenolite.geometry.index import SpatialIndex
 from fenolite.geometry.polygon import Polygon, normalize_polygons
-from fenolite.geometry.shapes import DEFAULT_TOL
+from fenolite.geometry.shapes import DEFAULT_TOL, BBox
 from fenolite.geometry.vector import Point
+
+_Path = list[tuple[int, int]]
+
+
+def _path(ring: Sequence[Point]) -> _Path:
+    return [(p.x, p.y) for p in ring]
+
+
+@dataclass(frozen=True, slots=True)
+class _PreparedClip:
+    polygon: Polygon
+    outer: _Path
+    holes: SpatialIndex[_Path]
 
 
 def _ring(contour: Any) -> tuple[Point, ...]:
@@ -59,14 +74,21 @@ class ClipperBackend:
         self._clipper: Any = cast(Any, load_extra("pyclipper"))
 
     def _execute(self, kind: str, subject: Sequence[Polygon], clip: Sequence[Polygon]) -> tuple[Polygon, ...]:
+        return self._execute_paths(
+            kind,
+            (_path(ring) for poly in subject for ring in poly.rings()),
+            (_path(ring) for poly in clip for ring in poly.rings()),
+        )
+
+    def _execute_paths(
+        self, kind: str, subject: Iterable[_Path], clip: Iterable[_Path]
+    ) -> tuple[Polygon, ...]:
         pc = self._clipper
         engine = pc.Pyclipper()
-        for poly in subject:
-            for ring in poly.rings():
-                engine.AddPath([(p.x, p.y) for p in ring], pc.PT_SUBJECT, True)
-        for poly in clip:
-            for ring in poly.rings():
-                engine.AddPath([(p.x, p.y) for p in ring], pc.PT_CLIP, True)
+        for path in subject:
+            engine.AddPath(path, pc.PT_SUBJECT, True)
+        for path in clip:
+            engine.AddPath(path, pc.PT_CLIP, True)
         tree = engine.Execute2(getattr(pc, kind), pc.PFT_NONZERO, pc.PFT_NONZERO)
         return _polygons(tree)
 
@@ -83,6 +105,38 @@ class ClipperBackend:
         if not first or not second:
             return ()
         return self._execute("CT_INTERSECTION", first, second)
+
+    def prepare_intersection(self, polygons: Sequence[Polygon]) -> SpatialIndex[_PreparedClip]:
+        """Encode and index a clip operand reused by several small intersections."""
+        check_domain(polygons)
+        clips: list[tuple[BBox, _PreparedClip]] = []
+        for poly in polygons:
+            box = poly.bbox()
+            holes: list[tuple[BBox, _Path]] = []
+            for ring in poly.holes:
+                bounds = BBox.of_points(ring)
+                box = box.union(bounds)
+                holes.append((bounds, _path(ring)))
+            clips.append((box, _PreparedClip(poly, _path(poly.outer), SpatialIndex[_Path].build(holes))))
+        return SpatialIndex[_PreparedClip].build(clips)
+
+    def intersection_prepared(
+        self, subject: Sequence[Polygon], clips: Sequence[_PreparedClip], bounds: BBox
+    ) -> tuple[Polygon, ...]:
+        """Intersect using prepared clips queried with the closed box enclosing the subject."""
+        check_domain(subject)
+        if not subject or not clips:
+            return ()
+
+        def paths() -> Iterable[_Path]:
+            for clip in clips:
+                yield clip.outer
+                # A distant hole has zero winding throughout the subject.
+                yield from clip.holes.query(bounds)
+
+        return self._execute_paths(
+            "CT_INTERSECTION", (_path(ring) for poly in subject for ring in poly.rings()), paths()
+        )
 
     def difference(self, a: Operand, b: Operand) -> tuple[Polygon, ...]:
         first, second = as_polygons(a, "a"), as_polygons(b, "b")

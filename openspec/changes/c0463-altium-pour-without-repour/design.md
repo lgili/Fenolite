@@ -179,6 +179,12 @@ In S-2324, changing only the air gap flips both matched families when the gap cr
 pad center along the spoke axis. The width, pad length and equivalent-void swaps preserve their
 original outcomes. The scope is those authored side-obstruction cases.
 
+Thermal-spoke intersections reuse checked integer Clipper paths for receiving and forbidden copper.
+A hole whose closed bounds miss the spoke has zero winding throughout it and stays out of the
+intersection. An isolated row `-08` P100 replay returns exactly the same 523 conductor polygons
+from 1,472 joins. Conductor CPU time for that retained input falls from 14.445 s to 4.707 s on the
+maintainer's Mac. This is a per-stage measurement, taken on an earlier spoke-clipping variant; the integrated variant uses the same prepared operands for its receiver and blocker checks and leaves every pour digest unchanged.
+
 Dead-copper filtering indexes contact bounds before exact intersection when there are several pieces
 and contacts. On row `-08` P100, 2,329 of 71,208 piece/contact pairs can intersect. The indexed and
 unfiltered checks retained identical pieces in the same order and the final P100 geometry was identical.

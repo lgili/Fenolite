@@ -88,6 +88,7 @@ All notable changes to Fenolite are documented here. The format follows
 - Remove undersized solid Altium copper receivers before their thermal spokes can attach them (c0463).
 
 - Speed up Altium repour connectivity comparisons by indexing region and hole bounds before exact point checks (c0463).
+- Reuse prepared Clipper paths and skip distant hole rings during Altium thermal-spoke intersections (c0463).
 - Limit solid Altium thermal relief intersection checks to copper and obstacle bounds touched by the spoke (c0463).
 
 - **Clean-room harness regression** (c0476): replaced private-derived example data with an authored

@@ -1947,8 +1947,8 @@ def _conductors(
     extension alone meets that gap can still join a full-width receiver, clipped at the peer gap (S-2317)."""
     if not any(join.style == "relief" for _, join in joins):
         return []
-    blocked = SpatialIndex[Polygon].build((piece.bbox(), piece) for piece in forbidden)
-    receivers = SpatialIndex[Polygon].build((piece.bbox(), piece) for piece in copper)
+    blocked = geometry.backend.prepare_intersection(forbidden)
+    receivers = geometry.backend.prepare_intersection(copper)
     smd_gaps = [
         (item, item.box.inflate(join.air_gap + tol + UNIT_SLACK_NM), gaps[item])
         for item, join in joins
@@ -1988,9 +1988,9 @@ def _conductors(
             if not spoke:
                 continue
             box = BBox.of_points([point for piece in spoke for point in piece.outer])
-            if geometry.meet(spoke, blocked.query(box)):
+            if geometry.backend.intersection_prepared(spoke, blocked.query(box), box):
                 continue
-            receiver = geometry.meet(spoke, receivers.query(box))
+            receiver = geometry.backend.intersection_prepared(spoke, receivers.query(box), box)
             if not receiver:
                 continue
             if neighbors:

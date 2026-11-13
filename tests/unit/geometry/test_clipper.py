@@ -123,6 +123,30 @@ def test_other_operations_and_domain() -> None:
 
 
 @needs_geo
+def test_prepared_intersection_matches_with_local_and_distant_holes() -> None:
+    backend = ClipperBackend()
+    holed = Polygon(
+        _square(0, 0, 100).outer,
+        (tuple(reversed(_square(10, 10, 30).outer)), tuple(reversed(_square(65, 65, 20).outer))),
+    )
+    clips = (holed, _square(15, 15, 5), _square(200, 200, 20))
+    prepared = backend.prepare_intersection(clips)
+    for square in (
+        _square(0, 0, 14),
+        _square(10, 10, 25),
+        _square(21, 21, 10),
+        _square(39, 39, 12),
+        _square(65, 65, 20),
+        _square(100, 100, 30),
+        _square(198, 198, 12),
+    ):
+        bounds = square.bbox()
+        assert backend.intersection_prepared(
+            (square,), prepared.query(bounds), bounds
+        ) == backend.intersection(square, clips)
+
+
+@needs_geo
 def test_offset_and_stroke_stay_within_their_tolerance() -> None:
     """Scenario "Offsets and strokes" of "Clipper backend": a round offset and a stroke place their vertices
     on the true arcs, so every chord lies at most ``tol`` inside the arc; a stroke of one point is a disc."""
