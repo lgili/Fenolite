@@ -215,9 +215,9 @@ def test_both_clip_then_designators(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     assert code == 0, err
     result = env["result"]
     assert result["clip"]["items"] > 0 and result["changed"] is True
-    # TP1 lies inside U4's courtyard, so its designator has no free place (silk.no-place)
+    # TP1 lies inside U4's courtyard; since change c0493 a courtyard only adds cost, so it is placed
     statuses = {row["ref"]: row["status"] for row in result["placements"]}
-    assert statuses == {"U1": "placed", "U2": "placed", "U3": "placed", "U4": "placed", "TP1": "unplaced"}
+    assert statuses == {"U1": "placed", "U2": "placed", "U3": "placed", "U4": "placed", "TP1": "placed"}
     assert env["evidence"]["hypotheses"] == [
         "H-K-SILK-CLIP",
         "H-K-SILK-MASK",

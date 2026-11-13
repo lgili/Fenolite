@@ -249,3 +249,26 @@ __all__ = [
     "probe",
     "row",
 ]
+
+
+def small() -> FootprintDef:
+    """A two-pad part of 0402 size whose courtyard hugs its pads (change c0493)."""
+    footprint = Footprint("Silk", "SMALL", kind="smd")
+    footprint.pad("1", at=(mm(-0.45), mm(0)), size=(mm(0.5), mm(0.6)))
+    footprint.pad("2", at=(mm(0.45), mm(0)), size=(mm(0.5), mm(0.6)))
+    footprint.rect((mm(-0.6), mm(-0.32)), (mm(0.6), mm(0.32)), layer="F.CrtYd", width=mm(0.05))
+    return footprint.definition
+
+
+def dense() -> Design:
+    """Two rows of eight ``small`` parts, 1.2 mm apart along x and 0.64 mm along y: the courtyards touch
+    (change c0493)."""
+    board = SilkBoard()
+    count = 0
+    for row in range(2):
+        for column in range(8):
+            count += 1
+            board.place(
+                f"R{count}", Point(10 * MM + column * 1_200_000, 12 * MM + row * 640_000), defn=small()
+            )
+    return board.build()

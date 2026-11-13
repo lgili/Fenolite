@@ -61,6 +61,12 @@ Back to [the command index](commands.md).
 - `--angles LIST` (default `0,90`): board angles to try: 0, 90 or 0,90
 - `--clearance LENGTH`: least distance from a designator to anything else (default 0.15mm)
 - `--gap LENGTH`: distance from the part's courtyard to its designator (default 0.1mm)
+- `--model {altium,kicad}` (default `kicad`): clearance model: kicad (pads, holes, all silk) or altium (mask openings, not the own silk)
+- `--reach LENGTH`: how far beyond --gap the rings of places go (default 2mm)
+- `--over-body`: also try places over the part's own body, last
+- `--min-size LENGTH`: least height to step down to (default: the board's least text height)
+- `--size-step LENGTH`: height step of the looks (default 0.1mm)
+- `--mask-clearance LENGTH`: with --model altium, least distance to a mask opening (default 0.1mm)
 - `--measure {auto,estimate,kicad}` (default `auto`): text ink: rendered by kicad-cli (kicad), from the glyph table (estimate), or kicad when found
 - `-o`, `--out FILE`: write to this file instead of replacing PATH's board
 - `--drc`: run kicad-cli DRC on the board before and after

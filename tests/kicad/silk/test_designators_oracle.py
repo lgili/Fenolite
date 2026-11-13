@@ -18,7 +18,7 @@ from typing import Any
 
 import pytest
 from _probes import major, runner
-from _silkbench import mixed, row
+from _silkbench import dense, mixed, row
 
 from fenolite.backends.kicad.fields import field_anchor, field_angle
 from fenolite.backends.kicad.pcb import read_board, write_board
@@ -67,16 +67,17 @@ def _silk(
     return code, json.loads(out.getvalue() or "{}")
 
 
-@pytest.mark.parametrize("bench", ["row", "mixed"])
+@pytest.mark.parametrize("bench", ["row", "mixed", "dense"])
 def test_placed_designators_pass_drc(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, bench: str) -> None:
-    design = row() if bench == "row" else mixed()
+    """``dense`` (change c0493, task 2.1): the grid whose courtyards touch, placed with ``--model kicad``."""
+    design = {"row": row, "mixed": mixed, "dense": dense}[bench]()
     board = _write(tmp_path, bench, design)
     before = _drc(board)
     assert before["silk_over_copper"] > 0 and before["silk_overlap"] > 0  # the control
     code, env = _silk(monkeypatch, tmp_path, board, "--drc", "--confirm")
     assert code == 0, env
     result = env["result"]
-    assert result["unplaced"] == 0 and result["changed"] is True
+    assert result["unplaced"] == {} and result["changed"] is True
     assert result["measure"]["source"] == f"kicad-cli {runner().version()}"
     assert result["drc"]["new"] == [] and env["evidence"]["level"] == "KICAD-VERIFIED"
     after = _drc(board)

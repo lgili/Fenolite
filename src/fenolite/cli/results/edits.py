@@ -839,6 +839,12 @@ class SilkSettings:
     min_height: int
     min_stroke: int
     sizes: list[int] | None
+    model: str
+    reach: int
+    over_body: bool
+    min_size: int | None
+    size_step: int
+    mask_clearance: int
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -855,7 +861,12 @@ class SilkResult(ProtocolResult):
     placements: list[SilkPlacementsItem] = field(metadata={"optional": True})
     settings: SilkSettings = field(metadata={"optional": True})
     target: str = field(metadata={"optional": True})
-    unplaced: int = field(metadata={"optional": True})
+    unplaced: dict[str, int] = field(
+        metadata={
+            "optional": True,
+            "description": "Unplaced designators counted by the kind of what blocked them (change c0493).",
+        }
+    )
 
 
 @dataclass(frozen=True, kw_only=True)

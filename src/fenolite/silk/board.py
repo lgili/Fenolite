@@ -5,11 +5,14 @@ and "Placed designators checked"; change c0212; user guide ``docs/assembly.md``,
 
 ``place_designators`` gathers, per silkscreen side, what a designator must keep ``clearance`` from: the
 copper of the pads on that side's outer layer, every drilled hole (pad, via and board holes), the
-silkscreen strokes of the board and of the footprints, the ink of every other text on the side, the
-courtyards of the other parts, and the board edge (outline, cut-outs and slots). It measures the ink of
-every text (``silk.extents``), runs the search of ``silk.layout`` and writes each chosen place into the
-part's ``Reference`` field: anchor, angle 0 or 90 degrees on the board, size, stroke, centred
-justification, and mirrored on the bottom side.
+silkscreen strokes of the board and of the footprints, the ink of every other text on the side, and the
+board edge (outline, cut-outs and slots). Another part's courtyard only adds to a place's cost (change
+c0493). The ``altium`` model (``Settings.model``, ``H-A-SILK-DRC-MODEL``) keeps a text ``mask_clearance``
+from each pad's mask opening instead of its copper, leaves out unplated holes and the text's own
+footprint silkscreen, and judges every text by its ink box less half its stroke on each side.
+It measures the ink of every text (``silk.extents``), runs the search of ``silk.layout`` and writes
+each chosen place into the part's ``Reference`` field: anchor, angle 0 or 90 degrees on the board, size,
+stroke, centred justification, and mirrored on the bottom side.
 
 ``check_designators`` then judges the written board on its own: each placed text is computed again from
 its field, through the same frame facts, and must keep the clearance from every obstacle and every other
@@ -66,6 +69,13 @@ DEFAULT_CLEARANCE: Nm = 150_000
 """The least distance from a designator's ink to a pad, a hole, other silkscreen, a courtyard or the edge
 (a Fenolite choice, above KiCad's default silkscreen clearance of 0)."""
 DEFAULT_GAP: Nm = 100_000
+DEFAULT_REACH: Nm = 2_000_000
+"""How far the rings of candidates reach beyond the gap by default (change c0493)."""
+DEFAULT_SIZE_STEP: Nm = 100_000
+DEFAULT_MASK_CLEARANCE: Nm = 100_000
+ALTIUM_HYPOTHESIS = "H-A-SILK-DRC-MODEL"
+KINDS = ("pad", "mask", "hole", "silk", "text", "courtyard", "edge", "outside")
+"""What may block a designator's cheapest place (change c0493)."""
 """The distance from the own courtyard's box to a candidate's ink (a Fenolite choice)."""
 MIN_HEIGHT: Nm = 800_000
 MIN_STROKE: Nm = 80_000
@@ -96,6 +106,20 @@ class Settings:
     refs: tuple[str, ...] = ("*",)
     min_height: Nm = MIN_HEIGHT
     min_stroke: Nm = MIN_STROKE
+    model: str = "kicad"
+    """``kicad`` or ``altium`` (change c0493): what a text keeps clear of and how its box is measured."""
+    reach: Nm = DEFAULT_REACH
+    """How far beyond ``gap`` the rings of candidates go (change c0493)."""
+    step: Nm | None = None
+    """The distance between rings (``None``: the look's height)."""
+    over_body: bool = False
+    min_size: Nm | None = None
+    """The least height the steps go down to (``None``: ``min_height``)."""
+    size_step: Nm = DEFAULT_SIZE_STEP
+    mask_clearance: Nm = DEFAULT_MASK_CLEARANCE
+    """In the ``altium`` model, the least distance from a text to a pad's mask opening."""
+    board_mask: Nm = 0
+    """The board's ``pad_to_mask_clearance``, the mask expansion of a pad without one of its own."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -274,6 +298,7 @@ def gather(
     board = design.board
     assert board is not None
     components = {c.id: c for c in design.circuit.components}
+    altium = settings.model == "altium"
     issues: list[Issue] = []
     movers: list[Mover] = []
     others: list[tuple[str, str, TextKey, Point, Udeg, bool, bool]] = []
@@ -298,17 +323,6 @@ def gather(
             max(p.x for p in points),
             max(p.y for p in points),
         )
-        if extent is not None:
-            for side in ("top", "bottom"):
-                face = extent.front if side == "top" else extent.back
-                for ring in face:
-                    try:
-                        shape = Thick(ring, 0, filled=True)
-                    except (GeometryError, ValueError):  # a ring the kernel refuses: its outline only
-                        shape = Thick((*ring, ring[0]), 0)
-                    obstacles[side].append(
-                        Obstacle.of(shape, f"the courtyard of {ref or footprint.id}", footprint.id)
-                    )
         for field in footprint.fields:
             side = _layer_side(field.layer)
             if not field.visible:
@@ -350,8 +364,9 @@ def gather(
         for graphic in items.graphics:
             side = _layer_side(graphic.layer)
             if side is not None:
+                owner = footprint.id if altium else ""  # Altium does not judge a text against its own silk
                 for shape in _graphic_shapes(graphic, move):
-                    obstacles[side].append(Obstacle.of(shape, f"silkscreen of {ref or footprint.id}"))
+                    obstacles[side].append(Obstacle.of(shape, f"silkscreen of {ref or footprint.id}", owner))
         for text in items.texts:
             side = _layer_side(text.layer)
             if side is not None and text.text.strip():
@@ -378,19 +393,41 @@ def gather(
             others.append(
                 (side, f"the board text {text.text!r}", key, text.position, text.rotation, False, False)
             )
-    for pad in pads:
-        name = f"pad {pad.ref or pad.footprint_id}-{pad.number}"
-        for side, layer in COPPER.items():
-            for copper in pad.copper:
-                if copper.layer == layer:
-                    obstacles[side].append(Obstacle.of(Thick(copper.core, copper.width, copper.filled), name))
-        if pad.hole and pad.drill:
-            for side in ("top", "bottom"):
-                obstacles[side].append(Obstacle.of(Thick(pad.hole, pad.drill), f"the hole of {name}"))
+    if altium:  # each pad's mask opening, its copper grown by its own expansion (H-A-SILK-DRC-MODEL)
+        from fenolite.silk.clip import has_mask  # noqa: PLC0415 - clip imports this module
+
+        margins = {pad.id: pad.mask_margin for fp in board.footprints for pad in fp.pads}
+        for pad in pads:
+            name = f"pad {pad.ref or pad.footprint_id}-{pad.number}"
+            own = margins.get(pad.pad_id)
+            grow = max(own if own is not None else settings.board_mask, 0)
+            for side, layer in COPPER.items():
+                if not has_mask(pad.layers, side):
+                    continue
+                for copper in pad.copper:
+                    if copper.layer == layer:
+                        shape = Thick(copper.core, copper.width + 2 * grow, copper.filled)
+                        what = f"the mask opening of {name}"
+                        obstacles[side].append(Obstacle.of(shape, what, clearance=settings.mask_clearance))
+            if pad.hole and pad.drill and pad.kind != "np_thru_hole":  # an unplated hole is no obstacle
+                for side in ("top", "bottom"):
+                    obstacles[side].append(Obstacle.of(Thick(pad.hole, pad.drill), f"the hole of {name}"))
+    else:
+        for pad in pads:
+            name = f"pad {pad.ref or pad.footprint_id}-{pad.number}"
+            for side, layer in COPPER.items():
+                for copper in pad.copper:
+                    if copper.layer == layer:
+                        obstacles[side].append(
+                            Obstacle.of(Thick(copper.core, copper.width, copper.filled), name)
+                        )
+            if pad.hole and pad.drill:
+                for side in ("top", "bottom"):
+                    obstacles[side].append(Obstacle.of(Thick(pad.hole, pad.drill), f"the hole of {name}"))
     for via in board.vias:
         for side in ("top", "bottom"):
             obstacles[side].append(Obstacle.of(Thick((via.position,), via.drill), "a via hole"))
-    for hole in board.holes:
+    for hole in board.holes if not altium else ():  # a board hole is unplated
         core = (hole.position,)
         if hole.length is not None:
             reach = (hole.length - hole.drill) // 2
@@ -421,7 +458,10 @@ def looks_of(mover: Mover, settings: Settings) -> list[tuple[TextKey, Udeg]]:
         heights = sorted(set(settings.heights), reverse=True)
     else:
         own = field.size.h
-        heights = [own] + ([settings.min_height] if own > settings.min_height else [])
+        floor = settings.min_size if settings.min_size is not None else settings.min_height
+        step = max(settings.size_step, 1)
+        heights = [h for h in range(own, floor, -step)] + ([floor] if own >= floor else [])
+        heights = sorted(set(heights), reverse=True) or [own]
     found: list[tuple[TextKey, Udeg]] = []
     for height in heights:
         width = max(1, field.size.w * height // field.size.h)
@@ -446,7 +486,37 @@ def _current_key(mover: Mover) -> TextKey:
     return _key(mover.ref, field.size, field.thickness, field.h_justify, field.v_justify)
 
 
-def _other_rects(scene: Scene, inks: Mapping[TextKey, Ink]) -> list[tuple[str, str, Rect]]:
+def measured(rect: Rect, stroke: Nm, settings: Settings) -> Rect:
+    """The box a model judges a text by: its ink box, less half its stroke on each side in the ``altium``
+    model (``H-A-SILK-DRC-MODEL``, change c0493)."""
+    half = stroke // 2
+    if settings.model != "altium" or rect.x1 - rect.x0 <= 2 * half or rect.y1 - rect.y0 <= 2 * half:
+        return rect
+    return Rect(rect.x0 + half, rect.y0 + half, rect.x1 - half, rect.y1 - half)
+
+
+def kind_of(blocker: str) -> str:
+    """The kind of ``KINDS`` of what a ``silk.no-place`` names (change c0493)."""
+    for head, kind in (
+        ("pad ", "pad"),
+        ("the mask opening", "mask"),
+        ("the hole of", "hole"),
+        ("a via hole", "hole"),
+        ("a board hole", "hole"),
+        ("silkscreen of", "silk"),
+        ("the courtyard", "courtyard"),
+        ("the board edge (", "edge"),
+    ):
+        if blocker.startswith(head):
+            return kind
+    if blocker in ("the board edge", "no candidate", ""):
+        return "outside"
+    return "text"
+
+
+def _other_rects(
+    scene: Scene, inks: Mapping[TextKey, Ink], settings: Settings | None = None
+) -> list[tuple[str, str, Rect]]:
     found: list[tuple[str, str, Rect]] = []
     for side, what, key, anchor, angle, mirrored, folded in scene.others:
         ink = inks[key].box
@@ -456,6 +526,8 @@ def _other_rects(scene: Scene, inks: Mapping[TextKey, Ink]) -> list[tuple[str, s
             rect = field_rect(ink, angle, mirrored)
         else:
             rect = hull_rect(ink, angle)
+        if settings is not None:
+            rect = measured(rect, key.stroke, settings)
         found.append((side, what, rect.moved(anchor.x, anchor.y)))
     return found
 
@@ -507,7 +579,7 @@ def place_designators(
     assert board is not None
     issues = list(scene.issues)
     fields: dict[str, Field] = {}
-    others = _other_rects(scene, inks)
+    others = _other_rects(scene, inks, settings)
     for side in ("top", "bottom"):
         extra = tuple(Obstacle.of(rect.thick(), what) for s, what, rect in others if s == side)
         fields[side] = Field((*scene.obstacles[side], *extra), settings.clearance, scene.inside)
@@ -518,9 +590,8 @@ def place_designators(
             ink = inks[key].box
             if ink is None:
                 continue
-            looks.append(
-                Look(angle, key.width, key.height, key.stroke, field_rect(ink, angle, mover.side == "bottom"))
-            )
+            rect = measured(field_rect(ink, angle, mover.side == "bottom"), key.stroke, settings)
+            looks.append(Look(angle, key.width, key.height, key.stroke, rect))
         current: Choice | None = None
         where: tuple[str, Rect] | None = None
         ink = inks[_current_key(mover)].box
@@ -532,6 +603,7 @@ def place_designators(
             rect = (field_rect(ink, angle, mover.field.mirrored) if square else hull_rect(ink, angle)).moved(
                 anchor.x, anchor.y
             )
+            rect = measured(rect, _current_key(mover).stroke, settings)
             where = (side, rect)
             if square and side == mover.side:
                 size = mover.field.size
@@ -548,6 +620,9 @@ def place_designators(
         groups=[] if settings.keep else groups_of(scene.movers),
         keep=settings.keep,
         natural=natural,
+        reach=settings.gap + settings.reach,
+        step=settings.step,
+        over_body=settings.over_body,
     )
     by_key = {mover.footprint.id: mover for mover in scene.movers}
     footprints = list(board.footprints)
@@ -582,19 +657,22 @@ def place_designators(
                     "angle": choice.look.angle // DEG,
                     "height": choice.look.height,
                     "stroke": choice.look.stroke,
-                    "where": ("above", "below", "left", "right")[choice.slot[0]],
+                    "where": ("above", "below", "left", "right", "over")[choice.slot[0]],
                 }
             )
         elif mover.ref in plan.kept:
             rows.append({"ref": mover.ref, "side": mover.side, "status": "kept"})
         else:
             blocker = plan.blocked.get(key, "")
-            rows.append({"ref": mover.ref, "side": mover.side, "status": "unplaced", "blocker": blocker})
+            kind = kind_of(blocker)
+            rows.append(
+                {"ref": mover.ref, "side": mover.side, "status": "unplaced", "blocker": blocker, "kind": kind}
+            )
             issues.append(
                 issue(
                     "silk.no-place",
-                    f"no free place for the designator of {mover.ref}: its best candidate meets {blocker}; "
-                    "the text stays where it was",
+                    f"no free place for the designator of {mover.ref}: its best candidate meets {blocker} "
+                    f"({kind}); the text stays where it was",
                     where=mover.ref,
                     hint="allow smaller --sizes, both --angles or a smaller --clearance, or move the part",
                 )
@@ -634,7 +712,7 @@ def check_designators(
     assert board is not None
     wanted = set(keys)
     movers = {m.footprint.id: m for m in scene.movers}
-    others = _other_rects(scene, inks)
+    others = _other_rects(scene, inks, settings)
     found: list[Issue] = []
     texts: dict[str, list[tuple[str, Rect]]] = {"top": [], "bottom": []}
     for footprint in board.footprints:
@@ -655,6 +733,8 @@ def check_designators(
             if angle % (90 * DEG) == 0
             else hull_rect(held.box, angle)
         ).moved(anchor.x, anchor.y)
+        stroke_of = field.thickness if field.thickness is not None else _default_stroke(field.size.h)
+        rect = measured(rect, stroke_of, settings)
         texts[side].append((footprint.id, rect))
         if footprint.id not in wanted:
             continue
@@ -709,8 +789,13 @@ def check_designators(
 
 
 __all__ = [
+    "ALTIUM_HYPOTHESIS",
     "DEFAULT_CLEARANCE",
     "DEFAULT_GAP",
+    "DEFAULT_MASK_CLEARANCE",
+    "DEFAULT_REACH",
+    "DEFAULT_SIZE_STEP",
+    "KINDS",
     "MIN_HEIGHT",
     "MIN_STROKE",
     "Mover",
@@ -723,7 +808,9 @@ __all__ = [
     "groups_of",
     "hull_rect",
     "ink_keys",
+    "kind_of",
     "looks_of",
+    "measured",
     "natural",
     "place_designators",
     "silkscreen_ink",

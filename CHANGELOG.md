@@ -29,6 +29,14 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Fixed
 
+- `fenolite silk --designators` places designators on dense boards (c0493): rings of places out to
+  `--reach` (2 mm), heights stepping down to `--min-size` by `--size-step`, `--over-body` as a last resort,
+  and another part's courtyard only adds cost instead of blocking. `--model altium` places and checks by
+  Altium's silkscreen rules (mask openings with `--mask-clearance`, not the own outline, no unplated holes,
+  the text box less half its stroke; `H-A-SILK-DRC-MODEL`, unverified). `result.unplaced` now counts the
+  unplaced parts per blocker kind (it was a number), each `silk.no-place` names that kind, and
+  `result.clip.footprints` lists one row per cut footprint.
+
 - **Four small CLI fixes** (c0495): (a) `capabilities --command` names an option by its first long flag
   without the dashes (`path` for `--path`) and keeps the parser's name in the new key `dest`; the meaning of
   `name` changes for options whose destination differs from their flag. MCP tool properties keep using

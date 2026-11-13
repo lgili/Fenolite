@@ -92,7 +92,12 @@
       "type": "string"
     },
     "unplaced": {
-      "type": "integer"
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "x-fenolite-map": true,
+      "description": "Unplaced designators counted by the kind of what blocked them (change c0493)."
     }
   },
   "additionalProperties": true,
@@ -270,6 +275,12 @@
           "items": {
             "$ref": "#/$defs/SilkCut"
           }
+        },
+        "footprints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SilkClipFootprint"
+          }
         }
       },
       "additionalProperties": true,
@@ -280,7 +291,32 @@
         "items",
         "pieces",
         "dropped",
-        "cuts"
+        "cuts",
+        "footprints"
+      ]
+    },
+    "SilkClipFootprint": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string"
+        },
+        "strokes_cut": {
+          "type": "integer"
+        },
+        "pieces": {
+          "type": "integer"
+        },
+        "dropped": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "ref",
+        "strokes_cut",
+        "pieces",
+        "dropped"
       ]
     },
     "SilkCut": {
@@ -448,6 +484,31 @@
               "type": "null"
             }
           ]
+        },
+        "model": {
+          "type": "string"
+        },
+        "reach": {
+          "type": "integer"
+        },
+        "over_body": {
+          "type": "boolean"
+        },
+        "min_size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "size_step": {
+          "type": "integer"
+        },
+        "mask_clearance": {
+          "type": "integer"
         }
       },
       "additionalProperties": true,
@@ -458,7 +519,13 @@
         "keep",
         "min_height",
         "min_stroke",
-        "sizes"
+        "sizes",
+        "model",
+        "reach",
+        "over_body",
+        "min_size",
+        "size_step",
+        "mask_clearance"
       ]
     }
   }

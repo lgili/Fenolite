@@ -8441,6 +8441,19 @@
           "required": false,
           "type": "string"
         },
+        "--mask-clearance": {
+          "aliases": [
+            "--mask-clearance"
+          ],
+          "choices": null,
+          "default": null,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": false,
+          "required": false,
+          "type": "string"
+        },
         "--measure": {
           "aliases": [
             "--measure"
@@ -8451,6 +8464,35 @@
             "kicad"
           ],
           "default": "auto",
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": false,
+          "required": false,
+          "type": "string"
+        },
+        "--min-size": {
+          "aliases": [
+            "--min-size"
+          ],
+          "choices": null,
+          "default": null,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": false,
+          "required": false,
+          "type": "string"
+        },
+        "--model": {
+          "aliases": [
+            "--model"
+          ],
+          "choices": [
+            "altium",
+            "kicad"
+          ],
+          "default": "kicad",
           "deprecated": null,
           "experimental": false,
           "nargs": null,
@@ -8472,9 +8514,35 @@
           "required": false,
           "type": "string"
         },
+        "--over-body": {
+          "aliases": [
+            "--over-body"
+          ],
+          "choices": null,
+          "default": false,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": 0,
+          "positional": false,
+          "required": false,
+          "type": "boolean"
+        },
         "--plan": {
           "aliases": [
             "--plan"
+          ],
+          "choices": null,
+          "default": null,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": false,
+          "required": false,
+          "type": "string"
+        },
+        "--reach": {
+          "aliases": [
+            "--reach"
           ],
           "choices": null,
           "default": null,
@@ -8491,6 +8559,19 @@
           ],
           "choices": null,
           "default": [],
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": false,
+          "required": false,
+          "type": "string"
+        },
+        "--size-step": {
+          "aliases": [
+            "--size-step"
+          ],
+          "choices": null,
+          "default": null,
           "deprecated": null,
           "experimental": false,
           "nargs": null,

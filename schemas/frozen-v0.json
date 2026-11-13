@@ -66,7 +66,7 @@
   "schemas/fenolite.roles.v0.json": "d67acf33865cf238e7f969a7d718863c77350fbbfc4c393b5b08f221b39ce785",
   "schemas/fenolite.roundtrip.v0.json": "e21e7eff878b34290aa32cf49781a14c88d474e8c8dc7d58b72f3a011ede0fa1",
   "schemas/fenolite.route.v0.json": "8eba430a73c620ffbdaf817e4eddf8f7bd248fe1a2902ae826030f0b62a41008",
-  "schemas/fenolite.silk.v0.json": "5def1a3779200ec605de7e7b61325778a8b649f3368b9f08f004841f78c01c03",
+  "schemas/fenolite.silk.v0.json": "8a647cccbb4f6320280779cc1490b5847869cd6a154c3af0b3a0a9b509c52902",
   "schemas/fenolite.skill.v0.json": "047933f844d703f77e1b0573969918795cb7fe57a6d10e081cc59e40ef388401",
   "schemas/fenolite.snapshot.v0.json": "ecf7a08e0dd81746b5d6a4935d0a3242745e2dfecb37304dc8e33781644c491d",
   "schemas/fenolite.sync.v0.json": "2bdf8888151a58ec364fb6a3bad259a8818dc04e0ea2f2ed05bbd102416cd8c2",

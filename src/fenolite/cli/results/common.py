@@ -260,6 +260,15 @@ class SilkClip:
     pieces: int
     dropped: int
     cuts: list[SilkCut]
+    footprints: list[SilkClipFootprint]
+
+
+@dataclass(frozen=True)
+class SilkClipFootprint:
+    ref: str
+    strokes_cut: int
+    pieces: int
+    dropped: int
 
 
 @dataclass(frozen=True)

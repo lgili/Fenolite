@@ -35,6 +35,8 @@ FOREIGN_COST: Nm = 10_000_000
 """What a text nearer to another part than to its own costs (a Fenolite choice)."""
 NEAR: Nm = 300_000
 """A foreign part closer than the own one plus this adds to the cost."""
+OVER_BODY_COST: Nm = 2 * FOREIGN_COST
+"""What a text over its own part's body costs, so that it goes there only when nothing outside fits."""
 REPAIR_ROUNDS = 4
 SortKey = Callable[[str], tuple[Any, ...]]
 """How references sort (``silk.board.natural`` puts ``R2`` before ``R10``)."""
@@ -90,10 +92,12 @@ class Obstacle:
     box: BBox
     what: str
     owner: str = ""
+    clearance: Nm | None = None
+    """The distance a text keeps from it, when not the field's (a mask opening of the ``altium`` model)."""
 
     @classmethod
-    def of(cls, shape: Thick, what: str, owner: str = "") -> Obstacle:
-        return cls(shape, thick_bbox(shape), what, owner)
+    def of(cls, shape: Thick, what: str, owner: str = "", clearance: Nm | None = None) -> Obstacle:
+        return cls(shape, thick_bbox(shape), what, owner, clearance)
 
 
 @dataclass(frozen=True, slots=True)
@@ -148,28 +152,50 @@ class Plan:
     aligned: list[list[str]] = field(default_factory=lambda: [])
 
 
-def _offsets(look: Look, box: Rect, gap: Nm) -> list[tuple[int, int, Point]]:
-    """``(side, offset, anchor)`` of the twelve candidates of one look around ``box``."""
+def _offsets(
+    look: Look, box: Rect, gap: Nm, reach: Nm | None = None, step: Nm | None = None, over_body: bool = False
+) -> list[tuple[int, int, Point]]:
+    """``(side, offset, anchor)`` of the candidates of one look around ``box``: the twelve places at
+    ``gap``, then at ``gap + step``, ... up to ``reach`` (the offset counts on: 0 to 2 on the nearest ring,
+    3 to 5 on the next; change c0493), and with ``over_body`` the centre and the four flush corners over the
+    box (side 4). ``step`` defaults to the look's height and ``reach`` to ``gap`` (one ring)."""
     ink = look.ink
     cx2, cy2 = box.x0 + box.x1, box.y0 + box.y1
     centred_x = (cx2 - ink.x0 - ink.x1) // 2
     centred_y = (cy2 - ink.y0 - ink.y1) // 2
     xs = (centred_x, box.x0 - ink.x0, box.x1 - ink.x1)
     ys = (centred_y, box.y0 - ink.y0, box.y1 - ink.y1)
-    above, below = box.y0 - gap - ink.y1, box.y1 + gap - ink.y0
-    left, right = box.x0 - gap - ink.x1, box.x1 + gap - ink.x0
+    pace = max(step if step is not None else look.height, 1)
+    last = max(reach if reach is not None else gap, gap)
     found: list[tuple[int, int, Point]] = []
-    for offset in range(3):
-        found.append((0, offset, Point(xs[offset], above)))
-        found.append((1, offset, Point(xs[offset], below)))
-        found.append((2, offset, Point(left, ys[offset])))
-        found.append((3, offset, Point(right, ys[offset])))
+    for ring, distance in enumerate(range(gap, last + 1, pace)):
+        above, below = box.y0 - distance - ink.y1, box.y1 + distance - ink.y0
+        left, right = box.x0 - distance - ink.x1, box.x1 + distance - ink.x0
+        for offset in range(3):
+            slot = 3 * ring + offset
+            found.append((0, slot, Point(xs[offset], above)))
+            found.append((1, slot, Point(xs[offset], below)))
+            found.append((2, slot, Point(left, ys[offset])))
+            found.append((3, slot, Point(right, ys[offset])))
+    if over_body:
+        corners = ((0, 0), (1, 1), (2, 1), (1, 2), (2, 2))
+        for slot, (i, j) in enumerate(corners):
+            found.append((4, slot, Point(xs[i], ys[j])))
     return found
 
 
-def candidates(part: Part, foreign: Sequence[Rect], *, gap: Nm) -> tuple[Choice, ...]:
+def candidates(
+    part: Part,
+    foreign: Sequence[Rect],
+    *,
+    gap: Nm,
+    reach: Nm | None = None,
+    step: Nm | None = None,
+    over_body: bool = False,
+) -> tuple[Choice, ...]:
     """Every candidate of ``part``, cheapest first (ties in slot order). ``foreign`` are the boxes of the
-    other parts on the same side."""
+    other parts on the same side; ``reach``, ``step`` and ``over_body`` as ``_offsets`` takes them. A place
+    over the own body costs ``OVER_BODY_COST`` more."""
     if not part.looks:
         return ()
     largest = max(look.height for look in part.looks)
@@ -178,26 +204,28 @@ def candidates(part: Part, foreign: Sequence[Rect], *, gap: Nm) -> tuple[Choice,
     )
     found: list[Choice] = []
     for look_index, look in enumerate(part.looks):
-        for side, offset, anchor in _offsets(look, part.box, gap):
+        for side, offset, anchor in _offsets(look, part.box, gap, reach, step, over_body):
             rect = look.ink.moved(anchor.x, anchor.y)
             own = gap_floor(rect, part.box)
             centre = rect.centre2
             shift = (
                 abs(centre.x - (part.box.x0 + part.box.x1))
-                if side < 2
+                if side < 2 or side == 4
                 else abs(centre.y - (part.box.y0 + part.box.y1))
             )
             cost = own + shift // 8 + 2 * (largest - look.height)
+            if side == 4:
+                cost += OVER_BODY_COST
             if look.angle != part.axis:
                 cost += ANGLE_COST
-            reach = own + NEAR
-            near: list[Rect] = index.query(rect.bbox(reach)) if index is not None else []
+            near_reach = own + NEAR
+            near: list[Rect] = index.query(rect.bbox(near_reach)) if index is not None else []
             if near:
                 closest = min(gap_floor(rect, other) for other in near)
                 if closest < own:
                     cost += FOREIGN_COST
-                if closest < reach:
-                    cost += reach - closest
+                if closest < near_reach:
+                    cost += near_reach - closest
             found.append(Choice(anchor, look, rect, cost, (side, offset, look_index)))
     found.sort(key=lambda choice: (choice.cost, choice.slot))
     return tuple(found)
@@ -213,10 +241,13 @@ class Field:
     """Whether a rectangle lies in the board's material (its edges are among the obstacles)."""
     texts: dict[str, Rect] = field(default_factory=lambda: {})
     _index: SpatialIndex[Obstacle] | None = None
+    _reach: Nm = 0
 
     def __post_init__(self) -> None:
         if self.obstacles:
             self._index = SpatialIndex[Obstacle].build((o.box, o) for o in self.obstacles)
+        own = [o.clearance for o in self.obstacles if o.clearance is not None]
+        self._reach = max([self.clearance, *own])
 
     def static_blocker(self, rect: Rect, own: str = "") -> str | None:
         """What of the fixed obstacles is within the clearance of ``rect`` (``None``: nothing); the
@@ -226,10 +257,11 @@ class Field:
         if self._index is None:
             return None
         shape = rect.thick()
-        for obstacle in self._index.query(rect.bbox(self.clearance)):
+        for obstacle in self._index.query(rect.bbox(self._reach)):
             if own and obstacle.owner == own:
                 continue
-            if thick_closer_than(shape, obstacle.shape, self.clearance):
+            limit = self.clearance if obstacle.clearance is None else obstacle.clearance
+            if thick_closer_than(shape, obstacle.shape, limit):
                 return obstacle.what
         return None
 
@@ -272,6 +304,9 @@ def arrange(
     groups: Sequence[Sequence[str]] = (),
     keep: bool = False,
     natural: SortKey = lambda text: (text,),
+    reach: Nm | None = None,
+    step: Nm | None = None,
+    over_body: bool = False,
 ) -> Plan:
     """Place the designators of ``parts`` (see the module). ``fields`` maps a side to its field, whose
     ``texts`` already hold the texts that stay where they are. ``groups`` lists keys of identical parts
@@ -282,7 +317,14 @@ def arrange(
     for part in parts:
         boxes.setdefault(part.side, []).append((part.key, part.box))
     options = {
-        part.key: candidates(part, [box for key, box in boxes[part.side] if key != part.key], gap=gap)
+        part.key: candidates(
+            part,
+            [box for key, box in boxes[part.side] if key != part.key],
+            gap=gap,
+            reach=reach,
+            step=step,
+            over_body=over_body,
+        )
         for part in parts
     }
     todo = list(parts)
@@ -437,6 +479,7 @@ __all__ = [
     "ANGLE_COST",
     "FOREIGN_COST",
     "NEAR",
+    "OVER_BODY_COST",
     "Choice",
     "Field",
     "Look",

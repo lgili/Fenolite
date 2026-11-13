@@ -91,7 +91,7 @@ def board_mask_margin(text: str) -> Nm:
         return 0
 
 
-def _has_mask(layers: Sequence[str], side: str) -> bool:
+def has_mask(layers: Sequence[str], side: str) -> bool:
     return MASK[side] in layers or "*.Mask" in layers or "F&B.Mask" in layers
 
 
@@ -106,7 +106,7 @@ def openings_of(design: Design, pads: Sequence[BoardPad], board_margin: Nm) -> d
         own = margins.get(pad.pad_id)
         grow = max(own if own is not None else board_margin, 0)
         for side in ("top", "bottom"):
-            if not _has_mask(pad.layers, side):
+            if not has_mask(pad.layers, side):
                 continue
             for copper in pad.copper:
                 if copper.layer == COPPER[side]:
@@ -460,6 +460,16 @@ def _row(owner: str, footprint: str | None, side: str, tally: _Tally) -> dict[st
     }
 
 
+def footprint_rows(rows: Sequence[Mapping[str, object]]) -> list[dict[str, object]]:
+    """The rows of footprints among ``ClipOutcome.rows`` as ``result.clip.footprints`` lists them (change
+    c0493): the reference, the strokes cut, the pieces written and the pieces dropped."""
+    return [
+        {"ref": row["owner"], "strokes_cut": row["items"], "pieces": row["pieces"], "dropped": row["dropped"]}
+        for row in rows
+        if row["footprint"] is not None
+    ]
+
+
 def _add(total: _Tally, tally: _Tally) -> None:
     total.items += tally.items
     total.pieces += tally.pieces
@@ -491,6 +501,8 @@ __all__ = [
     "Opening",
     "board_mask_margin",
     "clip_board",
+    "footprint_rows",
+    "has_mask",
     "openings_of",
     "piece_node",
 ]

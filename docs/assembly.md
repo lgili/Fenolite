@@ -395,14 +395,18 @@ fenolite silk build/blink --designators --keep --confirm --json   # move only th
   and Fenolite ships, which hold the drawn ink for the letters, digits and `-_.+/` (`silk.estimated`).
   `docs/formats/kicad/text.md` lists the facts.
 - **What a designator avoids,** by `--clearance` (0.15 mm by default): pad copper on its side, holes, the
-  silkscreen of the board and of the footprints, every other silkscreen text, the courtyards of the other
-  parts, and the board edge, cut-outs and slots. It also lies inside the board.
-- **Where it goes.** Beside the part's courtyard, `--gap` away (0.1 mm): centred or flush above, below,
-  left or right, at 0° or 90° on the board (`--angles`), at the field's height or the least allowed one
-  (`--sizes`). It prefers its own part's long side, the largest size and the middle of a side, and it is
+  silkscreen of the board and of the footprints, every other silkscreen text, and the board edge, cut-outs
+  and slots. It also lies inside the board. Another part's courtyard only makes a place cost more.
+  `--model altium` judges as Altium's silkscreen rules do: each pad's mask opening by `--mask-clearance`
+  (0.1 mm), not the part's own outline, no unplated hole, and a text by its box less half its stroke.
+- **Where it goes.** Beside the part's courtyard, `--gap` away (0.1 mm), then further out in steps of the
+  text's height up to `--reach` (2 mm): centred or flush above, below, left or right, at 0° or 90° on the
+  board (`--angles`), at the field's height or smaller ones down to `--min-size` in steps of `--size-step`
+  (or `--sizes`). `--over-body` also tries places over the part itself, last. It prefers its own part's long side, the largest size and the middle of a side, and it is
   never nearer to another part than to its own. A row or a column of the same footprint at the same angle
   gets one place for all, so their texts line up. A part without a free place keeps its text and is named
-  with `silk.no-place`.
+  with `silk.no-place`, with the kind of what blocks it (`pad`, `mask`, `hole`, `silk`, `text`, `courtyard`,
+  `edge` or `outside`).
 - **What is checked before anything is written.** Each written field is computed again: its text keeps
   the clearance, lies inside the board, reads at 0° or 90°, is mirrored exactly on the bottom, and is at
   least the project's `min_text_height` and `min_text_thickness` (0.8 mm and 0.08 mm when the project does

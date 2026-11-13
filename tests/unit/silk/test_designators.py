@@ -132,7 +132,7 @@ def test_dense_row(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     )
     assert code == 0, err
     result = env["result"]
-    assert result["placed"] == 10 and result["unplaced"] == 0 and result["changed"] is True
+    assert result["placed"] == 10 and result["unplaced"] == {} and result["changed"] is True
     assert result["aligned"] == [[f"R{n}" for n in range(1, 11)]]
     assert [found["code"] for found in env["issues"]] == ["silk.estimated"]
     assert env["evidence"] == {
@@ -250,7 +250,7 @@ def test_no_room(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     assert code == 0, err
     (found,) = [i for i in env["issues"] if i["code"] == "silk.no-place"]
     assert found["severity"] == "warning" and found["where"] == "R1"
-    assert env["result"]["unplaced"] == 1 and env["result"]["changed"] is False
+    assert env["result"]["unplaced"] == {"edge": 1} and env["result"]["changed"] is False
     assert board.read_bytes() == before
 
 

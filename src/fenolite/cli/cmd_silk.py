@@ -40,8 +40,12 @@ from fenolite.core.evidence import Evidence, Level
 from fenolite.core.units import Nm, parse_length
 from fenolite.model.design import Design
 from fenolite.silk.board import (
+    ALTIUM_HYPOTHESIS,
     DEFAULT_CLEARANCE,
     DEFAULT_GAP,
+    DEFAULT_MASK_CLEARANCE,
+    DEFAULT_REACH,
+    DEFAULT_SIZE_STEP,
     MIN_HEIGHT,
     MIN_STROKE,
     Settings,
@@ -51,7 +55,7 @@ from fenolite.silk.board import (
     place_designators,
 )
 from fenolite.silk.clip import HYPOTHESIS as CLIP_HYPOTHESIS
-from fenolite.silk.clip import MASK_HYPOTHESIS, ClipOutcome, board_mask_margin, clip_board
+from fenolite.silk.clip import MASK_HYPOTHESIS, ClipOutcome, board_mask_margin, clip_board, footprint_rows
 from fenolite.silk.codes import issue
 from fenolite.silk.extents import (
     ESTIMATE_HYPOTHESIS,
@@ -71,6 +75,7 @@ HELP = (
 HYPOTHESIS = "H-K-SILK-DRC"
 """The register row that designators Fenolite's own check passes give KiCad's DRC no new finding."""
 MEASURES = ("auto", "kicad", "estimate")
+MODELS = ("kicad", "altium")
 ANGLES = {"0": 0, "90": 90_000_000}
 DEG = 1_000_000
 
@@ -110,6 +115,36 @@ def _register(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--gap", metavar="LENGTH", help="distance from the part's courtyard to its designator (default 0.1mm)"
+    )
+    parser.add_argument(
+        "--model",
+        choices=MODELS,
+        default="kicad",
+        help="clearance model: kicad (pads, holes, all silk) or altium (mask openings, not the own silk)",
+    )
+    parser.add_argument(
+        "--reach", metavar="LENGTH", help="how far beyond --gap the rings of places go (default 2mm)"
+    )
+    parser.add_argument(
+        "--over-body",
+        dest="over_body",
+        action="store_true",
+        help="also try places over the part's own body, last",
+    )
+    parser.add_argument(
+        "--min-size",
+        dest="min_size",
+        metavar="LENGTH",
+        help="least height to step down to (default: the board's least text height)",
+    )
+    parser.add_argument(
+        "--size-step", dest="size_step", metavar="LENGTH", help="height step of the looks (default 0.1mm)"
+    )
+    parser.add_argument(
+        "--mask-clearance",
+        dest="mask_clearance",
+        metavar="LENGTH",
+        help="with --model altium, least distance to a mask opening (default 0.1mm)",
     )
     parser.add_argument(
         "--measure",
@@ -297,6 +332,11 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         if board_path.with_suffix(suffix).is_file()
     }
     min_height, min_stroke = text_floor(beside.get(".kicad_pro"))
+    min_size = _sizes(args.min_size, min_height)
+    if min_size is not None and len(min_size) != 1:
+        raise CliError("FEN-2001", "--min-size takes one length", where="--min-size")
+    data = board_path.read_bytes()
+    text = data.decode("utf-8")
     settings = Settings(
         clearance=_length(args.clearance, "--clearance", DEFAULT_CLEARANCE),
         gap=_length(args.gap, "--gap", DEFAULT_GAP),
@@ -306,9 +346,14 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         refs=tuple(args.refs or ("*",)),
         min_height=min_height,
         min_stroke=min_stroke,
+        model=args.model,
+        reach=_length(args.reach, "--reach", DEFAULT_REACH),
+        over_body=bool(args.over_body),
+        min_size=min_size[0] if min_size else None,
+        size_step=_length(args.size_step, "--size-step", DEFAULT_SIZE_STEP, zero=False),
+        mask_clearance=_length(args.mask_clearance, "--mask-clearance", DEFAULT_MASK_CLEARANCE),
+        board_mask=board_mask_margin(text),
     )
-    data = board_path.read_bytes()
-    text = data.decode("utf-8")
     issues: list[Issue] = []
     design = read_board(text, file=board_path.name, issues=issues)
     source = source_info(design)
@@ -340,6 +385,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             "pieces": clip_outcome.pieces,
             "dropped": clip_outcome.dropped,
             "cuts": list(clip_outcome.rows),
+            "footprints": footprint_rows(clip_outcome.rows),
         }
         if clip_outcome.changed:
             library = {
@@ -397,6 +443,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         rows = outcome.rows
         aligned = outcome.plan.aligned
         hypotheses += (HYPOTHESIS, MEASURE_HYPOTHESIS if measured else ESTIMATE_HYPOTHESIS)
+        if settings.model == "altium":
+            hypotheses += (ALTIUM_HYPOTHESIS,)
         measure = {
             "source": tool or "estimate",
             "texts": len(inks),
@@ -432,11 +480,19 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 "keep": settings.keep,
                 "min_height": settings.min_height,
                 "min_stroke": settings.min_stroke,
+                "model": settings.model,
+                "reach": settings.reach,
+                "over_body": settings.over_body,
+                "min_size": settings.min_size,
+                "size_step": settings.size_step,
+                "mask_clearance": settings.mask_clearance,
             },
             "placements": list(rows),
             "placed": statuses.get("placed", 0),
             "kept": statuses.get("kept", 0),
-            "unplaced": statuses.get("unplaced", 0),
+            "unplaced": dict(
+                sorted(Counter(str(row["kind"]) for row in rows if row["status"] == "unplaced").items())
+            ),
             "aligned": aligned,
             "clip": clip,
             "library": library,

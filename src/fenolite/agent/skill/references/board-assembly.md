@@ -20,14 +20,19 @@ board from working. They stop it from being built right, tested, or accepted in 
   often too small.
 - **Use one text height and stroke for every designator,** at or above the fabricator's minimum.
 - **Let `fenolite silk` place the designators** of a KiCad board: beside each part, clear of pads,
-  holes, silkscreen, courtyards and the edge, at 0 or 90°, a row of equal parts on one line. It measures
+  holes, silkscreen and the edge, at 0 or 90°, a row of equal parts on one line. It measures
   each text with `kicad-cli`, checks every place it writes, and `--drc` has KiCad judge the result.
-  `--keep` moves only the texts that sit on something; `silk.no-place` names a part without room.
+  `--keep` moves only the texts that sit on something; `silk.no-place` names a part without room and the
+  kind of what blocks it, and `result.unplaced` counts those kinds.
+- **On a dense board** widen the search: rings out to `--reach`, heights down to `--min-size` in steps of
+  `--size-step`, `--over-body` as a last resort. `--model altium` judges as Altium's silkscreen rules do:
+  mask openings (`--mask-clearance`), not the part's own outline.
 
 ```fenolite-cmd
 fenolite silk board --designators --dry-run --json
 fenolite silk board --designators --sizes 1mm,0.8mm --angles 0,90 --clearance 0.15mm --drc --confirm --json
 fenolite silk board --designators --keep --refs "R*" --measure estimate --dry-run --json
+fenolite silk board --designators --model altium --reach 3mm --min-size 0.8mm --size-step 0.1mm --over-body --mask-clearance 0.1mm --dry-run --json
 fenolite explain silk.no-place
 ```
 
