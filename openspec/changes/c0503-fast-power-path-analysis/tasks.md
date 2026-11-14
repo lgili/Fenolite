@@ -81,3 +81,5 @@ Rules for every task:
   - Proof: `uv run python tools/gen_agent_guide.py --check && uv run --extra dev pytest tests/unit/agent/test_pages.py -q -n 0`
 - [ ] 6.3 Add the change to `CHANGELOG.md` under `## [Unreleased]` and run `make check-fast`.
   - Proof: `make check-fast`
+
+Decision (maintainer, 2026-11-14): while 4.1 is open, the 300-hole case of `test_power_speed.py` runs only with `FENOLITE_POWER_BENCH=1`, so check-fast and CI do not spend minutes on a known xfail; the 48-hole case still runs.

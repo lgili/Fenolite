@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import os
 import time
 
 import pytest
@@ -22,8 +23,19 @@ POWER_BUDGET_S = 20
 SPLIT_BUDGET_S = 60
 
 
+BENCH = "FENOLITE_POWER_BENCH"
+"""Set to 1 to time the 300-hole board, which takes minutes while task 4.1 is open."""
+_TIMED = pytest.mark.skipif(os.environ.get(BENCH) != "1", reason=f"set {BENCH}=1 to time it")
+
+
 @pytest.mark.slow
-@pytest.mark.parametrize(("holes", "round_holes"), [(48, False), (300, True)])
+@pytest.mark.parametrize(
+    ("holes", "round_holes"),
+    [
+        (48, False),
+        pytest.param(300, True, marks=_TIMED),
+    ],
+)
 def test_plane_bench_in_budget(holes: int, round_holes: bool) -> None:
     """Scenario "The plane bench in budget": both rows complete, in budget, the split inside the interval."""
     design, pads = plane_board(holes, round=round_holes)
