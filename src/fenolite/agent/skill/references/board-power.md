@@ -19,8 +19,8 @@ switching loop small. The first takes copper area; the second takes placement, w
      and the shunt back to the capacitor;
    - the gate loop of each switch, from the driver output to the gate, then from the source (or the
      emitter) back to the driver.
-2. **Make the switching loop the smallest.** Its current changes fastest. Its area sets the voltage
-   overshoot on the switches and the noise the rest of the board receives. Put the DC-link
+2. **Make the switching loop the smallest.** Its current changes fastest; its area sets the voltage
+   overshoot on the switches and the noise the rest of the board gets. Put the DC-link
    capacitor at the supply pins of the switch or the module. Run the supply and the return on top of
    each other (two faces, or two adjacent layers), not side by side with a gap between them.
 3. **Close each gate loop at the driver.** The return of a gate loop runs from the switch's source (the
@@ -70,24 +70,25 @@ fenolite copper board/board.kicad_pcb --dry-run --json
 
 ## Copper for the current
 
-- **Size the copper by a method, not by habit.** IPC-2152 is the public method that relates a
-  conductor's current, its cross-section and its temperature rise. Its inputs are the current, the
-  temperature rise that the user accepts, the copper thickness, and whether the layer is outer or
-  inner. Ask for the current and the accepted rise; do not assume them.
-- **Use the right current:** the RMS of the real, pulsed current at the highest operating point,
-  not power divided by voltage, at the narrowest section and the pad entries.
+- **Size the copper by a method, not by habit.** IPC-2152, a public method, relates a conductor's
+  current, cross-section and temperature rise, given the copper thickness and whether the layer is
+  outer or inner. Ask for the current and the accepted rise; do not assume them.
+- **Use the right current:** the RMS of the real, pulsed current at the highest operating point, not
+  power over voltage, at the narrowest section and the pad entries.
 - **Budget each rail:** a source port states `current` with `direction="out"`, a load with `"in"`;
   `circuit.rail-current` compares them (page `board-schematic`).
-- **Never narrow a power path silently:** compare the old and the new section, and have the narrower
-  one accepted.
+- **Never narrow a power path silently:** compare the old and the new section; get the narrower one
+  accepted.
 - **Size a via group by the barrels' cross-section** and by how the current shares between them.
 - **Measure what you drew.** `analyze` reports the capacity of each track and via for your inputs.
   `--kinds power` measures the resistance and the voltage drop of the copper between two sets of pads,
-  pours included. An ampacity is never claimed from a geometry check alone.
+  pours included. No ampacity is claimed from geometry. `--deadline S` keeps a
+  sound, coarser answer in time (`analysis.deadline`); `--after-plan ID` reads a planned board.
 
 ```fenolite-cmd
 fenolite analyze board/board.kicad_pcb --kinds current --temp-rise 10 --copper-thickness 35um --json
 fenolite analyze board/board.kicad_pcb --kinds power --path J1-1 Q1-2 --resistivity 17.2 --copper-thickness 35um --json
+fenolite explain analysis.deadline
 ```
 
 These values are examples: use the user's.
@@ -98,8 +99,8 @@ These values are examples: use the user's.
   in straight runs. Use 45° chamfers at the steps and bevels at the outer corners. Widen each side
   independently, as far as the clearance to the neighbouring band allows. A pour that fills every gap
   looks improvised and leaves fingers that carry nothing.
-- **Let the build draw the band, the keep-outs and the vias.** The calls below run after placement, so
-  they follow the parts; each writes ordinary zones, rule areas, tracks and vias that a rebuild replaces.
+- **Let the build draw the band, the keep-outs and the vias.** The calls below run after placement; each
+  writes ordinary zones, rule areas, tracks and vias that a rebuild replaces.
   A barrier and a body keep-out are convex; read the build's issues for the pads a barrier encloses.
 
 ```fenolite-design

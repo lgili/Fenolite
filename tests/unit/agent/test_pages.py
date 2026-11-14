@@ -539,7 +539,7 @@ def test_topics_load() -> None:
     pages = guide.pages()
     topics = [page.topic for page in pages]
     assert topics == [guide.START, *sorted((*WRITTEN, *GENERATED))]
-    assert len(TOOLS) == 22 and len(PRACTICE) == 12 and len(GENERATED) == 8
+    assert len(TOOLS) == 22 and len(PRACTICE) == 12 and len(GENERATED) == 9
     for page in pages:
         assert page.title and page.summary and "\n" not in page.summary, page.topic
         assert page.text.startswith(f"# {page.title}\n"), page.topic

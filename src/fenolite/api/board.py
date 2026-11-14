@@ -23,10 +23,17 @@ from typing import TYPE_CHECKING, Any, TypeAlias
 from fenolite.analysis.boundary import OVERLAP_NEEDS_GEO, board_boundary
 from fenolite.analysis.connectivity import ConnectivityReport, NetIsland, net_islands
 from fenolite.analysis.connectivity import connectivity as net_connectivity
+from fenolite.analysis.copper import ARC_TOL_NM
 from fenolite.analysis.current import analyze_current as current_report
+from fenolite.analysis.deadline import Deadline
 from fenolite.analysis.distance import analyze_distances as distance_report
+from fenolite.analysis.pour import DEFAULT_GRID_NM, pour_copper
+from fenolite.analysis.power import PathPads, PowerReport
+from fenolite.analysis.power import analyze_power as power_report
 from fenolite.analysis.report import AnalysisReport
 from fenolite.analysis.requirements import Requirements, load_requirements
+from fenolite.analysis.split import SplitReport
+from fenolite.analysis.split import analyze_split as split_report
 from fenolite.api.sides import (
     DEFAULT_TIMEOUT,
     ReadSide,
@@ -227,6 +234,77 @@ def analyze_distances(
     )
 
 
+def _deadline(seconds: int | None) -> Deadline | None:
+    return None if seconds is None else Deadline(seconds)
+
+
+def analyze_power(
+    board: BoardInput,
+    *,
+    paths: Sequence[PathPads] = (),
+    requirements: Requirements | PathInput | None = None,
+    temp_rise_mk: int | None = None,
+    copper_thickness: Mapping[str, Nm] | None = None,
+    via_plating: Nm | None = None,
+    resistivity_pohm_m: int | None = None,
+    arc_tol: Nm = ARC_TOL_NM,
+    deadline: int | None = None,
+) -> PowerReport:
+    """The power paths of the board, as ``fenolite analyze --kinds power`` measures them (change c0503):
+    ``paths`` pairs of pad sets ``(("J1-1",), ("U1-1",))`` measured only, ``requirements`` the ``[[path]]``
+    rows to judge. ``board`` may be an Altium edit ``Session``: its pending edits are analysed and nothing
+    is written. ``deadline`` in whole seconds bounds the work (``None``: none)."""
+    read = _board(board)
+    return power_report(
+        read.design,
+        pads=read.pads,
+        paths=paths,
+        requirements=_requirements(requirements),
+        temp_rise_mk=temp_rise_mk,
+        copper_thickness=copper_thickness,
+        via_plating=via_plating,
+        resistivity_pohm_m=resistivity_pohm_m,
+        arc_tol=arc_tol,
+        deadline=_deadline(deadline),
+    )
+
+
+def analyze_split(
+    board: BoardInput,
+    *,
+    power: PowerReport,
+    grid: Nm | None = None,
+    copper_thickness: Mapping[str, Nm] | None = None,
+    via_plating: Nm | None = None,
+    resistivity_pohm_m: int | None = None,
+    arc_tol: Nm = ARC_TOL_NM,
+    deadline: int | None = None,
+) -> SplitReport:
+    """The share of each track, fill and via in the current of each row of ``power``, as ``fenolite analyze
+    --kinds power --split`` solves it (change c0503): ``grid`` the cell of the finest level (default 0.1
+    mm), ``deadline`` in whole seconds (``None``: none). ``board`` may be an Altium edit ``Session``."""
+    read = _board(board)
+    design = read.design
+    assert design.board is not None  # a Board holds a board
+    pour = pour_copper(
+        design,
+        pads=read.pads,
+        boundary=board_boundary(design.board),
+        grid=DEFAULT_GRID_NM if grid is None else grid,
+        arc_tol=arc_tol,
+    )
+    return split_report(
+        design,
+        pads=read.pads,
+        pour=pour,
+        power=power,
+        copper_thickness=copper_thickness,
+        via_plating=via_plating,
+        resistivity_pohm_m=resistivity_pohm_m,
+        deadline=_deadline(deadline),
+    )
+
+
 __all__ = [
     "Board",
     "BoardInput",
@@ -234,6 +312,8 @@ __all__ = [
     "PathInput",
     "analyze_current",
     "analyze_distances",
+    "analyze_power",
+    "analyze_split",
     "connectivity",
     "read_board",
     "read_design",

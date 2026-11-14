@@ -904,6 +904,11 @@ meaning = "The low end of the voltage drop of a power path, at the row's current
 fix = "Widen or shorten the copper of the path, add copper in parallel, or correct the row; `result.power` lists each element with its resistance interval."
 see = "analyze"
 
+["analysis.deadline"]
+meaning = "The deadline of `fenolite analyze --deadline` passed before the power paths or the split were finished: the message names the rows cut short, the regions left with their coarse bounds and the finest split level reached. Every interval kept is still sound; each row cut short has `complete: false`."
+fix = "Run again with a longer `--deadline`, or `--deadline 0` for none, to refine the regions and the split."
+see = "analyze"
+
 ["analysis.drop-undecided"]
 meaning = "The row's `drop_mv` lies inside the interval of the voltage drop, or the drop has no high end (a region with more than two ports, a bound that is only one-sided, or a missing input)."
 fix = "Read the interval in `result.power`; give the missing input, or treat the drop as not shown to be met."

@@ -1,6 +1,6 @@
 {
   "schemas/fenolite.altium-edit-plan.v0.json": "07995235cb65b490b3172136625523ee699b0047293e8994bd0141a9d46307f1",
-  "schemas/fenolite.analyze.v0.json": "e84a14f29fc698369ce937e633bdcb12cdac930227eedca576a10f40a53c6d6e",
+  "schemas/fenolite.analyze.v0.json": "dd1e2f3307a24bed72c05bf14d680b687decb2bd4347ca914fcd827ff55960a4",
   "schemas/fenolite.artifacts.v0.json": "070827300faf99d3dc3cdfe5febb6eff44954275ff9781b5867570e341a1d483",
   "schemas/fenolite.blocks.v0.json": "56e2ffb891eb77f88d429f485a37350e0eb16b90a498ed18aa9a871d18dd6f4d",
   "schemas/fenolite.bom.v0.json": "94a94bc78b91d4a001ed06c24e1e31a3ecd95d5c7655900fd37590daff9786d3",

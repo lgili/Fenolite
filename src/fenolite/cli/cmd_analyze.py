@@ -26,6 +26,7 @@ from fenolite.analysis.copper import ARC_TOL_NM
 from fenolite.analysis.coupling import analyze_coupling
 from fenolite.analysis.crossings import Cut, analyze_crossings
 from fenolite.analysis.current import analyze_current
+from fenolite.analysis.deadline import Deadline
 from fenolite.analysis.distance import analyze_distances
 from fenolite.analysis.length import measure_lengths
 from fenolite.analysis.pour import DEFAULT_GRID_NM, PourCopper, pour_copper
@@ -44,7 +45,8 @@ from fenolite.analysis.shapes import analyze_balance, analyze_loops, analyze_nec
 from fenolite.analysis.split import analyze_split
 from fenolite.analysis.ties import Tie, analyze_ties, isolation_islands
 from fenolite.backends import registry
-from fenolite.backends.base import BoardFrame, BoardPad, LengthFacts, LengthSource, ProjectSet
+from fenolite.backends.base import BoardFrame, BoardPad, LengthFacts, LengthSource, ProjectSet, ReadResult
+from fenolite.cli import plans
 from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli.api import Command, Context, Result
 from fenolite.cli.errors import CliError
@@ -243,6 +245,18 @@ def _register(parser: argparse.ArgumentParser) -> None:
         "--split",
         action="store_true",
         help="with --kinds power: the share of each track, fill and via in the path's current, on a raster",
+    )
+    parser.add_argument(
+        "--deadline",
+        default=None,
+        metavar="SECONDS",
+        help="with --kinds power: seconds of refining (default 120, 0 none)",
+    )
+    parser.add_argument(
+        "--after-plan",
+        default=None,
+        metavar="PLAN_ID",
+        help="analyze what a staged plan would write to PATH",
     )
     parser.add_argument(
         "--loop-baseline",
@@ -524,6 +538,81 @@ def _project(board: Path) -> ProjectSet | None:
         return None
 
 
+DEFAULT_DEADLINE_S = 120
+"""The default ``--deadline`` of the power paths and the split, in seconds (change c0503)."""
+
+
+def _seconds(text: str) -> int:
+    """Whole seconds, 0 or more: the reply holds no floats."""
+    if not text.strip().isdigit():
+        raise CliError(
+            "FEN-2001",
+            f"--deadline takes whole seconds, 0 or more, not {text!r}",
+            where="--deadline",
+            hint="e.g. 120",
+        )
+    return int(text)
+
+
+def _planned(ctx: Context, path: Path, plan_id: str) -> bytes:
+    """The bytes the staged plan ``plan_id`` would write to ``path`` (change c0503): ``FEN-4002`` when the
+    plan is unknown or damaged or ``path`` changed since it was made, ``FEN-2001`` when it writes nothing
+    to ``path``."""
+    try:
+        staged = plans.load(ctx.state, plan_id)
+    except plans.DamagedPlan as exc:
+        raise CliError(
+            "FEN-4002", f"the staged plan {plan_id} is damaged ({exc})", where="--after-plan"
+        ) from exc
+    if staged is None:
+        raise CliError(
+            "FEN-4002",
+            f"no staged plan {plan_id}",
+            where="--after-plan",
+            hint="run the command with --dry-run again",
+        )
+    target = path.resolve()
+    rows = [row for row in staged.writes if (Path(staged.cwd) / str(row["path"])).resolve() == target]
+    if not rows:
+        raise CliError(
+            "FEN-2001",
+            f"the plan {plan_id} writes nothing to {path.name}",
+            where="--after-plan",
+            hint="pass the board the plan writes",
+        )
+    row = rows[0]
+    if plans.digest_of(path) != row["replaces"]:
+        raise CliError(
+            "FEN-4002",
+            f"{path.name} changed after the plan {plan_id} was made",
+            where=path.name,
+            hint="run the command with --dry-run again",
+        )
+    try:
+        return staged.data(row)
+    except plans.DamagedPlan as exc:
+        raise CliError(
+            "FEN-4002", f"the staged plan {plan_id} is damaged ({exc})", where="--after-plan"
+        ) from exc
+
+
+def _read_planned(backend: object, path: Path, data: bytes) -> ReadResult:
+    """The board of the planned bytes ``data`` of ``path``, read by its backend without writing them."""
+    from fenolite.backends.altium.backend import AltiumBackend
+    from fenolite.backends.kicad import pcb
+    from fenolite.backends.kicad.backend import KicadBackend
+
+    found: list[Issue] = []
+    if isinstance(backend, AltiumBackend):
+        return backend.board_from_bytes(data, file=path.name, issues=found)
+    if isinstance(backend, KicadBackend) and path.suffix == ".kicad_pcb":
+        design = pcb.read_board(data.decode("utf-8"), file=path.name, issues=found)
+        return ReadResult(design, (*found, *design.validate()), pcb.EVIDENCE)
+    raise CliError(
+        "FEN-2001", f"--after-plan reads an Altium or KiCad board, not {path.name}", where="--after-plan"
+    )
+
+
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
     kinds = _kinds(args.kinds)
     temp_rise = _temp_rise(args.temp_rise)
@@ -547,6 +636,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     reference = _list(args.reference, "--reference")
     via_distance = None if args.via_distance is None else _length(args.via_distance, "--via-distance")
     pour_grid = None if args.pour_grid is None else _length(args.pour_grid, "--pour-grid")
+    deadline = DEFAULT_DEADLINE_S if args.deadline is None else _seconds(args.deadline)
     dead_distance = None if args.dead_distance is None else _length(args.dead_distance, "--dead-distance")
     aggressors = _list(args.aggressor, "--aggressor")
     victims = _list(args.victim, "--victim")
@@ -609,7 +699,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     backend = registry.for_path(path)
     if backend is None:
         raise CliError("FEN-2001", f"no backend reads {path.name}", hint="pass a board file")
-    read = backend.read(path)
+    planned = None if args.after_plan is None else _planned(ctx, path, args.after_plan)
+    read = backend.read(path) if planned is None else _read_planned(backend, path, planned)
     design = read.content
     if not isinstance(design, Design) or design.board is None:
         raise CliError("FEN-2001", f"{path.name} is not a board", hint="pass a board file")
@@ -688,6 +779,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             via_plating=via_plating,
             resistivity_pohm_m=resistivity,
             arc_tol=arc_tol,
+            deadline=None if not deadline else Deadline(deadline),
         )
         issues += power.issues
         evidences.append(power.evidence)
@@ -767,6 +859,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             copper_thickness=copper_thickness,
             via_plating=via_plating,
             resistivity_pohm_m=resistivity,
+            deadline=None if not deadline else Deadline(deadline),
         )
         issues += split.issues
         evidences.append(split.evidence)
@@ -887,6 +980,9 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         result["inputs"]["dead_distance"] = dead_distance
     if "power" in kinds:
         result["inputs"]["split"] = bool(args.split)
+        result["inputs"]["deadline"] = deadline
+    if planned is not None:
+        result["inputs"]["planned"] = args.after_plan
     if "loops" in kinds:
         result["inputs"]["loop_baseline"] = (
             None if args.loop_baseline is None else Path(args.loop_baseline).name
@@ -901,7 +997,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         }
     unique = sorted_issues(dict.fromkeys(issues))
     evidence = Evidence.combine(EVIDENCE, read.evidence, *evidences)
-    raw = b"" if path.is_dir() else path.read_bytes()
+    raw = planned if planned is not None else b"" if path.is_dir() else path.read_bytes()
     return Result(
         result=result,
         issues=unique,

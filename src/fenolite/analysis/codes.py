@@ -30,6 +30,7 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "analysis.path-undecided": ("warning",),
         "analysis.drop-above": ("error",),
         "analysis.drop-undecided": ("warning",),
+        "analysis.deadline": ("warning",),
         "analysis.insulation-below": ("error",),
         "analysis.insulation-undecided": ("warning",),
         "analysis.creepage-over": ("info",),

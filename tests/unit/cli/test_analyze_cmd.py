@@ -240,3 +240,62 @@ def test_a_board_without_a_stackup_assumes_nothing(monkeypatch: pytest.MonkeyPat
     assert inputs["board_thickness_source"] is None and inputs["stackup"] is None
     assert inputs["board_thickness"] is None
     assert len(missing(env, "copper thickness")) == 1
+
+
+# --- change c0503: --deadline and --after-plan ---------------------------------------------------------
+
+
+def _cli(*args: str) -> tuple[int, dict[str, Any], str]:
+    import contextlib
+    import io
+    import json
+
+    from fenolite.cli import main as cli_main
+
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        code = cli_main.main([*args, "--json"])
+    return code, json.loads(out.getvalue()) if out.getvalue() else {}, err.getvalue()
+
+
+POWER = ("--kinds", "power", "--path", "C1-2", "C2-2", "--copper-thickness", "35um", "--resistivity", "17.2")
+
+
+def test_analyze_after_plan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Scenarios "Analyze a planned route before writing it" and "A stale plan": the authored Altium return
+    trace bench, the plan of ``fenolite path`` that adds its tracks, analysed before it is written."""
+    from _route_benches import return_trace
+
+    monkeypatch.chdir(tmp_path)
+    board = return_trace(tmp_path)
+    route = ("--net", "GND", "--from", "C1-2", "--to", "C2-2", "--width", "0.5mm", "--grid", "0.25mm")
+    code, planned, err = _cli("path", str(board), *route, "--gate", "clone", "--dry-run")
+    assert code == 0, (planned, err)
+    plan = planned["result"]["plan_id"]
+    before = board.read_bytes()
+    code, filed, err = _cli("analyze", str(board), *POWER)
+    assert code in (0, 5), err
+    code, after, err = _cli("analyze", str(board), *POWER, "--after-plan", plan, "--deadline", "0")
+    assert code == 0, (after, err)
+    assert after["result"]["inputs"]["planned"] == plan and after["result"]["inputs"]["deadline"] == 0
+    assert after["input"]["sha256"] != filed["input"]["sha256"] and board.read_bytes() == before
+    tracks = [{e["where"] for e in row["elements"] if e["kind"] == "track"} for row in (filed, after)
+              for row in row["result"]["power"]]  # fmt: skip
+    assert tracks[1] - tracks[0], tracks
+    assert all(row["complete"] for row in after["result"]["power"])
+    # a plan that writes nothing to the board, and a board changed after the plan
+    other = tmp_path / "other.PcbDoc"
+    other.write_bytes(before)
+    code, _, err = _cli("analyze", str(other), *POWER, "--after-plan", plan)
+    assert code == 2 and "FEN-2001" in err
+    board.write_bytes(before + b"\0")
+    code, _, err = _cli("analyze", str(board), *POWER, "--after-plan", plan)
+    assert code == 4 and "FEN-4002" in err
+
+
+def test_deadline_option(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """``--deadline`` takes whole seconds; ``inputs.deadline`` holds the value in force (default 120)."""
+    code, env, _ = analyze(monkeypatch, tmp_path, str(FIXTURE), "--kinds", "power", "--deadline", "1.5")
+    assert code == 2 and env == {} or code == 2
+    code, env, _ = analyze(monkeypatch, tmp_path, str(FIXTURE), "--kinds", "power")
+    assert code in (0, 5) and env["result"]["inputs"]["deadline"] == 120

@@ -76,6 +76,7 @@ GENERATED_TOPICS = (
     "commands-4",
     "commands-5",
     "commands-6",
+    "commands-7",
     "dsl-reference",
 )
 """The topics that ``tools/gen_agent_guide.py`` writes; every other reference page is written by hand."""

@@ -450,6 +450,18 @@ Limits of the power paths:
 - A section wider than the width its source states for the fit is outside the fit's range.
 - A fill with more than 400 boundary points takes the gap of its two ports in plan view as `ℓ`, which is
   never longer than the path inside it, so the lower bound stays a lower bound.
+- **Stages and deadline** (change c0503). Each fill is bounded in stages: stage 0 takes `ℓ₀`, the gap of
+  its two port hulls, and `A₀`, its whole area (`ℓ₀ ≤ ℓ`, `A₀ ≥ A`, so `R_s·ℓ₀²/A₀` is a lower bound);
+  stage 1 adds the narrowest section `w` (the capacity, and `R_s·A₀/w²` as the upper bound); stage 2 is
+  the exact `ℓ` and `A` above. Without a deadline every fill reaches stage 2 and nothing changes. With
+  `--deadline` (default 120 s in `fenolite analyze`) every fill gets stage 0, then stage 1 while time
+  remains, then stage 2: first the fills of the rows whose judgment stage 1 leaves undecided, the widest
+  interval first. A row with a fill below stage 2 has `complete: false`, its intervals contain the exact
+  ones, and the reply holds `analysis.deadline`; it gives no `analysis.path-exceeded` or
+  `analysis.drop-above` that the complete row would not give.
+- **Pending edits.** `fenolite analyze PATH --after-plan PLAN_ID` analyzes the board a staged plan would
+  write, and `fenolite.api.analyze_power` takes an Altium edit `Session`: a fix is measured before it is
+  committed.
 - Two fills of one net that touch only each other are not joined; a track whose side overlaps a fill
   without its centre line or an end reaching it is not joined to it.
 - **An imported Altium board** is read like any other: its pours are fills. Copper of an inner plane that
@@ -460,7 +472,7 @@ Limits of the power paths:
 
 ### The split of the current
 
-`--split` (with `--kinds power`, change c0213) solves each power path on the raster of its net's copper and
+`--split` (with `--kinds power`, change c0213) solves each power path on a mesh of its net's copper and
 gives each track, arc, fill and via its share of the path's current in permille (`result.split`), and the
 current of each with a `[[path]]` row.
 
@@ -468,6 +480,17 @@ current of each with a `[[path]]` row.
 fenolite analyze board.kicad_pcb --kinds power --split --path J1-1 U1-1 --copper-thickness 35um --via-plating 25um
 ```
 
+- **The mesh** (change c0503). The copper of each layer is a quadtree of the raster of cell `h`
+  (`--pour-grid`, default 0.1 mm; a cell is copper when its centre is): a square stays one cell when every
+  raster cell in it is the same copper, up to 8 `h` across, and is split down to `h` along edges, holes,
+  pads and vias; neighbours differ by at most a factor of two. Every raster cell lies in exactly one mesh
+  cell. Two cells of sizes `a` and `b` sharing a side `s` are joined by `(t/ρ)·s/((a+b)/2)`, a cell next
+  to a contact by `(t/ρ)·s/(a/2)`; where two small cells share the side of a large one, the current their
+  links carry along that side is taken off the link between them, so a potential that is linear in `x`
+  and `y` solves the mesh exactly. The solve runs coarse to fine on the meshes of `8h`, `4h`, `2h` and `h`,
+  each started from the one before; each finished level is a complete answer, and `cell_nm` names the
+  finest one solved. On the authored benches of the tests the mesh lies within 2 % of a finite-difference
+  solution and each share within 10 permille of the raster solve it replaces.
 - The cells are nodes of a network of resistors. The cells of a pad or a via on a layer are one ideal
   contact; contacts that touch are one. Neighbour cells are joined by the conductance of a square of copper
   of the layer, doubled at the edge of a contact; the layers of a via are joined by its barrel, with the
@@ -479,7 +502,10 @@ fenolite analyze board.kicad_pcb --kinds power --split --path J1-1 U1-1 --copper
 - With `--resistivity`, `resistance_uohm` is the path's resistance on the raster, and `within` says whether
   it lies in the interval of the power path (`bounds`). Both hold the pads as contacts on fills; on a path
   of tracks the interval counts the track from the centres of its pads, so the solve can lie below it.
-- It is an estimate on a raster, not a field simulation, and judges nothing: a share does not decide an
+- **Time.** On the authored plane bench of the tests (100 mm × 80 mm, a ground fill on both layers with 300
+  round 2 mm holes, 30 vias), the split at 0.1 mm took 101 s on the maintainer's Mac, against more than
+  600 s for the raster; with `--deadline` it stops at the deadline with the finest level finished.
+- It is an estimate on a mesh, not a field simulation, and judges nothing: a share does not decide an
   `analysis.path-undecided` element. The level is `INFERRED` (`H-G-POWER-SPLIT`).
 
 ## Insulation between layers

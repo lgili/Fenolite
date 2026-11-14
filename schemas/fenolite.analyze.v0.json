@@ -233,6 +233,9 @@
         "dead_distance": {
           "type": "integer"
         },
+        "deadline": {
+          "type": "integer"
+        },
         "domains": {
           "anyOf": [
             {
@@ -304,6 +307,9 @@
               }
             }
           }
+        },
+        "planned": {
+          "type": "string"
         },
         "pour_grid": {
           "type": "integer"
@@ -2142,6 +2148,9 @@
               "type": "null"
             }
           ]
+        },
+        "complete": {
+          "type": "boolean"
         }
       },
       "additionalProperties": true,
@@ -2153,7 +2162,8 @@
         "temp_rise_mk",
         "elements",
         "resistance_uohm",
-        "drop_mv"
+        "drop_mv",
+        "complete"
       ]
     },
     "Point": {
@@ -2492,7 +2502,7 @@
       ]
     },
     "SplitRow": {
-      "description": "A power path solved on the raster: the elements that carry its current, its resistance (with a",
+      "description": "A power path solved on the mesh: the elements that carry its current, its resistance (with a",
       "type": "object",
       "properties": {
         "net": {
@@ -2564,6 +2574,12 @@
         },
         "converged": {
           "type": "boolean"
+        },
+        "cell_nm": {
+          "type": "integer"
+        },
+        "complete": {
+          "type": "boolean"
         }
       },
       "additionalProperties": true,
@@ -2578,7 +2594,9 @@
         "within",
         "nodes",
         "iterations",
-        "converged"
+        "converged",
+        "cell_nm",
+        "complete"
       ]
     },
     "TieItem": {

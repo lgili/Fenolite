@@ -10,15 +10,18 @@ finite-difference solution on a grid, the oracles of the narrowest section and o
 from __future__ import annotations
 
 import dataclasses
+import math
 from collections.abc import Sequence
 
 from _analysis import MM, at, box
-from _coppercheck import Copper, disc_entry, rect_entry
+from _coppercheck import Copper, disc_entry, ident, rect_entry
 
+from fenolite.analysis.copper import ARC_TOL_NM
 from fenolite.analysis.fills import FillRegion
 from fenolite.backends.base import BoardPad, PadCopper
 from fenolite.core.coords import Point, Size
 from fenolite.geometry import area2, keyhole_ring
+from fenolite.model.board import StackLayer, Stackup
 from fenolite.model.design import Design
 from fenolite.model.presentation import TitleBlock
 
@@ -171,6 +174,69 @@ def neck_board(outer: Sequence[Point], holes: Sequence[Sequence[Point]] = (), *,
     made.pad("J1", "1", net, _rect(4, 4, 6, 6))
     made.pad("U1", "1", net, _rect(17, 4, 19, 6))
     return made.build(), tuple(made.pads)
+
+
+PLANE = box(0, 0, 100, 80)
+"""The outline of ``plane_board``: 100 mm × 80 mm."""
+
+
+def _round_hole(x: float, y: float, radius: int) -> Ring:
+    """A hole of ``radius`` nm at ``(x, y)`` mm, polygonised so that no chord leaves the circle by more than
+    ``ARC_TOL_NM``, in the turn of ``box``."""
+    count = max(8, math.ceil(math.pi / math.acos(1 - ARC_TOL_NM / radius)))
+    cx, cy = round(x * MM), round(y * MM)
+    return tuple(
+        Point(
+            cx + round(radius * math.cos(2 * math.pi * k / count)),
+            cy + round(radius * math.sin(2 * math.pi * k / count)),
+        )
+        for k in range(count)
+    )
+
+
+def plane_board(holes: int, *, round: bool = False, net: str = "GND") -> Bench:  # noqa: A002
+    """The plane bench of change c0503 (design D1): a 100 mm × 80 mm board, a zone of ``net`` filled on
+    ``F.Cu`` and on ``B.Cu`` with ``holes`` clearance holes of 2 mm (squares, or circles with ``round``) in a
+    grid over the middle 80 mm × 60 mm, 30 through vias and 20 SMD pads on ``F.Cu`` in the hole-free margin,
+    and the through-hole pads ``J1-1`` at (3, 3) mm and ``U1-1`` at (97, 77) mm, 2 mm squares on both layers;
+    a stack-up of 35 µm of copper on each side of 1.53 mm of laminate.
+    Every number is illustrative, authored for Fenolite."""
+    columns = math.ceil(math.sqrt(holes * 100 / 80))
+    rows = math.ceil(holes / columns)
+    rings: list[Ring] = []
+    for index in range(holes):
+        x = 10 + (index % columns + 0.5) * 80 / columns
+        y = 10 + (index // columns + 0.5) * 60 / rows
+        rings.append(_round_hole(x, y, MM) if round else box(x - 1, y - 1, x + 1, y + 1))
+    made = Copper()
+    both = ("F.Cu", "B.Cu")
+    for layer in both:
+        made.zone(net, PLANE, layer=layer, fills=(stored(PLANE, rings),), locator=f"/plane-{layer}")
+    spots = [(15 + 8 * k, 6) for k in range(10)] + [(15 + 8 * k, 74) for k in range(10)]
+    spots += [(6, 20 + 10 * k) for k in range(5)] + [(94, 20 + 10 * k) for k in range(5)]
+    for index, (x, y) in enumerate(spots):
+        made.via(net, at(x, y), locator=f"/via[{index}]")
+    for index in range(20):
+        x, y = 19 + 8 * (index % 10), (8.5 if index < 10 else 71.5)
+        made.pad(f"C{index + 1}", "1", net, _rect(x - 0.5, y - 0.5, x + 0.5, y + 0.5))
+    for ref, (x, y) in (("J1", (3, 3)), ("U1", (97, 77))):
+        made.pad(
+            ref,
+            "1",
+            net,
+            *(_rect(x - 1, y - 1, x + 1, y + 1, layer) for layer in both),
+            kind="thru_hole",
+            layers=both,
+        )
+    design = made.build()
+    assert design.board is not None
+    entries = (("F.Cu", "copper", 35_000), ("core", "dielectric", 1_530_000), ("B.Cu", "copper", 35_000))
+    layers = tuple(
+        StackLayer(id=ident("stk", n), name=name, kind=kind, thickness=thickness)  # type: ignore[arg-type]
+        for n, (name, kind, thickness) in enumerate(entries)
+    )
+    board = dataclasses.replace(design.board, stackup=Stackup(id=ident("stu", 1), layers=layers))
+    return dataclasses.replace(design, board=board), tuple(made.pads)
 
 
 # --- the grid cut: the oracle of the narrowest section (test code) ---------------------------------
@@ -357,6 +423,7 @@ __all__ = [
     "Bench",
     "branch",
     "neck_board",
+    "plane_board",
     "strip",
     "two_strips",
     "via_array",

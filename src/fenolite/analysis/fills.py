@@ -125,6 +125,14 @@ def _clipped_area2(ring: Ring, hull: Ring) -> Fraction:
     """Twice the area of ``ring`` inside the convex ``hull`` (positive orientation), not below 0. Each
     edge of the hull cuts the ring with exact rational points; on a ring that is not convex the cut leaves
     edges along the hull's lines that enclose no area, so the shoelace sum is still the area."""
+    sides = [
+        (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x)
+        for i, a in enumerate(hull)
+        for b in (hull[(i + 1) % len(hull)],)
+        for p in ring
+    ]
+    if all(side >= 0 for side in sides):  # change c0503: the ring lies in the hull
+        return Fraction(abs(area2(ring)))
     out: list[_Q] = [(Fraction(p.x), Fraction(p.y)) for p in ring]
     for i, a in enumerate(hull):
         b = hull[(i + 1) % len(hull)]
@@ -147,6 +155,14 @@ def _clipped_area2(ring: Ring, hull: Ring) -> Fraction:
     return abs(total)
 
 
+def _box(ring: Sequence[Point]) -> tuple[int, int, int, int]:
+    return min(p.x for p in ring), min(p.y for p in ring), max(p.x for p in ring), max(p.y for p in ring)
+
+
+def _meet(a: tuple[int, int, int, int], b: tuple[int, int, int, int]) -> bool:
+    return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
+
+
 def area_outside(region: FillRegion, hulls: Sequence[Sequence[Point]]) -> Fraction:
     """The area of the region outside the convex ``hulls``, in square nanometres: the region's area less,
     for each hull, the outer ring clipped by it and plus each hole clipped by it. A hull of fewer than
@@ -158,9 +174,11 @@ def area_outside(region: FillRegion, hulls: Sequence[Sequence[Point]]) -> Fracti
             continue
         if area2(ring) < 0:
             ring = tuple(reversed(ring))
+        box = _box(ring)
         twice -= _clipped_area2(region.outer, ring)
         for hole in region.holes:
-            twice += _clipped_area2(hole, ring)
+            if _meet(_box(hole), box):  # change c0503: a hole whose box misses the hull's adds nothing
+                twice += _clipped_area2(hole, ring)
     return max(twice, Fraction(0)) / 2
 
 

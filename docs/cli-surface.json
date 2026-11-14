@@ -214,6 +214,19 @@
       "experimental": false,
       "mutates": false,
       "options": {
+        "--after-plan": {
+          "aliases": [
+            "--after-plan"
+          ],
+          "choices": null,
+          "default": null,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": false,
+          "required": false,
+          "type": "string"
+        },
         "--aggressor": {
           "aliases": [
             "--aggressor"
@@ -308,6 +321,19 @@
         "--dead-distance": {
           "aliases": [
             "--dead-distance"
+          ],
+          "choices": null,
+          "default": null,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": null,
+          "positional": false,
+          "required": false,
+          "type": "string"
+        },
+        "--deadline": {
+          "aliases": [
+            "--deadline"
           ],
           "choices": null,
           "default": null,
@@ -11753,6 +11779,12 @@
         "error"
       ]
     },
+    "analysis.deadline": {
+      "experimental": false,
+      "severities": [
+        "warning"
+      ]
+    },
     "analysis.decoupling-far": {
       "experimental": false,
       "severities": [
@@ -18858,6 +18890,135 @@
             "default": false,
             "kind": "KEYWORD_ONLY",
             "name": "insulation",
+            "required": false
+          }
+        ]
+      },
+      "analyze_power": {
+        "kind": "function",
+        "parameters": [
+          {
+            "annotation": "BoardInput",
+            "default": null,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "board",
+            "required": true
+          },
+          {
+            "annotation": "Sequence[PathPads]",
+            "default": [],
+            "kind": "KEYWORD_ONLY",
+            "name": "paths",
+            "required": false
+          },
+          {
+            "annotation": "Requirements | PathInput | None",
+            "default": null,
+            "kind": "KEYWORD_ONLY",
+            "name": "requirements",
+            "required": false
+          },
+          {
+            "annotation": "int | None",
+            "default": null,
+            "kind": "KEYWORD_ONLY",
+            "name": "temp_rise_mk",
+            "required": false
+          },
+          {
+            "annotation": "Mapping[str, Nm] | None",
+            "default": null,
+            "kind": "KEYWORD_ONLY",
+            "name": "copper_thickness",
+            "required": false
+          },
+          {
+            "annotation": "Nm | None",
+            "default": null,
+            "kind": "KEYWORD_ONLY",
+            "name": "via_plating",
+            "required": false
+          },
+          {
+            "annotation": "int | None",
+            "default": null,
+            "kind": "KEYWORD_ONLY",
+            "name": "resistivity_pohm_m",
+            "required": false
+          },
+          {
+            "annotation": "Nm",
+            "default": 1000,
+            "kind": "KEYWORD_ONLY",
+            "name": "arc_tol",
+            "required": false
+          },
+          {
+            "annotation": "int | None",
+            "default": null,
+            "kind": "KEYWORD_ONLY",
+            "name": "deadline",
+            "required": false
+          }
+        ]
+      },
+      "analyze_split": {
+        "kind": "function",
+        "parameters": [
+          {
+            "annotation": "BoardInput",
+            "default": null,
+            "kind": "POSITIONAL_OR_KEYWORD",
+            "name": "board",
+            "required": true
+          },
+          {
+            "annotation": "PowerReport",
+            "default": null,
+            "kind": "KEYWORD_ONLY",
+            "name": "power",
+            "required": true
+          },
+          {
+            "annotation": "Nm | None",
+            "default": null,
+            "kind": "KEYWORD_ONLY",
+            "name": "grid",
+            "required": false
+          },
+          {
+            "annotation": "Mapping[str, Nm] | None",
+            "default": null,
+            "kind": "KEYWORD_ONLY",
+            "name": "copper_thickness",
+            "required": false
+          },
+          {
+            "annotation": "Nm | None",
+            "default": null,
+            "kind": "KEYWORD_ONLY",
+            "name": "via_plating",
+            "required": false
+          },
+          {
+            "annotation": "int | None",
+            "default": null,
+            "kind": "KEYWORD_ONLY",
+            "name": "resistivity_pohm_m",
+            "required": false
+          },
+          {
+            "annotation": "Nm",
+            "default": 1000,
+            "kind": "KEYWORD_ONLY",
+            "name": "arc_tol",
+            "required": false
+          },
+          {
+            "annotation": "int | None",
+            "default": null,
+            "kind": "KEYWORD_ONLY",
+            "name": "deadline",
             "required": false
           }
         ]

@@ -54,6 +54,7 @@ class AnalyzeInputs:
     )
     cuts: list[str] = field(metadata={"optional": True})
     dead_distance: int = field(metadata={"optional": True})
+    deadline: int = field(metadata={"optional": True})
     domains: dict[str, list[str]] | None = field(metadata={"optional": True})
     from_: list[str] = field(metadata={"optional": True, "name": "from"})
     groove_nm: int | None
@@ -63,6 +64,7 @@ class AnalyzeInputs:
     nets: list[str] = field(metadata={"optional": True})
     pairs: list[list[str]]
     paths: list[list[list[str]]]
+    planned: str = field(metadata={"optional": True})
     pour_grid: int = field(metadata={"optional": True})
     reference: list[str] = field(metadata={"optional": True})
     requirements: None | str

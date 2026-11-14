@@ -34,7 +34,7 @@ from __future__ import annotations
 import heapq
 from collections import Counter
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from fractions import Fraction
 from itertools import combinations
 from math import ceil, floor
@@ -43,6 +43,7 @@ from fenolite.analysis.boundary import BoardBoundary
 from fenolite.analysis.codes import issue
 from fenolite.analysis.copper import ARC_TOL_NM, copper_layers
 from fenolite.analysis.current import SOURCE_OF_FIT, barrel_area_nm2, capacity_ma, in_range, layer_thickness
+from fenolite.analysis.deadline import Deadline, passed
 from fenolite.analysis.fills import FillRegion, area_outside
 from fenolite.analysis.insulation import layer_depths
 from fenolite.analysis.network import Element, PathNetwork, RegionUse, path_network
@@ -103,7 +104,8 @@ class PathElement:
 @dataclass(frozen=True, slots=True)
 class PathRow:
     """One power path. ``milliamps`` and ``drop_mv`` are ``None`` for a path that is only measured;
-    ``resistance_uohm`` is ``None`` without a resistivity."""
+    ``resistance_uohm`` is ``None`` without a resistivity. ``complete`` is false when a deadline left a
+    fill of the path with its coarse bounds (change c0503): its intervals are sound but wider."""
 
     net: str
     start: tuple[str, ...]
@@ -113,6 +115,7 @@ class PathRow:
     elements: tuple[PathElement, ...] = ()
     resistance_uohm: Interval | None = None
     drop_mv: Interval | None = None
+    complete: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -162,6 +165,42 @@ def _bounds(
     width = section.measure.low
     high = sheet * area / (width * width) if width > 0 and section.hull_free and area > 0 else None
     return low, high
+
+
+def _coarse_bounds(
+    region: FillRegion, a: Port, b: Port, sheet: Fraction, arc_tol: int, section: Section | None
+) -> _Bounds:
+    """The bounds of stage 0 and 1 (design D2 of change c0503): ``ℓ₀``, the gap of the two port hulls, is
+    at most the path inside the fill, and ``A₀``, the whole area of the fill, at least the area outside the
+    hulls, so ``R_s·ℓ₀²/A₀`` is at most the exact low end and ``R_s·A₀/w²`` at least the exact high end.
+    Without ``section`` (stage 0) the high end is ``None``."""
+    hulls = (port_hull(a, arc_tol=arc_tol), port_hull(b, arc_tol=arc_tol))
+    if len(hulls[0]) < 3 or len(hulls[1]) < 3:
+        return Fraction(0), None
+    hull_a, hull_b = Thick(hulls[0], 0, filled=True), Thick(hulls[1], 0, filled=True)
+    gap = 0 if thick_touch(hull_a, hull_b) else thick_gap_floor(hull_a, hull_b)
+    length = max(0, gap - a.band - b.band)
+    area = Fraction(region.area2, 2)
+    low = sheet * length * length / area if area > 0 else Fraction(0)
+    if section is None:
+        return low, None
+    width = section.measure.low
+    high = sheet * area / (width * width) if width > 0 and section.hull_free and area > 0 else None
+    return low, high
+
+
+def stage_bounds(
+    region: FillRegion, a: Port, b: Port, *, sheet_uohm: Fraction | int, stage: int, arc_tol: int = ARC_TOL_NM
+) -> Interval:
+    """The interval of ``region_bounds`` at ``stage`` 0, 1 or 2 of design D2 of change c0503; stage 2 is
+    ``region_bounds`` itself, and each stage's interval contains the next one's."""
+    sheet = Fraction(sheet_uohm)
+    if stage >= 2:
+        low, high = _bounds(region, a, b, sheet, arc_tol)
+    else:
+        section = narrowest_section(region, a, b, arc_tol=arc_tol) if stage == 1 else None
+        low, high = _coarse_bounds(region, a, b, sheet, arc_tol, section)
+    return Interval(floor(low), None if high is None else ceil(high))
 
 
 def region_bounds(
@@ -265,46 +304,89 @@ class _Inputs:
     issues: list[Issue]
 
 
-def _region_element(
-    use: RegionUse, element: Element, thickness: Nm | None, rise: int | None, external: bool, given: _Inputs
-) -> tuple[PathElement, dict[tuple[int, int], _Bounds]]:
-    """The element of an active fill and the bounds of its resistance between each two active ports."""
-    region = use.region
+@dataclass(slots=True)
+class _Region:
+    """An active fill of a path and the stage its bounds reached (design D2 of change c0503): 0 with the
+    coarse ``ℓ₀`` and ``A₀``, 1 with the narrowest sections too, 2 with the exact ``ℓ`` and ``A``."""
+
+    use: RegionUse
+    element: Element
+    thickness: Nm | None
+    external: bool
+    stage: int = -1
+    made: PathElement | None = None
+    bounds: dict[tuple[int, int], _Bounds] = field(default_factory=lambda: {})
+    sections: dict[tuple[int, int], Section] | None = None
+    best: tuple[Section, int, int] | None = None
+    missing: Counter[str] = field(default_factory=lambda: Counter[str]())
+
+    def width(self) -> Fraction | None:
+        """The widest interval of its pairs of ports; ``None`` when one has no high end."""
+        widths = [high - low for low, high in self.bounds.values() if high is not None]
+        if len(widths) < len(self.bounds) or not widths:
+            return None
+        return max(widths)
+
+
+def _sections(region: _Region, arc_tol: int) -> None:
+    use = region.use
     active = use.active_ports
     best: tuple[Section, int, int] | None = None
     sections: dict[tuple[int, int], Section] = {}
     for i, j in combinations(active, 2):
         limit = None if best is None or len(active) == 2 else best[0].measure.low + 1
-        found = narrowest_section(region, use.ports[i], use.ports[j], arc_tol=given.arc_tol, limit=limit)
+        found = narrowest_section(use.region, use.ports[i], use.ports[j], arc_tol=arc_tol, limit=limit)
         if found.measure.bounded:
             continue
         sections[(i, j)] = found
         if best is None or found.measure.low < best[0].measure.low:
             best = (found, i, j)
+    region.sections, region.best = sections, best
+
+
+def _refine(region: _Region, stage: int, rise: int | None, given: _Inputs) -> None:
+    """Bring ``region`` to ``stage``: its element and the bounds of its resistance between each two active
+    ports."""
+    use = region.use
+    if stage >= 1 and region.sections is None:
+        _sections(region, given.arc_tol)
+    sheet = None
+    if given.resistivity is not None and region.thickness is not None:
+        sheet = Fraction(1000 * given.resistivity, region.thickness)
+    if sheet is None and stage >= 1:
+        stage = 2  # nothing more to compute: no resistance without a sheet resistance
+    sections = region.sections or {}
     bounds: dict[tuple[int, int], _Bounds] = {}
-    if given.resistivity is not None and thickness is not None:
-        sheet = Fraction(1000 * given.resistivity, thickness)
-        for i, j in combinations(active, 2):
-            ports = (use.ports[i], use.ports[j])
-            bounds[(i, j)] = _bounds(region, ports[0], ports[1], sheet, given.arc_tol, sections.get((i, j)))
-    if best is None:
-        return PathElement("fill", element.where, element.layer, element.series), bounds
-    section, i, j = best
+    if sheet is not None:
+        for i, j in combinations(use.active_ports, 2):
+            a, b = use.ports[i], use.ports[j]
+            if stage >= 2:
+                bounds[(i, j)] = _bounds(use.region, a, b, sheet, given.arc_tol, sections.get((i, j)))
+            else:
+                section = sections.get((i, j)) if stage == 1 else None
+                bounds[(i, j)] = _coarse_bounds(use.region, a, b, sheet, given.arc_tol, section)
+    region.stage, region.bounds = stage, bounds
+    region.missing = Counter()
+    element = region.element
+    if region.best is None:
+        region.made = PathElement("fill", element.where, element.layer, element.series)
+        return
+    section, i, j = region.best
     area = capacity = within = None
-    if thickness is None:
-        given.missing["copper thickness"] += 1
+    if region.thickness is None:
+        region.missing["copper thickness"] += 1
     else:
-        area = section.measure.low * thickness
+        area = section.measure.low * region.thickness
         if rise is None:
-            given.missing["temperature rise"] += 1
+            region.missing["temperature rise"] += 1
         elif area > 0:
-            capacity = capacity_ma(area, rise, external=external)
-            within = in_range(section.measure.low, rise, capacity, external=external)
+            capacity = capacity_ma(area, rise, external=region.external)
+            within = in_range(section.measure.low, rise, capacity, external=region.external)
     resistance = None
-    if len(active) == 2 and (i, j) in bounds:
+    if len(use.active_ports) == 2 and (i, j) in bounds:
         low, high = bounds[(i, j)]
         resistance = Interval(floor(low), None if high is None else ceil(high))
-    made = PathElement(
+    region.made = PathElement(
         "fill",
         element.where,
         element.layer,
@@ -317,24 +399,54 @@ def _region_element(
         resistance,
         section.hull_free,
     )
-    return made, bounds
 
 
-def _row(
-    given: _Inputs,
-    start: Sequence[str],
-    end: Sequence[str],
-    milliamps: int | None,
-    rise: int | None,
-    drop: int | None,
-) -> PathRow:
+@dataclass(slots=True)
+class _Request:
+    start: tuple[str, ...]
+    end: tuple[str, ...]
+    milliamps: int | None
+    rise: int | None
+    drop: int | None
+    network: PathNetwork | None = None
+    regions: dict[int, _Region] = field(default_factory=lambda: {})
+
+
+def _prepare(given: _Inputs, request: _Request) -> None:
+    """The network of a path and its active fills, none of them computed yet."""
     design = given.design
-    network: PathNetwork = path_network(design, pads=given.pads, start=start, end=end, arc_tol=given.arc_tol)
+    network = path_network(
+        design, pads=given.pads, start=request.start, end=request.end, arc_tol=given.arc_tol
+    )
     given.issues += network.issues
+    request.network = network
+    board = design.board
+    if board is None:
+        return
+    layers = copper_layers(board)
+    outer = {layers[0], layers[-1]} if layers else set[str]()
+    uses = iter(network.regions)
+    for index, element in enumerate(network.elements):
+        use = next(uses) if element.kind == "fill" else None
+        if use is None or not element.active:
+            continue
+        thickness = layer_thickness(board, element.layer, given.copper_thickness)
+        request.regions[index] = _Region(use, element, thickness, element.layer in outer)
+
+
+def _row(given: _Inputs, request: _Request) -> PathRow:
+    """The row of a prepared path from its fills at the stage they reached."""
+    start, end, milliamps, rise, drop = (
+        request.start, request.end, request.milliamps, request.rise, request.drop
+    )  # fmt: skip
+    design = given.design
+    network = request.network
+    assert network is not None
+    complete = all(region.stage >= 2 for region in request.regions.values())
     board = design.board
     names = "/".join((",".join(start), ",".join(end)))
     if board is None or not network.elements:
-        return PathRow(network.net, tuple(start), tuple(end), milliamps, rise)
+        return PathRow(network.net, tuple(start), tuple(end), milliamps, rise, complete=complete)
     layers = copper_layers(board)
     outer = {layers[0], layers[-1]} if layers else set[str]()
     vias = {via.id: via for via in board.vias}
@@ -347,7 +459,7 @@ def _row(
     whole = True  # every active element has a high value and no fill has more than two active ports
     groups = iter(network.groups)
     uses = iter(network.regions)
-    for element in network.elements:
+    for index, element in enumerate(network.elements):
         group = next(groups) if element.kind == "via-group" else None
         use = next(uses) if element.kind == "fill" else None
         if not element.active:
@@ -410,9 +522,11 @@ def _row(
             ends = element.ends
         else:
             assert use is not None
-            thickness = layer_thickness(board, element.layer, given.copper_thickness)
-            found, bounds = _region_element(use, element, thickness, rise, element.layer in outer, given)
-            made.append(found)
+            region = request.regions[index]
+            assert region.made is not None
+            given.missing.update(region.missing)
+            bounds = region.bounds
+            made.append(region.made)
             active = use.active_ports
             nodes = [use.nodes[index] for index in active]
             if len(active) > 2 or not bounds:
@@ -490,7 +604,15 @@ def _row(
             )
         )
     return PathRow(
-        network.net, tuple(start), tuple(end), milliamps, rise, tuple(made), resistance_row, drop_row
+        network.net,
+        tuple(start),
+        tuple(end),
+        milliamps,
+        rise,
+        tuple(made),
+        resistance_row,
+        drop_row,
+        complete,
     )
 
 
@@ -528,6 +650,57 @@ def _judge(
     return found
 
 
+def _staged(given: _Inputs, requests: Sequence[_Request], deadline: Deadline) -> None:
+    """Every fill at stage 0, then at stage 1 while time remains, then at stage 2: first the fills of the
+    rows whose judgment stage 1 leaves undecided, the widest interval first, then by ``where``."""
+    regions = [(request, region) for request in requests for region in request.regions.values()]
+    for request, region in regions:
+        _refine(region, 0, request.rise, given)
+    for request, region in regions:
+        if passed(deadline):
+            return
+        _refine(region, 1, request.rise, given)
+    undecided: set[int] = set()
+    for number, request in enumerate(requests):
+        scratch = replace(given, missing=Counter(), issues=[])
+        _row(scratch, request)
+        if any(found.code.endswith("-undecided") for found in scratch.issues):
+            undecided.add(number)
+    order = sorted(
+        (
+            (number not in undecided, width is None, -(width or 0), region.element.where, number, k)
+            for number, request in enumerate(requests)
+            for k, region in request.regions.items()
+            if region.stage < 2
+            for width in (region.width(),)
+        ),
+        key=lambda item: item[:4] + (item[4], item[5]),
+    )
+    for _, _, _, _, number, k in order:
+        if passed(deadline):
+            return
+        request = requests[number]
+        _refine(request.regions[k], 2, request.rise, given)
+
+
+def _cut(requests: Sequence[_Request]) -> Issue | None:
+    """The ``analysis.deadline`` warning naming the rows and the fills left below stage 2."""
+    coarse = [
+        (request, region) for request in requests for region in request.regions.values() if region.stage < 2
+    ]
+    if not coarse:
+        return None
+    rows = sorted({"/".join((",".join(request.start), ",".join(request.end))) for request, _ in coarse})
+    names = sorted({f"{region.element.where} (stage {region.stage})" for _, region in coarse})
+    return issue(
+        "analysis.deadline",
+        f"the deadline passed before the power paths {', '.join(rows)} were refined: the fills "
+        f"{', '.join(names)} keep their coarse bounds, which are sound but wider",
+        where="power",
+        hint="run again with a longer --deadline, or --deadline 0 for none",
+    )
+
+
 def analyze_power(
     design: Design,
     *,
@@ -539,17 +712,30 @@ def analyze_power(
     via_plating: Nm | None = None,
     resistivity_pohm_m: int | None = None,
     arc_tol: int = ARC_TOL_NM,
+    deadline: Deadline | None = None,
 ) -> PowerReport:
     """One row per power path: each pair of ``paths``, measured only, and each ``[[path]]`` row of
-    ``requirements``, measured and judged against its current and its largest drop."""
+    ``requirements``, measured and judged against its current and its largest drop. With ``deadline``
+    (change c0503) the fills are bounded coarse first and refined while time remains; a row left with a
+    coarse fill has ``complete`` false and the report one ``analysis.deadline`` warning."""
     given = _Inputs(design, pads, copper_thickness, via_plating, resistivity_pohm_m, arc_tol, Counter(), [])
-    rows: list[PathRow] = []
-    for start, end in paths:
-        rows.append(_row(given, tuple(start), tuple(end), None, temp_rise_mk, None))
+    requests = [_Request(tuple(start), tuple(end), None, temp_rise_mk, None) for start, end in paths]
     wants_drop = False
     for row in requirements.paths if requirements is not None else ():
         wants_drop = wants_drop or row.drop_mv is not None
-        rows.append(_row(given, row.start, row.end, row.milliamps, row.temp_rise_mk, row.drop_mv))
+        requests.append(_Request(row.start, row.end, row.milliamps, row.temp_rise_mk, row.drop_mv))
+    for request in requests:
+        _prepare(given, request)
+    if deadline is None:
+        for request in requests:
+            for region in request.regions.values():
+                _refine(region, 2, request.rise, given)
+    else:
+        _staged(given, requests, deadline)
+    rows = [_row(given, request) for request in requests]
+    cut = _cut(requests)
+    if cut:
+        given.issues.append(cut)
     rows.sort(key=lambda row: (row.net, row.start, row.end, row.milliamps or 0))
     issues = list(dict.fromkeys(given.issues))
     for name, count in sorted(given.missing.items()):
@@ -598,4 +784,5 @@ __all__ = [
     "PowerReport",
     "analyze_power",
     "region_bounds",
+    "stage_bounds",
 ]

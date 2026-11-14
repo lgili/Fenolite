@@ -85,7 +85,7 @@ sizes) and numpy or scipy (no runtime dependency in the core; no extra holds the
 
 ## D5 Deadline and partial results
 
-New `analysis/deadline.py`: `Deadline(seconds, clock=time.monotonic)` with `left()` and `passed()`. It is given
+New `analysis/deadline.py`: `Deadline(seconds, clock=time.monotonic_ns)` with `passed()`. It is given
 to `analyze_power` and `analyze_split` (`deadline=None` keeps today's unbounded behaviour). Work checks it
 between regions (stage 2), between `surface_distance` searches, between split levels and every 64 SOR passes.
 
@@ -133,3 +133,59 @@ None: no file format fact changes. The mesh conductance is Fenolite's own discre
 - The quadtree's two-point flux is not consistent on graded cells next to diagonal edges; error is bounded by
   task 3.3's comparison with the finite-difference oracle and the old raster.
 - The CI time budgets are on GitHub's Linux runners, slower than the maintainer's Mac; task 4.1 records both.
+
+## Decisions taken while implementing
+
+- Decision (maintainer, 2026-11-14): the mesh's two-point flux uses the normal distance `(a+b)/2` across the
+  shared side (`a/2` to a contact), not the Euclidean distance of the centres; weights are integers times
+  `SCALE_K = 3`, exact for leaves balanced 2:1.
+- Decision (maintainer, 2026-11-14): a hanging side (a leaf of size `2s` whose side two free leaves of size `s`
+  share) takes `g1·g2/(g1+g2)` off the link between the two small leaves. Without it the flux along the side
+  through the large leaf broke the strip benches (`two_strips` gave 669 µΩ against the exact 686); with it a
+  linear potential solves the mesh exactly and the strips match the raster to the microohm.
+- Decision (maintainer, 2026-11-14): leaves are at most 8 cells across (`mesh.MAX_LEAF`). Measured on the
+  dumbbell bench at 0.1 mm against the oracle's 1312 µΩ: no cap 1342 (+2.3 %), 16 cells 1341, 8 cells 1336
+  (+1.8 %), 4 cells 1327 (+1.1 %); 4 cells tripled the nodes of the 48-hole plane (100 322 against 30 026) and
+  the split time (132.6 s against 27.6 s). 8 cells meets the 2 % of task 3.3.
+- Decision (maintainer, 2026-11-14): the cascade has four levels, `8h`, `4h`, `2h`, `h` (`split.LEVELS = 3`), each
+  built by the same mesh code at its own cell size; a coarse level that merges the start and end contacts is
+  skipped. `ω` uses `n`, the most links from a start node (BFS), in place of the raster's two spans; tried
+  `n/2` and `2n` on the 48-hole plane at 0.2 mm: `n` took the fewest passes at the finest level.
+- Decision (maintainer, 2026-11-14): a split row reports `nodes` and `iterations` of its finest finished level.
+  The raster's `MAX_CELLS` guard now counts the fills by area over `h²`, so the guard no longer rasterises.
+- Decision (maintainer, 2026-11-14): `--deadline` takes whole seconds (the reply holds no float); `inputs.deadline`
+  is that integer, `0` for none.
+- Decision (maintainer, 2026-11-14): `Deadline` and the API's `deadline=` take whole seconds too, read on
+  `time.monotonic_ns`: `fenolite.analysis` names no float (`tests/unit/analysis/test_report.py`).
+- Decision (maintainer, 2026-11-14): the envelope's `input` is frozen (`schemas/fenolite.envelope.v0.json`,
+  `additionalProperties: false`), so `--after-plan` puts the plan id in `result.inputs.planned`; `input.sha256`
+  is the digest of the planned bytes. An unknown or damaged plan is `FEN-4002` too (review again). The scenario
+  "Analyze a planned route before writing it" runs on the authored Altium return-trace bench of the `path`
+  tests (`tests/_route_benches.py`), whose plan writes the board itself.
+- Decision (maintainer, 2026-11-14): stage 1 runs for every fill before any stage 2; the order of stage 2 is
+  the fills of rows that a scratch judgment at stage 1 leaves with a `-undecided` issue, then the rest, each
+  group by the widest interval (an interval without a high end first), then `where`. The deadline is checked
+  between fills, not inside one search.
+- Decision (maintainer, 2026-11-14): the exact bounds were made faster without changing a value: a hole whose box
+  misses a port hull adds nothing to `area_outside`, a ring inside the hull adds its whole area without
+  clipping, a ring edge strictly inside a port hull is skipped by `narrowest_section`, and a chord pair whose
+  box gap or exact distance cannot beat the chord held for each parity it may have is skipped (`store` would
+  keep the held one). `test_section.py`, `test_fills.py`, `test_power.py` and `test_power_benches.py` give
+  the same values.
+- Decision (maintainer, 2026-11-14): the speed test records the times and marks itself `xfail` while a budget is
+  not met, so the unit job stays green and the times are not hidden; task 4.1 stays open.
+- Decision (maintainer, 2026-11-14): the agent guide's command reference grows a seventh page
+  (`references/commands-7.md`): the new options pushed the six bounded pages over their size.
+
+## Measurements (task 1.1 and 4.1)
+
+All on the maintainer's Mac (Apple silicon, CPython 3.13), through `~/.local/bin/fenolite-heavy`, on the
+authored bench `plane_board` of `tests/_power.py`; the split at 0.1 mm. Runs shared the machine with another
+agent's work, so the times are indicative.
+
+| bench | step | parent commit (1e1595c99) | this change |
+|---|---|---|---|
+| 48 square holes | `analyze_power` | 1.4 s | 0.8 s |
+| 48 square holes | `analyze_split` | more than 600 s (stopped) | 28.3 s |
+| 300 round holes | `analyze_power` | 133.3 s | see below |
+| 300 round holes | `analyze_split` | more than 600 s (stopped) | see below |

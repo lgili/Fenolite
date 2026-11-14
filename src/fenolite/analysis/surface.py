@@ -192,6 +192,21 @@ class _Board:
                 self.vertices.append(point)
                 self.edges.append((point, ring[(i + 1) % len(ring)]))
         self.boxes = [(min(u.x, v.x), min(u.y, v.y), max(u.x, v.x), max(u.y, v.y)) for u, v in self.edges]
+        # change c0503, design D3: a leg tests only the edges, and a point only the cut-outs, near it
+        self.index = SpatialIndex[int].build((BBox(*box), number) for number, box in enumerate(self.boxes))
+        self.holes = SpatialIndex[tuple[Point, ...]].build(
+            (
+                BBox(
+                    min(p.x for p in ring),
+                    min(p.y for p in ring),
+                    max(p.x for p in ring),
+                    max(p.y for p in ring),
+                ),
+                ring,
+            )
+            for ring in self.cutouts
+            if ring
+        )
         self.normals = [_normal(u, v) for u, v in self.edges]
         self.visible: dict[tuple[int, int], bool] = {}  # which vertices see each other, for every search
 
@@ -200,7 +215,11 @@ class _Board:
         inside a cut-out."""
         if point_in_ring(point, _times(self.outer, scale)) is Location.OUTSIDE:
             return False
-        return all(point_in_ring(point, _times(ring, scale)) is not Location.INSIDE for ring in self.cutouts)
+        near = BBox(point.x // scale, point.y // scale, -(-point.x // scale), -(-point.y // scale))
+        return all(
+            point_in_ring(point, _times(ring, scale)) is not Location.INSIDE
+            for ring in self.holes.query(near)
+        )
 
     def allowed(self, p: _Q, q: _Q) -> bool:
         """Whether the leg ``p–q`` stays on the board. It may touch the boundary and run along it."""
@@ -212,9 +231,8 @@ class _Board:
         dx, dy = iq.x - ip.x, iq.y - ip.y
         length2 = dx * dx + dy * dy
         stops = {Fraction(0), Fraction(1)}
-        for (u, v), box in zip(self.edges, self.boxes, strict=True):
-            if box[2] < low_x or box[0] > high_x or box[3] < low_y or box[1] > high_y:
-                continue
+        for number in self.index.query_indices(BBox(low_x, low_y, high_x, high_y)):
+            u, v = self.edges[number]
             iu, iv = (
                 (u, v) if scale == 1 else (Point(u.x * scale, u.y * scale), Point(v.x * scale, v.y * scale))
             )

@@ -19,6 +19,18 @@ All notable changes to Fenolite are documented here. The format follows
   `document_sha256`, `rebased` and per-operation statuses in `result.operations` (result schema
   regenerated). The ops-file reader moved to `backends.altium.edit.plan`; it now reads angles as text with a
   unit, `expect` objects and `clone` changes.
+- Power-path analysis in bounded time, also on a pending edit (c0503): `fenolite analyze --deadline SECONDS`
+  (whole seconds, default 120, `0` for none) bounds the kind `power` and `--split`; a row cut short keeps
+  sound, wider intervals (staged region bounds) or its finest finished split level, has `complete: false`,
+  and the reply holds `analysis.deadline` (warning). `--after-plan PLAN_ID` analyzes the bytes a staged plan
+  would write to the board (`FEN-4002` when the board changed since, `FEN-2001` when the plan writes nothing
+  to it); `inputs.planned` and `inputs.deadline` are new optional keys of the `analyze` result.
+  `fenolite.api.analyze_power` and `analyze_split` take a `Board`, a path or an Altium edit `Session`. The
+  split solves on an adaptive quadtree mesh coarse to fine (`analysis.mesh`; rows gain `cell_nm` and
+  `complete`); its resistance may move within 2 % (task 3.3). The exact region bounds skip work that cannot
+  change them (holes inside or away from a port hull, indexed visibility in `surface_distance`, chord pairs
+  that cannot beat a held chord): same results, faster. Schemas, the CLI surface and the agent guide
+  (a seventh command page) regenerated.
 - Small fixes found editing an Altium board (c0504): `Session.unpour(Polygon(name))` (gate `unpour`,
   `H-A-EDIT-SHAPE`) removes a polygon's saved pour, and a commit warns `altium.edit.pour-stale` for each
   poured polygon whose box meets edited copper on its layer. `fenolite tidy --report` and `--compare` read any

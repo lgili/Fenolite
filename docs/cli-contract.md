@@ -3142,7 +3142,7 @@ rows of the copper check).
 [--from REF]... [--tie REF]... [--tie-item ID[,ID...]]... [--domains A=GLOB,B=GLOB] [--sense NET[,NET...]]...
 [--barrier REF[,REF...]]... [--cut X1,Y1,X2,Y2]... [--width LENGTH] [--clearance LENGTH] [--reference NET[,NET...]]...
 [--via-distance LENGTH] [--pour-grid LENGTH] [--dead-distance LENGTH] [--aggressor GLOB]... [--victim GLOB]...
-[--split] [--loop-baseline FILE]` measures the current
+[--split] [--deadline SECONDS] [--after-plan PLAN_ID] [--loop-baseline FILE]` measures the current
 capacity of tracks, arcs and vias, and the clearance and creepage of pairs of nets, on a board that a
 registered backend reads. On request it also measures power paths (`power`) and the insulation between
 layers (`insulation`). It is read-only: it runs no tool and writes no file. The user guide is
@@ -3162,6 +3162,18 @@ the user's file.
   of at most three decimals; it is passed on in picoohm-metres, and without it no path has a resistance.
   Fenolite assumes no resistivity. The capacities and the resistance are estimates against your limits,
   not a simulation.
+- `--deadline SECONDS` (whole seconds, default 120, `0` for none; change c0503) bounds the kind `power`
+  and `--split`. At the deadline the reply keeps what is finished: each fill of a power row its bounds of
+  the stage it reached, which stay sound (wider, never wrong), each split row its finest finished level with
+  `cell_nm`; each row cut short has `complete: false`, and one `analysis.deadline` warning names the rows,
+  the fills left coarse and the split level. A judgment rests only on values that prove it. A cut run is
+  not byte-reproducible; `inputs.deadline` gives the value in force.
+- `--after-plan PLAN_ID` analyzes the bytes that the staged plan `PLAN_ID` (of `fenolite path --dry-run`,
+  for example) would write to `PATH`, an Altium or KiCad board, without writing them. The plan's recorded
+  digest of the file it would replace must equal `PATH`'s, else `FEN-4002` (exit 4; an unknown or damaged
+  plan too); a plan that writes nothing to `PATH` is `FEN-2001` (exit 2). `input.sha256` is the digest of
+  the planned bytes and `inputs.planned` the plan id (the envelope's `input` is frozen, so the id is not
+  there).
 - `--groove-width LENGTH` (with `creepage`) bridges every groove narrower than that width on the creepage
   path; a `groove_nm` of a distance row does the same for its pairs, and the larger of the two governs.
 - With `insulation`, each row of `distances` also holds the distance through the laminate between copper
@@ -3341,6 +3353,7 @@ requirements file is `FEN-3004` (exit 3). Every reply carries `evidence.level` `
 | `analysis.path-undecided` | warning | an element whose share of the current is not computed, or whose section is only a bound, has a capacity below the whole current |
 | `analysis.drop-above` | error | the low end of the drop is above `drop_mv` |
 | `analysis.drop-undecided` | warning | `drop_mv` lies inside the drop interval, or the drop has no high end |
+| `analysis.deadline` | warning | `--deadline` cut the power paths or the split; names the rows, the coarse regions and the split level |
 | `analysis.insulation-below` | error | `insulation.high` is below `insulation_nm` |
 | `analysis.insulation-undecided` | warning | `insulation_nm` lies inside the insulation interval |
 | `analysis.creepage-over` | info | a clearance or a creepage of the pair crosses copper of a third net |

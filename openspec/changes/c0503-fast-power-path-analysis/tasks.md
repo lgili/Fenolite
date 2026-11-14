@@ -9,38 +9,45 @@ Rules for every task:
 
 ## 1. Bench and baseline
 
-- [ ] 1.1 Add `plane_board(holes, *, round=False)` to `tests/_power.py` (design D1's bench; round holes are
+- [x] 1.1 Add `plane_board(holes, *, round=False)` to `tests/_power.py` (design D1's bench; round holes are
   polygonised with `ARC_TOL_NM`) and `tests/unit/analysis/test_power_speed.py` (marked `slow`) that times
   `analyze_power` and `analyze_split` and prints the times. Record the times before any change for 48 square
   holes and for 300 round holes with a 600 s cap, in the task note.
   - Proof: `~/.local/bin/fenolite-heavy uv run --extra dev pytest tests/unit/analysis/test_power_speed.py -m slow -q -n 0 -s`
+  - Note (2026-11-14): parent commit 1e1595c99, maintainer's Mac: 48 square holes `analyze_power` 1.4 s,
+    `analyze_split` stopped at the 600 s cap; 300 round holes `analyze_power` 133.3 s, `analyze_split`
+    stopped at the cap. Measured on a copy of the parent's sources (design, "Measurements").
 
 ## 2. Power bounds
 
-- [ ] 2.1 `analysis/deadline.py` (`Deadline` with an injectable clock) and `analysis.deadline` in
+- [x] 2.1 `analysis/deadline.py` (`Deadline` with an injectable clock) and `analysis.deadline` in
   `analysis/codes.py` and `explain.toml`.
   - Proof: `uv run --extra dev pytest tests/unit/analysis/test_power_deadline.py -k clock tests/unit/cli/test_explain_cmd.py -q -n 0`
-- [ ] 2.2 Staged region bounds in `power._region_element` and `_bounds` (design D2); tests "Bounds contain the
+- [x] 2.2 Staged region bounds in `power._region_element` and `_bounds` (design D2); tests "Bounds contain the
   exact interval" and "No deadline, no change".
   - Proof: `uv run --extra dev pytest tests/unit/analysis/test_power_stages.py tests/unit/analysis/test_power.py tests/unit/analysis/test_power_benches.py -q -n 0`
-- [ ] 2.3 Indexed visibility in `surface._Board.allowed` (design D3); the creepage and surface tests give the
+- [x] 2.3 Indexed visibility in `surface._Board.allowed` (design D3); the creepage and surface tests give the
   same answers.
   - Proof: `uv run --extra dev pytest tests/unit/analysis/test_surface.py tests/unit/analysis/test_surface_bridges.py tests/unit/analysis/test_creepage_slots.py -q -n 0`
-- [ ] 2.4 The deadline in `analyze_power` (design D5); test "A cut run is sound".
+- [x] 2.4 The deadline in `analyze_power` (design D5); test "A cut run is sound".
   - Proof: `uv run --extra dev pytest tests/unit/analysis/test_power_deadline.py -k sound -q -n 0`
 
 ## 3. Split on a mesh
 
-- [ ] 3.1 `analysis/mesh.py`: the balanced quadtree and its conductances (design D4); test "Fewer cells than the
+- [x] 3.1 `analysis/mesh.py`: the balanced quadtree and its conductances (design D4); test "Fewer cells than the
   raster".
   - Proof: `uv run --extra dev pytest tests/unit/analysis/test_mesh.py -q -n 0`
-- [ ] 3.2 The coarse-to-fine solve in `analysis/split.py` and the deadline there; scenarios of "Current split" and
+- [x] 3.2 The coarse-to-fine solve in `analysis/split.py` and the deadline there; scenarios of "Current split" and
   "A cut split keeps a coarse level".
   - Proof: `uv run --extra dev pytest tests/unit/analysis/test_power_split.py tests/unit/analysis/test_power_deadline.py -q -n 0`
-- [ ] 3.3 Accuracy against the old raster and the oracle: on `strip`, `dumbbell`, `split4`, `two_strips` and
+- [x] 3.3 Accuracy against the old raster and the oracle: on `strip`, `dumbbell`, `split4`, `two_strips` and
   `via_array`, the mesh resistance lies within 2 % of `fdm_resistance` and each share within 10 permille of the
   raster solve of this change's parent commit (values recorded in the test).
   - Proof: `uv run --extra dev pytest tests/unit/analysis/test_mesh.py -k accuracy tests/unit/analysis/test_power.py -k fdm -q -n 0`
+  - Decision (maintainer, 2026-11-14): `via_array` has no finite-difference oracle (two layers joined by
+    vias); its resistance is held to 2 % of the parent's raster solve (1348 µΩ) instead. Parent raster at 0.1
+    mm: strip 1440, dumbbell 1315, split4 1010, two_strips 720, via_array 1348 µΩ; the mesh gives 1440,
+    1336, 1024, 720 and 1357, every share equal to the raster's.
 
 ## 4. Time budget
 
@@ -52,22 +59,24 @@ Rules for every task:
 
 ## 5. Pending edits
 
-- [ ] 5.1 `fenolite.api.analyze_power` and `analyze_split` on a `Board`, a path or a `Session` (design D6;
+- [x] 5.1 `fenolite.api.analyze_power` and `analyze_split` on a `Board`, a path or a `Session` (design D6;
   needs c0501 task 1.1); test "A fix checked before it is committed".
   - Proof: `uv run --extra dev pytest tests/unit/api/test_power_api.py -q -n 0`
-- [ ] 5.2 `--deadline` and `--after-plan` in `cmd_analyze.py`; tests "Analyze a planned route before writing it"
+  - Note: c0501 task 1.1 (`read_board` of a session) was already in the base; the session test clones the
+    `VIN` track of the Part J kit board 1 mm wide.
+- [x] 5.2 `--deadline` and `--after-plan` in `cmd_analyze.py`; tests "Analyze a planned route before writing it"
   and "A stale plan"; the read-only test of `analyze` stays green.
   - Proof: `uv run --extra geo --extra dev pytest tests/unit/cli/test_analyze_cmd.py -q -n 0`
-- [ ] 5.3 Regenerate the schemas for `complete`, `cell_nm` and the new inputs.
+- [x] 5.3 Regenerate the schemas for `complete`, `cell_nm` and the new inputs.
   - Proof: `uv run python tools/gen_schemas.py --check && uv run python tools/model_review.py --check`
 
 ## 6. Docs, guide, changelog
 
-- [ ] 6.1 `docs/analyses.md`, "Power paths" (stages, mesh, deadline, measured times); `docs/cli-contract.md`,
+- [x] 6.1 `docs/analyses.md`, "Power paths" (stages, mesh, deadline, measured times); `docs/cli-contract.md`,
   "analyze" (`--deadline`, `--after-plan`, `analysis.deadline`); `docs/api.md` (`analyze_power`,
   `analyze_split`).
   - Proof: `uv run --extra dev pytest tests/unit/api/test_run_api.py -k page -q -n 0`
-- [ ] 6.2 Teach `--deadline`, `--after-plan` and `analysis.deadline` on the agent guide page `board-power.md`, then
+- [x] 6.2 Teach `--deadline`, `--after-plan` and `analysis.deadline` on the agent guide page `board-power.md`, then
   regenerate the guide.
   - Proof: `uv run python tools/gen_agent_guide.py --check && uv run --extra dev pytest tests/unit/agent/test_pages.py -q -n 0`
 - [ ] 6.3 Add the change to `CHANGELOG.md` under `## [Unreleased]` and run `make check-fast`.

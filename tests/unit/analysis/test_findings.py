@@ -34,6 +34,7 @@ POWER_CODES = {
     "analysis.path-undecided": "warning",
     "analysis.drop-above": "error",
     "analysis.drop-undecided": "warning",
+    "analysis.deadline": "warning",
     "analysis.insulation-below": "error",
     "analysis.insulation-undecided": "warning",
     "analysis.creepage-over": "info",
@@ -84,7 +85,7 @@ def test_table_of_ten_codes() -> None:
 def test_power_codes_in_the_table() -> None:
     """Scenario "Codes in the table"."""
     later = (LENGTH_CODES, TIE_CODES, CROSSING_CODES, RETURN_CODES, PRACTICE_CODES, SHAPE_CODES)
-    assert len(ISSUE_CODES) == 19 + sum(len(table) for table in later)
+    assert len(ISSUE_CODES) == 20 + sum(len(table) for table in later)
     for code, severity in POWER_CODES.items():
         assert ISSUE_CODES[code] == (severity,), code
     with pytest.raises(ValueError, match="no severity"):

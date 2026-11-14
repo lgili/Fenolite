@@ -132,6 +132,7 @@ argument. Practice pages explain engineering judgement; example numbers are not 
 - `commands-4`: Generated arguments; index: commands.
 - `commands-5`: Generated arguments; index: commands.
 - `commands-6`: Generated arguments; index: commands.
+- `commands-7`: Generated arguments; index: commands.
 - `datasheets`: Read a datasheet with your own tools, propose cited parameters, generate records and hand review to a person.
 - `design-script`: Design scripts: modules, nets, parts, unit lengths, board frame and build cycle.
 - `device-packs`: Use device items offline; seed CC0 data.

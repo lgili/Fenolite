@@ -1,17 +1,19 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """The share of a power path's current in each of its tracks, arcs, fills and vias, from a resistive solve
-on a raster of the copper (change c0213; capability board-analyses, "Current split"; user guide
+on a mesh of the copper (change c0213; capability board-analyses, "Current split"; user guide
 ``docs/analyses.md``, "Power paths").
 
 The cells of the net's copper on every layer (the raster of ``analysis.pour``, with every zone layer in its
-copper state) are the nodes of a network of resistors. The cells of each pad and each via on a layer form one
-node, an ideal contact as a joint of the power network is; contacts that share or touch cells are one node,
-and a through-hole pad's layers too. Two neighbour cells are joined by the conductance ``t/ρ`` of a square of
-copper of the layer's thickness, doubled between a contact and a free cell, because the contact's edge lies at
-the face of its cell, half a step from the free cell's centre. The layers of a via are joined pairwise down
-its span by ``A/(ρ·h)``: ``A`` the barrel's area for the plating given, ``h`` the depth between the middles of
-the two layers in the stack-up. The resistivity cancels from the shares.
+copper state, merged into the leaves of the adaptive mesh of ``analysis.mesh``, change c0503) are the nodes of
+a network of resistors, solved coarse to fine on the meshes of ``8h`` to ``h``. The cells of each pad and each
+via on a layer form one node, an ideal contact as a joint of the power network is; contacts that share or
+touch cells are one node, and a through-hole pad's layers too. Two neighbour cells are joined by the
+conductance ``t/ρ`` of a square of copper of the layer's thickness, doubled between a contact and a free cell,
+because the contact's edge lies at the face of its cell, half a step from the free cell's centre. The layers
+of a via are joined pairwise down its span by ``A/(ρ·h)``: ``A`` the barrel's area for the plating given,
+``h`` the depth between the middles of the two layers in the stack-up. The resistivity cancels from the
+shares.
 
 The start pads are held at ``SCALE`` and the end pads at 0; the other potentials are found by successive
 over-relaxation in integers until none moves by more than ``TOLERANCE`` in a pass, or ``iterations`` passes.
@@ -25,31 +27,48 @@ field simulation: the copper is placed to within one cell.
 
 from __future__ import annotations
 
-from collections import Counter, defaultdict
-from collections.abc import Mapping, Sequence
+from collections import Counter, defaultdict, deque
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from fractions import Fraction
+from functools import partial
 from operator import mul
 
 from fenolite.analysis.codes import issue
 from fenolite.analysis.copper import copper_layers
 from fenolite.analysis.current import barrel_area_nm2, layer_thickness
+from fenolite.analysis.deadline import Deadline, passed
 from fenolite.analysis.insulation import layer_depths
-from fenolite.analysis.pour import MAX_CELLS, Cell, PourCopper, shape_cells
-from fenolite.analysis.power import Interval, PowerReport
+from fenolite.analysis.mesh import (
+    SCALE_K,
+    LayerMesh,
+    Leaf,
+    Spans,
+    cell_spans,
+    contact_free,
+    hanging,
+    mesh_edges,
+    mesh_layers,
+    ring_spans,
+    weight,
+)
+from fenolite.analysis.pour import MAX_CELLS, PourCopper, shape_cells
+from fenolite.analysis.power import Interval, PathRow, PowerReport
 from fenolite.analysis.practice import fill_names
 from fenolite.backends.base import BoardPad
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.units import Nm
+from fenolite.geometry import area2
 from fenolite.model.design import Design
 
 EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-AN-NETWORK", "H-G-POWER-SPLIT"))
 SCALE = 1 << 40
 """The potential of the start pads; the end pads are at 0."""
+LEVELS = 3
+"""The coarsest level of the cascade: cells of ``8·h`` (change c0503, design D4)."""
 TOLERANCE = SCALE >> 24
 """The relaxation stops when no potential moves by more than this in a pass: about 6·10⁻⁸ of ``SCALE``."""
-_SIDES = ((1, 0), (0, 1))
 _Key = tuple[str, ...]
 
 
@@ -68,8 +87,10 @@ class SplitElement:
 
 @dataclass(frozen=True, slots=True)
 class SplitRow:
-    """A power path solved on the raster: the elements that carry its current, its resistance (with a
-    resistivity), the interval of ``power`` and whether the resistance lies in it."""
+    """A power path solved on the mesh: the elements that carry its current, its resistance (with a
+    resistivity), the interval of ``power`` and whether the resistance lies in it. ``cell_nm`` is the cell
+    size of the finest level solved, ``nodes`` and ``iterations`` its nodes and passes; ``complete`` is
+    false when a deadline stopped the cascade above the pour grid (change c0503)."""
 
     net: str
     start: tuple[str, ...]
@@ -82,6 +103,8 @@ class SplitRow:
     nodes: int = 0
     iterations: int = 0
     converged: bool = True
+    cell_nm: int = 0
+    complete: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -124,6 +147,10 @@ class _Network:
     end: set[int]
     elements: dict[_Key, tuple[str, str, str]]
     extent: int
+    meshes: dict[str, LayerMesh]
+    where: dict[tuple[str, Leaf], int]
+    contacts: dict[_Key, int]
+    cell: int
 
 
 def _network(
@@ -136,20 +163,26 @@ def _network(
     thickness: Mapping[str, Nm],
     barrel: Mapping[str, Fraction],
     middles: Mapping[str, Fraction],
+    level: int = 0,
 ) -> _Network | None:
-    """The resistor network of ``net``; ``None`` when a pad of the path holds no copper of the net."""
-    grid = pour.grid
+    """The resistor network of ``net`` on the mesh of cell size ``pour.grid·2^level``; ``None`` when a pad of
+    the path holds no copper of the net."""
+    grid = pour.grid << level
     shapes = pour.copper.by_net.get(net, ())
     names = fill_names(shapes)
-    cells: dict[str, dict[Cell, list[_Key]]] = defaultdict(lambda: defaultdict(list))
+    items: dict[str, list[tuple[_Key, Spans]]] = defaultdict(list)
     elements: dict[_Key, tuple[str, str, str]] = {}
     via_where: dict[str, str] = {}
     for number, shape in enumerate(shapes):
-        found = shape_cells(shape.shape, grid)
-        if shape.kind in ("pad", "via"):
-            if not found:  # a contact smaller than a cell keeps the cell that holds its centre
+        if shape.kind == "fill":
+            spans = ring_spans(shape.shape.core, grid)
+        else:
+            found = shape_cells(shape.shape, grid)
+            if shape.kind in ("pad", "via") and not found:  # a contact smaller than a cell keeps its centre's
                 point = shape.shape.core[0]
                 found = {(point.x // grid, point.y // grid)}
+            spans = cell_spans(found)
+        if shape.kind in ("pad", "via"):
             key: _Key = (
                 ("pad", shape.entity_id) if shape.kind == "pad" else ("via", shape.entity_id, shape.layer)
             )
@@ -161,26 +194,30 @@ def _network(
         else:
             key = (shape.kind, shape.entity_id)
             elements[key] = (shape.kind, shape.where, shape.layer)
-        for cell in found:
-            cells[shape.layer][cell].append(key)
+        if spans:
+            items[shape.layer].append((key, spans))
     for number, island in enumerate(pour.islands):
         if island.net != net:
             continue
         key = ("island", str(number))
         elements[key] = ("island", f"{'+'.join(island.zones)}#island{number}", island.layer)
-        for cell in island.cells:
-            cells[island.layer][cell].append(key)
+        items[island.layer].append((key, cell_spans({(i >> level, j >> level) for i, j in island.cells})))
+    meshes = mesh_layers(items)
     contacts = _Union()
-    for held in cells.values():
-        for cell, keys in held.items():
-            own = [k for k in keys if k[0] in ("pad", "via")]
+    pairs: dict[str, list[tuple[Leaf, Leaf, int, int, int]]] = {}
+    for layer, mesh in meshes.items():
+        for _, label in mesh.leaves.values():
+            own = [k for k in label if k[0] in ("pad", "via")]
+            for key in own:
+                contacts.find(key)
             for key in own[1:]:
                 contacts.union(own[0], key)
-            for di, dj in _SIDES:
-                near = held.get((cell[0] + di, cell[1] + dj), [])
-                other = [k for k in near if k[0] in ("pad", "via")]
-                if own and other:
-                    contacts.union(own[0], other[0])
+        pairs[layer] = mesh_edges(mesh)
+        for a, b, _, _, _ in pairs[layer]:
+            first, second = mesh.leaves[a][1], mesh.leaves[b][1]
+            if not contact_free(first) and not contact_free(second):
+                one = next(k for k in first if k[0] in ("pad", "via"))
+                contacts.union(one, next(k for k in second if k[0] in ("pad", "via")))
     index: dict[_Key, int] = {}
     nodes: list[_Key] = []
 
@@ -193,50 +230,56 @@ def _network(
     owner: dict[int, _Key] = {}
     members: dict[_Key, set[_Key]] = defaultdict(set)
     edges: dict[tuple[int, int], int] = defaultdict(int)
-    where: dict[tuple[str, Cell], tuple[int, bool]] = {}
-    for layer in sorted(cells):
-        for cell in sorted(cells[layer]):
-            keys = cells[layer][cell]
-            own = [k for k in keys if k[0] in ("pad", "via")]
+    where: dict[tuple[str, Leaf], int] = {}
+    for layer, mesh in meshes.items():
+        for leaf in sorted(mesh.leaves):
+            label = mesh.leaves[leaf][1]
+            own = [k for k in label if k[0] in ("pad", "via")]
             if own:
                 root = contacts.find(own[0])
-                where[layer, cell] = (node(("contact", *root)), True)
+                where[layer, leaf] = node(("contact", *root))
                 for key in own:
                     members[root].add(key[:2])
             else:
-                number = node(("cell", layer, str(cell[0]), str(cell[1])))
-                where[layer, cell] = (number, False)
-                distinct = set(keys)
-                if len(distinct) == 1:
-                    owner[number] = keys[0]
+                number = node(("cell", layer, str(leaf[0]), str(leaf[1])))
+                where[layer, leaf] = number
+                if len(label) == 1:
+                    owner[number] = label[0]
     for root, held in members.items():
         if len(held) == 1 and next(iter(held))[0] == "via":
             owner[index[("contact", *root)]] = next(iter(held))
-    for (layer, cell), (number, contact) in where.items():
-        weight = 1000 * thickness[layer]
-        for di, dj in _SIDES:
-            near = where.get((layer, (cell[0] + di, cell[1] + dj)))
-            if near is None or near[0] == number:
+    for layer, found in pairs.items():
+        mesh = meshes[layer]
+        conductance = 1000 * thickness[layer]
+        for a, b, size_a, size_b, shared in found:
+            first, second = where[layer, a], where[layer, b]
+            if first == second:
                 continue
-            pair = (min(number, near[0]), max(number, near[0]))
-            edges[pair] += 2 * weight if contact != near[1] else weight
+            free_a, free_b = contact_free(mesh.leaves[a][1]), contact_free(mesh.leaves[b][1])
+            pair = (min(first, second), max(first, second))
+            edges[pair] += weight(size_a, size_b, shared, not free_a, not free_b, conductance)
+        for pair, value in hanging(mesh, conductance):
+            first, second = where[layer, pair[0]], where[layer, pair[1]]
+            edges[min(first, second), max(first, second)] -= value
     order = (
         {name: k for k, name in enumerate(copper_layers(design.board))} if design.board is not None else {}
     )
     for via_id, area in barrel.items():
-        spans = sorted(
-            (order.get(layer, 0), layer) for layer in cells if ("via", via_id, layer) in contacts.parent
+        spans_of = sorted(
+            (order.get(layer, 0), layer) for layer in meshes if ("via", via_id, layer) in contacts.parent
         )
-        for (_, upper), (_, lower) in zip(spans, spans[1:], strict=False):
+        for (_, upper), (_, lower) in zip(spans_of, spans_of[1:], strict=False):
             a = index[("contact", *contacts.find(("via", via_id, upper)))]
             b = index[("contact", *contacts.find(("via", via_id, lower)))]
             if a != b:
-                edges[min(a, b), max(a, b)] += round(1000 * area / abs(middles[upper] - middles[lower]))
-        if spans:
+                edges[min(a, b), max(a, b)] += round(
+                    SCALE_K * 1000 * area / abs(middles[upper] - middles[lower])
+                )
+        if spans_of:
             elements["via", via_id] = (
                 "via",
                 via_where.get(via_id, via_id),
-                "/".join(layer for _, layer in spans),
+                "/".join(layer for _, layer in spans_of),
             )
     by_pad = {_pad_name(record): record for record in pads}
     ends: list[set[int]] = []
@@ -248,31 +291,74 @@ def _network(
                 return None
             found_nodes.add(index[("contact", *contacts.find(("pad", record.pad_id)))])
         ends.append(found_nodes)
-    extent = max(
-        (
-            max(i for i, _ in held)
-            - min(i for i, _ in held)
-            + max(j for _, j in held)
-            - min(j for _, j in held)
-        )
-        for held in cells.values()
-    )
-    return _Network(nodes, dict(edges), owner, ends[0], ends[1], elements, extent)
+    keyed = {key: index[("contact", *contacts.find(key))] for key in contacts.parent}
+    network = _Network(nodes, dict(edges), owner, ends[0], ends[1], elements, 0, meshes, where, keyed, grid)
+    network.extent = _hops(network)
+    return network
 
 
-def _solve(network: _Network, iterations: int) -> tuple[list[int], int, bool]:
-    """The potentials by successive over-relaxation in integers, with ``ω = 2 − 3/n`` for a raster ``n``
-    cells across (the sum of its two spans); the passes run and whether no potential moved by more than
-    ``TOLERANCE`` in the last one."""
+def _hops(network: _Network) -> int:
+    """The most links between a start node and any node: the span of the network that sets ``ω``, as the
+    sum of the raster's two spans did for a raster."""
+    links: list[list[int]] = [[] for _ in network.nodes]
+    for a, b in network.edges:
+        links[a].append(b)
+        links[b].append(a)
+    seen = dict.fromkeys(network.start, 0)
+    queue = deque(network.start)
+    while queue:
+        here = queue.popleft()
+        for other in links[here]:
+            if other not in seen:
+                seen[other] = seen[here] + 1
+                queue.append(other)
+    return max(seen.values(), default=0)
+
+
+def _guess(fine: _Network, coarse: _Network | None, potential: Sequence[int] | None) -> list[int]:
+    """The starting potentials of ``fine``: each node takes the potential of the coarse node that holds the
+    centre of its leaf, or of a coarse cell next to it (a contact: of the same contact), else
+    ``SCALE / 2``."""
+    guess = [SCALE // 2] * len(fine.nodes)
+    if coarse is None or potential is None:
+        return guess
+    ratio = coarse.cell // fine.cell
+    for key, number in fine.contacts.items():
+        other = coarse.contacts.get(key)
+        if other is not None:
+            guess[number] = potential[other]
+    for (layer, leaf), number in fine.where.items():
+        if fine.nodes[number][0] != "cell":
+            continue
+        mesh = coarse.meshes.get(layer)
+        size = fine.meshes[layer].leaves[leaf][0]
+        if mesh is None:
+            continue
+        i, j = (2 * leaf[0] + size) // (2 * ratio), (2 * leaf[1] + size) // (2 * ratio)
+        # a leaf along an edge may lie outside the coarse copper: the nearest coarse cell around it then
+        for di, dj in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1), (1, -1), (-1, 1)):
+            held = mesh.locate(i + di, j + dj)
+            if held is not None:
+                guess[number] = potential[coarse.where[layer, held]]
+                break
+    return guess
+
+
+def _solve(
+    network: _Network, iterations: int, guess: list[int], deadline: Deadline | None = None
+) -> tuple[list[int], int, bool, bool]:
+    """The potentials by successive over-relaxation in integers from ``guess``, with ``ω = 2 − 3/n`` for a
+    network ``n`` links across; the passes run, whether no potential moved by more than ``TOLERANCE`` in
+    the last one, and whether ``deadline`` cut the solve (checked every 64 passes)."""
     count = len(network.nodes)
     neighbours: list[list[int]] = [[] for _ in range(count)]
     weights: list[list[int]] = [[] for _ in range(count)]
-    for (a, b), weight in network.edges.items():
+    for (a, b), value in network.edges.items():
         neighbours[a].append(b)
-        weights[a].append(weight)
+        weights[a].append(value)
         neighbours[b].append(a)
-        weights[b].append(weight)
-    potential = [SCALE // 2] * count
+        weights[b].append(value)
+    potential = guess
     for number in network.start:
         potential[number] = SCALE
     for number in network.end:
@@ -287,17 +373,19 @@ def _solve(network: _Network, iterations: int) -> tuple[list[int], int, bool]:
     over, under = (2 * size - 3, size) if size > 3 else (1, 1)
     read = potential.__getitem__
     for done in range(1, iterations + 1):
+        if done % 64 == 0 and passed(deadline):
+            return potential, done - 1, False, True
         moved = 0
-        for n, near, weight, twice in free:
-            step = (2 * sum(map(mul, weight, map(read, near))) + twice // 2) // twice - potential[n]
+        for n, near, weight_of, twice in free:
+            step = (2 * sum(map(mul, weight_of, map(read, near))) + twice // 2) // twice - potential[n]
             if step:
                 move = step * over // under or step
                 potential[n] += move
                 if abs(move) > moved:
                     moved = abs(move)
         if moved <= TOLERANCE:
-            return potential, done, True
-    return potential, iterations, False
+            return potential, done, True, False
+    return potential, iterations, False, False
 
 
 def _carried(network: _Network, flows: Sequence[tuple[int, int, int]]) -> dict[_Key, int]:
@@ -355,10 +443,13 @@ def analyze_split(
     via_plating: Nm | None = None,
     resistivity_pohm_m: int | None = None,
     iterations: int | None = None,
+    deadline: Deadline | None = None,
 ) -> SplitReport:
-    """Each row of ``power`` solved on the raster of ``pour``: the share of each element and, with a
-    resistivity, the resistance against ``power``'s interval. ``iterations`` bounds the relaxation (default:
-    50 per cell of the raster's extent, plus 1000)."""
+    """Each row of ``power`` solved on the mesh of its copper, coarse to fine (change c0503): the share of
+    each element and, with a resistivity, the resistance against ``power``'s interval. ``iterations``
+    bounds the relaxation of each level (default: 50 per link of the level's span, plus 1000). With
+    ``deadline`` a row keeps its finest finished level and has ``complete`` false when that is not the
+    finest; the report then holds one ``analysis.deadline`` warning."""
     board = design.board
     missing: Counter[str] = Counter()
     rows: list[SplitRow] = []
@@ -395,26 +486,24 @@ def analyze_split(
             vias = {via.id: via for via in board.vias}
             for via_id in via_ids:
                 barrel[via_id] = Fraction(barrel_area_nm2(vias[via_id].drill, via_plating))
-        if sum(len(shape_cells(s.shape, pour.grid)) for s in shapes if s.kind == "fill") > MAX_CELLS:
+        # the cells the fills cover, by their area: the mesh never rasterises them
+        area = sum(abs(area2(s.shape.core)) for s in shapes if s.kind == "fill") // 2
+        if area > MAX_CELLS * pour.grid * pour.grid:
             unsolved += 1
             continue
         known = {layer: value for layer, value in thickness.items() if value is not None}
-        network = _network(design, pour, pads, row.net, row.start, row.end, known, barrel, middles)
-        if network is None:
+
+        made = _split_row(
+            row,
+            partial(_network, design, pour, pads, row.net, row.start, row.end, known, barrel, middles),
+            resistivity_pohm_m,
+            iterations,
+            deadline,
+        )
+        if made is None:
             unsolved += 1
             continue
-        rows.append(
-            _split_row(
-                row.net,
-                row.start,
-                row.end,
-                row.milliamps,
-                row.resistance_uohm,
-                network,
-                resistivity_pohm_m,
-                iterations,
-            )
-        )
+        rows.append(made)
     for name, count in sorted(missing.items()):
         issues.append(
             issue(
@@ -422,6 +511,22 @@ def analyze_split(
                 f"{name} not given: {count} power path(s) are not split",
                 where=name,
                 hint="Fenolite assumes no value; give it as an option or in the stack-up of the board",
+            )
+        )
+    cut = [row for row in rows if not row.complete]
+    if cut:
+        names = ", ".join(
+            f"{'/'.join((','.join(row.start), ','.join(row.end)))} at {row.cell_nm} nm" if row.cell_nm else
+            f"{'/'.join((','.join(row.start), ','.join(row.end)))} with no level"
+            for row in cut
+        )  # fmt: skip
+        issues.append(
+            issue(
+                "analysis.deadline",
+                f"the deadline passed before the split of the power paths {names} reached the grid of "
+                f"{pour.grid} nm: each keeps its finest finished level",
+                where="split",
+                hint="run again with a longer --deadline, or --deadline 0 for none",
             )
         )
     evidence = EVIDENCE
@@ -432,33 +537,59 @@ def analyze_split(
 
 
 def _split_row(
-    net: str,
-    start: tuple[str, ...],
-    end: tuple[str, ...],
-    milliamps: int | None,
-    bounds: Interval | None,
-    network: _Network,
+    row: PathRow,
+    build: Callable[[int], _Network | None],
     resistivity: int | None,
     iterations: int | None,
-) -> SplitRow:
+    deadline: Deadline | None,
+) -> SplitRow | None:
+    """The finest level of the cascade that finished: each level from ``LEVELS`` down to 0 whose cells
+    still separate the start and end contacts, started from the level before it."""
+    network = build(0)
+    if network is None:
+        return None
     if network.start & network.end:
         return SplitRow(
-            net,
-            start,
-            end,
-            milliamps,
-            (),
-            0 if resistivity is not None else None,
-            bounds,
-            None,
-            len(network.nodes),
+            row.net, row.start, row.end, row.milliamps, (), 0 if resistivity is not None else None,
+            row.resistance_uohm, None, len(network.nodes), cell_nm=network.cell,
+        )  # fmt: skip
+    best: SplitRow | None = None
+    previous: tuple[_Network, list[int]] | None = None
+    for level in range(LEVELS, -1, -1):
+        mesh = network if level == 0 else build(level)
+        if mesh is None or mesh.start & mesh.end or not mesh.start or not mesh.end:
+            continue
+        if passed(deadline):
+            break
+        guess = _guess(mesh, *(previous if previous is not None else (None, None)))
+        limit = iterations if iterations is not None else 50 * mesh.extent + 1000
+        potential, done, converged, cut = _solve(mesh, limit, guess, deadline)
+        if cut:
+            break
+        previous = (mesh, potential)
+        best = _result(row, mesh, potential, done, converged, resistivity, complete=level == 0)
+    if best is None:
+        return SplitRow(
+            row.net, row.start, row.end, row.milliamps, bounds=row.resistance_uohm, complete=False
         )
-    limit = iterations if iterations is not None else 50 * network.extent + 1000
-    potential, done, converged = _solve(network, limit)
+    return best
+
+
+def _result(
+    row: PathRow,
+    network: _Network,
+    potential: Sequence[int],
+    done: int,
+    converged: bool,
+    resistivity: int | None,
+    *,
+    complete: bool,
+) -> SplitRow:
+    milliamps, bounds = row.milliamps, row.resistance_uohm
     into = out = 0
     flows: list[tuple[int, int, int]] = []
-    for (a, b), weight in network.edges.items():
-        flow = weight * (potential[a] - potential[b])
+    for (a, b), value in network.edges.items():
+        flow = value * (potential[a] - potential[b])
         flows.append((a, b, flow))
         if (a in network.start) != (b in network.start):
             into += flow if a in network.start else -flow
@@ -477,13 +608,13 @@ def _split_row(
     elements.sort(key=lambda e: (e.layer, e.kind, e.where))
     resistance = within = None
     if resistivity is not None and current > 0:
-        resistance = round(Fraction(1_000_000 * resistivity * SCALE) / current)
+        resistance = round(Fraction(1_000_000 * resistivity * SCALE * SCALE_K) / current)
         if bounds is not None:
             within = bounds.low <= resistance and (bounds.high is None or resistance <= bounds.high)
     return SplitRow(
-        net,
-        start,
-        end,
+        row.net,
+        row.start,
+        row.end,
         milliamps,
         tuple(elements),
         resistance,
@@ -492,7 +623,9 @@ def _split_row(
         len(network.nodes),
         done,
         converged,
+        network.cell,
+        complete,
     )
 
 
-__all__ = ["EVIDENCE", "SCALE", "SplitElement", "SplitReport", "SplitRow", "analyze_split"]
+__all__ = ["EVIDENCE", "LEVELS", "SCALE", "SplitElement", "SplitReport", "SplitRow", "analyze_split"]

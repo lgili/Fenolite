@@ -401,6 +401,14 @@ class _Search:
                         side = self.side(box)
                     self.sites.append(_Site(a, b, ids[i], box, -1, (u.x, u.y, v.x, v.y), side))
                     continue
+                if any(
+                    _strictly_inside((u.x, u.y), self.qhulls[k])
+                    and _strictly_inside((v.x, v.y), self.qhulls[k])
+                    for k in near
+                ):  # change c0503: an edge strictly inside a convex hull has no part outside it
+                    for k in near:
+                        self.near_edges[k].append((r, u, v))
+                    continue
                 stops = {_ZERO, _ONE}
                 for k in near:
                     self.near_edges[k].append((r, u, v))
@@ -527,14 +535,28 @@ class _Search:
                 if hull_i >= 0 and hull_i == other.hull:
                     continue  # two vertices of one hull: its edge is a chord already, a diagonal enters it
                 if ints_i is not None and other.ints is not None:
+                    # change c0503: the gap of the two boxes bounds the distance from below; skip a pair
+                    # whose chord cannot be shorter than the reach or than the chord held for each parity
+                    # it may have (``store`` keeps the held one)
+                    far = other.box
+                    gx = max(0, far[0] - box[2], box[0] - far[2])
+                    gy = max(0, far[1] - box[3], box[1] - far[3])
+                    gap2 = gx * gx + gy * gy
+                    if gap2 >= reach2:
+                        continue
+                    pair = (root_i, root_j) if root_i <= root_j else (root_j, root_i)
+                    odds = (known,) if known is not None else (1,) if root_i == root_j else (0, 1)
+                    helds = [chords.get((*pair, odd)) for odd in odds]
+                    if all(held is not None and gap2 >= held[1] for held in helds):
+                        continue
                     top, bottom = _dist2_int(ints_i, other.ints)
                     if top >= reach2 * bottom or (top == 0 and root_i == root_j):
                         continue
-                    if known is not None:
-                        key = (root_i, root_j, known) if root_i <= root_j else (root_j, root_i, known)
-                        held = chords.get(key)
-                        if held is not None and top * held[1].denominator >= held[1].numerator * bottom:
-                            continue
+                    if all(
+                        held is not None and top * held[1].denominator >= held[1].numerator * bottom
+                        for held in helds
+                    ):
+                        continue
                 dist2, x, y = closest(site.a, site.b, other.a, other.b)
                 if dist2 >= reach2 or (dist2 == 0 and root_i == root_j):
                     continue
