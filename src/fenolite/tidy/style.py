@@ -6,12 +6,15 @@ tidy"; ``fenolite tidy --report``).
 It reads the design only. Per net class (the net's class, else ``Default``) and copper layer it counts:
 
 - the joints where exactly two track ends of one net meet, by kind (``angles.joint_kind``): ``45`` (a 45°
-  turn), ``90``, ``acute`` (an inner angle below 90°) and ``other``; straight joints are not counted. Where
-  three or more track ends meet, each pair at an acute angle counts as an acute joint;
+  turn), ``90``, ``acute`` (an inner angle below 90°) and ``other``; a straight joint of two tracks of one
+  width with no via and no arc end there counts as ``collinear`` (a point that can be removed, change
+  c0504). Where three or more track ends meet, each pair at an acute angle counts as an acute joint;
 - the jogs: tracks shorter than three widths whose two ends are turning joints of two tracks;
 - the length of tracks and arcs per width (each the floor of its exact length, an arc ``r·θ``);
 
-and per net class the vias. Each acute joint gives ``tidy.acute`` (warning) at its point.
+and per net class the vias. Each acute joint gives ``tidy.acute`` (warning) at its point; each jog
+``tidy.jog`` at its middle, each ``other`` joint ``tidy.off-45`` and each collinear joint ``tidy.collinear``
+(info) at its point (change c0504).
 """
 
 from __future__ import annotations
@@ -34,7 +37,7 @@ from fenolite.tidy.prune import selected_nets
 
 DEFAULT_CLASS = "Default"
 """The class of a net without one."""
-JOINT_KINDS = ("45", "90", "acute", "other")
+JOINT_KINDS = ("45", "90", "acute", "other", "collinear")
 """The kinds of joints that the report counts."""
 JOG_WIDTHS = 3
 """A jog is shorter than this many track widths."""
@@ -52,6 +55,7 @@ class StyleRow:
     other: int = 0
     jogs: int = 0
     widths: tuple[tuple[int, int], ...] = ()
+    collinear: int = 0
 
     def as_json(self) -> dict[str, object]:
         return {
@@ -61,6 +65,7 @@ class StyleRow:
             "joints_90": self.joints_90,
             "acute": self.acute,
             "other": self.other,
+            "collinear": self.collinear,
             "jogs": self.jogs,
             "widths": [{"width": width, "length": length} for width, length in self.widths],
         }
@@ -82,6 +87,7 @@ class StyleReport:
             "joints_90": sum(row.joints_90 for row in self.rows),
             "acute": sum(row.acute for row in self.rows),
             "other": sum(row.other for row in self.rows),
+            "collinear": sum(row.collinear for row in self.rows),
             "jogs": sum(row.jogs for row in self.rows),
             "vias": sum(count for _, count in self.vias),
         }
@@ -132,6 +138,10 @@ def style(design: Design, *, nets: Collection[str] | None = None) -> StyleReport
         for point in (track.start, track.end):
             ends.setdefault((track.net_id or "", track.layer, point), []).append(track)
     turning: set[tuple[str, str, Point]] = set()
+    # shortcut: a pad at a straight joint is not looked for; vias and arc ends are, which covers routed copper
+    held_points = {(via.position, layer) for via in board.vias for layer in copper} | {
+        (point, arc.layer) for arc in board.arcs for point in (arc.start, arc.end)
+    }
     for key in sorted(
         ends, key=lambda found: (names[found[0]], copper.index(found[1]), found[2].x, found[2].y)
     ):
@@ -145,6 +155,13 @@ def style(design: Design, *, nets: Collection[str] | None = None) -> StyleReport
             if len(held) == 2 and kind != "straight":
                 row[kind] += 1
                 turning.add(key)
+                if kind == "other":
+                    issues.append(_placed("tidy.off-45", "turn at an angle other than 45° or 90°",
+                                          names[net_id], layer, at, a, b))  # fmt: skip
+            elif len(held) == 2 and a.width == b.width and (at, layer) not in held_points:
+                row["collinear"] += 1
+                issues.append(_placed("tidy.collinear", "meet in a straight line, a removable point",
+                                      names[net_id], layer, at, a, b))  # fmt: skip
             elif kind == "acute":
                 row[kind] += 1
             if kind == "acute":
@@ -156,6 +173,16 @@ def style(design: Design, *, nets: Collection[str] | None = None) -> StyleReport
             (net_id, track.layer, point) in turning for point in (track.start, track.end)
         ):
             jogs[(class_of[net_id], track.layer)] += 1
+            middle = Point((track.start.x + track.end.x) // 2, (track.start.y + track.end.y) // 2)
+            issues.append(
+                issue(
+                    "tidy.jog",
+                    f"track {track.id} of net {names[net_id]} is a jog of {format_length(length)} on "
+                    f"{track.layer} at ({format_length(middle.x)}, {format_length(middle.y)})",
+                    where=track.id,
+                    hint="straighten it with fenolite tidy --straighten",
+                )
+            )
     keys = sorted({*joints, *widths}, key=lambda key: (key[0], copper.index(key[1])))
     rows = tuple(
         StyleRow(
@@ -165,6 +192,7 @@ def style(design: Design, *, nets: Collection[str] | None = None) -> StyleReport
             joints_90=joints.get((name, layer), Counter())["90"],
             acute=joints.get((name, layer), Counter())["acute"],
             other=joints.get((name, layer), Counter())["other"],
+            collinear=joints.get((name, layer), Counter())["collinear"],
             jogs=jogs[(name, layer)],
             widths=tuple(sorted(widths.get((name, layer), Counter()).items())),
         )
@@ -172,6 +200,16 @@ def style(design: Design, *, nets: Collection[str] | None = None) -> StyleReport
     )
     vias = Counter(class_of[via.net_id] for via in board.vias if via.net_id in names)
     return StyleReport(rows, tuple(sorted(vias.items())), tuple(issues))
+
+
+def _placed(code: str, what: str, net: str, layer: str, at: Point, a: Track, b: Track) -> Issue:
+    return issue(
+        code,
+        f"tracks {a.id} and {b.id} of net {net} {what} on {layer} at "
+        f"({format_length(at.x)}, {format_length(at.y)})",
+        where=f"{a.id}, {b.id}",
+        hint="straighten it with fenolite tidy --straighten",
+    )
 
 
 def _acute(net: str, layer: str, at: Point, a: Track, b: Track) -> Issue:

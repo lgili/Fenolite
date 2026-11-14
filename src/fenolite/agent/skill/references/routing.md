@@ -186,8 +186,9 @@ stays only when its net keeps its groups and the copper check finds nothing new;
 copper stay. `result.edits` lists every change. `tidy.kept` names a stub that still joins its net:
 trim it by hand. `--drc` also runs KiCad's DRC on both boards and writes nothing if it finds more;
 `--gate drc` instead drops each edit that brings a new finding and writes the rest.
-Run `fill`, then `check`, after it. `--report` writes nothing: joints at 45°, 90° and acute
-(`tidy.acute`), jogs, widths and vias per class and layer; `--compare` measures a reference board.
+Run `fill`, then `check`, after it. `--report` writes nothing: joints at 45°, 90°, acute
+(`tidy.acute`), other (`tidy.off-45`) and collinear (`tidy.collinear`), jogs (`tidy.jog`), widths and
+vias per class and layer, of a `.kicad_pcb` or a `.PcbDoc`; `--compare` measures a reference board.
 
 - Removing an intent from the script removes its copper at the next build. `route --rip` never does.
 - The script above declares all its copper: after `fenolite fill`, `fenolite check` exits 0 for it

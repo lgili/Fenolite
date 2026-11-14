@@ -90,7 +90,7 @@ def test_dry_run_of_the_three_steps(monkeypatch: pytest.MonkeyPatch, tmp_path: P
         "prune.via-under-two-layers": 1,
         "straighten.fewer-turns": 1,
     }
-    counts = {"joints_45": 0, "joints_90": 0, "acute": 0, "other": 0, "jogs": 0, "vias": 0}
+    counts = {"joints_45": 0, "joints_90": 0, "acute": 0, "other": 0, "collinear": 0, "jogs": 0, "vias": 0}
     assert result["style"] == {
         "before": {**counts, "joints_90": 1, "vias": 1},
         "after": {**counts, "joints_45": 2},
@@ -311,3 +311,20 @@ def test_zone_corners_written(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -
     assert written.board is not None
     (cut,) = written.board.zones
     assert len(cut.outline) == 8 and cut.fills == () and _p(41, 30) in cut.outline
+
+
+SLOTS_ALTIUM = Path(__file__).resolve().parents[2] / "data" / "slots" / "slots_altium.PcbDoc"
+
+
+def test_the_report_of_an_altium_document(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "The report of an Altium document" (change c0504, D4): ``--report`` reads any board, a step
+    does not."""
+    board = tmp_path / SLOTS_ALTIUM.name
+    board.write_bytes(SLOTS_ALTIUM.read_bytes())
+    code, env, _, _ = run(monkeypatch, tmp_path, "tidy", board.name, "--report")
+    assert code == 0 and env["result"]["board"] == board.name
+    assert set(env["result"]["report"]["counts"]) >= {"joints_45", "joints_90", "acute", "other", "collinear"}
+    code, env, _, _ = run(monkeypatch, tmp_path, "tidy", board.name, "--compare", board.name)
+    assert code == 0 and env["result"]["compare"]["board"] == board.name
+    code, _, err, _ = run(monkeypatch, tmp_path, "tidy", board.name, "--chamfer", "--dry-run")
+    assert code == 2 and err["code"] == "FEN-2001" and "--report reads any board" in err["message"]

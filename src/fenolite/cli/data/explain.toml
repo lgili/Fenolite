@@ -4397,6 +4397,21 @@ meaning = "The style report (fenolite tidy --report) found two tracks of one net
 fix = "Route the joint again, or run fenolite tidy --straighten and look at the report once more."
 see = "tidy"
 
+["tidy.jog"]
+meaning = "The style report (fenolite tidy --report) found a jog: a track shorter than three widths between two turns of its net. The message gives the point at the middle of the track; the report counts it under jogs."
+fix = "Nothing is required: the finding is info. On a KiCad board, fenolite tidy --straighten removes most jogs; elsewhere route the run again."
+see = "tidy"
+
+["tidy.off-45"]
+meaning = "The style report (fenolite tidy --report) found two tracks of one net that turn at an angle other than 45° or 90° (a joint of kind other). The message gives the point."
+fix = "Nothing is required: the finding is info. Route the joint at 45° or 90°, or run fenolite tidy --straighten on a KiCad board."
+see = "tidy"
+
+["tidy.collinear"]
+meaning = "The style report (fenolite tidy --report) found a point where exactly two tracks of one net, layer and width meet in a straight line with no via and no arc end there: a redundant point. The report counts it under collinear."
+fix = "Nothing is required: the finding is info. fenolite tidy --straighten merges such runs on a KiCad board."
+see = "tidy"
+
 ["tidy.chamfer-undone"]
 meaning = "A chamfer of a right-angle joint, a 45° entry of a T-joint or a cut of a zone corner was undone: it would have changed the connected groups of its net, or the copper check found something with it that the board before lacked. The message names the two tracks, the leg and the finding."
 fix = "Nothing is needed: the joint stays a right angle. A shorter --leg may fit; or move the copper that is too close."
@@ -5657,6 +5672,21 @@ see = "check"
 meaning = "fenolite edit PATH.PcbDoc --gate NAME opened that gate of the Altium edit session for this run. The rows behind it are not confirmed by Part J of the kit, so the written records are UNVERIFIED."
 fix = "Open the written document in Altium Designer and check the edit, or leave the gate closed until its Part J case passes."
 see = "edit"
+
+["altium.edit.pour-stale"]
+meaning = "An Altium edit session added, removed or changed copper inside the outline box of a polygon on that layer that still holds its saved pour, so the pour no longer matches the copper until Altium repours it. The box test may also warn for an edit that lies in the box but outside the polygon."
+fix = "Queue Session.unpour(Polygon(name)) in the same session to drop the stale pour, then repour the polygon in Altium; or repour it in Altium after the edit."
+see = "edit"
+
+["altium.edit.integrity-inherited"]
+meaning = "The integrity check of an Altium edit found findings the source document already held, compared by the identity of the records they name (a polygon's name and pour index, an id, a model id), not by their positions. They are counted here by code instead of being blamed on the edit."
+fix = "Nothing is needed for the edit. Run fenolite check SOURCE --stages altium.integrity to see them on the source document."
+see = "edit"
+
+["altium.text-folded"]
+meaning = "A text held a character outside Windows-1252 whose Unicode compatibility form (NFKC) fits the code page, so Fenolite wrote that form: for example ℃ (U+2103) as °C. The message names the field, the given text and the written text."
+fix = "Nothing is needed when the written text reads the same. Write the folded text in the source to silence the warning."
+see = "build"
 
 ["altium.board-drawing.mismatch"]
 meaning = "An edge of the board shape (the Board6 outline or a board cut-out) has no track or arc drawn on it within 0.01 mm on the mechanical layer, or a drawn track or arc lies on no edge of the board shape."

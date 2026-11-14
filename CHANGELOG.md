@@ -8,6 +8,12 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Added
 
+- Small fixes found editing an Altium board (c0504): `Session.unpour(Polygon(name))` (gate `unpour`,
+  `H-A-EDIT-SHAPE`) removes a polygon's saved pour, and a commit warns `altium.edit.pour-stale` for each
+  poured polygon whose box meets edited copper on its layer. `fenolite tidy --report` and `--compare` read any
+  `BoardFrame` board, an Altium `.PcbDoc` included (a step on it is `FEN-2001`), and give `tidy.jog`,
+  `tidy.off-45` and `tidy.collinear` (info) at their places; the report counts `collinear` joints (an
+  optional key of the `tidy` result, schemas regenerated). Part J gains case J40 (J-unpour).
 - Route search and free channel on an existing board (c0501): `fenolite path PATH --net N --from A --to B`
   with `--width W` (plans the found copper; a `.PcbDoc` is written through edit-session clones and needs
   `--gate clone`) or `--widest` (measures `result.channel`, never writes). The search uses the board's own
@@ -60,6 +66,14 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Fixed
 
+- Altium edit commits compare integrity findings by the identity of the records they name, not their
+  positions (c0504): a fault the source already held is counted in `altium.edit.integrity-inherited` (info)
+  instead of coming back as `altium.edit.integrity` after an edit moved its records.
+- A character outside Windows-1252 whose Unicode compatibility form fits it is written in that form, for
+  example `℃` as `°C`, with `altium.text-folded` (c0504): in a library description, a sheet value and an
+  edit-session property. A component description takes Windows-1252 text in the binary form, as a comment
+  does. An edit value that does not fit refuses with `altium.edit.assertion` instead of failing with
+  `FEN-1001`.
 - Adding a zone far from the others no longer changes the pours Fenolite writes for other nets (c0496):
   a conversion back to Altium keeps the source's carried pour per polygon, not for the whole document, and
   pours only the new or changed polygons and those within their reach (`altium.pour-changed` names each

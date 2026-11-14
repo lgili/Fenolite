@@ -356,6 +356,9 @@
         "acute": {
           "type": "integer"
         },
+        "collinear": {
+          "type": "integer"
+        },
         "jogs": {
           "type": "integer"
         },
@@ -386,6 +389,9 @@
       "type": "object",
       "properties": {
         "acute": {
+          "type": "integer"
+        },
+        "collinear": {
           "type": "integer"
         },
         "jogs": {
@@ -592,6 +598,9 @@
         "acute": {
           "type": "integer"
         },
+        "collinear": {
+          "type": "integer"
+        },
         "jogs": {
           "type": "integer"
         },
@@ -622,6 +631,9 @@
       "type": "object",
       "properties": {
         "acute": {
+          "type": "integer"
+        },
+        "collinear": {
           "type": "integer"
         },
         "jogs": {
@@ -715,6 +727,9 @@
         "acute": {
           "type": "integer"
         },
+        "collinear": {
+          "type": "integer"
+        },
         "jogs": {
           "type": "integer"
         },
@@ -745,6 +760,9 @@
       "type": "object",
       "properties": {
         "acute": {
+          "type": "integer"
+        },
+        "collinear": {
           "type": "integer"
         },
         "jogs": {

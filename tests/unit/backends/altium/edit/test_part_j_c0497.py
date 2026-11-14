@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""Phase C of Part J, the board edits of change c0497 (``docs/evidence/altium-edit.md``, cases J35 to J39):
+"""Phase C of Part J, the board edits of change c0497 (``docs/evidence/altium-edit.md``, cases J35 to J39, and
+J40 of change c0504):
 the files of ``phase-c/``, written from the authored boards of ``board_ops`` with each gate forced on for the
 kit only. ``FENOLITE_ALTIUM_PART_J=<folder outside the repository>`` writes them there; without it they are
 written under the test's own folder. No file Altium wrote is in the repository."""
@@ -17,6 +18,7 @@ from fenolite.backends.altium.edit import drawing
 from fenolite.backends.altium.edit.state import State
 from tests.unit.backends.altium.edit.board_ops import KEEPOUT, MECHANICAL_1
 from tests.unit.backends.altium.edit.conftest import OPEN, mm
+from tests.unit.backends.altium.edit.test_unpour_c0504 import GND, MOVED, plant
 
 ROOT = Path(__file__).resolve().parents[5]
 HANDOVER = os.environ.get("FENOLITE_ALTIUM_PART_J")
@@ -47,6 +49,7 @@ CASES: dict[str, tuple[str, Callable[[edit.Session], object]]] = {
     "drawing": ("drawn", lambda s: s.draw_board_shape("Mechanical 1", width=mm(0.2), old_count=10)),
     "region": ("drawn", lambda s: s.set_outline(edit.Region("Keep-Out Layer", (mm(25), mm(20))),
                                                 _box(24, 19, 5, 5), old=OLD_KEEPOUT)),
+    "unpour": ("poured", lambda s: s.move(MOVED, 0, mm(1)).unpour(GND)),
 }  # fmt: skip
 
 
@@ -71,7 +74,8 @@ def test_phase_c_kit(board_ops: dict[str, bytes], tmp_path: Path) -> None:
     folder = Path(HANDOVER).expanduser() if HANDOVER else tmp_path / "J-edit"
     if HANDOVER:
         assert ROOT not in folder.resolve().parents, "the kit is written outside the repository"
-    sums = phase_c(folder, board_ops)
-    assert set(sums) == {f"{n}.PcbDoc" for n in (*board_ops, *CASES)}
+    boards = {**board_ops, "poured": plant(board_ops["drawn"])}
+    sums = phase_c(folder, boards)
+    assert set(sums) == {f"{n}.PcbDoc" for n in (*boards, *CASES)}
     drawn = State.of((folder / "phase-c" / "drawing.PcbDoc").read_bytes())
     assert drawing.compare(drawn, MECHANICAL_1) == []

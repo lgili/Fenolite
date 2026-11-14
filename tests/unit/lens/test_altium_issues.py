@@ -206,9 +206,20 @@ KICAD_CASES: dict[str, tuple[tuple[str, str], tuple[str, str], set[str]]] = {
         ('"CLK"', '"' + "C" * 256 + '"'),
         {"altium.pin-text-too-long"},
     ),
+    "description-folded": (  # change c0504: ℃ (U+2103) is written °C
+        ("", ""),
+        ("Resistor drawn upright", "Resistor -40 ℃"),
+        {
+            "altium.text-folded",
+            "altium.footprint-unresolved",
+            "altium.pcbdoc-not-written",
+            "altium.draftsman-not-written",
+            "altium.experimental",
+        },
+    ),
     "description": (
         ("", ""),
-        ("Resistor drawn upright", "Résistance"),
+        ("Resistor drawn upright", "Résistance 1 kΩ"),  # U+03A9: no form carries it (change c0504)
         {"altium.text-unwritable"},
     ),
 }
@@ -844,6 +855,7 @@ def test_the_table() -> None:
         "altium.lib-id-form": "error",
         "altium.footprint-form": "error",
         "altium.text-unwritable": "error",
+        "altium.text-folded": "warning",
         "altium.name-case-collision": "error",
         "altium.unique-id-collision": "error",
         "altium.schematic-too-large": "error",

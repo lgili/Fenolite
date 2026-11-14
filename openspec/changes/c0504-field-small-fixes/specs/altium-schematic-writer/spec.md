@@ -3,9 +3,11 @@
 ### Requirement: Compatibility characters folded
 `ascii.fold(text)` SHALL replace each character that is neither 7-bit ASCII nor in Windows-1252 by its Unicode NFKC form
 when that form is all in Windows-1252, and SHALL report whether it changed the text. `text_problem(form="binary")`
-MUST accept a text whose fold fits. `record_bytes` MUST write the folded text in both twins, and MUST refuse a
-character that neither fits nor folds instead of writing `?`. A writer that folds a value MUST give
-`altium.text-folded` (warning) naming the field, the source text and the written text (change c0504).
+MUST accept a text whose fold fits. A writer of new text (a library description, a sheet value) MUST write the
+folded text in both twins, and MUST give `altium.text-folded` (warning) naming the field, the source text and the
+written text; a character that neither fits nor folds MUST be refused by the writer's text check instead of being
+written as `?`. `record_bytes` keeps the bytes of a carried text, whose `%UTF8%` twin holds it exactly (change
+c0504).
 
 #### Scenario: Degree Celsius in a description
 - **GIVEN** an authored design with a part whose description is `-40 ℃`
@@ -15,8 +17,8 @@ character that neither fits nor folds instead of writing `?`. A writer that fold
   `COMPONENTDESCRIPTION`, and the issues hold one `altium.text-folded`
 
 #### Scenario: No fold fits
-- **WHEN** `record_bytes([("TEXT", "1 kΩ")])` is called
-- **THEN** it raises naming U+03A9, and writes no `?`
+- **WHEN** `text_problem("1 kΩ", form="binary")` judges the text, and a build holds a description `Résistance 1 kΩ`
+- **THEN** the reason names U+03A9, and the build is refused with `altium.text-unwritable` and writes nothing
 
 ### Requirement: Component description in the binary form
 A component's description (`COMPONENTDESCRIPTION`) SHALL be a text that may hold Windows-1252 characters in the binary

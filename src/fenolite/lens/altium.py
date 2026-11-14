@@ -117,6 +117,7 @@ ALTIUM_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "altium.lib-id-form": "error",
         "altium.footprint-form": "error",
         "altium.text-unwritable": "error",
+        "altium.text-folded": "warning",
         "altium.name-case-collision": "error",
         "altium.unique-id-collision": "error",
         "altium.schematic-too-large": "error",
@@ -1414,14 +1415,15 @@ def _library_checks(
     project_exists: bool,
     listed: Collection[str] | None = None,
     unread_hint: str = "",
+    form: project.SchematicForm = "ascii",
 ) -> list[Issue]:
     """The checks of the planned libraries (change c0034): texts and lengths of KiCad symbols, storage
     and file name collisions, section keys, generic stand-in libraries and libraries a kept project file
-    does not list."""
+    does not list. A description is a text of ``form``, as a comment is (change c0504)."""
     found: list[Issue] = []
     for lib_id, symbol in sorted(symbols.items()):
         if symbol.description:
-            _unwritable(found, symbol.description, f"{lib_id} description", lib_id)
+            _unwritable(found, symbol.description, f"{lib_id} description", lib_id, form=form)
         for pin in symbol.pins:
             where = f"{lib_id} pin {pin.designator[:20]}"
             too_long = [t for t in (pin.name, pin.designator) if len(t.encode("utf-8")) > MAX_PIN_TEXT]
@@ -2400,7 +2402,7 @@ def build_altium(
         issues += pin_map_issues(model, early)
     issues += validation
     if not any(i.severity == "error" for i in issues):
-        issues += _library_checks(model, name, symbols, project_exists, project_listed, unread_hint)
+        issues += _library_checks(model, name, symbols, project_exists, project_listed, unread_hint, form)
     if any(i.severity == "error" for i in issues):
         return BuildOutput(
             model, {}, tuple(issues), evidence, _summary(model, kept, None, form, sheets=sheets)

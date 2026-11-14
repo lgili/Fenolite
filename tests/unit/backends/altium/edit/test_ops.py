@@ -326,3 +326,27 @@ def test_add_component_copies_a_model_body_with_its_model(tmp_path: Path) -> Non
     shared, again = _add(tmp_path / "shared", source, source, "R1")
     assert shared.written, shared.issues
     assert _models(again.read_bytes()) == _models(source)
+
+
+@pytest.mark.parametrize(("value", "written"), [("-40 ℃", "-40 °C"), ("1 kΩ", None)])
+def test_a_value_outside_the_code_page(board: Path, tmp_path: Path, value: str, written: str | None) -> None:
+    """Scenario "A degree Celsius sign" (change c0504, D3): ``℃`` is folded to ``°C`` with
+    ``altium.text-folded``; ``Ω`` (U+03A9) has no form in Windows-1252 and refuses, not raises."""
+    key = "SOURCELIBREFERENCE"
+    old = read_pcbdoc(board.read_bytes()).components[0]
+    held = old.record.get(key)
+    designator = old.source_designator
+    session = edit.open(board, gates=OPEN)
+    assert isinstance(session, edit.Session)
+    out = tmp_path / "code_page.PcbDoc"
+    receipt = session.set_property(edit.Component(designator), key, value, old=held).commit(out, backup=False)
+    if written is None:
+        [issue] = receipt.issues
+        assert receipt.exit_code == 5 and not out.exists()
+        assert issue.code == "altium.edit.assertion" and "U+03A9" in issue.message
+        return
+    assert receipt.written, receipt.issues
+    [folded] = [i for i in receipt.issues if i.code == "altium.text-folded"]
+    assert folded.severity == "warning" and written in folded.message
+    after = [c for c in read_pcbdoc(out.read_bytes()).components if c.source_designator == designator]
+    assert after[0].record.get(key) == written

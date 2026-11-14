@@ -66,7 +66,13 @@ _ID_TABLES = (
 )
 
 
-def _finding(code: str, message: str, where: str) -> Issue:
+Key = tuple[str, ...]
+"""What a finding names by identity, never by record position (change c0504, D2): an edit that moves records
+keeps the key of a finding the source already held."""
+Keyed = tuple[Key, Issue]
+
+
+def _finding(code: str, message: str, where: str, *key: str) -> Keyed:
     row = RULES[code]
     severity: Severity = (
         "info"
@@ -76,10 +82,20 @@ def _finding(code: str, message: str, where: str) -> Issue:
         else "warning"
     )
     hint = f"rule of {row}" + ("" if row in CONFIRMED else " (not confirmed by the kit: a warning)")
-    return Issue(code, severity, message, where, hint)
+    if code == "altium.integrity.subpoly-gap":
+        hint += "; a document saved by Altium can hold this: compare with the source document"
+    return (code, *key), Issue(code, severity, message, where, hint)
 
 
 # --- rules -------------------------------------------------------------------------------------------
+
+
+def _polygon_name(doc: PcbDocument, index: int) -> str:
+    return doc.polygons[index].name if 0 <= index < len(doc.polygons) else f"#{index}"
+
+
+def _pour_index(doc: PcbDocument, index: int) -> int | None:
+    return doc.polygons[index].pour_index if 0 <= index < len(doc.polygons) else None
 
 
 def _polygon_label(doc: PcbDocument, index: int) -> str:
@@ -88,7 +104,7 @@ def _polygon_label(doc: PcbDocument, index: int) -> str:
     return f"polygon {index}"
 
 
-def subpoly_gaps(doc: PcbDocument) -> Iterator[Issue]:
+def subpoly_gaps(doc: PcbDocument) -> Iterator[Keyed]:
     """``H-A-INTEG-SUBPOLY``: the poured regions of one polygon whose ``SUBPOLYINDEX`` numbers skip a value
     below their highest (``pcb-pour.md``: the pieces of a polygon carry 0 to n − 1)."""
     numbers: dict[int, list[tuple[int, int]]] = defaultdict(list)
@@ -116,10 +132,13 @@ def subpoly_gaps(doc: PcbDocument) -> Iterator[Issue]:
                 f"the pieces of {_polygon_label(doc, polygon)} hold SUBPOLYINDEX {values}, without "
                 f"{', '.join(map(str, missing))} (Regions6 records {positions})",
                 f"Regions6/Data#{found[0][1]}",
+                _polygon_name(doc, polygon),
+                str(_pour_index(doc, polygon)),
+                ",".join(map(str, missing)),
             )
 
 
-def pour_index_twice(doc: PcbDocument) -> Iterator[Issue]:
+def pour_index_twice(doc: PcbDocument) -> Iterator[Keyed]:
     """``H-A-INTEG-POURINDEX``: two polygons with one ``POURINDEX``."""
     held: dict[int, list[int]] = defaultdict(list)
     for position, polygon in enumerate(doc.polygons):
@@ -132,6 +151,8 @@ def pour_index_twice(doc: PcbDocument) -> Iterator[Issue]:
                 "altium.integrity.pour-index-twice",
                 f"{names} hold POURINDEX {value}",
                 f"Polygons6/Data#{positions[1]}",
+                str(value),
+                *sorted(_polygon_name(doc, p) for p in positions),
             )
 
 
@@ -145,7 +166,7 @@ def _pad_label(doc: PcbDocument, index: int) -> str:
     return f"pad {index} ({pad.name})"
 
 
-def unique_ids(doc: PcbDocument) -> Iterator[Issue]:
+def unique_ids(doc: PcbDocument) -> Iterator[Keyed]:
     """``H-A-INTEG-ID``: one unique id held twice within the entries of ``UniqueIDPrimitiveInformation``, the
     components, the polygons or the rules; and (``H-A-EDIT-DELETE``) an entry whose ``PRIMITIVEINDEX`` names
     no pad."""
@@ -164,6 +185,8 @@ def unique_ids(doc: PcbDocument) -> Iterator[Issue]:
                 "altium.integrity.unique-id-index",
                 f"entry {position} names pad {index}; the document holds {len(doc.pads)} pads",
                 f"UniqueIDPrimitiveInformation/Data#{position}",
+                record.get("UNIQUEID") or "",
+                index,
             )
     sources["UniqueIDPrimitiveInformation"] = rows
     sources["Components6"] = [(i, c.unique_id) for i, c in enumerate(doc.components) if c.unique_id]
@@ -186,10 +209,12 @@ def unique_ids(doc: PcbDocument) -> Iterator[Issue]:
             else:
                 held_by = ", ".join(f"#{p}" for p in positions)
                 message = f"{kind}s {held_by} of {storage} share the unique id {value}"
-            yield _finding("altium.integrity.unique-id-twice", message, f"{storage}/Data#{positions[1]}")
+            yield _finding(
+                "altium.integrity.unique-id-twice", message, f"{storage}/Data#{positions[1]}", storage, value
+            )
 
 
-def parameters(compound: CompoundFile) -> Iterator[Issue]:
+def parameters(compound: CompoundFile) -> Iterator[Keyed]:
     """``H-A-INTEG-PARAMCOUNT`` and ``H-A-INTEG-PARAMORPHAN``: not judged (module docstring)."""
     path = "PrimitiveParameters/Data"
     if path in compound and compound.read(path):
@@ -201,7 +226,7 @@ def parameters(compound: CompoundFile) -> Iterator[Issue]:
         )
 
 
-def models(compound: CompoundFile) -> Iterator[Issue]:
+def models(compound: CompoundFile) -> Iterator[Keyed]:
     """``H-A-INTEG-MODEL``: an entry of ``Models/Data`` whose ``ID`` no body names, and a body with
     ``MODEL.MODELTYPE=1`` whose ``MODELID`` the store does not hold (``pcb-bodies.md``)."""
     store = model_records(compound.read("Models/Data")) if "Models/Data" in compound else ()
@@ -221,6 +246,7 @@ def models(compound: CompoundFile) -> Iterator[Issue]:
                     "altium.integrity.model-missing",
                     f"body {body.index} names the model {body.model_id}, which Models/Data does not hold",
                     f"{path}#{body.index}",
+                    model,
                 )
     for model, position in sorted(ids.items(), key=lambda item: item[1]):
         if model not in named:
@@ -228,6 +254,7 @@ def models(compound: CompoundFile) -> Iterator[Issue]:
                 "altium.integrity.model-unused",
                 f"model entry {position} ({store[position].get('NAME', '')!r}) is named by no body",
                 f"Models/Data#{position}",
+                model,
             )
 
 
@@ -246,7 +273,7 @@ def _v7_id(text: str) -> int | None:
     return None
 
 
-def layer_fields(doc: PcbDocument) -> Iterator[Issue]:
+def layer_fields(doc: PcbDocument) -> Iterator[Keyed]:
     """``H-A-INTEG-LAYER``: a region whose layer byte and ``V7_LAYER`` key name different layers. A
     ``V7_LAYER`` that names a layer the byte cannot hold (a mechanical layer above 16) is not compared."""
     for storage, items in (("Regions6", doc.regions), ("ShapeBasedRegions6", doc.shape_regions)):
@@ -265,30 +292,44 @@ def layer_fields(doc: PcbDocument) -> Iterator[Issue]:
                 f"region {position} lies on {byte} by its layer byte and on {LAYER_NAMES[named]} by "
                 f"V7_LAYER={text}",
                 f"{storage}/Data#{position}",
+                storage,
+                region.properties.get("UNIQUEID") or f"{region.prefix.polygon}:{region.prefix.net}",
+                str(region.prefix.layer),
+                str(named),
             )
 
 
 # --- the check ---------------------------------------------------------------------------------------
 
 
-def check_document(doc: PcbDocument, compound: CompoundFile) -> tuple[Issue, ...]:
-    """Every finding of the rules on ``doc``, read from ``compound``, in rule order."""
-    return (
+def check_document_keyed(doc: PcbDocument, compound: CompoundFile) -> list[Keyed]:
+    """Every finding of the rules on ``doc``, read from ``compound``, in rule order, each with its key."""
+    return [
         *subpoly_gaps(doc),
         *pour_index_twice(doc),
         *unique_ids(doc),
         *parameters(compound),
         *models(compound),
         *layer_fields(doc),
-    )
+    ]
+
+
+def check_document(doc: PcbDocument, compound: CompoundFile) -> tuple[Issue, ...]:
+    """Every finding of the rules on ``doc``, read from ``compound``, in rule order."""
+    return tuple(issue for _, issue in check_document_keyed(doc, compound))
+
+
+def check_pcbdoc_keyed(data: bytes, *, file: str = "") -> list[Keyed]:
+    """The keyed findings of the PCB document ``data``; the reader's errors are raised."""
+    from fenolite.backends.altium.read.cfb import open_compound
+
+    compound = open_compound(data, file=file)
+    return check_document_keyed(read_pcbdoc(compound, file=file), compound)
 
 
 def check_pcbdoc(data: bytes, *, file: str = "") -> tuple[Issue, ...]:
     """The findings of ``check_document`` on the PCB document ``data``; the reader's errors are raised."""
-    from fenolite.backends.altium.read.cfb import open_compound
-
-    compound = open_compound(data, file=file)
-    return check_document(read_pcbdoc(compound, file=file), compound)
+    return tuple(issue for _, issue in check_pcbdoc_keyed(data, file=file))
 
 
 __all__ = [
@@ -298,6 +339,10 @@ __all__ = [
     "INTEGRITY_ISSUE_CODES",
     "RULES",
     "STAGE",
+    "Key",
+    "Keyed",
     "check_document",
+    "check_document_keyed",
     "check_pcbdoc",
+    "check_pcbdoc_keyed",
 ]

@@ -486,6 +486,21 @@ def _part_graphics(symbol: SymbolDef, parts: int) -> tuple[tuple[AltiumGraphic, 
     return tuple(map_graphic(g, g.unit) for g in kept), len(symbol.graphics) - len(kept)
 
 
+def library_description(text: str, lib_ref: str, issues: list[Issue] | None) -> str:
+    """The description a library component is written with (change c0504, D3): folded (``ascii.fold``) with
+    ``altium.text-folded`` when that changed it. A text that does not fit even folded is kept as given: the
+    build's library check refuses it (``altium.text-unwritable``)."""
+    from fenolite.backends.altium.ascii import fold, text_problem
+
+    folded, changed = fold(text)
+    if text_problem(folded, form="binary") is not None:
+        return text
+    if changed and issues is not None:
+        issues.append(_issue("altium.text-folded", "warning",
+                             f"the description {text!r} is written as {folded!r}", lib_ref))  # fmt: skip
+    return folded
+
+
 def from_symbol_def(
     symbol: SymbolDef,
     *,
@@ -563,6 +578,7 @@ def from_symbol_def(
         issues.append(
             _issue("altium.symbol-simplified", "info", f"{symbol.lib_id}: {'; '.join(notes)}", lib_ref)
         )
+    description = library_description(symbol.description, lib_ref, issues)
     prefix = symbol.reference or DEFAULT_PREFIX
     return AltiumSymbol(
         lib_ref=lib_ref,
@@ -571,7 +587,7 @@ def from_symbol_def(
         rectangles=rectangles,
         prefix=prefix,
         comment=symbol.value or symbol.name,
-        description=symbol.description,
+        description=description,
         footprint=footprint,
         graphics=graphics,
     )

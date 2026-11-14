@@ -8,10 +8,9 @@ summary: Altium builds, blocks, native sync, evidence and the verification kit.
 
 `build --target altium` flags the experimental kinds (`altium.experimental`); `capabilities` lists `missing` proofs.
 
-For a model already in memory, `fenolite.lens.altium.write_model(design, pour="outline")` selects the
-backend's unpoured compatibility mode. Omit `pour` to keep its computed default and missing-extra
-fallback, or use `pour="computed"` to require the geo extra. Historical outline measurements do not
-verify computed-pour equivalence.
+In memory, `fenolite.lens.altium.write_model(design, pour="outline")` writes polygons unpoured; omit
+`pour` for the computed default (outline without the geo extra), or `pour="computed"` to require it.
+Outline measurements do not verify computed pours.
 
 ## A script and its build
 
@@ -72,9 +71,8 @@ Read `altium.not-lowered` locators. A `track_width` rule needs both limits (page
 
 `--altium-draftsman on` requests a Draftsman document; `--drawing-spec FILE` uses the same drawing TOML as
 KiCad exports and requires that option plus `--target altium`. The native gate is closed (route P):
-`altium.draftsman-not-written` explains why no file is planned and `result.draftsman` is null. A project
-file that the build writes then holds the title-block fields as parameters, for a document made by hand
-from an Altium template (`docs/altium.md`, "Draftsman document").
+`altium.draftsman-not-written` explains why no file is planned and `result.draftsman` is null. The written
+project file holds the title-block fields as parameters (`docs/altium.md`, "Draftsman document").
 `altium.draftsman-not-listed` names a kept project that needs the drawing added. Candidate shells and
 their own readback stay `INFERRED`; they do not prove that Altium fills or prints the drawing.
 
@@ -121,6 +119,8 @@ fenolite check blink/altium/lamp.PcbDoc --stages altium.board-drawing --json
 "vias", "net": "GND"}, ...}`) through the plan. `--gate NAME` opens one gate for the run:
 `altium.edit.gate-opened`, evidence `UNVERIFIED`. The opt-in stage `altium.board-drawing` compares a
 mechanical layer's outline drawing with the board shape (`altium.board-drawing.mismatch`, `.none`).
+`Session.unpour(Polygon(name))` (gate `unpour`) fixes `altium.edit.pour-stale`;
+`altium.edit.integrity-inherited` counts source faults; `altium.text-folded`: `℃` is `°C`.
 
 To add a part to a project in Python: `edit.open(sheet, project=prj)` then `add_part`, `annotate`, `add_wire`,
 `add_net_label`, `add_power_port` (gates `add_part`, `annotate`, `create`); on the board `add_component`

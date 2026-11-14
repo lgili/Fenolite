@@ -715,6 +715,7 @@ class RefsResult(ProtocolResult):
 @dataclass(frozen=True, kw_only=True)
 class TidyCompareCounts:
     acute: int
+    collinear: int = field(metadata={"optional": True})
     jogs: int
     joints_45: int
     joints_90: int
@@ -731,6 +732,7 @@ class TidyCompareRowsItemWidthsItem:
 @dataclass(frozen=True, kw_only=True)
 class TidyCompareRowsItem:
     acute: int
+    collinear: int = field(metadata={"optional": True})
     jogs: int
     joints_45: int
     joints_90: int
@@ -784,6 +786,7 @@ class TidyEditsItem:
 @dataclass(frozen=True, kw_only=True)
 class TidyReportCounts:
     acute: int
+    collinear: int = field(metadata={"optional": True})
     jogs: int
     joints_45: int
     joints_90: int
@@ -800,6 +803,7 @@ class TidyReportRowsItemWidthsItem:
 @dataclass(frozen=True, kw_only=True)
 class TidyReportRowsItem:
     acute: int
+    collinear: int = field(metadata={"optional": True})
     jogs: int
     joints_45: int
     joints_90: int
@@ -825,6 +829,7 @@ class TidyReport:
 @dataclass(frozen=True, kw_only=True)
 class TidyStyleAfter:
     acute: int
+    collinear: int = field(metadata={"optional": True})
     jogs: int
     joints_45: int
     joints_90: int
@@ -835,6 +840,7 @@ class TidyStyleAfter:
 @dataclass(frozen=True, kw_only=True)
 class TidyStyleBefore:
     acute: int
+    collinear: int = field(metadata={"optional": True})
     jogs: int
     joints_45: int
     joints_90: int

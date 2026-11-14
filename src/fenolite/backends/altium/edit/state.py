@@ -18,6 +18,7 @@ from fenolite.backends.altium.read.cfb import CompoundFile, open_compound
 from fenolite.backends.altium.read.pcb import PcbDocument, read_pcbdoc, wide_table
 from fenolite.backends.altium.read.pcbprims import Primitive, decode_primitives
 from fenolite.backends.altium.read.pcbprops import PropertyRecord, parse_blocks
+from fenolite.core.errors import Issue
 
 PROPERTY_STORAGES = {
     "Board6": 0,
@@ -58,6 +59,8 @@ class State:
     added: Counter[tuple[str, bytes]] = field(default_factory=lambda: Counter[tuple[str, bytes]]())
     touched: set[str] = field(default_factory=lambda: set[str]())
     post: list[Callable[[State], None]] = field(default_factory=lambda: list[Callable[["State"], None]]())
+    notes: list[Issue] = field(default_factory=lambda: list[Issue]())
+    """Warnings of the operations that do not refuse, such as ``altium.text-folded`` (change c0504)."""
     """Checks an operation leaves for the end of the session: each raises ``ops.Refused`` (change c0497)."""
     _names: dict[str, str] = field(default_factory=lambda: {})
 

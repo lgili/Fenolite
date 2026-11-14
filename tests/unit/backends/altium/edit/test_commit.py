@@ -80,3 +80,18 @@ def test_a_document_that_does_not_read_back_refuses(board: Path) -> None:
     state.touched.add(state.name("Tracks6"))
     data, issues = verify(original, state, declared_nets=set())
     assert data is None and [i.code for i in issues] == ["altium.edit.readback"]
+
+
+def test_an_inherited_gap_is_counted_not_blamed(board: Path, tmp_path: Path) -> None:
+    """Scenario "A source gap after a region delete" (change c0504, D2): deleting the free region stored
+    before the pieces moves their positions, and the gap of the source stays inherited."""
+    from tests.unit.backends.altium.edit import faults
+
+    board.write_bytes(faults.subpoly_gap(board.read_bytes()))
+    region = edit.Region("Mechanical 13", (mm(30), mm(24)))
+    receipt = _session(board).delete(region).commit(tmp_path / "deleted.PcbDoc", backup=False)
+    assert receipt.written, receipt.issues
+    codes = [i.code for i in receipt.issues]
+    assert "altium.edit.integrity" not in codes
+    [inherited] = [i for i in receipt.issues if i.code == "altium.edit.integrity-inherited"]
+    assert inherited.severity == "info" and "altium.integrity.subpoly-gap × 1" in inherited.message

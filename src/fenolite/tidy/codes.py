@@ -17,8 +17,11 @@ ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "tidy.net-skipped": "warning",
         "tidy.project-unread": "warning",
         "tidy.chamfer-undone": "info",
+        "tidy.collinear": "info",
         "tidy.fill-stale": "info",
+        "tidy.jog": "info",
         "tidy.kept": "info",
+        "tidy.off-45": "info",
         "tidy.straighten-skipped": "info",
     }
 )

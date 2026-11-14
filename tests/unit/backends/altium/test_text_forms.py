@@ -6,15 +6,26 @@ character."""
 
 from __future__ import annotations
 
+import dataclasses
 from pathlib import Path
 
 import pytest
-from _altium_tree import ASCII_TEXTS, documents, read_back, tree_build, tree_model
+from _altium_tree import ASCII_TEXTS, catalog_symbols, documents, read_back, tree_build, tree_model
 
-from fenolite.backends.altium.ascii import CODE_PAGE, format_record, in_code_page, record_bytes, text_problem
+from fenolite.backends.altium.ascii import (
+    CODE_PAGE,
+    fold,
+    format_record,
+    in_code_page,
+    record_bytes,
+    text_problem,
+)
 from fenolite.backends.altium.binary import frame_record
 from fenolite.backends.altium.read.sch import Parameter
 from fenolite.backends.altium.read.sch.props import parse
+from fenolite.backends.altium.read.schlib import SchLibComponent, read_schlib
+from fenolite.core.errors import Issue
+from fenolite.lens.altium import build_altium
 
 ACCENTED = "Indutância 10 µH"
 
@@ -97,3 +108,68 @@ def test_ascii_form_refuses_the_accented_value() -> None:
     (kept,) = [i for i in output.issues if i.code == "altium.not-lowered" and i.where == "parameters"]
     assert "C1 'Note'" in kept.message
     assert tree_build(tree_model(*ASCII_TEXTS), form="ascii").files
+
+
+# --- change c0504, D3: degree signs and other compatibility characters --------------------------------
+#
+# Task 1.1, the paths on dev at 9d7ef2dfd (read from the code and run before the fix):
+# - a description ``-40 °C to 125 °C``: written by every path (``°`` is in Windows-1252). Unchanged.
+# - a description ``-40 ℃`` in a build, binary or ASCII form (the libraries are binary either way), and
+#   through ``schlib.component_record``: written, the plain value as ``-40 ?`` beside a ``%UTF8%`` twin, with
+#   no issue (``record_bytes``, ``errors="replace"``).
+# - ``-40 ℃`` as a parameter value of a sheet: refused, "outside Windows-1252, which no form carries".
+# - ``-40 ℃`` through an edit ``set_property``: ``RecordError`` out of ``Session.apply`` (``FEN-1001``).
+
+DEGREES, CELSIUS = "-40 °C to 125 °C", "-40 ℃"
+
+
+def _described(description: str) -> tuple[SchLibComponent, list[Issue]]:
+    """The library component of the first symbol of the sample, built with ``description``."""
+    model = tree_model()
+    symbols = catalog_symbols(model)
+    lib_id = sorted(symbols)[0]
+    symbol = symbols[lib_id]
+    symbols[lib_id] = dataclasses.replace(
+        symbol, properties={**symbol.properties, "Description": description}
+    )
+    output = build_altium(model, name="tree", form="binary", sheets="modules", authored_symbols=symbols,
+                          symbol_bodies="graphics")  # fmt: skip
+    found = [
+        c
+        for name, data in output.files.items()
+        if name.endswith(".SchLib")
+        for c in read_schlib(data, file=name).components
+        if c.name == lib_id.split(":")[1]
+    ]
+    assert len(found) == 1, found
+    return found[0], list(output.issues)
+
+
+def test_degree_sign_kept_in_a_description() -> None:
+    """Scenario "A degree sign kept": ``°`` is in Windows-1252, so nothing folds."""
+    component, issues = _described(DEGREES)
+    assert component.description == DEGREES
+    assert not [i for i in issues if i.code == "altium.text-folded"]
+
+
+def test_degree_celsius_is_folded_in_a_description() -> None:
+    """Scenario "Degree Celsius in a description": ``℃`` is written as ``°C`` in both twins."""
+    component, issues = _described(CELSIUS)
+    assert component.description == "-40 °C"
+    record = component.records[0]
+    assert record.props is not None
+    keys = record.props.all_keys()
+    assert keys.index("%UTF8%COMPONENTDESCRIPTION") < keys.index("COMPONENTDESCRIPTION")
+    [folded] = [i for i in issues if i.code == "altium.text-folded"]
+    assert folded.severity == "warning" and "'-40 ℃'" in folded.message and "'-40 °C'" in folded.message
+
+
+def test_degree_fold_rule() -> None:
+    assert fold(CELSIUS) == ("-40 °C", True) and fold(DEGREES) == (DEGREES, False)
+    assert fold("1 kΩ") == ("1 kΩ", False)  # U+03A9 has no form in Windows-1252
+    assert text_problem(CELSIUS, form="binary") is None
+    ascii_reason = text_problem(CELSIUS, form="ascii")
+    assert ascii_reason is not None and "the binary form carries it" in ascii_reason
+    for ohm in ("1 kΩ", "1 kΩ"):  # the Greek capital omega and the ohm sign, whose form is the omega
+        reason = text_problem(ohm, form="binary")
+        assert reason is not None and "no form carries" in reason

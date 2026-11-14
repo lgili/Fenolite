@@ -10780,10 +10780,22 @@
         "warning"
       ]
     },
+    "altium.edit.integrity-inherited": {
+      "experimental": false,
+      "severities": [
+        "info"
+      ]
+    },
     "altium.edit.no-template": {
       "experimental": false,
       "severities": [
         "error"
+      ]
+    },
+    "altium.edit.pour-stale": {
+      "experimental": false,
+      "severities": [
+        "warning"
       ]
     },
     "altium.edit.readback": {
@@ -11601,6 +11613,12 @@
       "experimental": true,
       "severities": [
         "info"
+      ]
+    },
+    "altium.text-folded": {
+      "experimental": true,
+      "severities": [
+        "warning"
       ]
     },
     "altium.text-unwritable": {
@@ -17272,6 +17290,12 @@
         "error"
       ]
     },
+    "tidy.collinear": {
+      "experimental": false,
+      "severities": [
+        "info"
+      ]
+    },
     "tidy.drc-new": {
       "experimental": false,
       "severities": [
@@ -17279,6 +17303,12 @@
       ]
     },
     "tidy.fill-stale": {
+      "experimental": false,
+      "severities": [
+        "info"
+      ]
+    },
+    "tidy.jog": {
       "experimental": false,
       "severities": [
         "info"
@@ -17294,6 +17324,12 @@
       "experimental": false,
       "severities": [
         "warning"
+      ]
+    },
+    "tidy.off-45": {
+      "experimental": false,
+      "severities": [
+        "info"
       ]
     },
     "tidy.project-unread": {

@@ -73,7 +73,7 @@
   "schemas/fenolite.sync.v0.json": "2bdf8888151a58ec364fb6a3bad259a8818dc04e0ea2f2ed05bbd102416cd8c2",
   "schemas/fenolite.template.v0.json": "3b63778622f8d4caae18d4171cac5b05b99a9bb981aeec3e78330afded1e1644",
   "schemas/fenolite.testpoints.v0.json": "f48ba6256bca574e73aedb525e81d16b4b7580ebc3ba1761c93972dd5e4b2b0a",
-  "schemas/fenolite.tidy.v0.json": "17c446ed8b548bea868246d9c87920eafd089b73398b330e212c30acc4e2037b",
+  "schemas/fenolite.tidy.v0.json": "7b6967c8cde4c478116713934aeb9675485c0dd296321812b44205cdd838bf3f",
   "schemas/fenolite.verify-source.v0.json": "3d47f099009950a9fbf069f619f7065aad3b4bdf53ed65cffa94ba4c4c4f5f64",
   "schemas/fenolite.view.v0.json": "8820892181954d7abc37d930653cad17952c8980db75068b500b126d30a92b98",
   "schemas/formats/fenolite.device.v0.json": "47024ad9bc6edf9ace834bc77643b12420ceddb1c3cf5fd57c0c2a2bb8afdc68",

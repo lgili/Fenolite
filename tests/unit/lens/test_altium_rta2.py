@@ -80,8 +80,10 @@ REFUSED = {
         "circuit.logic-level on U2.i2c1 and U3.i2c"
     ),
     "yardstick/design.py": (
-        "needs the official KiCad libraries, and with them the Altium build is refused in both forms: "
-        "altium.text-unwritable on the description of Isolator_Analog:AMC1200BDWV, which holds U+00B1"
+        "needs the official KiCad libraries, and with them the Altium build is refused in both forms: in "
+        "the ASCII form altium.text-unwritable on the description of Isolator_Analog:AMC1200BDWV, which "
+        "holds U+00B1; in the binary form, which carries that description since change c0504, "
+        "altium.copper-no-document on yardstick.PcbDoc (the footprints of some components are not written)"
     ),
 }
 """The examples that no Altium build writes, each with the reason as measured (10.0.6 libraries,

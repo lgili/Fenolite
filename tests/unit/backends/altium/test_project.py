@@ -33,11 +33,11 @@ from fenolite.dsl import Design, Net, Part, Power, connect
 PACKAGE = Path(project.__file__).parent
 STDLIB_ALLOWED = {
     "__future__", "collections", "dataclasses", "decimal", "fractions", "hashlib", "heapq", "re", "struct",
-    "types", "typing", "zlib",
+    "types", "typing", "unicodedata", "zlib",
 }  # fmt: skip
 """``decimal``, ``fractions`` and ``types`` serve the PCB writers (change c0035); ``heapq`` the search for
 free space of a harness block (``drawn_harness``) and ``zlib`` the ``PinFrac`` stream (``schlib``), change
-c0470."""
+c0470; ``unicodedata`` the compatibility fold of ``ascii.fold``, change c0504."""
 READING_MODULES = {"backend.py", "docset.py", "frame.py", "models3d.py", "pour.py", "roundtrip.py", "rta3.py"}
 """The modules of the reading side; ``pour.py`` (change c0215) pours the document it reads back."""
 """The modules of the reading side (changes c0043, c0044, c0088, c0090 and c0193): the registered backend, the

@@ -12,6 +12,7 @@ a 50-mil grid, change c0034) and written in the file's unit of 10 mil, so no ``_
 
 from __future__ import annotations
 
+import unicodedata
 from collections.abc import Sequence
 from typing import Literal
 
@@ -100,6 +101,22 @@ def in_code_page(ch: str) -> bool:
     return True
 
 
+def fold(text: str) -> tuple[str, bool]:
+    """``text`` with each character that is neither in ``CODE_PAGE`` nor 7-bit ASCII replaced by its Unicode
+    compatibility form (NFKC) when that form is all in the code page, as ``℃`` by ``°C``; and whether a
+    character was replaced (change c0504, D3). A character whose form does not fit is kept: the caller's
+    check refuses it."""
+    out: list[str] = []
+    for ch in text:
+        if ord(ch) < FIRST_WIDE or in_code_page(ch):
+            out.append(ch)
+            continue
+        form = unicodedata.normalize("NFKC", ch)
+        out.append(form if form and all(in_code_page(c) for c in form) else ch)
+    folded = "".join(out)
+    return folded, folded != text
+
+
 def record_bytes(fields: Sequence[Field], *, spaced_keys: bool = False) -> bytes:
     """One record of the binary form as bytes, without its NUL (change c0086, "Text outside ASCII"): a
     field whose value is printable 7-bit ASCII is the text of ``format_record``; a field whose value holds
@@ -133,7 +150,8 @@ def text_problem(
     """Why ``text`` cannot be written as a value, or ``None`` when it can.
 
     ``form`` is the schematic form that carries the value (change c0086): ``"ascii"`` accepts printable
-    7-bit ASCII; ``"binary"`` also accepts every printable character of ``CODE_PAGE``, which
+    7-bit ASCII; ``"binary"`` also accepts every printable character of ``CODE_PAGE``, and one whose
+    ``fold`` fits it (change c0504), which
     ``record_bytes`` writes with its ``%UTF8%`` twin. ``read=True`` also accepts printable Unicode
     in binary properties, empty parameters and leading spaces or parameter references.
     The reason names the first character refused and
@@ -151,7 +169,8 @@ def text_problem(
             return "holds the character '|', which no form can escape"
         if FIRST_PRINTABLE <= ord(ch) <= LAST_PRINTABLE:
             continue
-        wide = in_code_page(ch)
+        # a character whose compatibility form fits the code page is written folded (change c0504)
+        wide = in_code_page(ch) or fold(ch)[1]
         if form == "binary" and (wide or read and ch.isprintable()):
             continue
         where = f"holds the character {ch!r} (U+{ord(ch):04X})"
@@ -194,6 +213,7 @@ __all__ = [
     "TextForm",
     "coord_fields",
     "encode_records",
+    "fold",
     "format_record",
     "header_record",
     "in_code_page",

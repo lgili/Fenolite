@@ -40,8 +40,18 @@ from fenolite.backends.altium.edit.ops import (
     Via,
     Vias,
 )
+from fenolite.backends.altium.edit.records import RecordError
 from fenolite.backends.altium.edit.state import State
-from fenolite.backends.altium.read.pcb import read_pcbdoc
+from fenolite.backends.altium.pcbrecords import layer_text
+from fenolite.backends.altium.read.pcb import PcbDocument, read_pcbdoc
+from fenolite.backends.altium.read.pcbprims import (
+    ArcRecord,
+    FillRecord,
+    PadRecord,
+    RegionRecord,
+    TrackRecord,
+    ViaRecord,
+)
 from fenolite.backends.altium.read.pcbprops import parse_blocks
 from fenolite.core.errors import FormatError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
@@ -49,7 +59,7 @@ from fenolite.core.io import atomic_write
 
 OPERATIONS = ("delete", "move", "rotate", "flip", "set_property", "clone", "add_component", "remap_layer",
               "set_rule", "set_outline", "create", "text", "cutout", "tenting", "board_drawing",
-              "link")  # fmt: skip
+              "link", "unpour")  # fmt: skip
 ROWS: Mapping[str, tuple[str, ...]] = MappingProxyType(
     {
         "delete": ("H-A-EDIT-DELETE", "H-A-EDIT-SHAPE", "H-A-EDIT-KIT"),
@@ -68,6 +78,7 @@ ROWS: Mapping[str, tuple[str, ...]] = MappingProxyType(
         "tenting": ("H-A-EDIT-TENT", "H-A-PCB-CU-VIATENT", "H-A-EDIT-KIT"),
         "board_drawing": ("H-A-EDIT-DRAWING", "H-A-EDIT-CREATE", "H-A-EDIT-KIT"),
         "link": ("H-A-EDIT-LINK", "H-A-EDIT-KIT"),
+        "unpour": ("H-A-EDIT-SHAPE", "H-A-EDIT-KIT"),
     }
 )
 """The rows of ``docs/hypotheses.md`` each operation rests on."""
@@ -83,6 +94,8 @@ EDIT_ISSUE_CODES: Mapping[str, Severity | tuple[Severity, ...]] = MappingProxyTy
         "altium.edit.connectivity": "error",
         "altium.edit.integrity": ("error", "warning"),
         "altium.edit.gate-opened": "warning",
+        "altium.edit.integrity-inherited": "info",
+        "altium.edit.pour-stale": "warning",
     }
 )
 DRAWING_WIDTH = 100_000
@@ -226,6 +239,13 @@ class Session:
             return self._queue("set_outline", label, lambda s: ops.set_region_outline(s, item, new, held))
         return self._queue("set_outline", label, lambda s: ops.set_outline(s, item, new, held))
 
+    def unpour(self, item: Polygon) -> Session:
+        """Remove the poured primitives of the polygon ``item`` from every storage, keeping its record: a
+        stale pour Altium repours (change c0504, D1)."""
+        return self._queue(
+            "unpour", f"remove the pour of {ops.describe(item)}", lambda s: ops.unpour(s, item)
+        )
+
     def add_board_cutout(
         self, ring: Sequence[Point], *, notch: bool = False, drawing: str | None = None
     ) -> Session:
@@ -339,6 +359,8 @@ class Session:
                 queued.run(state)
             except Refused as refusal:
                 return None, [_issue(refusal.code, f"{queued.label}: {refusal.message}", refusal.where)]
+            except RecordError as error:  # a value the code page cannot hold (change c0504)
+                return None, [_issue("altium.edit.assertion", f"{queued.label}: {error}")]
         for check in state.post:
             try:
                 check(state)
@@ -358,6 +380,7 @@ class Session:
         if state is None:
             return Receipt(False, None, None, tuple(issues), labels)
         written, issues = verify(self.data, state, declared_nets=self.declared_nets, file=self.path.name)
+        issues = [*state.notes, *issues]
         if written is None:
             return Receipt(False, None, None, tuple(issues), labels)
         target = Path(out)
@@ -419,16 +442,109 @@ def verify(
                 )
             )
     compound = State.of(data).document()[1]
-    had = {(i.code, i.message) for i in integrity.check_pcbdoc(original, file=file)}
-    for finding in integrity.check_document(after, compound):
-        if (finding.code, finding.message) in had:
+    # findings compared by identity, not by record position (change c0504, D2)
+    had = {key for key, _ in integrity.check_pcbdoc_keyed(original, file=file)}
+    inherited: Counter[str] = Counter()
+    for key, finding in integrity.check_document_keyed(after, compound):
+        if key in had:
+            inherited[finding.code] += 1
             continue
         code = "altium.edit.integrity"
         found.append(Issue(code, finding.severity if finding.severity in ("error", "warning") else "warning",
                            f"{finding.code}: {finding.message}", finding.where, finding.hint))  # fmt: skip
+    if inherited:
+        counts = ", ".join(f"{code} × {n}" for code, n in sorted(inherited.items()))
+        held = f"{inherited.total()} integrity findings the source already holds: {counts}"
+        found.append(_issue("altium.edit.integrity-inherited", held))
+    found += stale_pours(before, after)
     if any(i.severity == "error" for i in found):
         return None, found
     return data, found
+
+
+Box = tuple[float, float, float, float]
+
+
+def _box_of(item: object) -> Box | None:
+    """The box of a copper primitive in document units, or ``None`` for a kind without one."""
+    if isinstance(item, TrackRecord):
+        half = item.width / 2
+        return min(item.x1, item.x2) - half, min(item.y1, item.y2) - half, max(item.x1, item.x2) + half, \
+            max(item.y1, item.y2) + half  # fmt: skip
+    if isinstance(item, ArcRecord):
+        reach = item.radius + item.width / 2
+        return item.cx - reach, item.cy - reach, item.cx + reach, item.cy + reach
+    if isinstance(item, ViaRecord):
+        return item.x - item.diameter / 2, item.y - item.diameter / 2, item.x + item.diameter / 2, \
+            item.y + item.diameter / 2  # fmt: skip
+    if isinstance(item, PadRecord):
+        return item.x, item.y, item.x, item.y
+    if isinstance(item, FillRecord):
+        return min(item.x1, item.x2), min(item.y1, item.y2), max(item.x1, item.x2), max(item.y1, item.y2)
+    if isinstance(item, RegionRecord) and item.outline:
+        xs, ys = [float(v.x) for v in item.outline], [float(v.y) for v in item.outline]
+        return min(xs), min(ys), max(xs), max(ys)
+    return None
+
+
+def _changed_copper(before: PcbDocument, after: PcbDocument) -> list[tuple[int, Box]]:
+    """The layer and box of each primitive not poured by a polygon that the edit added, removed or changed."""
+    out: list[tuple[int, Box]] = []
+    for kind in ("tracks", "arcs", "vias", "pads", "fills", "regions"):
+        old, new = getattr(before, kind), getattr(after, kind)
+        gone = Counter(p.raw for p in old) - Counter(p.raw for p in new)
+        came = Counter(p.raw for p in new) - Counter(p.raw for p in old)
+        for item in (*(p for p in old if p.raw in gone), *(p for p in new if p.raw in came)):
+            prefix = getattr(item, "prefix", None)
+            box = _box_of(item)
+            if prefix is not None and prefix.polygon is None and box is not None:
+                out.append((prefix.layer, box))
+    return out
+
+
+def _layer_name(layer: int) -> str:
+    try:
+        return layer_text(layer)
+    except ValueError:
+        return ""
+
+
+def stale_pours(before: PcbDocument, after: PcbDocument) -> list[Issue]:
+    """``altium.edit.pour-stale`` for each polygon that still holds a pour and whose outline box meets the
+    box of an edited copper item on its layer (change c0504, D1): a coarse filter that never misses an edit
+    inside the polygon and may warn for one in its box only."""
+    edited = _changed_copper(before, after)
+    if not edited:
+        return []
+    poured = {
+        p.prefix.polygon
+        for kind in ("tracks", "arcs", "fills", "regions")
+        for p in getattr(after, kind)
+        if getattr(p, "prefix", None) is not None and p.prefix.polygon is not None
+    }
+    found: list[Issue] = []
+    for index, polygon in enumerate(after.polygons):
+        if index not in poured or not polygon.vertices or not polygon.layer:
+            continue
+        xs, ys = [v.x for v in polygon.vertices], [v.y for v in polygon.vertices]
+        x0, y0, x1, y1 = min(xs), min(ys), max(xs), max(ys)
+        layer = polygon.layer.upper()
+        count = sum(
+            1
+            for on, (a0, b0, a1, b1) in edited
+            if _layer_name(on) == layer and a0 <= x1 and x0 <= a1 and b0 <= y1 and y0 <= b1
+        )
+        if count:
+            found.append(
+                _issue(
+                    "altium.edit.pour-stale",
+                    f"{count} edited items on {polygon.layer} lie in the box of the poured polygon "
+                    f"{polygon.name}",
+                    f"Polygons6/Data#{index}",
+                    f"Session.unpour(Polygon({polygon.name!r}))",
+                )
+            )
+    return found
 
 
 def open_document(path: str | Path, *, gates: Mapping[str, bool] | None = None) -> Session:

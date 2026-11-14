@@ -54,16 +54,18 @@ def test_a_staircase_counted_by_hand() -> None:
         "joints_90": 16,
         "acute": 0,
         "other": 0,
+        "collinear": 0,
         "jogs": 8,
         "vias": 0,
     }
-    assert report.issues == ()
+    assert [found.code for found in report.issues] == ["tidy.jog"] * 8
     straight = straighten(design, pads=board_pads(design), check=check).design
     assert style(straight).counts() == {
         "joints_45": 1,
         "joints_90": 0,
         "acute": 0,
         "other": 0,
+        "collinear": 0,
         "jogs": 0,
         "vias": 0,
     }
@@ -81,6 +83,7 @@ def test_vias_classes_and_nets() -> None:
         "joints_90": 0,
         "acute": 0,
         "other": 0,
+        "collinear": 0,
         "jogs": 0,
         "vias": 0,
     }
@@ -107,9 +110,28 @@ def test_three_ends_and_straight_joints() -> None:
     board.track("e", "SIG", _p(35, 18.66), _p(35, 30))
     report = style(board.build())
     assert report.counts()["acute"] == 1 and report.counts()["other"] == 2
-    assert [found.code for found in report.issues] == ["tidy.acute"]
+    assert sorted(found.code for found in report.issues) == ["tidy.acute", "tidy.off-45", "tidy.off-45"]
 
 
 def test_no_board() -> None:
     design = staircase()
     assert style(dataclasses.replace(design, board=None)).rows == ()
+
+
+def test_jog_off_45_and_collinear_at_their_places() -> None:
+    """Scenario "A jog, a 60° corner and a redundant point" (change c0504, D4): one finding of each code at
+    its point, and one ``collinear`` joint counted."""
+    board = TieBoard(clearance=CLEARANCE)
+    board.track("a", "SIG", _p(10, 10), _p(20, 10))  # a 45° turn, then a 0.21 mm jog, then a 45° turn back
+    board.track("b", "SIG", _p(20, 10), _p(20.15, 10.15))
+    board.track("c", "SIG", _p(20.15, 10.15), _p(30, 10.15))
+    board.track("d", "SIG", _p(30, 10.15), _p(35, 18.81))  # a turn of 60°: a corner of 120°
+    board.track("e", "SIG", _p(35, 18.81), _p(40, 27.47))  # collinear with d, nothing else at (35, 18.81)
+    report = style(board.build())
+    codes = sorted(found.code for found in report.issues)
+    assert codes == ["tidy.collinear", "tidy.jog", "tidy.off-45"], codes
+    assert all(found.severity == "info" for found in report.issues)
+    places = {found.code: found.message for found in report.issues}
+    assert "(35mm, 18.81mm)" in places["tidy.collinear"] and "(30mm, 10.15mm)" in places["tidy.off-45"]
+    assert "(20.075mm, 10.075mm)" in places["tidy.jog"]
+    assert report.counts()["collinear"] == 1 and report.counts()["jogs"] == 1

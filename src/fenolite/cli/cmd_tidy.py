@@ -33,6 +33,7 @@ from fenolite.backends.kicad.projectset import resolve_board
 from fenolite.checks.copper import EVIDENCE as COPPER_EVIDENCE
 from fenolite.checks.copper import LOWERING_CODES, check_copper, frame_edges, rules_issues
 from fenolite.cli import _gate
+from fenolite.cli._boardview import load_board
 from fenolite.cli._examples import EXAMPLE_TIDY
 from fenolite.cli._kicadtool import DEFAULT_TIMEOUT, preflight
 from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
@@ -241,8 +242,51 @@ def _options(args: argparse.Namespace) -> tuple[tuple[str, ...], Nm | None, bool
     return steps, leg, report
 
 
+def _kicad(path: str) -> bool:
+    """Whether ``path`` names a KiCad board, project or folder (``_boardview.load_board``, change c0495)."""
+    return Path(path).suffix in (".kicad_pcb", ".kicad_pro") or Path(path).suffix == ""
+
+
+def _foreign(args: argparse.Namespace, ctx: Context, report: bool) -> Result:
+    """``--report`` of a board another ``BoardFrame`` backend reads, an Altium ``.PcbDoc`` included (change
+    c0504, D4): no net classes from a KiCad project, and a step is a usage error."""
+    if not report:
+        raise CliError(
+            "FEN-2001",
+            "tidy steps write KiCad boards; --report reads any board",
+            where=args.path,
+            hint="add --report, or pass a .kicad_pcb",
+        )
+    view = load_board(args.path, ctx)
+    patterns = tuple(args.nets or ("*",))
+    found = style(view.design, nets=_selected(view.design, patterns))
+    issues = [*view.issues, *found.issues]
+    compare: dict[str, object] | None = None
+    depends = [Path(args.path)]
+    if args.compare is not None:
+        other = load_board(args.compare, ctx).design
+        counted = style(other, nets=_selected(other, patterns))
+        compare = {"board": Path(args.compare).as_posix(), **counted.as_json()}
+        depends.append(Path(args.compare))
+    return Result(
+        result={
+            "board": view.input.path,
+            "steps": [],
+            "changed": False,
+            "report": found.as_json(),
+            "compare": compare,
+        },  # fmt: skip
+        issues=tuple(issues),
+        evidence=Evidence.combine(REPORT_EVIDENCE, view.evidence),
+        input=view.input,
+        depends=depends_on(ctx.cwd, *(p if p.is_absolute() else ctx.cwd / p for p in depends)),
+    )
+
+
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
     steps, leg, report = _options(args)
+    if not _kicad(args.path) or (args.compare is not None and not _kicad(args.compare)):
+        return _foreign(args, ctx, report)
     board_path = _board(args.path, ctx)
     data = board_path.read_bytes()
     text = data.decode("utf-8")

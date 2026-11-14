@@ -183,6 +183,11 @@ kit only:*
     ring 1 mm larger on each side, run the design rule check, and save it as `phase-c/region-saved.PcbDoc`.
     Expected: no repair message; the keep-out shows the new ring with its restrictions, and the rule check
     measures from it (`H-A-EDIT-SHAPE`).
+40. **J40** (J-unpour, change c0504) Open `phase-c/unpour.PcbDoc`, in which a track inside the poured polygon
+    `GND` is moved and `Session.unpour(Polygon("GND"))` removed the pour of `GND`, keeping its polygon record,
+    then run Repour All and save it as `phase-c/unpour-saved.PcbDoc`. Expected: no repair message; `GND` opens
+    unpoured with its outline and Pour Index, `VIN` keeps its pour, and Repour All pours `GND` around the moved
+    track (`H-A-EDIT-SHAPE`).
 
 Send the Altium Designer version (`AD <major>.<minor>`, from **Help » About**), the date, the SHA-256 of
 each file sent (the kit's own are in `SHA256SUMS`), and one outcome per case, in the form of the native

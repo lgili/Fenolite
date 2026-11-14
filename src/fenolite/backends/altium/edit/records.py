@@ -301,10 +301,18 @@ def mirror_x(cx: float) -> Transform:
 
 
 def _encode(value: str) -> bytes:
+    """``value`` in the code page, folded first (``ascii.fold``, change c0504); ``RecordError`` naming the
+    first character that neither fits nor folds."""
+    from fenolite.backends.altium.ascii import fold
+
+    folded = fold(value)[0]
     try:
-        return value.encode(CODEC)
+        return folded.encode(CODEC)
     except UnicodeEncodeError as error:
-        raise RecordError(f"the value {value!r} cannot be written in {CODEC}") from error
+        ch = folded[error.start]
+        raise RecordError(
+            f"the value {value!r} holds the character {ch!r} (U+{ord(ch):04X}), which {CODEC} cannot hold"
+        ) from error
 
 
 def set_keys(text: bytes, changes: Mapping[str, str]) -> bytes:

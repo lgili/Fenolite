@@ -21,7 +21,7 @@ import fenolite.backends.altium.drawn_harness as drawn_harness
 import fenolite.backends.altium.drawn_read as drawn_read
 import fenolite.backends.altium.schdoc as schdoc
 from fenolite.backends.altium.altsym import HIDDEN, NM_PER_MIL, STEPS, AltiumSymbol
-from fenolite.backends.altium.ascii import Field, TextForm, format_record, text_problem
+from fenolite.backends.altium.ascii import Field, TextForm, fold, format_record, text_problem
 from fenolite.backends.altium.hierarchy import ProjectSheets, SheetFile, SheetLink
 from fenolite.backends.altium.layout import (
     SHEET_SIZES,
@@ -610,6 +610,8 @@ class _Sheet:
         # A parameter text is held to the rule its plan applied (``project.parameters_of``, read=True).
         # ``read``: a record an Altium document held, written again with the reader's rule (change c0470).
         parameter = dict(record).get("RECORD") == "41"
+        if self.form == "binary" and not (read or self.carry):
+            record = self._folded(record, where)
         for key, value in record:
             try:
                 format_record([(key, "")])
@@ -625,6 +627,18 @@ class _Sheet:
                 )
         self.records.append(record)
         return len(self.records)
+
+    def _folded(self, record: Record, where: str) -> Record:
+        """``record`` with each value folded into Windows-1252 (``ascii.fold``, change c0504), and one
+        ``altium.text-folded`` per value the fold changed."""
+        out: Record = []
+        for key, value in record:
+            folded, changed = fold(value)
+            if changed:
+                message = f"{key} {value!r} is written as {folded!r}"
+                self.issues.append(Issue("altium.text-folded", "warning", message, where=where))
+            out.append((key, folded))
+        return out
 
     def component(self, spec: PartSpec, symbol: DrawnSymbol, where: str, symbol_index: int = -1) -> None:
         anchor_x, anchor_y = self.point(symbol.at, where)

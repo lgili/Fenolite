@@ -30,6 +30,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from fractions import Fraction
 
+from fenolite.backends.altium.ascii import fold
 from fenolite.backends.altium.docboard import angle_text, name_codes
 from fenolite.backends.altium.edit import records as rec
 from fenolite.backends.altium.edit.state import PRIMITIVE_STORAGES, SHAPE_BASED, WIDE, State
@@ -62,6 +63,7 @@ from fenolite.backends.altium.read.pcbprims import (
     primitive_type,
 )
 from fenolite.backends.altium.read.pcbprops import PropertyRecord, parse_mil
+from fenolite.core.errors import Issue
 
 TOLERANCE = 2
 """Two coordinates within this many units (1/10 000 mil, 2.54 nm each) are the same: a point given in
@@ -835,8 +837,22 @@ def set_outline(state: State, item: Polygon, outline: list[Point], old: list[Poi
             where,
         )
     state.replace("Polygons6", index, _with_outline(record.raw, [view.units(p) for p in outline]))
-    for storage, positions in _poured(state, index).items():
+    _unpour(state, index)
+
+
+def _unpour(state: State, index: int) -> int:
+    """Remove every primitive polygon ``index`` poured, from every storage; how many were removed."""
+    poured = _poured(state, index)
+    for storage, positions in poured.items():
         state.remove(storage, positions)
+    return sum(len(p) for p in poured.values())
+
+
+def unpour(state: State, item: Polygon) -> None:
+    """The polygon ``item`` without its poured primitives; its record, its index and every other polygon
+    are kept (change c0504, D1). A polygon with no pour is refused."""
+    _, index = View(state).find(item)
+    _assert(_unpour(state, index) > 0, f"{item.name} has no pour to remove", f"Polygons6/Data#{index}")
 
 
 def _with_outline(raw: bytes, vertices: list[tuple[int, int]]) -> bytes:
@@ -939,7 +955,12 @@ def set_property(state: State, item: Item, key: str, value: object, old: object)
         held = record.get(key)
         _assert(held is not None, f"the record holds no key {key!r}", where)
         _expect(key, held, str(old), where)
-        state.replace(storage, position, rec.set_property(record.raw, {key: str(value)}))
+        raw = rec.set_property(record.raw, {key: str(value)})  # a RecordError refuses (Session.apply)
+        folded, changed = fold(str(value))
+        if changed:
+            state.notes.append(Issue("altium.text-folded", "warning",
+                                     f"{key} {str(value)!r} is written as {folded!r}", where))  # fmt: skip
+        state.replace(storage, position, raw)
         return
     fields: dict[tuple[type, str], int] = {(Track, "width"): 29, (Arc, "width"): 41, (Via, "diameter"): 21}
     offset = fields.get((type(item), key))
