@@ -59,7 +59,8 @@ def _register(parser: argparse.ArgumentParser) -> None:
     source.add_argument(
         "--ops-file",
         metavar="FILE",
-        help='a *.PcbDoc only: a JSON list of {"op": ..., "item": {...}, ...} operations',
+        help='a *.PcbDoc only: a JSON list of {"op": ..., "item": {...}, ...} operations, or a '
+        "result.edit_plan",
     )
     parser.add_argument(
         "--gate", metavar="NAME", action="append", default=[],

@@ -105,20 +105,21 @@ fenolite check blink/altium/lamp.PcbDoc --stages altium.integrity --json
 fenolite equivalent blink/build blink/altium/lamp.PrjPcb --level 2 --json
 ```
 
-`check` measures model/ERC/copper/parity/readback with `INFERRED` evidence; run native checks too.
+`check` measures model/ERC/copper/parity/readback (`INFERRED`); run native checks too.
 `equivalent --level 2` compares circuits (page `files`). The opt-in stage `altium.integrity` warns about
-index-table faults (`altium.integrity.*`) in a PCB document. Python edit sessions are gated off
-(`altium.edit.gate`).
+index-table faults (`altium.integrity.*`) in a PCB document.
 
 ```fenolite-cmd
 fenolite edit blink/altium/lamp.PcbDoc --ops-file ops.json --gate tenting --dry-run --json
 fenolite check blink/altium/lamp.PcbDoc --stages altium.board-drawing --json
+fenolite edit blink/altium/lamp.PcbDoc --ops-file plan.json --dry-run --json
 ```
 
 `edit X.PcbDoc --ops-file` runs a JSON list of session operations (`{"op": "set_via_mask", "item": {"kind":
-"vias", "net": "GND"}, ...}`) through the plan. `--gate NAME` opens one gate for the run:
-`altium.edit.gate-opened`, evidence `UNVERIFIED`. The opt-in stage `altium.board-drawing` compares a
-mechanical layer's outline drawing with the board shape (`altium.board-drawing.mismatch`, `.none`).
+"vias", "net": "GND"}, ...}`), gated off (`altium.edit.gate`); `--gate NAME` opens one
+(`altium.edit.gate-opened`, `UNVERIFIED`). Saved `result.edit_plan` rebases after `FEN-4002`:
+`altium.edit.rebase-conflict`, `.rebase-missing` refuse, `.rebase-applied` skips.
+Outline drawing: `altium.board-drawing.mismatch`, `.none`.
 `Session.unpour(Polygon(name))` (gate `unpour`) fixes `altium.edit.pour-stale`;
 `altium.edit.integrity-inherited` counts source faults; `altium.text-folded`: `℃` is `°C`.
 
@@ -135,7 +136,7 @@ fenolite explain import.arc-as-track --json
 ```
 
 Reading a project, `altium.import.pcb-net-conflict` warns of pins that the PCB puts on another net than
-the sheets: the circuit keeps the sheet net, each pad its board net. Update one side in Altium. An arc
+the sheets: the circuit keeps the sheet net, each pad its board net. An arc
 whose three points lie on one line becomes a straight track (`import.arc-as-track`).
 
 ## Keep native schematic presentation
@@ -144,7 +145,7 @@ Review `result.schematic_composition` and its SVGs (`INFERRED`). Groups follow b
 signals. `composition.<code>`: `invalid-intent` fix members/order; `overflow` larger paper or smaller
 blocks; `budget-exhausted` less congestion; `overlap` separate units; `template-unverified` bounded
 template; `transform-unsupported` supported geometry; `label-fallback` inspect labelled endpoints;
-`connectivity-changed` keep files, report. SVGs show the base.
+`connectivity-changed` keep files, report.
 
 Capture saved Altium edits beside the script:
 

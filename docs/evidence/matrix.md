@@ -385,6 +385,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `edit.integrity` | `EVIDENCE` INFERRED: `H-A-EDIT-DELETE`, `H-A-INTEG-ID`, `H-A-INTEG-LAYER`, `H-A-INTEG-MODEL`, `H-A-INTEG-PARAMCOUNT`, `H-A-INTEG-PARAMORPHAN`, `H-A-INTEG-POURINDEX`, `H-A-INTEG-SUBPOLY` |
 | `edit.link` | see `edit.session` |
 | `edit.ops` | see `edit.session` |
+| `edit.plan` | see `edit.session` |
 | `edit.records` | see `edit.session` |
 | `edit.schematic` | `EVIDENCE` INFERRED: `H-A-EDIT-KIT`, `H-A-EDIT-SCH`, `H-A-EDIT-SCH-ADD` |
 | `edit.session` | `EVIDENCE` INFERRED: `H-A-EDIT-ADD`, `H-A-EDIT-CLONE`, `H-A-EDIT-CREATE`, `H-A-EDIT-CUTOUT`, `H-A-EDIT-DELETE`, `H-A-EDIT-DRAWING`, `H-A-EDIT-FLIP`, `H-A-EDIT-IDS`, `H-A-EDIT-KIT`, `H-A-EDIT-LAYER`, `H-A-EDIT-LINK`, `H-A-EDIT-MOVE`, `H-A-EDIT-PROPERTY`, `H-A-EDIT-ROTATE`, `H-A-EDIT-RULE`, `H-A-EDIT-SHAPE`, `H-A-EDIT-TENT`, `H-A-EDIT-TEXT`, `H-A-PCB-CU-VIATENT`, `H-A-SLOT-KIT` |

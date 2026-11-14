@@ -4750,6 +4750,20 @@ protocol. `--content-file` and `--edits-file` on a `.PcbDoc`, and `--ops-file` o
 - `result` holds `path`, `kind` (`pcbdoc`), `changed`, `operations` (the session's labels), `records` (per
   storage, the records `removed` and `added`), `stale_pours` (the polygons whose pour a polygon cut-out
   removed) and `redrawn` (the tracks and arcs `draw_board_shape` removed, by layer).
+- An angle is a number of degrees or text with a unit (`"90deg"`). `result.edit_plan` (change c0502) is the
+  run's edit plan, `fenolite.altium-edit-plan.v0` (`schemas/`), made on the board as read whatever the gates,
+  or `null` when an operation is refused on it: per operation its entry, gate, label, target (a component's
+  or polygon's `UNIQUEID`, else the item) and the target's fingerprint before (`base`) and after (`result`)
+  it. Integers only: lengths in nanometres, angles as text.
+- `--ops-file` also takes such a plan. It is replayed on the board as it is now, each operation after a
+  three-way rebase step: a target equal to `base` is edited, one equal to `result` is skipped
+  (`altium.edit.rebase-applied`, info), any other is `altium.edit.rebase-conflict` naming each field with its
+  base and current value, and no target is `altium.edit.rebase-missing`; a conflict or a missing target plans
+  no write and exits 5. `result` then holds `base_sha256`, `document_sha256`, `rebased` (they differ) and
+  `operations`, one `{label, status}` per operation (`applied`, `already-applied`, `conflict`, `missing`, with
+  `fields` for a conflict). The write depends on the board, the plan and every `add_component` source, so a
+  save in Altium after the dry run makes `--confirm --plan ID` `FEN-4002`; the next `--dry-run` with the same
+  plan file rebases it onto the newer save. A plan that does not read is `FEN-3004`.
 
 ## mcp
 

@@ -280,6 +280,12 @@ def _targets() -> list[Target]:
         Target(
             "fenolite.review.v0", "fenolite.view.review:ReviewFile", "schemas/fenolite.review.v0.json", False
         ),
+        Target(
+            "fenolite.altium-edit-plan.v0",
+            "fenolite.backends.altium.edit.plan:EditPlan",
+            "schemas/fenolite.altium-edit-plan.v0.json",
+            False,
+        ),
     ]
     # Once activated, old schemas are immutable snapshots, never renderings of live classes.
     return targets if CONTRACT_VERSION == "v0" else [t for t in targets if not t.schema_id.endswith(".v0")]

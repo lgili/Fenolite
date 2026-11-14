@@ -21,11 +21,13 @@ A refused commit writes nothing; its ``Receipt`` holds the issues and exit code 
 
 from __future__ import annotations
 
+import hashlib
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import MappingProxyType
+from typing import TYPE_CHECKING, Any
 
 from fenolite.backends.altium.edit import connectivity, integrity, ops
 from fenolite.backends.altium.edit.ops import (
@@ -40,6 +42,7 @@ from fenolite.backends.altium.edit.ops import (
     Via,
     Vias,
 )
+from fenolite.backends.altium.edit.plan import angle, entry
 from fenolite.backends.altium.edit.records import RecordError
 from fenolite.backends.altium.edit.state import State
 from fenolite.backends.altium.pcbrecords import layer_text
@@ -96,10 +99,16 @@ EDIT_ISSUE_CODES: Mapping[str, Severity | tuple[Severity, ...]] = MappingProxyTy
         "altium.edit.gate-opened": "warning",
         "altium.edit.integrity-inherited": "info",
         "altium.edit.pour-stale": "warning",
+        "altium.edit.rebase-conflict": "error",
+        "altium.edit.rebase-missing": "error",
+        "altium.edit.rebase-applied": "info",
     }
 )
 DRAWING_WIDTH = 100_000
 """0.1 mm: the width of the tracks and arcs ``add_board_cutout(drawing=...)`` draws (change c0497)."""
+if TYPE_CHECKING:
+    from fenolite.backends.altium.edit.plan import EditPlan, Rebased
+
 HYPOTHESES = tuple(sorted({row for rows in ROWS.values() for row in rows}))
 EVIDENCE = Evidence(Level.INFERRED, hypotheses=HYPOTHESES)
 """``INFERRED``: no operation's phase B case has run; the writes are experimental and gated off."""
@@ -127,6 +136,17 @@ class _Queued:
     gate: str
     label: str
     run: Callable[[State], None]
+    entry: dict[str, Any] | None = None
+    """The ops-file entry it was queued from (change c0502, D1); ``None`` when it read source bytes."""
+
+
+def _relative(document: Path, source: str | Path) -> str | None:
+    """``source`` relative to the document's folder in POSIX form, or ``None`` outside it: a plan holds no
+    absolute path (change c0502, D1)."""
+    try:
+        return Path(source).resolve().relative_to(document.parent.resolve()).as_posix()
+    except ValueError:
+        return None
 
 
 def _issue(code: str, message: str, where: str = "", hint: str = "") -> Issue:
@@ -147,24 +167,43 @@ class Session:
     """The polygons whose pour a polygon cut-out removed (change c0497)."""
     redrawn: dict[str, int] = field(default_factory=lambda: dict[str, int]())
     """The tracks and arcs each ``draw_board_shape`` removed, by layer (change c0497)."""
+    rebase: list[Issue] = field(default_factory=lambda: list[Issue]())
+    """The issues of ``plan.replay``'s rebase steps: an error refuses the commit (change c0502)."""
+    rebased: list[Rebased] = field(default_factory=lambda: list["Rebased"]())
+    """Each rebase step of ``plan.replay``, one per operation of the plan (change c0502)."""
 
-    def _queue(self, gate: str, label: str, run: Callable[[State], None]) -> Session:
-        self.queued.append(_Queued(gate, label, run))
+    def _queue(
+        self, gate: str, label: str, run: Callable[[State], None], entry: dict[str, Any] | None
+    ) -> Session:
+        self.queued.append(_Queued(gate, label, run, entry))
         return self
+
+    def plan(self) -> EditPlan:
+        """The queued operations as an edit plan (change c0502, D3): run on a copy of the document whatever
+        the gates, writing nothing. A ``ValueError`` names an operation that cannot be planned."""
+        from fenolite.backends.altium.edit.plan import make_plan
+
+        return make_plan(self)
 
     # --- operations -------------------------------------------------------------------------------------
 
     def delete(self, item: Item) -> Session:
-        return self._queue("delete", f"delete {ops.describe(item)}", lambda s: ops.delete(s, item))
+        return self._queue(
+            "delete",
+            f"delete {ops.describe(item)}",
+            lambda s: ops.delete(s, item),
+            entry("delete", item=item),
+        )
 
     def move(self, item: Item, dx: int, dy: int, *, expect: Mapping[str, object] | None = None) -> Session:
         """Move ``item`` by ``(dx, dy)`` nanometres; ``expect`` states other old values (``width``, ...). A
         ``Designator`` or ``Comment`` moves its anchor, behind the gate ``text`` (change c0497)."""
         given = dict(expect or {})
         label = f"move {ops.describe(item)} by ({dx / 1e6:g}, {dy / 1e6:g}) mm"
+        held = entry("move", item=item, dx=dx, dy=dy, **({"expect": given} if given else {}))
         if isinstance(item, Designator | Comment):
-            return self._queue("text", label, lambda s: ops.move_text(s, item, dx, dy, given))
-        return self._queue("move", label, lambda s: ops.move(s, item, dx, dy, given))
+            return self._queue("text", label, lambda s: ops.move_text(s, item, dx, dy, given), held)
+        return self._queue("move", label, lambda s: ops.move(s, item, dx, dy, given), held)
 
     def rotate(
         self,
@@ -177,21 +216,32 @@ class Session:
         """Turn a component, or a component's text about its box centre or its ``about="anchor"`` (change
         c0497)."""
         label = f"rotate {ops.describe(item)} by {degrees:g}°"
+        held = entry("rotate", item=item, degrees=angle(degrees), old_rotation=angle(old_rotation))
         if isinstance(item, Designator | Comment):
+            held["about"] = about
             return self._queue(
-                "text", label, lambda s: ops.rotate_text(s, item, degrees, old_rotation, about)
+                "text", label, lambda s: ops.rotate_text(s, item, degrees, old_rotation, about), held
             )
-        return self._queue("rotate", label, lambda s: ops.rotate(s, item, degrees, old_rotation))
+        return self._queue("rotate", label, lambda s: ops.rotate(s, item, degrees, old_rotation), held)
 
     def flip(self, item: Component, *, old_side: str = "TOP") -> Session:
-        return self._queue("flip", f"flip {ops.describe(item)}", lambda s: ops.flip(s, item, old_side))
+        return self._queue(
+            "flip",
+            f"flip {ops.describe(item)}",
+            lambda s: ops.flip(s, item, old_side),
+            entry("flip", item=item, old_side=old_side),
+        )
 
     def set_property(self, item: Item, key: str, value: object, *, old: object) -> Session:
         label = f"set {key} of {ops.describe(item)} to {value!r}"
-        return self._queue("set_property", label, lambda s: ops.set_property(s, item, key, value, old))
+        held = entry("set_property", item=item, key=key, value=value, old=old)
+        return self._queue("set_property", label, lambda s: ops.set_property(s, item, key, value, old), held)
 
     def clone(self, item: Item, **changes: object) -> Session:
-        return self._queue("clone", f"clone {ops.describe(item)}", lambda s: ops.clone(s, item, changes))
+        label = f"clone {ops.describe(item)}"
+        return self._queue(
+            "clone", label, lambda s: ops.clone(s, item, changes), entry("clone", item=item, **changes)
+        )
 
     def add_component(
         self, from_doc: Path | bytes, ref: str, *, designator: str | None = None, at: Point | None = None,
@@ -205,7 +255,12 @@ class Session:
         def run(state: State) -> None:
             ops.add_component(state, State.of(data), ref, new_designator=designator, at=at, nets=given)
 
-        return self._queue("add_component", f"add the component {ref} as {designator or ref}", run)
+        held = None
+        if not isinstance(from_doc, bytes) and _relative(self.path, from_doc) is not None:
+            held = entry("add_component", from_doc=_relative(self.path, from_doc),
+                         sha256=hashlib.sha256(data).hexdigest(), ref=ref, designator=designator, at=at,
+                         nets=given or None)  # fmt: skip
+        return self._queue("add_component", f"add the component {ref} as {designator or ref}", run, held)
 
     def link(self, component: str, *, project: str | Path, part: str, sheet: str | None = None) -> Session:
         """Link the component ``component`` to the part ``part`` of the ``.PrjPcb`` ``project`` (on the sheet
@@ -218,14 +273,23 @@ class Session:
         def run(state: State) -> None:
             link.link(state, component, link.project_parts(where), part, sheet)
 
-        return self._queue("link", f"link the component {component} to the part {part}", run)
+        relative = _relative(self.path, where)
+        held = None if relative is None else entry("link", component=component, project=relative, part=part,
+                                                   sheet=sheet)  # fmt: skip
+        return self._queue("link", f"link the component {component} to the part {part}", run, held)
 
     def remap_layer(self, old: str, new: str) -> Session:
-        return self._queue("remap_layer", f"remap {old} to {new}", lambda s: ops.remap_layer(s, old, new))
+        return self._queue(
+            "remap_layer",
+            f"remap {old} to {new}",
+            lambda s: ops.remap_layer(s, old, new),
+            entry("remap_layer", old=old, new=new),
+        )
 
     def set_rule(self, name: str, key: str, value: str, *, old: str) -> Session:
         label = f"set {key} of the rule {name!r} to {value}"
-        return self._queue("set_rule", label, lambda s: ops.set_rule(s, name, key, value, old))
+        held = entry("set_rule", name=name, key=key, value=value, old=old)
+        return self._queue("set_rule", label, lambda s: ops.set_rule(s, name, key, value, old), held)
 
     def set_outline(
         self, item: Polygon | Region, outline: Sequence[Point], *, old: Sequence[Point]
@@ -235,15 +299,21 @@ class Session:
         (change c0497)."""
         new, held = list(outline), list(old)
         label = f"set the outline of {ops.describe(item)} to {len(new)} vertices"
+        noted = entry("set_outline", item=item, outline=new, old=held)
         if isinstance(item, Region):
-            return self._queue("set_outline", label, lambda s: ops.set_region_outline(s, item, new, held))
-        return self._queue("set_outline", label, lambda s: ops.set_outline(s, item, new, held))
+            return self._queue(
+                "set_outline", label, lambda s: ops.set_region_outline(s, item, new, held), noted
+            )
+        return self._queue("set_outline", label, lambda s: ops.set_outline(s, item, new, held), noted)
 
     def unpour(self, item: Polygon) -> Session:
         """Remove the poured primitives of the polygon ``item`` from every storage, keeping its record: a
         stale pour Altium repours (change c0504, D1)."""
         return self._queue(
-            "unpour", f"remove the pour of {ops.describe(item)}", lambda s: ops.unpour(s, item)
+            "unpour",
+            f"remove the pour of {ops.describe(item)}",
+            lambda s: ops.unpour(s, item),
+            entry("unpour", item=item),
         )
 
     def add_board_cutout(
@@ -257,6 +327,7 @@ class Session:
             "cutout",
             f"add a {kind} of {len(points)} vertices",
             lambda s: ops.add_board_cutout(s, points, notch=notch),
+            entry("add_board_cutout", ring=points, notch=notch),
         )
         if drawing is not None:
             self.draw_board_shape(drawing, width=DRAWING_WIDTH, old_count=None)
@@ -270,7 +341,8 @@ class Session:
         def run(state: State) -> None:
             self.stale_pours += ops.add_polygon_cutout(state, points, layer=layer)
 
-        return self._queue("cutout", f"add a polygon cut-out of {len(points)} vertices on {layer}", run)
+        label = f"add a polygon cut-out of {len(points)} vertices on {layer}"
+        return self._queue("cutout", label, run, entry("add_polygon_cutout", ring=points, layer=layer))
 
     def set_via_mask(
         self, selector: Via | Vias, *, tented_top: bool, tented_bottom: bool, expansion: int | None = None,
@@ -288,7 +360,9 @@ class Session:
             ops.set_via_mask(state, selector, tented_top=tented_top, tented_bottom=tented_bottom,
                              expansion=expansion, count=count)  # fmt: skip
 
-        return self._queue("tenting", label, run)
+        held = entry("set_via_mask", item=selector, tented_top=tented_top, tented_bottom=tented_bottom,
+                     expansion=expansion, count=count)  # fmt: skip
+        return self._queue("tenting", label, run, held)
 
     def draw_board_shape(self, layer: str, *, width: int, old_count: int | None) -> Session:
         """Redraw the mechanical ``layer`` from the board shape with tracks and arcs ``width`` wide, stating
@@ -297,7 +371,8 @@ class Session:
         def run(state: State) -> None:
             self.redrawn[layer] = ops.draw_board_shape(state, layer, width=width, old_count=old_count)
 
-        return self._queue("board_drawing", f"draw the board shape on {layer}", run)
+        held = entry("draw_board_shape", layer=layer, width=width, old_count=old_count)
+        return self._queue("board_drawing", f"draw the board shape on {layer}", run, held)
 
     def add_arc(
         self, centre: Point, radius: int, start: float, end: float, *, width: int, layer: str,
@@ -309,7 +384,9 @@ class Session:
         def run(state: State) -> None:
             ops.add_arc(state, centre, radius, (start, end), width=width, layer=layer, net=net)
 
-        return self._queue("create", label, run)
+        held = entry("add_arc", centre=centre, radius=radius, start=angle(start), end=angle(end), width=width,
+                     layer=layer, net=net)  # fmt: skip
+        return self._queue("create", label, run, held)
 
     def add_fill(
         self, corner: Point, opposite: Point, *, layer: str, net: str | None = None, rotation: float = 0.0
@@ -320,19 +397,26 @@ class Session:
         def run(state: State) -> None:
             ops.add_fill(state, corner, opposite, layer=layer, net=net, rotation=rotation)
 
-        return self._queue("create", label, run)
+        held = entry(
+            "add_fill", corner=corner, opposite=opposite, layer=layer, net=net, rotation=angle(rotation)
+        )
+        return self._queue("create", label, run, held)
 
     def add_region(self, outline: Sequence[Point], *, layer: str, net: str | None = None) -> Session:
         """Add a free region of the outline ``outline`` (nm, no closing vertex)."""
         points = list(outline)
         label = f"add a region of {len(points)} vertices on {layer}"
-        return self._queue("create", label, lambda s: ops.add_region(s, points, layer=layer, net=net))
+        held = entry("add_region", outline=points, layer=layer, net=net)
+        return self._queue("create", label, lambda s: ops.add_region(s, points, layer=layer, net=net), held)
 
     def add_polygon(self, name: str, outline: Sequence[Point], *, layer: str, net: str) -> Session:
         """Add the polygon ``name`` of the outline ``outline`` (nm), without its pour."""
         points = list(outline)
         label = f"add the polygon {name} on {layer}"
-        return self._queue("create", label, lambda s: ops.add_polygon(s, name, points, layer=layer, net=net))
+        held = entry("add_polygon", name=name, outline=points, layer=layer, net=net)
+        return self._queue(
+            "create", label, lambda s: ops.add_polygon(s, name, points, layer=layer, net=net), held
+        )
 
     def declare_connectivity(self, *nets: str) -> Session:
         """Allow a change of the connectivity of ``nets`` (a short between two of them, or a net split or
@@ -343,7 +427,9 @@ class Session:
     # --- commit ---------------------------------------------------------------------------------------
 
     def apply(self) -> tuple[State | None, list[Issue]]:
-        """The edited state, or ``None`` and the issues of the gates, assertions and templates."""
+        """The edited state, or ``None`` and the issues of the rebase, gates, assertions and templates."""
+        if any(i.severity == "error" for i in self.rebase):
+            return None, list(self.rebase)
         closed = [q for q in self.queued if not self.gates.get(q.gate, False)]
         if closed:
             return None, [
@@ -380,7 +466,7 @@ class Session:
         if state is None:
             return Receipt(False, None, None, tuple(issues), labels)
         written, issues = verify(self.data, state, declared_nets=self.declared_nets, file=self.path.name)
-        issues = [*state.notes, *issues]
+        issues = [*self.rebase, *state.notes, *issues]
         if written is None:
             return Receipt(False, None, None, tuple(issues), labels)
         target = Path(out)

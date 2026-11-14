@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.altium-edit-plan.v0",
+  "title": "EditPlan",
+  "description": "The queued operations of a PCB edit session as data (``fenolite.altium-edit-plan.v0``).",
+  "type": "object",
+  "properties": {
+    "document": {
+      "type": "string"
+    },
+    "base_sha256": {
+      "type": "string"
+    },
+    "declared_nets": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "operations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PlannedOperation"
+      }
+    },
+    "schema": {
+      "enum": [
+        "fenolite.altium-edit-plan.v0"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "document",
+    "base_sha256"
+  ],
+  "$defs": {
+    "PlannedOperation": {
+      "description": "One operation of a plan: its ops-file entry, gate and label, its target's identity, and the target's",
+      "type": "object",
+      "properties": {
+        "entry": {
+          "type": "object"
+        },
+        "gate": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "base": {
+          "anyOf": [
+            {
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "result": {
+          "anyOf": [
+            {
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "entry",
+        "gate",
+        "label"
+      ]
+    }
+  }
+}

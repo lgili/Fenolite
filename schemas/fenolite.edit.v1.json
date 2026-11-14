@@ -25,7 +25,28 @@
     "page": {
       "$ref": "#/$defs/ProtocolPage"
     },
+    "base_sha256": {
+      "type": "string"
+    },
     "changed": {
+      "type": "boolean"
+    },
+    "document_sha256": {
+      "type": "string"
+    },
+    "edit_plan": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "x-fenolite-map": true
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "rebased": {
       "type": "boolean"
     },
     "created": {
@@ -47,10 +68,20 @@
       "type": "integer"
     },
     "operations": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EditOperationsItem"
+          }
+        }
+      ]
     },
     "path": {
       "type": "string"
@@ -77,6 +108,49 @@
   },
   "additionalProperties": true,
   "$defs": {
+    "EditConflictField": {
+      "type": "object",
+      "properties": {
+        "field": {
+          "type": "string"
+        },
+        "base": {},
+        "current": {}
+      },
+      "additionalProperties": true,
+      "required": [
+        "field",
+        "base",
+        "current"
+      ]
+    },
+    "EditOperationsItem": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "applied",
+            "already-applied",
+            "conflict",
+            "missing"
+          ]
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EditConflictField"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "label",
+        "status"
+      ]
+    },
     "EditRecordsItem": {
       "type": "object",
       "properties": {

@@ -5678,6 +5678,21 @@ meaning = "An Altium edit session added, removed or changed copper inside the ou
 fix = "Queue Session.unpour(Polygon(name)) in the same session to drop the stale pour, then repour the polygon in Altium; or repour it in Altium after the edit."
 see = "edit"
 
+["altium.edit.rebase-conflict"]
+meaning = "An edit plan replayed on a newer save of the board found the target of an operation changed since the plan was made: a field the operation reads or writes holds neither the plan's base value nor its result. The message names each field with its base and current value. Nothing is written."
+fix = "Delete the operation from the plan file, or edit its entry to the current value (its old value and its base), then run fenolite edit BOARD.PcbDoc --ops-file PLAN.json --dry-run again."
+see = "edit"
+
+["altium.edit.rebase-missing"]
+meaning = "An edit plan replayed on a newer save of the board found no record for the target of an operation, by its unique id or by its content key, and the board does not hold the operation's result either. Nothing is written."
+fix = "Delete the operation from the plan file, or make a new plan on the board as it is now."
+see = "edit"
+
+["altium.edit.rebase-applied"]
+meaning = "An edit plan replayed on a board that already holds the result of an operation skipped it, so a plan replayed on its own result changes nothing."
+fix = "Nothing is needed."
+see = "edit"
+
 ["altium.edit.integrity-inherited"]
 meaning = "The integrity check of an Altium edit found findings the source document already held, compared by the identity of the records they name (a polygon's name and pour index, an id, a model id), not by their positions. They are counted here by code instead of being blamed on the edit."
 fix = "Nothing is needed for the edit. Run fenolite check SOURCE --stages altium.integrity to see them on the source document."

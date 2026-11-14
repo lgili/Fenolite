@@ -10804,6 +10804,24 @@
         "error"
       ]
     },
+    "altium.edit.rebase-applied": {
+      "experimental": false,
+      "severities": [
+        "info"
+      ]
+    },
+    "altium.edit.rebase-conflict": {
+      "experimental": false,
+      "severities": [
+        "error"
+      ]
+    },
+    "altium.edit.rebase-missing": {
+      "experimental": false,
+      "severities": [
+        "error"
+      ]
+    },
     "altium.edit.unexpected-change": {
       "experimental": false,
       "severities": [

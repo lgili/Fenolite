@@ -9,45 +9,29 @@ Each entry is ``{"op": <Session method>, "item": <item>, ...keyword arguments}``
 unit. The session's ``apply`` and ``verify`` give the bytes, planned as one write of kind ``pcbdoc``; its
 issues keep their codes. ``--gate NAME`` opens one gate for this run, with ``altium.edit.gate-opened`` and the
 evidence ``UNVERIFIED``; ``edit.GATES`` stays off.
+
+The result of a list holds ``edit_plan``, the session's ``fenolite.altium-edit-plan.v0`` (change c0502, D5).
+Given such a plan, the command replays it on the board as it is now (``edit.plan.replay``): ``operations``
+holds each operation's rebase status, and a conflict or a missing target is an error issue, so no write is
+planned. The entries are read by ``edit.plan.queue``.
 """
 
 from __future__ import annotations
 
 import hashlib
-import inspect
 import json
-import types
-import typing
 from collections import Counter
-from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, cast
 
 from fenolite.cli.api import PlannedWrite, Result, depends_on
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
-from fenolite.core.errors import Issue
+from fenolite.core.errors import FormatError, Issue
 from fenolite.core.evidence import Evidence, Level
-from fenolite.core.units import parse_length
 
 LIMIT = 1_000_000
 """The largest operations file, in bytes."""
-OPS = frozenset({
-    "delete", "move", "rotate", "flip", "set_property", "clone", "remap_layer", "set_rule", "set_outline",
-    "add_arc", "add_fill", "add_region", "add_polygon", "declare_connectivity", "add_board_cutout",
-    "add_polygon_cutout", "set_via_mask", "draw_board_shape",
-})  # fmt: skip
-"""The ``Session`` methods an entry may name (``add_component`` reads a second document: Python only)."""
-
-
-def _items() -> dict[str, type]:
-    from fenolite.backends.altium.edit import ops
-
-    return {
-        "track": ops.Track, "arc": ops.Arc, "fill": ops.Fill, "via": ops.Via, "vias": ops.Vias,
-        "component": ops.Component, "polygon": ops.Polygon, "text": ops.Text, "region": ops.Region,
-        "designator": ops.Designator, "comment": ops.Comment,
-    }  # fmt: skip
 
 
 def _fail(index: int, message: str) -> CliError:
@@ -55,105 +39,7 @@ def _fail(index: int, message: str) -> CliError:
                     hint="docs/cli-contract.md, 'edit', lists the operations and the item kinds")  # fmt: skip
 
 
-def _length(value: object, index: int) -> int:
-    if isinstance(value, bool) or not isinstance(value, int | str):
-        raise _fail(index, f"{value!r} is not a length: give nanometres or text with a unit")
-    if isinstance(value, int):
-        return value
-    try:
-        return parse_length(value.strip())
-    except ValueError as error:
-        raise _fail(index, f"{value!r}: {error}") from None
-
-
-def _convert(value: object, hint: object, index: int) -> object:
-    """``value`` read as the type ``hint``: lengths as nanometres, points as tuples, items from objects."""
-    origin, args = typing.get_origin(hint), typing.get_args(hint)
-    if origin in (typing.Union, types.UnionType):
-        if value is None and type(None) in args:
-            return None
-        if isinstance(value, dict):
-            return _item(cast("dict[str, Any]", value), index)
-        kept = [a for a in args if a is not type(None)]
-        return _convert(value, kept[0], index) if len(kept) == 1 or int in kept else value
-    if hint is int:
-        return _length(value, index)
-    if hint is float:
-        if isinstance(value, bool) or not isinstance(value, int | float):
-            raise _fail(index, f"{value!r} is not a number")
-        return float(value)
-    if hint is bool:
-        if not isinstance(value, bool):
-            raise _fail(index, f"{value!r} is not true or false")
-        return value
-    if origin is tuple:
-        if not isinstance(value, list) or len(cast("list[object]", value)) != len(args):
-            raise _fail(index, f"{value!r} is not a point [x, y]")
-        return tuple(_convert(v, a, index) for v, a in zip(cast("list[object]", value), args, strict=True))
-    if origin in (list, Sequence) or (
-        isinstance(origin, type) and issubclass(origin, Sequence) and origin is not str
-    ):
-        if not isinstance(value, list):
-            raise _fail(index, f"{value!r} is not a list")
-        return [_convert(v, args[0], index) for v in cast("list[object]", value)]
-    if isinstance(hint, type) and hint in _items().values():
-        if not isinstance(value, dict):
-            raise _fail(index, f"{value!r} is not an item object")
-        return _item(cast("dict[str, Any]", value), index)
-    return value
-
-
-def _item(value: dict[str, Any], index: int) -> object:
-    kinds = _items()
-    kind = value.get("kind")
-    if kind not in kinds:
-        raise _fail(index, f"the item kind {kind!r} is not one of {', '.join(sorted(kinds))}")
-    cls = kinds[str(kind)]
-    hints = typing.get_type_hints(cls)
-    fields = {k: v for k, v in value.items() if k != "kind"}
-    unknown = set(fields) - set(hints)
-    if unknown:
-        raise _fail(index, f"the item {kind} has no field {', '.join(sorted(unknown))}")
-    try:
-        return cls(**{k: _convert(v, hints[k], index) for k, v in fields.items()})
-    except TypeError as error:
-        raise _fail(index, f"the item {kind}: {error}") from None
-
-
-def _queue(session: Any, entry: object, index: int) -> None:
-    if not isinstance(entry, dict):
-        raise _fail(index, 'an entry is an object {"op": ..., ...}')
-    given = dict(cast("dict[str, Any]", entry))
-    op = given.pop("op", None)
-    if op not in OPS:
-        raise _fail(index, f"the op {op!r} is not one of {', '.join(sorted(OPS))}")
-    method = getattr(session, str(op))
-    hints = typing.get_type_hints(method)
-    parameters = list(inspect.signature(method).parameters.values())
-    if "item" in given and parameters and parameters[0].name in ("item", "selector"):
-        given[parameters[0].name] = given.pop("item")
-    names = {p.name for p in parameters}
-    unknown = set(given) - names
-    if unknown:
-        raise _fail(index, f"{op} takes no argument {', '.join(sorted(unknown))}")
-    args: list[object] = []
-    kwargs: dict[str, object] = {}
-    for parameter in parameters:
-        if parameter.kind is inspect.Parameter.VAR_POSITIONAL:
-            args += list(cast("list[object]", given.get("nets", [])))
-            continue
-        if parameter.name not in given:
-            if parameter.default is inspect.Parameter.empty:
-                raise _fail(index, f"{op} needs the argument {parameter.name}")
-            continue
-        kwargs[parameter.name] = _convert(given[parameter.name], hints.get(parameter.name), index)
-    try:
-        method(*args, **kwargs)
-    except TypeError as error:
-        raise _fail(index, f"{op}: {error}") from None
-
-
-def _entries(path: Path) -> list[object]:
+def _entries(path: Path) -> list[object] | dict[str, Any]:
     data = path.read_bytes()
     if len(data) > LIMIT:
         raise CliError(
@@ -163,12 +49,17 @@ def _entries(path: Path) -> list[object]:
         raw = json.loads(data.decode("utf-8"))
     except (UnicodeDecodeError, ValueError) as error:
         raise CliError("FEN-3004", f"--ops-file is not JSON: {error}", where="--ops-file") from error
+    if isinstance(raw, dict):
+        return cast("dict[str, Any]", raw)
     if not isinstance(raw, list):
-        raise CliError("FEN-3004", "--ops-file must hold a list of operations", where="--ops-file")
+        raise CliError(
+            "FEN-3004", "--ops-file must hold a list of operations or an edit plan", where="--ops-file"
+        )
     return cast("list[object]", raw)
 
 
 def run_pcbdoc(path: Path, ops_file: Path, gates: list[str], cwd: Path) -> Result:
+    from fenolite.backends.altium.edit import plan as edit_plan
     from fenolite.backends.altium.edit import session as edit_session
 
     if not path.is_file():
@@ -178,10 +69,34 @@ def run_pcbdoc(path: Path, ops_file: Path, gates: list[str], cwd: Path) -> Resul
         raise CliError("FEN-2001", f"--gate: no gate is named {', '.join(unknown)}", where="--gate",
                        hint=f"the gates: {', '.join(edit_session.OPERATIONS)}")  # fmt: skip
     entries = _entries(ops_file)
-    session = edit_session.open_document(path, gates=dict.fromkeys(gates, True))
-    for index, entry in enumerate(entries):
-        _queue(session, entry, index)
+    opened_gates = dict.fromkeys(gates, True)
+    depends = [path, ops_file]
+    planned: Any = None
+    if isinstance(entries, dict):
+        try:
+            planned = edit_plan.EditPlan.of(entries, file=ops_file.name)
+            session = edit_plan.replay(planned, path, gates=opened_gates)
+        except FormatError as error:
+            raise CliError(
+                "FEN-3004", f"--ops-file is not an edit plan: {error}", where="--ops-file"
+            ) from error
+        depends += [
+            path.parent / str(o.entry["from_doc"]) for o in planned.operations if "from_doc" in o.entry
+        ]
+    else:
+        session = edit_session.open_document(path, gates=opened_gates)
+        for index, entry in enumerate(entries):
+            try:
+                edit_plan.queue(session, entry, index)
+            except edit_plan.EntryError as error:
+                raise _fail(error.index, error.message) from None
     old = session.data
+    made: dict[str, Any] | None = None
+    if planned is None:
+        try:
+            made = session.plan().data()
+        except ValueError:
+            made = None  # an operation the board refuses: its issue says why
     state, issues = session.apply()
     data: bytes | None = None
     records: list[dict[str, Any]] = []
@@ -206,11 +121,27 @@ def run_pcbdoc(path: Path, ops_file: Path, gates: list[str], cwd: Path) -> Resul
         "path": target,
         "kind": "pcbdoc",
         "changed": data is not None and data != old,
-        "operations": [q.label for q in session.queued],
+        "operations": [q.label for q in session.queued]
+        if planned is None
+        else [
+            {"label": r.label, "status": r.status}
+            | (
+                {"fields": [{"field": f, "base": b, "current": c} for f, b, c in r.fields]}
+                if r.fields
+                else {}
+            )
+            for r in session.rebased
+        ],
         "records": records,
         "stale_pours": list(session.stale_pours),
         "redrawn": dict(session.redrawn),
     }
+    if planned is None:
+        result["edit_plan"] = made
+    else:
+        digest = hashlib.sha256(old).hexdigest()
+        result |= {"base_sha256": planned.base_sha256, "document_sha256": digest,
+                   "rebased": digest != planned.base_sha256}  # fmt: skip
     evidence = edit_session.EVIDENCE
     if gates:
         evidence = Evidence(Level.UNVERIFIED, hypotheses=edit_session.HYPOTHESES)
@@ -219,11 +150,11 @@ def run_pcbdoc(path: Path, ops_file: Path, gates: list[str], cwd: Path) -> Resul
     )
     return Result(
         result=result,
-        issues=(*opened, *issues),
+        issues=(*opened, *issues) if state is None else (*opened, *session.rebase, *issues),
         evidence=evidence,
         input=InputRef(
             path=path.name, sha256=hashlib.sha256(old).hexdigest(), kind="pcbdoc", format_version=None
         ),
         writes=writes,
-        depends=depends_on(cwd, path, ops_file),
+        depends=depends_on(cwd, *depends),
     )

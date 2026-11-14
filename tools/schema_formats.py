@@ -33,6 +33,7 @@ TEST_DIAGNOSTIC_MARKERS: dict[str, str] = {
 
 
 FORMATS: dict[str, Format] = {
+    "fenolite.altium-edit-plan.v0": public("fenolite.backends.altium.edit.plan:EditPlan"),
     "fenolite.symbol-contexts.v0": public(
         "fenolite.cli.file_source_formats:SymbolContextsFile",
         "Public required c0327 authoring index; actual schema participates in every binding SHA.",

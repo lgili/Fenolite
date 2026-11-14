@@ -111,7 +111,7 @@ Back to [the command index](commands.md).
 - `PATH`: a *.py, a *.toml, an fp-lib-table, a sym-lib-table or an Altium *.PcbDoc
 - `--content-file FILE`: a file holding the whole new text
 - `--edits-file FILE`: a JSON list of {"old": ..., "new": ...} pairs
-- `--ops-file FILE`: a *.PcbDoc only: a JSON list of {"op": ..., "item": {...}, ...} operations
+- `--ops-file FILE`: a *.PcbDoc only: a JSON list of {"op": ..., "item": {...}, ...} operations, or a result.edit_plan
 - `--gate NAME` (repeatable): a *.PcbDoc only: open the edit session's gate NAME for this run (UNVERIFIED; repeatable)
 
 ## equivalent

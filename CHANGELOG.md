@@ -8,6 +8,17 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Added
 
+- Edit plans replayed onto a newer save (c0502): `Session.plan()` records a PCB edit session as an
+  `EditPlan` (`fenolite.altium-edit-plan.v0`, schema registered): per operation its c0497 ops-file entry
+  (lengths in nanometres, angles as text such as `"90deg"`), its target's identity (a component's or
+  polygon's `UNIQUEID`, else its content key) and the target's `base` and `result` fingerprints.
+  `edit.replay(plan, path)` queues it on another document after a three-way rebase step per operation:
+  `altium.edit.rebase-applied` (info) skips an operation whose result the document holds,
+  `altium.edit.rebase-conflict` and `altium.edit.rebase-missing` (errors) refuse the commit. `fenolite edit
+  X.PcbDoc --ops-file` reports `result.edit_plan` and takes such a plan, with `base_sha256`,
+  `document_sha256`, `rebased` and per-operation statuses in `result.operations` (result schema
+  regenerated). The ops-file reader moved to `backends.altium.edit.plan`; it now reads angles as text with a
+  unit, `expect` objects and `clone` changes.
 - Small fixes found editing an Altium board (c0504): `Session.unpour(Polygon(name))` (gate `unpour`,
   `H-A-EDIT-SHAPE`) removes a polygon's saved pour, and a commit warns `altium.edit.pour-stale` for each
   poured polygon whose box meets edited copper on its layer. `fenolite tidy --report` and `--compare` read any

@@ -1,4 +1,5 @@
 {
+  "schemas/fenolite.altium-edit-plan.v0.json": "07995235cb65b490b3172136625523ee699b0047293e8994bd0141a9d46307f1",
   "schemas/fenolite.analyze.v0.json": "e84a14f29fc698369ce937e633bdcb12cdac930227eedca576a10f40a53c6d6e",
   "schemas/fenolite.artifacts.v0.json": "070827300faf99d3dc3cdfe5febb6eff44954275ff9781b5867570e341a1d483",
   "schemas/fenolite.blocks.v0.json": "56e2ffb891eb77f88d429f485a37350e0eb16b90a498ed18aa9a871d18dd6f4d",
@@ -12,7 +13,7 @@
   "schemas/fenolite.diff.v0.json": "f459ab57d413ed14121670fc71b6bb6743ac5504daeafaa02095d35184b53628",
   "schemas/fenolite.doctor.v0.json": "ca600f8b48a1c6e6b278f0a395345efdc3b19caa0091cfee9561bcea46e4d32a",
   "schemas/fenolite.drawn-schematic.v0.json": "9207553e8cb46c5d32621b9d92d115b55bd8358675ab04cedb7608c58b217b3c",
-  "schemas/fenolite.edit.v0.json": "731e7cac5381a6b0a904a60ffcad349ab4d28db953f156a613d2812180f4c319",
+  "schemas/fenolite.edit.v0.json": "b4bf1e9d84dea21e5149c6cd8199439e7f96aa95fd7588a43bce54dab0358732",
   "schemas/fenolite.envelope.v0.json": "e7c2349886963b39da8dc4b8a4905f06a479c397c1658683c7c5cd451d3c3179",
   "schemas/fenolite.equivalent.v0.json": "289db99a6b8821a2f1758b59b455300e8717669a575998ccb0235115c516274d",
   "schemas/fenolite.error.v0.json": "4ccca1753323192fd7a0c324a4b35b17e0dda1c1c567e924baa5015b4c4affb2",

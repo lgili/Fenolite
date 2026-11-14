@@ -1277,6 +1277,15 @@ def test_altium_teaches_the_pcbdoc_edit_mode() -> None:
         assert code in text, code
 
 
+def test_altium_teaches_the_edit_plan_rebase() -> None:
+    """Change c0502: ``result.edit_plan`` replayed with ``--ops-file`` after a newer save, and its codes."""
+    text = (SKILL / "references/altium.md").read_text()
+    assert "fenolite edit blink/altium/lamp.PcbDoc --ops-file plan.json --dry-run --json" in text
+    words = ["`result.edit_plan`", "`FEN-4002`", "`altium.edit.rebase-conflict`", "`.rebase-missing`"]
+    for word in [*words, "`.rebase-applied`"]:
+        assert word in text, word
+
+
 def test_altium_teaches_adding_a_part_to_a_project() -> None:
     """Change c0499: the schematic additions, ``open(project=)`` and ``link`` with their gates."""
     text = (SKILL / "references/altium.md").read_text()

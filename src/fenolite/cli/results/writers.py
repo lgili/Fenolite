@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any, Literal
 
 from fenolite.cli.results import common as wire
 from fenolite.cli.results.common import (
@@ -1014,15 +1015,33 @@ class EditRecordsItem:
 
 
 @dataclass(frozen=True, kw_only=True)
+class EditConflictField:
+    field: str
+    base: Any
+    current: Any
+
+
+@dataclass(frozen=True, kw_only=True)
+class EditOperationsItem:
+    label: str
+    status: Literal["applied", "already-applied", "conflict", "missing"]
+    fields: list[EditConflictField] = field(metadata={"optional": True})
+
+
+@dataclass(frozen=True, kw_only=True)
 class EditResult(ProtocolResult):
+    base_sha256: str = field(metadata={"optional": True})
     changed: bool = field(metadata={"optional": True})
+    document_sha256: str = field(metadata={"optional": True})
+    edit_plan: dict[str, Any] | None = field(metadata={"optional": True})
+    rebased: bool = field(metadata={"optional": True})
     created: bool = field(metadata={"optional": True})
     diff: str = field(metadata={"optional": True})
     diff_truncated: bool = field(metadata={"optional": True})
     kind: str = field(metadata={"optional": True})
     lines_added: int = field(metadata={"optional": True})
     lines_removed: int = field(metadata={"optional": True})
-    operations: list[str] = field(metadata={"optional": True})
+    operations: list[str] | list[EditOperationsItem] = field(metadata={"optional": True})
     path: str = field(metadata={"optional": True})
     records: list[EditRecordsItem] = field(metadata={"optional": True})
     redrawn: dict[str, int] = field(metadata={"optional": True})

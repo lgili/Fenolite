@@ -6,7 +6,8 @@
 (``schematic.SchematicSession``); its operations are queued and made by ``commit(out)``, which reads the
 result back, refuses what was not declared and writes atomically. Every operation is behind its gate in
 ``GATES`` (all off); ``integrity.check_pcbdoc`` is the read-only stage ``altium.integrity`` of
-``fenolite check``. Nothing here is ``ALTIUM-VERIFIED``: Part J phase B decides each gate
+``fenolite check``. ``Session.plan()`` records the queue as an ``EditPlan``; ``replay(plan, path)`` rebases
+it onto a newer save (change c0502). Nothing here is ``ALTIUM-VERIFIED``: Part J phase B decides each gate
 (``docs/evidence/altium-edit.md``).
 """
 
@@ -28,6 +29,7 @@ from fenolite.backends.altium.edit.ops import (
     Via,
     Vias,
 )
+from fenolite.backends.altium.edit.plan import EditPlan, replay
 from fenolite.backends.altium.edit.schematic import SCHEMATIC_GATES, Part, SchematicSession, open_schematic
 from fenolite.backends.altium.edit.session import (
     EVIDENCE,
@@ -63,6 +65,7 @@ __all__ = [
     "Comment",
     "Component",
     "Designator",
+    "EditPlan",
     "Fill",
     "Part",
     "Polygon",
@@ -75,4 +78,5 @@ __all__ = [
     "Via",
     "Vias",
     "open",
+    "replay",
 ]
