@@ -64,19 +64,16 @@ fenolite check blink/build --stages circuit.rules --json
 - **`where`** names a reference (`R1`), a pad (`R1-2`), a net, or a place in a file, as above. A copper
   finding's message gives the layer and the point (file coordinates, mm);
   `fenolite region` with a small box around that point lists the items there (page `placement`).
-- Findings of KiCad's own checks have codes starting with `kicad.drc.` and `kicad.erc.`, and carry
-  KiCad's message.
-- An issue also has a `hint`, often empty: `explain` gives the fix of a code.
+- KiCad's own findings have codes `kicad.drc.*` and `kicad.erc.*`; `explain` gives the fix of a code.
 - **Accepting one finding.** `design.waive(code, *items, reason=)` in the script (page `rules`) lists
   a `copper.*` or `kicad.drc.*` finding as `info` with its reason, so the exit code no longer counts it.
   A waiver that matches nothing gives `check.waiver-unmatched`; one naming a zone as `zone[N]` gives
   `check.waiver-location-old` (name it as `where` prints it). Prefer a rule.
 - **Accepting a KiCad finding in the project.** For a project you do not build from a script,
   `--exclude CODE:ITEM_A:ITEM_B --reason TEXT` stores the exclusion in the `.kicad_pro`, as KiCad's DRC
-  dialog does: the code and the items as the finding's `where` prints them, in either order (leave
-  `ITEM_B` out for a finding of one item). It runs DRC on copies to find the key KiCad applies, so it
-  needs `kicad-cli`; review the plan, then write it. The next check lists the finding as `info` with the
-  reason, and the exclusion in `summary.accepted` of `drc.kicad`.
+  dialog does: the items as `where` prints them, in either order (`ITEM_B` out for one item). It needs
+  `kicad-cli`; review the plan, then write it. The next check lists the finding as `info`, and the
+  exclusion in `summary.accepted` of `drc.kicad`.
 
 ```fenolite-cmd
 fenolite check blink/build --exclude kicad.drc.unconnected-items:R1-1:R2-1 --reason "joined by the test fixture" --dry-run --json
@@ -88,15 +85,13 @@ fenolite explain kicad.drc.unconnected-items --json
 fenolite explain FEN-6001 --json
 ```
 
-`explain CODE` gives the `meaning` of an issue code or an error code and its `fix`. Ask it for every
-code you have not met before; it reads a table and runs nothing.
+`explain CODE` gives the `meaning` and `fix` of a code; ask it for every code you have not met.
 
 ## One fix per iteration
 
-Change one thing, then check again. Two changes at once hide which one helped, and a finding often
-disappears, or appears, as a consequence of another. Fix in this order: errors of the script (`build`),
-`model.validate`, shorts, clearances, open connections, then the rest of KiCad's findings, then the
-warnings you can explain. Do not silence a finding by loosening a rule you were given.
+Change one thing, then check again: two changes hide which one helped. Fix in this order:
+errors of the script (`build`), `model.validate`, shorts, clearances, open connections, the rest of
+KiCad's findings, then the warnings. Do not silence a finding by loosening a rule you were given.
 
 ## Evidence
 
@@ -104,8 +99,7 @@ Every envelope carries `evidence.level`, and a check carries one per stage. The 
 strongest: `KICAD-VERIFIED` (KiCad itself judged the result), `ORACLE-VERIFIED` (another tool did),
 `CORPUS-VERIFIED` (it holds on the public test boards), `INFERRED` (Fenolite's own reading, not judged
 by a tool), `UNKNOWN` and `UNVERIFIED` (not judged at all; a skipped stage has this level). An envelope
-has the lowest level of its parts. Report the level with the result: a board whose `drc.kicad` stage
-did not run is not checked, whatever the exit code says.
+has the lowest level of its parts; report it. A board whose `drc.kicad` stage did not run is not checked.
 
 ## Keeping replies small
 
@@ -113,8 +107,18 @@ did not run is not checked, whatever the exit code says.
 - `--fields a,b.c` keeps only those parts of `result`. An unknown field exits 2 (`FEN-2002`).
 - `--limit N` cuts the command's main list to a page, and `result.page.next` goes into `--cursor`.
 - None of the three changes the exit code: it comes from the whole result.
-- KiCad's report holds a limited number of findings per type; a `check.report-limit` warning says
-  that a count is a lower bound. Fix what is listed and check again.
+- `check.report-limit`: KiCad's count of a type is a lower bound. Fix what is listed and check again.
+
+## Altium's own DRC compared
+
+```fenolite-cmd
+fenolite check blink/altium/lamp.PcbDoc --compare-native --json
+```
+
+`--compare-native [REPORT]` (Altium) pairs findings with the DRC violations the saved `.PcbDoc` stores, or
+a `.drc` report: `result.native`. It adds stages `silk.clearance` (`silk.clearance`, `silk.mask-clearance`,
+`silk.edge-clearance`) and `altium.native-drc`: `check.native-only`, `check.fenolite-only`,
+`check.native-stale`, `check.native-missing`. `copper.keepout-clearance`: near a keep-out.
 
 ## Ready for fabrication
 

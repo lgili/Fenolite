@@ -64,7 +64,7 @@ from fenolite.model.board import Board, Graphic, Keepout, Zone, placed_keepout
 from fenolite.model.board import rule_areas as all_rule_areas
 from fenolite.model.design import Design
 from fenolite.model.findings import Waiver
-from fenolite.model.rules import PAD_TYPE_OF, Rule, RuleSubject
+from fenolite.model.rules import PAD_TYPE_OF, Rule, RuleSubject, Selector
 
 ARC_TOL_NM = 1_000
 """Compatibility tolerance for polygonised topology; clearance decisions use exact arc cores."""
@@ -89,6 +89,8 @@ FORBIDDEN_KINDS: Mapping[str, tuple[str, str]] = {
 Fills are never reported: KiCad's DRC does not report a stored fill in a copper-pour keep-out and its
 filler leaves the area out (``H-K-AREA-KEEPOUT``)."""
 APPROXIMATED = " (approximated pad shape)"
+KEEPOUT_CLEARANCE = "copper.keepout-clearance"
+"""Copper nearer a keep-out than the keep-out clearance (change c0498)."""
 _WILDCARDS = ("*", "&")
 
 
@@ -580,6 +582,68 @@ class _Areas:
                     )
         return found
 
+    def clearance_findings(
+        self, layers: Sequence[str], rules: Sequence[Rule], overlaps: Sequence[CopperFinding]
+    ) -> list[CopperFinding]:
+        """One ``copper.keepout-clearance`` per item and keep-out closer than the keep-out clearance (change
+        c0498, design D5): a ``clearance`` rule whose one side is ``item_kind keepout`` (Altium's keep-out
+        ``Clearance``; ``read.rules.keepout_clearance_rule``), on the first shared layer in ``layers`` order.
+        The largest such ``min`` governs. An item with a ``copper.keepout`` finding of that area, or of the
+        area's own footprint, is not judged against it."""
+        keepout = Selector("item_kind", "keepout")
+        limits = [r.min for r in rules if r.kind == "clearance" and r.selector_a == keepout
+                  and r.selector_b is None and r.min]  # fmt: skip
+        if not limits or not self.areas:
+            return []
+        limit = max(limits)
+        rule = next(r for r in rules if r.kind == "clearance" and r.selector_a == keepout and r.min == limit)
+        done = {(f.items[0].entity_id, f.items[1].entity_id) for f in overlaps}
+        index = SpatialIndex[int].build(
+            (thick_bbox(shape.wide).inflate(limit), n)
+            for n, item in enumerate(self.items.items)
+            for shapes in item.shapes.values()
+            for shape in shapes
+        )
+        found: list[CopperFinding] = []
+        for area in self.areas:
+            seen: set[int] = set()
+            for n in sorted(set(index.query(thick_bbox(area.shape)))):
+                item = self.items.items[n]
+                if n in seen or (item.ref.entity_id, area.keepout.id) in done:
+                    continue
+                if area.footprint_id and item.ref.footprint_id == area.footprint_id:
+                    continue
+                for layer in layers:
+                    near = [s.wide for s in item.shapes.get(layer, ()) if _area_on(area.keepout, layer)
+                            and thick_closer_than(s.wide, area.shape, limit)]  # fmt: skip
+                    if not near:
+                        continue
+                    seen.add(n)
+                    gap = min(thick_gap_floor(shape, area.shape) for shape in near)
+                    at = thick_witness(near[0], area.shape)
+                    ref = CopperRef("keepout", area.label, area.keepout.id, NO_NET)
+                    message = (
+                        f"{item.ref.kind} {item.ref.where} of {item.ref.net} is {_mm(gap)} mm from the "
+                        f"keep-out {area.label} on {layer} at {_point(at)}; the keep-out clearance is "
+                        f"{_mm(limit)} mm (rule {rule.name})"
+                    )
+                    source = f"rule {rule.name}"
+                    found.append(
+                        CopperFinding(
+                            KEEPOUT_CLEARANCE,
+                            "error",
+                            layer,
+                            at,
+                            (item.ref, ref),
+                            gap,
+                            limit,
+                            source,
+                            message,
+                        )
+                    )
+                    break
+        return found
+
 
 # --- zone outlines --------------------------------------------------------------------------------
 
@@ -667,6 +731,8 @@ class _Edges:
         self.index = SpatialIndex[int].build((thick_bbox(p.shape), n) for n, p in enumerate(self.pieces))
         self.judged = 0
         self.unset = 0
+        self.unset_names: list[str] = []
+        """The items whose edge limit is unset, in item order (change c0498)."""
 
     def findings(
         self, items: _Items, layers: Sequence[str], resolver: ClearanceResolver, subject: _Subjects
@@ -711,6 +777,8 @@ class _Edges:
                         )
                     )
             self.unset += unset
+            if unset:
+                self.unset_names.append(item.ref.where)
         return found
 
     def _finding(
@@ -1279,7 +1347,10 @@ def _run(
             if found is not None:
                 findings.append(found)
         allowed = judge.allowed
-        findings += areas.findings(layers)
+        overlaps = areas.findings(layers)
+        findings += overlaps
+        rules_of = design.rules.rules if design.rules is not None else ()
+        findings += areas.clearance_findings(layers, rules_of, overlaps)
         findings += _zone_overlaps(board, items)
         board_edges = _Edges(edges, arc_tol, items.unsupported) if edges is not None else None
         if board_edges is not None:
@@ -1289,6 +1360,18 @@ def _run(
                 judged=board_edges.judged,
                 unset_items=board_edges.unset,
             )
+            ruled = min_edge_clearance is not None or any(r.kind == "edge_clearance" for r in rules_of)
+            if board_edges.unset and ruled:  # change c0498, design D5 step 2: no silent edge gap
+                shown = ", ".join(board_edges.unset_names[:3])
+                others.append(
+                    issue(
+                        "copper.rules-incomplete",
+                        f"{board_edges.unset} copper item(s) judged against no board edge: no edge clearance "
+                        f"that was read applies to them ({shown}"
+                        + (", …)" if board_edges.unset > 3 else ")"),
+                        where="edge",
+                    )
+                )
         holes = _holes(board, pads, items, unplated_nets=not hole_clearance_same_net)
         findings += _hole_findings(holes, board_edges, arc_tol)
         hole_count = len(holes)
@@ -1359,6 +1442,8 @@ def _run(
         summary["allowed"] = {"copper.short": allowed}
     if tolerated:
         summary["tolerated"] = tolerated
+    if by_code[KEEPOUT_CLEARANCE]:  # change c0498: left out when none, so other boards keep their bytes
+        summary["keepout_clearance"] = by_code[KEEPOUT_CLEARANCE]
     issues = (*(f.to_issue() for f in findings), *sorted(others, key=_sort_key))
     with_areas = board is not None and bool(all_rule_areas(board))
     evidence = Evidence.combine(EVIDENCE, *((AREA_EVIDENCE,) if with_areas else ()), *inputs)

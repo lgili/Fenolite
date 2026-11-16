@@ -450,6 +450,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `read.stackup` | see `read.project` |
 | `read.textfile` | see `read.project` |
 | `read.variants` | `EVIDENCE` INFERRED: `H-A-PRJ-VARIANT` |
+| `read.violations` | `REPORT_EVIDENCE` INFERRED: `H-A-DRC-TXT`<br>`STORED_EVIDENCE` CORPUS-VERIFIED: `H-A-DRC-STORED` |
 | `resave` | `EVIDENCE` INFERRED: `H-A-RD-RESAVE` |
 | `roundtrip` | `EVIDENCE_BODIES` INFERRED: `H-A-PCBX-BODY-READBACK`<br>`EVIDENCE_RT_A0` INFERRED: `H-A-VER-RTA0`<br>`EVIDENCE_RT_A2` INFERRED: `H-A-VER-RTA2-3`<br>`EVIDENCE_RT_A3` CORPUS-VERIFIED: `H-A-VER-RTA3`<br>`PROJECT_READ_EVIDENCE` CORPUS-VERIFIED: `H-A-RD-PRJ-INI`<br>`_RT_A1` INFERRED: `H-A-VER-RTA1` |
 | `rta3` | see `roundtrip`, `import_evidence` |

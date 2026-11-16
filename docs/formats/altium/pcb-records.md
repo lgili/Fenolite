@@ -328,3 +328,19 @@ rotation 0.0, plated 0, and subrecord 6 of 596 bytes with alternate shape 9 and 
 | Fact | Source | Evidence | Hypothesis |
 |---|---|---|---|
 | On actual24.5.2.23 the authored S3 milled slot and rounded cut-out appear as openings in Board Planning,2D and actual3D; native NC contains only its three drilled NPTH slots and round NPTH hole, no milled/cut-out hit. Clicking the merged L gives one Region with Kind Board Cutout and the authored rounded extremities. Current24 clearance DRC and full release gate remain pending. | S-1297 | ALTIUM-VERIFIED(kit) (24.5.2.23;2026-11-03; authored S3/S4 only) | H-A-SLOT-KIT |
+
+## DRC violations (change c0498)
+
+Census of 2026-11-14 (task 1.1 of c0498) over the seven cached public rows `altium-third-party-pcbdoc-01` to
+`-07` (S-2335); counts and key names only. Test: `tests/corpus/test_altium_violations_census.py`.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A violation storage is named `T<Kind>Violation` after an Altium rule kind (`TMinSolderMaskSliverViolation`, `TSilkToSilkClearanceViolation`, `TBoardOutlineClearanceViolation` in the public rows). `Header` is a 32-bit record count; `Data` holds property-text blocks, each a 32-bit little-endian length and `\|KEY=VALUE\|…` text, with no lead and no trailing bytes | S-2335 | CORPUS-VERIFIED | H-A-DRC-STORED |
+| A violation record holds `SELECTION`, `LAYER`, `LOCKED`, `POLYGONOUTLINE`, `USERROUTED`, `UNIONINDEX`, `RULEINDEX`, `PRIM1ID`, `PRIM1INDEX`, `PRIM2ID`, `PRIM2INDEX`, `DESCRIPTION`, `LOCATION1.X`, `LOCATION1.Y`, `LOCATION2.X` and `LOCATION2.Y`; the documents of 2021 and 2024 add `KEEPOUT` and `INVOLVEDPRIMCOUNT`, and the Board Outline Clearance records add `PRIMID1` and `PRIMID2` (the matrix object kinds, `ClearanceObj_Track`, `ClearanceObj_OutlineEdge`) | S-2335 | CORPUS-VERIFIED | H-A-DRC-STORED |
+| `RULEINDEX` is the 0-based position of the violated rule's record in `Rules6`; in every record it names a rule of the storage's kind. The storage name is not always the rule kind: `TMinSolderMaskSliverViolation` holds violations of `MinimumSolderMaskSliver`, so the reader takes the kind from the rule's `RULEKIND` | S-2335 | CORPUS-VERIFIED | H-A-DRC-STORED |
+| `PRIMnID` is a primitive kind (`Pad`, `Via`, `Track`, `Text`, `Board`) and `PRIMnINDEX` the 0-based position of that primitive in the storage of its kind (`Pads6`, `Vias6`, `Tracks6`, `Texts6`); `Board` with index 0 stands for the board outline. Each named pad, text and track lies at or next to `LOCATION1` | S-2335 | CORPUS-VERIFIED | H-A-DRC-STORED |
+| `LOCATION1` and `LOCATION2` are lengths with the unit `mil` (`2245mil`, `7215.1969mil`) in Altium's absolute frame, the frame of the primitive records (not relative to the board origin) | S-2335 | CORPUS-VERIFIED | H-A-DRC-STORED |
+| `DESCRIPTION` is Altium's text of the finding (`Silk Text to Silk Clearance [5mil]`, `[Top Solder] Mask Sliver [1.575mil]`) and is empty in the Board Outline Clearance records | S-2335 | CORPUS-VERIFIED | H-A-DRC-STORED |
+| A `WaivedViolations` record holds `RULEINDEX`, `PRIM1KIND`, `PRIM1INDEX`, `PRIM2KIND`, `PRIM2INDEX` (`KIND`, not `ID`), `CREATEDAT`, `AUTHORID`, `AUTHORTITLE`, `SOURCE` and an optional `COMMENT`; no location. The waived violations of row `-07` name the primitives of its stored Board Outline Clearance violations | S-2335 | CORPUS-VERIFIED | H-A-DRC-STORED |
+| Primitive kinds other than those above (`Arc`, `Fill`, `Region`, `Polygon`, `Component`) and a record with more than two primitives (`INVOLVEDPRIMCOUNT` above 0) are in no public row: the reader keeps such a primitive as unnamed. The kit case "native DRC" (an authored board, one planted fault per kind) settles them | S-2335 | UNKNOWN | H-A-DRC-STORED |

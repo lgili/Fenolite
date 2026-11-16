@@ -76,6 +76,7 @@ Back to [the command index](commands.md).
 - `--exclude CODE:ITEM_A:ITEM_B`: store a KiCad DRC exclusion of this finding in the project (both item orders) instead of checking; needs --reason and the mutation protocol (KiCad input only)
 - `--reason TEXT`: with --exclude: the comment stored with it
 - `--matrix`: add result.matrix: the requirement rows of circuit.rules and roles.rules with their status, digest and a receipt of the inputs (read-only; without --stages only those two stages run)
+- `--compare-native REPORT`: Altium input: compare the findings with Altium's own DRC (the violations the PCB document stores, or those of a .drc text report); adds result.native and the stages silk.clearance and altium.native-drc
 - `--explain-rules`: add result.rules with governing and overridden rules per subject and kind; runs no extra tool
 
 ## convert
@@ -124,11 +125,3 @@ Back to [the command index](commands.md).
 - `--allow KINDS`: comma-separated change kinds (track,via,...); a change of any other kind is an error (exit 5)
 - `--three-way THEIRS`: a third KiCad board: write it with the changes from A to B applied (needs --out)
 - `--out FILE`: the merged board of --three-way
-
-## doctor
-
-`fenolite doctor [OPTIONS]`
-
-- `--kicad-cli PATH` (repeatable): a kicad-cli to report (repeatable)
-- `--no-run`: list the candidates and run no tool
-- `--sessions PATH`: instead: list the CAD lock files and the files kept only online under PATH (runs no tool)

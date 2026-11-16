@@ -727,6 +727,8 @@ a board that the script forbids.
 | `hole_clearance` | none | | no (`no-counterpart`) |
 | `courtyard_clearance` | none (Component Clearance measures bodies, with a vertical clearance) | | no (`no-counterpart`) |
 | `silk_clearance` | none (Altium splits it into two narrower rules) | | no (`no-counterpart`) |
+| `silk_mask_clearance` | none written (read from Silk To Solder Mask Clearance, change c0498) | | no (`no-counterpart`) |
+| `silk_edge_clearance` | none written (read from Silk To Board Region Clearance, change c0498) | | no (`no-counterpart`) |
 | `creepage` | none (the record of Altium's Creepage Distance is in no public file) | | no (`no-counterpart`) |
 
 - **Limits.** Altium's Width, Routing Via Style and Hole Size records hold every limit, so a rule must

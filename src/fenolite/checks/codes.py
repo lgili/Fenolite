@@ -88,6 +88,15 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "copper.hole-overlap": ("warning",),
         "copper.hole-clearance": ("error", "warning"),
         "copper.track-width": ("error", "warning"),
+        "copper.keepout-clearance": ("error",),  # change c0498: copper nearer a keep-out than its rule
+        "silk.clearance": ("error",),  # change c0498: the opt-in stage silk.clearance (``silk.board``)
+        "silk.mask-clearance": ("error",),
+        "silk.edge-clearance": ("error",),
+        "check.native-only": ("warning",),  # change c0498: the stage altium.native-drc (``checks.native``)
+        "check.fenolite-only": ("warning",),
+        "check.native-stale": ("warning",),
+        "check.native-missing": ("warning",),
+        "altium.read.violations-unknown": ("warning",),
         "zone.unfilled": ("warning",),
         "zone.fill-stale": ("warning",),
         "zone.fill-unchecked": ("info",),

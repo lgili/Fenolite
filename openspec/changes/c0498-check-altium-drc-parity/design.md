@@ -173,3 +173,48 @@ today does not start to fail on a hypothesis. Making it a default stage is a lat
   `altium.read.violations-unknown` instead of guessing.
 - Matching by items fails where Fenolite and Altium split one fault differently, for example one pour
   against two tracks. `by_kind` shows it. The pairing does not try to merge.
+
+## Decisions taken during implementation
+
+- Decision (maintainer, 2026-11-14): the census (task 1.1, S-2335) found property-text records in the seven
+  cached public rows: `RULEINDEX` is the 0-based `Rules6` position, `PRIMnID`/`PRIMnINDEX` a kind and its
+  0-based position in that kind's storage, locations in mil in Altium's absolute frame. The storage name is not
+  always the rule kind (`TMinSolderMaskSliverViolation` holds `MinimumSolderMaskSliver`), so the kind comes
+  from the rule's `RULEKIND`.
+- Decision (maintainer, 2026-11-14): `stored_violations` and `report_violations` return `NativeViolations`
+  (rows, issues of an unknown layout, evidence, source) instead of a bare tuple, so the stage can say
+  `altium.read.violations-unknown` without raising. `NativeFinding`, `NativeViolations` and the protocol
+  `NativeDrcSource` live in `backends/base.py`, so `checks/native.py` imports no backend.
+- Decision (maintainer, 2026-11-14): `RuleKind` is widened without a model version bump, as c0465 widened it
+  by `short` and `antenna`: the widening is recorded in `model0-approved.json`. A 1.1 reader reads every
+  older folder unchanged; a bump would rewrite every byte pin for no reader gain. This overrides the line
+  "Adding the kinds MUST raise the model's minor version" of the rules-model delta.
+- Decision (maintainer, 2026-11-14): `SilkToSolderMaskClearance` maps on `MINSILKSCREENTOMASKGAP` with
+  `CLEARANCETOEXPOSEDCOPPER` absent or `TRUE`. No public `SilkToBoardRegionClearance` record holds a limit key,
+  so such a record stays carried (`CARRIED_KINDS`, reason unchanged in substance) and only a record with
+  `GAP` maps to `silk_edge_clearance` (`read.rules.LIMITED_KINDS`; the key is `UNKNOWN` until the kit board).
+  The Altium writer does not write either kind (`no-counterpart` rows).
+- Decision (maintainer, 2026-11-14): `judge_silk` gathers the silk items from the model itself
+  (`footprint.graphics`, `footprint.texts`, fields, board graphics and texts), because `gather` reads only the
+  KiCad children of a footprint and an Altium import holds its footprint silk in `footprint.graphics`. A pad
+  without a mask layer (every pad of an Altium import) has an opening on each outer copper layer it has. Two
+  strokes are not judged against each other: every stored silk violation of the public rows pairs a text
+  with a stroke.
+- Decision (maintainer, 2026-11-14): issues carry no point, so a report row pairs with a finding whose
+  message ends `at (x, y) mm` (copper and silk findings do) within 0.1 mm. An edge ring is named `edge` on
+  both sides of the pairing.
+- Decision (maintainer, 2026-11-14): the keep-out distance uses the largest `min` of the keep-out rules and
+  skips an area's own footprint; a footprint keep-out next to its own pads is not a finding until the kit
+  board says otherwise. `summary.keepout_clearance` appears only when there is one, so other boards keep
+  their bytes.
+- Decision (maintainer, 2026-11-14): the edge `copper.rules-incomplete` names up to three items in its
+  message and is given only when an `edge_clearance` rule or a board minimum exists.
+- Decision (maintainer, 2026-11-14): `--compare-native` takes a report path relative to the working
+  directory; a path not ending `.drc` is `FEN-2001`. `result.native` is absent when there was nothing to
+  compare (`check.native-missing`).
+- Decision (maintainer, 2026-11-14): `silk_mask_clearance` and `silk_edge_clearance` are appended at the
+  end of `RuleKind`, after `length`, not next to `silk_clearance`: every existing kind keeps its position,
+  which the rule tables (`backends.*.rulemap`) and their tests index by.
+- Decision (maintainer, 2026-11-14): `checks` may not import `silk` (layering, `test_import_graph`), so
+  `run_document_checks` takes a `silk_judge` (`SilkJudge`), as it takes `roles_judge`; the CLI passes
+  `silk.board.judge_silk`. Without a judge the stage `silk.clearance` is skipped `not-judged`.

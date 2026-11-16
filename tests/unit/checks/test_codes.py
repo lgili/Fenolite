@@ -55,6 +55,15 @@ TABLE = {
     "copper.clearance": ("error", "warning", "info"),
     "copper.zone-overlap": ("warning", "info"),
     "copper.keepout": ("error",),
+    "copper.keepout-clearance": ("error",),  # change c0498
+    "silk.clearance": ("error",),
+    "silk.mask-clearance": ("error",),
+    "silk.edge-clearance": ("error",),
+    "check.native-only": ("warning",),
+    "check.fenolite-only": ("warning",),
+    "check.native-stale": ("warning",),
+    "check.native-missing": ("warning",),
+    "altium.read.violations-unknown": ("warning",),
     "copper.rules-incomplete": ("warning",),
     "copper.item-unsupported": ("warning",),
     "copper.clearance-unset": ("info",),
@@ -191,7 +200,11 @@ def test_codes_closed_set() -> None:
         k
         for k in TABLE
         # the drawn codes are emitted by fenolite.model.drawn_connect, whose table the stage reuses (c0276)
-        if not k.startswith(("erc.lite.", "drawn.")) and k not in generated and k not in STAGE_ORDER
+        # the silk codes are emitted by silk.board's judge, which the CLI hands to the stage, and
+        # altium.read.violations-unknown by the backend's violation reader (c0498)
+        if not k.startswith(("erc.lite.", "drawn.", "silk.", "altium.read."))
+        and k not in generated
+        and k not in STAGE_ORDER
     }
     assert code_literals(sources) >= wanted
 

@@ -17,7 +17,7 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from fractions import Fraction
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -45,6 +45,7 @@ from fenolite.backends.base import (
     ModelRoundTrip,
     ModelScope,
     ModelWriter,
+    NativeViolations,
     PlacedExtent,
     ProjectRead,
     ProjectSet,
@@ -62,6 +63,7 @@ if TYPE_CHECKING:
     from fenolite.backends.altium.lower import ProjectWrite
     from fenolite.backends.altium.pour import PourMode
     from fenolite.model.board import Layer, Via
+    from fenolite.model.rules import Rule
 
 Compare = ModelCompare
 
@@ -154,6 +156,17 @@ _DOCUMENT_INDEX = re.compile(r"\bdocument (\d+)\b")
 
 def _digest(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def _with_rules(design: Design, added: Sequence[Rule], file: str) -> Design:
+    """``design`` with ``added`` after its own rules (change c0498)."""
+    if not added:
+        return design
+    from fenolite.core.ids import derived_id
+    from fenolite.model.rules import RuleSet
+
+    held = design.rules or RuleSet(id=derived_id("rst", "altium", file), rules=())
+    return dataclasses.replace(design, rules=dataclasses.replace(held, rules=(*held.rules, *added)))
 
 
 class AltiumBackend:
@@ -560,7 +573,7 @@ class AltiumBackend:
         from fenolite.backends.altium import frame
         from fenolite.backends.altium.adapter.layers import copper_layers_of
         from fenolite.backends.altium.read.pcb import read_rule_fields
-        from fenolite.backends.altium.read.rules import NOT_APPLYING, map_rules
+        from fenolite.backends.altium.read.rules import NOT_APPLYING, keepout_clearance_rule, map_rules
 
         checked = _without_zone_clearance(_with_removed_pads(design))
         opaque = 0
@@ -579,6 +592,18 @@ class AltiumBackend:
                 sum(judged for _, judged, _ in mapping.matrix_cells),
                 sum(other for _, _, other in mapping.matrix_cells),
             )
+            # change c0498: the keep-out Clearance the pour reads reaches the copper check too
+            keepout = [
+                rule
+                for record in mapping.unmapped
+                if record.kind == CLEARANCE_KIND
+                and record.reason == "scope"
+                and 0 <= record.index < len(fields)
+                for rule in (keepout_clearance_rule(dict(fields[record.index])),)
+                if rule is not None
+            ]
+            opaque -= len(keepout)
+            checked = _with_rules(checked, keepout, file)
         except FormatError as error:
             failed = ((file, error.message or type(error).__name__),)
         return DesignRules(
@@ -596,6 +621,20 @@ class AltiumBackend:
             clearance_tolerance=CLEARANCE_TOLERANCE_NM,
             tolerance_source=TOLERANCE_SOURCE,
         )
+
+    @property
+    def native_codes(self) -> Mapping[str, tuple[str, ...]]:
+        """The Altium rule kinds ``check --compare-native`` pairs (``rulemap.NATIVE_CODES``, change c0498)."""
+        from fenolite.backends.altium.rulemap import NATIVE_CODES
+
+        return NATIVE_CODES
+
+    def native_findings(self, path: Path, design: Design, report: Path | None = None) -> NativeViolations:
+        """Altium's own DRC results of the PCB document ``path`` (``NativeDrcSource``, change c0498): the
+        violations of ``report`` (a ``.drc`` text report) when given, else those the document stores."""
+        from fenolite.backends.altium.read.violations import report_violations, stored_violations
+
+        return report_violations(report, design) if report is not None else stored_violations(path, design)
 
     def parity_side(self, schematic: Design, board: Design) -> SideOutcome:
         """The schematic side of the parity comparison (``DocumentParity``) from the two readings of a

@@ -397,7 +397,7 @@ def test_no_tracks_kinds_and_one_rule_per_layer() -> None:
 
     # eighteen kinds since change c0104, whose five follow ``no_tracks``, the thirteenth; twenty since
     # change c0465, whose ``short`` and ``antenna`` come between them
-    assert len(get_args(RuleKind)) == 20 and get_args(RuleKind)[12] == "no_tracks"
+    assert len(get_args(RuleKind)) == 22 and get_args(RuleKind)[12] == "no_tracks"
     made = rule(
         "no_tracks", Selector("netclass", "SIG"), name="sig-outer", min=None, layers=("In1.Cu", "In2.Cu")
     )

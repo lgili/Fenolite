@@ -36,6 +36,7 @@ from fenolite.backends.base import (
     DesignRulesSource,
     DocumentSet,
     DocumentValidator,
+    EdgeRing,
     ProjectSet,
     Validator,
 )
@@ -43,7 +44,7 @@ from fenolite.backends.kicad import versions
 from fenolite.backends.kicad.oracle import KicadOracle
 from fenolite.backends.kicad.projectset import project_set, resolve_board
 from fenolite.checks import DEFAULT_STAGES, ORACLE_STAGES, STAGE_ORDER, run_checks
-from fenolite.checks.documents import ALL_DOCUMENT_STAGES, DOCUMENT_STAGES, run_document_checks
+from fenolite.checks.documents import ALL_DOCUMENT_STAGES, DOCUMENT_STAGES, NATIVE_STAGE, run_document_checks
 from fenolite.checks.drawn import NAME as DRAWN_STAGE
 from fenolite.checks.drawn import DrawnInput
 from fenolite.checks.stages import CheckReport, relative_file
@@ -57,6 +58,7 @@ from fenolite.cli.output import InputRef
 from fenolite.core.errors import FormatError, Issue
 from fenolite.core.evidence import Evidence
 from fenolite.core.progress import NULL_PROGRESS, Progress
+from fenolite.core.units import Nm, format_length
 from fenolite.model.design import Design
 from fenolite.model.findings import Waiver
 from fenolite.model.library import DeviceDef
@@ -126,6 +128,17 @@ def _register(parser: argparse.ArgumentParser) -> None:
         "digest and a receipt of the inputs (read-only; without --stages only those two stages run)",
     )
     parser.add_argument(
+        "--compare-native",
+        dest="compare_native",
+        nargs="?",
+        const="",
+        default=None,
+        metavar="REPORT",
+        help="Altium input: compare the findings with Altium's own DRC (the violations the PCB document "
+        "stores, or those of a .drc text report); adds result.native and the stages silk.clearance and "
+        "altium.native-drc",
+    )
+    parser.add_argument(
         "--explain-rules",
         action="store_true",
         help="add result.rules with governing and overridden rules per subject and kind; runs no extra tool",
@@ -167,6 +180,33 @@ def roles_judge(
     from fenolite.roles.judge import judge
 
     return judge(design, model, project, pads)
+
+
+def silk_judge(
+    design: Design,
+    pads: Sequence[BoardPad],
+    edges: Sequence[EdgeRing] | None,
+    limits: Mapping[str, Nm | None],
+) -> list[tuple[str, str, str]]:
+    """The ``SilkJudge`` of the stage ``silk.clearance``: ``fenolite.silk.board.judge_silk``, imported when
+    the stage runs (``checks`` does not import ``silk``; change c0498)."""
+    from fenolite.silk.board import judge_silk
+
+    board = design.board
+    found = judge_silk(
+        design,
+        pads=pads,
+        edges=edges,
+        silk=limits.get("silk_clearance"),
+        mask=limits.get("silk_mask_clearance"),
+        edge=limits.get("silk_edge_clearance"),
+        board_mask=(board.mask_margin or 0) if board is not None else 0,
+    )
+
+    def mm(value: int) -> str:
+        return format_length(value)[:-2]
+
+    return [(f.code, f"{f.message} at ({mm(f.at.x)}, {mm(f.at.y)}) mm", ", ".join(f.items)) for f in found]
 
 
 def circuit_inputs(
@@ -232,6 +272,14 @@ def _run_documents(
     stages = _document_stages(args.stages)
     if args.matrix and args.stages is None:
         stages = tuple(name for name in stages if name in MATRIX_STAGES)
+    report_path: Path | None = None
+    if args.compare_native is not None:  # change c0498: the opt-in comparison with Altium's own DRC
+        stages = (*stages, *(n for n in ("silk.clearance", NATIVE_STAGE) if n not in stages))
+        if args.compare_native:
+            report_path = Path(args.compare_native)
+            if report_path.suffix.lower() != ".drc":
+                raise CliError("FEN-2001", "--compare-native takes Altium's .drc text report",
+                               where="--compare-native")  # fmt: skip
     built, model, cache_error = built_cache(documents.root)
     device_issues: list[Issue] = []
     report = run_document_checks(
@@ -245,6 +293,8 @@ def _run_documents(
         allowances=_allowances(model, cache_error),
         roles_judge=roles_judge,
         circuit_inputs=circuit_inputs(documents.root, issues=device_issues),
+        native_report=report_path,
+        silk_judge=silk_judge,
     )
     if device_issues:
         report = replace(report, issues=(*device_issues, *report.issues))
@@ -257,6 +307,9 @@ def _run_documents(
         "waivers": dict(report.waivers),
         "subjects": subject_rows(report),
     }
+    native = next((stage for stage in report.stages if stage.name == NATIVE_STAGE), None)
+    if native is not None and "matched" in native.summary:  # absent when there was nothing to compare
+        result["native"] = dict(native.summary)
     text = _add_matrix(result, args, documents.root, model if not cache_error else None)
     if args.explain_rules:
         from fenolite.checks.specificity import explain_rules
@@ -386,7 +439,12 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         if args.exclude is not None:
             raise CliError("FEN-2001", "--exclude writes a KiCad project: pass a KiCad board",
                            where="--exclude")  # fmt: skip
+        if args.compare_native and not Path(args.compare_native).is_absolute():
+            args.compare_native = str(ctx.cwd / args.compare_native)
         return _run_documents(args, path, *found)
+    if args.compare_native is not None:
+        raise CliError("FEN-2001", "--compare-native needs Altium input: a PCB document, .PrjPcb or a folder",
+                       where="--compare-native")  # fmt: skip
     if args.reason is not None and args.exclude is None:
         raise CliError("FEN-2001", "--reason goes with --exclude", where="--reason")
     if args.exclude is not None:

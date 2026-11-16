@@ -358,6 +358,53 @@ class CheckStagesItemSummaryViewsItem:
 
 
 @dataclass(frozen=True, kw_only=True)
+class CheckNativeKind:
+    """The pairing counts of one native rule kind (change c0498)."""
+
+    fenolite_only: int
+    matched: int
+    native_only: int
+
+
+@dataclass(frozen=True, kw_only=True)
+class CheckNativeFenoliteOnly:
+    code: str
+    where: str
+
+
+@dataclass(frozen=True, kw_only=True)
+class CheckNativeRow:
+    """One violation of the tool's own DRC that no Fenolite finding paired (change c0498)."""
+
+    at: list[int] | None
+    kind: str
+    message: str
+    primitives: list[str]
+    rule: str
+    stale: bool
+    waived: bool
+
+
+@dataclass(frozen=True, kw_only=True)
+class CheckNative:
+    """``result.native`` of ``check --compare-native`` (change c0498)."""
+
+    by_kind: dict[str, CheckNativeKind] = field(
+        metadata={"description": "Keys are supplied by named items, rather than fixed record fields."}
+    )
+    fenolite_only: list[CheckNativeFenoliteOnly]
+    file: str
+    matched: int
+    native_only: list[CheckNativeRow]
+    source: str
+    stale: int
+    unjudged: dict[str, int] = field(
+        metadata={"description": "Keys are supplied by named items, rather than fixed record fields."}
+    )
+    waived: int
+
+
+@dataclass(frozen=True, kw_only=True)
 class CheckStagesItemSummary:
     accepted: list[wire.AcceptedDrc] = field(metadata={"optional": True})
     after: CheckStagesItemSummaryAfter = field(metadata={"optional": True})
@@ -491,6 +538,25 @@ class CheckStagesItemSummary:
     zone_overlaps: int = field(metadata={"optional": True})
     zones: int = field(metadata={"optional": True})
     zones_unjudged: int = field(metadata={"optional": True})
+    by_kind: dict[str, CheckNativeKind] = field(
+        metadata={
+            "optional": True,
+            "description": "Keys are supplied by named items, rather than fixed record fields.",
+        }
+    )
+    fenolite_only: list[CheckNativeFenoliteOnly] = field(metadata={"optional": True})
+    file: str = field(metadata={"optional": True})
+    keepout_clearance: int = field(metadata={"optional": True})
+    matched: int = field(metadata={"optional": True})
+    native_only: list[CheckNativeRow] = field(metadata={"optional": True})
+    silk_limits: dict[str, int | None] = field(
+        metadata={
+            "optional": True,
+            "description": "Keys are supplied by named items, rather than fixed record fields.",
+        }
+    )
+    source: str = field(metadata={"optional": True})
+    waived: int = field(metadata={"optional": True})
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -518,6 +584,7 @@ class CheckSubjectsItem:
 @dataclass(frozen=True, kw_only=True)
 class CheckResult(ProtocolResult):
     matrix: CheckMatrix = field(metadata={"optional": True})
+    native: CheckNative = field(metadata={"optional": True})
     project: CheckProject = field(metadata={"optional": True})
     rules: list[CheckRulesItem] = field(metadata={"optional": True})
     stages: list[CheckStagesItem] = field(metadata={"optional": True})

@@ -87,7 +87,7 @@ Usage shows required arguments (`[X]`: optional). Each argument below names its 
 | `convert` | [Arguments](commands-2.md#convert) |
 | `copper` | [Arguments](commands-2.md#copper) |
 | `diff` | [Arguments](commands-2.md#diff) |
-| `doctor` | [Arguments](commands-2.md#doctor) |
+| `doctor` | [Arguments](commands-3.md#doctor) |
 | `edit` | [Arguments](commands-3.md#edit) |
 | `equivalent` | [Arguments](commands-3.md#equivalent) |
 | `explain` | [Arguments](commands-3.md#explain) |

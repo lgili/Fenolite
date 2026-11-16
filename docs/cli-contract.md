@@ -2069,6 +2069,7 @@ repeat.
 | `copper.clearance` | error, warning, info | a gap below the clearance in force; the governing rule sets the severity, and a class or board-minimum value gives an error; `info` when a waiver accepts it |
 | `copper.zone-overlap` | warning, info | zones of different nets and equal priority overlap on a shared layer; `info` when a waiver accepts it |
 | `copper.keepout` | error | a track, arc, via or pad lies in a keep-out whose settings forbid its kind, on a layer of the keep-out; `where` names the item and the area. Fills are never reported |
+| `copper.keepout-clearance` | error | copper of another net or footprint lies closer to a keep-out than the largest `clearance` rule whose first scope is `item_kind keepout` and which has no second (an Altium keep-out clearance; change c0498); `where` names the item and the area |
 | `copper.edge-clearance` | error, warning | copper closer to the board edge, a cut-out or a slot than the edge clearance in force; the governing rule sets the severity, the board minimum gives an error; `where` names the item and the ring. No waiver applies |
 | `copper.hole-in-cutout` | error | a drilled hole breaks into a cut-out or a slot, or crosses the board edge; `where` names the hole's item and the ring |
 | `copper.hole-overlap` | warning | two drilled holes overlap; `where` names both items |
@@ -2279,6 +2280,8 @@ opt-in too (change c0241): it judges the index tables of each PCB document (belo
 | `roundtrip.rta1` | RT-A1 of every document: every typed stream gives equal records after encoding and reading again | the reader's level per kind; `UNVERIFIED` when a stream fails |
 | `roundtrip.rta2` | RT-A2 on built input: the stored model against the readings of the documents the build wrote, inside the written scope (`docs/altium.md`, "Round trips"); footprints, pads and copper are compared, and no kind is only counted | `INFERRED` (`H-A-VER-RTA2-3`) |
 | `altium.board-drawing` | opt-in. The drawing of the board shape on a mechanical layer compared with the outline and the board cut-outs (`fenolite.backends.altium.edit.drawing`; change c0497) | `INFERRED` (`H-A-EDIT-DRAWING`) |
+| `silk.clearance` | opt-in. The silkscreen rules (`silk_clearance`, `silk_mask_clearance`, `silk_edge_clearance`) on the whole board in the `altium` model of `silk.board` (`judge_silk`; change c0498) | `INFERRED` (`H-A-SILK-DRC-MODEL`, `H-A-SILK-RULES`) |
+| `altium.native-drc` | opt-in, runs last. The findings of the stages that ran paired with Altium's own DRC results (`checks.native`; change c0498) | `CORPUS-VERIFIED` (`H-A-DRC-STORED`) for stored violations, `INFERRED` (`H-A-DRC-TXT`) for a report |
 | `altium.integrity` | opt-in. The integrity check of each PCB document (`fenolite.backends.altium.edit.integrity`): the faults of its index tables that the native tool may refuse. `where` is `<document>:<stream>#<position>`, and the hint names the rule's row of `docs/hypotheses.md` | `INFERRED` (`H-A-INTEG-*`): every finding is a `warning` until Part J phase B confirms its row |
 | `roundtrip.rta3` | opt-in. RT-A3: the project file (else the PCB document, else the first schematic) is read, its model is written as new Altium documents in a temporary folder, and those are read again; the two models are compared inside the written scope | `INFERRED` (`H-A-VER-RTA3`); `UNVERIFIED` when a difference is reported |
 
@@ -2359,6 +2362,23 @@ carries `ORACLE-VERIFIED`, `KICAD-VERIFIED` or `ALTIUM-VERIFIED`: only Fenolite 
   free board cut-out) with no drawn edge on it within 0.01 mm, and each drawn edge on no shape edge, gives
   `altium.board-drawing.mismatch` (warning) at its middle. A document with no such layer gives the `info`
   `altium.board-drawing.none`. Its evidence is `INFERRED` (`H-A-EDIT-DRAWING`).
+- **`silk.clearance`** (opt-in, change c0498). Each text closer than the largest `silk_clearance` to another silk
+  item not of its own component (`silk.clearance`), each silk item closer than `silk_mask_clearance` to a pad's
+  mask opening (`silk.mask-clearance`; a pad without a mask layer, as an Altium import gives it, has an opening on
+  each outer copper layer) and closer than `silk_edge_clearance` to an edge ring (`silk.edge-clearance`), all
+  errors whose `where` names the two items and whose message ends `at (x, y) mm`. Texts are boxed as the
+  `altium` model boxes them. Two strokes are not judged against each other. The summary holds `silk_limits`.
+- **`altium.native-drc`** (opt-in, change c0498). `check --compare-native [REPORT]` adds it and `silk.clearance`;
+  it needs Altium input (else exit 2, `FEN-2001`) and a report path ending `.drc`. It reads the `T…Violation`
+  and `WaivedViolations` storages of the PCB document, or the report (`backends.altium.read.violations`), and
+  pairs each unwaived violation of a kind of `rulemap.NATIVE_CODES` with a finding of those codes whose items
+  are equal (a pad as `REF-PIN`, the board outline as `edge`), or, for a report line without items, whose
+  message places it within 0.1 mm. `result.native` holds `source` (`stored` or `report`), `file`, `matched`,
+  `by_kind`, `fenolite_only`, `native_only`, `unjudged`, `waived` and `stale`, as does the stage summary. One
+  `check.native-only` or `check.fenolite-only` warning per unpaired finding, one `check.native-stale` when a
+  violation names a primitive the document lacks, `altium.read.violations-unknown` for a record of another
+  layout. A document without stored violations and no report gives `check.native-missing` and no
+  `result.native`. Warnings do not change the exit code.
 
 ### Altium edit sessions
 

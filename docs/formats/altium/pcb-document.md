@@ -5,6 +5,7 @@
 | fact | source | label | hypothesis |
 |---|---|---|---|
 | A batch DRC writes a report only with Create Report File enabled. TXT and HTML reports use the project's Output Path; their names are `Design Rule Check - <PCBDocumentName>.drc` and `.html` | S-0745 | INFERRED | H-A-DRC-REPORT |
+| The TXT report (`.drc`) lists, per rule checked, a line `Processing Rule : <constraint text>`, one line per violation that starts with `Violation between`, or with the rule's constraint name, and names each primitive with its layer and coordinates in parentheses (`Track (1000mil,2000mil)(1200mil,2000mil) on Top Layer`), then `Rule Violations :<count>`; the report ends with `Violations Detected : <count>`. Change c0498's reader takes the kind from the constraint name and the location from the first coordinate pair, and keeps the line as the message | S-0745 | INFERRED | H-A-DRC-TXT |
 
 The owned 2026-10-14 AD 26.5.0 retry supports this observation. Its native TXT
 is retained unchanged for the publication edition; the HTML includes a personal

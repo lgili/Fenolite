@@ -18,10 +18,12 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fenolite.backends.base import (
     BoardFrame,
+    BoardPad,
     BodyComparer,
     ContainerLevel,
     ContainerRoundTrip,
@@ -33,7 +35,9 @@ from fenolite.backends.base import (
     DocumentRole,
     DocumentSet,
     DocumentValidator,
+    EdgeRing,
     ModelWriter,
+    NativeDrcSource,
     PadNetList,
     ProjectRead,
     ProjectSet,
@@ -48,6 +52,7 @@ from fenolite.checks.validate import BUILT_EVIDENCE
 from fenolite.checks.waivers import combine
 from fenolite.core.errors import FormatError, Issue
 from fenolite.core.evidence import Evidence, Level
+from fenolite.core.units import Nm
 from fenolite.model.design import Design
 from fenolite.model.findings import Waiver
 from fenolite.model.rules import Rule
@@ -74,11 +79,20 @@ c0113) judges the placement rules of a built project on the pad positions of the
 every board. ``roles.rules`` (change c0222) judges the net roles of the PCB document with the judge that
 ``fenolite check`` passes. ``circuit.rules`` (change c0252) judges the interface parameters of the
 ``.fenolite/`` model of a built project and reads no document."""
-OPT_IN_DOCUMENT_STAGES: tuple[str, ...] = ("roundtrip.rta3", "altium.integrity", "altium.board-drawing")
+OPT_IN_DOCUMENT_STAGES: tuple[str, ...] = (
+    "roundtrip.rta3",
+    "altium.integrity",
+    "altium.board-drawing",
+    "silk.clearance",
+    "altium.native-drc",
+)
 """The stages that run only when ``--stages`` names them (change c0090): RT-A3 writes a whole project
 into a temporary folder and reads it again. ``altium.integrity`` (change c0241) reads the index tables of
 each PCB document of a backend that has them (``DocumentIntegrity``). ``altium.board-drawing`` (change c0497)
-compares the drawing of the board shape on a mechanical layer with the board shape (``DocumentIntegrity``)."""
+compares the drawing of the board shape on a mechanical layer with the board shape (``DocumentIntegrity``).
+``silk.clearance`` (change c0498) judges the silkscreen rules in the ``altium`` model of ``silk.board``, and
+``altium.native-drc`` pairs the findings of the stages that ran with the tool's own DRC results
+(``NativeDrcSource``, ``checks.native``); it runs last."""
 ALL_DOCUMENT_STAGES: tuple[str, ...] = (*DOCUMENT_STAGES, *OPT_IN_DOCUMENT_STAGES)
 CONTAINER_LEVELS: Mapping[str, ContainerLevel] = {"roundtrip.rta0": "RT-A0", "roundtrip.rta1": "RT-A1"}
 _READING_STAGES = frozenset(
@@ -91,9 +105,25 @@ _READING_STAGES = frozenset(
         "parity",
         "netlist.assignment_compare",
         "roundtrip.rta2",
+        "silk.clearance",
+        "altium.native-drc",
     }
 )
+SILK_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-A-SILK-DRC-MODEL", "H-A-SILK-RULES"))
+"""The stage ``silk.clearance`` (change c0498): the ``altium`` model, until the kit case confirms it."""
 _COUNTED_SKIPS = frozenset({"read-refused", "cache-unreadable"})
+
+
+NATIVE_STAGE = "altium.native-drc"
+
+
+SilkJudge = Callable[
+    [Design, Sequence[BoardPad], Sequence[EdgeRing] | None, Mapping[str, Nm | None]],
+    Sequence[tuple[str, str, str]],
+]
+"""The judge of the stage ``silk.clearance`` (change c0498): the design, its pads, its edge rings and the
+limits by rule kind give ``(code, message, where)`` per finding. The CLI passes ``silk.board.judge_silk``
+(``checks`` does not import ``silk``)."""
 
 
 def _has_cutouts(design: Design) -> bool:
@@ -253,6 +283,8 @@ def run_document_checks(
     allowances: Sequence[Rule] = (),
     roles_judge: RolesJudge | None = None,
     circuit_inputs: CircuitInputs | None = None,
+    native_report: Path | None = None,
+    silk_judge: SilkJudge | None = None,
 ) -> CheckReport:
     """Run the selected stages in ``DOCUMENT_STAGES`` order on ``documents`` (``model`` is the ``.fenolite/``
     model of a built project). ``validator.read_documents`` runs at most once, and
@@ -263,7 +295,9 @@ def run_document_checks(
     model's ``short`` and ``antenna`` rules (change c0465), reach the ``copper.clearance`` stage. This
     pipeline has no DRC stage, so a ``<oracle>.drc.*`` waiver is listed as ``stage-not-run``, and no stored
     exclusion is read.
-    ``roles_judge`` judges the stage ``roles.rules`` (``checks.roles``)."""
+    ``roles_judge`` judges the stage ``roles.rules`` (``checks.roles``). ``native_report`` is the tool's
+    report that ``altium.native-drc`` reads instead of the violations the PCB document stores, and
+    ``silk_judge`` judges the stage ``silk.clearance`` (change c0498)."""
     from fenolite.checks import parity as parity_check
     from fenolite.checks.rta2 import body_total, predates_board, predates_graphics, rta2_stage
     from fenolite.checks.rta3 import compare, rta3_stage
@@ -521,6 +555,65 @@ def run_document_checks(
             return skipped(name, "read-refused")
         return ran(name, found, Evidence.combine(*parts), {"documents": checked})
 
+    def native(done: Sequence[StageResult]) -> StageResult:
+        from fenolite.checks.native import compare
+
+        name = NATIVE_STAGE
+        if not isinstance(validator, NativeDrcSource) or documents.board is None:
+            return skipped(name, "not-judged")
+        if pcb is None:
+            return skipped(name, "read-refused")
+        path = documents.root / documents.board
+        try:
+            read = validator.native_findings(path, pcb.design, native_report)
+        except (FormatError, OSError) as error:
+            message = error.message if isinstance(error, FormatError) else type(error).__name__
+            found = issue(
+                "check.native-missing", f"Altium's DRC results cannot be read: {message}", where=name
+            )
+            return ran(name, [found], Evidence(), {"source": "", "file": ""})
+        file = native_report.name if native_report is not None else documents.board
+        if not read.source:
+            found = issue(
+                "check.native-missing",
+                "the PCB document holds no stored DRC violation: run DRC in Altium and save, or pass the "
+                "report",
+                where=documents.board,
+            )
+            return ran(name, [found], read.evidence, {"source": "", "file": file})
+        ours = [i for stage in done for i in stage.issues]
+        warnings, summary = compare(
+            ours, read.findings, validator.native_codes, source=read.source, file=file
+        )
+        return ran(name, [*read.issues, *warnings], read.evidence, summary)
+
+    def silk() -> StageResult:
+        name = "silk.clearance"
+        if silk_judge is None:
+            return skipped(name, "not-judged")
+        if pcb is None or pcb.design.board is None:
+            return skipped(name, "read-refused" if any_refused("pcb") else "not-judged")
+        if not isinstance(validator, BoardFrame):
+            return skipped(name, "not-judged")
+        design = pcb.design
+        held = design.rules.rules if design.rules is not None else ()
+
+        def limit(kind: str) -> Nm | None:
+            values = [rule.min for rule in held if rule.kind == kind and rule.min is not None]
+            return max(values) if values else None
+
+        limits = {
+            kind: limit(kind) for kind in ("silk_clearance", "silk_mask_clearance", "silk_edge_clearance")
+        }
+        issues = [
+            issue(code, message, where=where)
+            for code, message, where in silk_judge(
+                design, validator.board_pads(design), validator.board_edges(design), limits
+            )
+        ]
+        summary = {"silk_limits": limits}
+        return ran(name, issues, with_added(name, SILK_EVIDENCE, pcb.evidence), summary)
+
     runners: dict[str, Callable[[], StageResult]] = {
         "model.validate": model_stage,
         "circuit.rules": circuit,
@@ -536,8 +629,11 @@ def run_document_checks(
         "roundtrip.rta3": rta3,
         "altium.integrity": integrity,
         "altium.board-drawing": lambda: integrity("altium.board-drawing"),
+        "silk.clearance": silk,
     }
-    results = tuple(runners[name]() for name in selected)
+    results = tuple(runners[name]() for name in selected if name != NATIVE_STAGE)
+    if NATIVE_STAGE in selected:
+        results = (*results, native(results))
     input_issues = [refused(name, error) for name, error in errors.items()]
     input_issues += [
         issue(
@@ -568,7 +664,10 @@ __all__ = [
     "ALL_DOCUMENT_STAGES",
     "CONTAINER_LEVELS",
     "DOCUMENT_STAGES",
+    "NATIVE_STAGE",
     "OPT_IN_DOCUMENT_STAGES",
+    "SILK_EVIDENCE",
+    "SilkJudge",
     "document_copper",
     "project_of",
     "refused",

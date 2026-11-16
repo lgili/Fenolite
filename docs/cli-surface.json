@@ -1799,6 +1799,19 @@
       "experimental": false,
       "mutates": true,
       "options": {
+        "--compare-native": {
+          "aliases": [
+            "--compare-native"
+          ],
+          "choices": null,
+          "default": null,
+          "deprecated": null,
+          "experimental": false,
+          "nargs": "?",
+          "positional": false,
+          "required": false,
+          "type": "string"
+        },
         "--confirm": {
           "aliases": [
             "--confirm"
@@ -11413,6 +11426,12 @@
         "info"
       ]
     },
+    "altium.read.violations-unknown": {
+      "experimental": false,
+      "severities": [
+        "warning"
+      ]
+    },
     "altium.sch.bad-value": {
       "experimental": false,
       "severities": [
@@ -12525,10 +12544,34 @@
         "error"
       ]
     },
+    "check.fenolite-only": {
+      "experimental": false,
+      "severities": [
+        "warning"
+      ]
+    },
     "check.footprint-unresolved": {
       "experimental": false,
       "severities": [
         "error"
+      ]
+    },
+    "check.native-missing": {
+      "experimental": false,
+      "severities": [
+        "warning"
+      ]
+    },
+    "check.native-only": {
+      "experimental": false,
+      "severities": [
+        "warning"
+      ]
+    },
+    "check.native-stale": {
+      "experimental": false,
+      "severities": [
+        "warning"
       ]
     },
     "check.oracle-failed": {
@@ -12942,6 +12985,12 @@
       ]
     },
     "copper.keepout": {
+      "experimental": false,
+      "severities": [
+        "error"
+      ]
+    },
+    "copper.keepout-clearance": {
       "experimental": false,
       "severities": [
         "error"
@@ -17004,6 +17053,12 @@
         "error"
       ]
     },
+    "silk.clearance": {
+      "experimental": false,
+      "severities": [
+        "error"
+      ]
+    },
     "silk.clip-skipped": {
       "experimental": false,
       "severities": [
@@ -17017,6 +17072,12 @@
       ]
     },
     "silk.drc-new": {
+      "experimental": false,
+      "severities": [
+        "error"
+      ]
+    },
+    "silk.edge-clearance": {
       "experimental": false,
       "severities": [
         "error"
@@ -17038,6 +17099,12 @@
       "experimental": false,
       "severities": [
         "info"
+      ]
+    },
+    "silk.mask-clearance": {
+      "experimental": false,
+      "severities": [
+        "error"
       ]
     },
     "silk.no-outline": {

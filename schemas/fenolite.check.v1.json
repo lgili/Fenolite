@@ -28,6 +28,9 @@
     "matrix": {
       "$ref": "#/$defs/CheckMatrix"
     },
+    "native": {
+      "$ref": "#/$defs/CheckNative"
+    },
     "project": {
       "$ref": "#/$defs/CheckProject"
     },
@@ -196,6 +199,154 @@
         "status",
         "value",
         "waiver"
+      ]
+    },
+    "CheckNative": {
+      "description": "``result.native`` of ``check --compare-native`` (change c0498).",
+      "type": "object",
+      "properties": {
+        "by_kind": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/CheckNativeKind"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "fenolite_only": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CheckNativeFenoliteOnly"
+          }
+        },
+        "file": {
+          "type": "string"
+        },
+        "matched": {
+          "type": "integer"
+        },
+        "native_only": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CheckNativeRow"
+          }
+        },
+        "source": {
+          "type": "string"
+        },
+        "stale": {
+          "type": "integer"
+        },
+        "unjudged": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "waived": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "by_kind",
+        "fenolite_only",
+        "file",
+        "matched",
+        "native_only",
+        "source",
+        "stale",
+        "unjudged",
+        "waived"
+      ]
+    },
+    "CheckNativeFenoliteOnly": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "where": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "where"
+      ]
+    },
+    "CheckNativeKind": {
+      "description": "The pairing counts of one native rule kind (change c0498).",
+      "type": "object",
+      "properties": {
+        "fenolite_only": {
+          "type": "integer"
+        },
+        "matched": {
+          "type": "integer"
+        },
+        "native_only": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "fenolite_only",
+        "matched",
+        "native_only"
+      ]
+    },
+    "CheckNativeRow": {
+      "description": "One violation of the tool's own DRC that no Fenolite finding paired (change c0498).",
+      "type": "object",
+      "properties": {
+        "at": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "kind": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "primitives": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rule": {
+          "type": "string"
+        },
+        "stale": {
+          "type": "boolean"
+        },
+        "waived": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "at",
+        "kind",
+        "message",
+        "primitives",
+        "rule",
+        "stale",
+        "waived"
       ]
     },
     "CheckProject": {
@@ -818,6 +969,56 @@
           "type": "integer"
         },
         "zones_unjudged": {
+          "type": "integer"
+        },
+        "by_kind": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/CheckNativeKind"
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "fenolite_only": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CheckNativeFenoliteOnly"
+          }
+        },
+        "file": {
+          "type": "string"
+        },
+        "keepout_clearance": {
+          "type": "integer"
+        },
+        "matched": {
+          "type": "integer"
+        },
+        "native_only": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CheckNativeRow"
+          }
+        },
+        "silk_limits": {
+          "type": "object",
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "x-fenolite-map": true,
+          "description": "Keys are supplied by named items, rather than fixed record fields."
+        },
+        "source": {
+          "type": "string"
+        },
+        "waived": {
           "type": "integer"
         }
       },

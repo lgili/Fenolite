@@ -1800,7 +1800,9 @@
             "diff_pair_uncoupled",
             "skew",
             "diff_pair_skew",
-            "length"
+            "length",
+            "silk_mask_clearance",
+            "silk_edge_clearance"
           ]
         },
         "selector_a": {

@@ -25,7 +25,7 @@ def _rule(kind: RuleKind, **fields: Any) -> Rule:
 
 def test_both_kinds_follow_no_tracks_and_precede_the_pair_kinds() -> None:
     kinds = get_args(RuleKind)
-    assert kinds[12:15] == ("no_tracks", "short", "antenna") and len(kinds) == 20
+    assert kinds[12:15] == ("no_tracks", "short", "antenna") and len(kinds) == 22
     for table in (rulemap.KIND_SELECTORS, rulemap.KIND_SUPPORT, rulemap.KIND_MAP, rulemap.LIMITS):
         assert {"short", "antenna"} <= set(table)
     assert rulemap.KIND_SUPPORT["antenna"] == frozenset()  # KiCad measures no stub (S-2242)

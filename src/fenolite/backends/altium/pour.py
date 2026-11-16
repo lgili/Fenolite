@@ -982,42 +982,6 @@ def _polygon_only(first: str | None, second: str | None) -> str | None:
     return None
 
 
-KEEPOUT_TERMS = re.compile(
-    r"\(*\s*(?:IsKeepOut|IsBoardCutoutRegion|OnLayer\(\s*'Keep[- ]?Out(?:[- ]?Layer)?'\s*\))\s*\)*",
-    re.IGNORECASE,
-)
-"""A term of Altium's keep-out scope: a keep-out object, a board cut-out, or the Keep-Out layer."""
-
-
-def _keepout_only(scope: str | None) -> bool:
-    """Whether ``scope`` is one keep-out term or an ``or`` of them (``KEEPOUT_TERMS``)."""
-    terms = re.split(r"\s+or\s+", (scope or "").strip(), flags=re.IGNORECASE)
-    return bool(scope and scope.strip()) and all(KEEPOUT_TERMS.fullmatch(term) for term in terms)
-
-
-def _keepout_rule(record: RuleRecord) -> Rule | None:
-    """The rule the pour reads from a Clearance record the import refuses for its scope when one scope is
-    only keep-out terms and the other is ``All`` (Altium's default keep-out clearance, change c0463 task
-    5.2): the clearance between a keep-out object and any object. A board cut-out is the board's edge to the
-    pour (I17), which the record does not move; a keep-out on the Keep-Out layer is a keep-out object. A
-    record with an object matrix is not read."""
-    fields = record.record
-    first, second = fields.get("SCOPE1EXPRESSION"), fields.get("SCOPE2EXPRESSION")
-    if not any(_keepout_only(one) and (other or "").strip().casefold() == "all"
-               for one, other in ((first, second), (second, first))):  # fmt: skip
-        return None
-    if (fields.get("OBJECTCLEARANCES") or "").strip():
-        return None
-    gap = parse_length(fields.get("GAP") or "")
-    if gap is None:
-        return None
-    name = fields.get("NAME") or "keep-out clearance"
-    return Rule(
-        id=f"pour-keepout-{record.priority or 0}-{name}", name=name, kind="clearance",
-        selector_a=Selector("item_kind", "keepout"), min=gap, priority=record.priority or 0,
-    )  # fmt: skip
-
-
 class Clearances:
     """The governing Clearance between a polygon and an object of a reading (I2), and the governing Board
     Outline Clearance of a polygon (I17), resolved from the neutral rules of the import as the copper check
@@ -1026,7 +990,7 @@ class Clearances:
 
     def __init__(self, reading: PourReading) -> None:
         from fenolite.backends.altium.adapter.layers import copper_layers_of
-        from fenolite.backends.altium.read.rules import NOT_APPLYING, map_rules
+        from fenolite.backends.altium.read.rules import NOT_APPLYING, keepout_clearance_rule, map_rules
         from fenolite.backends.altium.read.scopedoc import scope_document
 
         design = reading.design
@@ -1061,7 +1025,7 @@ class Clearances:
         for record in mapping.unmapped:
             found = records[record.index] if 0 <= record.index < len(records) else None
             if record.kind == "Clearance" and record.reason == "scope" and found is not None:
-                rule = _keepout_rule(found)
+                rule = keepout_clearance_rule(dict(found.record.fields))
                 if rule is not None:
                     keepout.append(rule)
                     read_scopes.add(record.index)

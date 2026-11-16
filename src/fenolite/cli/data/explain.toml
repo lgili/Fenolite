@@ -1578,6 +1578,51 @@ meaning = "A track, arc, via or pad lies in a keep-out (a rule area) whose setti
 fix = "Move the item out of the area, change what the area forbids, or build with --copper-check warn to write anyway."
 see = "check"
 
+["copper.keepout-clearance"]
+meaning = "Copper lies closer to a keep-out than the clearance rule of the keep-out kind in force (an Altium Clearance rule scoped to keep-outs, read since change c0498). The area's own footprint is not judged."
+fix = "Move the copper or the keep-out apart, or lower the keep-out's clearance rule."
+see = "check"
+
+["silk.clearance"]
+meaning = "A silkscreen text lies closer than the silk_clearance rule to another silkscreen item that is not of its own component (stage silk.clearance, the Altium Silk To Silk model)."
+fix = "Move the text, or run fenolite place designators to place it again."
+see = "check"
+
+["silk.mask-clearance"]
+meaning = "A silkscreen item lies closer than the silk_mask_clearance rule to a pad's solder-mask opening (Altium Silk To Solder Mask Clearance)."
+fix = "Move or clip the silkscreen (fenolite silk --clip), or lower the rule."
+see = "check"
+
+["silk.edge-clearance"]
+meaning = "A silkscreen item lies closer than the silk_edge_clearance rule to the board edge, a cut-out or a slot (Altium Silk To Board Region Clearance)."
+fix = "Move the silkscreen inward, away from the edge the finding names."
+see = "check"
+
+["check.native-only"]
+meaning = "Altium's own DRC (the violations the PCB document stores, or its report) holds a finding that no Fenolite finding pairs with, by items or by place."
+fix = "Read the finding in Altium; if Fenolite should catch it, report the case. A rule kind Fenolite does not check lands here too."
+see = "check"
+
+["check.fenolite-only"]
+meaning = "A Fenolite finding of a kind Altium's DRC checks has no Altium violation to pair with: the document's stored violations may predate an edit, or the two tools measure differently."
+fix = "Run DRC in Altium and save, then compare again; a difference that stays is worth a report."
+see = "check"
+
+["check.native-stale"]
+meaning = "Some stored Altium violation records lie past their storage's count: Altium kept rows from an earlier DRC run. They are not compared."
+fix = "Run DRC in Altium and save the document to refresh the stored violations."
+see = "check"
+
+["check.native-missing"]
+meaning = "The stage altium.native-drc has nothing to compare: the PCB document stores no DRC violations and no report was passed, or the report could not be read."
+fix = "Run DRC in Altium and save the document, or pass its .drc report to --compare-native."
+see = "check"
+
+["altium.read.violations-unknown"]
+meaning = "A line of an Altium DRC report names a constraint that Fenolite's table does not know; the finding is kept with kind unknown and pairs only by place."
+fix = "Nothing to do for the board; report the constraint name so the table can grow."
+see = "check"
+
 ["copper.edge-clearance"]
 meaning = "Copper (a track, arc, via, pad or zone fill) lies closer to the board edge, a cut-out or a slot than the edge clearance in force: the governing edge_clearance rule, else the board minimum (KiCad: min_copper_edge_clearance, 0.5 mm by default). The distance is to the edge line; the edge's stroke does not count. KiCad's DRC reports the same item as copper_edge_clearance."
 fix = "Move the copper or the part inward, away from the ring the finding names; never waive it. A rule for some nets (design.rules.rule(kind='edge_clearance')) sets their own value. Build with --copper-check warn to write anyway."

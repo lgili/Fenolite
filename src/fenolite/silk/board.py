@@ -53,7 +53,7 @@ from fenolite.geometry import (
     point_in_ring,
 )
 from fenolite.geometry.transform import TRIG_BITS
-from fenolite.model.board import FootprintField, FootprintInstance, Graphic
+from fenolite.model.board import FootprintField, FootprintInstance, Graphic, Text
 from fenolite.model.circuit import Component
 from fenolite.model.design import Design
 from fenolite.silk.codes import issue
@@ -788,6 +788,160 @@ def check_designators(
     return found
 
 
+@dataclass(frozen=True, slots=True)
+class SilkFinding:
+    """One silkscreen clearance finding of ``judge_silk`` (change c0498): its code, the side, the two items
+    (a silk item's locator, a pad's ``REF-PIN`` or ``edge``), the closest place, the gap and the limit."""
+
+    code: str
+    side: str
+    items: tuple[str, str]
+    at: Point
+    gap: Nm
+    limit: Nm
+    message: str
+
+
+def _locator(entity: Graphic | FootprintField | Text, fallback: str) -> str:
+    source = entity.provenance
+    return source.locator if source is not None and source.locator else fallback
+
+
+def _silk_items(design: Design) -> list[tuple[str, str, str, Thick, bool]]:
+    """``(side, name, owner, shape, is_text)`` of every silkscreen stroke and visible text of a board, in the
+    board frame; a text is its ink box less half its stroke (the ``altium`` model)."""
+    board = design.board
+    assert board is not None
+    settings = Settings(model="altium")
+    found: list[tuple[str, str, str, Thick, bool]] = []
+    texts: list[tuple[str, str, str, TextKey, Point, Udeg, bool, bool]] = []
+    components = {c.id: c for c in design.circuit.components}
+    for footprint in board.footprints:
+        move = Transform.placement(footprint.position, footprint.rotation)
+        for graphic in footprint.graphics:
+            side = _layer_side(graphic.layer)
+            if side is not None:
+                name = _locator(graphic, graphic.id)
+                found += [
+                    (side, name, footprint.id, shape, False) for shape in _graphic_shapes(graphic, move)
+                ]
+        for field in footprint.fields:
+            side = _layer_side(field.layer)
+            shown = _field_text(field, components.get(footprint.component_id))
+            if side is None or not field.visible or not shown.strip():
+                continue
+            key = _key(shown, field.size, field.thickness, field.h_justify, field.v_justify)
+            anchor, angle = field_anchor(footprint, field), field_angle(footprint, field)
+            texts.append(
+                (side, _locator(field, field.id), footprint.id, key, anchor, angle, field.mirrored, True)
+            )
+        for text in footprint.texts:
+            side = _layer_side(text.layer)
+            if side is not None and text.text.strip():
+                key = _key(text.text, text.size, text.thickness, text.h_justify, text.v_justify)
+                angle = (text.rotation + footprint.rotation) % FULL_TURN
+                at = move.apply(text.position)
+                texts.append((side, _locator(text, text.id), footprint.id, key, at, angle, False, False))
+    for graphic in board.graphics:
+        side = _layer_side(graphic.layer)
+        if side is not None:
+            name = _locator(graphic, graphic.id)
+            found += [
+                (side, name, "", shape, False) for shape in _graphic_shapes(graphic, Transform.identity())
+            ]
+    for text in board.texts:
+        side = _layer_side(text.layer)
+        if side is not None and text.text.strip():
+            key = _key(text.text, text.size, text.thickness, text.h_justify, text.v_justify)
+            texts.append((side, _locator(text, text.id), "", key, text.position, text.rotation, False, False))
+    inks = ink_boxes(entry[3] for entry in texts)
+    for side, name, owner, key, anchor, angle, mirrored, folded in texts:
+        ink = inks[key].box
+        if ink is None:
+            continue
+        rect = (
+            field_rect(ink, angle, mirrored) if folded and angle % (90 * DEG) == 0 else hull_rect(ink, angle)
+        )
+        rect = measured(rect, key.stroke, settings).moved(anchor.x, anchor.y)
+        found.append((side, name, owner, rect.thick(), True))
+    return found
+
+
+def judge_silk(
+    design: Design,
+    *,
+    pads: Sequence[BoardPad],
+    edges: Sequence[EdgeRing] | None,
+    silk: Nm | None,
+    mask: Nm | None,
+    edge: Nm | None,
+    board_mask: Nm = 0,
+) -> list[SilkFinding]:
+    """The silkscreen clearance findings of a whole board in the ``altium`` model (change c0498, design D4):
+    ``silk.clearance`` for a text closer than ``silk`` to another silk item that is not of its own component,
+    ``silk.mask-clearance`` for a silk item closer than ``mask`` to a pad's mask opening, and
+    ``silk.edge-clearance`` for a silk item closer than ``edge`` to an edge ring. A limit of ``None`` judges
+    nothing. Two strokes are not judged against each other: the stored violations of the public documents
+    pair a text with a stroke only. A pad's mask opening is its copper grown by its own mask margin, else
+    ``board_mask``, as ``gather`` grows it."""
+    from fenolite.geometry import SpatialIndex, thick_bbox, thick_closer_than, thick_gap_floor, thick_witness
+    from fenolite.silk.clip import has_mask  # noqa: PLC0415 - clip imports this module
+
+    items = _silk_items(design)
+    board = design.board
+    assert board is not None
+    margins = {pad.id: pad.mask_margin for fp in board.footprints for pad in fp.pads}
+    openings: list[tuple[str, str, Thick]] = []
+    for pad in pads:
+        # an Altium import names no mask layer on a pad: each outer copper layer then has an opening
+        bare = not any("Mask" in layer for layer in pad.layers)
+        own = margins.get(pad.pad_id)
+        grow = max(own if own is not None else board_mask, 0)
+        for side, layer in COPPER.items():
+            if bare or has_mask(pad.layers, side):
+                for copper in pad.copper:
+                    if copper.layer == layer:
+                        shape = Thick(copper.core, copper.width + 2 * grow, copper.filled)
+                        openings.append((side, f"{pad.ref or pad.footprint_id}-{pad.number}", shape))
+    rims = [(side, "edge", o.shape) for o in _edge_shapes(edges or ()) for side in ("top", "bottom")]
+    found: list[SilkFinding] = []
+
+    def near(
+        code: str,
+        limit: Nm | None,
+        shapes: Sequence[tuple[str, str, Thick]],
+        pairs: Callable[[int, int], bool],
+    ) -> None:
+        if limit is None or limit <= 0:
+            return
+        index = SpatialIndex[int].build((thick_bbox(shape), n) for n, (_, _, shape) in enumerate(shapes))
+        for a, (side, name, shape) in enumerate(items_of):
+            for b in sorted(index.query(thick_bbox(shape).inflate(limit))):
+                other_side, other, obstacle = shapes[b]
+                if other_side != side or not pairs(a, b) or not thick_closer_than(shape, obstacle, limit):
+                    continue
+                gap = thick_gap_floor(shape, obstacle)
+                at = thick_witness(shape, obstacle)
+                found.append(
+                    SilkFinding(
+                        code, side, (name, other), at, gap, limit,
+                        f"{name} is {format_length(gap)} from {other} on the {side} silkscreen; the "
+                        f"clearance is {format_length(limit)}",
+                    )
+                )  # fmt: skip
+
+    items_of = [(side, name, shape) for side, name, _, shape, _ in items]
+    near(
+        "silk.clearance", silk, items_of,
+        lambda a, b: a != b and items[a][4] and (not items[b][4] or a < b)
+        and not (items[a][2] and items[a][2] == items[b][2]),
+    )  # fmt: skip
+    near("silk.mask-clearance", mask, openings, lambda _a, _b: True)
+    near("silk.edge-clearance", edge, rims, lambda _a, _b: True)
+    found.sort(key=lambda f: (f.code, f.side, f.items, f.at))
+    return found
+
+
 __all__ = [
     "ALTIUM_HYPOTHESIS",
     "DEFAULT_CLEARANCE",
@@ -802,10 +956,12 @@ __all__ = [
     "Outcome",
     "Scene",
     "Settings",
+    "SilkFinding",
     "check_designators",
     "field_rect",
     "gather",
     "groups_of",
+    "judge_silk",
     "hull_rect",
     "ink_keys",
     "kind_of",

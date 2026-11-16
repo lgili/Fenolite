@@ -44,6 +44,8 @@ RuleKind = Literal[
     "skew",
     "diff_pair_skew",
     "length",
+    "silk_mask_clearance",
+    "silk_edge_clearance",
 ]
 """The first six kinds are those of v0.1; the next six were added by change c0071, and ``no_tracks`` (no
 track or arc of the selected items on the rule's layers; it takes no limit) by change c0107. ``short`` and
@@ -51,7 +53,9 @@ track or arc of the selected items on the rule's layers; it takes no limit) by c
 a short between an item of each side (``ignore`` allows it); ``antenna`` is unary, and its ``max`` is the
 longest open-ended stub of the selected items that passes. The last five, the pair and length kinds, were
 added by change c0104 (``skew`` compares every net a rule selects with the longest of them,
-``diff_pair_skew`` the two nets of each pair it selects). Which sides, selector ops and layer clause a kind
+``diff_pair_skew`` the two nets of each pair it selects). ``silk_mask_clearance`` (silkscreen to a solder-mask
+opening) and ``silk_edge_clearance`` (silkscreen to the board's edge rings) were added by change c0498; both
+are unary and take ``min``. Which sides, selector ops and layer clause a kind
 takes, and for which targets it is written, is the backend's to say (``backends.kicad.rulemap.KIND_SELECTORS``
 and ``KIND_SUPPORT``)."""
 RuleSeverity = Literal["error", "warning", "ignore"]

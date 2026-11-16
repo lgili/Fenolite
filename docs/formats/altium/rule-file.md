@@ -86,6 +86,7 @@ on it, S-0580).
 | `HoleToHoleClearance` | `hole_to_hole` | `GAP` | — | — | `AnyNet` | `ALLOWSTACKEDMICROVIAS` is `FALSE` or `TRUE` (with `TRUE` the record is also kept: "Kept rule records") |
 | `MinimumAnnularRing` | `annular_width` | `MINIMUMRING` | — | — | `AnyNet` | — |
 | `SilkToSilkClearance` | `silk_clearance` | `SILKTOSILKCLEARANCE` | — | — | `AnyNet` | — |
+| `SilkToSolderMaskClearance` | `silk_mask_clearance` | `MINSILKSCREENTOMASKGAP` | — | — | `AnyNet` | `CLEARANCETOEXPOSEDCOPPER` absent or `TRUE` (change c0498) |
 | `ComponentClearance` | `courtyard_clearance` | `GAP` | — | — | `AnyNet` | `VERTICALGAP`, `COLLISIONCHECKMODE` and `SHOWDISTANCES` allowed and unused |
 | `DiffPairsRouting` | `diff_pair_gap` | `MINLIMIT` | `MOSTFREQGAP` | `MAXLIMIT` | `AnyNet` | per-layer gap keys as in "Per-layer values"; `IMPEDANCEPROFILEDRIVEN` absent, `FALSE` or `TRUE`; `IMPEDANCEPROFILEID` and `IMPEDANCEPROFILEVALUE` allowed and unused |
 | `DiffPairsRouting` | `diff_pair_uncoupled` | — | — | `MAXUNCOUPLEDLENGTH` | `AnyNet` | as the row above: `IMPEDANCEPROFILEDRIVEN`, `IMPEDANCEPROFILEID`, `IMPEDANCEPROFILEVALUE`; no per-layer key |
@@ -109,6 +110,14 @@ joined to another scope with `and`), and its per-layer keys `<LAYER>_MINWIDTH`, 
 `_PREFWIDTH` are allowed and unused. A Routing Layers record (`RoutingLayers`, no limit) gives one
 `no_tracks` rule on the board's signal layers whose key is `FALSE`, none when no key is `FALSE`; its layer
 keys are allowed, and without the Altium ids of the board's layers it is refused with `no-layer`.
+
+### Silkscreen rules (change c0498)
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| Each of the seven public documents holds one `SilkToSolderMaskClearance` record: scope `IsPad` and `All`, `NETSCOPE=AnyNet`, `LAYERKIND=SameLayer`, the limit `MINSILKSCREENTOMASKGAP` (values from `-196.8504mil` to `10mil`) and `CLEARANCETOEXPOSEDCOPPER=TRUE` | S-2335 | CORPUS-VERIFIED | H-A-SILK-RULES |
+| Each of the seven public documents holds one `SilkToBoardRegionClearance` record of scope `All` and `All` with the header keys only: no limit key. Such a record stays carried; the key a record with a limit holds is not known, and a record with `GAP` maps to `silk_edge_clearance` (`read.rules.LIMITED_KINDS`) | S-2335 | UNKNOWN | H-A-SILK-RULES |
+| `SilkToSolderMaskClearance` measures silkscreen to each pad's mask opening (with `CLEARANCETOEXPOSEDCOPPER=TRUE`, to the exposed copper); `SilkToBoardRegionClearance` measures silkscreen to the board's outline and cut-outs; both judge a stroke text by its box (`H-A-SILK-DRC-MODEL`) | S-0297 | INFERRED | H-A-SILK-RULES |
 
 ## Per-layer values
 
@@ -212,9 +221,9 @@ table is reported with `no-counterpart`.
 | `SMDToCorner` | carried | a distance from a surface pad to a track corner: the model holds no rule of it |
 | `SMDToPlane` | carried | a distance from a surface pad to a plane connection: the model holds no rule of it |
 | `ShortCircuit` | neutral | `short` over the two scopes, `ignore` for `ALLOWED=TRUE` and `error` for `FALSE` (change c0465); mapped only when one enabled record of the document has `ALLOWED=TRUE`, else `checked` (`copper.short`, and KiCad's shorting items) |
-| `SilkToBoardRegionClearance` | carried | a silkscreen to board region clearance: no copper geometry |
+| `SilkToBoardRegionClearance` | carried | a silkscreen to board region clearance whose record holds no limit key |
 | `SilkToSilkClearance` | neutral | `silk_clearance` |
-| `SilkToSolderMaskClearance` | carried | a silkscreen to solder mask clearance: no copper geometry |
+| `SilkToSolderMaskClearance` | neutral | `silk_mask_clearance` (change c0498) |
 | `SolderMaskExpansion` | read | `convert.openings`: the mask margin of each pad and via, and `Board.mask_margin` (c0440, c0445) |
 | `UnRoutedNet` | checked | KiCad's unconnected items |
 | `UnpouredPolygon` | checked | `zone.unfilled` |
@@ -285,9 +294,9 @@ lowered").
 | `RoutingTopology` | export (1) | S-0297 | no |
 | `RoutingVias` | export (1) | S-0297 | yes: `via_diameter` and `via_drill` |
 | `ShortCircuit` | export (1); summary (2 files) | S-0297, S-0298, S-0188 | yes: `short` (change c0465) |
-| `SilkToBoardRegionClearance` | export (1) | S-0297 | no |
+| `SilkToBoardRegionClearance` | export (1); census (7 files) | S-0297, S-2335 | no |
 | `SilkToSilkClearance` | export (1) | S-0297 | yes: `silk_clearance` |
-| `SilkToSolderMaskClearance` | export (1) | S-0297 | no |
+| `SilkToSolderMaskClearance` | export (1); census (7 files) | S-0297, S-2335 | yes: `silk_mask_clearance` (change c0498) |
 | `SolderMaskExpansion` | export (1); summary (2 files) | S-0297, S-0298, S-0188 | no |
 | `UnRoutedNet` | export (1) | S-0297 | no |
 | `Width` | export (1); summary (2 files) | S-0297, S-0298, S-0188 | yes: `track_width` |

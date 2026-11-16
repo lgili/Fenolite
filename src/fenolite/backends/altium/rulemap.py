@@ -195,6 +195,16 @@ TABLE: tuple[RuleRow, ...] = (
         )
         for kind, what in _PAIR_KINDS
     ),
+    RuleRow(
+        "silk_mask_clearance",
+        "no-counterpart",
+        note="read from Silk To Solder Mask Clearance (change c0498); the writer does not write the record",
+    ),
+    RuleRow(
+        "silk_edge_clearance",
+        "no-counterpart",
+        note="read from Silk To Board Region Clearance (change c0498); the writer does not write the record",
+    ),
 )
 """One row per kind of ``model.rules.RuleKind``, in the model's order (``pcb-copper.md``, "Rule kinds
 lowered"; ``H-A-RULE-KINDS``)."""
@@ -697,7 +707,21 @@ def write_rule_file(rules: Sequence[Rule], *, name: str = "rules") -> bytes:
 assert {row.altium for row in TABLE if row.exact} == set(KIND_ORDER)
 assert set(KIND_ORDER) - set(RULE_KIND_MAP) == {"NetAntennae"}
 
+NATIVE_CODES: dict[str, tuple[str, ...]] = {
+    "Clearance": ("copper.clearance", "copper.hole-clearance", "copper.keepout-clearance"),
+    "ShortCircuit": ("copper.short",),
+    "BoardOutlineClearance": ("copper.edge-clearance",),
+    "Width": ("copper.track-width",),
+    "SilkToSilkClearance": ("silk.clearance",),
+    "SilkToSolderMaskClearance": ("silk.mask-clearance",),
+    "SilkToBoardRegionClearance": ("silk.edge-clearance",),
+}
+"""The Altium rule kinds whose violations ``check --compare-native`` pairs with Fenolite's findings, and the
+codes of those findings (change c0498, design D3). Another kind is listed as not judged."""
+
+
 __all__ = [
+    "NATIVE_CODES",
     "ALL_SCOPE",
     "EVIDENCE",
     "EXACT",

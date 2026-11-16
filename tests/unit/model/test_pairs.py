@@ -94,7 +94,8 @@ def test_pair_leaf_matches_by_base() -> None:
 
 def test_the_leaf_and_the_kinds_are_in_the_model() -> None:
     assert "diff_pair" in LEAF_OPS and "diff_pair" in get_args(SelectorOp)
-    assert get_args(RuleKind)[-5:] == (
+    # the two silkscreen kinds of change c0498 follow them
+    assert get_args(RuleKind)[-7:-2] == (
         "diff_pair_gap",
         "diff_pair_uncoupled",
         "skew",

@@ -20,7 +20,7 @@ when the caller gives the copper layers of the record's board (``CopperLayers``)
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Literal
 
@@ -338,6 +338,11 @@ RULE_KIND_MAP: dict[str, KindMap] = {
     "SilkToSilkClearance": KindMap(
         (NeutralLimits("silk_clearance", "SILKTOSILKCLEARANCE", None, None),), "AnyNet", binary=True
     ),
+    "SilkToSolderMaskClearance": KindMap(  # change c0498: key of seven public documents (H-A-SILK-RULES)
+        (NeutralLimits("silk_mask_clearance", "MINSILKSCREENTOMASKGAP", None, None),),
+        "AnyNet",
+        (Condition("CLEARANCETOEXPOSEDCOPPER", ("TRUE",)),),
+    ),
     "ComponentClearance": KindMap(
         (NeutralLimits("courtyard_clearance", "GAP", None, None),),
         "AnyNet",
@@ -405,6 +410,13 @@ enabled records of one map only when one of them relaxes the check (``_relaxes``
 reported with the reason ``checked``, as a kind of ``CHECKED_KINDS`` is."""
 ANTENNA_PORTABILITY = "Altium's Net Antennae verdict is not equivalent to the portable centre-line check"
 """The native rule stays in the Altium carrier (change c0465, S-2298)."""
+LIMITED_KINDS: dict[str, KindMap] = {
+    "SilkToBoardRegionClearance": KindMap(
+        (NeutralLimits("silk_edge_clearance", "GAP", None, None),), "AnyNet"
+    ),
+}
+"""Carried kinds that map only when the record holds the limit key (change c0498): no public
+``SilkToBoardRegionClearance`` record holds one, and ``GAP`` is assumed (``H-A-SILK-RULES``, ``UNKNOWN``)."""
 CARRIED_KINDS: dict[str, str] = {
     "NetAntennae": ANTENNA_PORTABILITY,
     "AcuteAngle": "a minimum angle of track corners: the model holds no rule of corner angles",
@@ -422,8 +434,7 @@ CARRIED_KINDS: dict[str, str] = {
     "RoutingTopology": "the router's order of connections: no check",
     "SMDToCorner": "a distance from a surface pad to a track corner: the model holds no rule of it",
     "SMDToPlane": "a distance from a surface pad to a plane connection: the model holds no rule of it",
-    "SilkToBoardRegionClearance": "a silkscreen to board region clearance: no copper geometry",
-    "SilkToSolderMaskClearance": "a silkscreen to solder mask clearance: no copper geometry",
+    "SilkToBoardRegionClearance": "a silkscreen to board region clearance whose record holds no limit key",
     "ViasUnderSMD": "whether vias may sit in surface pads: the model holds no rule of it",
 }
 """Kinds that are carried only (change c0434), each with the reason no neutral rule takes it; reported with
@@ -1005,7 +1016,7 @@ def _map_one(
     relaxing: frozenset[str] = frozenset(),
 ) -> list[Rule]:
     kind, name, priority = _header(fields)
-    table = RULE_KIND_MAP.get(kind)
+    table = RULE_KIND_MAP.get(kind) or (LIMITED_KINDS.get(kind) if _has(fields, "GAP") else None)
     if kind in ALLOWANCE_KINDS and kind not in relaxing:
         raise _Refusal(
             "checked",
@@ -1216,6 +1227,44 @@ def _matrix_cells(
     return tuple(found)
 
 
+KEEPOUT_TERMS = re.compile(
+    r"\(*\s*(?:IsKeepOut|IsBoardCutoutRegion|OnLayer\(\s*'Keep[- ]?Out(?:[- ]?Layer)?'\s*\))\s*\)*",
+    re.IGNORECASE,
+)
+"""A term of Altium's keep-out scope: a keep-out object, a board cut-out, or the Keep-Out layer."""
+
+
+def _keepout_only(scope: str | None) -> bool:
+    """Whether ``scope`` is one keep-out term or an ``or`` of them (``KEEPOUT_TERMS``)."""
+    terms = re.split(r"\s+or\s+", (scope or "").strip(), flags=re.IGNORECASE)
+    return bool(scope and scope.strip()) and all(KEEPOUT_TERMS.fullmatch(term) for term in terms)
+
+
+def keepout_clearance_rule(fields: Mapping[str, str]) -> Rule | None:
+    """The rule the pour reads from a Clearance record the import refuses for its scope when one scope is
+    only keep-out terms and the other is ``All`` (Altium's default keep-out clearance, change c0463 task
+    5.2): the clearance between a keep-out object and any object. A board cut-out is the board's edge to the
+    pour (I17), which the record does not move; a keep-out on the Keep-Out layer is a keep-out object. A
+    record with an object matrix is not read. Moved from ``pour`` by change c0498: the copper check reads the
+    same rule (``AltiumBackend.design_rules``)."""
+    first, second = fields.get("SCOPE1EXPRESSION"), fields.get("SCOPE2EXPRESSION")
+    if not any(_keepout_only(one) and (other or "").strip().casefold() == "all"
+               for one, other in ((first, second), (second, first))):  # fmt: skip
+        return None
+    if (fields.get("OBJECTCLEARANCES") or "").strip():
+        return None
+    gap = parse_length(fields.get("GAP") or "")
+    if gap is None:
+        return None
+    name = fields.get("NAME") or "keep-out clearance"
+    text = (fields.get("PRIORITY") or "").strip()
+    priority = int(text) if text.isdigit() else 0
+    return Rule(
+        id=f"pour-keepout-{priority}-{name}", name=name, kind="clearance",
+        selector_a=Selector("item_kind", "keepout"), min=gap, priority=priority,
+    )  # fmt: skip
+
+
 def map_rules(
     records: Sequence[Sequence[Field]],
     *,
@@ -1289,6 +1338,9 @@ def map_rules(
 
 __all__ = [
     "CARRIED_KINDS",
+    "KEEPOUT_TERMS",
+    "LIMITED_KINDS",
+    "keepout_clearance_rule",
     "CELL_PAIR",
     "ALLOWANCE_KINDS",
     "CHECKED_KINDS",

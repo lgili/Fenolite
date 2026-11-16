@@ -31,6 +31,17 @@ All notable changes to Fenolite are documented here. The format follows
   change them (holes inside or away from a port hull, indexed visibility in `surface_distance`, chord pairs
   that cannot beat a held chord): same results, faster. Schemas, the CLI surface and the agent guide
   (a seventh command page) regenerated.
+- `fenolite check` agrees with Altium's DRC (c0498): `--compare-native [REPORT]` (Altium input) reads the DRC
+  violations a `.PcbDoc` stores (`T…Violation`, `WaivedViolations`; census of seven public documents,
+  `H-A-DRC-STORED`) or a `.drc` text report (`H-A-DRC-TXT`, INFERRED) with `backends.altium.read.violations`,
+  pairs them with the findings in `result.native` and warns `check.native-only`, `check.fenolite-only`,
+  `check.native-stale`, `check.native-missing`. New opt-in stages `silk.clearance` (`silk.board.judge_silk`:
+  `silk.clearance`, `silk.mask-clearance`, `silk.edge-clearance`) and `altium.native-drc`. Rule kinds
+  `silk_mask_clearance` (`SilkToSolderMaskClearance`) and `silk_edge_clearance` (`SilkToBoardRegionClearance`
+  with a `GAP`; the public records hold none and stay carried); KiCad does not lower them. The copper check
+  judges Altium's keep-out `Clearance` by distance (`copper.keepout-clearance`; `read.rules.keepout_clearance_rule`,
+  moved from the pour) and warns `copper.rules-incomplete` (`where` = `edge`) for copper no edge rule reaches.
+  Schemas regenerated (check result, `RuleKind`).
 - Small fixes found editing an Altium board (c0504): `Session.unpour(Polygon(name))` (gate `unpour`,
   `H-A-EDIT-SHAPE`) removes a polygon's saved pour, and a commit warns `altium.edit.pour-stale` for each
   poured polygon whose box meets edited copper on its layer. `fenolite tidy --report` and `--compare` read any

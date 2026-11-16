@@ -1080,6 +1080,52 @@ class DesignRulesSource(Protocol):
     ) -> DesignRules: ...
 
 
+# --- the tool's own DRC results (change c0498) ---
+
+
+@dataclass(frozen=True, slots=True)
+class NativeFinding:
+    """One violation of Altium's DRC: the rule kind and name, the model ``where`` texts of the primitives
+    it names (sorted), its location in the model frame, its description, and whether it is waived or names a
+    primitive the document does not hold."""
+
+    kind: str
+    rule: str
+    primitives: tuple[str, ...]
+    at: Point | None
+    message: str
+    waived: bool = False
+    stale: bool = False
+
+    def to_json(self) -> dict[str, object]:
+        at = None if self.at is None else [self.at.x, self.at.y]
+        return {"kind": self.kind, "rule": self.rule, "primitives": list(self.primitives), "at": at,
+                "message": self.message, "waived": self.waived, "stale": self.stale}  # fmt: skip
+
+
+@dataclass(frozen=True, slots=True)
+class NativeViolations:
+    """The violations read and the issues of records whose layout is not the recorded one."""
+
+    findings: tuple[NativeFinding, ...]
+    issues: tuple[Issue, ...]
+    evidence: Evidence
+    source: str = ""
+    """``stored``, ``report``, or empty: the document holds no stored violation and no report was given."""
+
+
+@runtime_checkable
+class NativeDrcSource(Protocol):
+    """A backend that reads the tool's own DRC results of a PCB document (change c0498): the violations the
+    document ``path`` stores, or those of the tool's ``report`` when one is given. ``design`` is the import
+    of ``path``; the rows name its items as the copper check does."""
+
+    native_codes: Mapping[str, tuple[str, ...]]
+    """Each native rule kind and the Fenolite codes that judge it."""
+
+    def native_findings(self, path: Path, design: Design, report: Path | None = None) -> NativeViolations: ...
+
+
 NIL_UUID = "00000000-0000-0000-0000-000000000000"
 """The uuid that stands for the missing second item of a stored exclusion of one item."""
 
@@ -1440,6 +1486,9 @@ class Backend(Protocol):
 
 
 __all__ = [
+    "NativeDrcSource",
+    "NativeFinding",
+    "NativeViolations",
     "NIL_UUID",
     "Backend",
     "BackendOperation",

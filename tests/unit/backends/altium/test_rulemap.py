@@ -631,10 +631,11 @@ def test_pair_and_length_rules_are_named_not_written() -> None:
 def test_pair_rows_name_no_kind_number_and_no_key() -> None:
     """The five rows come after ``no_tracks`` (and, since change c0465, ``short`` and ``antenna``) in the
     model's order, each ``no-counterpart`` with a note that says the record is in no recorded public source;
-    none names an Altium kind, a number or a key."""
-    rows = TABLE[-5:]
-    assert tuple(row.neutral for row in rows) == PAIR_KINDS == get_args(RuleKind)[-5:]
-    assert tuple(row.neutral for row in TABLE[-8:-5]) == ("no_tracks", "short", "antenna")
+    none names an Altium kind, a number or a key. The two silkscreen kinds of change c0498 follow them."""
+    rows = TABLE[-7:-2]
+    assert tuple(row.neutral for row in rows) == PAIR_KINDS == get_args(RuleKind)[-7:-2]
+    assert tuple(row.neutral for row in TABLE[-10:-7]) == ("no_tracks", "short", "antenna")
+    assert tuple(row.neutral for row in TABLE[-2:]) == ("silk_mask_clearance", "silk_edge_clearance")
     for row in rows:
         assert (row.status, row.altium, row.number, row.limits, row.fields) == (
             "no-counterpart",
@@ -677,3 +678,34 @@ def test_pair_content_is_never_lifted() -> None:
     lifted, _ = lift(lower(one_of_each(PWR)).records)
     assert lifted and not {r.kind for r in lifted} & set(PAIR_KINDS)
     assert not any("diff_pair" in (*leaves(r.selector_a), *leaves(r.selector_b)) for r in lifted)
+
+
+def _silk_record(kind: str, scope1: str, *limit: tuple[str, str]) -> tuple[tuple[str, str], ...]:
+    return (
+        ("SELECTION", "FALSE"), ("LAYER", "TOP"), ("RULEKIND", kind), ("NETSCOPE", "AnyNet"),
+        ("LAYERKIND", "SameLayer"), ("SCOPE1EXPRESSION", scope1), ("SCOPE2EXPRESSION", "All"),
+        ("ENABLED", "TRUE"), ("PRIORITY", "1"), ("NAME", kind), *limit,
+    )  # fmt: skip
+
+
+def test_silk_rule_kinds_map() -> None:
+    """Scenario "A rule file with both kinds" (change c0498): both records map; a Board Region record without
+    a limit key (every public record) stays carried (decision of c0498 task 1.2)."""
+    from fenolite.backends.altium.read.rules import map_rules
+
+    mask = _silk_record(
+        "SilkToSolderMaskClearance",
+        "IsPad",
+        ("MINSILKSCREENTOMASKGAP", "0.1mm"),
+        ("CLEARANCETOEXPOSEDCOPPER", "TRUE"),
+    )
+    edge = _silk_record("SilkToBoardRegionClearance", "All", ("GAP", "0.2mm"))
+    mapping = map_rules([mask, edge], origin="silk")
+    assert mapping.unmapped == ()
+    assert sorted((r.kind, r.min) for r in mapping.ruleset.rules) == [
+        ("silk_edge_clearance", 200_000),
+        ("silk_mask_clearance", 100_000),
+    ]
+    assert "SilkToSolderMaskClearance" not in CARRIED_KINDS
+    (kept,) = map_rules([_silk_record("SilkToBoardRegionClearance", "All")], origin="silk").unmapped
+    assert kept.reason == "no-counterpart" and "no limit key" in kept.detail

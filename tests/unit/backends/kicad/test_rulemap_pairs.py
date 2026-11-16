@@ -77,7 +77,7 @@ def same(a: Rule, b: Rule) -> bool:
 
 
 def test_tables_hold_the_five_kinds() -> None:
-    assert get_args(RuleKind)[-5:] == PAIR_KINDS
+    assert get_args(RuleKind)[-7:-2] == PAIR_KINDS  # the silk kinds of c0498 follow
     assert {k: rulemap.KIND_MAP[k] for k in PAIR_KINDS} == {  # type: ignore[index]
         "diff_pair_gap": "diff_pair_gap",
         "diff_pair_uncoupled": "diff_pair_uncoupled",
