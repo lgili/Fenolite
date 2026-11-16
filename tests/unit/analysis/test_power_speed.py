@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import os
 import time
 
 import pytest
@@ -20,6 +21,10 @@ RHO = 20_000
 PATHS = ((("J1-1",), ("U1-1",)),)
 POWER_BUDGET_S = 20
 SPLIT_BUDGET_S = 60
+BENCH = "FENOLITE_POWER_BENCH"
+"""Set to 1 to time the 300-hole board: about 30 s here, but 40 to 80 s on a CI runner, where its load
+starved a timed routing test (CI run 43854353654)."""
+_TIMED = pytest.mark.skipif(os.environ.get(BENCH) != "1", reason=f"set {BENCH}=1 to time it")
 
 
 @pytest.mark.slow
@@ -27,7 +32,7 @@ SPLIT_BUDGET_S = 60
     ("holes", "round_holes"),
     [
         (48, False),
-        (300, True),
+        pytest.param(300, True, marks=_TIMED),
     ],
 )
 def test_plane_bench_in_budget(holes: int, round_holes: bool) -> None:

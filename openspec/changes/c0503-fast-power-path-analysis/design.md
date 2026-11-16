@@ -245,3 +245,8 @@ before and after, the finest level in 28 passes (was 1 250). Accuracy on the ref
   `TOLERANCE`. The cascade of levels, the deadline (checked every pass) and `iterations` keep their meaning.
   Rejected: a better `ω` for the relaxation (the passes still grow with the span of the mesh) and
   unpreconditioned CG (the same growth); numpy and scipy stay out of the core.
+
+Decision (maintainer, 2026-11-16): the budget of task 4.1 is met on the maintainer's Mac (power 16.2 s,
+split 16.6 s on the 300-hole bench). On GitHub's unit runners (CI run 43854353654) the same bench took 42.7 to
+73.0 s for power and 38.7 to 83.1 s for the split, and its load made a timed routing test exhaust its budget.
+The 300-hole case therefore runs only with `FENOLITE_POWER_BENCH=1`; the 48-hole case still runs everywhere.
