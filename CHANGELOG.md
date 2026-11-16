@@ -100,6 +100,13 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Fixed
 
+- Through-hole pads of four-layer boards in Altium conversions (c0488): level 3 of the equivalence check
+  gives a `thru_hole` pad on every copper layer of its board (by name or by `*.Cu`) the copper span
+  `all`, which compares equal whatever the layer count, so such a pad no longer gives a `pad-copper`
+  difference and a `convert.unexplained` error between boards of different copper counts; a pad that
+  misses one inner layer now differs from one on all of them. An authored four-layer board (signal inner
+  layers, a carried plane, carried signal ids) and a four-layer build keep every inner layer in the written
+  stack and read their Multi-Layer pads back on all four layers.
 - An Altium text keeps its anchor through KiCad (c0492). The import justifies every text, footprint text
   and `Reference`/`Value` field of a PCB document left and bottom, the lower-left corner of its box that the
   record holds, so a conversion to KiCad draws it where Altium and KiCad's own import do (within 0.1225 mm,

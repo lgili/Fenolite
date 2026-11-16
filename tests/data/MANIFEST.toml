@@ -48,6 +48,12 @@ origin = "authored"
 corpus_id = ""
 
 [[file]]
+path = "tests/data/kicad/convert/four_layer_tht.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "four copper layers and two through-hole pads, one on *.Cu and one on the explicit list F.Cu In1.Cu In2.Cu B.Cu, cut from routing/two_pads.kicad_pcb (c0488)"
+
+[[file]]
 path = "tests/data/kicad/routing/pair_two_headers.kicad_pcb"
 origin = "authored"
 corpus_id = ""

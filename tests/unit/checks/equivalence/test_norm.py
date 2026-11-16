@@ -13,7 +13,8 @@ from fenolite.checks.equivalence import norm
 from fenolite.checks.equivalence.levels import level_footprints, level_placement
 from fenolite.checks.equivalence.model import EXACT, Tolerances
 from fenolite.core.coords import Point, Size
-from fenolite.model.board import Pad
+from fenolite.model.board import Layer, Pad
+from fenolite.model.design import Design
 
 
 def test_angle_wraps() -> None:
@@ -124,6 +125,45 @@ def test_copper_span_reads_the_board_layers() -> None:
     assert norm.copper_span(_cases.pad("1", layers=("Mask",)), board) == frozenset()
     assert norm.copper_span(_cases.pad("1", layers=("Top", "Nowhere")), board) is None
     assert norm.span_text(frozenset({"bottom", "top"})) == "top,bottom"
+
+
+def _layered(pad: Pad, names: tuple[str, ...]) -> Design:
+    """A one-pad design whose board has the copper layers ``names`` (top first) and a mask layer."""
+    design = _cases.design([("R1", "")], {"R1": [pad]})
+    assert design.board is not None
+    layers = tuple(
+        Layer(id=f"lay_c0488_{i}", name=name, kind="copper", ordinal=i) for i, name in enumerate(names)
+    ) + (Layer(id="lay_c0488_mask", name="F.Mask", kind="soldermask", ordinal=len(names)),)
+    return dataclasses.replace(design, board=dataclasses.replace(design.board, layers=layers))
+
+
+def _tht(*layers: str) -> Pad:
+    return _cases.pad(
+        "1", kind="thru_hole", drill=800_000, shape="circle", size=Size(1_600_000, 1_600_000), layers=layers
+    )
+
+
+FOUR = ("F.Cu", "In1.Cu", "In2.Cu", "B.Cu")
+
+
+def _copper_texts(a: Design, b: Design) -> list[tuple[str, str]]:
+    result, _ = level_footprints(a, b, ["R1"], EXACT)
+    return [(d.a, d.b) for d in result.differences if d.kind == "pad-copper"]
+
+
+def test_through_hole_pads_of_a_two_and_a_four_layer_board() -> None:
+    a = _layered(_tht("*.Cu", "F.Mask"), FOUR)
+    b = _layered(_tht("F.Cu", "B.Cu", "F.Mask"), ("F.Cu", "B.Cu"))
+    assert a.board is not None
+    assert norm.copper_span(a.board.footprints[0].pads[0], a.board) == {"all"}
+    assert _copper_texts(a, b) == []
+    assert _copper_texts(_layered(_tht(*FOUR), FOUR), b) == []
+
+
+def test_a_pad_that_misses_an_inner_layer() -> None:
+    a = _layered(_tht("F.Cu", "In1.Cu", "B.Cu"), FOUR)
+    b = _layered(_tht("*.Cu"), FOUR)
+    assert _copper_texts(a, b) == [("top,inner,bottom", "all")]
 
 
 def test_a_bare_non_plated_hole_holds_no_copper() -> None:

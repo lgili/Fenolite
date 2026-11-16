@@ -133,12 +133,19 @@ def slot_text(form: tuple[int, int, int] | None) -> str:
     return "" if form is None else f"{form[1]}@{form[2]}"
 
 
+SPAN_ALL = "all"
+"""The copper span of a plated through-hole pad on every copper layer of its board (change c0488)."""
+ALL_COPPER = "*.Cu"
+"""The layer wildcard that names every copper layer."""
+
+
 def copper_span(pad: Pad, board: Board) -> frozenset[str] | None:
     """The subset of ``top``, ``inner`` and ``bottom`` that the pad's layers reach, by the ordinals of the
     board's copper layers; ``None`` (unknown) when the board declares one of the names not at all. A
     non-plated pad no larger than its round hole holds no copper on any layer, so its span is empty whatever
     layers it names (change c0433: KiCad names ``F&B.Cu`` for such a pad, an Altium multi-layer pad every
-    copper layer)."""
+    copper layer). A ``thru_hole`` pad on every copper layer, by name or by ``*.Cu``, has the span
+    ``all`` (change c0488), so its span does not depend on the number of layers."""
     if (
         pad.kind == "np_thru_hole"
         and pad.drill is not None
@@ -149,6 +156,11 @@ def copper_span(pad: Pad, board: Board) -> frozenset[str] | None:
         return frozenset()
     declared = {layer.name: layer for layer in board.layers}
     ordinals = [layer.ordinal for layer in board.layers if layer.kind == "copper"]
+    copper = {layer.name for layer in board.layers if layer.kind == "copper"}
+    if pad.kind == "thru_hole" and copper:
+        # c0488: a through-hole pad on every copper layer is ``all`` whatever the layer count.
+        if ALL_COPPER in pad.layers or copper <= set(pad.layers):
+            return frozenset({SPAN_ALL})
     span: set[str] = set()
     for name in pad.layers:
         layer = declared.get(name)
@@ -190,8 +202,8 @@ def masks_equal(a: int | str | None, b: int | str | None, tolerances: Tolerances
 
 
 def span_text(span: frozenset[str]) -> str:
-    """A copper span as text, top first: ``top,inner,bottom``."""
-    return ",".join(name for name in SPAN_ORDER if name in span)
+    """A copper span as text, top first: ``top,inner,bottom``; ``all`` for a pad on every copper layer."""
+    return ",".join(name for name in (*SPAN_ORDER, SPAN_ALL) if name in span)
 
 
 def translation(pairs: Iterable[tuple[Point, Point]]) -> Point:
