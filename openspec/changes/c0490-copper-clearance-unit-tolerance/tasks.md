@@ -26,5 +26,7 @@ Rules for every task:
   - Proof: `uv run python tools/gen_schemas.py --check`
 - [x] 2.2 Add the change to `CHANGELOG.md` under `## [Unreleased]`, and run `make check-fast`.
   - Proof: `make check-fast`
-- [ ] 2.3 Maintainer board (private, codes only): `fenolite check` reports no `copper.clearance` whose gap
+- [x] 2.3 Maintainer board (private, codes only): `fenolite check` reports no `copper.clearance` whose gap
   is within the tolerance, and every finding left names the tolerance.
+
+  Result (maintainer board, 2026-11-16, dev 823b6fed8): 0 `copper.clearance` within the tolerance; 8 remain, each naming it; 320 tolerated. 7 of the 8 are 13 to 43 nm short and Altium's DRC does not flag them: follow-up on the tolerance.

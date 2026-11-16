@@ -33,3 +33,5 @@ Rules for every task:
   - Proof: `make check-fast`
 - [ ] 2.2 Maintainer board (private, codes only): with a remote zone added, the pours of the other nets
   are written byte-identical, apart from the index, and Altium's dead-copper analysis finds no new island.
+
+  Result (maintainer board, 2026-11-16): with a remote zone, 40 of 40 written pours byte-identical apart from the index; the same 5 `altium.pour-changed` with and without it; but each written document holds 2 zero-length pour edges or tracks (expected 0): follow-up. Altium dead-copper part not run (VM).

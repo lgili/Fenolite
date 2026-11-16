@@ -32,3 +32,5 @@ Rules for every task:
 - [ ] 4.2 Maintainer board (private, codes and counts only): `convert --to altium` and `build --target
   altium` of the 4-layer board give no `convert.unexplained`, and the written document's
   stack holds every copper layer of the source.
+
+  Result (maintainer board, 2026-11-16): not run, the private workspace holds no 4-layer board; its 2-layer `convert --to altium` gives 0 `convert.unexplained`.

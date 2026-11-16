@@ -32,6 +32,7 @@ Rules for every task:
   whose bodies overlap; Altium → KiCad → Altium writes no courtyard drawing that the source lacks, and the
   round-trip equivalence still exits 0. Left open: maintainer runs it (private board, and the round trip
   in the VM).
+  Result (maintainer board, 2026-11-16): FAIL. 266 of 266 derived courtyards; the round trip writes no extra drawing; but `place` reports 107 `place.courtyard-overlap` (KiCad 102 `courtyards_overlap`) where Altium's DRC reports 0 component-clearance violations: the hull of bodies and pads is too large (a large part's courtyard covers parts under it). Follow-up.
 
 ## Decisions
 

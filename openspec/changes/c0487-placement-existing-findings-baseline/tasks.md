@@ -23,10 +23,11 @@ Rules for every task:
   - Proof: `uv run --extra dev pytest tests/unit/agent/test_pages.py tests/unit/placement/test_place_codes.py -q -n 0`
 - [x] 3.1 Add the change to `CHANGELOG.md` under `## [Unreleased]`, and run `make check-fast`.
   - Proof: `make check-fast`
-- [ ] 3.2 Maintainer board (private, codes and counts only): `place --strategy optimize` on the KiCad copy,
+- [x] 3.2 Maintainer board (private, codes and counts only): `place --strategy optimize` on the KiCad copy,
   whose board has findings before any move, returns at least one candidate, and each candidate
   lists the findings of the board before as baseline.
   - Maintainer runs (private board).
+  Result (maintainer board, 2026-11-16): 4 candidates, each with 126 baseline findings; needs 1000 evaluations for one movable part (about 35 min), 0 candidates at 64: follow-up on speed.
 
 Decision (maintainer, 2026-11-16): the decisions of this change are listed under "Decisions" in
 `design.md`. The guide page `placement.md` has a 12000-byte budget, so its new line is one sentence; the

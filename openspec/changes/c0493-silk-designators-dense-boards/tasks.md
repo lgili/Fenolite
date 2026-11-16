@@ -38,3 +38,5 @@ Rules for every task:
   - Proof: `make check-fast` (25196 passed, 76 skipped, 2026-11-13)
 - [ ] 3.2 Maintainer board (private, codes only): with `--model altium` every designator is placed or has an unplaced kind, and
   Altium 24's DRC reports no silk-to-silk or silk-to-mask violation for the placed ones.
+
+  Result (maintainer board, 2026-11-16): Fenolite part passes, 256 of 256 designators placed (233) or with an unplaced kind (23); the command exits 5 with 23 `silk.check-failed` on designators left below the minimum size, so nothing is written: follow-up. Altium DRC part not run (VM).

@@ -21,11 +21,12 @@ Rules for every task:
   - Proof: `uv run python tools/gen_agent_guide.py --check`
 - [x] 3.1 Add the change to `CHANGELOG.md` under `## [Unreleased]`, and run `make check-fast`.
   - Proof: `make check-fast`
-- [ ] 3.2 Maintainer board (private, codes and counts only): on the KiCad copy converted from the Altium
+- [x] 3.2 Maintainer board (private, codes and counts only): on the KiCad copy converted from the Altium
   board, `place --strategy optimize` with a scope of free passives reports no `attachment_unchecked` part
   caused by a netted copper polygon, and returns at least one candidate or a reason other than
   `attachment_unchecked`.
   - maintainer runs (private board).
+  Result (maintainer board, 2026-11-16): 0 `attachment_unchecked`; 12 of 12 scoped passives `attached_copper`.
 
 ## Decisions
 

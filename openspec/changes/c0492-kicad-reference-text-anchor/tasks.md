@@ -48,3 +48,5 @@ Rules for every task:
 - [ ] 2.3 (maintainer runs in VM) Maintainer board (private, codes only): after conversion to KiCad, the counts of KiCad
   `silk_overlap` and `silk_over_copper` for designators match the silkscreen findings Altium reports for the
   same texts, or each difference is explained.
+
+  Result (maintainer board, 2026-11-16, KiCad side): `silk_overlap` at least 199 (KiCad's report limit), `silk_over_copper` 30; the Altium comparison is not run (VM).
