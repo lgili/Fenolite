@@ -108,6 +108,13 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Fixed
 
+- `place --strategy optimize` reads a copper graphic with a net (a KiCad `gr_poly` with `(net …)`, as a
+  board converted from Altium holds its solid regions) as copper of that net (c0486): it projects the
+  graphic nets first, a part whose pad touches one is `attached_copper`, and one away from it stays movable.
+  Only a netless or unshapeable copper graphic still holds every selected part `attachment_unchecked`. The
+  help of `--move` and `--region` and the `placement` guide say a larger Y moves the part down and a
+  position above the outline's corner has a negative Y; the guide adds that Altium shows Y up.
+
 - Through-hole pads of four-layer boards in Altium conversions (c0488): level 3 of the equivalence check
   gives a `thru_hole` pad on every copper layer of its board (by name or by `*.Cu`) the copper span
   `all`, which compares equal whatever the layer count, so such a pad no longer gives a `pad-copper`

@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import argparse
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -16,7 +17,7 @@ from _projects import tree_snapshot
 from fenolite.backends.kicad.outline import board_outline
 from fenolite.backends.kicad.pcb import read_board
 from fenolite.backends.kicad.replace import footprint_ref
-from fenolite.cli.cmd_place import COMMAND, Move, parse_move
+from fenolite.cli.cmd_place import COMMAND, Move, _register, parse_move
 from fenolite.cli.errors import CliError
 from fenolite.geometry import BBox
 from fenolite.model.board import FootprintInstance
@@ -209,6 +210,28 @@ def test_move_is_in_the_frame_of_place(monkeypatch: pytest.MonkeyPatch, tmp_path
     assert env["result"]["moved"][0]["to"] == {
         "x": ORIGIN + 30 * MM, "y": ORIGIN + 6_500_000, "rotation": 0, "side": "top",
     }  # fmt: skip
+
+
+def test_a_larger_y_moves_the_part_down(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    folder = built(monkeypatch, tmp_path)
+    positions = []
+    for y, out in (("10mm", "first.kicad_pcb"), ("11mm", "second.kicad_pcb")):
+        code, env, _, _ = run(
+            monkeypatch, tmp_path, "place", str(folder), "--move", f"R1=30mm,{y}", "-o", out, "--confirm"
+        )
+        assert code == 0, env["issues"]
+        design = read_board(tmp_path / out)
+        assert design.board is not None
+        r1 = next(fp for fp in design.board.footprints if footprint_ref(design, fp) == "R1")
+        positions.append(r1.position)
+    assert positions[1].x == positions[0].x and positions[1].y == positions[0].y + MM
+
+
+def test_the_help_states_which_way_y_grows() -> None:
+    parser = argparse.ArgumentParser()
+    _register(parser)
+    text = " ".join(parser.format_help().split())
+    assert "a larger Y moves the part down" in text and "negative Y" in text
 
 
 def test_rotation_through_the_project_table(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

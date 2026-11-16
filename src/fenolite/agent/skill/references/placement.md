@@ -96,7 +96,8 @@ fenolite place blink/build --move R1=15mm,14mm --move D1=15mm,6mm,180,bottom --c
   `--pitch` the grid step, `--gap` the space kept around a part and `--margin` the distance kept from
   the outline. A part already on the board is not moved.
 - **`--move REF=X,Y[,ROT[,SIDE]]`** moves one part, in the frame of `place()`: `R1=15mm,14mm` is where
-  `r1.place(mm(15), mm(14))` puts it. The option repeats, and the lengths carry a unit.
+  `r1.place(mm(15), mm(14))` puts it. The option repeats, and the lengths carry a unit. A larger Y
+  moves the part down; above the corner Y is negative. Altium shows Y up: change the sign.
 - `result.moved` gives each part's position before and after, in file coordinates (the outline's
   corner is at 100 mm, 100 mm).
 - `result.rules` counts the `near` rules judged after the moves, and `result.measures` gives the wire

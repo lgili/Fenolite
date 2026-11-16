@@ -24,7 +24,7 @@ from fenolite.core.errors import FormatError
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
 from fenolite.geometry import BBox, ceil_sqrt
-from fenolite.model import canonical
+from fenolite.model import canonical, graphicnets
 from fenolite.model.base import Entity
 from fenolite.model.board import Board, Outline, OutlineArc, rule_areas
 from fenolite.model.design import Design
@@ -74,7 +74,8 @@ def propose(
         request.selected,
         constraints,
         source_locks=source_locks,
-        attachments=inspect_attachments(design, pads, request.selected),
+        # a copper graphic's net lives in its backend slots until projected (change c0486)
+        attachments=inspect_attachments(graphicnets.with_graphic_nets(design), pads, request.selected),
     )
     resolved = resolve_intents(
         request.intent,

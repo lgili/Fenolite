@@ -152,7 +152,8 @@ def _register(parser: argparse.ArgumentParser) -> None:
         default=[],
         metavar="REF=X,Y[,ROT[,SIDE]]",
         help="move one part (repeatable; implies --strategy manual): lengths with a unit, from the top-left "
-        "corner of the outline, Y down; ROT in degrees; SIDE top or bottom",
+        "corner of the outline, X right, Y down: a larger Y moves the part down, a part above the corner "
+        "has a negative Y; ROT in degrees; SIDE top or bottom",
     )
     parser.add_argument(
         "--only",
@@ -201,7 +202,8 @@ def _register(parser: argparse.ArgumentParser) -> None:
         default=[],
         metavar="NAME=X1,Y1,X2,Y2",
         help="regions: the rectangle of the group NAME, lengths with a unit from the top-left corner of "
-        "the outline, Y down (repeatable; default: one band of the outline per domain)",
+        "the outline, X right, Y down: a larger Y lies lower, above the corner Y is negative (repeatable; "
+        "default: one band of the outline per domain)",
     )
     parser.add_argument(
         "--split",

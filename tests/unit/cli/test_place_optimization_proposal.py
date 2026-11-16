@@ -108,3 +108,40 @@ def test_reviewed_pad_distance_drives_sampling_and_refuses_infeasible_poses(monk
         assert result["candidates"] and result["unplaced"] == [], result
         assert all(1 < row["score"][0] <= limit for row in result["candidates"])
     assert tree_snapshot(tmp_path) == before
+
+
+@pytest.mark.parametrize("net", ['(net "A")', ""])
+def test_netted_copper_polygon_away_from_the_part_does_not_hold_it(monkeypatch, tmp_path, net):
+    path = authored_board(tmp_path)
+    text = path.read_text(encoding="utf-8").rstrip()
+    assert text.endswith(")")
+    # an authored solid copper polygon in the bottom-right corner, far from where R1 is placed
+    polygon = (
+        "(gr_poly (pts (xy 26 16) (xy 29 16) (xy 29 19) (xy 26 19)) (stroke (width 0.1) (type solid))"
+        f' (fill yes) (layer "F.Cu") {net} (uuid "00000000-0000-0000-0000-00000000c486"))'
+    )
+    path.write_text(f"{text[:-1]}\n  {polygon}\n)\n", encoding="utf-8")
+    design = read_board(path)
+    assert design.board is not None
+    assert [g.kind for g in design.board.graphics if g.layer == "F.Cu"] == ["polygon"]
+    movable = next(fp for fp in design.board.footprints if not fp.locked)
+    request = tmp_path / "request.json"
+    request.write_text(
+        json.dumps(
+            {
+                "schema": "fenolite.placement-optimization.v0",
+                "selected": [movable.id],
+                "budget": {"evaluations": 32, "beam_width": 2},
+                "constraints": {"max_candidates": 16, "pitch": 1_000_000, "edge_clearance": 1_000_000},
+            }
+        )
+    )
+    args = ("place", str(path), "--strategy", "optimize", "--constraints", str(request), "--dry-run")
+    code, env, err, _ = run(monkeypatch, tmp_path, *args)
+    assert code == 0, (env, err)
+    result = env["result"]["optimization"]
+    if net:
+        assert result["movable"] == [movable.id] and result["candidates"], result
+        assert all("attachment_unchecked" not in reasons for reasons in result["fixed"].values())
+    else:
+        assert result["fixed"][movable.id] == ["attachment_unchecked"], result

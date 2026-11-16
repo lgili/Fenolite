@@ -8,7 +8,7 @@ import pytest
 from fenolite.backends.kicad.frame import board_pads
 from fenolite.cli.placement_protection import inspect_attachments
 from fenolite.core.coords import Point
-from fenolite.model.board import Track, Zone, ZoneFill
+from fenolite.model.board import Graphic, Track, Zone, ZoneFill
 from fenolite.placement.constraints import MechanicalReservation, PlacementConstraints
 from fenolite.placement.protection import placement_scope
 
@@ -55,3 +55,37 @@ def test_missing_pad_projection_and_netless_copper_are_unknown():
     track = Track(id="unnetted", start=Point(10, 10), end=Point(12, 10), width=2, layer="F.Cu")
     unknown = replace(design, board=replace(design.board, tracks=(track,)))
     assert inspect_attachments(unknown, tuple(board_pads(unknown)), ("A",))["A"] == ("attachment_unchecked",)
+
+
+def _with_polygon(design, net_id, *, kind="polygon", filled=True):
+    points = (
+        (Point(20, 6), Point(30, 14))
+        if kind == "rect"
+        else (Point(20, 6), Point(30, 6), Point(30, 14), Point(20, 14))
+    )
+    poly = Graphic(id="poly", kind=kind, layer="F.Cu", points=points, width=1, filled=filled, net_id=net_id)
+    return replace(design, board=replace(design.board, graphics=(poly,)))
+
+
+@pytest.mark.parametrize("kind", ["polygon", "rect"])
+def test_netted_copper_graphic_away_from_the_part_leaves_it_checked(kind):
+    design = _with_polygon(board(part("A", 10, 10)), "a", kind=kind)
+    assert inspect_attachments(design, tuple(board_pads(design)), ("A",)) == {"A": ()}
+
+
+@pytest.mark.parametrize("filled", [True, False])
+def test_netted_copper_graphic_under_a_pad_attaches_it(filled):
+    # unfilled, only the stroke on the polygon's left edge (x=20) is copper; the pad spans x 19..23
+    design = _with_polygon(board(part("A", 21, 10)), "a", filled=filled)
+    assert inspect_attachments(design, tuple(board_pads(design)), ("A",)) == {"A": ("attached_copper",)}
+
+
+def test_netless_or_unshapeable_copper_graphic_leaves_the_part_unchecked():
+    design = _with_polygon(board(part("A", 10, 10)), None)
+    assert inspect_attachments(design, tuple(board_pads(design)), ("A",)) == {"A": ("attachment_unchecked",)}
+    broken = _with_polygon(board(part("A", 10, 10)), "a")
+    broken = replace(
+        broken,
+        board=replace(broken.board, graphics=(replace(broken.board.graphics[0], points=(Point(1, 1),)),)),
+    )
+    assert inspect_attachments(broken, tuple(board_pads(broken)), ("A",)) == {"A": ("attachment_unchecked",)}
