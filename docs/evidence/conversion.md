@@ -276,7 +276,6 @@ net of its other pads.
 | CM5_MINIMA_3 | model | lost | 5 | the model file is not found at its path |
 | CM5_MINIMA_3 | zone-fill | changed | 13 | a polygon is written unpoured; Altium fills it on a repour |
 | CM5_MINIMA_3 | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours, the finish, the impedance-control flag; the copper and dielectric values are written |
-| CM5_MINIMA_3 | text | lost | 149 | the text record has no key for a justification other than centred |
 | CM5_MINIMA_3 | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | complex_hierarchy | footprint | changed | 28 | differs from the library footprint |
 | complex_hierarchy | model | lost | 68 | the model path names a variable other than KIPRJMOD; only files of the project are read |
@@ -316,13 +315,11 @@ net of its other pads.
 | multichannel_mixer-unrouted | model | lost | 21 | the model path names a variable other than KIPRJMOD; only files of the project are read |
 | multichannel_mixer-unrouted | zone-fill | changed | 1 | a polygon is written unpoured; Altium fills it on a repour |
 | multichannel_mixer-unrouted | keep-out | lost | 4 | the keep-out sets no restriction that the record carries (tracks, vias, pads, copper) |
-| multichannel_mixer-unrouted | text | lost | 2 | the text record has no key for a justification other than centred |
 | multichannel_mixer-unrouted | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | multichannel_mixer | footprint | changed | 68 | differs from the library footprint |
 | multichannel_mixer | model | lost | 21 | the model path names a variable other than KIPRJMOD; only files of the project are read |
 | multichannel_mixer | zone-fill | changed | 2 | a polygon is written unpoured; Altium fills it on a repour |
 | multichannel_mixer | keep-out | lost | 4 | the keep-out sets no restriction that the record carries (tracks, vias, pads, copper) |
-| multichannel_mixer | text | lost | 2 | the text record has no key for a justification other than centred |
 | multichannel_mixer | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | One-Air-Max | dnp | lost | 11 | the Altium documents hold no fitted flag outside variants |
 | One-Air-Max | footprint | changed | 118 | differs from the library footprint |
@@ -335,7 +332,6 @@ net of its other pads.
 | One-Air-Max | model | lost | 1 | the model file is not found in the project folder |
 | One-Air-Max | zone-fill | changed | 34 | a polygon is written unpoured; Altium fills it on a repour |
 | One-Air-Max | stackup | lost | 1 | the document has no key for the solder mask thickness, the finish; the copper and dielectric values are written |
-| One-Air-Max | text | lost | 25 | the text record has no key for a justification other than centred |
 | One-Air-Max | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | pic_programmer | footprint | changed | 18 | differs from the library footprint |
 | pic_programmer | pad | lost | 2 | the pad has the shape custom, which has no exact Altium form |
@@ -355,7 +351,6 @@ net of its other pads.
 | RoyalBlue54L-Feather | zone | lost | 2 | the model holds no outline of the zone (an outline with an arc is kept by the reader) |
 | RoyalBlue54L-Feather | zone-fill | changed | 2 | a polygon is written unpoured; Altium fills it on a repour |
 | RoyalBlue54L-Feather | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours, the finish; the copper and dielectric values are written |
-| RoyalBlue54L-Feather | text | lost | 1 | the text record has no key for a justification other than centred |
 | RoyalBlue54L-Feather | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | RoyalBlue54L-NFC-Antenna | footprint-graphic | lost | 3 | a line of a footprint's Edge.Cuts is no closed outline: no board cut-out is written |
 | RoyalBlue54L-NFC-Antenna | footprint-graphic | lost | 2 | a arc of a footprint's Edge.Cuts is no closed outline: no board cut-out is written |
@@ -377,7 +372,6 @@ net of its other pads.
 | tinytapeout-demo | model | lost | 5 | the model file is not found in the project folder |
 | tinytapeout-demo | zone-fill | changed | 2 | a polygon is written unpoured; Altium fills it on a repour |
 | tinytapeout-demo | stackup | lost | 1 | the stack-up holds several dielectric sheets between F.Cu and In1.Cu (2 dielectric entries) and the document holds one dielectric per gap; the default stack values are written |
-| tinytapeout-demo | text | lost | 222 | the text record has no key for a justification other than centred |
 | tinytapeout-demo | graphic | lost | 2 | a filled circle has no record: a region holds straight edges only |
 | tinytapeout-demo | dimension | lost | 6 | the document has no dimension record |
 | tinytapeout-demo | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |

@@ -73,7 +73,7 @@
           130
         ]
       ],
-      "writer_ledger_sha256": "a3960b2597f54dba46237e5c7140c3d00b6ebdfbd68aaef89004ea4203fe66a7"
+      "writer_ledger_sha256": "c4657e646a5ff9201440fb5ad5945eb6b662b96a9e80fca10183df655ce07014"
     }
   },
   "schema": "fenolite.conversion-comparison.v0",
