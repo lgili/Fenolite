@@ -46,7 +46,8 @@ def _source(folder: Path) -> SourceProject:
     added = tuple(
         Text(id=f"txt_0c409000-0000-4000-8000-00000000010{index}", provenance=where, text=value,
              position=Point(10_000_000, 10_000_000 + 3_000_000 * index), layer="F.SilkS",
-             size=Size(1_000_000, 1_000_000), thickness=150_000)
+             size=Size(1_000_000, 1_000_000), thickness=150_000,
+             h_justify="left", v_justify="bottom")  # as the import reads a text (change c0492)
         for index, value in enumerate(TEXTS)
     )  # fmt: skip
     board = dataclasses.replace(board, texts=(*board.texts, *added))

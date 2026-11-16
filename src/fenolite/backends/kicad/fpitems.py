@@ -29,6 +29,7 @@ from types import MappingProxyType
 import fenolite.backends.kicad.slots as slotlib
 from fenolite.backends.kicad._fpmap import FP_GRAPHIC_HEADS, Ids, read_graphic, unrepresentable
 from fenolite.backends.kicad._libread import Context, Loaded, leading_atoms, truetype_font
+from fenolite.backends.kicad.pcb import field_justify
 from fenolite.backends.kicad.sexpr import AtomKind, Node, dumps, parse_fragment
 from fenolite.backends.kicad.slots import Opaque
 from fenolite.backends.kicad.versions import FileKind
@@ -144,6 +145,9 @@ def _text(ctx: Context, node: Node, loc: str, ids: Ids, footprint: FootprintInst
     stored = ctx.udeg(values[2], f"{loc}/at[0]", at) if len(values) > 2 else 0
     ident, native_ids = ids.of("txt", TEXT_HEAD, node)
     face, bold, italic = truetype_font(font) or ("", False, False)  # change c0460
+    h_justify, v_justify, _mirrored = (
+        field_justify(effects) if effects is not None else ("center", "center", False)
+    )
     return Text(
         id=ident,
         native_ids=native_ids,
@@ -154,6 +158,8 @@ def _text(ctx: Context, node: Node, loc: str, ids: Ids, footprint: FootprintInst
         layer=layer.atoms()[0].value,
         size=Size(size.y, size.x),
         thickness=ctx.nm(thickness.atoms()[0], f"{loc}/effects[0]/font[0]/thickness[0]", thickness),
+        h_justify=h_justify,  # change c0492: the anchor an Altium writer turns into the record's corner
+        v_justify=v_justify,
         bold=bold,
         italic=italic,
         face=face,

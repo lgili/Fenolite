@@ -1149,6 +1149,8 @@ def footprint_items(
                 rotation=angle,
                 thickness=thickness,
                 visible=shown,
+                h_justify="left",  # change c0492: Altium anchors a text at its box's lower-left corner
+                v_justify="bottom",
                 mirrored=bool(item.mirrored),
                 bold=font[1] if font else None,
                 italic=font[2] if font else None,
@@ -1168,6 +1170,8 @@ def footprint_items(
                     size=Size(height, height),
                     thickness=thickness,
                     rotation=angle,
+                    h_justify="left",  # change c0492
+                    v_justify="bottom",
                     bold=font[1] if font else False,
                     italic=font[2] if font else False,
                     face=font[0] if font else "",
@@ -1657,6 +1661,8 @@ def texts(doc: PcbDocument, ctx: Context, owned: Collection[int] = ()) -> list[T
                 size=Size(height, height),
                 thickness=max(thickness, 0),
                 rotation=rotation,
+                h_justify="left",  # change c0492
+                v_justify="bottom",
                 bold=bold,
                 italic=italic,
                 face=face,

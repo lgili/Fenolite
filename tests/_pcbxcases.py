@@ -21,9 +21,12 @@ from pathlib import Path
 from _altium_board6 import LAYERS, NAME, PLANES, board6_build, board6_model
 from _resources import kicad_cli
 
+from fenolite.backends.altium.pcbdoc import board_layer, text_corner
+from fenolite.backends.altium.pcbrecords import BOTTOM_SIDE
 from fenolite.backends.kicad.cli import cli_for
 from fenolite.backends.kicad.pcb import read_board
 from fenolite.core.coords import Point
+from fenolite.model.board import Text
 from fenolite.model.design import Design
 
 TOLERANCE = 10
@@ -34,7 +37,8 @@ KICAD_LAYERS = {"F.Fab": "User.13", "B.Fab": "User.14", "F.CrtYd": "User.15", "B
 LAYER_ROW = re.compile(r'\((\d+) "([^"]+\.Cu)" (\w+)')
 NOT_COMPARED = (
     "the restriction no_footprints of a keep-out, which the record does not hold",
-    "the anchor of a text: KiCad places a stroke text by its lower-left corner and shifts the baseline",
+    "the justification of a text: the document holds the corner of its box, which KiCad's import justifies "
+    "left and bottom (change c0492)",
     "the drill pairs of the board record: KiCad reads no LAYERPAIR key",
     "the net of an internal plane, net classes and rules (see test_pcbdoc_copper_oracle.py)",
     "dielectric thicknesses and materials: the import writes KiCad's default stack-up values",
@@ -127,6 +131,12 @@ def vias() -> bool:
     )
 
 
+def _corner_of(text: Text) -> Point:
+    """The point the writer puts in the record of ``text``: the corner of its box (change c0492)."""
+    mirrored = board_layer(text.layer, None) in BOTTOM_SIDE
+    return text_corner(text, text.text, text.thickness, mirrored)
+
+
 def texts() -> bool:
     """String, layer, height, stroke width and rotation; the place within the text's height."""
     found, model = imported()
@@ -139,7 +149,7 @@ def texts() -> bool:
             and abs(t.size.h - x.size.h) <= TOLERANCE
             and abs(t.thickness - x.thickness) <= TOLERANCE
             and t.rotation % 360_000_000 == x.rotation % 360_000_000
-            and same(x.position, t.position, x.size.h)
+            and same(_corner_of(x), t.position, x.size.h)
             for t in theirs
         )
         for x in model.board.texts

@@ -156,3 +156,73 @@ def test_derived_from() -> None:
     assert altium_links.derived_from("p:SOT_23", "Lib:SOT/23")
     assert not altium_links.derived_from("p:Mini_R_x", "Lib:Mini_R")
     assert not altium_links.derived_from("p:Other", "Lib:Mini_R")
+
+
+def _anchor_trip(tmp_path: Path) -> tuple[Path, Path]:
+    """The authored document of change c0492 (``_textanchor``) and its KiCad project."""
+    from _textanchor import anchor_design, document
+
+    source = tmp_path / "altium" / "anchor.PcbDoc"
+    source.parent.mkdir()
+    source.write_bytes(document(anchor_design()))
+    return source, _to_kicad(source, tmp_path / "kicad")
+
+
+def _text_records(data: bytes) -> dict[str, tuple[int, int, float, bool]]:
+    from fenolite.backends.altium.read.pcb import read_pcbdoc
+    from fenolite.backends.altium.read.pcbprims import RawPrimitive
+
+    return {
+        r.text: (r.x, r.y, r.rotation, r.mirrored)
+        for r in read_pcbdoc(data).texts
+        if not isinstance(r, RawPrimitive)
+    }
+
+
+def _back_document(project: Path) -> bytes:
+    back = convert_project(read_source(project), to="altium", allow_lossy=True)
+    (data,) = [data for name, data in back.files.items() if name.endswith(".PcbDoc")]
+    return data
+
+
+def test_texts_at_four_angles_on_both_sides(tmp_path: Path) -> None:
+    """Scenario "Texts at four angles on both sides" (change c0492): every text and designator record of
+    the round trip holds the source's position, rotation and mirror."""
+    source, project = _anchor_trip(tmp_path)
+    before = _text_records(source.read_bytes())
+    assert len(before) >= 20 and any(mirrored for *_, mirrored in before.values())
+    assert _text_records(_back_document(project)) == before
+
+
+def test_a_field_moved_in_kicad(tmp_path: Path) -> None:
+    """Scenario "A field moved in KiCad": ``R1``'s reference centred and moved by half its box, its ink in
+    place, is written within one stroke width of the source's designator record."""
+    from _textanchor import MM, STROKE
+
+    from fenolite.geometry.transform import rotate_point
+    from fenolite.silk.extents import TextKey, estimate
+
+    source, project = _anchor_trip(tmp_path)
+    pcb = next((tmp_path / "kicad").glob("*.kicad_pcb"))
+    text = pcb.read_text(encoding="utf-8")
+    head = '(property "Reference" "R1"\n\t\t\t(at 0 -1.43 180)'
+    assert text.count(head) == 1 and "(at 45.400001 -40.4 90)" in text
+    # the box of the centred text against the left-bottom one, in the reading frame at 90° to the footprint
+    centred = estimate(TextKey("R1", MM, MM, STROKE, "center", "center"))
+    corner = estimate(TextKey("R1", MM, MM, STROKE, "left", "bottom"))
+    assert centred is not None and corner is not None
+    half = rotate_point(Point(corner.x0 - centred.x0, corner.y1 - centred.y1), 90_000_000)
+    at = f"(at {half.x / MM:.6f} {(-1_430_000 + half.y) / MM:.6f} 180)"
+    start = text.index(head)
+    end = text.index("(justify left bottom)", start)
+    text = (
+        text[:start]
+        + text[start:end].replace("(at 0 -1.43 180)", at)
+        + text[end:].replace("(justify left bottom)", "", 1)
+    )
+    pcb.write_text(text, encoding="utf-8")
+    designator = _text_records(source.read_bytes())["R1"]
+    written = _text_records(_back_document(project))["R1"]
+    assert written[2:] == designator[2:]
+    # a record holds lengths in units of 2.54 nm
+    assert max(abs(written[0] - designator[0]), abs(written[1] - designator[1])) * 254 // 100 <= STROKE

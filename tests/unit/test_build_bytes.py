@@ -57,6 +57,8 @@ pours; every other stream, every other file of the row and every other row keep 
 c0470 writes the footprint graphics an Altium library cannot hold as items of the placed component: in
 generated@altium the four filled F.Paste rects of one footprint, so only its ``generated.PcbDoc`` and
 ``.fenolite/board.json`` move; every other file of the row and every other row keep their digests.
+c0492 writes a text at the lower-left corner of its box: the centred texts of acceptance_v03@altium move,
+so only ``acceptance_v03.PcbDoc`` moves from 0eee3097 to ef30e80c; every other row keeps its digests.
 """
 
 from __future__ import annotations

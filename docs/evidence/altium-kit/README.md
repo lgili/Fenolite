@@ -181,6 +181,20 @@ published. `kit record --confirm` decides 14 rows. It restores the five rows tha
 keeps it. The archive (`074713b5…`, 1099794 bytes) stays in local storage, unpublished. Altium added
 `.PrjPcbStructure` files, a `History` folder and a project log in the VM copy, outside the verified folder.
 
+## Stale rows after c0492 (2026-11-15)
+
+Change c0492 makes the PCB writer write a text at the lower-left corner of its box: a text justified other
+than left and bottom moves by its estimated box (`docs/formats/altium/pcb-records.md`, "Text anchor"). The
+four free texts of the sample `board6` are centred, so its PCB document has other bytes, and the runs
+`2026-11-05-ddbe216c` and `2026-11-05-074713b5` are stale for its steps K2.4 and K5.1 to K5.5; no other
+sample changes. The expected values of those steps do not change: K5.5 reads the string, the layer and the
+rotation of each text, not its place. `fenolite kit status` listed nine stale rows. Each is set back to its
+level before the kit runs, with the stale run named in its result: `H-A-WRITE-PCBDOC`, `H-A-PH-NO-CACHE`,
+`H-A-KIT-RESAVE`, `H-A-KIT-COMPILE` and `H-A-KIT-SCRIPT` to `INFERRED`; `H-A-PCBX-STACK`, `H-A-PCBX-VIASPAN`,
+`H-A-PCBX-TEXT` and `H-A-PCBX-KEEPOUT` to the author report of 2026-10-09. To restore them, build the current
+kit and run K2.4 and K5.1 to K5.5 on `board6`, then `fenolite kit verify` and `fenolite kit record --confirm`;
+the maintainer runs them in the VM.
+
 ## Author report of 2026-10-07 (opening only)
 
 On 2026-10-07 the author reported that the projects of the kit built from `5adad054` opened in Altium

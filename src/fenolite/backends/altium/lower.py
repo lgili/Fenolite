@@ -1406,6 +1406,7 @@ def _footprint_items(
     account: _Account,
     copper_ids: Mapping[str, int] | None = None,
     net_names: Mapping[str, str] | None = None,
+    strings: Mapping[str, str] | None = None,
 ) -> _Items:
     """The graphics, the fields ``Reference`` and ``Value`` and the texts of ``fp`` as the document writes
     them (capability altium-pcb-writer, "Footprint items of a written component"; change c0126).
@@ -1428,7 +1429,11 @@ def _footprint_items(
     written board (``net_names``, net id to name) is a component item of that net on its signal layer
     (change c0454; ``netted_copper_problem``), as the source document held it. A copper fill of no net that
     an Altium fill record gave (``fills.is_fill``, ``fills.read_fill``) is a component fill of no net on its
-    signal layer (change c0450), as the source held it."""
+    signal layer (change c0450), as the source held it.
+
+    ``strings`` holds the text of each field by name (``Reference``, ``Value``): a field is written at the
+    corner of its box (``pcbdoc.text_corner``, change c0492)."""
+    names = strings or {}
     bottom = fp.side == "bottom"
     to_board = Transform.placement(fp.position, fp.rotation)
     graphics: list[Graphic] = []
@@ -1506,9 +1511,9 @@ def _footprint_items(
         shown = item.visible if isinstance(item, FootprintField) else True
         font = pcbdoc.text_font(item)  # change c0460
         tail = pcbdoc.text_tail_of(item)  # change c0450, task 4.5
-        return pcbdoc.TextPlace(
-            item.position, layer, height, stroke, item.rotation, shown, mirrored, font, tail
-        )
+        string = item.text if isinstance(item, Text) else names.get(item.name, "")
+        corner = pcbdoc.text_corner(item, string, stroke, mirrored)  # change c0492
+        return pcbdoc.TextPlace(corner, layer, height, stroke, item.rotation, shown, mirrored, font, tail)
 
     places: dict[str, pcbdoc.TextPlace | None] = {}
     for field in fp.fields:
@@ -1671,7 +1676,9 @@ def _footprints(
         own = _Items()
         if frame is not None and (fp.graphics or fp.texts or fp.fields):
             ids = {**rec.BOARD_LAYER_MAP, **(layer_ids or {})}
-            own = _footprint_items(fp, ids, copper, frame, account, copper_ids, net_names)
+            own = _footprint_items(
+                fp, ids, copper, frame, account, copper_ids, net_names, {"Reference": ref, "Value": comment}
+            )
         areas = fp
         if frame is not None:
             strokes, areas = _keepout_strokes(fp, frame, account, copper_ids)
@@ -1963,10 +1970,10 @@ def _items(
         problem = pcbdoc.text_problem_of(text)
         if pcbdoc.board_layer(text.layer, layer_ids) is None:
             problem = f"the layer {text.layer} has no layer in the document for a text"
-        if problem is None and (text.h_justify, text.v_justify) != ("center", "center"):
-            problem = "the text record has no key for a justification other than centred"
-        if problem is None:
-            texts.append(text)
+        if problem is None:  # change c0492: the record holds the corner its justification gives
+            mirrored = pcbdoc.board_layer(text.layer, layer_ids) in rec.BOTTOM_SIDE
+            corner = pcbdoc.text_corner(text, text.text, text.thickness, mirrored)
+            texts.append(dataclasses.replace(text, position=corner))
         else:
             account.skip("text", text.id, problem)
     graphics: list[Graphic] = []

@@ -307,7 +307,7 @@ Altium Designer. No file that Altium wrote is committed.
 
 | file | SHA-256 |
 |---|---|
-| `tests/data/altium/board6/board6.PcbDoc` | `39fa67748befc67521ba04f8bf78aa2e66cf75105bfebd704e99ccc3e404f7ee` |
+| `tests/data/altium/board6/board6.PcbDoc` | `602071f7939ad7cd90ab329e9ef29c75dcda9cdf6c1a09276f44f4ac4cd577ca` |
 | `tests/data/altium/board6/board6.PcbLib` | `9d09f5126ba6aad6026f4c85fa2899c908eaa363aeaec1b58b59e64a11666e22` |
 | `tests/data/altium/board6/board6.PrjPcb` | `75e7078fdb8fc79b606ad0c0a3acf30103faada43dc440a7fb01e5daad2f7219` |
 | `tests/data/altium/board6/board6.SchDoc` | `36e9850be729dd5e91e14c9b0adab1fb9ac7ef036154839f94d279a12ffc2118` |

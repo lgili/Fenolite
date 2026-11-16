@@ -30,8 +30,32 @@ Content ids do not change: the id takes the position, not the justification.
   of `silk.extents` (glyph table, the `estimate` measure, no tool needed), turned by the text's rotation and
   mirrored as the text is.
 
-The free-text refusal "the text record has no key for a justification other than centred" is removed for
-stroke texts. A TrueType text with another justification keeps a refusal until its box is measured.
+The free-text refusal "the text record has no key for a justification other than centred" is removed.
+
+Decision (maintainer, 2026-11-15): a TrueType text of any justification is written, never refused. It takes
+the offset of the stroke font's box for the same string, height and stroke, as a stroke text does. Its own
+glyph widths are not measured, so a long TrueType string that is not left and bottom may land a little away
+from KiCad's own TrueType drawing; a TrueType text read from Altium is left and bottom and keeps its exact
+position. An earlier attempt refused such a text, which lost texts that converted before.
+
+Decision (maintainer, 2026-11-15): the offset is computed in `pcbdoc.text_corner` as the difference of the two
+estimated ink boxes (the text's justification and left-bottom), so the writer needs no tool and agrees with
+the KiCad side of the stroke font model (`H-K-SILK-ESTIMATE`). For a footprint item it is computed in the
+footprint frame with the item's rotation relative to the footprint, before the placement turns it.
+
+Decision (maintainer, 2026-11-15): the layering rule forbids `backends` → `silk`, and `silk` imports the
+backends. The tool-free part of `silk.extents` (the glyph table, `TextKey`, `InkBox`, `estimate`) moves to
+`geometry.strokefont`, with `glyphs.toml` under `geometry/data/`; `silk.extents` imports and re-exports
+every name, so its callers do not change. The writer imports `geometry.strokefont`.
+
+Decision (maintainer, 2026-11-15): the projection of a KiCad footprint's `fp_text` (`fpitems`) now reads its
+justification, as the board text reader does. Without it a footprint text of an Altium document came back
+from KiCad centred, and D3 would have moved it by half its box.
+
+Decision (maintainer, 2026-11-15): the change alters the bytes the writer gives the kit sample `board6`
+(four centred free texts). The nine kit rows that `fenolite kit status` names stale are set back to their
+level before the kit runs, with the stale run named (`docs/evidence/altium-kit/README.md`, "Stale rows after
+c0492"); the maintainer reruns K2.4 and K5.1 to K5.5 in the VM.
 
 ## D4 Round trip
 

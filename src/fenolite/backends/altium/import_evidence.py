@@ -45,6 +45,7 @@ HYPOTHESES = (
     "H-A-IMP-SYMFRAME",
     "H-A-IMP-FPGFX",
     "H-A-IMP-OUTLINE-ARC",
+    "H-A-IMP-TEXT-ANCHOR",
 )
 """Every ``H-A-IMP-*`` row of ``docs/hypotheses.md``."""
 RETIRED_HYPOTHESES = ("H-A-IMP-RPT-ANNOT",)
@@ -63,6 +64,7 @@ LEVELS: dict[str, Level] = dict.fromkeys(HYPOTHESES, Level.INFERRED) | {
     "H-A-IMP-ZONE-HOLES": Level.ORACLE_VERIFIED,
     "H-A-IMP-PLANE-CUT": Level.ORACLE_VERIFIED,
     "H-A-IMP-VIA-PADLESS": Level.ALTIUM_VERIFIED_AUTHOR_REPORT,
+    "H-A-IMP-TEXT-ANCHOR": Level.ORACLE_VERIFIED,
 }
 """The level of each row, as the register states it (``test_package.py`` keeps both equal)."""
 READER_LEVELS = (Level.INFERRED, Level.CORPUS_VERIFIED, Level.CORPUS_VERIFIED)

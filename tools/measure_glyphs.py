@@ -3,7 +3,7 @@
 """Measure the glyph metrics of KiCad's stroke font with ``kicad-cli`` (change c0212; capability
 silkscreen-layout, "Text ink extents"; ``docs/formats/kicad/text.md``).
 
-    uv run python tools/measure_glyphs.py                  # (re)write src/fenolite/silk/data/glyphs.toml
+    uv run python tools/measure_glyphs.py                  # (re)write src/fenolite/geometry/data/glyphs.toml
     uv run python tools/measure_glyphs.py --check          # exit 1 when a fresh measurement differs
     uv run python tools/measure_glyphs.py --kicad-cli PATH
 
@@ -30,7 +30,7 @@ from fenolite.backends.kicad.cli import cli_for, find_kicad_cli
 from fenolite.backends.kicad.textink import InkRequest, measure_ink
 
 ROOT = Path(__file__).resolve().parents[1]
-TABLE = ROOT / "src" / "fenolite" / "silk" / "data" / "glyphs.toml"
+TABLE = ROOT / "src" / "fenolite" / "geometry" / "data" / "glyphs.toml"
 GLYPHS = string.ascii_uppercase + string.ascii_lowercase + string.digits + "-_.+/"
 """The glyphs of designators and of the usual values beside them."""
 MM = 1_000_000

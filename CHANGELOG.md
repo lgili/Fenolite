@@ -100,6 +100,18 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Fixed
 
+- An Altium text keeps its anchor through KiCad (c0492). The import justifies every text, footprint text
+  and `Reference`/`Value` field of a PCB document left and bottom, the lower-left corner of its box that the
+  record holds, so a conversion to KiCad draws it where Altium and KiCad's own import do (within 0.1225 mm,
+  `H-A-IMP-TEXT-ANCHOR`, ORACLE-VERIFIED with `kicad-cli` 10.0.6); before, each text sat half a box away.
+  The Altium writer now writes that corner for any justification: a centred or otherwise justified text or
+  field moves by the stroke font's estimated box (`pcbdoc.text_corner`), and a free text of any
+  justification, TrueType included, is written instead of refused. The KiCad footprint-text projection
+  (`fpitems`) reads the justification of an `fp_text`. An Altium → KiCad → Altium trip writes every text
+  record at the source's position. The kit sample `board6` changes bytes: nine kit rows are set back until
+  the maintainer reruns K2.4 and K5.1 to K5.5 (`docs/evidence/altium-kit/README.md`). KiCad boards converted
+  before c0492 keep their centred fields until converted again. The tool-free stroke-font estimator moves
+  from `silk.extents` to `geometry.strokefont` (re-exported, `glyphs.toml` now under `geometry/data/`).
 - Altium edit commits compare integrity findings by the identity of the records they name, not their
   positions (c0504): a fault the source already held is counted in `altium.edit.integrity-inherited` (info)
   instead of coming back as `altium.edit.integrity` after an edit moved its records.

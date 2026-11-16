@@ -39,10 +39,12 @@ from _altium_board6 import (
 from _altium_copper import plane_model, routed_build, routed_model
 from _pin_bits import pin_bits_only
 
+from fenolite.backends.altium.pcbdoc import board_layer, text_corner
+from fenolite.backends.altium.pcbrecords import BOTTOM_SIDE
 from fenolite.core.coords import Point
 from fenolite.lens import altium_copper
 from fenolite.lens.build import BuildOutput
-from fenolite.model.board import ComponentBody, FootprintInstance, Graphic, Hole, Keepout, Layer, Via
+from fenolite.model.board import ComponentBody, FootprintInstance, Graphic, Hole, Keepout, Layer, Text, Via
 from fenolite.model.design import Design
 
 ROOT = Path(__file__).resolve().parents[2].parent
@@ -87,6 +89,10 @@ def _build(name: str) -> tuple[Design, BuildOutput, str]:
 
 def _one(found: list[object], what: str) -> None:
     assert len(found) == 1, f"{what}: {len(found)} matches"
+
+
+def _corner(text: Text) -> Point:
+    return text_corner(text, text.text, text.thickness, board_layer(text.layer, None) in BOTTOM_SIDE)
 
 
 @pytest.mark.parametrize("name", ["board6", "routed", "plane"])
@@ -150,7 +156,7 @@ def test_readback(name: str) -> None:
             for t in read.texts
             if t.text == text.text
             and t.layer == IMPORT_LAYERS.get(text.layer, text.layer)
-            and near(t.position, moved(text.position))
+            and near(t.position, moved(_corner(text)))  # the record holds the box's corner (c0492)
             and abs(t.size.h - text.size.h) <= 2
             and abs(t.thickness - text.thickness) <= 2
             and t.rotation == text.rotation

@@ -811,8 +811,7 @@ item, with `altium.not-lowered` (info) and `where` `<kind>/<id>`:
 | a rule area that forbids nothing (for rules only) | not written: a keep-out without a restriction has no record | the area (`keepout/<id>`), counted under `keep-out` of `result.pcb.not_lowered` |
 | a part height (`Part(height=…)`, change c0140) | not written: its body has no outline, which the body record needs | the body (`body/<id>`), counted under `body` with `--altium-bodies extruded` as every other body; the stored board, which holds the bodies that were written, does not hold it |
 | a height limit (`design.height_limit`, change c0140) | not written: stored in `.fenolite/rules.json`; Altium's own rule kind `Height` is seen in the corpus and not mapped (`docs/formats/altium/rule-file.md`) | counted in the one `altium.not-lowered` info of kind `placement-rule` |
-| a centred text | a text | nothing |
-| a text with a `justify` | not written: the text record has no key for a justification, and a centred text would be at another place | the text and its justification (`text/<id>`) |
+| a text, centred or with a `justify` | a text at the lower-left corner of its box: the record has no key for a justification, so the writer moves the position by the text's estimated box (change c0492; `docs/formats/altium/pcb-records.md`, "Text anchor") | nothing |
 | a line, rectangle, circle, arc or polygon | a graphic, as before | as before |
 | a dimension | not written: the document has no dimension record | the dimension (`dimension/<id>`); `result.pcb.not_lowered` holds `dimension` |
 | a group (`design.group`, change c0277) | not written: the document has no group record, and its members are written alone | the group by its name (`group/<id>`) |

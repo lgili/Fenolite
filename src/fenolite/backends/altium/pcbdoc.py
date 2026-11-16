@@ -43,6 +43,7 @@ from typing import TYPE_CHECKING, Final, Literal
 import fenolite.backends.altium.pcbrecords as rec
 import fenolite.backends.altium.rulemap as rulemap
 import fenolite.backends.altium.unions as unions
+import fenolite.geometry.strokefont as strokefont
 from fenolite.backends.altium.adapter.arcring import ArcPolygon
 from fenolite.backends.altium.adapter.ids import STROKE_FONT_KEY, TEXT_TAIL_KEY
 from fenolite.backends.altium.ascii import Field, text_problem
@@ -82,7 +83,7 @@ from fenolite.core.coords import Point
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.trig import angle_of
-from fenolite.geometry.transform import FULL_TURN, Transform
+from fenolite.geometry.transform import FULL_TURN, Transform, rotate_point
 from fenolite.model.board import (
     Arc,
     ComponentBody,
@@ -357,6 +358,30 @@ class TextPlace:
     font: TextFont | None = None
     tail: bytes = b""
     """The source's bytes from 137 on of the text's first subrecord (``text_tail_of``, change c0450)."""
+
+
+def text_corner(item: Text | FootprintField, text: str, stroke: int, mirrored: bool) -> Point:
+    """The point a text record holds for ``item`` showing ``text`` (change c0492): Altium places a text by
+    the lower-left corner of its box (``H-A-IMP-TEXT-ANCHOR``), the anchor of KiCad's text justified left and
+    bottom. A text justified otherwise moves by the offset between the two anchors that draw the same ink:
+    the difference of its estimated ink box and that of the same text justified left and bottom
+    (``geometry.strokefont.estimate``, the stroke glyph table, ``INFERRED``), in its reading frame,
+    mirrored as the text is and turned by its rotation; in the frame of ``item.position``. A TrueType text
+    takes the stroke font's box (Decision (maintainer, 2026-11-15), ``design.md`` D3). A text without ink
+    keeps its place."""
+    justify = (item.h_justify, item.v_justify)
+    if justify == ("left", "bottom") or item.size.h <= 0:
+        return item.position
+    width = item.size.w if item.size.w > 0 else item.size.h
+    own = strokefont.estimate(strokefont.TextKey(text, width, item.size.h, max(stroke, 0), *justify))
+    corner = strokefont.estimate(
+        strokefont.TextKey(text, width, item.size.h, max(stroke, 0), "left", "bottom")
+    )
+    if own is None or corner is None:
+        return item.position
+    dx, dy = own.x0 - corner.x0, own.y1 - corner.y1
+    offset = rotate_point(Point(-dx if mirrored else dx, dy), item.rotation)
+    return Point(item.position.x + offset.x, item.position.y + offset.y)
 
 
 @dataclass(frozen=True, slots=True)

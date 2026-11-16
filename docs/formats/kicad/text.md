@@ -8,7 +8,7 @@ guide is `docs/assembly.md`, "Designators"; the command is `fenolite silk` (`doc
 
 A measurement writes the texts as `gr_text` items on `F.SilkS` of a scratch board, one per cell of a grid,
 runs `kicad-cli pcb export svg -l F.SilkS --mode-single --exclude-drawing-sheet` once, and reads each
-text's group back. The glyph table `src/fenolite/silk/data/glyphs.toml` is written by
+text's group back. The glyph table `src/fenolite/geometry/data/glyphs.toml` is written by
 `tools/measure_glyphs.py` in the same way: it holds, per glyph, the box of its drawn ink and its advance,
 never the strokes of a glyph.
 

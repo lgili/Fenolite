@@ -123,6 +123,6 @@ def test_the_glyph_table_is_fresh() -> None:
     sys.modules["measure_glyphs"] = module
     spec.loader.exec_module(module)
     fresh = module.measure(str(runner().path))
-    held = (ROOT / "src" / "fenolite" / "silk" / "data" / "glyphs.toml").read_text(encoding="utf-8")
+    held = (ROOT / "src" / "fenolite" / "geometry" / "data" / "glyphs.toml").read_text(encoding="utf-8")
     assert module._body(fresh) == module._body(held)
     assert glyph_table().glyphs
