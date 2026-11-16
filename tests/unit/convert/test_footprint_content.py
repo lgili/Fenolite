@@ -13,10 +13,14 @@ from _fpcontent import GRAPHICS, TEXTS, altium_document, by_ref, converted, draw
 from _importcode import imported
 
 from fenolite.api import convert
+from fenolite.backends.altium.adapter.courtyard import is_derived
 from fenolite.backends.altium.backend import AltiumBackend
 from fenolite.backends.kicad import fpitems
 from fenolite.backends.kicad.backend import KicadBackend
 from fenolite.backends.kicad.sexpr import Node, parse
+
+DERIVED = 2
+"""The derived courtyards of the two footprints (change c0489)."""
 
 
 def _named(pcb: Node) -> dict[str, str]:
@@ -31,14 +35,14 @@ def test_the_altium_source_holds_every_drawing(tmp_path: Path) -> None:
     board = AltiumBackend().read(altium_document(tmp_path)).design.board
     assert board is not None
     resistor, led = board.footprints
-    kinds = Counter((g.layer, g.kind, g.filled) for g in resistor.graphics)
+    kinds = Counter((g.layer, g.kind, g.filled) for g in resistor.graphics if not is_derived(g))
     assert kinds[("F.SilkS", "arc", False)] == 1 and kinds[("F.SilkS", "polygon", True)] == 1
     assert kinds[("F.SilkS", "rect", True)] == 1
     assert {("Mech.5", "line", False), ("Mech.13", "line", False), ("Mech.10", "circle", False)} <= set(kinds)
     assert [(t.text, t.layer) for t in resistor.texts] == [("NOTE A", "F.SilkS"), ("ASSY", "Mech.13")]
     assert [(t.text, t.layer) for t in led.texts] == [("NOTE B", "B.SilkS")]
-    assert Counter(g.layer for g in led.graphics) == {"B.SilkS": 3}
-    assert sum(len(fp.graphics) for fp in board.footprints) == GRAPHICS
+    assert Counter(g.layer for g in led.graphics) == {"B.SilkS": 3, "B.CrtYd": 1}  # c0489: one derived
+    assert sum(len(fp.graphics) for fp in board.footprints) == GRAPHICS + DERIVED
 
 
 def test_conversion_writes_footprint_texts_and_graphics(tmp_path: Path) -> None:
@@ -46,7 +50,8 @@ def test_conversion_writes_footprint_texts_and_graphics(tmp_path: Path) -> None:
     rows = {row.kind: row for row in conversion.report.rows}
     text, graphic = rows["footprint-text"], rows["footprint-graphic"]
     assert (text.source, text.written, text.lost) == (TEXTS, TEXTS, 0)
-    assert (graphic.source, graphic.written, graphic.lost) == (GRAPHICS, GRAPHICS, 0)
+    # change c0489: the derived courtyards are written to KiCad too
+    assert (graphic.source, graphic.written, graphic.lost) == (GRAPHICS + DERIVED, GRAPHICS + DERIVED, 0)
     lossy = [i for i in conversion.issues if i.code == "convert.lossy" and i.where.startswith("footprint-")]
     assert not lossy
     pcb = parse(conversion.files[conversion.read_back].decode())
@@ -64,7 +69,8 @@ def test_conversion_writes_footprint_texts_and_graphics(tmp_path: Path) -> None:
     }
     assert drawn(resistor) >= Counter(expected)
     on_bottom = {("fp_circle", "B.SilkS"): 1, ("fp_arc", "B.SilkS"): 1, ("fp_poly", "B.SilkS"): 1}
-    assert drawn(led) == Counter({**on_bottom, ("fp_text", "B.SilkS"): 1})
+    derived = {("fp_poly", "B.CrtYd"): 1}  # change c0489
+    assert drawn(led) == Counter({**on_bottom, **derived, ("fp_text", "B.SilkS"): 1})
     # the text keeps its string, size and stroke; on a bottom layer it is mirrored, as KiCad holds it
     note = next(t for t in led.nodes("fp_text") if t.atoms()[1].value == "NOTE B")
     effects = note.find("effects")

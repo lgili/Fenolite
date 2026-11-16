@@ -842,13 +842,15 @@ def build_scene(
         layers.append(
             {
                 "id": layer_name,
-                "name": layer_name,
+                "name": native.labels.get(layer_name, layer_name) if native is not None else layer_name,
                 "kind": "user",
                 "side": _side(layer_name),
                 "color": USER,
                 "visible": False,
             }
         )
+        if native is not None and layer_name in native.tabs:  # change c0489: a derived courtyard's layer
+            layers[-1]["tab"] = native.tabs[layer_name]
 
     counts = {
         "pads": len(pads),

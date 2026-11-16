@@ -246,16 +246,33 @@ def _hull(pads: Sequence[BoardPad]) -> tuple[Point, ...]:
     return hull if len(hull) >= 3 else ()
 
 
+def _derived_ring(footprint: FootprintInstance) -> tuple[Point, ...]:
+    """The ring of ``footprint``'s derived courtyard on its own side in the board frame (change c0489), or
+    nothing."""
+    layer = "F.CrtYd" if footprint.side == "top" else "B.CrtYd"
+    move = Transform.placement(footprint.position, footprint.rotation)
+    for graphic in footprint.graphics:
+        held = graphic.ext.get(BACKEND)
+        if graphic.layer == layer and held is not None and ("derived", "courtyard") in held.payload:
+            try:
+                return tuple(Polygon(tuple(move.apply(p) for p in graphic.points)).normalize().outer)
+            except (GeometryError, ValueError):
+                return ()
+    return ()
+
+
 def placed_extents(design: Design, *, issues: list[Issue] | None = None) -> tuple[PlacedExtent, ...]:
-    """One extent per footprint of the board, in board order: the hull of its pads' copper on the face of
-    its side (``source`` is ``pads``, never exact), or nothing when it has no pad copper (``none``). The
-    import reads no courtyard, so no extent has the source ``courtyard``. Nothing is added to ``issues``."""
+    """One extent per footprint of the board, in board order: the ring of its derived courtyard on the face
+    of its side (``source`` is ``derived``, never exact; change c0489), else the hull of its pads' copper
+    (``pads``, never exact), or nothing when it has no pad copper (``none``). The import reads no
+    courtyard, so no extent has the source ``courtyard``. Nothing is added to ``issues``."""
     del issues
     footprints = design.board.footprints if design.board is not None else ()
     layers = _copper_layers(design)
     extents: list[PlacedExtent] = []
     for footprint in footprints:
-        hull = _hull(_footprint_pads(design, footprint, layers))
+        ring = _derived_ring(footprint)
+        hull = ring or _hull(_footprint_pads(design, footprint, layers))
         own = (hull,) if hull else ()
         top = footprint.side == "top"
         extents.append(
@@ -264,7 +281,7 @@ def placed_extents(design: Design, *, issues: list[Issue] | None = None) -> tupl
                 footprint.side,
                 front=own if top else (),
                 back=() if top else own,
-                source="pads" if hull else "none",
+                source="derived" if ring else "pads" if hull else "none",
                 exact=not hull,
             )
         )

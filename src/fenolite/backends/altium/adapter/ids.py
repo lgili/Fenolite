@@ -73,6 +73,7 @@ EXT_KEYS: tuple[str, ...] = (
     "union_index",
     "stroke_font",
     "text_tail",
+    "derived",
 )
 """The closed table of extension-bag keys, in bag order; each is a row of
 ``docs/formats/altium/import.md``, "Extension-bag keys"."""

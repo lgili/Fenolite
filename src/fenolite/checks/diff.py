@@ -193,6 +193,11 @@ Content = dict[str, list[dict[str, Any]]]
 """kind → the compared values of its entities."""
 
 
+def _derived(item: Graphic) -> bool:
+    held = item.ext.get("altium")
+    return held is not None and ("derived", "courtyard") in held.payload
+
+
 def _pad_keys(owner: str, pads: Sequence[Pad]) -> list[str]:
     return _numbered(f"{owner}-{pad.number}" for pad in pads)
 
@@ -227,7 +232,9 @@ def _design_parts(design: Design, *, ext: bool) -> tuple[Keyed, Content]:
                 keyed["pad"][key] = names.fields(pad, defaults=True)
             # the footprint's own drawings, by content and with their footprint (change c0126)
             content["footprint_graphic"] += [
-                {OWNER_FIELD: owner, **names.fields(item, defaults=False)} for item in footprint.graphics
+                {OWNER_FIELD: owner, **names.fields(item, defaults=False)}
+                for item in footprint.graphics
+                if not _derived(item)  # change c0489: a courtyard the Altium import derived is no source item
             ]
             content["footprint_text"] += [
                 {OWNER_FIELD: owner, **names.fields(item, defaults=False)} for item in footprint.texts

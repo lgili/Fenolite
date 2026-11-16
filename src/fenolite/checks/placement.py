@@ -432,7 +432,7 @@ def judge_heights(
             if height is None and not _judged_when_unknown(fp):
                 continue
             counts["judged"] += 1
-            note = APPROXIMATE if extent.source == "pads" else ""
+            note = APPROXIMATE if extent.source in ("pads", "derived") else ""
             if height is None:
                 counts["unknown"] += 1
                 issues.append(

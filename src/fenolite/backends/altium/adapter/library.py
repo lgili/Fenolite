@@ -16,6 +16,7 @@ from fenolite.backends.altium.adapter.bodies import component_body
 from fenolite.backends.altium.adapter.codes import Census
 from fenolite.backends.altium.adapter.context import Context
 from fenolite.backends.altium.adapter.copper import definition_graphics
+from fenolite.backends.altium.adapter.courtyard import derived_courtyard
 from fenolite.backends.altium.adapter.evidence import EVIDENCE
 from fenolite.backends.altium.adapter.ids import BACKEND, Ids, bag
 from fenolite.backends.altium.adapter.layers import LayerMap
@@ -96,6 +97,10 @@ def _footprint(
                     census.map("bodies")
     keepouts: list[Keepout] = []
     graphics = definition_graphics(footprint.primitives, ctx, storage, keepouts)
+    fpd_id = derived_id("fpd", BACKEND, native)
+    derived = derived_courtyard(fpd_id, "top", pads, bodies, graphics, ctx.provenance(f"{storage}/Data"))
+    if derived is not None:  # change c0489: a definition without a courtyard gets one
+        graphics.append(derived)
     kind: FootprintKind = "unspecified"
     if any(p.drill is not None for p in pads):
         kind = "through_hole"
@@ -110,7 +115,7 @@ def _footprint(
         properties["Height"] = height
     issues.extend(ctx.issues)
     return FootprintDef(
-        id=derived_id("fpd", BACKEND, native),
+        id=fpd_id,
         native_ids={BACKEND: native},
         provenance=ctx.provenance(f"{storage}/Data"),
         name=footprint.name,

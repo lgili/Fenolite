@@ -46,6 +46,7 @@ HYPOTHESES = (
     "H-A-IMP-FPGFX",
     "H-A-IMP-OUTLINE-ARC",
     "H-A-IMP-TEXT-ANCHOR",
+    "H-A-IMP-COURTYARD",
 )
 """Every ``H-A-IMP-*`` row of ``docs/hypotheses.md``."""
 RETIRED_HYPOTHESES = ("H-A-IMP-RPT-ANNOT",)

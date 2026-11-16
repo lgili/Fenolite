@@ -194,11 +194,13 @@ def check(
             if not faces:
                 continue
             where = " and ".join(f"the {face} face" for face in faces)
-            if extent.source == "pads":
+            if extent.source in ("pads", "derived"):  # change c0489: a derived courtyard is no courtyard
+                what = "the pads" if extent.source == "pads" else "the derived courtyard"
+                verb = "lie" if extent.source == "pads" else "lies"
                 issues.append(
                     issue(
                         "place.keepout-no-courtyard",
-                        f"the pads of {ref(extent)}, which has no courtyard, lie in {area}, which forbids "
+                        f"{what} of {ref(extent)}, which has no courtyard, {verb} in {area}, which forbids "
                         f"footprints, on {where}; KiCad's DRC does not report a part without a courtyard",
                         ref(extent),
                         "move the part out of the area, or give its footprint a courtyard",

@@ -204,6 +204,13 @@ def native_view(design: Design, data: bytes, *, file: str = "") -> NativeView:
             view.labels[model_name] = names.get(layer_id) or LAYER_NAMES.get(layer_id, model_name)
             view.tabs[model_name] = _tab(layer_id, 0)
     view.labels["Edge.Cuts"] = EDGE_LABEL
+    # change c0489: the courtyards the import derives are on no Altium layer; their tabs come last
+    for model_name, label, tab in (
+        ("F.CrtYd", "Derived Top Courtyard", 998),
+        ("B.CrtYd", "Derived Bottom Courtyard", 999),
+    ):
+        view.labels[model_name] = view.labels.get(model_name) or label
+        view.tabs.setdefault(model_name, tab)
     view.tabs.setdefault("Edge.Cuts", _tab(56, 0) - 1)
     view.labels = {key: value for key, value in view.labels.items() if value}
     view.parts = _parts(data, file)

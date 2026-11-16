@@ -928,7 +928,7 @@ class PlacedExtent:
     side: Side
     front: tuple[tuple[Point, ...], ...] = ()
     back: tuple[tuple[Point, ...], ...] = ()
-    source: Literal["courtyard", "definition", "pads", "none"] = "none"
+    source: Literal["courtyard", "definition", "pads", "derived", "none"] = "none"
     exact: bool = True
 
     @property

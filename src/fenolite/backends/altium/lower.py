@@ -38,6 +38,7 @@ import fenolite.backends.altium.project as project
 import fenolite.backends.altium.rulemap as rulemap
 import fenolite.backends.altium.unions as unions
 from fenolite.backends.altium.adapter.arcring import ArcPolygon
+from fenolite.backends.altium.adapter.courtyard import is_derived
 from fenolite.backends.altium.altsym import AltiumSymbol
 from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.cfb import CompoundTooLarge, name_key
@@ -2277,6 +2278,18 @@ def design_name(design: Design) -> str:
     return name if safe else "design"
 
 
+def _without_derived_courtyards(design: Design) -> Design:
+    """``design`` without the courtyards the Altium import derived (change c0489, ``adapter.courtyard``)."""
+    board = design.board
+    if board is None or not any(is_derived(g) for fp in board.footprints for g in fp.graphics):
+        return design
+    footprints = tuple(
+        dataclasses.replace(fp, graphics=tuple(g for g in fp.graphics if not is_derived(g)))
+        for fp in board.footprints
+    )
+    return dataclasses.replace(design, board=dataclasses.replace(board, footprints=footprints))
+
+
 def from_design(
     design: Design,
     *,
@@ -2325,6 +2338,7 @@ def from_design(
     ``edge_outline``, which this package may not import, given by the conversion): for a board without
     ``Board.outline`` its board ring is the document's outline and its inner rings are the cut-out regions
     (``_cutouts``), each counted under ``cutout``."""
+    design = _without_derived_courtyards(design)  # change c0489: never a source item, so no report row
     body_mode = pcbdoc.body_mode(bodies)
     account = _Account()
     name = options.name if options is not None else design_name(design)

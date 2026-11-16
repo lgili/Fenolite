@@ -14,6 +14,7 @@ import pytest
 
 from fenolite.backends.altium import lower, pcbdoc
 from fenolite.backends.altium.adapter import import_board
+from fenolite.backends.altium.adapter.courtyard import is_derived
 from fenolite.backends.altium.backend import AltiumBackend
 from fenolite.backends.altium.read.pcb import read_pcbdoc
 from fenolite.backends.base import ModelScope
@@ -69,7 +70,7 @@ def test_own_document_keeps_its_silkscreen(document: str, tmp_path: Path) -> Non
     first = _read(SAMPLES / document)
     written = AltiumBackend().write(first)
     second = _reading_of(written, tmp_path)
-    assert sum(len(fp.graphics) for fp in _board(first).footprints) == 27
+    assert sum(not is_derived(g) for fp in _board(first).footprints for g in fp.graphics) == 27
     assert written.inputs.written["footprint-graphic"] == 27
     assert not {"footprint-graphic", "footprint-copper", "footprint-text"} & set(written.inputs.counts())
     assert diff_designs(first, second, scope=GRAPHICS).changes == ()

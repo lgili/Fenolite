@@ -10,6 +10,7 @@ from pathlib import Path
 
 import _altium_records as rec
 
+from fenolite.backends.altium.adapter.courtyard import is_derived
 from fenolite.backends.altium.adapter.library import import_footprints, import_symbols
 from fenolite.backends.altium.adapter.pins import PIN_TYPES
 from fenolite.backends.altium.read.pcblib import read_pcblib
@@ -74,7 +75,7 @@ def test_footprints_of_the_blink_library_equal_their_kicad_sources() -> None:
             assert pad.padstack is None and pad.net_id is None
             assert pad.layers == (("*.Cu",) if pad.drill else ("F.Cu",))
         assert footprint.graphics and {g.layer for g in footprint.graphics} <= {
-            "F.SilkS", "F.Cu", "Mech.13", "Mech.15", "Mech.1",
+            "F.SilkS", "F.Cu", "F.CrtYd", "Mech.13", "Mech.15", "Mech.1",
         }  # fmt: skip
 
 
@@ -120,7 +121,7 @@ def test_footprints_definition_from_records() -> None:
     assert hole.id != twin.id and hole.padstack is not None
     assert [layer.layer for layer in hole.padstack.layers] == ["F.Cu", "In*.Cu", "B.Cu"]
     assert [layer.size.w for layer in hole.padstack.layers] == [1_524_000, 1_270_000, 1_524_000]
-    assert [(g.kind, g.layer, g.filled) for g in conn.graphics] == [
+    assert [(g.kind, g.layer, g.filled) for g in conn.graphics if not is_derived(g)] == [
         ("line", "F.SilkS", False),
         ("circle", "Mech.13", False),
         ("rect", "F.SilkS", True),

@@ -12,6 +12,7 @@ import _altium_records as rec
 
 from fenolite.backends.altium.adapter import import_board
 from fenolite.backends.altium.adapter.board import read_board
+from fenolite.backends.altium.adapter.courtyard import is_derived
 from fenolite.backends.altium.adapter.evidence import EVIDENCE
 from fenolite.backends.altium.adapter.ids import Ids
 from fenolite.backends.altium.read.pcb import read_pcbdoc
@@ -47,7 +48,7 @@ def test_silkscreen_of_the_blink_sample() -> None:
     each footprint, and no ``footprint-graphics`` among the unmapped records."""
     design, issues = _blink()
     board = _board(design)
-    graphics = [graphic for footprint in board.footprints for graphic in footprint.graphics]
+    graphics = [g for footprint in board.footprints for g in footprint.graphics if not is_derived(g)]  # c0489
     kinds = sorted(graphic.kind for graphic in graphics)
     assert len(board.footprints) == 3 and len(graphics) == 27
     assert kinds.count("line") == 24 and kinds.count("arc") + kinds.count("circle") == 3

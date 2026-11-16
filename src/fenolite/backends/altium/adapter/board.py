@@ -21,6 +21,7 @@ from fenolite.backends.altium.adapter import copper, units
 from fenolite.backends.altium.adapter.bodies import component_body
 from fenolite.backends.altium.adapter.codes import Census, issue
 from fenolite.backends.altium.adapter.context import Context
+from fenolite.backends.altium.adapter.courtyard import derived_courtyard
 from fenolite.backends.altium.adapter.evidence import EVIDENCE
 from fenolite.backends.altium.adapter.ids import UNION_KEY, Exact, Ids, bag
 from fenolite.backends.altium.adapter.layers import MULTI, LayerMap, stackup, with_long_mechanical
@@ -379,6 +380,8 @@ def read_board(doc: PcbDocument, *, file: str, sha256: str, ids: Ids) -> BoardIm
         member = dict(record.record.fields).get("UNIONINDEX", "0")
         if member.isdigit() and 0 < int(member) < 1 << 32:  # change c0460: a union member keeps its union
             pairs.append((UNION_KEY, member))
+        # change c0489: a footprint without a courtyard gets one, derived from its bodies and pads
+        derived = derived_courtyard(fp_id, side, pads, made_bodies, items.graphics, ctx.provenance(locator))
         footprints.append(
             FootprintInstance(
                 id=fp_id,
@@ -395,7 +398,7 @@ def read_board(doc: PcbDocument, *, file: str, sha256: str, ids: Ids) -> BoardIm
                 pads=pads,
                 fields=items.fields,
                 bodies=tuple(made_bodies),
-                graphics=items.graphics,
+                graphics=(*items.graphics, derived) if derived is not None else items.graphics,
                 texts=items.texts,
                 keepouts=items.keepouts,
                 net_ties=net_ties(record, pads),

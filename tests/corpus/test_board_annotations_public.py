@@ -16,17 +16,18 @@ from fenolite.view.scene import CHECKS
 pytestmark = pytest.mark.needs_corpus
 BOARDS = {item.id: item for item in manifest_items("rta") if "-pcbdoc-" in item.id}
 EXPECTED = {
-    "altium-third-party-pcbdoc-01": (0, 5),
-    "altium-third-party-pcbdoc-02": (0, 0),
+    "altium-third-party-pcbdoc-01": (0, 241),
+    "altium-third-party-pcbdoc-02": (0, 2),
     "altium-third-party-pcbdoc-03": (0, 0),
-    "altium-third-party-pcbdoc-04": (0, 1),  # c0411: the component keep-out is a footprint area
-    "altium-third-party-pcbdoc-05": (0, 0),
-    "altium-third-party-pcbdoc-06": (0, 0),  # c0443: its 2 component cut-outs are board edges
-    "altium-third-party-pcbdoc-07": (0, 0),
+    "altium-third-party-pcbdoc-04": (0, 9),  # c0411: the component keep-out is a footprint area
+    "altium-third-party-pcbdoc-05": (0, 2),
+    "altium-third-party-pcbdoc-06": (0, 4),  # c0443: its 2 component cut-outs are board edges
+    "altium-third-party-pcbdoc-07": (0, 11),
     "altium-third-party-pcbdoc-08": (0, 4),
 }
 """Per board: the hatched regions of the Keep-Out Layer (free cut-outs are the outline's), and the overlaps of
-pad-made extents the notes count (census of 2026-10-25)."""
+pad-made extents the notes count (census of 2026-10-25); since c0489 the derived courtyards (hulls of bodies
+and pads grown by 0.25 mm) of the imported footprints, census of 2026-11-16."""
 
 
 @pytest.mark.parametrize("row", sorted(EXPECTED))

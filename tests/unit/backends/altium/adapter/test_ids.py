@@ -14,6 +14,8 @@ import pytest
 
 from fenolite.backends.altium.adapter import EVIDENCE, EXT_KEYS, import_board
 from fenolite.backends.altium.adapter.codes import Census
+from fenolite.backends.altium.adapter.courtyard import EVIDENCE as COURTYARD
+from fenolite.backends.altium.adapter.courtyard import is_derived
 from fenolite.backends.altium.adapter.ids import Exact, Ids, bag
 from fenolite.backends.altium.read.pcb import read_pcbdoc
 from fenolite.core.coords import Point
@@ -48,7 +50,9 @@ def test_provenance_names_the_file_and_the_record() -> None:
     for entity in design.entities():
         assert entity.provenance is not None, entity.id
         assert (entity.provenance.backend, entity.provenance.file) == ("altium", "blink.PcbDoc")
-        assert entity.provenance.file_sha256 == digest and entity.provenance.evidence == EVIDENCE
+        assert entity.provenance.file_sha256 == digest and entity.provenance.evidence == (
+            COURTYARD if is_derived(entity) else EVIDENCE  # change c0489
+        )
     footprint = design.board.footprints[0]
     assert footprint.provenance is not None and footprint.provenance.locator == "Components6/Data#0"
     assert footprint.native_ids["altium"].startswith("fp:")

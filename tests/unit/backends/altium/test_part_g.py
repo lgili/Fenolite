@@ -32,6 +32,7 @@ from pathlib import Path
 import pytest
 
 import fenolite.cli.main as cli_main
+from fenolite.backends.altium.adapter.courtyard import is_derived
 from fenolite.backends.altium.backend import AltiumBackend
 from fenolite.backends.altium.lower import pairs_of
 from fenolite.core.coords import Point
@@ -207,8 +208,8 @@ def test_part_g_files(tmp_path: Path) -> None:
     rewrite, _refs = _items(first / "rewrite" / "board6.PcbDoc")
     mech, _refs = _items(first / "rewrite-mech" / "board6.PcbDoc")
     assert rewrite.board is not None and mech.board is not None
-    assert sum(len(fp.graphics) for fp in rewrite.board.footprints) == 27
-    layers = Counter(graphic.layer for fp in mech.board.footprints for graphic in fp.graphics)
+    assert sum(not is_derived(g) for fp in rewrite.board.footprints for g in fp.graphics) == 27
+    layers = Counter(g.layer for fp in mech.board.footprints for g in fp.graphics if not is_derived(g))
     assert (layers["Mech.1"], layers["Mech.5"]) == (1, 1) and sum(layers.values()) == 29
     text = (first / "expected.md").read_text(encoding="utf-8")
     assert "| R1 | Mechanical 1 | tracks | 1 |" in text and "| R1 | Mechanical 5 | tracks | 1 |" in text

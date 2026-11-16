@@ -23,6 +23,7 @@ from _corpus import MANIFEST, CorpusItem, corpus_items, heavy_enabled, manifest_
 
 from fenolite.backends.altium.adapter import connectivity as geo
 from fenolite.backends.altium.adapter import import_board, import_footprints
+from fenolite.backends.altium.adapter.courtyard import is_derived
 from fenolite.backends.altium.adapter.netlist import NetOptions, Resolved, SheetInput, resolve
 from fenolite.backends.altium.read.bodies import encode, read_bodies
 from fenolite.backends.altium.read.pcb import PcbDocument, read_pcbdoc
@@ -409,7 +410,7 @@ def test_footprint_items_conserve_the_census(item: CorpusItem, capsys: pytest.Ca
         )
     )
     footprints = [fp for fp in parts.board.footprints if "board_only" not in fp.attributes]
-    graphics = sum(len(fp.graphics) for fp in footprints)
+    graphics = sum(not is_derived(g) for fp in footprints for g in fp.graphics)  # c0489: derived ones aside
     fields = sum(len(fp.fields) for fp in footprints)
     texts = sum(len(fp.texts) for fp in footprints)
     layers = Counter(
@@ -441,7 +442,7 @@ def test_footprint_items_conserve_the_census(item: CorpusItem, capsys: pytest.Ca
     assert graphics + fields + texts + areas == carried
     assert left == 0
     assert (
-        len({g.id for fp in footprints for g in (*fp.graphics, *fp.texts, *fp.fields)})
+        len({g.id for fp in footprints for g in (*fp.graphics, *fp.texts, *fp.fields) if not is_derived(g)})
         == graphics + texts + fields
     )
 

@@ -16,6 +16,7 @@ from pathlib import Path
 
 from _importcode import imported
 
+from fenolite.backends.altium.adapter.courtyard import is_derived
 from fenolite.backends.kicad.sexpr import Node, parse
 from fenolite.convert import convert_project
 from fenolite.convert.sources import read_source
@@ -83,7 +84,7 @@ def test_convert_writes_footprint_graphics() -> None:
     source = _source()
     board = source.design.board
     assert board is not None
-    expected = Counter(g.kind for fp in board.footprints for g in fp.graphics)
+    expected = Counter(g.kind for fp in board.footprints for g in fp.graphics if not is_derived(g))
     assert expected == {"line": 24, "arc": 2, "circle": 1, "polygon": 1}
     conversion = convert_project(source, to="kicad", allow_lossy=True)
     pcb = parse(conversion.files[conversion.read_back].decode())
@@ -91,22 +92,37 @@ def test_convert_writes_footprint_graphics() -> None:
     footprints = pcb.nodes("footprint")
     for footprint in footprints:
         written += _heads(footprint)
-    assert written == {"fp_line": 24, "fp_arc": 2, "fp_circle": 1, "fp_poly": 1}
+    assert written == {
+        "fp_line": 24,
+        "fp_arc": 2,
+        "fp_circle": 1,
+        "fp_poly": 4,
+    }  # c0489: 3 derived courtyards
     assert sum(len(footprint.nodes(TEXT_HEAD)) for footprint in footprints) == 1
     libraries = [
         parse(data.decode()) for name, data in sorted(conversion.files.items()) if name.endswith(".kicad_mod")
     ]
     assert sum((_heads(mod) for mod in libraries), Counter[str]()) == written
     # the region keeps its fill and lands on the user layer Mech.13 maps to; silkscreen stays silkscreen
-    region = next(child for footprint in footprints for child in footprint.nodes("fp_poly"))
+    region = next(
+        child
+        for footprint in footprints
+        for child in footprint.nodes("fp_poly")
+        if "CrtYd" not in str(child.find("layer"))  # change c0489: not a derived courtyard
+    )
     fill = region.find("fill")
     assert fill is not None and fill.atoms()[0].value in {"yes", "solid"}
-    assert set().union(*(_layers(fp, "fp_poly") for fp in footprints)) == {_user_layer(pcb, "Mech.13")}
+    polys = set().union(*(_layers(fp, "fp_poly") for fp in footprints)) - {"F.CrtYd", "B.CrtYd"}  # c0489
+    assert polys == {_user_layer(pcb, "Mech.13")}
     assert any("F.SilkS" in _layers(fp, "fp_line") for fp in footprints)
     assert any("B.SilkS" in _layers(fp, "fp_arc") for fp in footprints)
     rows = {row.kind: row for row in conversion.report.rows}
     graphic = rows["footprint-graphic"]
-    assert (graphic.source, graphic.written, graphic.lost) == (28, 28, 0)
+    assert (graphic.source, graphic.written, graphic.lost) == (
+        31,
+        31,
+        0,
+    )  # c0489: and the 3 derived courtyards
     text = rows["footprint-text"]
     assert (text.source, text.written, text.lost) == (1, 1, 0)  # change c0422
     lossy = [i for i in conversion.issues if i.code == "convert.lossy" and i.where.startswith("footprint-")]
@@ -119,4 +135,9 @@ def test_import_to_python_keeps_footprint_graphics(tmp_path: Path) -> None:
     mods = sorted((tmp_path / "out").rglob("*.kicad_mod"))
     assert mods, "the import vendors the footprints it derives"
     written = sum((_heads(parse(path.read_text(encoding="utf-8"))) for path in mods), Counter[str]())
-    assert written == {"fp_line": 24, "fp_arc": 2, "fp_circle": 1}
+    assert written == {
+        "fp_line": 24,
+        "fp_arc": 2,
+        "fp_circle": 1,
+        "fp_poly": 3,
+    }  # c0489: 3 derived courtyards

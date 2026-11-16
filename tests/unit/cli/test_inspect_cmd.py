@@ -336,7 +336,7 @@ def test_altium_schematic_in_both_forms(
 def test_altium_libraries(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, no_subprocess: None) -> None:
     code, env, _, _ = run(monkeypatch, tmp_path, "inspect", str(BLINK / "blink.PcbLib"))
     assert code == 0 and env["result"]["kind"] == "altium_pcblib" and env["result"]["format_version"] == "6.0"
-    assert env["result"]["counts"] == {"footprints": 3, "pads": 36, "graphics": 27}
+    assert env["result"]["counts"] == {"footprints": 3, "pads": 36, "graphics": 30}  # c0489: 3 derived
     code, env, _, _ = run(monkeypatch, tmp_path, "inspect", str(BLINK / "blink.SchLib"), "--summary")
     assert code == 0 and env["result"]["kind"] == "altium_schlib" and env["result"]["format_version"] == "5.0"
     assert env["result"]["counts"] == {"symbols": 3, "units": 3, "pins": 36}

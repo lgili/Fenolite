@@ -157,6 +157,7 @@ The closed table `adapter.EXT_KEYS`. A value is text of the record or a decimal 
 | `union_index` | via, track, arc, graphic, text, footprint | the union the item is a member of (change c0460): a via's 32-bit value at offset 70 of its record, a track's at 36 and an arc's at 48 of their long records, a free text's at 119 of its first subrecord, a region's or a component's `UNIONINDEX`, when not 0 (S-2190). A conversion to KiCad carries it by the item's KiCad uuid (`Fenolite.Altium.UnionMembers`); the Altium writer writes it back |
 | `stroke_font` | text, footprint text, field | the font a stroke text record names (font type 0, change c0460): `<bold><italic> <name>`, each flag `0` or `1`, when the record names a font (S-2253). A stroke text draws with neither the name nor the flags. A conversion to KiCad carries it by the text's KiCad uuid (`Fenolite.Altium.StrokeFonts`); the Altium writer writes the name and the flags in the stroke text's record |
 | `text_tail` | text, footprint text, field | the bytes from 137 on of the first subrecord of a text on Mechanical 17 to 32 (change c0450, task 4.5), lowercase hex: the record holds the layer byte of Mechanical 16 and the layer's long id at 226 (`pcb-records.md`, "Text"). A conversion to KiCad carries them by the text's KiCad uuid (`Fenolite.Altium.TextTails`); the Altium writer writes the text in that 232- or 252-byte form with the long id at 226 |
+| `derived` | footprint graphic | `courtyard`: a courtyard the import derived (change c0489, "Derived courtyard"); never a source item, so the Altium writer leaves it out |
 
 ## The copper check and the parity comparison
 
@@ -171,7 +172,22 @@ of the parity comparison (`adapter/parity.py`). No record is read that the impor
 | A pad lies at the footprint's position plus its own position turned by the footprint's angle, with no further mirror on the bottom side, and is turned by the sum of the two angles: the inverse of how the import stores it ("Pads and padstacks"). The copper of a layer of a stack lies at the pad's position plus that layer's offset | S-0160, S-0302 | INFERRED | H-A-IMP-FRAME |
 | The corner radius of a rounded rectangle is its corner percentage of half the shorter side (100 is fully round), the inverse of what the writer stores for KiCad's corner ratio (`pcbrecords.corner_percent`) | S-0160, S-0150 | INFERRED | H-A-IMP-PADSTACK |
 | A shape the import does not resolve (an octagon, a rounded rectangle without its percentage, a rounded rectangle of a per-layer stack, whose percentage is not in the model) is checked as the rectangle of its size, which contains it; the copper check then says `approximated` | S-0160 | INFERRED | H-A-IMP-PADSTACK |
-| The import reads no courtyard: the extent of a footprint is the hull of its pads' copper | S-0160 | INFERRED | H-A-IMP-FRAME |
+| The import reads no courtyard from the document: the extent of a footprint is its derived courtyard ("Derived courtyard", change c0489), else the hull of its pads' copper | S-0160 | INFERRED | H-A-IMP-FRAME |
+
+### Derived courtyard
+
+Change c0489. A footprint (board or library) with no graphic on `F.CrtYd` or `B.CrtYd` gets one polygon
+graphic on the courtyard layer of its side, in its frame. Its id is derived from the footprint id with the
+suffix `#courtyard`; its provenance evidence is `INFERRED` with `H-A-IMP-COURTYARD`, and its bag holds the
+pair `derived=courtyard`. The frame's `placed_extents` gives it with `source` `derived`, never exact. The
+Altium writer never writes it; a conversion to KiCad writes it and carries it in
+`Fenolite.Altium.DerivedCourtyards` (reference, layer, points in the footprint frame), and the way back
+leaves out a polygon that matches one within 1 nm.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| The courtyard is the convex hull of the outlines of the footprint's component bodies of known projection and heights and the boxes of its pads' copper, grown by `DERIVED_COURTYARD_MARGIN`; no mechanical layer gives it, since no public source states a layer's kind (`pcb-records.md`, "Mechanical layer kind") | S-0160 | INFERRED | H-A-IMP-COURTYARD |
+| `DERIVED_COURTYARD_MARGIN` is 250 000 nm (0.25 mm), a Fenolite choice and no value of any document; the growth is the Minkowski sum with the octagon that circumscribes the circle of that radius, so it holds the hull grown by the margin | S-0160 | INFERRED | H-A-IMP-COURTYARD |
 
 ### Clearance of the copper check
 

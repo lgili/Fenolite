@@ -13,6 +13,7 @@ import _altium_records as rec
 import pytest
 
 from fenolite.backends.altium.adapter import import_board
+from fenolite.backends.altium.adapter.courtyard import is_derived
 from fenolite.backends.altium.read.pcb import read_pcbdoc
 from fenolite.backends.altium.read.pcbprims import Prefix
 from fenolite.core.coords import Point
@@ -203,7 +204,7 @@ def test_keep_outs_of_a_library_footprint_are_its_rule_areas() -> None:
     )  # fmt: skip
     (footprint,) = library.footprints
     assert not [g for g in footprint.graphics if g.layer.endswith(".Cu")]
-    assert [g.layer for g in footprint.graphics] == ["Altium.KeepOut"] * 2
+    assert [g.layer for g in footprint.graphics if not is_derived(g)] == ["Altium.KeepOut"] * 2
     assert not [i for i in issues if i.code == "altium.import.unmapped"]
     band, cutout, area = footprint.keepouts
     assert band.layers == ("F.Cu",) and _restrictions(band) == (True, True, True, True)

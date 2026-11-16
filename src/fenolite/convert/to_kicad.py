@@ -633,6 +633,11 @@ def write_altium(source: SourceProject, options: Options) -> Written:
     straight = straightarcs.found(source.design)
     if straight:  # change c0485: the record of each arc that draws a straight track, for the way back
         board_items[straightarcs.PROPERTY] = straightarcs.carrier_text(straight).encode("utf-8")
+    from fenolite.convert import derivedcourtyards
+
+    courtyards = derivedcourtyards.found(source.design)
+    if courtyards:  # change c0489: each derived courtyard, so the way back leaves it out
+        board_items[derivedcourtyards.PROPERTY] = derivedcourtyards.carrier_text(courtyards).encode("utf-8")
     planes = _carried_planes(source, design)
     if (
         planes.planes or planes.signals or planes.names

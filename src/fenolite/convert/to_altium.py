@@ -345,6 +345,23 @@ def _carried_straight_arcs(source: SourceProject, design: Design) -> list[lower.
     return straightarcs.read_carrier(found.get(straightarcs.PROPERTY))
 
 
+def _carried_courtyards(source: SourceProject, design: Design) -> Design:
+    """``design`` without the courtyard polygons that a conversion to KiCad carried as derived by the Altium
+    import (change c0489, ``derivedcourtyards``); unchanged for a board that does not read or carries none."""
+    from fenolite.backends.kicad.boardcarrier import carried as board_carried
+    from fenolite.convert import derivedcourtyards
+
+    if design.board is None or source.path.suffix != ".kicad_pcb":
+        return design
+    try:
+        found = board_carried(source.path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, FormatError):
+        return design
+    return derivedcourtyards.without_carried(
+        design, derivedcourtyards.read_carrier(found.get(derivedcourtyards.PROPERTY))
+    )
+
+
 def _carried_planes(
     source: SourceProject, design: Design
 ) -> tuple[Design, dict[str, lower.CarriedPlane], dict[str, tuple[str, ...]]]:
@@ -579,6 +596,7 @@ def write(source: SourceProject, options: Options) -> Written:
     kept_storages, storage_losses = _carried_storages(source, design)  # changes c0450 and c0461
     design, planes, plane_losses = _carried_planes(source, design)  # change c0466
     design = _carried_fonts(source, design)  # change c0460, S-2253
+    design = _carried_courtyards(source, design)  # change c0489
     frame_origin = _carried_origin(source, design)  # change c0467
     try:
         written = lower.write_design(

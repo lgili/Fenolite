@@ -346,3 +346,14 @@ Census of 2026-11-14 (task 1.1 of c0498) over the seven cached public rows `alti
 | `DESCRIPTION` is Altium's text of the finding (`Silk Text to Silk Clearance [5mil]`, `[Top Solder] Mask Sliver [1.575mil]`) and is empty in the Board Outline Clearance records | S-2335 | CORPUS-VERIFIED | H-A-DRC-STORED |
 | A `WaivedViolations` record holds `RULEINDEX`, `PRIM1KIND`, `PRIM1INDEX`, `PRIM2KIND`, `PRIM2INDEX` (`KIND`, not `ID`), `CREATEDAT`, `AUTHORID`, `AUTHORTITLE`, `SOURCE` and an optional `COMMENT`; no location. The waived violations of row `-07` name the primitives of its stored Board Outline Clearance violations | S-2335 | CORPUS-VERIFIED | H-A-DRC-STORED |
 | Primitive kinds other than those above (`Arc`, `Fill`, `Region`, `Polygon`, `Component`) and a record with more than two primitives (`INVOLVEDPRIMCOUNT` above 0) are in no public row: the reader keeps such a primitive as unnamed. The kit case "native DRC" (an authored board, one planted fault per kind) settles them | S-2335 | UNKNOWN | H-A-DRC-STORED |
+
+## Mechanical layer kind (change c0489)
+
+Looked for on 2026-11-16 (task 1.1 of c0489) in the public sources already listed for the PCB records and the
+board record: none names a key of the board record or of a layer that states whether a mechanical layer is a
+courtyard or an assembly layer. The import therefore reads no kind, and its derived courtyard takes only the
+hull of bodies and pads (`import.md`, "Derived courtyard").
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| No key of a PCB document read from a public source states the kind (courtyard, assembly) of a mechanical layer; a layer's name is free text and does not decide it | S-0002, S-0160 | UNKNOWN | H-A-IMP-COURTYARD |

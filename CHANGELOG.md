@@ -8,6 +8,14 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Added
 
+- A footprint imported from Altium gets a derived courtyard (c0489): the convex hull of its component bodies
+  of known projection and heights and its pads' copper, grown by `DERIVED_COURTYARD_MARGIN` (0.25 mm), as
+  one polygon on `F.CrtYd`/`B.CrtYd`, evidence `INFERRED` (`H-A-IMP-COURTYARD`), marked `derived=courtyard`
+  in its `altium` bag (new bag key). The Altium frame's `placed_extents` gives it with the new source
+  `derived` (`PlacedExtent.source`), never exact, so `place` reports `place.courtyard-overlap` for parts whose
+  bodies overlap. The Altium writer never writes it; a conversion to KiCad writes it and carries it in
+  `Fenolite.Altium.DerivedCourtyards`, and the way back leaves out a polygon that still matches. No public
+  source states a mechanical layer's kind, so none is read (`pcb-records.md`, `UNKNOWN`).
 - Edit plans replayed onto a newer save (c0502): `Session.plan()` records a PCB edit session as an
   `EditPlan` (`fenolite.altium-edit-plan.v0`, schema registered): per operation its c0497 ops-file entry
   (lengths in nanometres, angles as text such as `"90deg"`), its target's identity (a component's or

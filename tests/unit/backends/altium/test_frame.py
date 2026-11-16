@@ -226,10 +226,13 @@ def test_frame_reads_the_corner_percentage_and_the_stack() -> None:
 def test_frame_extents_are_the_hull_of_the_pads() -> None:
     design, _ = sample("blink")
     extents = AltiumBackend().placed_extents(design)
-    assert len(extents) == 3 and all(extent.source == "pads" and not extent.exact for extent in extents)
+    # change c0489: an imported footprint carries its derived courtyard; a model without one takes the pads
+    assert len(extents) == 3 and all(extent.source == "derived" and not extent.exact for extent in extents)
     for extent in extents:
         assert len(extent.own) == 1 and len(extent.own[0]) >= 3
         assert (extent.front == ()) == (extent.side == "bottom")
+    (pads,) = AltiumBackend().placed_extents(one_pad(pad()))
+    assert pads.source == "pads" and not pads.exact
     (none,) = AltiumBackend().placed_extents(one_pad(pad(layers=("F.Paste",))))
     assert none.source == "none" and none.own == () and none.exact
 
