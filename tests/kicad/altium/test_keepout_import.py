@@ -20,6 +20,7 @@ import pytest
 from _resources import kicad_cli_major
 
 from fenolite.backends.altium.adapter import import_board
+from fenolite.backends.altium.adapter.courtyard import is_derived
 from fenolite.backends.altium.read.pcb import read_pcbdoc
 from fenolite.convert.altium_to_kicad import Ledger
 from fenolite.convert.altium_to_kicad import keepouts as convert_keepouts
@@ -166,7 +167,8 @@ def test_library_rule_areas_match_fp_upgrade() -> None:
     if kicad_cli_major() == 9:
         pytest.skip("Altium libraries are read by `fp upgrade` from 10.0 on only")
     imported, written, upgraded = _library_through_both()
-    assert [g.layer for g in imported.graphics] == ["Altium.KeepOut"] * 2
+    # c0489: the derived courtyard is not a drawing of the source
+    assert [g.layer for g in imported.graphics if not is_derived(g)] == ["Altium.KeepOut"] * 2
     assert [k.layers for k in upgraded.keepouts].count(("*.Cu",)) == 2  # its 32 copper layers
     theirs = sorted((k for k in upgraded.keepouts if k.layers != ("*.Cu",)), key=_box)
     for ours in (imported.keepouts, written.keepouts):

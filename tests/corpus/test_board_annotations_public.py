@@ -23,7 +23,7 @@ EXPECTED = {
     "altium-third-party-pcbdoc-05": (0, 2),
     "altium-third-party-pcbdoc-06": (0, 4),  # c0443: its 2 component cut-outs are board edges
     "altium-third-party-pcbdoc-07": (0, 11),
-    "altium-third-party-pcbdoc-08": (0, 4),
+    "altium-third-party-pcbdoc-08": (0, 528),  # heavy item: census from CI run 43829594954
 }
 """Per board: the hatched regions of the Keep-Out Layer (free cut-outs are the outline's), and the overlaps of
 pad-made extents the notes count (census of 2026-10-25); since c0489 the derived courtyards (hulls of bodies
