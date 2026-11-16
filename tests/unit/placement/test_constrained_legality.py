@@ -8,7 +8,7 @@ from fenolite.backends.base import BoardFrame, PlacedExtent
 from fenolite.backends.kicad import frame
 from fenolite.core.coords import Point
 from fenolite.model.board import Keepout
-from fenolite.placement.constrained_legality import check_constraints
+from fenolite.placement.constrained_legality import check_constraints, overlap_measure
 from fenolite.placement.constraints import GroupRegion, PlacementConstraints
 
 from ._constrained_fixture import board, copper_checker, part
@@ -119,3 +119,28 @@ def test_empty_layer_keepout_judges_nothing() -> None:
     )
     design = replace(design, board=replace(design.board, keepouts=(empty,)))
     assert not check_constraints(design, frame, PlacementConstraints()).hard
+
+
+def _square(x: int, y: int, size: int) -> tuple[Point, ...]:
+    return (Point(x, y), Point(x + size, y), Point(x + size, y + size), Point(x, y + size))
+
+
+def test_overlap_measure_grows_as_it_gets_worse() -> None:
+    def extent(ident: str, *rings: tuple[Point, ...]) -> PlacedExtent:
+        return PlacedExtent(ident, "top", front=rings, source="courtyard")
+
+    big = extent("a", _square(0, 0, 10))
+    front = ("front",)
+    # touching along an edge: no area, no distance
+    assert overlap_measure(big, extent("b", _square(10, 0, 10)), front) == 0
+    # nested: the whole inner square, doubled
+    assert overlap_measure(big, extent("b", _square(2, 2, 4)), front) == 2 * 16
+    # disjoint: minus the distance
+    assert overlap_measure(big, extent("b", _square(13, 0, 10)), front) == -3
+    # deeper is larger
+    shallow = overlap_measure(big, extent("b", _square(8, 0, 10)), front)
+    deep = overlap_measure(big, extent("b", _square(5, 0, 10)), front)
+    assert shallow is not None and deep is not None and 0 < shallow < deep
+    # failing: a face without rings, or a degenerate ring
+    assert overlap_measure(big, extent("b", _square(2, 2, 4)), ("back",)) is None
+    assert overlap_measure(big, extent("b", (Point(1, 1), Point(2, 2))), front) is None

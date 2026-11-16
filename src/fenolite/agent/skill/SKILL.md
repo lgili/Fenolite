@@ -146,7 +146,7 @@ argument. Practice pages explain engineering judgement; example numbers are not 
 - `library-review`: Check library records, compare revisions and prepare deterministic sheets for a person's review.
 - `model-versions`: Read and migrate canonical model folders.
 - `parts`: Symbols, footprints, pin maps, exact values, device imports, interfaces and blocks.
-- `placement`: place() by coordinates or by reference, staged parts and the grid strategy, moving parts on the board, copying a block by its pads, pads and text fields.
+- `placement`: place() by coordinates or by reference, staged parts and the grid strategy, moving parts, copying a block by its pads, pads and text fields.
 - `recovery`: Tested recipes for exit codes 2–7 and shorted copper, error codes and reading the guide.
 - `route-proposals`: Negotiated alternatives, facts, whole bundles and reviewed decisions.
 - `route-search`: Opt-in bounded and role-aware search.

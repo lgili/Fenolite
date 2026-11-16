@@ -2,14 +2,17 @@
 # Copyright (c) 2026 Fenolite contributors
 
 import json
+from dataclasses import replace
 
 import pytest
 from _checkcli import run
 
 from fenolite.backends.kicad.pcb import read_board
 from fenolite.cli import place_optimize
+from fenolite.cli.errors import CliError
 
 from .test_place_constrained import authored_board
+from .test_place_optimization_proposal import _overlap_board, _request  # pyright: ignore[reportPrivateUsage]
 
 
 @pytest.fixture
@@ -204,3 +207,30 @@ def test_build_keeps_the_applied_layout_and_source_lock(tmp_path, monkeypatch):
     assert by_ref["U1"].position == fixed.position and by_ref["U1"].locked
     assert by_ref["R1"].position.x == candidate["poses"][0]["position"]["x"]
     assert by_ref["R1"].position.y == candidate["poses"][0]["position"]["y"]
+
+
+def test_stale_review_of_a_proposal_with_baseline_findings_is_refused(tmp_path):
+    path, design, ids = _overlap_board(tmp_path, free=True)
+    request = _request(ids["C1"])
+    proposal = place_optimize.propose(design, path, request, frozenset())
+    chosen = proposal.candidates[0]
+    assert chosen.baseline
+    assert design.board is not None
+    # the old overlap grows after the proposal: its fingerprint no longer matches
+    moved = replace(
+        design,
+        board=replace(
+            design.board,
+            footprints=tuple(
+                replace(fp, position=replace(fp.position, x=fp.position.x - 100_000))
+                if fp.id == ids["R2"]
+                else fp
+                for fp in design.board.footprints
+            ),
+        ),
+    )
+    with pytest.raises(CliError) as caught:
+        place_optimize.propose(
+            moved, path, request, frozenset(), review=chosen, expected_fingerprint=proposal.input_sha256
+        )
+    assert caught.value.code == "FEN-4002"

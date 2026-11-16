@@ -97,14 +97,31 @@ def test_an_overlap_left_where_it_was_does_not_refuse(
 
 
 def test_a_finding_on_a_moved_part_is_judged(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """Negative case: the same overlap on a part the command moves is an error, and nothing is planned."""
+    """Scenario "A moved part deepens an old overlap": R1 moved 0.1 mm toward D1 is an error, and nothing
+    is planned (change c0487)."""
     folder = _built(monkeypatch, tmp_path)
-    run(monkeypatch, tmp_path, "place", str(folder), "--move", "R1=38mm,20mm", "--force", "--confirm")
+    run(monkeypatch, tmp_path, "place", str(folder), "--move", "R1=37.5mm,20mm", "--force", "--confirm")
     code, env, _, _ = run(
-        monkeypatch, tmp_path, "place", str(folder), "--move", "R1=38.2mm,20mm", "--dry-run"
+        monkeypatch, tmp_path, "place", str(folder), "--move", "R1=37.6mm,20mm", "--dry-run"
     )
     assert code == 5 and codes(env) == ["place.courtyard-overlap"]
     assert "plan" not in env["result"]
+
+
+def test_a_moved_part_leaves_an_old_overlap_smaller(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "A moved part leaves an old overlap smaller": R1 moved 0.1 mm away from D1, still on it, keeps
+    the overlap as ``place.existing``, and the board is planned (change c0487)."""
+    folder = _built(monkeypatch, tmp_path)
+    run(monkeypatch, tmp_path, "place", str(folder), "--move", "R1=37.5mm,20mm", "--force", "--confirm")
+    code, env, err, _ = run(
+        monkeypatch, tmp_path, "place", str(folder), "--move", "R1=37.4mm,20mm", "--dry-run"
+    )
+    assert code == 0, (env["issues"], err)
+    assert [(f["code"], f["where"]) for f in env["issues"] if f["code"].startswith("place.")] == [
+        ("place.existing", "D1,R1")
+    ]
+    assert env["result"]["legality"] == {"place.courtyard-overlap": 1}
+    assert env["result"]["plan"]
 
 
 # --- (b) locked parts of a converted board -------------------------------------------------------------

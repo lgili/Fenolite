@@ -3623,7 +3623,7 @@ fix = "Move the part out of the area, or give its footprint a courtyard so that 
 see = "place"
 
 ["place.existing"]
-meaning = "A legality finding (named in the message) that the board had before the move, on parts the command did not move. The move did not make it, so it does not refuse the write; on a converted board these are often parts in a cut-out or courtyards that already overlap."
+meaning = "A legality finding (named in the message) that the board had before the move, on parts the command did not move, or a courtyard overlap of a moved part whose overlap area did not grow. The move did not make it worse, so it does not refuse the write; on a converted board these are often parts in a cut-out or courtyards that already overlap."
 fix = "Nothing for the move. Fix the finding where the board has it, then check the board."
 see = "place"
 

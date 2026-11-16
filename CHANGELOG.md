@@ -114,6 +114,15 @@ All notable changes to Fenolite are documented here. The format follows
   Only a netless or unshapeable copper graphic still holds every selected part `attachment_unchecked`. The
   help of `--move` and `--region` and the `placement` guide say a larger Y moves the part down and a
   position above the outline's corner has a negative Y; the guide adds that Altium shows Y up.
+- Findings a board already has are a baseline for placement (c0487). `place --strategy optimize` checks
+  the board once before any move; a candidate's hard finding that the board already has and that the
+  candidate does not make worse no longer rejects it, and is listed in the candidate's new optional
+  `baseline` field (schemas `fenolite.placement-optimization-result.v0`, `fenolite.place.v0`/`v1`). Worse
+  means a larger courtyard intersection area (else a smaller distance) for `place.courtyard-overlap` and
+  `gap`, a smaller gap for a copper finding, and naming a moved part for any other finding; a measure that
+  cannot be computed counts as new. `place --move` keeps an old `place.courtyard-overlap` of a moved part
+  as `place.existing` while its overlap area does not grow. New helper
+  `placement.constrained_legality.overlap_measure`.
 
 - Through-hole pads of four-layer boards in Altium conversions (c0488): level 3 of the equivalence check
   gives a `thru_hole` pad on every copper layer of its board (by name or by `*.Cu`) the copper span

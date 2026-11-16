@@ -4,16 +4,19 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from itertools import combinations
 from typing import Protocol
 
-from fenolite.backends.base import BoardFrame, DesignRules
+from fenolite.backends.base import BoardFrame, DesignRules, PlacedExtent
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue, Severity
 from fenolite.core.evidence import Evidence
-from fenolite.geometry.thick import Thick, thick_closer_than, thick_touch
+from fenolite.geometry.boolean import select_backend
+from fenolite.geometry.errors import BackendUnavailable, GeometryError
+from fenolite.geometry.polygon import Polygon
+from fenolite.geometry.thick import Thick, thick_closer_than, thick_gap_floor, thick_touch
 from fenolite.model.board import area_owners, rule_areas
 from fenolite.model.design import Design
 from fenolite.placement.constraints import MechanicalReview, PlacementConstraints, review_mechanics
@@ -181,6 +184,39 @@ def check_geometry(
     )
 
 
+def overlap_measure(first: PlacedExtent, second: PlacedExtent, faces: Sequence[str]) -> int | None:
+    """How deeply two courtyards meet on ``faces`` (change c0487, design D2), as one integer that grows as
+    it gets worse: twice the area of their intersection in nm² when they intersect, else minus their
+    smallest distance in nm (0 when they touch). ``None`` when it cannot be computed: a face without rings
+    on either part, an invalid ring, or no boolean backend for the rings."""
+    pairs = [(getattr(first, f), getattr(second, f)) for f in faces]
+    pairs = [(a, b) for a, b in pairs if a and b]
+    if not pairs:
+        return None
+    try:
+        try:
+            backend = select_backend("clipper")
+        except BackendUnavailable:
+            backend = select_backend("fallback")
+        doubled = sum(
+            abs(poly.area2)
+            for a, b in pairs
+            for poly in backend.intersection(
+                tuple(Polygon(ring) for ring in a), tuple(Polygon(ring) for ring in b)
+            )
+        )
+        if doubled:
+            return doubled
+        return -min(
+            thick_gap_floor(Thick(ring, 0, True), Thick(other, 0, True))
+            for a, b in pairs
+            for ring in a
+            for other in b
+        )
+    except (BackendUnavailable, GeometryError):
+        return None
+
+
 def check_constraints(
     design: Design,
     frame: BoardFrame,
@@ -204,4 +240,5 @@ __all__ = [
     "MechanicalInspection",
     "check_geometry",
     "check_constraints",
+    "overlap_measure",
 ]

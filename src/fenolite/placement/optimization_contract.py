@@ -92,6 +92,8 @@ class OptimizationCandidate(PlacementCandidate):
     missing_inputs: tuple[str, ...]
     channel_overflow_by_layer: dict[str, int] = field(default_factory=lambda: {}, metadata={"optional": True})
     probes: tuple[PadProbe, ...] = field(default=(), metadata={"optional": True})
+    baseline: tuple[str, ...] = field(default=(), metadata={"optional": True})
+    """Findings the board had before any move that this candidate does not make worse (change c0487)."""
 
 
 @dataclass(frozen=True, slots=True)

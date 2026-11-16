@@ -1,7 +1,7 @@
 ---
 topic: placement
 title: Placing parts
-summary: place() by coordinates or by reference, staged parts and the grid strategy, moving parts on the board, copying a block by its pads, pads and text fields.
+summary: place() by coordinates or by reference, staged parts and the grid strategy, moving parts, copying a block by its pads, pads and text fields.
 ---
 
 # Placing parts
@@ -96,8 +96,8 @@ fenolite place blink/build --move R1=15mm,14mm --move D1=15mm,6mm,180,bottom --c
   `--pitch` the grid step, `--gap` the space kept around a part and `--margin` the distance kept from
   the outline. A part already on the board is not moved.
 - **`--move REF=X,Y[,ROT[,SIDE]]`** moves one part, in the frame of `place()`: `R1=15mm,14mm` is where
-  `r1.place(mm(15), mm(14))` puts it. The option repeats, and the lengths carry a unit. A larger Y
-  moves the part down; above the corner Y is negative. Altium shows Y up: change the sign.
+  `r1.place(mm(15), mm(14))` puts it. The option repeats; lengths carry a unit. Y grows down,
+  negative above the corner (Altium shows Y up).
 - `result.moved` gives each part's position before and after, in file coordinates (the outline's
   corner is at 100 mm, 100 mm).
 - `result.rules` counts the `near` rules judged after the moves, and `result.measures` gives the wire
@@ -107,6 +107,7 @@ fenolite place blink/build --move R1=15mm,14mm --move D1=15mm,6mm,180,bottom --c
   when two courtyards would overlap, `place.keepout` for a part in a rule area that forbids
   footprints, `place.outside-outline` and `place.edge-clearance` near the board edge, `place.no-room` when the grid finds no free spot. `--force` writes an illegal placement
   and moves a locked part; use it only when you know why.
+- An old finding not made worse is `place.existing` (warning).
 - **Copper does not follow.** A moved part leaves its tracks where they were (`place.copper-left`,
   warning). Route again with `--rip` afterwards (page `routing`).
 - The script does not change. `fenolite sync --to-source` writes the positions beside it (page

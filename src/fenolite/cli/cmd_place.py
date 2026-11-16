@@ -34,7 +34,7 @@ import dataclasses
 import hashlib
 import json
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, cast
@@ -76,6 +76,7 @@ from fenolite.placement import place as grid_place
 from fenolite.placement.codes import issue
 from fenolite.placement.constrained import EVIDENCE as CONSTRAINED_EVIDENCE
 from fenolite.placement.constrained import PlacementProposal, propose_placement
+from fenolite.placement.constrained_legality import overlap_measure
 from fenolite.placement.constraints import PlacementConstraints, PlacementRequest
 from fenolite.placement.grid import DEFAULT_GAP, DEFAULT_MARGIN, DEFAULT_PITCH
 from fenolite.placement.legality import forbids_footprints
@@ -251,14 +252,34 @@ def _box(rings: Sequence[Sequence[Point]]) -> BBox | None:
     return BBox.of_points(points) if points else None
 
 
-def _existing(found: Sequence[Issue], before: Sequence[Issue], moved: set[str]) -> list[Issue]:
+def _existing(
+    found: Sequence[Issue],
+    before: Sequence[Issue],
+    moved: set[str],
+    extents_before: Mapping[str, PlacedExtent] | None = None,
+    extents_after: Mapping[str, PlacedExtent] | None = None,
+) -> list[Issue]:
     """``found`` with each error that the board before the moves has too (same code, ``where`` and message)
-    and that names no moved part as ``place.existing`` (change c0432): the move did not make it."""
+    as ``place.existing`` (change c0432) when it names no moved part, or when it is a courtyard overlap
+    whose area did not grow (change c0487; the extents are keyed by reference): the move did not make it."""
     seen = {(f.code, f.where, f.message) for f in before}
+
+    def not_worse(refs: list[str]) -> bool:
+        measures: list[int | None] = []
+        for extents in (extents_before or {}, extents_after or {}):
+            first, second = (extents.get(ref) for ref in refs) if len(refs) == 2 else (None, None)
+            measures.append(overlap_measure(first, second, ("front", "back")) if first and second else None)
+        then, now = measures
+        return then is not None and now is not None and now <= then
+
     out: list[Issue] = []
     for f in found:
-        refs = {part.strip() for part in f.where.split(",")}
-        if f.severity == "error" and (f.code, f.where, f.message) in seen and not refs & moved:
+        refs = [part.strip() for part in f.where.split(",")]
+        if (
+            f.severity == "error"
+            and (f.code, f.where, f.message) in seen
+            and (not set(refs) & moved or (f.code == "place.courtyard-overlap" and not_worse(refs)))
+        ):
             out.append(
                 issue(
                     "place.existing",
@@ -842,7 +863,17 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         keepouts=rule_areas(unmoved.board),
         owners=area_owners(unmoved.board),
     )
-    issues += _existing(legality, baseline, {names[fp_id] for fp_id in moved})
+    issues += _existing(
+        legality,
+        baseline,
+        {names[fp_id] for fp_id in moved},
+        {
+            read_names[row.footprint_id]: row
+            for row in backend.placed_extents(unmoved)
+            if row.footprint_id in read_names
+        },
+        {names[e.footprint_id]: e for e in extents},
+    )
     cached = _cache(board_path.parent)
     pads_after = backend.board_pads(design)
     crossing_rows: list[dict[str, Any]] = []

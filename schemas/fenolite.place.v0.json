@@ -249,6 +249,12 @@
           "items": {
             "$ref": "#/$defs/PadProbe"
           }
+        },
+        "baseline": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "additionalProperties": true,

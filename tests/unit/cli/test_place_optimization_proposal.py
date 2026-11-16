@@ -2,15 +2,32 @@
 # Copyright (c) 2026 Fenolite contributors
 
 import json
+from dataclasses import replace
 from shutil import copyfile
 
 import pytest
 from _checkcli import run
+from _coppercheck import Copper
 from _projects import tree_snapshot
 
-from fenolite.backends.kicad.pcb import read_board
+from fenolite.backends.kicad.pcb import read_board, write_board
+from fenolite.cli.cmd_place import _query_outline  # pyright: ignore[reportPrivateUsage]
+from fenolite.cli.errors import CliError
+from fenolite.cli.place_optimize import propose
+from fenolite.core.coords import Point
+from fenolite.model.board import Outline
+from fenolite.placement.constraints import GroupRegion, PlacementConstraints
+from fenolite.placement.optimization_contract import (
+    OptimizationBudget,
+    OptimizationCandidate,
+    OptimizationRequest,
+    ProposedPose,
+    candidate_id,
+)
 
 from .test_place_constrained import authored_board
+
+MM = 1_000_000
 
 
 def test_joint_proposal_checks_board_and_never_stages_a_write(monkeypatch, tmp_path):
@@ -145,3 +162,78 @@ def test_netted_copper_polygon_away_from_the_part_does_not_hold_it(monkeypatch, 
         assert all("attachment_unchecked" not in reasons for reasons in result["fixed"].values())
     else:
         assert result["fixed"][movable.id] == ["attachment_unchecked"], result
+
+
+def _overlap_board(tmp_path, free: bool):
+    """D1 and R2 (locked) overlap by 0.2 mm; with ``free``, a capacitor C1 lies far from them, else R1
+    stands in for D1 and is not locked (change c0487)."""
+    made = Copper()
+    first = "D1" if free else "R1"
+    for ref in (first, "R2", *(("C1",) if free else ())):
+        made.pad(ref, "1", None)
+    d = made.build()
+    assert d.board is not None
+    at = {first: Point(5 * MM, 5 * MM), "R2": Point(5_800_000, 5 * MM), "C1": Point(20 * MM, 10 * MM)}
+    refs = {c.id: c.ref for c in d.circuit.components}
+    fps = tuple(
+        replace(
+            fp, position=at[refs[fp.component_id]], locked=refs[fp.component_id] != ("C1" if free else "R1")
+        )
+        for fp in d.board.footprints
+    )
+    outline = Outline(
+        id="out_00000000-0000-0000-0000-000000000001",
+        points=(Point(0, 0), Point(30 * MM, 0), Point(30 * MM, 20 * MM), Point(0, 20 * MM)),
+    )
+    d = replace(d, board=replace(d.board, footprints=fps, outline=outline))
+    path = tmp_path / "overlap.kicad_pcb"
+    path.write_text(write_board(d, target=10).text, encoding="utf-8")
+    design = _query_outline(read_board(path))
+    assert design.board is not None
+    refs = {c.id: c.ref for c in design.circuit.components}
+    ids = {refs[fp.component_id]: fp.id for fp in design.board.footprints}
+    return path, design, ids
+
+
+def _request(selected: str, region: GroupRegion | None = None) -> OptimizationRequest:
+    return OptimizationRequest(
+        "fenolite.placement-optimization.v0",
+        (selected,),
+        OptimizationBudget(evaluations=8, beam_width=2),
+        PlacementConstraints(max_candidates=4, pitch=MM, regions=(region,) if region else ()),
+    )
+
+
+def test_an_overlap_far_from_the_scope_is_a_baseline(tmp_path):
+    path, design, ids = _overlap_board(tmp_path, free=True)
+    result = propose(design, path, _request(ids["C1"]), frozenset())
+    assert result.candidates, result
+    old = "place.courtyard-overlap:" + ",".join(sorted((ids["D1"], ids["R2"])))
+    assert all(old in row.baseline for row in result.candidates)
+
+
+@pytest.mark.parametrize(("x", "rejected"), [(5_300_000, True), (4_900_000, False)])
+def test_a_moved_part_is_judged_by_its_overlap_area(tmp_path, x, rejected):
+    path, design, ids = _overlap_board(tmp_path, free=False)
+    half = MM // 2
+    box = (
+        Point(x - half, 5 * MM - half),
+        Point(x + half, 5 * MM - half),
+        Point(x + half, 5 * MM + half),
+        Point(x - half, 5 * MM + half),
+    )
+    request = _request(ids["R1"], GroupRegion("pin", (ids["R1"],), box))
+    first = propose(design, path, request, frozenset())
+    pose = ProposedPose(ids["R1"], Point(x, 5 * MM), 0, "top")
+    review = OptimizationCandidate(candidate_id(first.input_sha256, (pose,)), (pose,), (), ())
+    old = "place.courtyard-overlap:" + ",".join(sorted((ids["R1"], ids["R2"])))
+    if rejected:
+        with pytest.raises(CliError, match="place.courtyard-overlap"):
+            propose(
+                design, path, request, frozenset(), review=review, expected_fingerprint=first.input_sha256
+            )
+    else:
+        result = propose(
+            design, path, request, frozenset(), review=review, expected_fingerprint=first.input_sha256
+        )
+        assert result.candidates[0].baseline == (old,)

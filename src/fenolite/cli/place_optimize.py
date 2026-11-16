@@ -3,13 +3,14 @@
 """Board adapters and exact review for the placement search."""
 
 import hashlib
+import re
 from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import asdict, replace
 from pathlib import Path
 from typing import cast
 
-from fenolite.backends.base import BoardFrame, DesignRules
+from fenolite.backends.base import BoardFrame, DesignRules, PlacedExtent
 from fenolite.backends.kicad.backend import KicadBackend
 from fenolite.backends.kicad.projectset import project_set
 from fenolite.cli.api import Result
@@ -28,6 +29,7 @@ from fenolite.model import canonical, graphicnets
 from fenolite.model.base import Entity
 from fenolite.model.board import Board, Outline, OutlineArc, rule_areas
 from fenolite.model.design import Design
+from fenolite.placement.constrained_legality import PlacementLegality, overlap_measure
 from fenolite.placement.domains import pads_near_anchor, sample_domain
 from fenolite.placement.intent import probe_intent_legs, resolve_intents
 from fenolite.placement.legality import outline_rings
@@ -44,6 +46,43 @@ from fenolite.placement.pose_projection import project_poses
 from fenolite.placement.protection import placement_scope
 from fenolite.placement.refine import refine_placement
 from fenolite.placement.topology import PadIdentity
+
+
+def _finding_keys(legality: PlacementLegality) -> tuple[str, ...]:
+    """The hard strings of a placement check: its hard findings and the intrinsic copper ones."""
+    return (*legality.hard, *(f"{item.code}:{item.where}" for item in legality.intrinsic))
+
+
+def _measures(
+    design: Design, legality: PlacementLegality, frame: BoardFrame, keys: Sequence[str]
+) -> dict[str, int | None]:
+    """The measure of change c0487 (design D2) of each of ``keys`` that has one, larger when worse: the
+    courtyard overlap of ``place.courtyard-overlap`` and ``gap`` findings, minus the gap of a copper
+    finding. ``None`` when it cannot be computed; keys of any other kind are left out."""
+    gaps: dict[str, int] = {}
+    for found in legality.copper.findings:
+        key = f"copper:{found.code}:{found.where}"
+        gaps[key] = min(gaps.get(key, found.gap), found.gap)
+    extents: dict[str, PlacedExtent] | None = None
+    out: dict[str, int | None] = {}
+    for key in keys:
+        if key in gaps:
+            out[key] = -gaps[key]
+            continue
+        code, _, rest = key.partition(":")
+        if code == "place.courtyard-overlap":
+            pair, faces = rest.split(","), ("front", "back")
+        elif code == "gap":
+            ids, _, face = rest.rpartition(":")
+            pair, faces = ids.split(":"), (face,)
+        else:
+            continue
+        if extents is None:
+            extents = {row.footprint_id: row for row in frame.placed_extents(design)}
+        rows = [extents.get(ident) for ident in pair]
+        first, second = rows if len(rows) == 2 else (None, None)
+        out[key] = overlap_measure(first, second, faces) if first and second else None
+    return out
 
 
 def propose(
@@ -170,14 +209,52 @@ def propose(
         if domain.exhausted:
             truncated.append(ident)
 
+    # Change c0487: what the board has before any move is a baseline, not a reason to reject a candidate.
+    before = check_placement_constraints(design, backend, constraints, rules=rules)
+    baseline = frozenset(_finding_keys(before))
+    baseline_measures = _measures(design, before, backend, sorted(baseline))
     # Proposal identity binds the scorer's inputs. The write plan also binds the source files.
-    fingerprint = hashlib.sha256(canonical.dumps((design, request, scope, rules)).encode()).hexdigest()
+    fingerprint = hashlib.sha256(
+        canonical.dumps((design, request, scope, rules, tuple(sorted(baseline_measures.items())))).encode()
+    ).hexdigest()
     mandatory_mechanical = bool(
         constraints.reservations or constraints.volumes != type(constraints.volumes)()
     )
     candidate_missing: dict[PoseSet, tuple[str, ...]] = {}
     candidate_channels: dict[PoseSet, dict[str, int]] = {}
     candidate_probes: dict[PoseSet, tuple[PadProbe, ...]] = {}
+    candidate_baseline: dict[PoseSet, tuple[str, ...]] = {}
+
+    def split_baseline(
+        poses: PoseSet, checked: Design, legality: PlacementLegality
+    ) -> tuple[list[str], tuple[str, ...]]:
+        """The candidate's hard strings that reject it, and the baseline ones it does not make worse."""
+        found = _finding_keys(legality)
+        old = [key for key in found if key in baseline]
+        if not old:
+            return list(found), ()
+        moved = {
+            pose.footprint_id
+            for pose in poses
+            if (pose.position, pose.rotation % 360_000_000, pose.side)
+            != (
+                parts[pose.footprint_id].position,
+                parts[pose.footprint_id].rotation % 360_000_000,
+                parts[pose.footprint_id].side,
+            )
+        }
+        after = _measures(checked, legality, backend, old)
+        hard: list[str] = []
+        kept: list[str] = []
+        for key in found:
+            if key not in baseline:
+                hard.append(key)
+            elif key in after:
+                then, now = baseline_measures.get(key), after[key]
+                (hard if then is None or now is None or now > then else kept).append(key)
+            else:
+                (hard if moved & set(re.split("[:,]", key)) else kept).append(key)
+        return hard, tuple(kept)
 
     def judge(poses: PoseSet, complete: bool) -> SearchJudgment:
         moved = project_poses(design, scope, poses)
@@ -209,8 +286,9 @@ def propose(
         boxes = (BBox.of_points(points) for points in by_net.values() if len(points) > 1)
         hpwl = sum(box.width + box.height for box in boxes)
         distances = 0
-        hard = list(legality.hard)
-        hard.extend(f"{item.code}:{item.where}" for item in legality.intrinsic)
+        hard, kept = split_baseline(poses, checked, legality)
+        if complete:
+            candidate_baseline[poses] = kept
         for row in proximity:
             first, second = (positions.get(pad) for pad in row.endpoints)
             if first is None or second is None:
@@ -274,6 +352,7 @@ def propose(
             candidate_missing[poses],
             candidate_channels.get(poses, {}),
             candidate_probes.get(poses, ()),
+            candidate_baseline.get(poses, ()),
         )
 
     if review is not None:
