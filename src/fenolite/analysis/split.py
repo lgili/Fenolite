@@ -15,8 +15,9 @@ of a via are joined pairwise down its span by ``A/(ρ·h)``: ``A`` the barrel's 
 ``h`` the depth between the middles of the two layers in the stack-up. The resistivity cancels from the
 shares.
 
-The start pads are held at ``SCALE`` and the end pads at 0; the other potentials are found by successive
-over-relaxation in integers until none moves by more than ``TOLERANCE`` in a pass, or ``iterations`` passes.
+The start pads are held at ``SCALE`` and the end pads at 0; the other potentials are found by conjugate
+gradients in integers, preconditioned by a V-cycle of aggregation multigrid, until no node's relaxation step
+exceeds ``TOLERANCE``, or ``iterations`` passes.
 A via carries the flow through its barrel; a track, an arc or a fill carries the net inflow into the cells it
 alone covers, and its share is that current over the path's. With a resistivity the path's resistance is
 ``ρ·SCALE/I``, compared with the interval that ``analysis.power`` gives on the same board. ``power`` counts a
@@ -68,7 +69,7 @@ SCALE = 1 << 40
 LEVELS = 3
 """The coarsest level of the cascade: cells of ``8·h`` (change c0503, design D4)."""
 TOLERANCE = SCALE >> 24
-"""The relaxation stops when no potential moves by more than this in a pass: about 6·10⁻⁸ of ``SCALE``."""
+"""The solve stops when no node's relaxation step ``rᵢ/dᵢ`` exceeds this: about 6·10⁻⁸ of ``SCALE``."""
 _Key = tuple[str, ...]
 
 
@@ -298,8 +299,8 @@ def _network(
 
 
 def _hops(network: _Network) -> int:
-    """The most links between a start node and any node: the span of the network that sets ``ω``, as the
-    sum of the raster's two spans did for a raster."""
+    """The most links between a start node and any node: the span of the network that bounds the passes
+    of a level by default."""
     links: list[list[int]] = [[] for _ in network.nodes]
     for a, b in network.edges:
         links[a].append(b)
@@ -344,48 +345,188 @@ def _guess(fine: _Network, coarse: _Network | None, potential: Sequence[int] | N
     return guess
 
 
+_Level = tuple[list[list[int]], list[list[int]], list[int], list[int]]
+"""One level of the solver's hierarchy: neighbours, weights, diagonal, and each node's aggregate one level
+coarser (empty on the coarsest)."""
+COARSEST = 32
+"""The hierarchy stops at this many nodes, or when a level no longer shrinks by a fifth."""
+
+
+def _matched(neighbours: list[list[int]], weights: list[list[int]], group: list[int]) -> list[int]:
+    """Pairs each group with its most strongly joined unpaired neighbour group (heaviest positive link, the
+    lowest number on a tie), in order of the groups: the pairwise aggregation of a coarser level."""
+    count = max(group, default=-1) + 1
+    links: list[dict[int, int]] = [{} for _ in range(count)]
+    for node, near in enumerate(neighbours):
+        own = group[node]
+        for other, value in zip(near, weights[node], strict=True):
+            mate = group[other]
+            if mate != own:
+                links[own][mate] = links[own].get(mate, 0) + value
+    pair = [-1] * count
+    made = 0
+    for own in range(count):
+        if pair[own] >= 0:
+            continue
+        best, held = -1, 0
+        for mate, value in sorted(links[own].items()):
+            if pair[mate] < 0 and value > held:
+                best, held = mate, value
+        pair[own] = made
+        if best >= 0:
+            pair[best] = made
+        made += 1
+    return [pair[g] for g in group]
+
+
+def _hierarchy(neighbours: list[list[int]], weights: list[list[int]], diagonal: list[int]) -> list[_Level]:
+    """The levels of an aggregation multigrid over the free nodes: each coarser level joins the nodes of
+    two pairwise matchings (about four nodes) into one, with the Galerkin weights ``PᵀAP`` summed in
+    integers (Fenolite's own preconditioner, change c0503)."""
+    levels: list[_Level] = []
+    while True:
+        count = len(diagonal)
+        if count <= COARSEST:
+            levels.append((neighbours, weights, diagonal, []))
+            return levels
+        group = _matched(neighbours, weights, list(range(count)))
+        group = _matched(neighbours, weights, group)
+        size = max(group) + 1
+        if 5 * size > 4 * count:
+            levels.append((neighbours, weights, diagonal, []))
+            return levels
+        levels.append((neighbours, weights, diagonal, group))
+        coarse_diagonal = [0] * size
+        joined: list[dict[int, int]] = [{} for _ in range(size)]
+        for node in range(count):
+            own = group[node]
+            coarse_diagonal[own] += diagonal[node]
+            for other, value in zip(neighbours[node], weights[node], strict=True):
+                mate = group[other]
+                if mate == own:
+                    coarse_diagonal[own] -= value
+                else:
+                    joined[own][mate] = joined[own].get(mate, 0) + value
+        neighbours = [sorted(held) for held in joined]
+        weights = [[held[k] for k in near] for held, near in zip(joined, neighbours, strict=True)]
+        diagonal = coarse_diagonal
+
+
+def _sweep(level: _Level, z: list[int], r: Sequence[int], order: Sequence[int]) -> None:
+    """One Gauss-Seidel sweep of ``A z = r`` in ``order``, rounded to whole units."""
+    neighbours, weights, diagonal, _ = level
+    read = z.__getitem__
+    for n in order:
+        d = diagonal[n]
+        if d > 0:
+            z[n] = (2 * (r[n] + sum(map(mul, weights[n], map(read, neighbours[n])))) + d) // (2 * d)
+
+
+def _cycle(levels: Sequence[_Level], depth: int, r: Sequence[int]) -> list[int]:
+    """The V-cycle of the hierarchy from ``depth`` on ``r``: a forward sweep, the coarse correction, a
+    backward sweep (many sweeps on the coarsest), so the preconditioner is symmetric."""
+    level = levels[depth]
+    neighbours, weights, diagonal, group = level
+    count = len(diagonal)
+    forward, backward = range(count), range(count - 1, -1, -1)
+    z = [0] * count
+    if not group:
+        for _ in range(min(4 * count, 64)):
+            _sweep(level, z, r, forward)
+            _sweep(level, z, r, backward)
+        return z
+    _sweep(level, z, r, forward)
+    read = z.__getitem__
+    coarse = [0] * len(levels[depth + 1][2])
+    for n in range(count):
+        coarse[group[n]] += r[n] - diagonal[n] * z[n] + sum(map(mul, weights[n], map(read, neighbours[n])))
+    correction = _cycle(levels, depth + 1, coarse)
+    for n in range(count):
+        z[n] += correction[group[n]]
+    _sweep(level, z, r, backward)
+    return z
+
+
+def _rounded(value: int, top: int, bottom: int) -> int:
+    """``value·top/bottom`` rounded to the nearest whole number, ``bottom`` above 0."""
+    return (2 * value * top + bottom) // (2 * bottom)
+
+
 def _solve(
     network: _Network, iterations: int, guess: list[int], deadline: Deadline | None = None
 ) -> tuple[list[int], int, bool, bool]:
-    """The potentials by successive over-relaxation in integers from ``guess``, with ``ω = 2 − 3/n`` for a
-    network ``n`` links across; the passes run, whether no potential moved by more than ``TOLERANCE`` in
-    the last one, and whether ``deadline`` cut the solve (checked every 64 passes)."""
+    """The potentials from ``guess`` by conjugate gradients in integers, preconditioned by a V-cycle of
+    aggregation multigrid (change c0503, task 4.1): the passes run, whether no free node's relaxation step
+    ``rᵢ/dᵢ`` exceeds ``TOLERANCE`` (the stop of the former relaxation, which moved each node by about that
+    much), and whether ``deadline`` cut the solve (checked every pass). ``α`` and ``β`` are exact ratios of
+    integers; each update is rounded to a whole unit of potential, ``2⁻⁴⁰`` of ``SCALE``. ``β`` is the
+    flexible form ``z·(r − r₀)/(r₀·z₀)``, which keeps the rounded preconditioner safe."""
     count = len(network.nodes)
-    neighbours: list[list[int]] = [[] for _ in range(count)]
-    weights: list[list[int]] = [[] for _ in range(count)]
+    adjacent: list[list[tuple[int, int]]] = [[] for _ in range(count)]
     for (a, b), value in network.edges.items():
-        neighbours[a].append(b)
-        weights[a].append(value)
-        neighbours[b].append(a)
-        weights[b].append(value)
+        adjacent[a].append((b, value))
+        adjacent[b].append((a, value))
     potential = guess
     for number in network.start:
         potential[number] = SCALE
     for number in network.end:
         potential[number] = 0
     fixed = network.start | network.end
-    free = [
-        (n, neighbours[n], weights[n], 2 * sum(weights[n]))
-        for n in range(count)
-        if n not in fixed and weights[n]
-    ]
-    size = max(network.extent, 1)
-    over, under = (2 * size - 3, size) if size > 3 else (1, 1)
-    read = potential.__getitem__
-    for done in range(1, iterations + 1):
-        if done % 64 == 0 and passed(deadline):
-            return potential, done - 1, False, True
-        moved = 0
-        for n, near, weight_of, twice in free:
-            step = (2 * sum(map(mul, weight_of, map(read, near))) + twice // 2) // twice - potential[n]
-            if step:
-                move = step * over // under or step
-                potential[n] += move
-                if abs(move) > moved:
-                    moved = abs(move)
-        if moved <= TOLERANCE:
-            return potential, done, True, False
-    return potential, iterations, False, False
+    free = [n for n in range(count) if n not in fixed and adjacent[n]]
+    slot = {n: k for k, n in enumerate(free)}
+    neighbours: list[list[int]] = []
+    weights: list[list[int]] = []
+    diagonal: list[int] = []
+    residual: list[int] = []
+    for n in free:
+        near = [(slot[m], value) for m, value in adjacent[n] if m in slot]
+        neighbours.append([m for m, _ in near])
+        weights.append([value for _, value in near])
+        diagonal.append(sum(value for _, value in adjacent[n]))
+        residual.append(sum(value * (potential[m] - potential[n]) for m, value in adjacent[n]))
+    if not free:
+        return potential, 0, True, False
+    levels = _hierarchy(neighbours, weights, diagonal)
+    x = [potential[n] for n in free]
+
+    def apply(vector: Sequence[int]) -> list[int]:
+        read = vector.__getitem__
+        return [
+            d * v - sum(map(mul, w, map(read, near)))
+            for d, v, w, near in zip(diagonal, vector, weights, neighbours, strict=True)
+        ]
+
+    def settled(r: Sequence[int]) -> bool:
+        return all(abs(value) <= TOLERANCE * d for value, d in zip(r, diagonal, strict=True))
+
+    done, converged, cut = 0, settled(residual), False
+    z = _cycle(levels, 0, residual)
+    p = list(z)
+    rz: int = sum(map(mul, residual, z))
+    while not converged and done < iterations:
+        if passed(deadline):
+            cut = True
+            break
+        q = apply(p)
+        pq: int = sum(map(mul, p, q))
+        if pq <= 0 or rz <= 0:
+            break
+        alpha = (rz, pq)
+        x = [xi + _rounded(pi, *alpha) for xi, pi in zip(x, p, strict=True)]
+        before = residual
+        residual = [ri - _rounded(qi, *alpha) for ri, qi in zip(residual, q, strict=True)]
+        done += 1
+        converged = settled(residual)
+        if converged:
+            break
+        z = _cycle(levels, 0, residual)
+        new_rz: int = sum(map(mul, residual, z))
+        top: int = new_rz - sum(map(mul, before, z))
+        p = [zi + _rounded(pi, top, rz) for zi, pi in zip(z, p, strict=True)]
+        rz = new_rz
+    for n, value in zip(free, x, strict=True):
+        potential[n] = value
+    return potential, done, converged, cut
 
 
 def _carried(network: _Network, flows: Sequence[tuple[int, int, int]]) -> dict[_Key, int]:
@@ -447,7 +588,7 @@ def analyze_split(
 ) -> SplitReport:
     """Each row of ``power`` solved on the mesh of its copper, coarse to fine (change c0503): the share of
     each element and, with a resistivity, the resistance against ``power``'s interval. ``iterations``
-    bounds the relaxation of each level (default: 50 per link of the level's span, plus 1000). With
+    bounds the passes of each level (default: 50 per link of the level's span, plus 1000). With
     ``deadline`` a row keeps its finest finished level and has ``complete`` false when that is not the
     finest; the report then holds one ``analysis.deadline`` warning."""
     board = design.board

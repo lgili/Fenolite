@@ -26,6 +26,7 @@ which is the seam moved by an infinitesimal step, so no crossing is counted twic
 from __future__ import annotations
 
 import heapq
+from bisect import bisect_right
 from collections.abc import Sequence
 from dataclasses import dataclass
 from fractions import Fraction
@@ -177,6 +178,45 @@ def _point_segment2(px: int, py: int, sx: int, sy: int, tx: int, ty: int) -> tup
         return (px - tx) ** 2 + (py - ty) ** 2, 1
     across = ex * wy - ey * wx
     return across * across, length2
+
+
+def _closest_ints(a: _Ints, b: _Ints) -> tuple[N, Q, Q]:
+    """``closest`` of two segments with integer ends, in integers but for the one projected point: the same
+    distance and the same pair of points, candidates tried in the same order (change c0503)."""
+    ax, ay, bx, by = a
+    cx, cy, dx, dy = b
+    d1 = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax)
+    d2 = (bx - ax) * (dy - ay) - (by - ay) * (dx - ax)
+    d3 = (dx - cx) * (ay - cy) - (dy - cy) * (ax - cx)
+    d4 = (dx - cx) * (by - cy) - (dy - cy) * (bx - cx)
+    if d1 * d2 < 0 and d3 * d4 < 0:
+        t = Fraction(d3, d3 - d4)
+        common: Q = (ax + t * (bx - ax), ay + t * (by - ay))
+        return 0, common, common
+    tries = (
+        (ax, ay, cx, cy, dx, dy),
+        (bx, by, cx, cy, dx, dy),
+        (cx, cy, ax, ay, bx, by),
+        (dx, dy, ax, ay, bx, by),
+    )
+    found, best = 0, _point_segment2(*tries[0])
+    for k in (1, 2, 3):
+        top, bottom = _point_segment2(*tries[k])
+        if top * best[1] < best[0] * bottom:
+            found, best = k, (top, bottom)
+    px, py, sx, sy, tx, ty = tries[found]
+    ex, ey = tx - sx, ty - sy
+    length2 = ex * ex + ey * ey
+    along = (px - sx) * ex + (py - sy) * ey
+    if along <= 0 or length2 == 0:
+        q: Q = (sx, sy)
+    elif along >= length2:
+        q = (tx, ty)
+    else:
+        t = Fraction(along, length2)
+        q = (sx + t * ex, sy + t * ey)
+    dist2: N = best[0] if best[1] == 1 else Fraction(best[0], best[1])
+    return (dist2, (px, py), q) if found < 2 else (dist2, q, (px, py))
 
 
 def _dist2_int(a: _Ints, b: _Ints) -> tuple[int, int]:
@@ -497,7 +537,12 @@ class _Search:
 
     def find_chords(self, reach: int) -> None:
         """The shortest chord of each parity between each two nodes, among the closest points of every
-        two sites nearer than ``reach``."""
+        two sites nearer than ``reach``.
+
+        Change c0503: a first pass keeps, from the integer distances alone, the pairs that may hold the
+        shortest chord of their nodes and parity; a second pass measures those in order of distance, then
+        of the pair's sites, so each chord kept is the first shortest in the order of the sites, as a
+        single pass over the sites in order keeps."""
         for x, y in self.hull_chords:
             (root_x, par_x), (root_y, par_y) = self.find(self.nodes[x]), self.find(self.nodes[y])
             self.store(root_x, root_y, par_x ^ par_y ^ self.odd(x, y), sq_dist(x, y), x, y)
@@ -507,67 +552,107 @@ class _Search:
         roots = [item[0] for item in found]
         parities = [item[1] for item in found]
         reach2 = reach * reach
-        chords = self.chords
         seam = self.seam_box
+        hull_boxes = self.hull_boxes
+        # the distance, as a numerator and a denominator, of the nearest pair seen whose chord surely counts
+        # (its sites' boxes miss both hulls), per pair of nodes and parity
+        nearest: dict[tuple[int, int, int], tuple[int, int]] = {
+            key: (chord[1].numerator, chord[1].denominator) for key, chord in self.chords.items()
+        }
+        candidates: list[tuple[int, int, int, int, int, int, int, int | None, tuple[N, Q, Q] | None]] = []
+        boxes = [site.box for site in sites]
+        sides = [site.side for site in sites]
+        hull_of = [site.hull for site in sites]
+        ints_of = [site.ints for site in sites]
+        h0, h1 = hull_boxes
+        s0, s1, s2, s3 = seam
         for i, site in enumerate(sites):
-            box = site.box
-            grown = BBox(box[0] - reach, box[1] - reach, box[2] + reach, box[3] + reach)
-            root_i, par_i, side_i, ints_i, hull_i = roots[i], parities[i], site.side, site.ints, site.hull
-            for j in index.query(grown):
-                if j <= i:
+            box = boxes[i]
+            bx0, by0, bx1, by1 = box
+            grown = BBox(bx0 - reach, by0 - reach, bx1 + reach, by1 + reach)
+            root_i, par_i, side_i, ints_i, hull_i = roots[i], parities[i], sides[i], ints_of[i], hull_of[i]
+            near = index.query(grown)
+            for j in near[bisect_right(near, i) :]:
+                far = boxes[j]
+                fx0, fy0, fx1, fy1 = far
+                gx = fx0 - bx1 if fx0 > bx1 else bx0 - fx1 if bx0 > fx1 else 0
+                gy = fy0 - by1 if fy0 > by1 else by0 - fy1 if by0 > fy1 else 0
+                gap2 = gx * gx + gy * gy
+                if gap2 >= reach2:
                     continue
                 root_j = roots[j]
-                other = sites[j]
                 known: int | None = None
-                if side_i != 0 and side_i == other.side:
+                if side_i != 0 and side_i == sides[j]:
                     known = par_i ^ parities[j]
-                else:  # a chord inside a box that the seam's box does not meet crosses no seam either
-                    far = other.box
-                    if (
-                        min(box[0], far[0]) > seam[2]
-                        or max(box[2], far[2]) < seam[0]
-                        or min(box[1], far[1]) > seam[3]
-                        or max(box[3], far[3]) < seam[1]
-                    ):
-                        known = par_i ^ parities[j]
+                elif (
+                    min(bx0, fx0) > s2 or max(bx1, fx1) < s0 or min(by0, fy0) > s3 or max(by1, fy1) < s1
+                ):  # a chord inside a box that the seam's box does not meet crosses no seam either
+                    known = par_i ^ parities[j]
                 if known == 0 and root_i == root_j:
                     continue
-                if hull_i >= 0 and hull_i == other.hull:
+                if hull_i >= 0 and hull_i == hull_of[j]:
                     continue  # two vertices of one hull: its edge is a chord already, a diagonal enters it
-                if ints_i is not None and other.ints is not None:
-                    # change c0503: the gap of the two boxes bounds the distance from below; skip a pair
-                    # whose chord cannot be shorter than the reach or than the chord held for each parity
-                    # it may have (``store`` keeps the held one)
-                    far = other.box
-                    gx = max(0, far[0] - box[2], box[0] - far[2])
-                    gy = max(0, far[1] - box[3], box[1] - far[3])
-                    gap2 = gx * gx + gy * gy
-                    if gap2 >= reach2:
-                        continue
-                    pair = (root_i, root_j) if root_i <= root_j else (root_j, root_i)
-                    odds = (known,) if known is not None else (1,) if root_i == root_j else (0, 1)
-                    helds = [chords.get((*pair, odd)) for odd in odds]
-                    if all(held is not None and gap2 >= held[1] for held in helds):
-                        continue
-                    top, bottom = _dist2_int(ints_i, other.ints)
-                    if top >= reach2 * bottom or (top == 0 and root_i == root_j):
-                        continue
-                    if all(
-                        held is not None and top * held[1].denominator >= held[1].numerator * bottom
-                        for held in helds
-                    ):
-                        continue
-                dist2, x, y = closest(site.a, site.b, other.a, other.b)
-                if dist2 >= reach2 or (dist2 == 0 and root_i == root_j):
-                    continue
-                span = _box((x, y))
-                if any(
-                    _boxes_meet(span, self.hull_boxes[k]) and _enters(x, y, self.hulls[k]) for k in (0, 1)
-                ):
-                    continue
+                span = (min(bx0, fx0), min(by0, fy0), max(bx1, fx1), max(by1, fy1))
+                clear: bool | None = None
                 if known is None:
-                    known = self.end(site, x) ^ self.end(other, y) ^ self.odd(x, y)
-                self.store(root_i, root_j, known, dist2, x, y)
+                    clear = not (_boxes_meet(span, h0) or _boxes_meet(span, h1))
+                    if clear:
+                        # the loop a_i, x, y, a_j lies in the sites' boxes, which hold neither end of the
+                        # seam, so it crosses the seam an even number of times: the chord has the parity
+                        # of a_i–a_j
+                        known = par_i ^ parities[j] ^ self.odd(site.a, sites[j].a)
+                        if known == 0 and root_i == root_j:
+                            continue
+                pair = (root_i, root_j) if root_i <= root_j else (root_j, root_i)
+                if known is not None:
+                    held = nearest.get((*pair, known))
+                    if held is not None and gap2 * held[1] >= held[0]:
+                        continue
+                    helds = [held]
+                else:
+                    helds = [nearest.get((*pair, odd)) for odd in ((1,) if root_i == root_j else (0, 1))]
+                    if all(held is not None and gap2 * held[1] >= held[0] for held in helds):
+                        continue
+                cached: tuple[N, Q, Q] | None = None
+                ints_j = ints_of[j]
+                if ints_i is not None and ints_j is not None:
+                    top, bottom = _dist2_int(ints_i, ints_j)
+                else:
+                    other = sites[j]
+                    cached = closest(site.a, site.b, other.a, other.b)
+                    top, bottom = cached[0].numerator, cached[0].denominator
+                if top >= reach2 * bottom or (top == 0 and root_i == root_j):
+                    continue
+                if all(held is not None and top * held[1] >= held[0] * bottom for held in helds):
+                    continue
+                if known is not None:
+                    if clear is None:
+                        clear = not (_boxes_meet(span, h0) or _boxes_meet(span, h1))
+                    if clear:
+                        nearest[(*pair, known)] = (top, bottom)
+                candidates.append(((top << 64) // bottom, *pair, i, j, top, bottom, known, cached))
+        candidates.sort(key=lambda item: (item[1], item[2], item[0], item[3], item[4]))
+        chords = self.chords
+        for _, first, second, i, j, top, bottom, known, cached in candidates:
+            site, other = sites[i], sites[j]
+            odds = (known,) if known is not None else (1,) if first == second else (0, 1)
+            helds = [chords.get((first, second, odd)) for odd in odds]
+            if all(
+                held is not None and top * held[1].denominator >= held[1].numerator * bottom for held in helds
+            ):
+                continue
+            if cached is not None:
+                dist2, x, y = cached
+            else:
+                ints_a, ints_b = site.ints, other.ints
+                assert ints_a is not None and ints_b is not None
+                dist2, x, y = _closest_ints(ints_a, ints_b)
+            span = _box((x, y))
+            if any(_boxes_meet(span, hull_boxes[k]) and _enters(x, y, self.hulls[k]) for k in (0, 1)):
+                continue
+            if known is None:
+                known = self.end(site, x) ^ self.end(other, y) ^ self.odd(x, y)
+            self.store(roots[i], roots[j], known, dist2, x, y)
 
     # --- the shortest odd cycle -------------------------------------------------------------------
 

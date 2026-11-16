@@ -187,5 +187,61 @@ agent's work, so the times are indicative.
 |---|---|---|---|
 | 48 square holes | `analyze_power` | 1.4 s | 0.8 s |
 | 48 square holes | `analyze_split` | more than 600 s (stopped) | 28.3 s |
-| 300 round holes | `analyze_power` | 133.3 s | see below |
-| 300 round holes | `analyze_split` | more than 600 s (stopped) | see below |
+| 300 round holes | `analyze_power` | 133.3 s | 16.2 s |
+| 300 round holes | `analyze_split` | more than 600 s (stopped) | 16.6 s |
+
+Task 4.1 (2026-11-16). At its start the 300-hole bench took 85 s and 101 s (2026-11-14), and the 48-hole bench
+0.8 s and 28.3 s. A `cProfile` run of each step on the 300-hole bench found:
+
+- power: `narrowest_section` on the two plane fills held 98 % of the time, in `find_chords`: 1.59 million
+  chord pairs reached `closest` in `Fraction`s, because a pair whose parity across the seam was unknown (both
+  sites near the seam's line) could only be skipped once both parities of its two nodes held a chord, and
+  the pairs of a hole's edges approach the nearest pair one by one;
+- split: `_solve` held 94 % (120 of 127 s): 1 250 relaxation passes over 85 034 nodes at the finest level.
+
+After the changes below, through `fenolite-heavy`, `test_power_speed.py -m slow -s`:
+
+| bench | step | start of task 4.1 | after |
+|---|---|---|---|
+| 48 square holes | `analyze_power` | 0.8 s | 0.7 s |
+| 48 square holes | `analyze_split` | 28.3 s | 5.1 s |
+| 300 round holes | `analyze_power` | 85 s | 16.2 s |
+| 300 round holes | `analyze_split` | 101 s | 16.6 s |
+
+Every `narrowest_section` of both benches returned a `Section` equal to the one of the code before (a
+side-by-side run of both, compared by `repr`); the power intervals are unchanged (48 holes high 69 643,
+300 holes high 62 954 µΩ). The split on the 300-hole bench gives 1 147 µΩ and the shares 501/503/1 permille
+before and after, the finest level in 28 passes (was 1 250). Accuracy on the reference benches of task 3.3
+(resistance in µΩ, passes at the finest level; every share equal before and after):
+
+| bench | oracle (raster for `via_array`) | parent raster | relaxation | multigrid CG | passes before / after |
+|---|---|---|---|---|---|
+| strip | 1 439 | 1 440 | 1 440 | 1 440 | 132 / 10 |
+| dumbbell | 1 312 | 1 315 | 1 336 | 1 336 | 129 / 12 |
+| split4 | 1 006 | 1 010 | 1 024 | 1 024 | 148 / 13 |
+| two_strips | 720 | 720 | 720 | 720 | 132 / 12 |
+| via_array | 1 348 | 1 348 | 1 357 | 1 357 | 214 / 16 |
+
+- Decision (maintainer, 2026-11-16): `find_chords` runs in two passes. The first visits the site pairs as
+  before but measures them only in integers (`_dist2_int`, or `closest` for a site with a computed end) and
+  keeps a pair when it may beat the nearest pair seen whose chord surely counts (its sites' boxes miss both
+  hulls) for its nodes and parity. The second measures the kept pairs in the order of their nodes, their
+  distance, then the sites' numbers, so each chord stored is the first shortest in the order of the sites,
+  which is the one the single pass kept. `_closest_ints` gives `closest`'s distance and points from the
+  integer ends (checked equal on 400 000 random pairs).
+- Decision (maintainer, 2026-11-16): when the boxes of two sites miss both hulls, the parity of the chord
+  between them is `par(a) ^ par(b) ^ odd(a, b)`, `a` and `b` the sites' first ends: the loop `a`, `x`, `y`,
+  `b` lies in those boxes, which hold neither end of the seam, so it crosses the seam an even number of
+  times; a point on the seam's line cannot make it differ, since the crossing would then be a seam end in
+  the boxes. The parity is then known before the pair is measured, so those pairs prune like the others.
+- Decision (maintainer, 2026-11-16): `split._solve` is conjugate gradients in integers, preconditioned by a
+  symmetric V-cycle of aggregation multigrid built from the network itself: each coarser level joins the
+  nodes of two pairwise matchings by the heaviest positive link (about four nodes per aggregate), with the
+  Galerkin weights `PᵀAP` summed in integers, down to 32 nodes or a level that shrinks by less than a fifth;
+  one forward Gauss-Seidel sweep before and one backward after, up to 64 double sweeps on the coarsest. `α`
+  and `β` are exact integer ratios, every update is rounded to one unit of potential (`2⁻⁴⁰` of `SCALE`),
+  and `β` takes the flexible form `z·(r − r₀)/(r₀·z₀)` because the rounded preconditioner is not exactly
+  linear. The stop is the former one in other words: no free node's relaxation step `rᵢ/dᵢ` above
+  `TOLERANCE`. The cascade of levels, the deadline (checked every pass) and `iterations` keep their meaning.
+  Rejected: a better `ω` for the relaxation (the passes still grow with the span of the mesh) and
+  unpreconditioned CG (the same growth); numpy and scipy stay out of the core.

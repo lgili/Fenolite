@@ -39,6 +39,12 @@ All notable changes to Fenolite are documented here. The format follows
   change them (holes inside or away from a port hull, indexed visibility in `surface_distance`, chord pairs
   that cannot beat a held chord): same results, faster. Schemas, the CLI surface and the agent guide
   (a seventh command page) regenerated.
+- The power analysis and the split meet their time budget on the 300-hole plane bench (c0503, task 4.1):
+  `analyze_power` 16 s (was 85 s), `analyze_split` 17 s (was 101 s) on the maintainer's Mac. The narrowest
+  section measures only the chord pairs that may be shortest, in integers, with the same chords as before;
+  the split solves each level by conjugate gradients in integers preconditioned by an aggregation multigrid
+  (28 passes in place of about 1 250), with the same resistances and shares on the reference benches. The
+  300-hole case of `test_power_speed.py` runs again without `FENOLITE_POWER_BENCH`.
 - `fenolite check` agrees with Altium's DRC (c0498): `--compare-native [REPORT]` (Altium input) reads the DRC
   violations a `.PcbDoc` stores (`T…Violation`, `WaivedViolations`; census of seven public documents,
   `H-A-DRC-STORED`) or a `.drc` text report (`H-A-DRC-TXT`, INFERRED) with `backends.altium.read.violations`,

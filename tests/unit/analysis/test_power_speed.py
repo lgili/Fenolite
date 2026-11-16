@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import os
 import time
 
 import pytest
@@ -23,17 +22,12 @@ POWER_BUDGET_S = 20
 SPLIT_BUDGET_S = 60
 
 
-BENCH = "FENOLITE_POWER_BENCH"
-"""Set to 1 to time the 300-hole board, which takes minutes while task 4.1 is open."""
-_TIMED = pytest.mark.skipif(os.environ.get(BENCH) != "1", reason=f"set {BENCH}=1 to time it")
-
-
 @pytest.mark.slow
 @pytest.mark.parametrize(
     ("holes", "round_holes"),
     [
         (48, False),
-        pytest.param(300, True, marks=_TIMED),
+        (300, True),
     ],
 )
 def test_plane_bench_in_budget(holes: int, round_holes: bool) -> None:
@@ -57,5 +51,5 @@ def test_plane_bench_in_budget(holes: int, round_holes: bool) -> None:
     assert row.resistance_uohm is not None and cut.within is True
     assert row.complete and cut.complete and cut.cell_nm == DEFAULT_GRID_NM
     if power_s >= POWER_BUDGET_S or split_s >= SPLIT_BUDGET_S:
-        # task 4.1 of change c0503 is open while the budget is not met: the times are recorded, not hidden
+        # a runner slower than the maintainer's Mac (task 4.1 met the budget there): the times are recorded
         pytest.xfail(f"over the budget of {POWER_BUDGET_S} s and {SPLIT_BUDGET_S} s: {times}")

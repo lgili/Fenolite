@@ -497,14 +497,15 @@ fenolite analyze board.kicad_pcb --kinds power --split --path J1-1 U1-1 --copper
   plating you give and the depths of the stack-up. Fenolite assumes no thickness, plating or stack-up:
   without one, the path is not split and `analysis.input-missing` says what is missing.
 - The start pads are held at one potential and the end pads at another; the potentials are found by
-  over-relaxation in integers. A via carries the flow through its barrel; a track, an arc or a fill the
+  conjugate gradients in integers, preconditioned by an aggregation multigrid. A via carries the flow through its barrel; a track, an arc or a fill the
   current into the cells it alone covers. A row says how many passes it took and whether it `converged`.
 - With `--resistivity`, `resistance_uohm` is the path's resistance on the raster, and `within` says whether
   it lies in the interval of the power path (`bounds`). Both hold the pads as contacts on fills; on a path
   of tracks the interval counts the track from the centres of its pads, so the solve can lie below it.
 - **Time.** On the authored plane bench of the tests (100 mm × 80 mm, a ground fill on both layers with 300
-  round 2 mm holes, 30 vias), the split at 0.1 mm took 101 s on the maintainer's Mac, against more than
-  600 s for the raster; with `--deadline` it stops at the deadline with the finest level finished.
+  round 2 mm holes, 30 vias), the power analysis took 16 s and the split at 0.1 mm 17 s on the
+  maintainer's Mac, against 133 s and more than 600 s before change c0503; with `--deadline` it stops at
+  the deadline with the finest level finished.
 - It is an estimate on a mesh, not a field simulation, and judges nothing: a share does not decide an
   `analysis.path-undecided` element. The level is `INFERRED` (`H-G-POWER-SPLIT`).
 
