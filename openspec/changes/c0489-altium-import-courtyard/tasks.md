@@ -27,12 +27,20 @@ Rules for every task:
   - Proof: `uv run python tools/gen_schemas.py --check`
 - [x] 3.1 Add the change to `CHANGELOG.md` under `## [Unreleased]`, and run `make check-fast`.
   - Proof: `make check-fast`
-- [ ] 3.2 Maintainer board (private, codes and counts only): after import, every footprint without its own
+- [x] 3.2 Maintainer board (private, codes and counts only): after import, every footprint without its own
   courtyard has a derived one; `place` on the imported board reports `place.courtyard-overlap` for parts
   whose bodies overlap; Altium → KiCad → Altium writes no courtyard drawing that the source lacks, and the
   round-trip equivalence still exits 0. Left open: maintainer runs it (private board, and the round trip
   in the VM).
   Result (maintainer board, 2026-11-16): FAIL. 266 of 266 derived courtyards; the round trip writes no extra drawing; but `place` reports 107 `place.courtyard-overlap` (KiCad 102 `courtyards_overlap`) where Altium's DRC reports 0 component-clearance violations: the hull of bodies and pads is too large (a large part's courtyard covers parts under it). Follow-up.
+  Result after the fix (maintainer board, 2026-11-16): PASS with a remainder. `place --dry-run` on a fresh
+  KiCad conversion: 13 `place.courtyard-overlap` (was 107), 10 `place.outside-outline`; KiCad DRC 13
+  `courtyards_overlap` (was 102); convert exit 0. Remainder: 9 pairs are overlaps of the bounding outline of
+  one 3D model (repeated part, body through the board) with its neighbours, where Altium checks the model's
+  real shape; 2 are the pad hull of a part without a body over another part's pads; 2 come from the convex
+  hull of a sparse part. Each is on the safe side of `H-A-IMP-COURTYARD`; closer agreement needs 3D model
+  shapes, which the import does not read. The Altium-side round trip is unchanged by the fix (derived
+  courtyards are never written).
 
 ## Decisions
 
@@ -69,6 +77,21 @@ Rules for every task:
   (`test_board_annotations_public.py`, census of 2026-11-16: -01 5 → 241, -02 0 → 2, -04 1 → 9, -05 0 → 2,
   -06 0 → 4, -07 0 → 11). That is the change's purpose: body outlines now count. The hull and 0.25 mm margin
   overstate dense parts (each pair closer than 0.5 mm overlaps); the maintainer judges the -01 count in 3.2.
+- Decision (maintainer, 2026-11-16): task 3.2 fix. A body raised above the board (`standoff > 0`) is left
+  out of the derived courtyard: Altium's Component Clearance in its Specified vertical mode accepts one
+  component overhanging another (S-0461). Measured on the maintainer board: 107 → 90 at the old margin.
+- Decision (maintainer, 2026-11-16): `DERIVED_COURTYARD_MARGIN` is 0 (was 0.25 mm). Altium measures the
+  clearance between the bodies themselves with the rule's horizontal clearance, which the import carries as
+  `courtyard_clearance` from `GAP`; a margin on each courtyard counted it twice (every pair closer than
+  0.5 mm overlapped). No public page read gives the rule's default clearance, so the row is `INFERRED`.
+  Measured: 107 → 24 alone, 13 with the raised bodies left out.
+- Decision (maintainer, 2026-11-16): the union of per-element hulls (pads, each body) instead of one convex
+  hull is not taken: measured on the maintainer board it changes 107 → 105 at the old margin and nothing
+  (13 → 13) with the two choices above, and it would need several rings per footprint in the carrier and the
+  frame. The L-shaped test records that the hull covers a notch (safe side).
+- Decision (maintainer, 2026-11-16): the public boards' overlap notes after the fix
+  (`test_board_annotations_public.py`, census of 2026-11-16): -01 241 → 9, -02 2 → 0, -04 9 → 2, -05 2 → 0,
+  -06 4 → 0, -07 11 → 1, -08 528 → 6 (heavy item, local `FENOLITE_HEAVY=1` run).
 - Decision (maintainer, 2026-11-16): the new extension-bag key `altium:derived` is approved in
   `model0-approved.json` (as c0450 and c0460 did), and `fenolite inspect` of `blink.PcbLib` counts 30
   graphics (27 drawn, 3 derived).

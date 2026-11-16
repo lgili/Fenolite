@@ -14,12 +14,13 @@ the order are off, and every footprint takes step 3.
 
 Step 3 takes, in the footprint frame:
 
-- the outline of each `ComponentBody` of the footprint whose geometry is known (a body with unknown geometry,
-  c0099, is left out and the derived courtyard is `exact=False` anyway);
+- the outline of each `ComponentBody` of the footprint whose geometry is known and that sits on the board
+  (a body with unknown geometry, c0099, or raised above the board, `standoff > 0`, is left out, and the
+  derived courtyard is `exact=False` anyway);
 - the copper of each pad, as `frame._footprint_pads` gives it today.
 
 It returns the convex hull of all those points (`frame.convex_hull`), grown by the margin with integer
-arithmetic, as one closed polygon on `F.CrtYd` (top) or `B.CrtYd` (bottom). A convex hull overstates a
+arithmetic (the margin is 0 since task 3.2: the clearance is the rule's), as one closed polygon on `F.CrtYd` (top) or `B.CrtYd` (bottom). A convex hull overstates a
 concave part. That is the safe side for a legality check.
 
 Steps 1 and 2 take the closed outline of the layer's footprint drawings; step 2 grows it by the margin.

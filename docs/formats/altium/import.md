@@ -186,8 +186,9 @@ leaves out a polygon that matches one within 1 nm.
 
 | fact | source | label | hypothesis |
 |---|---|---|---|
-| The courtyard is the convex hull of the outlines of the footprint's component bodies of known projection and heights and the boxes of its pads' copper, grown by `DERIVED_COURTYARD_MARGIN`; no mechanical layer gives it, since no public source states a layer's kind (`pcb-records.md`, "Mechanical layer kind") | S-0160 | INFERRED | H-A-IMP-COURTYARD |
-| `DERIVED_COURTYARD_MARGIN` is 250 000 nm (0.25 mm), a Fenolite choice and no value of any document; the growth is the Minkowski sum with the octagon that circumscribes the circle of that radius, so it holds the hull grown by the margin | S-0160 | INFERRED | H-A-IMP-COURTYARD |
+| The courtyard is the convex hull of the outlines of the footprint's component bodies of known projection and heights that sit on the board (standoff 0 or less) and the boxes of its pads' copper, grown by `DERIVED_COURTYARD_MARGIN`; no mechanical layer gives it, since no public source states a layer's kind (`pcb-records.md`, "Mechanical layer kind") | S-0160 | INFERRED | H-A-IMP-COURTYARD |
+| A body raised above the board (positive standoff) is left out of the courtyard: in the Specified vertical mode of Component Clearance one component may overhang another without a violation, and in the Infinite mode any component above or below violates (`pcb-copper.md`, "Component Clearance") | S-0461 | INFERRED | H-A-IMP-COURTYARD |
+| `DERIVED_COURTYARD_MARGIN` is 0, a Fenolite choice and no value of any document: Component Clearance measures between the bodies themselves with its own horizontal clearance (imported as `courtyard_clearance` from `GAP`), so a margin would count the clearance twice. No public page read states the rule's default clearances | S-0461 | INFERRED | H-A-IMP-COURTYARD |
 
 ### Clearance of the copper check
 

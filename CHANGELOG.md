@@ -9,7 +9,7 @@ All notable changes to Fenolite are documented here. The format follows
 ### Added
 
 - A footprint imported from Altium gets a derived courtyard (c0489): the convex hull of its component bodies
-  of known projection and heights and its pads' copper, grown by `DERIVED_COURTYARD_MARGIN` (0.25 mm), as
+  of known projection and heights and its pads' copper, grown by `DERIVED_COURTYARD_MARGIN`, as
   one polygon on `F.CrtYd`/`B.CrtYd`, evidence `INFERRED` (`H-A-IMP-COURTYARD`), marked `derived=courtyard`
   in its `altium` bag (new bag key). The Altium frame's `placed_extents` gives it with the new source
   `derived` (`PlacedExtent.source`), never exact, so `place` reports `place.courtyard-overlap` for parts whose
@@ -113,6 +113,12 @@ All notable changes to Fenolite are documented here. The format follows
   Native Altium edits remain gated.
 
 ### Fixed
+
+- Derived Altium courtyards (c0489, task 3.2) no longer report false `place.courtyard-overlap`: a body raised
+  above the board (positive standoff) is left out, as Altium's Specified component clearance accepts an
+  overhang, and `DERIVED_COURTYARD_MARGIN` is 0, since the clearance between parts is the rule's. On the
+  maintainer's board the overlaps fall from 107 to 13 (KiCad `courtyards_overlap` from 102 to 13); the
+  public boards' overlap notes fall too (`-01` 241 to 9, `-08` 528 to 6).
 
 - `place --strategy optimize` reads a copper graphic with a net (a KiCad `gr_poly` with `(net …)`, as a
   board converted from Altium holds its solid regions) as copper of that net (c0486): it projects the

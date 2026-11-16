@@ -84,7 +84,7 @@ def test_body_larger_than_the_pads() -> None:
     assert courtyard.provenance.evidence.level is Level.INFERRED
     assert courtyard.provenance.evidence.hypotheses == (HYPOTHESIS,)
     (body,) = fp.bodies
-    assert _holds_grown(courtyard.points, list(body.outline), DERIVED_COURTYARD_MARGIN - 1)
+    assert _holds_grown(courtyard.points, list(body.outline), max(DERIVED_COURTYARD_MARGIN - 1, 0))
     xs = [p.x for p in courtyard.points]
     assert max(xs) - min(xs) == 6_000_000 + 2 * DERIVED_COURTYARD_MARGIN  # within 1 nm of the mil body
     (extent,) = frame.placed_extents(design)
@@ -99,9 +99,10 @@ def test_a_footprint_without_a_body() -> None:
     assert fp.bodies == ()
     assert _courtyard(fp).points == grown_hull(pad_corners(fp.pads))
     xs, ys = [p.x for p in _courtyard(fp).points], [p.y for p in _courtyard(fp).points]
-    # two 40 mil square pads 2 mm apart: 2 mm + 1.016 mm across, 1.016 mm high, each grown by 0.25 mm
-    assert abs(max(xs) - min(xs) - 3_516_000) <= 2 and abs(max(ys) - min(ys) - 1_516_000) <= 2
-    assert _holds_grown(_courtyard(fp).points, pad_corners(fp.pads), DERIVED_COURTYARD_MARGIN - 1)
+    # two 40 mil square pads 2 mm apart: 2 mm + 1.016 mm across, 1.016 mm high, each grown by the margin
+    grow = 2 * DERIVED_COURTYARD_MARGIN
+    assert abs(max(xs) - min(xs) - 3_016_000 - grow) <= 2 and abs(max(ys) - min(ys) - 1_016_000 - grow) <= 2
+    assert _holds_grown(_courtyard(fp).points, pad_corners(fp.pads), max(DERIVED_COURTYARD_MARGIN - 1, 0))
 
 
 def test_ids_are_stable_and_a_courtyard_is_not_derived_twice() -> None:
@@ -127,3 +128,61 @@ def test_two_bodies_that_overlap() -> None:
     assert not [
         i for i in legality.check(frame.placed_extents(bare), (), names=names) if i.code.endswith("overlap")
     ]
+
+
+Box = tuple[tuple[float, float, float, float], float]
+
+
+def _board(*parts: tuple[list[tuple[float, float]], list[Box]]) -> Design:
+    """One footprint per part: its pads (centres in mm, ``PAD`` square) and its bodies (a box ``x0, y0,
+    x1, y1`` in mm and a standoff in mil), all in board millimetres from (2000, 1500) mil."""
+    components, pads, bodies = [], [], b""
+    for index, (centres, boxes) in enumerate(parts):
+        components.append(rec.component(f"U{index + 1}", x="2000mil", y="1500mil"))
+        for number, (x, y) in enumerate(centres, 1):
+            at = (round((2000 + x * MM_MIL) * rec.MIL), round((1500 + y * MM_MIL) * rec.MIL))
+            pads.append(rec.pad(str(number), at, size=PAD, component=index))
+        for (x0, y0, x1, y1), standoff in boxes:
+            corners = ((x0, y0), (x1, y0), (x1, y1), (x0, y1))
+            box = [(2000 + x * MM_MIL, 1500 + y * MM_MIL) for x, y in corners]
+            fields = {"STANDOFFHEIGHT": f"{standoff}mil", "OVERALLHEIGHT": f"{standoff + 40}mil"}
+            bodies += rec.body_bytes(box, component=index, fields=fields)
+    storages = {"ComponentBodies6": {"Data": bodies}} if bodies else None
+    return import_board(
+        rec.document(components=components, pads=pads, storages=storages),
+        file="authored.PcbDoc",
+        sha256=rec.SHA,
+    )
+
+
+def _overlaps(design: Design) -> int:
+    assert design.board is not None
+    names = {fp.id: f"U{i + 1}" for i, fp in enumerate(design.board.footprints)}
+    issues = legality.check(frame.placed_extents(design), (), names=names)
+    return len([i for i in issues if i.code == "place.courtyard-overlap"])
+
+
+def test_a_raised_body_over_a_small_part_is_no_overlap() -> None:
+    """A 10 mm body 2 mm above the board (pads at its edges) over a small part under it: Altium's Specified
+    clearance accepts the overhang, so the raised body is no part of the courtyard (task 3.2)."""
+    small = ([(-0.5, 3.0), (0.5, 3.0)], [((-1.0, 2.5, 1.0, 3.5), 0)])
+    for standoff, expected in ((80, 0), (0, 1)):
+        large = ([(-6.0, 0.0), (6.0, 0.0)], [((-5.0, -5.0, 5.0, 5.0), standoff)])
+        assert _overlaps(_board(large, small)) == expected
+
+
+def test_an_l_shaped_part() -> None:
+    """Pads on an L (two along x, one up y): a part 0.3 mm beside its hull is no overlap (the old 0.25 mm
+    margin on each side made one), and a part in the notch of the L is, as the convex hull covers it."""
+    ell = ([(0.0, 0.0), (4.0, 0.0), (0.0, 4.0)], [])
+    beside = ([(-1.32, 2.0), (-1.32, 3.0)], [])  # the pads' right edge 0.3 mm left of the L's left edge
+    notch = ([(2.5, 2.5), (3.0, 2.5)], [])
+    assert _overlaps(_board(ell, beside)) == 0
+    assert _overlaps(_board(ell, notch)) == 1
+
+
+def test_two_parts_that_really_overlap_are_still_reported() -> None:
+    """Two parts whose bodies on the board overlap by 0.5 mm are reported, with the margin of 0."""
+    first = ([(-1.0, 0.0), (1.0, 0.0)], [((-2.0, -1.0, 2.0, 1.0), 0)])
+    second = ([(2.5, 0.0), (4.5, 0.0)], [((1.5, -1.0, 5.5, 1.0), 0)])
+    assert _overlaps(_board(first, second)) == 1

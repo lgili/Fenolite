@@ -5,9 +5,12 @@ courtyard of an imported footprint"; facts: ``docs/formats/altium/import.md``, "
 
 Altium has no fixed courtyard layer, and no public source states the kind of a mechanical layer
 (``pcb-records.md``, "Mechanical layer kind", ``UNKNOWN``), so every footprint takes the last step of the
-order: the convex hull of its known component bodies' outlines and its pads' copper, grown by
-``DERIVED_COURTYARD_MARGIN``, in the footprint frame. The growth is the Minkowski sum with the octagon that
-circumscribes the circle of the margin, in integers, so it holds the hull grown by the margin.
+order: the convex hull of the outlines of its known component bodies that sit on the board and its pads'
+copper, grown by ``DERIVED_COURTYARD_MARGIN``, in the footprint frame. A body raised above the board (a
+positive standoff) is left out: Altium's Component Clearance in its Specified mode accepts one component
+over another (``pcb-copper.md``, "Component Clearance"). The margin is 0: the clearance between parts is
+the rule's (``courtyard_clearance``, from Altium's ``GAP``), not part of the extent. The growth is the
+Minkowski sum with the octagon that circumscribes the circle of the margin, in integers.
 """
 
 from __future__ import annotations
@@ -25,8 +28,9 @@ from fenolite.geometry import convex_hull
 from fenolite.geometry.transform import Transform
 from fenolite.model.board import ComponentBody, Graphic, Pad, Side
 
-DERIVED_COURTYARD_MARGIN = 250_000
-"""How far the derived courtyard lies outside the hull, in nm: a Fenolite choice (``import.md``)."""
+DERIVED_COURTYARD_MARGIN = 0
+"""How far the derived courtyard lies outside the hull, in nm: 0, so the clearance is counted once, by the
+rule (``import.md``, "Derived courtyard"; change c0489, task 3.2)."""
 DERIVED_KEY = "derived"
 DERIVED_VALUE = "courtyard"
 """The pair of the ``altium`` bag that marks a derived courtyard: never a source item."""
@@ -86,11 +90,13 @@ def derived_courtyard(
     provenance: Provenance,
 ) -> Graphic | None:
     """The derived courtyard of a footprint, in its frame, or ``None`` when it has a courtyard of its own
-    or nothing to derive one from. A body whose projection or heights are unknown (c0099) is left out."""
+    or nothing to derive one from. A body whose projection or heights are unknown (c0099), or that is raised
+    above the board (``standoff > 0``), is left out."""
     if any(graphic.layer in LAYERS.values() for graphic in graphics):
         return None
     points = pad_corners(pads)
-    points += [p for b in bodies if not b.projection_unknown and len(b.outline) >= 3 for p in b.outline]
+    on_board = [b for b in bodies if not b.projection_unknown and b.standoff <= 0 and len(b.outline) >= 3]
+    points += [p for b in on_board for p in b.outline]
     ring = grown_hull(points) if points else ()
     if not ring:
         return None
