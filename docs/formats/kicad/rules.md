@@ -34,6 +34,7 @@ Fenolite's own words; sources are listed in `docs/evidence/sources.md`.
 | `hole_to_hole`, `hole_clearance` and `annular_width` rules with a `min` and a net condition are enforced, under violation types of the same names; 9.0.9 prints a 1 mm hole-to-hole limit as `0.9995 mm` | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-KIND-2 |
 | A `courtyard_clearance` rule is reported as `courtyards_overlap` ("Courtyards overlap (rule … clearance 1.0000 mm; actual 0.5100 mm)"); it selects a footprint with `A.Reference == '<ref>'`, and `A.memberOfFootprint('<ref>')` selects nothing for it | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-COURTYARD |
 | A `silk_clearance` rule is reported as `silk_overlap`, between the silkscreen of two footprints and between a footprint's silkscreen and another footprint's courtyard rectangle; `silk_over_copper` is its type against pads | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-KIND-2 |
+| A `silk_clearance` rule with no condition reaches silkscreen against every item of the side: at 0.1 mm it reports `silk_overlap` for a line 0.05 mm from another footprint's line, a track, a zone, another footprint's courtyard rectangle and another footprint's visible fabrication field, a track crossing the line, and `silk_over_copper` for a pad. With the condition `A.Layer == '?.Silkscreen' && B.Layer == '?.Silkscreen'` it reports the silkscreen pair only; with `A.Layer == '?.Silkscreen' && B.Type == 'Pad'` the pad only (`B.Layer == '?.Mask'` selects no pad). Neither reports the tracks, the zone, the courtyard or the fabrication field (change c0493, `tests/kicad/rules/test_silk_reach.py`). 9.0.9 gives a pad finding the type `silk_overlap` | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SILK-REACH |
 | A `silk_clearance` rule takes a negative `min`: under a board-wide minimum of -0.1 mm two footprints' silkscreen lines that overlap by 0.05 mm report no `silk_overlap`, and under a minimum of 0 they report one; the canary fires in both runs, so the rule is read and not an error that disables the file (change c0427) | S-0010, S-0038, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-NEG-SILK |
 | A `creepage` rule on two nets (`A.NetName == … && B.NetName == …`) is reported as `creepage` on 10.0.6, 50 µm above the surface distance and not 50 µm below it; 9.0.9 loads the same rule and reports nothing for it | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-KIND-2 |
 | KiCad reports one violation per item pair in the copper clearance test: a pair whose copper clearance fails gets a `clearance` entry and no `hole_clearance` entry, so a clearance rule that matches every pair hides the hole clearance of the pairs it flags | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-KIND-2 |
@@ -102,7 +103,8 @@ semantics of each row are the hypotheses above.
 | `hole_clearance` | `hole_clearance` | `min` |
 | `annular_width` | `annular_width` | `min` |
 | `courtyard_clearance` | `courtyard_clearance` | `min` |
-| `silk_clearance` | `silk_clearance` | `min` |
+| `silk_clearance` | `silk_clearance`, with the condition `A.Layer == '?.Silkscreen' && B.Layer == '?.Silkscreen'` (change c0493) | `min` |
+| `silk_mask_clearance` | `silk_clearance`, with the condition `A.Layer == '?.Silkscreen' && B.Type == 'Pad'` (change c0493) | `min` |
 | `creepage` | `creepage` | `min` |
 | `no_tracks` | `disallow track`, one rule per layer | none |
 | `diff_pair_gap` | `diff_pair_gap` | `min`, `opt`, `max` |
@@ -208,7 +210,7 @@ v0.1 take the whole table above, the `diff_pair` leaf included.
 |---|---|---|---|
 | `hole_to_hole`, `hole_clearance`, `annular_width` | the whole table, `area` included | no | no |
 | `courtyard_clearance` | `all`, or `ref` leaves without `*`, combined with `and`, `or` and `not` | no | no |
-| `silk_clearance` | `all` only | no | no |
+| `silk_clearance`, `silk_mask_clearance` | `all` only, written with the kind's fixed condition | no | no |
 | `creepage` | `all`, or `net` and `netclass` leaves, combined with `and`, `or` and `not` | the same | no |
 | `no_tracks` | `all`, or `net` and `netclass` leaves, combined with `and`, `or` and `not` | no | required: at least one layer |
 | `diff_pair_gap` | `all`, or `diff_pair`, `net` and `netclass` leaves, combined with `and`, `or` and `not` | no | yes |
@@ -217,8 +219,12 @@ v0.1 take the whole table above, the `diff_pair` leaf included.
 - A courtyard rule checks footprints, so its `ref v` is written `A.Reference == 'v'`. A courtyard rule
   read with `memberOfFootprint` stays opaque: writing it back with `Reference` would change what KiCad
   checks.
-- A silkscreen rule is board-wide because KiCad also applies it between a footprint's silkscreen and the
-  courtyard of its neighbours; a narrower selector would promise a precision the check does not have.
+- A silkscreen rule is board-wide; its whole condition is the fixed one of its kind
+  (`rulemap.SILK_CONDITIONS`), which names what Altium's rule judges: silkscreen against silkscreen, or
+  silkscreen against pads. A `silk_clearance` rule with no condition reaches every item of the side,
+  courtyards, fabrication fields and copper included (`H-K-SILK-REACH`): it is read as `silk_clearance`
+  and written back with no condition, so a KiCad file keeps its reach. Any other condition keeps the rule
+  opaque.
 - The pair and length kinds read nets, so they take no `ref` and no `item_kind` leaf. Only
   `diff_pair_gap` takes a layer clause, one rule per layer as for the other kinds: it is the one that was
   measured with it, and a length or a skew sums a net over its layers.
@@ -347,7 +353,8 @@ Per-major outcome of each row, from the oracle on 2026-10-02 (local `kicad-cli` 
 | `hole_clearance` | `hole_clearance` |
 | `annular_width` | `annular_width` |
 | `courtyard_clearance` | `courtyards_overlap` |
-| `silk_clearance` | `silk_overlap` (and `silk_over_copper` against pads) |
+| `silk_clearance` | `silk_overlap` (with no condition also `silk_over_copper` against pads) |
+| `silk_mask_clearance` | `silk_over_copper` |
 | `creepage` | `creepage` on 10.0.6; nothing on 9.0.9 |
 | `no_tracks` | `items_not_allowed` on 9.0.9 and 10.0.6 |
 | `diff_pair_gap` | `diff_pair_gap_out_of_range` (10.0.6; 9.0.9 not recorded) |

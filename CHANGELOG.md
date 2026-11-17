@@ -141,6 +141,16 @@ All notable changes to Fenolite are documented here. The format follows
   footprint silkscreen; an unplated pad that opens the mask is a mask opening. New result keys
   `settings.courtyard` and `settings.sources`. `fenolite check`'s `silk.clearance` stage uses the same box.
 
+- Altium's silkscreen rules keep their reach in KiCad (c0493, task 3.3; `H-K-SILK-REACH`): a `silk_clearance`
+  rule is written with the condition `A.Layer == '?.Silkscreen' && B.Layer == '?.Silkscreen'`, so KiCad's
+  DRC judges silkscreen against silkscreen only, as Altium's Silk To Silk Clearance does, and no longer
+  against courtyards, fabrication fields, tracks and zones; `silk_mask_clearance` (Silk To Solder Mask
+  Clearance) is now written for KiCad 9 and 10 as a `silk_clearance` rule with
+  `A.Layer == '?.Silkscreen' && B.Type == 'Pad'` (`rulemap.SILK_CONDITIONS`), no longer left out. A
+  `silk_clearance` rule read from a KiCad file with no condition keeps none when written back
+  (`rulemap.reaches_every_item`). `fenolite silk` keeps courtyards only under such a rule, and takes
+  `--mask-clearance` and the `--clip` margin from the silkscreen-to-pad rule when there is one.
+
 - A carried Altium pour is written without zero-length edges (c0496): a source document's region may state one
   outline vertex twice in a row (a zero-length edge); the carrier now drops the repeat from the plain and the
   shape-based record, keeping every other byte, so a written pour holds no zero-length edge as the spec asks.

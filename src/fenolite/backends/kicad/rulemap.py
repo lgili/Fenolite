@@ -50,7 +50,7 @@ KIND_MAP: Mapping[RuleKind, str] = MappingProxyType(
         "annular_width": "annular_width",
         "courtyard_clearance": "courtyard_clearance",
         "silk_clearance": "silk_clearance",
-        "silk_mask_clearance": "",
+        "silk_mask_clearance": "silk_clearance",
         "silk_edge_clearance": "",
         "creepage": "creepage",
         "no_tracks": "disallow",
@@ -64,9 +64,23 @@ KIND_MAP: Mapping[RuleKind, str] = MappingProxyType(
     }
 )
 """Model kind → written constraint type; ``via_drill`` adds the conjunct ``A.Type == 'Via'``,
-``no_tracks`` is written ``disallow track`` (``DISALLOW_ITEM``), and ``diff_pair_skew`` adds the list of
+``no_tracks`` is written ``disallow track`` (``DISALLOW_ITEM``), the two silkscreen kinds add their
+``SILK_CONDITIONS`` condition, and ``diff_pair_skew`` adds the list of
 ``KIND_FLAGS`` after its limits. ``short`` and ``antenna`` (change c0465) have no constraint type of their own
 (S-2242): the empty text, which no rule read back holds."""
+SILK_CONDITIONS: Mapping[RuleKind, str] = MappingProxyType(
+    {
+        "silk_clearance": "A.Layer == '?.Silkscreen' && B.Layer == '?.Silkscreen'",
+        "silk_mask_clearance": "A.Layer == '?.Silkscreen' && B.Type == 'Pad'",
+    }
+)
+"""The condition of each silkscreen kind, the whole condition of its rule (change c0493). A
+``silk_clearance`` rule with no condition reaches silkscreen against every item of the side: courtyards,
+fabrication texts, tracks, zones (``H-K-SILK-REACH``). Altium's Silk To Silk Clearance judges silkscreen
+against silkscreen and its Silk To Solder Mask Clearance silkscreen against mask openings, which KiCad
+reports as ``silk_over_copper`` against pads. A rule read with no condition is written back with none,
+so a KiCad file keeps its reach (``reaches_every_item``)."""
+_SILK_KINDS: Mapping[str, RuleKind] = {text: kind for kind, text in SILK_CONDITIONS.items()}
 DISALLOW_ITEM = "track"
 """The one item type of a ``disallow`` constraint that is modelled (rules.md, "Track layer rules";
 ``H-K-DRU-NOTRACKS``). Every other ``disallow`` rule stays opaque."""
@@ -151,8 +165,8 @@ KIND_SELECTORS: Mapping[RuleKind, KindGrammar] = MappingProxyType(
     }
 )
 """Each kind → the selectors it takes (rules.md, "Selectors per kind"). A courtyard rule selects footprints,
-so its ``ref`` is written ``A.Reference == '…'`` (``H-K-DRU-COURTYARD``); a silkscreen rule is board-wide,
-because KiCad also applies it between a footprint's silkscreen and its own neighbours' courtyards. ``area``
+so its ``ref`` is written ``A.Reference == '…'`` (``H-K-DRU-COURTYARD``); a silkscreen rule is board-wide:
+its only condition is the fixed one of ``SILK_CONDITIONS``, which names what it judges. ``area``
 (``S.intersectsArea('…')``, ``H-K-AREA-COND``) is a leaf of the first nine kinds only. The pair and length
 kinds read nets, not pads or item types, and only the pair gap was measured with a layer clause. The
 allowance kinds of change c0465 select nets: ``short`` a pair of sides, ``antenna`` one."""
@@ -210,8 +224,8 @@ KIND_SUPPORT: Mapping[RuleKind, frozenset[int]] = MappingProxyType(
         "annular_width": _BOTH,
         "courtyard_clearance": _BOTH,
         "silk_clearance": _BOTH,
-        "silk_mask_clearance": frozenset(),  # change c0498: Altium kinds KiCad does not split
-        "silk_edge_clearance": frozenset(),
+        "silk_mask_clearance": _BOTH,  # change c0493: a silk_clearance rule on pads (SILK_CONDITIONS)
+        "silk_edge_clearance": frozenset(),  # change c0498: an Altium kind KiCad does not split
         "creepage": _ONLY_10,
         "no_tracks": _BOTH,
         "short": frozenset(),
@@ -234,7 +248,8 @@ dangling track (S-2242), so ``short`` and ``antenna`` (change c0465) hold no maj
 board-wide allowance are written by ``lower_rules`` as design D6 of c0465 says. A ``clearance`` rule with a
 negative ``min`` silences the short of its two nets on both majors (probe ``dru-short-allow``), and their
 clearance check with it (``dru-short-allow-clearance`` ``absent``, ``H-K-SHORT-ALLOW``), so it is no
-lowering of a net-pair allowance. A modelled rule of a kind
+lowering of a net-pair allowance. ``silk_mask_clearance`` is a ``silk_clearance`` rule on pads
+(``SILK_CONDITIONS``, ``tests/kicad/rules/test_silk_reach.py``; change c0493). A modelled rule of a kind
 outside its entry gives ``rules.kind-unchecked``."""
 SHORTING_CODE = "kicad.drc.shorting-items"
 """The finding code of KiCad's check of a short, whose project severity is ``shorting_items``."""
@@ -420,6 +435,8 @@ def condition_text(rule: Rule, *, target: int) -> tuple[str | None, tuple[Issue,
     terms: list[str] = []
     if rule.kind == "via_drill":
         terms.append(f"A.Type == '{ITEM_TYPES['via']}'")
+    if rule.kind in SILK_CONDITIONS:
+        terms.append(SILK_CONDITIONS[rule.kind])
     if rule.selector_a.op != "all":
         terms.append(_term(rule.selector_a, "A", target, rule, issues))
     b = rule.selector_b
@@ -682,6 +699,8 @@ def rule_nodes(
             issues.append(_issue("rules.unsupported-limit", f"{rule.kind} takes no '{name}' limit", rule))
     condition, found = condition_text(rule, target=target)
     issues += found
+    if reaches_every_item(rule, slots):  # read with no condition: written back with none
+        condition = None
     if rule.layers and not KIND_SELECTORS[rule.kind].layers:
         issues.append(_issue("rules.unsupported-selector", f"a {rule.kind} rule takes no layer clause", rule))
     if rule.kind in LAYER_KINDS:
@@ -770,7 +789,10 @@ def lift_rule(node: Node) -> Rule | str:
     kinds: list[RuleKind] = [
         k
         for k, written in KIND_MAP.items()
-        if k != "via_drill" and k not in KIND_FLAGS and types and written == types[0].value
+        if k not in ("via_drill", "silk_mask_clearance")
+        and k not in KIND_FLAGS
+        and types
+        and written == types[0].value
     ]
     if len(types) != 1 or types[0].kind != AtomKind.SYMBOL or not kinds:
         return f"constraint {' '.join(a.text for a in types) or '()'} is not a lowered kind"
@@ -799,16 +821,20 @@ def lift_rule(node: Node) -> Rule | str:
         texts = cond.atoms()
         if cond.nodes() or len(texts) != 1 or texts[0].kind != AtomKind.STRING:
             return "the condition is not one string"
+        silk = _SILK_KINDS.get(texts[0].value)
         by_reference = kind in REFERENCE_KINDS
         if by_reference and "memberOfFootprint" in texts[0].value:
             return (
                 f"memberOfFootprint selects no footprint for {kind}; "
                 "KiCad selects one with A.Reference (H-K-DRU-COURTYARD)"
             )
-        parsed = parse_condition(texts[0].value, reference=by_reference)
-        if parsed is None:
-            return "the condition is outside the closed grammar"
-        selector_a, selector_b = parsed
+        if kind == "silk_clearance" and silk is not None:
+            kind = silk
+        else:
+            parsed = parse_condition(texts[0].value, reference=by_reference)
+            if parsed is None:
+                return "the condition is outside the closed grammar"
+            selector_a, selector_b = parsed
     layers: tuple[str, ...] = ()
     if "layer" in clauses:
         atoms = clauses["layer"][0].atoms()
@@ -836,6 +862,19 @@ def lift_rule(node: Node) -> Rule | str:
         max=limits.get("max"),
         severity=severity,
     )
+
+
+def reaches_every_item(rule: Rule, slots: Sequence[Slot] = ()) -> bool:
+    """Whether ``rule`` is a ``silk_clearance`` rule read from a rules file with no condition, which KiCad
+    applies to silkscreen against every item of the side, courtyards included (``H-K-SILK-REACH``).
+    ``slots`` are its clause slots (by default those it was read with)."""
+    if rule.kind != "silk_clearance":
+        return False
+    if not slots:
+        bag = rule.ext.get("kicad")
+        slots = slotlib.from_ext(bag) if bag is not None else ()
+    fields = {s.field for s in slots if isinstance(s, Modeled)}
+    return bool(fields) and "condition" not in fields
 
 
 def _leaves(selector: Selector | None) -> list[Selector]:
@@ -895,6 +934,7 @@ __all__ = [
     "ITEM_TYPES",
     "KIND_FLAGS",
     "KIND_MAP",
+    "SILK_CONDITIONS",
     "KIND_SELECTORS",
     "KIND_SUPPORT",
     "SHORTING_CODE",
@@ -915,6 +955,7 @@ __all__ = [
     "normal_form",
     "parse_condition",
     "parse_value",
+    "reaches_every_item",
     "rule_nodes",
     "rule_order",
     "slug",

@@ -26,6 +26,7 @@ from _ties import MM
 from fenolite.backends.altium.pcbdoc import text_corner
 from fenolite.backends.base import BoardPad
 from fenolite.backends.kicad.backend import KicadBackend
+from fenolite.backends.kicad.lowering import lower_rules
 from fenolite.backends.kicad.pcb import write_board
 from fenolite.backends.kicad.pro import synthesize_project
 from fenolite.cli import main as cli_main
@@ -33,6 +34,7 @@ from fenolite.core.coords import Point
 from fenolite.dsl import Footprint, mm
 from fenolite.model.board import FootprintField, Graphic, Size
 from fenolite.model.design import Design
+from fenolite.model.rules import Rule, RuleSet, Selector
 from fenolite.silk.board import Settings, altium_box, field_rect, gather, kind_of, mask_openings
 from fenolite.silk.extents import TextKey, estimate
 from fenolite.silk.layout import Rect, gap_floor
@@ -295,7 +297,9 @@ def test_clearances_from_the_board_rules(monkeypatch: pytest.MonkeyPatch, tmp_pa
     """The clearances come from the board's ``silk_clearance`` rule when there is one, an option still wins,
     the defaults are the fallback, and the reply says where each value came from. A rule without a
     condition or a layer clause reaches courtyards in KiCad's DRC: the gap and the courtyard clearance follow
-    it; a rule with a layer clause does not."""
+    it; a rule with a layer clause does not, nor the translated silkscreen rules, whose conditions name
+    silkscreen and pads (``rulemap.SILK_CONDITIONS``), and the silkscreen-to-pad rule gives the mask
+    clearance."""
     design = chip_row(3, pitch=4 * MM)
     _, reply = silk(monkeypatch, tmp_path / "rule", design, "--designators", rules=RULE)
     settings = reply["result"]["settings"]
@@ -320,6 +324,13 @@ def test_clearances_from_the_board_rules(monkeypatch: pytest.MonkeyPatch, tmp_pa
     _, reply = silk(monkeypatch, tmp_path / "layered", design, "--designators", rules=layered)
     settings = reply["result"]["settings"]
     assert settings["clearance"] == 200_000 and settings["courtyard"] is None
+    made = (("silk_clearance", 200_000), ("silk_mask_clearance", 120_000))  # as a conversion writes them
+    found = tuple(Rule(id=f"rul_{k}", name=k, kind=k, selector_a=Selector("all"), min=v) for k, v in made)
+    translated = lower_rules(RuleSet(id="rst_silk", rules=found)).text.removeprefix("(version 1)\n")
+    _, reply = silk(monkeypatch, tmp_path / "translated", design, "--designators", rules=translated)
+    settings = reply["result"]["settings"]
+    assert (settings["clearance"], settings["mask_clearance"], settings["gap"]) == (200_000, 120_000, 100_000)
+    assert settings["courtyard"] is None and settings["sources"]["mask_clearance"] == "rule"
 
 
 @pytest.mark.parametrize("model", ["kicad", "altium"])

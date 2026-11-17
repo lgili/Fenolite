@@ -98,3 +98,27 @@ Rules for every task:
   none names a designator the command placed. The 12 left are pad-to-silk tracks (10) and texts the command
   did not place (2 on pads, 10 on silk). The fitted Altium text box is confirmed on this board. 3.2 passes.
 
+- [x] 3.3 Narrow the translated silkscreen rules (`H-K-SILK-REACH`, design D7): Altium's silk-to-silk rule
+  becomes a KiCad check of silkscreen against silkscreen only, silk-to-mask one of silkscreen against pads,
+  and `fenolite silk` stays coherent on converted boards.
+  - Proof: `uv run pytest tests/kicad/rules/test_silk_reach.py tests/kicad/rules/test_rule_kinds_new.py tests/unit/backends/kicad/test_rulemap_kinds.py tests/unit/convert/test_altium_rule_fates.py tests/unit/silk/test_dense_c0493.py -q`
+  - `tests/kicad/rules` and `tests/kicad/silk` pass with local `kicad-cli` 10.0.6 (138 passed) and with
+    9.0.9 in the pinned image (127 passed, 11 skipped for 10.x only), 2026-11-17.
+
+  Decision (maintainer, 2026-11-17): `silk_clearance` is written with the condition
+  `A.Layer == '?.Silkscreen' && B.Layer == '?.Silkscreen'` and `silk_mask_clearance`, until now left out, as
+  a `silk_clearance` rule with `A.Layer == '?.Silkscreen' && B.Type == 'Pad'`, on KiCad 9 and 10
+  (`rulemap.SILK_CONDITIONS`); not the board-setup value, which judges no pad and cannot be read back as a
+  rule. A rule read from KiCad with no condition is written back with none (`rulemap.reaches_every_item`);
+  `fenolite silk` keeps courtyards only under such a rule and takes the mask clearance from the pad rule.
+  Tests `test_silk_rules_judge_silkscreen_only`, `test_a_native_silk_rule_keeps_its_reach`,
+  `test_clearances_from_the_board_rules`, `test_translated_silk_rules_judge_silkscreen_and_pads_only`.
+
+  Result (maintainer board, private, codes and counts only, 2026-11-17): the source folder named for the check no
+  longer exists, so the Altium project written back from the earlier KiCad conversion (equivalence level 5)
+  was converted again (exit 0) into a new private folder. `kicad-cli` 10.0.6 DRC (`--severity-all`): `silk_overlap` 98, of which 60 name a Reference
+  field, all silkscreen against silkscreen; `silk_over_copper` 18, all naming a Reference field. The same board
+  with the rule's condition removed (the old translation): `silk_overlap` 199 (the report limit; 94 name a
+  courtyard), 103 naming a Reference field; `silk_over_copper` 30, all Reference. The board's Altium
+  Silk To Solder Mask Clearance record is not mapped (its keys), so no pad rule is written for it and the 18
+  `silk_over_copper` are ink over pad copper, which KiCad reports at any clearance.

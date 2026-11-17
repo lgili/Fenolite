@@ -18,13 +18,14 @@ from _altium_rules_doc import project as rules_project
 
 from fenolite.api import run
 from fenolite.api.commands import Reply
+from fenolite.backends.kicad import rulemap
 from fenolite.convert import Conversion, convert_project
 from fenolite.convert.sources import read_source
 
 RECORDS = ONE_OF_EACH
 KEPT_KINDS = {
-    "Height", "PlaneClearance", "PlaneConnect", "NetAntennae", "SilkToSolderMaskClearance",
-    "SilkToBoardRegionClearance", "MinimumSolderMaskSliver", "RoutingTopology", "RoutingPriority",
+    "Height", "PlaneClearance", "PlaneConnect", "NetAntennae", "SilkToBoardRegionClearance",
+    "MinimumSolderMaskSliver", "RoutingTopology", "RoutingPriority",
     "RoutingCorners", "FanoutControl", "FabricationTestpoint", "FabricationTestPointUsage",
     "AssemblyTestpoint", "AssemblyTestPointUsage", "SupplyNets", "UnRoutedNet", "UnpouredPolygon",
     "LayerPairs", "MatchedLengths",
@@ -65,6 +66,8 @@ def test_kicad_holds_the_rules_it_can_express(tmp_path: Path) -> None:
         "disallow track", "via_diameter", "hole_size", "edge_clearance", "annular_width", "track_width",
     ):  # fmt: skip
         assert constraint in dru, constraint
+    for kind in ("silk_clearance", "silk_mask_clearance"):  # change c0493: silkscreen to silkscreen or pads
+        assert f'(condition "{rulemap.SILK_CONDITIONS[kind]}")' in dru, kind
 
 
 def test_the_changed_records_name_their_reason(tmp_path: Path) -> None:

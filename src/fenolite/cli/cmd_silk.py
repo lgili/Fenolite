@@ -25,11 +25,13 @@ from pathlib import Path
 from typing import cast
 
 from fenolite.backends.base import BoardPad, DrcReport
+from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad.backend import KicadBackend
 from fenolite.backends.kicad.cli import KicadCli, KicadCliError, find_kicad_cli
 from fenolite.backends.kicad.dru import read_rules
 from fenolite.backends.kicad.pcb import read_board, source_info, write_board
 from fenolite.backends.kicad.projectset import resolve_board
+from fenolite.backends.kicad.rulemap import reaches_every_item
 from fenolite.backends.kicad.textink import InkRequest, measure_ink
 from fenolite.cli._examples import EXAMPLE_SILK
 from fenolite.cli._kicadtool import DEFAULT_TIMEOUT, preflight
@@ -39,6 +41,7 @@ from fenolite.cli.output import InputRef
 from fenolite.core.errors import FenoliteError, Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.units import Nm, parse_length
+from fenolite.model.base import Opaque
 from fenolite.model.design import Design
 from fenolite.silk.board import (
     ALTIUM_HYPOTHESIS,
@@ -233,40 +236,41 @@ def text_floor(project: Path | None) -> tuple[Nm, Nm]:
     return found_height or height, found_stroke or stroke
 
 
-def silk_rules(rules: Path | None) -> tuple[Nm | None, Nm | None]:
-    """The largest ``min`` of the ``silk_clearance`` rules of a ``.kicad_dru``, a rule with a condition or a
-    layer clause included (Fenolite keeps those opaque, so their ``min`` is read from the text), and the
-    largest of the rules not ignored with no condition and no layer clause (``None`` when there is none).
-    KiCad's DRC applies such a rule to every pair its silkscreen tests take, courtyards included."""
+def silk_rules(rules: Path | None) -> tuple[Nm | None, Nm | None, Nm | None]:
+    """``(silk, every, mask)`` of a ``.kicad_dru``: the largest ``min`` of its silkscreen-to-silkscreen rules,
+    a rule with any other condition or a layer clause included (Fenolite keeps those opaque, so their ``min``
+    is read from the text); the largest of the rules not ignored that reach every item of the side
+    (``rulemap.reaches_every_item``, courtyards included); and the largest silkscreen-to-pad rule (change
+    c0493, ``rulemap.SILK_CONDITIONS``). ``None`` where there is none."""
     if rules is None:
-        return None, None
+        return None, None, None
     try:
         text = rules.read_text(encoding="utf-8")
         ruleset = read_rules(text, file=rules.name, issues=[])
     except (OSError, ValueError, FenoliteError):
-        return None, None
-    found = [
-        rule.min
-        for rule in ruleset.rules
-        if rule.kind == "silk_clearance"
-        and rule.min is not None
-        and rule.severity != "ignore"
-        and rule.selector_a.op == "all"
-        and rule.selector_b is None
-        and not rule.layers
-    ]
-    every = max(found, default=None)
-    for match in _SILK_MIN.finditer(text):  # shortcut: severity not read here; an ignored rule still counts
+        return None, None, None
+    found = [r.min for r in ruleset.rules if r.kind == "silk_clearance" and r.min is not None]
+    reach = [r.min for r in ruleset.rules if r.min is not None and r.severity != "ignore"
+             and reaches_every_item(r)]  # fmt: skip
+    every = max(reach, default=None)
+    mask = max(
+        (r.min for r in ruleset.rules if r.kind == "silk_mask_clearance" and r.min is not None), default=None
+    )
+    bag = ruleset.ext.get("kicad")
+    opaque = [s.fragment for s in (slotlib.from_ext(bag) if bag is not None else ()) if isinstance(s, Opaque)]
+    for match in _SILK_MIN.finditer("\n".join(opaque)):  # shortcut: severity not read; an ignored rule counts
         try:
             found.append(parse_length(match.group(1)))
         except ValueError:
             continue
-    return max(found, default=None), every
+    return max(found, default=None), every, mask
 
 
 def rule_margin(rules: Path | None) -> Nm | None:
-    """The largest ``min`` of the ``silk_clearance`` rules of a ``.kicad_dru``, or ``None``."""
-    return silk_rules(rules)[0]
+    """The gap ``--clip`` keeps from an opening: the largest silkscreen-to-pad rule of a ``.kicad_dru``, else
+    its largest silkscreen rule, or ``None``."""
+    silk, _, mask = silk_rules(rules)
+    return mask if mask is not None else silk
 
 
 def board_silk(project: Path | None) -> Nm | None:
@@ -285,11 +289,12 @@ def clearances(
     args: argparse.Namespace, beside: Mapping[str, Path]
 ) -> tuple[dict[str, Nm | None], dict[str, str]]:
     """``clearance``, ``mask_clearance``, ``gap`` and ``courtyard`` of ``--designators`` and where each came
-    from: ``option``; ``rule`` (the largest ``silk_clearance`` rule of the ``.kicad_dru``); ``board`` (the
-    board setup's silkscreen clearance); ``default``. KiCad judges silkscreen to a mask opening by the same
-    silk clearance, so it is also the mask clearance. A rule with no condition and no layer clause reaches
-    courtyards: every courtyard is then kept that far, and ``gap`` is at least that."""
-    rule, every = silk_rules(beside.get(".kicad_dru"))
+    from: ``option``; ``rule`` (the largest silkscreen rule of the ``.kicad_dru``); ``board`` (the board
+    setup's silkscreen clearance); ``default``. The mask clearance is the silkscreen-to-pad rule when there
+    is one, else the same silkscreen value (a rule with no condition judges pads too). A rule that reaches
+    every item (``rulemap.reaches_every_item``) reaches courtyards: every courtyard is then kept that far,
+    and ``gap`` is at least that."""
+    rule, every, mask = silk_rules(beside.get(".kicad_dru"))
     setup = board_silk(beside.get(".kicad_pro"))
     board, board_source = (rule, "rule") if rule is not None else (setup, "board")
     values: dict[str, Nm | None] = {}
@@ -301,6 +306,8 @@ def clearances(
         flag = "--" + name.replace("_", "-")
         if option is not None:
             values[name], sources[name] = _length(option, flag, default), "option"
+        elif name == "mask_clearance" and mask is not None:
+            values[name], sources[name] = mask, "rule"
         elif board is not None:
             values[name], sources[name] = board, board_source
         else:

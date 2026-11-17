@@ -58,3 +58,9 @@ Rules for every task:
   Altium's silk-to-silk rule does not; and `silk_over_copper` judges copper where Altium judges mask
   openings. Still open: a text-only count on both sides with a silkscreen-only KiCad rule; that needs the
   rule translation narrowed first (follow-up change).
+
+  Result (2026-11-17, KiCad side, after c0493 task 3.3): the translation now writes a silkscreen-only rule, so
+  the text-only count is possible. On the board converted again: `silk_overlap` 98 (60 naming a Reference
+  field, all silkscreen against silkscreen) and `silk_over_copper` 18 (all Reference), against Altium's 12
+  silk-to-silk and 12 silk-to-mask in all. The remaining gap is open: the Altium DRC was not run again on
+  this conversion.

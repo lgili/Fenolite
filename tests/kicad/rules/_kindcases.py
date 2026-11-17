@@ -38,7 +38,7 @@ import _rulecases as rc
 from _analysis import BRACKET_NM, CreepBench, creep_bench
 
 from fenolite.backends.base import DrcReport
-from fenolite.backends.kicad import pro
+from fenolite.backends.kicad import pro, rulemap
 from fenolite.backends.kicad.lowering import lower_rules
 from fenolite.backends.kicad.mod import read_footprint
 from fenolite.backends.kicad.pcb import write_board
@@ -75,7 +75,7 @@ BOARD_RULES: tuple[tuple[str, str | None, int], ...] = (
     ("hole_clearance", "A.NetName == 'HC_V'", 800_000),
     ("annular_width", "A.NetName == 'AW'", 150_000),
     ("courtyard_clearance", "A.Reference == 'CY1'", MM),
-    ("silk_clearance", None, 100_000),
+    ("silk_clearance", rulemap.SILK_CONDITIONS["silk_clearance"], 100_000),  # change c0493
 )
 """``(kind, condition, min)`` of the five rules of the board bench."""
 FLOOR_RULES: Mapping[str, int] = MappingProxyType(

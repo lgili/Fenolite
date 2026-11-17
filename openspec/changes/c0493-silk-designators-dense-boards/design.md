@@ -99,3 +99,25 @@ courtyard's ink (the box grows by half the courtyard's stroke). Copper under the
 stay out of the search: they do not print, Altium's silk rules do not judge them, and a designator could
 not keep clear of a pour. KiCad reports them on the board as it was too; the rule translation is the place
 to narrow them (follow-up). Not taken: courtyards blocking without such a rule (the dense bench of D1).
+
+## D7 The silkscreen rules a conversion writes (task 3.3, 2026-11-17)
+
+Measured with `kicad-cli` on an authored bench (`tests/kicad/rules/test_silk_reach.py`): a `silk_clearance`
+rule with no condition reports a silkscreen line against tracks, zones, other footprints' courtyards and
+visible fabrication fields, and pads (`silk_over_copper`); with `A.Layer == '?.Silkscreen' && B.Layer ==
+'?.Silkscreen'` it reports silkscreen pairs only, and with `A.Layer == '?.Silkscreen' && B.Type == 'Pad'`
+pads only (`B.Layer == '?.Mask'` selects no pad). The board setup's `min_silk_clearance` also tests
+silkscreen pairs only, but it does not judge pads and has no severity or name of its own.
+
+Decision (maintainer, 2026-11-17): Altium's Silk To Silk Clearance (`silk_clearance`) is written as a
+`silk_clearance` rule with the first condition, and Silk To Solder Mask Clearance (`silk_mask_clearance`),
+which was left out, as one with the second (`rulemap.SILK_CONDITIONS`), on KiCad 9 and 10. Each kind keeps
+`all` as its only selector; the fixed condition is its whole condition, and a rule read with exactly that
+condition lifts back to its kind. Not taken: the board-setup value, which would lose the pad check and the
+rule on the way back to the model.
+
+Decision (maintainer, 2026-11-17): a `silk_clearance` rule read from a KiCad file with no condition is still
+read as `silk_clearance` (the Altium writer treats it as before) and is written back with no condition, so a
+KiCad file keeps its reach (`rulemap.reaches_every_item`). `fenolite silk` keeps courtyards (D6) only under
+such a rule, so a converted board no longer widens `--gap` or blocks courtyards; `--mask-clearance` and the
+`--clip` margin come from the silkscreen-to-pad rule when there is one.

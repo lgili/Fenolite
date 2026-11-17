@@ -86,7 +86,8 @@ def test_hole_to_hole_rule() -> None:
 @pytest.mark.parametrize("kind", NEW_KINDS)
 def test_board_wide_rule_of_each_kind_round_trips(kind: str) -> None:
     text, _ = lowered(rule(kind, name=kind, min=0))
-    assert f"(constraint {kind} (min 0mm))" in text and "condition" not in text
+    assert f"(constraint {kind} (min 0mm))" in text
+    assert ("condition" in text) == (kind in rulemap.SILK_CONDITIONS)
     again = read_rules(text)
     assert [(r.kind, r.min, r.selector_a) for r in again.rules] == [(kind, 0, Selector("all"))]
 
@@ -132,6 +133,29 @@ def test_outside_the_grammar_of_a_kind(made: object) -> None:
     error = refused(made(), allow_lossy=True)  # type: ignore[operator]
     assert {i.code for i in error.issues} == {"rules.unsupported-selector"}
     assert not error.droppable and "--allow-lossy" not in (error.hint or "")
+
+
+@pytest.mark.parametrize("kind", ["silk_clearance", "silk_mask_clearance"])
+def test_silk_rules_judge_silkscreen_only(kind: str) -> None:
+    """Change c0493 (``H-K-SILK-REACH``): a silkscreen rule is written with the condition that names what
+    Altium's rule judges, silkscreen against silkscreen or against pads, and is read back as its kind."""
+    text, issues = lowered(rule(kind, name="silk", min=150_000))
+    assert issues == ()
+    assert f'(condition "{rulemap.SILK_CONDITIONS[kind]}")' in text
+    assert "(constraint silk_clearance (min 0.15mm))" in text
+    (again,) = read_rules(text).rules
+    assert (again.kind, again.min, again.selector_a) == (kind, 150_000, Selector("all"))
+    assert not rulemap.reaches_every_item(again)
+
+
+def test_a_native_silk_rule_keeps_its_reach() -> None:
+    """A ``silk_clearance`` rule read with no condition reaches every item of the side in KiCad; written
+    back it keeps no condition."""
+    text = '(version 1)\n(rule "silk"\n\t(constraint silk_clearance (min 0.2mm))\n)\n'
+    ruleset = read_rules(text)
+    (read,) = ruleset.rules
+    assert read.kind == "silk_clearance" and rulemap.reaches_every_item(read)
+    assert write_rules(ruleset, target=10) == text
 
 
 def test_narrowed_silk_rule_names_the_kind() -> None:
