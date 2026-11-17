@@ -48,3 +48,30 @@ strings before and after (same digest), in 1.27 s instead of 2.13 s. `place --st
 selected, 1 movable, budget 64: 2 candidates (was 0), each with 126 baseline findings, in 104 s (was 144 s;
 the 1000-evaluation run that found the first candidates took about 35 min).
 
+- [x] 3.3 Judge each optimizer candidate incrementally: the fixed parts are checked once, each candidate only
+  near its placed parts (`MovedPartsCheck` in `cli/placement_checks.py`), with the same verdicts as the
+  whole-board check; a baseline courtyard pair with no moved part keeps its measure.
+  - Proof: `uv run --extra geo --extra dev pytest tests/unit/cli/test_place_moved_parts.py -q -n 0`
+
+Decision (maintainer, 2026-11-17): the incremental check reuses the whole-board check instead of splitting
+the copper, geometry and mechanical checks by item. The board is cut to the placed footprints plus the fixed
+footprints, tracks and vias whose boxes (pad copper, drills, extents, rule areas, bodies) lie within the
+largest clearance, hole clearance or gap of them; zones, arcs, graphics, rule areas, holes and the outline
+stay whole. The verdicts are those of the fixed parts plus what the cut board with the placed parts adds to
+the cut board without them, as multisets. When the placed parts take a verdict away (a duplicate-drill
+group grows, a reservation finds its drill) or a placed footprint holds a rule area (its area changes the
+rules of the copper in it, beyond the cut), the whole board is checked: exact, never faster than before. The
+copper issues and summary of an incremental check are left empty: the optimizer reads only the hard and
+missing strings and the copper and mechanical findings. `_measures` measures only the courtyard pairs with
+a moved part and reads the extents of those parts only; the other pairs keep the measure of the board
+before. Tests `test_moved_parts_check_equals_the_whole_board_check` (random moves with rotation, side and
+poses on edges, cut-outs, rule areas, holes, drills and courtyards; the rule-area fallback),
+`test_a_part_on_another_parts_drills_gives_the_whole_board_verdicts` and
+`test_the_optimizer_judges_only_the_parts_near_the_moved_one` (fails without the change: every evaluation
+then checks all 30 parts).
+
+Result (maintainer board, 2026-11-17): one evaluation took 1.68 s (1.54 s of whole-board check) and now
+0.17 s (0.13 s of incremental check); the 64 incremental verdicts equal the whole-board ones. `place
+--strategy optimize`, 59 selected, 1 movable, budget 64, dry run: same result as before, byte for byte (2
+candidates with the same ids, scores and 126 baseline findings each, same input digest and blockers), in
+18.6 s instead of 104 s.

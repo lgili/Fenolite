@@ -5,19 +5,19 @@
 import hashlib
 import re
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import asdict, replace
 from pathlib import Path
 from typing import cast
 
-from fenolite.backends.base import BoardFrame, DesignRules, PlacedExtent
+from fenolite.backends.base import BoardFrame, DesignRules
 from fenolite.backends.kicad.backend import KicadBackend
 from fenolite.backends.kicad.projectset import project_set
 from fenolite.cli.api import Result
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.cli.placement_capacity import placement_capacity
-from fenolite.cli.placement_checks import check_placement_constraints
+from fenolite.cli.placement_checks import MovedPartsCheck, check_placement_constraints
 from fenolite.cli.placement_probes import probe_placement_intents
 from fenolite.cli.placement_protection import inspect_attachments
 from fenolite.core.coords import Point
@@ -54,17 +54,25 @@ def _finding_keys(legality: PlacementLegality) -> tuple[str, ...]:
 
 
 def _measures(
-    design: Design, legality: PlacementLegality, frame: BoardFrame, keys: Sequence[str]
+    design: Design,
+    legality: PlacementLegality,
+    frame: BoardFrame,
+    keys: Sequence[str],
+    *,
+    moved: Collection[str] | None = None,
+    then: Mapping[str, int | None] | None = None,
 ) -> dict[str, int | None]:
     """The measure of change c0487 (design D2) of each of ``keys`` that has one, larger when worse: the
     courtyard overlap of ``place.courtyard-overlap`` and ``gap`` findings, minus the gap of a copper
-    finding. ``None`` when it cannot be computed; keys of any other kind are left out."""
+    finding. ``None`` when it cannot be computed; keys of any other kind are left out. With ``moved`` and
+    ``then``, a courtyard pair with no part in ``moved`` keeps its measure in ``then``: its courtyards did
+    not change."""
     gaps: dict[str, int] = {}
     for found in legality.copper.findings:
         key = f"copper:{found.code}:{found.where}"
         gaps[key] = min(gaps.get(key, found.gap), found.gap)
-    extents: dict[str, PlacedExtent] | None = None
     out: dict[str, int | None] = {}
+    pending: list[tuple[str, list[str], tuple[str, ...]]] = []
     for key in keys:
         if key in gaps:
             out[key] = -gaps[key]
@@ -77,11 +85,21 @@ def _measures(
             pair, faces = ids.split(":"), (face,)
         else:
             continue
-        if extents is None:
-            extents = {row.footprint_id: row for row in frame.placed_extents(design)}
-        rows = [extents.get(ident) for ident in pair]
-        first, second = rows if len(rows) == 2 else (None, None)
-        out[key] = overlap_measure(first, second, faces) if first and second else None
+        if moved is not None and then is not None and key in then and not set(pair) & set(moved):
+            out[key] = then[key]
+        else:
+            pending.append((key, pair, faces))
+    if pending and design.board is not None:
+        # only the parts of these pairs: an extent is one footprint's (change c0487, follow-up 2026-11-17)
+        wanted = {ident for _, pair, _ in pending for ident in pair}
+        board = replace(
+            design.board, footprints=tuple(fp for fp in design.board.footprints if fp.id in wanted)
+        )
+        extents = {row.footprint_id: row for row in frame.placed_extents(replace(design, board=board))}
+        for key, pair, faces in pending:
+            rows = [extents.get(ident) for ident in pair]
+            first, second = rows if len(rows) == 2 else (None, None)
+            out[key] = overlap_measure(first, second, faces) if first and second else None
     return out
 
 
@@ -217,6 +235,15 @@ def propose(
     fingerprint = hashlib.sha256(
         canonical.dumps((design, request, scope, rules, tuple(sorted(baseline_measures.items())))).encode()
     ).hexdigest()
+    # Each candidate is the fixed parts plus its poses: the fixed parts are judged once, then only what lies
+    # near the placed parts (change c0487, follow-up 2026-11-17).
+    fixed_parts = tuple(fp for fp in board.footprints if fp.id not in set(scope.movable))
+    incremental = MovedPartsCheck(
+        replace(design, board=replace(board, footprints=fixed_parts)),
+        backend,
+        constraints,
+        rules=rules,
+    )
     mandatory_mechanical = bool(
         constraints.reservations or constraints.volumes != type(constraints.volumes)()
     )
@@ -243,7 +270,7 @@ def propose(
                 parts[pose.footprint_id].side,
             )
         }
-        after = _measures(checked, legality, backend, old)
+        after = _measures(checked, legality, backend, old, moved=moved, then=baseline_measures)
         hard: list[str] = []
         kept: list[str] = []
         for key in found:
@@ -267,7 +294,7 @@ def propose(
                 moved.board, footprints=tuple(fp for fp in moved.board.footprints if fp.id in active)
             ),
         )
-        legality = check_placement_constraints(checked, backend, constraints, rules=rules)
+        legality = incremental(checked, {pose.footprint_id for pose in poses})
         missing = legality.missing_inputs
         if complete:
             candidate_missing[poses] = missing

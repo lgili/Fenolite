@@ -119,6 +119,11 @@ All notable changes to Fenolite are documented here. The format follows
   each pad's copper shapes once per check, with a box test first, instead of once per keep-out and drill:
   same verdicts, about 40% faster on a dense board.
 
+- `place --strategy optimize` checks the fixed parts once and then, for each candidate, only the parts,
+  tracks and vias near the placed ones (`MovedPartsCheck`, c0487): same verdicts as the whole-board check,
+  which it falls back to when a placed part holds a rule area or takes a verdict away. A baseline courtyard
+  pair with no moved part keeps its measure. One evaluation on a dense board went from about 1.7 s to 0.17 s.
+
 - A copper clearance finding at most 100 nm short of its rule (`NEAR_MISS_NM`), judged with a tool's tolerance,
   now ends with its shortfall and "likely coordinate rounding" (c0490); the code, severity and the 11 nm
   Altium tolerance do not change, since no public source states a wider Altium tolerance.
