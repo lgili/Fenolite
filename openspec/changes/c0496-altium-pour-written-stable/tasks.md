@@ -31,7 +31,7 @@ Rules for every task:
   - Proof: `uv run --extra geo --extra dev pytest tests/unit/backends/altium/test_pour_compare.py tests/unit/backends/altium/test_pour_refusal.py -q -n 0`
 - [x] 2.1 Add the change to `CHANGELOG.md` under `## [Unreleased]`, and run `make check-fast`.
   - Proof: `make check-fast`
-- [ ] 2.2 Maintainer board (private, codes only): with a remote zone added, the pours of the other nets
+- [x] 2.2 Maintainer board (private, codes only): with a remote zone added, the pours of the other nets
   are written byte-identical, apart from the index, and Altium's dead-copper analysis finds no new island.
 
   Result (maintainer board, 2026-11-16): with a remote zone, 40 of 40 written pours byte-identical apart from the index; the same 5 `altium.pour-changed` with and without it; but each written document holds 2 zero-length pour edges or tracks (expected 0): follow-up. Altium dead-copper part not run (VM).
@@ -45,3 +45,8 @@ Rules for every task:
   Result (maintainer board, 2026-11-17): zero-length pour edges or tracks 0 and 0 (were 2 and 2); with the
   remote zone 40 of 40 written pours byte-identical apart from the index; 5 `altium.pour-changed` in both,
   as before; exit 0 and equivalence level 5 in both. Altium dead-copper part still not run (VM).
+
+  Result (Altium 24.5, 2026-11-17): both written boards opened in Altium, Repour All, then DRC (dead copper
+  reported above 0.065 mm²): 40 and 41 polygons poured; each DRC reports 24 violations (12 silk-to-mask, 12
+  silk-to-silk) and no polygon, clearance, short, un-poured or dead-copper violation. The added zone creates
+  no new island and no new violation. 2.2 passes.

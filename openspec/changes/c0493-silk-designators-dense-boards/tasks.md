@@ -49,3 +49,13 @@ Rules for every task:
   unplaced (text 13, hole 4, mask 3, silk 3), 23 `silk.no-place`, 23 `silk.below-minimum`, 0
   `silk.check-failed` (were 23, exit 5, nothing written). Altium DRC part still not run (VM).
 
+  Result (Altium 24.5, 2026-11-17): FAIL. The written board, converted to Altium (exit 0, equivalence
+  level 5), Repour All, then DRC: 237 violations (149 silk-to-mask, 88 silk-to-silk), against 24 for the
+  same board before the command; 227 of the texts named are designators the command placed. The board's
+  rules are 0.15 mm for both checks; the command ran with gap 0.10 mm and mask clearance 0.10 mm, which
+  explains 31 findings between 0.10 and 0.15 mm. The other findings are under 0.10 mm or collisions
+  (80 with a placed designator: 40 on pads, 39 on silk tracks, the rest text on text). KiCad 10.0.6 on the
+  KiCad board before conversion agrees: 122 `silk_overlap` name a placed designator. So the command's own
+  overlap model misses real overlaps, and it does not take the clearances from the board's rules.
+  Follow-up change needed; 3.2 stays open.
+
