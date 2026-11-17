@@ -77,7 +77,10 @@ def beam_search(
     if not domains:
         raise ValueError("at least one placement domain is required")
     ids = tuple(sorted(domains, key=lambda key: (len(set(domains[key])), key)))
-    choices: tuple[PoseSet, ...] = tuple(tuple(sorted(set(domains[ident]), key=_pose_key)) for ident in ids)
+    # The domain's own order (the current pose and the seeds first) is the order of evaluation, so a small
+    # budget reaches the likely poses. The beam keeps the least states by ``_state_key`` in any order, so a
+    # search that completes gives the same result (change c0487, field result 2026-11-17).
+    choices: tuple[PoseSet, ...] = tuple(tuple(dict.fromkeys(domains[ident])) for ident in ids)
     if any(pose.footprint_id != ident for ident, rows in zip(ids, choices, strict=True) for pose in rows):
         raise ValueError("a domain contains a pose for another footprint")
 

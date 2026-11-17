@@ -9,14 +9,15 @@ from dataclasses import dataclass, field
 from itertools import combinations
 from typing import Protocol
 
-from fenolite.backends.base import BoardFrame, DesignRules, PlacedExtent
+from fenolite.backends.base import BoardFrame, BoardPad, DesignRules, PadCopper, PlacedExtent
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue, Severity
 from fenolite.core.evidence import Evidence
 from fenolite.geometry.boolean import select_backend
 from fenolite.geometry.errors import BackendUnavailable, GeometryError
 from fenolite.geometry.polygon import Polygon
-from fenolite.geometry.thick import Thick, thick_closer_than, thick_gap_floor, thick_touch
+from fenolite.geometry.shapes import BBox
+from fenolite.geometry.thick import Thick, thick_bbox, thick_closer_than, thick_gap_floor, thick_touch
 from fenolite.model.board import area_owners, rule_areas
 from fenolite.model.design import Design
 from fenolite.placement.constraints import MechanicalReview, PlacementConstraints, review_mechanics
@@ -137,6 +138,23 @@ def check_geometry(
                 hard.append(f"gap:{first.footprint_id}:{second.footprint_id}:{face}")
     if board is not None:
         owners = area_owners(board)
+        # each pad's copper shapes and their boxes once per check, not once per keep-out and drill (c0487)
+        shapes_of: dict[int, list[tuple[PadCopper, Thick]]] = {}
+        boxes_of: dict[int, list[BBox]] = {}
+
+        def shapes(pad: BoardPad) -> list[tuple[PadCopper, Thick]]:
+            found = shapes_of.get(id(pad))
+            if found is None:
+                found = [(entry, Thick(entry.core, entry.width, entry.filled)) for entry in pad.copper]
+                shapes_of[id(pad)] = found
+                boxes_of[id(pad)] = [thick_bbox(shape) for _, shape in found]
+            return found
+
+        def apart(pad: BoardPad, reach: BBox) -> bool:
+            """The boxes contain the shapes: when none meets ``reach``, no shape of the pad can touch it."""
+            shapes(pad)
+            return not any(box.intersects(reach) for box in boxes_of[id(pad)])
+
         for keepout in rule_areas(board):
             area = Thick(keepout.outline, 0, True)
             if keepout.no_footprints:
@@ -150,11 +168,13 @@ def check_geometry(
                         ):
                             hard.append(f"keepout:{keepout.id}:{extent.footprint_id}:{face}")
             if keepout.no_pads:
+                reach = thick_bbox(area)
                 for pad in pads:
+                    if not any(entry.layer in keepout.layers for entry in pad.copper) or apart(pad, reach):
+                        continue
                     if any(
-                        (entry.layer in keepout.layers)
-                        and thick_touch(area, Thick(entry.core, entry.width, entry.filled))
-                        for entry in pad.copper
+                        (entry.layer in keepout.layers) and thick_touch(area, shape)
+                        for entry, shape in shapes(pad)
                     ):
                         hard.append(f"keepout:{keepout.id}:{pad.pad_id}:pad")
         drills = [(p.pad_id, p.footprint_id, Thick(p.hole, p.drill)) for p in pads if p.hole and p.drill]
@@ -166,10 +186,13 @@ def check_geometry(
                 hard.append(f"drill:{first_id}:{second_id}")
         # An opposite-face drill can damage surface copper even without a courtyard on that face.
         for drill_id, footprint_id, drill in drills:
+            reach = thick_bbox(drill)
             for pad in pads:
                 if pad.pad_id == drill_id or (footprint_id and pad.footprint_id == footprint_id):
                     continue
-                if any(thick_touch(drill, Thick(e.core, e.width, e.filled)) for e in pad.copper):
+                if apart(pad, reach):
+                    continue
+                if any(thick_touch(drill, shape) for _, shape in shapes(pad)):
                     hard.append(f"drill-copper:{drill_id}:{pad.pad_id}")
     reservation_review = review_mechanics(design, pads, constraints.reservations)
     hard.extend("duplicate-drill:" + ",".join(ids) for ids in reservation_review.duplicate_drills)

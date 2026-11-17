@@ -32,3 +32,19 @@ Rules for every task:
 Decision (maintainer, 2026-11-16): the decisions of this change are listed under "Decisions" in
 `design.md`. The guide page `placement.md` has a 12000-byte budget, so its new line is one sentence; the
 optimizer's `baseline` field is described in the CHANGELOG and the result schema.
+
+Decision (maintainer, 2026-11-17): profiled on the maintainer's board (cProfile, 64 evaluations), one
+evaluation runs the whole-board placement check: `check_geometry` took about 60% of it, most of that in the
+keep-out and drill loops that built every pad's copper shape again for each keep-out and each drill, and the
+copper check the rest. The search found nothing at a small budget because `beam_search` sorted each domain by
+position, so it judged the poses at the board's lower-left first and the current pose (the sampler's first)
+late. Now each pad's shapes are built once per check with a box test before the exact one (same verdicts),
+and the domain is judged in the sampler's order; the beam keeps the least states by score and poses in any
+order, so a search that completes gives the same result. Tests `test_the_domain_order_is_the_order_of_evaluation`
+and the existing legality tests. Not done: an incremental copper check of the moved parts only.
+
+Result (maintainer board, 2026-11-17): the placement check of the board gives the same hard and missing
+strings before and after (same digest), in 1.27 s instead of 2.13 s. `place --strategy optimize`, 59
+selected, 1 movable, budget 64: 2 candidates (was 0), each with 126 baseline findings, in 104 s (was 144 s;
+the 1000-evaluation run that found the first candidates took about 35 min).
+

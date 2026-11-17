@@ -114,6 +114,11 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Fixed
 
+- `place --strategy optimize` judges each domain in the sampler's order, the current pose first, so a small
+  budget finds candidates; a search that completes gives the same result (c0487). The placement check builds
+  each pad's copper shapes once per check, with a box test first, instead of once per keep-out and drill:
+  same verdicts, about 40% faster on a dense board.
+
 - A copper clearance finding at most 100 nm short of its rule (`NEAR_MISS_NM`), judged with a tool's tolerance,
   now ends with its shortfall and "likely coordinate rounding" (c0490); the code, severity and the 11 nm
   Altium tolerance do not change, since no public source states a wider Altium tolerance.

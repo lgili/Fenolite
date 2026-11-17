@@ -80,3 +80,18 @@ def test_unchecked_final_candidate_cannot_beat_checked_geometry():
     )
     assert [row.candidate.poses[0].position.x for row in result.candidates] == [2, 4]
     assert result.blockers == ("copper:unchecked",)
+
+
+def test_the_domain_order_is_the_order_of_evaluation():
+    """The domain's first pose (the sampler gives the current pose first) is judged first, so a small budget
+    finds it; a search that completes gives the same result in any order (change c0487, 2026-11-17)."""
+    domains = {"A": (pose("A", 9), *(pose("A", x) for x in range(9)))}
+
+    def judge(poses, _):
+        return SearchJudgment((poses[0].position.x,), hard=() if poses[0].position.x == 9 else ("outside",))
+
+    small = beam_search(domains, input_sha256=HASH, budget=OptimizationBudget(1, 2), judge=judge)
+    assert small.work == 1 and [row.candidate.poses for row in small.candidates] == [(pose("A", 9),)]
+    full = beam_search(domains, input_sha256=HASH, budget=OptimizationBudget(20, 2), judge=judge)
+    backwards = {"A": domains["A"][::-1]}
+    assert beam_search(backwards, input_sha256=HASH, budget=OptimizationBudget(20, 2), judge=judge) == full
