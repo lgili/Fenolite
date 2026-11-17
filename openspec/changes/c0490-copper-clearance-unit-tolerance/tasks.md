@@ -30,3 +30,12 @@ Rules for every task:
   is within the tolerance, and every finding left names the tolerance.
 
   Result (maintainer board, 2026-11-16, dev 823b6fed8): 0 `copper.clearance` within the tolerance; 8 remain, each naming it; 320 tolerated. 7 of the 8 are 13 to 43 nm short and Altium's DRC does not flag them: follow-up on the tolerance.
+
+  Decision (maintainer, 2026-11-17): the tolerance stays 11 nm (4 units); a finding at most `NEAR_MISS_NM`
+  (100 nm) short names its shortfall as likely coordinate rounding, severity unchanged (design D4). Test
+  `test_a_near_miss_names_its_shortfall`.
+
+  Result (maintainer board, 2026-11-17): `fenolite check` exit 5; 8 `copper.clearance` (as before), all
+  errors; 7 of them now say they are 13 to 43 nm short, within 100 nm, likely coordinate rounding; the eighth
+  (93.4 um short) does not; 320 tolerated, as before.
+

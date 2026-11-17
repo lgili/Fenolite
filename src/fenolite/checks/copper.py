@@ -68,6 +68,10 @@ from fenolite.model.rules import PAD_TYPE_OF, Rule, RuleSubject, Selector
 
 ARC_TOL_NM = 1_000
 """Compatibility tolerance for polygonised topology; clearance decisions use exact arc cores."""
+NEAR_MISS_NM = 100
+"""A finding judged with a tool's tolerance whose gap is at most this short of its rule names its shortfall as
+likely coordinate rounding (change c0490, field result 2026-11-17; ``H-A-CHK-GRID-TOL``, INFERRED): 0.1 um,
+about 39 units of the Altium grid. The finding keeps its code and severity; the tolerance does not grow."""
 EVIDENCE = Evidence(
     Level.INFERRED,
     hypotheses=("H-K-COPPER-SHAPES", "H-K-COPPER-RESOLVE", "H-K-COPPER-ZONES", "H-K-EDGE-AGREE"),
@@ -968,12 +972,16 @@ def _hole_clearance_findings(
     return found, judged, len(tolerated)
 
 
-def _tolerance_clause(tolerance: Nm, source: str) -> str:
+def _tolerance_clause(tolerance: Nm, source: str, shortfall: Nm = 0) -> str:
     """The clause a finding judged with a positive tolerance ends its clearance with (change c0490); empty
-    for a tolerance of 0, so that a strict check says what it said before."""
+    for a tolerance of 0, so that a strict check says what it said before. A ``shortfall`` against the rule of
+    at most ``NEAR_MISS_NM`` is named as likely rounding."""
     if not tolerance:
         return ""
-    return f", less a tolerance of {_mm(tolerance)} mm" + (f" ({source})" if source else "")
+    clause = f", less a tolerance of {_mm(tolerance)} mm" + (f" ({source})" if source else "")
+    if 0 < shortfall <= NEAR_MISS_NM:
+        clause += f"; it is {shortfall} nm short, within {NEAR_MISS_NM} nm: likely coordinate rounding"
+    return clause
 
 
 def _hole_clearance(
@@ -991,7 +999,8 @@ def _hole_clearance(
     message = (
         f"{item.ref.kind} {item.ref.where} of {item.ref.net} is {_mm(gap)} mm from the drill of "
         f"{hole.ref.kind} {hole.ref.where} on {layer} at {_point(at)}; the hole clearance is "
-        f"{_mm(limit.value)} mm ({limit.source}){_tolerance_clause(tolerance, tolerance_source)}"
+        f"{_mm(limit.value)} mm ({limit.source})"
+        f"{_tolerance_clause(tolerance, tolerance_source, limit.value - gap)}"
     )
     return CopperFinding(
         HOLE_CLEARANCE,
@@ -1258,7 +1267,7 @@ class _Judge:
                 message = (
                     f"copper of {refs[0].net} and {refs[1].net} is {_mm(gap)} mm apart on {layer} at "
                     f"{_point(at)}; the clearance is {_mm(found.value)} mm ({found.source})"
-                    f"{_tolerance_clause(self.tolerance, self.tolerance_source)}"
+                    f"{_tolerance_clause(self.tolerance, self.tolerance_source, found.value - gap)}"
                 )
                 return CopperFinding(
                     "copper.clearance",
@@ -1722,6 +1731,7 @@ __all__ = [
     "item_subjects",
     "track_areas",
     "ARC_TOL_NM",
+    "NEAR_MISS_NM",
     "AREA_EVIDENCE",
     "EDGE_CODE",
     "EVIDENCE",

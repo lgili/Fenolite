@@ -46,3 +46,20 @@ tolerance`. `_run` writes that count as `summary["tolerated"]`, only when it is 
 | id | statement |
 |---|---|
 | `H-A-CHK-GRID-TOL` | a gap below an Altium clearance rule by at most `GRID_TOLERANCE_UNITS` file units comes from the document's unit grid, and Altium Designer's DRC passes it |
+
+## D4 Near misses (field result, 2026-11-17)
+
+On the maintainer's board 7 `copper.clearance` findings are 13 to 43 nm short, and Altium's last DRC of the
+board passed them. Read in the document, the shortfalls are 11 to 17 file units in its own integers: pads of
+parts placed on a metric pitch that is no whole number of units, against a rule saved as `9.8425mil`
+(98 425 units). They are not the import's rounding (D2 cases 1 and 2), and no arc or polygon takes part.
+
+Decision (maintainer, 2026-11-17): the tolerance stays 4 units (11 nm). No public source states the
+tolerance Altium's DRC applies; 2.54 nm is the file unit, and no coarser rounding or arc polygonisation of
+Altium's is documented that would give 17 units. Widening it from one private board's DRC report would be a
+guess. Instead a finding judged with a tool's tolerance whose gap is at most `NEAR_MISS_NM` = 100 nm short of
+the rule (about 39 units, far below any fabrication tolerance) ends its message with `; it is <n> nm short,
+within 100 nm: likely coordinate rounding`. Its code, severity, gap and clearance do not change, and a strict
+check (tolerance 0) says what it said before. Recorded under `H-A-CHK-GRID-TOL` (INFERRED); a kit run with
+pairs 5 to 20 units inside a rule settles Altium's own bound.
+

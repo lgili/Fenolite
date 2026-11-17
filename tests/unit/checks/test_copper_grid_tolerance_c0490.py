@@ -17,7 +17,7 @@ from fenolite.backends.altium.backend import CLEARANCE_TOLERANCE_NM, AltiumBacke
 from fenolite.backends.altium.read import pcb
 from fenolite.backends.altium.read.proptext import parse_length
 from fenolite.backends.kicad.triad import write_triad
-from fenolite.checks.copper import check_copper
+from fenolite.checks.copper import NEAR_MISS_NM, check_copper
 from fenolite.cli.cmd_build import copper_guard
 from fenolite.core.coords import Point
 
@@ -72,9 +72,18 @@ def test_a_gap_beyond_the_tolerance(monkeypatch: pytest.MonkeyPatch) -> None:
     assert found.code == "copper.clearance" and found.clearance == 250_000
     assert found.message.endswith(
         "; the clearance is 0.25 mm (rule:Clearance), less a tolerance of 0.000011 mm "
-        "(4 units of the Altium grid)"
+        "(4 units of the Altium grid); it is 12 nm short, within 100 nm: likely coordinate rounding"
     )
     assert "tolerated" not in report.summary
+
+
+@pytest.mark.parametrize(("short", "named"), [(NEAR_MISS_NM, True), (NEAR_MISS_NM + 3, False)])
+def test_a_near_miss_names_its_shortfall(monkeypatch: pytest.MonkeyPatch, short: int, named: bool) -> None:
+    """A finding at most ``NEAR_MISS_NM`` short names its shortfall as likely rounding and stays an error; one
+    farther short does not (field result, 2026-11-17)."""
+    (found,) = _altium(250_000 - short, monkeypatch).findings
+    assert found.code == "copper.clearance" and found.severity == "error"
+    assert found.message.endswith("likely coordinate rounding") is named
 
 
 def _kicad(edge_gap: int) -> Copper:
