@@ -36,7 +36,7 @@ Rules for every task:
     hash in `schemas/frozen-v0.json` regenerated, as changes c0477 and c0495 did.
 - [x] 3.1 Add the change to `CHANGELOG.md` under `## [Unreleased]`, and run `make check-fast`.
   - Proof: `make check-fast` (25196 passed, 76 skipped, 2026-11-13)
-- [ ] 3.2 Maintainer board (private, codes only): with `--model altium` every designator is placed or has an unplaced kind, and
+- [x] 3.2 Maintainer board (private, codes only): with `--model altium` every designator is placed or has an unplaced kind, and
   Altium 24's DRC reports no silk-to-silk or silk-to-mask violation for the placed ones.
 
   Result (maintainer board, 2026-11-16): Fenolite part passes, 256 of 256 designators placed (233) or with an unplaced kind (23); the command exits 5 with 23 `silk.check-failed` on designators left below the minimum size, so nothing is written: follow-up. Altium DRC part not run (VM).
@@ -92,4 +92,9 @@ Rules for every task:
   (courtyard 40, silkscreen 10, one `silk_over_copper`). Fenolite's `silk.clearance` judge on the converted
   document at 0.15 mm: 0 silk-to-silk and 0 silk-to-mask findings name a placed designator. Converted to
   Altium (exit 0, equivalence level 5) for the maintainer's Altium DRC; that part is still open.
+
+  Result (Altium 24.5, 2026-11-17, after fix): the converted board opened in Altium, Repour All, then DRC:
+  22 violations (12 silk-to-mask, 10 silk-to-silk), against 24 before the command and 237 before the fix;
+  none names a designator the command placed. The 12 left are pad-to-silk tracks (10) and texts the command
+  did not place (2 on pads, 10 on silk). The fitted Altium text box is confirmed on this board. 3.2 passes.
 
