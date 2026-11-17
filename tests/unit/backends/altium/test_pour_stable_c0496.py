@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import dataclasses
 import importlib.util
+import struct
 from collections import defaultdict
 
 import pytest
@@ -148,3 +149,33 @@ def test_an_overlapping_zone_computes_only_its_neighbour() -> None:
     assert len(same) == 2
     changed = [issue for issue in written.issues if issue.code == pcbdoc.POUR_CHANGED]
     assert [issue.where for issue in changed] == ["zone/a"] and changed[0].severity == "warning"
+
+
+def _repeat_second_vertex(raw: bytes, *, shape_based: bool) -> bytes:
+    """A region record as read with its second outline vertex stated twice: a zero-length edge."""
+    size = 37 if shape_based else 16
+    (length,) = struct.unpack_from("<I", raw, 5 + 18)
+    at = 5 + 22 + length
+    (count,) = struct.unpack_from("<I", raw, at)
+    vertex = raw[at + 4 + size : at + 4 + 2 * size]
+    body = raw[5:at] + struct.pack("<I", count + 1) + raw[at + 4 : at + 4 + 2 * size] + vertex
+    body += raw[at + 4 + 2 * size :]
+    return raw[:1] + struct.pack("<I", len(body)) + body
+
+
+def test_a_carried_zero_length_edge_is_dropped() -> None:
+    """A carried pour whose source regions hold a zero-length edge (a source document may) is written
+    without it, and otherwise with the source's records (change c0496, field result 2026-11-17)."""
+    source = _board().write().data
+    kept = _kept(source)
+    first = kept["0"]
+    repeated = tuple(
+        (_repeat_second_vertex(plain, shape_based=False), _repeat_second_vertex(shape, shape_based=True))
+        for plain, shape in first.regions
+        if shape is not None
+    )
+    kept["0"] = dataclasses.replace(first, regions=repeated)
+    spec = dataclasses.replace(_board().spec(), kept_pours=kept)
+    written = pcbdoc.write_pcbdoc_result(spec, filename=FILENAME, pour="computed")
+    assert _zero_length(written.data) == 0
+    assert _regions(written.data) == _regions(source)

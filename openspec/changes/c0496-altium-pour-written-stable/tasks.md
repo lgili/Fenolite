@@ -35,3 +35,13 @@ Rules for every task:
   are written byte-identical, apart from the index, and Altium's dead-copper analysis finds no new island.
 
   Result (maintainer board, 2026-11-16): with a remote zone, 40 of 40 written pours byte-identical apart from the index; the same 5 `altium.pour-changed` with and without it; but each written document holds 2 zero-length pour edges or tracks (expected 0): follow-up. Altium dead-copper part not run (VM).
+
+  Decision (maintainer, 2026-11-17): the 2 zero-length edges were not written by Fenolite's pour; they are in
+  the source document's own shape-based region (one outline vertex stated twice in a row) and the carrier
+  copied them. The carrier now drops a repeated vertex (neither round) from the carried plain and shape-based
+  records; the copper is the same and every other byte is the source's. Test
+  `test_a_carried_zero_length_edge_is_dropped`.
+
+  Result (maintainer board, 2026-11-17): zero-length pour edges or tracks 0 and 0 (were 2 and 2); with the
+  remote zone 40 of 40 written pours byte-identical apart from the index; 5 `altium.pour-changed` in both,
+  as before; exit 0 and equivalence level 5 in both. Altium dead-copper part still not run (VM).

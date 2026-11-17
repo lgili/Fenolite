@@ -114,6 +114,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Fixed
 
+- A carried Altium pour is written without zero-length edges (c0496): a source document's region may state one
+  outline vertex twice in a row (a zero-length edge); the carrier now drops the repeat from the plain and the
+  shape-based record, keeping every other byte, so a written pour holds no zero-length edge as the spec asks.
+
 - Derived Altium courtyards (c0489, task 3.2) no longer report false `place.courtyard-overlap`: a body raised
   above the board (positive standoff) is left out, as Altium's Specified component clearance accepts an
   overhang, and `DERIVED_COURTYARD_MARGIN` is 0, since the clearance between parts is the rule's. On the

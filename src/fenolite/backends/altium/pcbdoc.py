@@ -3385,6 +3385,37 @@ def _reindexed(raw: bytes, polygon: int) -> bytes:
     return raw[:10] + struct.pack("<H", polygon) + raw[12:]
 
 
+def _without_repeats(raw: bytes, *, shape_based: bool) -> bytes:
+    """A region record as read (type byte, length, body) without the outline vertices that repeat the vertex
+    before them, the last against the first included, when neither is round: a zero-length edge, which a
+    source document may hold (change c0496: a written pour holds none). The shape-based form's closing vertex
+    is kept. The copper is the same; a record whose counts run past its body is returned unchanged."""
+    size, xy = (37, slice(1, 9)) if shape_based else (16, slice(0, 16))  # pcbprims.SHAPE_VERTEX, PLAIN_VERTEX
+    (length,) = struct.unpack_from("<I", raw, 5 + 18)
+    at = 5 + 22 + length
+    if at + 4 > len(raw):
+        return raw
+    (count,) = struct.unpack_from("<I", raw, at)
+    end = at + 4 + (count + shape_based) * size
+    if end > len(raw) or count < 2:
+        return raw
+    chunks = [raw[at + 4 + k * size : at + 4 + (k + 1) * size] for k in range(count)]
+
+    def same(a: bytes, b: bytes) -> bool:
+        if shape_based and (a[0] or b[0]):
+            return False
+        return a[xy] == b[xy]
+
+    kept = [chunks[0]]
+    kept.extend(chunk for before, chunk in zip(chunks, chunks[1:], strict=False) if not same(before, chunk))
+    while len(kept) > 1 and same(kept[-1], kept[0]):
+        kept.pop()
+    if len(kept) == count:
+        return raw
+    body = raw[5:at] + struct.pack("<I", len(kept)) + b"".join(kept) + raw[end - shape_based * size :]
+    return raw[:1] + struct.pack("<I", len(body)) + body
+
+
 def _carried_pour_records(
     spec: PcbDocSpec, reading: PourReading, order: Sequence[tuple[str, str]]
 ) -> dict[int, tuple[list[tuple[bytes, bytes]], KeptPour]]:
@@ -3409,7 +3440,14 @@ def _carried_pour_records(
         twins = [(plain, shape) for plain, shape in kept.regions if shape is not None]
         if len(twins) != len(kept.regions) or any(min(len(a), len(b)) < 12 for a, b in twins):
             continue
-        found[index] = ([(_reindexed(a, index), _reindexed(b, index)) for a, b in twins], kept)
+        records = [
+            (
+                _reindexed(_without_repeats(a, shape_based=False), index),
+                _reindexed(_without_repeats(b, shape_based=True), index),
+            )
+            for a, b in twins
+        ]
+        found[index] = (records, kept)
     return found
 
 
