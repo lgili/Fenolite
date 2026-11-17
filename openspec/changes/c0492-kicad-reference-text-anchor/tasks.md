@@ -50,3 +50,11 @@ Rules for every task:
   same texts, or each difference is explained.
 
   Result (maintainer board, 2026-11-16, KiCad side): `silk_overlap` at least 199 (KiCad's report limit), `silk_over_copper` 30; the Altium comparison is not run (VM).
+
+  Result (2026-11-17, partial): Altium 24.5 DRC on the same board written back to Altium: 12 silk-to-silk
+  and 12 silk-to-mask in all, against KiCad's `silk_overlap` at least 199 and `silk_over_copper` 30. Most of
+  the gap is explained by `H-K-SILK-REACH` (c0493): the translated `silk_clearance` rule has no condition,
+  so KiCad also judges silkscreen against courtyards, fabrication fields, tracks, zones and vias, which
+  Altium's silk-to-silk rule does not; and `silk_over_copper` judges copper where Altium judges mask
+  openings. Still open: a text-only count on both sides with a silkscreen-only KiCad rule; that needs the
+  rule translation narrowed first (follow-up change).

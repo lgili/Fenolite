@@ -24,5 +24,7 @@ Rules for every task:
   - Proof: `uv run --extra dev pytest tests/unit/agent/test_pages.py -q -n 0`
 - [x] 5.1 Regenerate the schemas for `dest` and the issue details.
   - Proof: `uv run python tools/gen_schemas.py --check`
-- [ ] 5.2 Add the change to `CHANGELOG.md` under `## [Unreleased]`, and run `make check-fast`.
+- [x] 5.2 Add the change to `CHANGELOG.md` under `## [Unreleased]`, and run `make check-fast`.
   - Proof: `make check-fast`
+  - Result (2026-11-17): the CHANGELOG entry is under `[Unreleased]`; `make check-fast` passed locally on the
+    batches since (25481 passed, 78 skipped), and `ci-complete` is green on dev b2c807047.

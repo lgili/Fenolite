@@ -21,5 +21,9 @@ Rules for every task:
   - Proof: `uv run --extra geo --extra dev pytest tests/unit/checks/test_copper_stage.py tests/unit/checks/test_document_copper.py -q -n 0`
 - [x] 2.1 Add the change to `CHANGELOG.md` under `## [Unreleased]`, and run `make check-fast`.
   - Proof: `make check-fast`
-- [ ] 2.2 Maintainer board (private, codes only): `fenolite check` reports no `copper.hole-clearance`
+- [x] 2.2 Maintainer board (private, codes only): `fenolite check` reports no `copper.hole-clearance`
   between an unplated pad and copper of its own net.
+
+  Result (maintainer board, 2026-11-17, dev b2c807047): `fenolite check` on the Altium project exits 5 with no
+  `copper.hole-clearance` finding at all (other codes unchanged: 8 `copper.clearance`, 56
+  `copper.keepout-clearance`).
