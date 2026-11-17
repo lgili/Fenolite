@@ -55,3 +55,17 @@ first. Its design is the one the search reads, and both go through one plan.
 | id | statement |
 |---|---|
 | `H-A-SILK-DRC-MODEL` | Altium Designer 24's silk-to-silk and silk-to-solder-mask rules measure a stroke text by its bounding box shrunk by half its stroke width on each side and a mask opening by each pad's own expansion, ignore a text against its own component's silk, and leave out hidden designators and unplated holes |
+
+## D5 Texts already below the minimum (field result, 2026-11-17)
+
+On the maintainer's board the search placed every designator it could, but 23 of them kept their own
+height (0.5 to 0.7 mm), below the board's 0.8 mm minimum: `looks_of` never grows a text, so a field below
+the floor has one height, its own. `check_designators` then failed them and nothing was written.
+
+Decision (maintainer, 2026-11-17): a placed designator whose height and stroke are the field's own is not
+judged by the minimum size. It is a finding the board already had: `silk.below-minimum` (warning), and the
+board is written. A size the search chose is still judged, so a text it made too small stays
+`silk.check-failed`. The search does not enlarge a text: that changes the board's style and may not fit.
+Back-compatible: a board whose texts meet the minimum gives the same reply. Not taken: taking the board's
+own least size as the minimum for every text, which would hide the finding.
+

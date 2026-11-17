@@ -40,3 +40,12 @@ Rules for every task:
   Altium 24's DRC reports no silk-to-silk or silk-to-mask violation for the placed ones.
 
   Result (maintainer board, 2026-11-16): Fenolite part passes, 256 of 256 designators placed (233) or with an unplaced kind (23); the command exits 5 with 23 `silk.check-failed` on designators left below the minimum size, so nothing is written: follow-up. Altium DRC part not run (VM).
+
+  Decision (maintainer, 2026-11-17): the 23 `silk.check-failed` were placed designators that kept their own
+  height, already below the board's minimum, not unplaced ones; such a text is now `silk.below-minimum`
+  (warning) and the board is written (design D5). Test `test_texts_already_below_the_minimum`.
+
+  Result (maintainer board, 2026-11-17): `--model altium` exits 0 and writes the board: 233 placed, 23
+  unplaced (text 13, hole 4, mask 3, silk 3), 23 `silk.no-place`, 23 `silk.below-minimum`, 0
+  `silk.check-failed` (were 23, exit 5, nothing written). Altium DRC part still not run (VM).
+

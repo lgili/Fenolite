@@ -749,10 +749,22 @@ def check_designators(
             )
         stroke = field.thickness if field.thickness is not None else _default_stroke(field.size.h)
         if field.size.h < settings.min_height or stroke < settings.min_stroke:
-            problems.append(
+            small = (
                 f"its height {format_length(field.size.h)} or stroke {format_length(stroke)} is below "
                 f"{format_length(settings.min_height)} or {format_length(settings.min_stroke)}"
             )
+            if field.size == mover.field.size and field.thickness == mover.field.thickness:
+                # the text keeps the board's own size: a finding the board already had, not the search's
+                found.append(
+                    issue(
+                        "silk.below-minimum",
+                        f"the designator of {mover.ref} keeps its own size: {small}; it is written as it was",
+                        where=mover.ref,
+                        hint="enlarge the text in the source, or lower the board's minimum text height",
+                    )
+                )
+            else:
+                problems.append(small)
         here = Field(
             (*scene.obstacles[side], *(Obstacle.of(r.thick(), what) for s, what, r in others if s == side)),
             settings.clearance,

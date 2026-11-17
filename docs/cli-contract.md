@@ -3767,6 +3767,7 @@ The evidence is `INFERRED` (`H-K-TP-PLACE`), `KICAD-VERIFIED` with `--drc` and n
 | `silk.check-failed` | error | a placed designator or a cut piece fails the check of the written board; nothing is written |
 | `silk.drc-new` | error | with `--drc`, a DRC violation type has more entries on the board silk would write; nothing is written |
 | `silk.no-place` | warning | no candidate of a part is free; its text stays where it was and is an obstacle for the others |
+| `silk.below-minimum` | warning | a placed designator keeps its own height or stroke, already below the board's minimum text size; it is written, as the board already had it (change c0493) |
 | `silk.no-outline` | warning | the board has no closed edge; no text is kept inside it |
 | `silk.cut-by-other` | warning | with `--clip`, a footprint's silkscreen was also cut at another part's pads; that instance now differs from the others |
 | `silk.clip-skipped` | warning | with `--clip`, a filled silkscreen shape meets an opening; it is not cut |

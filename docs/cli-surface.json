@@ -17047,6 +17047,12 @@
         "error"
       ]
     },
+    "silk.below-minimum": {
+      "experimental": false,
+      "severities": [
+        "warning"
+      ]
+    },
     "silk.check-failed": {
       "experimental": false,
       "severities": [

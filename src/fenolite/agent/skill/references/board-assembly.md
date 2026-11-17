@@ -23,7 +23,8 @@ board from working. They stop it from being built right, tested, or accepted in 
   holes, silkscreen and the edge, at 0 or 90°, a row of equal parts on one line. It measures
   each text with `kicad-cli`, checks every place it writes, and `--drc` has KiCad judge the result.
   `--keep` moves only the texts that sit on something; `silk.no-place` names a part without room and the
-  kind of what blocks it, and `result.unplaced` counts those kinds.
+  kind of what blocks it, and `result.unplaced` counts those kinds. A text already below the board's
+  minimum size keeps it and is still written; `silk.below-minimum` reports it.
 - **On a dense board** widen the search: rings out to `--reach`, heights down to `--min-size` in steps of
   `--size-step`, `--over-body` as a last resort. `--model altium` judges as Altium's silkscreen rules do:
   mask openings (`--mask-clearance`), not the part's own outline.
@@ -34,6 +35,7 @@ fenolite silk board --designators --sizes 1mm,0.8mm --angles 0,90 --clearance 0.
 fenolite silk board --designators --keep --refs "R*" --measure estimate --dry-run --json
 fenolite silk board --designators --model altium --reach 3mm --min-size 0.8mm --size-step 0.1mm --over-body --mask-clearance 0.1mm --dry-run --json
 fenolite explain silk.no-place
+fenolite explain silk.below-minimum
 ```
 
 - **Clip silkscreen from pads, mask openings, drills, slots and the edge,** and check again after every

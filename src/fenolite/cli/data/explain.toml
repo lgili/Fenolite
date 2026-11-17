@@ -4297,6 +4297,11 @@ meaning = "No candidate place beside the part is free: each one meets a pad, a h
 fix = "Allow a smaller size (--sizes) or both angles (--angles 0,90), lower --clearance, or move the part; the message names what blocks its best place."
 see = "silk"
 
+["silk.below-minimum"]
+meaning = "A designator that silk moved keeps its own height and stroke, and they were already below the board's minimum text size. The board had this finding before; the text is written at its new place with its own size (change c0493)."
+fix = "Enlarge the text in the source, or lower the board's minimum text height; silk never enlarges a text by itself."
+see = "silk"
+
 ["specctra.pad-approximated"]
 meaning = "A pad shape has no exact Specctra form and was given to the router as a larger simple shape."
 fix = "Nothing to do; the router keeps a little more distance from that pad."

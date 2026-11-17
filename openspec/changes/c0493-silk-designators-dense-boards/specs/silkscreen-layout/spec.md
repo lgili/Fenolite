@@ -9,6 +9,15 @@ height) in steps of `--size-step` (default 0.1 mm), largest first (change c0493)
 - `--sizes`, when given, MUST replace the height steps.
 - A height below the board's least text height MUST exit 2, as `--sizes` does today.
 - The search MUST stay deterministic: the same board and options give the same places.
+- A designator that keeps its own height and stroke, already below the board's minimum text size, MUST NOT
+  stop the write: it is reported with `silk.below-minimum` (warning) and written at its new place. A text
+  the search made smaller than the minimum MUST still be `silk.check-failed`.
+
+#### Scenario: Texts already below the minimum
+- **GIVEN** the dense grid whose designators are all 0.6 mm high, below the board's 0.8 mm minimum
+- **WHEN** `fenolite silk <board> --designators --dry-run` runs
+- **THEN** each placed designator keeps 0.6 mm and gets one `silk.below-minimum`, no `silk.check-failed` is
+  reported, and the board is planned for writing
 
 #### Scenario: A dense grid of small parts
 - **GIVEN** an authored board with a grid of two-pad 0402 parts at 1.2 mm pitch whose courtyards touch,

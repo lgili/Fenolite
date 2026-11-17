@@ -27,7 +27,7 @@ from fenolite.backends.kicad.pro import synthesize_project
 from fenolite.cli import main as cli_main
 from fenolite.core.coords import Point
 from fenolite.dsl import Footprint, mm
-from fenolite.model.board import Graphic
+from fenolite.model.board import Graphic, Size
 from fenolite.model.design import Design
 from fenolite.silk.board import field_rect, kind_of
 from fenolite.silk.extents import TextKey, estimate
@@ -244,3 +244,35 @@ def test_clip_then_place(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Non
         reply["result"]["placements"]
     )
     assert BOXED.lib_id.endswith("BOXED")
+
+
+def _small_texts(design: Design, height: int) -> Design:
+    """``design`` with every designator at ``height`` and a 0.1 mm stroke."""
+    assert design.board is not None
+    footprints = tuple(
+        dataclasses.replace(
+            fp,
+            fields=tuple(
+                dataclasses.replace(f, size=Size(height, height), thickness=100_000)
+                if f.name == "Reference"
+                else f
+                for f in fp.fields
+            ),
+        )
+        for fp in design.board.footprints
+    )
+    return dataclasses.replace(design, board=dataclasses.replace(design.board, footprints=footprints))
+
+
+@pytest.mark.parametrize("model", ["kicad", "altium"])
+def test_texts_already_below_the_minimum(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, model: str) -> None:
+    """Designators the board already holds below its minimum size keep that size when moved: each is a
+    ``silk.below-minimum`` warning, not a ``silk.check-failed``, and the board is written (field result,
+    2026-11-17)."""
+    small = _small_texts(dense(), 600_000)
+    code, reply = silk(monkeypatch, tmp_path, small, "--designators", "--model", model)
+    codes = [i["code"] for i in reply["issues"]]
+    assert code == 0 and "silk.check-failed" not in codes, codes
+    assert reply["result"]["placed"] > 0 and reply["result"]["changed"], (codes, reply["result"])
+    assert codes.count("silk.below-minimum") == reply["result"]["placed"]
+    assert all(row["height"] == 600_000 for row in reply["result"]["placements"] if row["status"] == "placed")

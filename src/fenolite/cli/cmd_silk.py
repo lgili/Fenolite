@@ -450,7 +450,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             "texts": len(inks),
             "cached": cache.hits if cache is not None else 0,
         }
-    changed = (bool(placed_keys) and not failed_check) or clipped
+    changed = (bool(placed_keys) and not any(found.severity == "error" for found in failed_check)) or clipped
     board_text = write_board(design, target=major, allow_lossy=ctx.allow_lossy).text if changed else text
     evidence = Evidence(Level.INFERRED, hypotheses=hypotheses)
     drc: dict[str, object] | None = None

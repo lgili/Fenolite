@@ -114,6 +114,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Fixed
 
+- `fenolite silk --designators` writes a board whose designators are already below its minimum text size
+  (c0493): a placed text that keeps its own height and stroke is now `silk.below-minimum` (warning, new code)
+  instead of `silk.check-failed`, so the board is written; a size the search chose is still checked.
+
 - A carried Altium pour is written without zero-length edges (c0496): a source document's region may state one
   outline vertex twice in a row (a zero-length edge); the carrier now drops the repeat from the plain and the
   shape-based record, keeping every other byte, so a written pour holds no zero-length edge as the spec asks.

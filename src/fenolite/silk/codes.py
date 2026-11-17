@@ -14,6 +14,7 @@ ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "silk.check-failed": "error",
         "silk.drc-new": "error",
         "silk.no-place": "warning",
+        "silk.below-minimum": "warning",
         "silk.no-outline": "warning",
         "silk.cut-by-other": "warning",
         "silk.clip-skipped": "warning",
