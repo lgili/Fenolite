@@ -28,22 +28,43 @@ height) in steps of `--size-step` (default 0.1 mm), largest first (change c0493)
 ### Requirement: Clearance model of the designator search
 `fenolite silk --designators` SHALL take `--model kicad|altium` (default `kicad`) and place and check the
 designators with that model (change c0493).
-- In both models, other parts' courtyards MUST add to the cost and MUST NOT block a place.
+- In both models, other parts' courtyards MUST add to the cost and MUST NOT block a place, unless the
+  board's `.kicad_dru` holds a `silk_clearance` rule with no condition and no layer clause: KiCad's DRC
+  applies it to silkscreen against courtyards, so every courtyard, the part's own included, MUST then be kept
+  that rule's `min` away, and `--gap` MUST default to at least it, counted from the courtyard's ink.
+- `--clearance` and `--mask-clearance` MUST default to the largest `min` of the board's `silk_clearance`
+  rules, else the project's `min_silk_clearance` when above 0, else 0.15 mm and 0.1 mm. An option MUST win.
+  `result.settings.sources` MUST say for `clearance`, `mask_clearance`, `gap` and `courtyard` whether the
+  value came from an `option`, a `rule`, the `board` setup or the `default`.
+- Both models MUST judge a text against the silkscreen of its own footprint.
 - `kicad` MUST keep the other obstacles of "Designator placement".
-- `altium` MUST judge a text by its ink box shrunk by half its stroke on each side, at least `--clearance`
-  (default 0.15 mm) from other silkscreen strokes and texts. It MUST judge a text at least `--mask-clearance`
-  (default 0.1 mm) from each pad's mask opening, which is the pad's copper grown by its own solder-mask
-  expansion. It MUST NOT judge a text against the silkscreen of its own footprint or against an unplated
-  hole. It MUST skip hidden designators.
+- `altium` MUST judge a text by its ink and by the box Altium measures: from half a stroke left of and below
+  the corner the Altium writer stores, `characters × height − height / 3 + 2 × stroke` along the text and
+  `height + 1.5 × stroke` up. It MUST keep a text at least `--clearance` from other silkscreen strokes and
+  texts, and at least `--mask-clearance` from each pad's mask opening, which is the pad's copper grown by its
+  own solder-mask expansion, or the hole of an unplated pad that opens the mask. It MUST NOT judge a text
+  against an unplated hole. It MUST skip hidden designators.
 - `check_designators` MUST judge with the model that placed the texts.
 - The reply MUST name the model, and each `altium` rule MUST cite `H-A-SILK-DRC-MODEL`.
 
 #### Scenario: A text over its own outline
 - **GIVEN** an authored part whose silkscreen outline leaves room for its designator only across the
   outline, clear of every mask opening
-- **WHEN** the search runs with `--model altium`
-- **THEN** the designator is placed across its own outline
-- **AND** with `--model kicad` it is placed elsewhere or reported unplaced
+- **WHEN** the search runs with `--model altium` or `--model kicad`
+- **THEN** the designator is reported unplaced with kind `silk`
+
+#### Scenario: Clearances from the board's rules
+- **GIVEN** an authored board whose `.kicad_dru` holds `silk_clearance (min 0.2mm)` with no condition
+- **WHEN** `fenolite silk <board> --designators --dry-run` runs
+- **THEN** `clearance`, `mask_clearance`, `gap` and `courtyard` are 0.2 mm with source `rule`, and every placed
+  designator keeps 0.2 mm from every courtyard's ink
+- **AND** `--clearance 0.3mm` gives 0.3 mm with source `option`, and without the file the defaults with
+  source `default`
+
+#### Scenario: Altium's text box
+- **GIVEN** a centred designator placed with `--model altium`
+- **WHEN** its box is computed from the corner the Altium writer stores
+- **THEN** its ink and that box both keep `--mask-clearance` from each pad's own mask opening
 
 #### Scenario: Each pad's own mask expansion
 - **GIVEN** an authored part with one pad of mask expansion 0.05 mm and one of 0.2 mm

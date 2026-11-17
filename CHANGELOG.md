@@ -127,6 +127,15 @@ All notable changes to Fenolite are documented here. The format follows
   (c0493): a placed text that keeps its own height and stroke is now `silk.below-minimum` (warning, new code)
   instead of `silk.check-failed`, so the board is written; a size the search chose is still checked.
 
+- `fenolite silk --designators` places designators that Altium's and KiCad's DRC find clear (c0493, field
+  fix): `--clearance` and `--mask-clearance` now default to the board's `silk_clearance` rule (else the
+  project's silkscreen clearance, else 0.15 mm and 0.1 mm) and `result.settings.sources` says where each value
+  came from; a rule with no condition and no layer clause, which KiCad applies to courtyards, keeps every
+  courtyard (the part's own too) that far and widens `--gap`; a text is judged by its whole ink and, with
+  `--model altium`, also by the box Altium measures; the `altium` model no longer skips the text's own
+  footprint silkscreen; an unplated pad that opens the mask is a mask opening. New result keys
+  `settings.courtyard` and `settings.sources`. `fenolite check`'s `silk.clearance` stage uses the same box.
+
 - A carried Altium pour is written without zero-length edges (c0496): a source document's region may state one
   outline vertex twice in a row (a zero-length edge); the carrier now drops the repeat from the plain and the
   shape-based record, keeping every other byte, so a written pour holds no zero-length edge as the spec asks.

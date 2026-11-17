@@ -19,17 +19,21 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from _silkbench import BOXED, CHIP, SilkBoard, clipped, dense
+from _silkbench import BOXED, CHIP, HOLE, SilkBoard, clipped, dense
+from _silkbench import row as chip_row
 from _ties import MM
 
+from fenolite.backends.altium.pcbdoc import text_corner
+from fenolite.backends.base import BoardPad
+from fenolite.backends.kicad.backend import KicadBackend
 from fenolite.backends.kicad.pcb import write_board
 from fenolite.backends.kicad.pro import synthesize_project
 from fenolite.cli import main as cli_main
 from fenolite.core.coords import Point
 from fenolite.dsl import Footprint, mm
-from fenolite.model.board import Graphic, Size
+from fenolite.model.board import FootprintField, Graphic, Size
 from fenolite.model.design import Design
-from fenolite.silk.board import field_rect, kind_of
+from fenolite.silk.board import Settings, altium_box, field_rect, gather, kind_of, mask_openings
 from fenolite.silk.extents import TextKey, estimate
 from fenolite.silk.layout import Rect, gap_floor
 
@@ -55,9 +59,11 @@ def _write(folder: Path, design: Design) -> Path:
 
 
 def silk(
-    monkeypatch: pytest.MonkeyPatch, folder: Path, design: Design, *args: str
+    monkeypatch: pytest.MonkeyPatch, folder: Path, design: Design, *args: str, rules: str | None = None
 ) -> tuple[int, dict[str, Any]]:
-    _write(folder, design)
+    board = _write(folder, design)
+    if rules is not None:
+        board.with_suffix(".kicad_dru").write_text(f"(version 1)\n{rules}\n", encoding="utf-8")
     monkeypatch.chdir(folder)
     out = io.StringIO()
     monkeypatch.setattr("sys.stdout", out)
@@ -157,21 +163,20 @@ def _outlined() -> Any:
     return footprint.definition
 
 
-def test_a_text_over_its_own_outline(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+@pytest.mark.parametrize("model", ["kicad", "altium"])
+def test_a_text_over_its_own_outline(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, model: str) -> None:
     """Scenario "A text over its own outline": hemmed in by a board stroke, the designator fits only over
-    the part, across its own outline: placed with ``--model altium``, unplaced with ``--model kicad``."""
+    the part, across its own outline. Altium 24.5 judges a text against its own component's silkscreen
+    (field result, 2026-11-17), so neither model places it there."""
     board = SilkBoard()
     centre = Point(20 * MM, 15 * MM)
     board.place("U1", centre, defn=_outlined())
     design = _surround(board.build(), centre, 3_200_000, 1_200_000)
     args = ("--designators", "--reach", "0mm", "--over-body", "--angles", "0")
-    code, reply = silk(monkeypatch, tmp_path / "altium", design, *args, "--model", "altium")
+    code, reply = silk(monkeypatch, tmp_path, design, *args, "--model", model)
     assert code == 0
     (row,) = reply["result"]["placements"]
-    assert row["status"] == "placed" and row["where"] == "over"
-    code, reply = silk(monkeypatch, tmp_path / "kicad", design, *args, "--model", "kicad")
-    (row,) = reply["result"]["placements"]
-    assert row["status"] == "unplaced" or row["where"] != "over"
+    assert row["status"] == "unplaced" and row["kind"] == "silk", row
 
 
 def test_each_pads_own_mask_expansion(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -191,9 +196,11 @@ def test_each_pads_own_mask_expansion(monkeypatch: pytest.MonkeyPatch, tmp_path:
     assert code == 0
     (row,) = reply["result"]["placements"]
     assert row["status"] == "placed"
-    rect = _rect(row)
-    half = row["stroke"] // 2
-    shown = Rect(rect.x0 + half, rect.y0 + half, rect.x1 - half, rect.y1 - half)
+    ink = _rect(row)  # the whole ink: KiCad judges the strokes, half their width included
+    key = TextKey(row["ref"], row["height"], row["height"], row["stroke"])
+    box = altium_box(key)
+    assert box is not None
+    shown = field_rect(box, row["angle"] * DEG, False).moved(row["x"], row["y"])  # the box Altium measures
     for x, grow in ((-800_000, 50_000), (800_000, 200_000)):  # CHIP's pads: 0.9 mm x 1 mm at x = -+0.8 mm
         opening = Rect(
             centre.x + x - 450_000 - grow,
@@ -202,6 +209,7 @@ def test_each_pads_own_mask_expansion(monkeypatch: pytest.MonkeyPatch, tmp_path:
             centre.y + 500_000 + grow,
         )
         assert gap_floor(shown, opening) >= 100_000 - 1, (x, row)
+        assert gap_floor(ink, opening) >= 100_000 - 1, (x, row)
 
 
 def _bar() -> Any:
@@ -276,3 +284,103 @@ def test_texts_already_below_the_minimum(monkeypatch: pytest.MonkeyPatch, tmp_pa
     assert reply["result"]["placed"] > 0 and reply["result"]["changed"], (codes, reply["result"])
     assert codes.count("silk.below-minimum") == reply["result"]["placed"]
     assert all(row["height"] == 600_000 for row in reply["result"]["placements"] if row["status"] == "placed")
+
+
+# Field fixes of 2026-11-17: the maintainer's board (Altium 24.5 and KiCad 10.0.6 DRC, codes only).
+
+RULE = '(rule "silk" (constraint silk_clearance (min 0.2mm)))'
+
+
+def test_clearances_from_the_board_rules(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """The clearances come from the board's ``silk_clearance`` rule when there is one, an option still wins,
+    the defaults are the fallback, and the reply says where each value came from. A rule without a
+    condition or a layer clause reaches courtyards in KiCad's DRC: the gap and the courtyard clearance follow
+    it; a rule with a layer clause does not."""
+    design = chip_row(3, pitch=4 * MM)
+    _, reply = silk(monkeypatch, tmp_path / "rule", design, "--designators", rules=RULE)
+    settings = reply["result"]["settings"]
+    assert (settings["clearance"], settings["mask_clearance"], settings["gap"]) == (200_000,) * 3
+    assert settings["courtyard"] == 200_000
+    assert settings["sources"] == {
+        "clearance": "rule",
+        "mask_clearance": "rule",
+        "courtyard": "rule",
+        "gap": "rule",
+    }
+    args = ("--designators", "--clearance", "0.3mm", "--gap", "0.25mm")
+    _, reply = silk(monkeypatch, tmp_path / "option", design, *args, rules=RULE)
+    settings = reply["result"]["settings"]
+    assert (settings["clearance"], settings["gap"], settings["mask_clearance"]) == (300_000, 250_000, 200_000)
+    assert settings["sources"]["clearance"] == settings["sources"]["gap"] == "option"
+    _, reply = silk(monkeypatch, tmp_path / "none", design, "--designators")
+    settings = reply["result"]["settings"]
+    assert (settings["clearance"], settings["mask_clearance"], settings["gap"]) == (150_000, 100_000, 100_000)
+    assert settings["courtyard"] is None and set(settings["sources"].values()) == {"default"}
+    layered = '(rule "silk" (layer "F.SilkS") (constraint silk_clearance (min 0.2mm)))'
+    _, reply = silk(monkeypatch, tmp_path / "layered", design, "--designators", rules=layered)
+    settings = reply["result"]["settings"]
+    assert settings["clearance"] == 200_000 and settings["courtyard"] is None
+
+
+@pytest.mark.parametrize("model", ["kicad", "altium"])
+def test_courtyards_kept_when_the_rule_reaches_them(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, model: str
+) -> None:
+    """With a rule that reaches courtyards, every placed designator keeps the rule's distance from the ink of
+    every courtyard, its own included (KiCad 10 reported 74 such ``silk_overlap`` on the maintainer's
+    board); without the rule a text may come within the default gap of its own courtyard."""
+    design = chip_row(3, pitch=4 * MM)
+    code, reply = silk(monkeypatch, tmp_path, design, "--designators", "--model", model, rules=RULE)
+    assert code == 0 and reply["result"]["placed"] == 3, reply
+    assert design.board is not None
+    courtyards = []  # CHIP's courtyard: 3 x 1.5 mm, stroke 0.05 mm, around each part's position, turned
+    for fp in design.board.footprints:
+        p = fp.position
+        hx, hy = (775_000, 1_525_000) if fp.rotation % (180 * DEG) else (1_525_000, 775_000)
+        courtyards.append(Rect(p.x - hx, p.y - hy, p.x + hx, p.y + hy))
+    for placed in reply["result"]["placements"]:
+        ink = _rect(placed)
+        for courtyard in courtyards:
+            outer = gap_floor(ink, courtyard)
+            inside = ink.x0 > courtyard.x0 and ink.x1 < courtyard.x1 and ink.y0 > courtyard.y0
+            assert outer >= 200_000 - 1 or (inside and ink.y1 < courtyard.y1), (placed, courtyard)
+
+
+def test_an_unplated_pad_opens_the_mask() -> None:
+    """An unplated pad that opens the mask has an opening, its hole grown by its mask margin: KiCad 10 and
+    Altium judge silkscreen against it, although the hole itself is no obstacle in the ``altium`` model."""
+    board = SilkBoard()
+    board.place("H1", Point(20 * MM, 15 * MM), defn=HOLE)
+    design = board.build()
+    pads: list[BoardPad] = KicadBackend().board_pads(design, issues=[])
+    (hole,) = [p for p in pads if p.kind == "np_thru_hole"]
+    assert not hole.copper
+    openings = [(side, shape) for side, pad, shape in mask_openings(design, pads, 50_000) if pad is hole]
+    assert {side for side, _ in openings} == {"top", "bottom"}
+    assert all(shape.width == 3 * MM + 100_000 for _, shape in openings)
+    scene = gather(design, pads=pads, extents=(), edges=None, settings=Settings(model="altium"))
+    assert any(o.what.startswith("the mask opening of pad H1") for o in scene.obstacles["top"])
+    assert not any(o.what.startswith("the hole of pad H1") for o in scene.obstacles["top"])
+
+
+def test_the_altium_box_starts_at_the_written_corner() -> None:
+    """``altium_box`` starts half a stroke left of and below the corner the Altium writer stores for a
+    centred text (``pcbdoc.text_corner``), and holds the text's KiCad ink: Altium 24.5 measured the
+    maintainer's designators that way (136 of 137 silk-to-mask distances at or above the model's)."""
+    key = TextKey("R10", 1_000_000, 1_000_000, 150_000)
+    field = FootprintField(
+        id="fld_1",
+        name="Reference",
+        position=Point(0, 0),
+        layer="F.SilkS",
+        size=Size(MM, MM),
+        thickness=150_000,
+    )
+    corner = text_corner(field, "R10", 150_000, False)
+    box = altium_box(key)
+    ink = estimate(key)
+    assert box is not None and ink is not None
+    assert (box.x0, box.y1) == (corner.x - 75_000, corner.y + 75_000)
+    assert box.x1 - box.x0 == 3 * MM - MM // 3 + 300_000 + 75_000
+    assert box.y1 - box.y0 == MM + 225_000 + 75_000
+    assert box.x0 <= ink.x0 and box.y0 <= ink.y0 and box.x1 >= ink.x1 and box.y1 >= ink.y1

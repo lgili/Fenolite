@@ -55,7 +55,7 @@ def far_corner(design: Design) -> Point:
 def test_two_texts_too_close(blink: Design) -> None:
     """Scenario "Two texts too close": two free texts whose boxes are nearer than the Silk To Silk rule."""
     at = far_corner(blink)
-    design = planted(blink, texts=(text("txt_a", at), text("txt_b", Point(at.x, at.y + 1_100_000))))
+    design = planted(blink, texts=(text("txt_a", at), text("txt_b", Point(at.x, at.y + 1_350_000))))
     (found,) = mine(judged(design, silk=200_000), "txt_a")
     assert found.code == "silk.clearance" and set(found.items) == {"txt_a", "txt_b"} and found.side == "top"
     assert found.gap < 200_000 and found.limit == 200_000

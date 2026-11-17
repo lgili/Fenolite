@@ -17,6 +17,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from decimal import Decimal, InvalidOperation
@@ -111,16 +112,18 @@ def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--clearance",
         metavar="LENGTH",
-        help="least distance from a designator to anything else (default 0.15mm)",
+        help="least distance from a designator to anything (default: the silk_clearance rule, else 0.15mm)",
     )
     parser.add_argument(
-        "--gap", metavar="LENGTH", help="distance from the part's courtyard to its designator (default 0.1mm)"
+        "--gap",
+        metavar="LENGTH",
+        help="distance from the part's courtyard to its designator (default 0.1mm, or a courtyard rule's)",
     )
     parser.add_argument(
         "--model",
         choices=MODELS,
         default="kicad",
-        help="clearance model: kicad (pads, holes, all silk) or altium (mask openings, not the own silk)",
+        help="clearance model: kicad (pads, holes, all silk) or altium (mask openings, Altium's text box)",
     )
     parser.add_argument(
         "--reach", metavar="LENGTH", help="how far beyond --gap the rings of places go (default 2mm)"
@@ -144,7 +147,7 @@ def _register(parser: argparse.ArgumentParser) -> None:
         "--mask-clearance",
         dest="mask_clearance",
         metavar="LENGTH",
-        help="with --model altium, least distance to a mask opening (default 0.1mm)",
+        help="with --model altium, least distance to a mask opening (default: the silk rule, else 0.1mm)",
     )
     parser.add_argument(
         "--measure",
@@ -230,16 +233,89 @@ def text_floor(project: Path | None) -> tuple[Nm, Nm]:
     return found_height or height, found_stroke or stroke
 
 
+def silk_rules(rules: Path | None) -> tuple[Nm | None, Nm | None]:
+    """The largest ``min`` of the ``silk_clearance`` rules of a ``.kicad_dru``, a rule with a condition or a
+    layer clause included (Fenolite keeps those opaque, so their ``min`` is read from the text), and the
+    largest of the rules not ignored with no condition and no layer clause (``None`` when there is none).
+    KiCad's DRC applies such a rule to every pair its silkscreen tests take, courtyards included."""
+    if rules is None:
+        return None, None
+    try:
+        text = rules.read_text(encoding="utf-8")
+        ruleset = read_rules(text, file=rules.name, issues=[])
+    except (OSError, ValueError, FenoliteError):
+        return None, None
+    found = [
+        rule.min
+        for rule in ruleset.rules
+        if rule.kind == "silk_clearance"
+        and rule.min is not None
+        and rule.severity != "ignore"
+        and rule.selector_a.op == "all"
+        and rule.selector_b is None
+        and not rule.layers
+    ]
+    every = max(found, default=None)
+    for match in _SILK_MIN.finditer(text):  # shortcut: severity not read here; an ignored rule still counts
+        try:
+            found.append(parse_length(match.group(1)))
+        except ValueError:
+            continue
+    return max(found, default=None), every
+
+
 def rule_margin(rules: Path | None) -> Nm | None:
     """The largest ``min`` of the ``silk_clearance`` rules of a ``.kicad_dru``, or ``None``."""
-    if rules is None:
+    return silk_rules(rules)[0]
+
+
+def board_silk(project: Path | None) -> Nm | None:
+    """The project's board setup silkscreen clearance (``min_silk_clearance``) when above 0, else ``None``."""
+    if project is None:
         return None
     try:
-        ruleset = read_rules(rules.read_text(encoding="utf-8"), file=rules.name, issues=[])
-    except (OSError, ValueError, FenoliteError):
+        data = json.loads(project.read_text(encoding="utf-8"))
+        found = _mm(data["board"]["design_settings"]["rules"].get("min_silk_clearance", 0))
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
         return None
-    found = [rule.min for rule in ruleset.rules if rule.kind == "silk_clearance" and rule.min is not None]
-    return max(found) if found else None
+    return found if found else None
+
+
+def clearances(
+    args: argparse.Namespace, beside: Mapping[str, Path]
+) -> tuple[dict[str, Nm | None], dict[str, str]]:
+    """``clearance``, ``mask_clearance``, ``gap`` and ``courtyard`` of ``--designators`` and where each came
+    from: ``option``; ``rule`` (the largest ``silk_clearance`` rule of the ``.kicad_dru``); ``board`` (the
+    board setup's silkscreen clearance); ``default``. KiCad judges silkscreen to a mask opening by the same
+    silk clearance, so it is also the mask clearance. A rule with no condition and no layer clause reaches
+    courtyards: every courtyard is then kept that far, and ``gap`` is at least that."""
+    rule, every = silk_rules(beside.get(".kicad_dru"))
+    setup = board_silk(beside.get(".kicad_pro"))
+    board, board_source = (rule, "rule") if rule is not None else (setup, "board")
+    values: dict[str, Nm | None] = {}
+    sources: dict[str, str] = {}
+    for name, option, default in (
+        ("clearance", args.clearance, DEFAULT_CLEARANCE),
+        ("mask_clearance", args.mask_clearance, DEFAULT_MASK_CLEARANCE),
+    ):
+        flag = "--" + name.replace("_", "-")
+        if option is not None:
+            values[name], sources[name] = _length(option, flag, default), "option"
+        elif board is not None:
+            values[name], sources[name] = board, board_source
+        else:
+            values[name], sources[name] = default, "default"
+    values["courtyard"], sources["courtyard"] = (every, "rule") if every is not None else (None, "default")
+    if args.gap is not None:
+        values["gap"], sources["gap"] = _length(args.gap, "--gap", DEFAULT_GAP), "option"
+    elif every is not None and every > DEFAULT_GAP:
+        values["gap"], sources["gap"] = every, "rule"
+    else:
+        values["gap"], sources["gap"] = DEFAULT_GAP, "default"
+    return values, sources
+
+
+_SILK_MIN = re.compile(r"\(constraint\s+silk_clearance\s+\(min\s+([^)\s]+)\)")
 
 
 def _measure(cli: KicadCli) -> Measure:
@@ -337,9 +413,10 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         raise CliError("FEN-2001", "--min-size takes one length", where="--min-size")
     data = board_path.read_bytes()
     text = data.decode("utf-8")
+    values, sources = clearances(args, beside)
     settings = Settings(
-        clearance=_length(args.clearance, "--clearance", DEFAULT_CLEARANCE),
-        gap=_length(args.gap, "--gap", DEFAULT_GAP),
+        clearance=values["clearance"] or 0,
+        gap=values["gap"] or 0,
         heights=_sizes(args.sizes, min_height),
         angles=_angles(args.angles),
         keep=bool(args.keep),
@@ -351,8 +428,9 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         over_body=bool(args.over_body),
         min_size=min_size[0] if min_size else None,
         size_step=_length(args.size_step, "--size-step", DEFAULT_SIZE_STEP, zero=False),
-        mask_clearance=_length(args.mask_clearance, "--mask-clearance", DEFAULT_MASK_CLEARANCE),
+        mask_clearance=values["mask_clearance"] or 0,
         board_mask=board_mask_margin(text),
+        courtyard=values["courtyard"],
     )
     issues: list[Issue] = []
     design = read_board(text, file=board_path.name, issues=issues)
@@ -486,6 +564,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 "min_size": settings.min_size,
                 "size_step": settings.size_step,
                 "mask_clearance": settings.mask_clearance,
+                "courtyard": settings.courtyard,
+                "sources": sources,
             },
             "placements": list(rows),
             "placed": statuses.get("placed", 0),

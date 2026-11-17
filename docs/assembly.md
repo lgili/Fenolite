@@ -394,12 +394,16 @@ fenolite silk build/blink --designators --keep --confirm --json   # move only th
   tool (or with `--measure estimate`) it adds up the glyph metrics that `tools/measure_glyphs.py` measured
   and Fenolite ships, which hold the drawn ink for the letters, digits and `-_.+/` (`silk.estimated`).
   `docs/formats/kicad/text.md` lists the facts.
-- **What a designator avoids,** by `--clearance` (0.15 mm by default): pad copper on its side, holes, the
-  silkscreen of the board and of the footprints, every other silkscreen text, and the board edge, cut-outs
-  and slots. It also lies inside the board. Another part's courtyard only makes a place cost more.
-  `--model altium` judges as Altium's silkscreen rules do: each pad's mask opening by `--mask-clearance`
-  (0.1 mm), not the part's own outline, no unplated hole, and a text by its box less half its stroke.
-- **Where it goes.** Beside the part's courtyard, `--gap` away (0.1 mm), then further out in steps of the
+- **What a designator avoids,** by `--clearance` (the board's `silk_clearance` rule, else 0.15 mm): pad
+  copper on its side, holes, the silkscreen of the board and of the footprints (its own included), every
+  other silkscreen text, and the board edge, cut-outs and slots. It also lies inside the board. Another
+  part's courtyard only makes a place cost more, unless the board's rule has no condition and no layer
+  clause: KiCad's DRC then judges silkscreen against every courtyard, so every courtyard, its own too,
+  is kept that far. `--model altium` judges as Altium's silkscreen rules do: each pad's mask opening by
+  `--mask-clearance` (the same rule, else 0.1 mm), an unplated pad's opening included, no unplated hole,
+  and a text by its ink and by the box Altium measures. `result.settings.sources` says where each value
+  came from.
+- **Where it goes.** Beside the part's courtyard, `--gap` away (0.1 mm, or the courtyard rule's), then further out in steps of the
   text's height up to `--reach` (2 mm): centred or flush above, below, left or right, at 0° or 90° on the
   board (`--angles`), at the field's height or smaller ones down to `--min-size` in steps of `--size-step`
   (or `--sizes`). `--over-body` also tries places over the part itself, last. It prefers its own part's long side, the largest size and the middle of a side, and it is

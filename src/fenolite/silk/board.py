@@ -7,9 +7,11 @@ and "Placed designators checked"; change c0212; user guide ``docs/assembly.md``,
 copper of the pads on that side's outer layer, every drilled hole (pad, via and board holes), the
 silkscreen strokes of the board and of the footprints, the ink of every other text on the side, and the
 board edge (outline, cut-outs and slots). Another part's courtyard only adds to a place's cost (change
-c0493). The ``altium`` model (``Settings.model``, ``H-A-SILK-DRC-MODEL``) keeps a text ``mask_clearance``
-from each pad's mask opening instead of its copper, leaves out unplated holes and the text's own
-footprint silkscreen, and judges every text by its ink box less half its stroke on each side.
+c0493), unless the board's rules judge silkscreen against courtyards (``Settings.courtyard``): then every
+courtyard, the text's own too, is kept that far. The ``altium`` model (``Settings.model``,
+``H-A-SILK-DRC-MODEL``) keeps a text ``mask_clearance`` from each pad's mask opening instead of its copper,
+leaves out unplated holes, and judges every text by the box Altium measures as well as by its ink
+(``text_box``). Both models keep a text clear of its own footprint's silkscreen (field result, 2026-11-17).
 It measures the ink of every text (``silk.extents``), runs the search of ``silk.layout`` and writes
 each chosen place into the part's ``Reference`` field: anchor, angle 0 or 90 degrees on the board, size,
 stroke, centred justification, and mirrored on the bottom side.
@@ -57,7 +59,7 @@ from fenolite.model.board import FootprintField, FootprintInstance, Graphic, Tex
 from fenolite.model.circuit import Component
 from fenolite.model.design import Design
 from fenolite.silk.codes import issue
-from fenolite.silk.extents import Ink, InkBox, TextKey, ink_boxes
+from fenolite.silk.extents import Ink, InkBox, TextKey, estimate, ink_boxes
 from fenolite.silk.layout import Choice, Field, Look, Obstacle, Part, Plan, Rect, arrange, gap2
 
 DEG = 1_000_000
@@ -120,6 +122,9 @@ class Settings:
     """In the ``altium`` model, the least distance from a text to a pad's mask opening."""
     board_mask: Nm = 0
     """The board's ``pad_to_mask_clearance``, the mask expansion of a pad without one of its own."""
+    courtyard: Nm | None = None
+    """The distance a text keeps from every courtyard, its own too, when the board's rules judge silkscreen
+    against courtyards (``None``: another part's courtyard only adds cost)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -185,8 +190,8 @@ def hull_rect(ink: InkBox, angle: Udeg) -> Rect:
     return Rect(-rx, -ry, rx, ry)
 
 
-def _layer_side(layer: str) -> str | None:
-    for side, name in SILK.items():
+def _layer_side(layer: str, layers: Mapping[str, str] = SILK) -> str | None:
+    for side, name in layers.items():
         if layer == name:
             return side
     return None
@@ -309,6 +314,7 @@ def gather(
         component = components.get(footprint.component_id)
         ref = component.ref if component is not None else ""
         extent = extent_of.get(footprint.id)
+        items = footprint_items(footprint)
         rings = extent.own if extent is not None else ()
         points = [p for ring in rings for p in ring]
         if not points:
@@ -317,11 +323,15 @@ def gather(
             ]
         if not points:
             points = [footprint.position]
+        grow = 0
+        if settings.courtyard is not None:  # the gap counts from the courtyard's ink, which is judged
+            grow = max((g.width for g in items.graphics if g.layer in COURTYARD.values()), default=0)
+            grow = (grow + 1) // 2
         boxes[footprint.id] = Rect(
-            min(p.x for p in points),
-            min(p.y for p in points),
-            max(p.x for p in points),
-            max(p.y for p in points),
+            min(p.x for p in points) - grow,
+            min(p.y for p in points) - grow,
+            max(p.x for p in points) + grow,
+            max(p.y for p in points) + grow,
         )
         for field in footprint.fields:
             side = _layer_side(field.layer)
@@ -349,7 +359,6 @@ def gather(
                     True,
                 )
             )
-        items = footprint_items(footprint)
         if items.skipped:
             issues.append(
                 issue(
@@ -363,10 +372,14 @@ def gather(
         move = Transform.placement(footprint.position, footprint.rotation)
         for graphic in items.graphics:
             side = _layer_side(graphic.layer)
-            if side is not None:
-                owner = footprint.id if altium else ""  # Altium does not judge a text against its own silk
+            if side is not None:  # Altium 24.5 judges a text against its own silk too (field result)
                 for shape in _graphic_shapes(graphic, move):
-                    obstacles[side].append(Obstacle.of(shape, f"silkscreen of {ref or footprint.id}", owner))
+                    obstacles[side].append(Obstacle.of(shape, f"silkscreen of {ref or footprint.id}"))
+            court = _layer_side(graphic.layer, COURTYARD)
+            if court is not None and settings.courtyard is not None:
+                for shape in _graphic_shapes(graphic, move):
+                    what = f"the courtyard of {ref or footprint.id}"
+                    obstacles[court].append(Obstacle.of(shape, what, clearance=settings.courtyard))
         for text in items.texts:
             side = _layer_side(text.layer)
             if side is not None and text.text.strip():
@@ -394,21 +407,11 @@ def gather(
                 (side, f"the board text {text.text!r}", key, text.position, text.rotation, False, False)
             )
     if altium:  # each pad's mask opening, its copper grown by its own expansion (H-A-SILK-DRC-MODEL)
-        from fenolite.silk.clip import has_mask  # noqa: PLC0415 - clip imports this module
-
-        margins = {pad.id: pad.mask_margin for fp in board.footprints for pad in fp.pads}
+        for side, pad, shape in mask_openings(design, pads, settings.board_mask):
+            what = f"the mask opening of pad {pad.ref or pad.footprint_id}-{pad.number}"
+            obstacles[side].append(Obstacle.of(shape, what, clearance=settings.mask_clearance))
         for pad in pads:
             name = f"pad {pad.ref or pad.footprint_id}-{pad.number}"
-            own = margins.get(pad.pad_id)
-            grow = max(own if own is not None else settings.board_mask, 0)
-            for side, layer in COPPER.items():
-                if not has_mask(pad.layers, side):
-                    continue
-                for copper in pad.copper:
-                    if copper.layer == layer:
-                        shape = Thick(copper.core, copper.width + 2 * grow, copper.filled)
-                        what = f"the mask opening of {name}"
-                        obstacles[side].append(Obstacle.of(shape, what, clearance=settings.mask_clearance))
             if pad.hole and pad.drill and pad.kind != "np_thru_hole":  # an unplated hole is no obstacle
                 for side in ("top", "bottom"):
                     obstacles[side].append(Obstacle.of(Thick(pad.hole, pad.drill), f"the hole of {name}"))
@@ -451,6 +454,34 @@ def gather(
     )
 
 
+def mask_openings(
+    design: Design, pads: Sequence[BoardPad], board_mask: Nm
+) -> list[tuple[str, BoardPad, Thick]]:
+    """``(side, pad, shape)`` of each pad's solder-mask opening: its copper on the side grown by its own mask
+    margin, else ``board_mask``. A pad without copper on the side that opens the mask there (an unplated
+    pad) opens its hole so grown: KiCad 10 and Altium judge silkscreen against it (field result,
+    2026-11-17). An Altium import names no mask layer on a pad: each outer copper layer then has one."""
+    from fenolite.silk.clip import has_mask  # noqa: PLC0415 - clip imports this module
+
+    board = design.board
+    assert board is not None
+    margins = {pad.id: pad.mask_margin for fp in board.footprints for pad in fp.pads}
+    found: list[tuple[str, BoardPad, Thick]] = []
+    for pad in pads:
+        bare = not any("Mask" in layer for layer in pad.layers)
+        own = margins.get(pad.pad_id)
+        grow = max(own if own is not None else board_mask, 0)
+        for side, layer in COPPER.items():
+            if not (bare or has_mask(pad.layers, side)):
+                continue
+            coppers = [c for c in pad.copper if c.layer == layer]
+            for copper in coppers:
+                found.append((side, pad, Thick(copper.core, copper.width + 2 * grow, copper.filled)))
+            if not coppers and not bare and pad.hole and pad.drill:
+                found.append((side, pad, Thick(pad.hole, pad.drill + 2 * grow)))
+    return found
+
+
 def looks_of(mover: Mover, settings: Settings) -> list[tuple[TextKey, Udeg]]:
     """``(ink key, board angle)`` of every look of a mover, largest height first."""
     field = mover.field
@@ -486,13 +517,46 @@ def _current_key(mover: Mover) -> TextKey:
     return _key(mover.ref, field.size, field.thickness, field.h_justify, field.v_justify)
 
 
-def measured(rect: Rect, stroke: Nm, settings: Settings) -> Rect:
-    """The box a model judges a text by: its ink box, less half its stroke on each side in the ``altium``
-    model (``H-A-SILK-DRC-MODEL``, change c0493)."""
-    half = stroke // 2
-    if settings.model != "altium" or rect.x1 - rect.x0 <= 2 * half or rect.y1 - rect.y0 <= 2 * half:
-        return rect
-    return Rect(rect.x0 + half, rect.y0 + half, rect.x1 - half, rect.y1 - half)
+def altium_box(key: TextKey) -> InkBox | None:
+    """The box Altium 24.5's DRC judges a stroke text by (``H-A-SILK-DRC-MODEL``), in the text's reading
+    frame relative to its anchor (Y down). The record holds the lower-left corner that
+    ``backends.altium.pcbdoc.text_corner`` writes: the offset between the estimated ink of the text's
+    justification and that of the same text justified left and bottom. From there the box reaches half a
+    stroke left and down, ``characters * height - height / 3 + 2 * stroke`` along the text (the font's
+    advance is about one height per character) and ``height + 1.5 * stroke`` up."""
+    if not key.text:
+        return None
+    own = estimate(key)
+    corner = estimate(dataclasses.replace(key, h_justify="left", v_justify="bottom"))
+    if own is None or corner is None:
+        return None
+    dx, dy = own.x0 - corner.x0, own.y1 - corner.y1
+    h, s = key.height, key.stroke
+    # shortcut: one line of text; a multi-line text is boxed by its longest line and one height
+    n = max(len(line) for line in key.text.split("\n"))
+    return InkBox(dx - s // 2, dy - h - 3 * s // 2, dx + n * h - h // 3 + 2 * s, dy + s // 2)
+
+
+def text_box(key: TextKey, inks: Mapping[TextKey, Ink], settings: Settings | None) -> InkBox | None:
+    """The box a model judges a text by, in its reading frame: its ink, and in the ``altium`` model also the
+    box Altium measures (``altium_box``), so that both KiCad's and Altium's DRC find it clear."""
+    ink = inks[key].box
+    if settings is None or settings.model != "altium":
+        return ink
+    box = altium_box(key)
+    if ink is None or box is None:
+        return ink or box
+    return InkBox(min(ink.x0, box.x0), min(ink.y0, box.y0), max(ink.x1, box.x1), max(ink.y1, box.y1))
+
+
+def board_rect(box: InkBox, angle: Udeg, mirrored: bool, folded: bool, settings: Settings | None) -> Rect:
+    """The rectangle of a text's box relative to its anchor on the board: ``field_rect`` for a field at a
+    multiple of 90 degrees (in the ``altium`` model only at 0 or 90, as Altium does not keep a text
+    upright), else ``hull_rect``."""
+    upright = settings is None or settings.model != "altium" or angle in (0, 90 * DEG)
+    if folded and angle % (90 * DEG) == 0 and upright:
+        return field_rect(box, angle, mirrored)
+    return hull_rect(box, angle)
 
 
 def kind_of(blocker: str) -> str:
@@ -519,16 +583,12 @@ def _other_rects(
 ) -> list[tuple[str, str, Rect]]:
     found: list[tuple[str, str, Rect]] = []
     for side, what, key, anchor, angle, mirrored, folded in scene.others:
-        ink = inks[key].box
-        if ink is None:
+        box = text_box(key, inks, settings)
+        if box is None:
             continue
-        if folded and angle % (90 * DEG) == 0:
-            rect = field_rect(ink, angle, mirrored)
-        else:
-            rect = hull_rect(ink, angle)
-        if settings is not None:
-            rect = measured(rect, key.stroke, settings)
-        found.append((side, what, rect.moved(anchor.x, anchor.y)))
+        found.append(
+            (side, what, board_rect(box, angle, mirrored, folded, settings).moved(anchor.x, anchor.y))
+        )
     return found
 
 
@@ -587,23 +647,20 @@ def place_designators(
     for mover in scene.movers:
         looks: list[Look] = []
         for key, angle in looks_of(mover, settings):
-            ink = inks[key].box
-            if ink is None:
+            box = text_box(key, inks, settings)
+            if box is None:
                 continue
-            rect = measured(field_rect(ink, angle, mover.side == "bottom"), key.stroke, settings)
+            rect = field_rect(box, angle, mover.side == "bottom")
             looks.append(Look(angle, key.width, key.height, key.stroke, rect))
         current: Choice | None = None
         where: tuple[str, Rect] | None = None
-        ink = inks[_current_key(mover)].box
+        box = text_box(_current_key(mover), inks, settings)
         angle = field_angle(mover.footprint, mover.field)
         side = _layer_side(mover.field.layer)
-        if ink is not None and side is not None:
+        if box is not None and side is not None:
             anchor = field_anchor(mover.footprint, mover.field)
             square = angle % (90 * DEG) == 0
-            rect = (field_rect(ink, angle, mover.field.mirrored) if square else hull_rect(ink, angle)).moved(
-                anchor.x, anchor.y
-            )
-            rect = measured(rect, _current_key(mover).stroke, settings)
+            rect = board_rect(box, angle, mover.field.mirrored, True, settings).moved(anchor.x, anchor.y)
             where = (side, rect)
             if square and side == mover.side:
                 size = mover.field.size
@@ -722,19 +779,14 @@ def check_designators(
         field = next((f for f in footprint.fields if f.name == REFERENCE), None)
         if field is None:
             continue
-        held = inks.get(_key(mover.ref, field.size, field.thickness, field.h_justify, field.v_justify))
+        held = _key(mover.ref, field.size, field.thickness, field.h_justify, field.v_justify)
         side = _layer_side(field.layer)
-        if held is None or held.box is None or side is None:
+        box = text_box(held, inks, settings) if held in inks else None
+        if box is None or side is None:
             continue
         angle = field_angle(footprint, field)
         anchor = field_anchor(footprint, field)
-        rect = (
-            field_rect(held.box, angle, field.mirrored)
-            if angle % (90 * DEG) == 0
-            else hull_rect(held.box, angle)
-        ).moved(anchor.x, anchor.y)
-        stroke_of = field.thickness if field.thickness is not None else _default_stroke(field.size.h)
-        rect = measured(rect, stroke_of, settings)
+        rect = board_rect(box, angle, field.mirrored, True, settings).moved(anchor.x, anchor.y)
         texts[side].append((footprint.id, rect))
         if footprint.id not in wanted:
             continue
@@ -821,7 +873,7 @@ def _locator(entity: Graphic | FootprintField | Text, fallback: str) -> str:
 
 def _silk_items(design: Design) -> list[tuple[str, str, str, Thick, bool]]:
     """``(side, name, owner, shape, is_text)`` of every silkscreen stroke and visible text of a board, in the
-    board frame; a text is its ink box less half its stroke (the ``altium`` model)."""
+    board frame; a text is its box in the ``altium`` model (``text_box``)."""
     board = design.board
     assert board is not None
     settings = Settings(model="altium")
@@ -868,13 +920,10 @@ def _silk_items(design: Design) -> list[tuple[str, str, str, Thick, bool]]:
             texts.append((side, _locator(text, text.id), "", key, text.position, text.rotation, False, False))
     inks = ink_boxes(entry[3] for entry in texts)
     for side, name, owner, key, anchor, angle, mirrored, folded in texts:
-        ink = inks[key].box
-        if ink is None:
+        box = text_box(key, inks, settings)
+        if box is None:
             continue
-        rect = (
-            field_rect(ink, angle, mirrored) if folded and angle % (90 * DEG) == 0 else hull_rect(ink, angle)
-        )
-        rect = measured(rect, key.stroke, settings).moved(anchor.x, anchor.y)
+        rect = board_rect(box, angle, mirrored, folded, settings).moved(anchor.x, anchor.y)
         found.append((side, name, owner, rect.thick(), True))
     return found
 
@@ -897,24 +946,12 @@ def judge_silk(
     pair a text with a stroke only. A pad's mask opening is its copper grown by its own mask margin, else
     ``board_mask``, as ``gather`` grows it."""
     from fenolite.geometry import SpatialIndex, thick_bbox, thick_closer_than, thick_gap_floor, thick_witness
-    from fenolite.silk.clip import has_mask  # noqa: PLC0415 - clip imports this module
 
     items = _silk_items(design)
-    board = design.board
-    assert board is not None
-    margins = {pad.id: pad.mask_margin for fp in board.footprints for pad in fp.pads}
-    openings: list[tuple[str, str, Thick]] = []
-    for pad in pads:
-        # an Altium import names no mask layer on a pad: each outer copper layer then has an opening
-        bare = not any("Mask" in layer for layer in pad.layers)
-        own = margins.get(pad.pad_id)
-        grow = max(own if own is not None else board_mask, 0)
-        for side, layer in COPPER.items():
-            if bare or has_mask(pad.layers, side):
-                for copper in pad.copper:
-                    if copper.layer == layer:
-                        shape = Thick(copper.core, copper.width + 2 * grow, copper.filled)
-                        openings.append((side, f"{pad.ref or pad.footprint_id}-{pad.number}", shape))
+    openings = [
+        (side, f"{pad.ref or pad.footprint_id}-{pad.number}", shape)
+        for side, pad, shape in mask_openings(design, pads, board_mask)
+    ]
     rims = [(side, "edge", o.shape) for o in _edge_shapes(edges or ()) for side in ("top", "bottom")]
     found: list[SilkFinding] = []
 
@@ -956,6 +993,8 @@ def judge_silk(
 
 __all__ = [
     "ALTIUM_HYPOTHESIS",
+    "altium_box",
+    "board_rect",
     "DEFAULT_CLEARANCE",
     "DEFAULT_GAP",
     "DEFAULT_MASK_CLEARANCE",
@@ -978,7 +1017,8 @@ __all__ = [
     "ink_keys",
     "kind_of",
     "looks_of",
-    "measured",
+    "mask_openings",
+    "text_box",
     "natural",
     "place_designators",
     "silkscreen_ink",

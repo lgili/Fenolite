@@ -914,6 +914,12 @@ class SilkSettings:
     min_size: int | None
     size_step: int
     mask_clearance: int
+    courtyard: int | None = field(
+        metadata={"description": "the distance kept from every courtyard when the board's rule reaches them"}
+    )
+    sources: dict[str, str] = field(
+        metadata={"description": "where clearance, mask_clearance, gap and courtyard came from"}
+    )
 
 
 @dataclass(frozen=True, kw_only=True)

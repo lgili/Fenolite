@@ -59,3 +59,37 @@ Rules for every task:
   overlap model misses real overlaps, and it does not take the clearances from the board's rules.
   Follow-up change needed; 3.2 stays open.
 
+  Decision (maintainer, 2026-11-17): the clearances come from the board's rules. `--clearance` and
+  `--mask-clearance` default to the largest `silk_clearance` rule of the `.kicad_dru` (KiCad judges
+  silkscreen to a mask opening by the same constraint), else the project's `min_silk_clearance` above 0,
+  else 0.15 mm and 0.1 mm; `result.settings.sources` names each source (design D6).
+
+  Decision (maintainer, 2026-11-17): the overlap model follows what both tools measured. A text is judged by
+  its whole ink, and in the `altium` model also by the box Altium measures from the corner the writer
+  stores (`text_box`, `altium_box`; the old box less half a stroke was smaller than both); the `altium`
+  model judges a text against its own footprint's silkscreen (Altium reported 46 of 63 text-to-track
+  violations against the text's own component); an unplated pad that opens the mask is an opening.
+  Tests `test_each_pads_own_mask_expansion`, `test_a_text_over_its_own_outline`,
+  `test_the_altium_box_starts_at_the_written_corner`, `test_an_unplated_pad_opens_the_mask`.
+
+  Decision (maintainer, 2026-11-17): KiCad's courtyard findings come from the board's rule: a
+  `silk_clearance` rule with no condition and no layer clause reaches every item of the side
+  (`H-K-SILK-REACH`). With such a rule every courtyard, the part's own too, is kept that far and `--gap`
+  defaults to at least it, counted from the courtyard's ink. Copper (tracks, zones, vias) and visible
+  fabrication-layer fields, which the same rule reaches in KiCad only, stay out of the search; narrowing
+  the translated rule is a follow-up. Tests `test_clearances_from_the_board_rules`,
+  `test_courtyards_kept_when_the_rule_reaches_them`.
+
+  Result (maintainer board, 2026-11-17, after fix): `--model altium` exits 0 and writes the board; settings
+  0.15 mm for clearance, mask clearance, gap and courtyard, all from `rule`. 212 placed, 44 unplaced
+  (text 17, courtyard 13, hole 11, silk 2, mask 1), 44 `silk.no-place`, 17 `silk.below-minimum`, 0
+  `silk.check-failed` (before: 233 placed, 23 unplaced). `kicad-cli` 10.0.6 DRC (`--severity-all`), counted
+  in runs split by item type because each type stops at 199: findings naming a placed designator against
+  silkscreen, another text, a courtyard, a pad or mask opening, or the edge: 0 (before, same counting: at
+  least 290: courtyard 191, silkscreen 88, designator 10, edge 1). Against what only the rule's KiCad reach
+  judges: tracks at least 133, zones 74, vias 0, fabrication fields at least 81 (the same designators where
+  they were before the command: at least 148, 78, 30 and 123). Unplaced designators keep their findings
+  (courtyard 40, silkscreen 10, one `silk_over_copper`). Fenolite's `silk.clearance` judge on the converted
+  document at 0.15 mm: 0 silk-to-silk and 0 silk-to-mask findings name a placed designator. Converted to
+  Altium (exit 0, equivalence level 5) for the maintainer's Altium DRC; that part is still open.
+

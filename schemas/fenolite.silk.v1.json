@@ -509,6 +509,25 @@
         },
         "mask_clearance": {
           "type": "integer"
+        },
+        "courtyard": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "description": "the distance kept from every courtyard when the board's rule reaches them"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sources": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "x-fenolite-map": true,
+          "description": "where clearance, mask_clearance, gap and courtyard came from"
         }
       },
       "additionalProperties": true,
@@ -525,7 +544,9 @@
         "over_body",
         "min_size",
         "size_step",
-        "mask_clearance"
+        "mask_clearance",
+        "courtyard",
+        "sources"
       ]
     }
   }

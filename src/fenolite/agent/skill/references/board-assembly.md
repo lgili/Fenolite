@@ -27,7 +27,8 @@ board from working. They stop it from being built right, tested, or accepted in 
   minimum size keeps it and is still written; `silk.below-minimum` reports it.
 - **On a dense board** widen the search: rings out to `--reach`, heights down to `--min-size` in steps of
   `--size-step`, `--over-body` as a last resort. `--model altium` judges as Altium's silkscreen rules do:
-  mask openings (`--mask-clearance`), not the part's own outline.
+  mask openings (`--mask-clearance`) and Altium's text box. The clearances follow the board's
+  `silk_clearance` rule; `result.settings.sources` says where each came from.
 
 ```fenolite-cmd
 fenolite silk board --designators --dry-run --json
