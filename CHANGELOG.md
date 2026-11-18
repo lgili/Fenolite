@@ -150,6 +150,17 @@ All notable changes to Fenolite are documented here. The format follows
   `silk_clearance` rule read from a KiCad file with no condition keeps none when written back
   (`rulemap.reaches_every_item`). `fenolite silk` keeps courtyards only under such a rule, and takes
   `--mask-clearance` and the `--clip` margin from the silkscreen-to-pad rule when there is one.
+- `fenolite silk --designators` leaves fewer designators unplaced on dense boards (c0493, task 3.4, design
+  D8): a part without a place after the first pass is tried again, once the texts that stay are known, on
+  places every quarter of the text's height along each side and between the rings, in up to four rounds,
+  and may move one text in its way, a placed one or the text that stays of another unplaced part. No
+  option, size or clearance changes, and a board that placed everything keeps its places. On the
+  maintainer's board 240 of 256 are placed (were 212) and the command runs in about half the time (the
+  static answers are remembered and the board-material test skips rings whose box misses the point).
+- `H-A-SILK-DRC-MODEL`, the `altium` model's text box and openings, is
+  `ALTIUM-VERIFIED(author-report; AD 24.5; 2026-11-17; no artefact)` (c0493, task 3.5): the maintainer's
+  Altium 24.5 DRC reported no silk violation naming a placed designator. An author report promotes no
+  operation; the replies stay `INFERRED`.
 
 - A carried Altium pour is written without zero-length edges (c0496): a source document's region may state one
   outline vertex twice in a row (a zero-length edge); the carrier now drops the repeat from the plain and the

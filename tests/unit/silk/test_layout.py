@@ -153,3 +153,36 @@ def test_a_text_that_stays_is_kept_clear() -> None:
     plan = arrange([a, b], {"top": _field()}, gap=GAP)
     assert "B" in plan.blocked and plan.placed["A"].slot != (0, 0, 0)
     assert gap2(plan.placed["A"].rect, stuck_rect) >= CLEARANCE * CLEARANCE
+
+
+def _walls(x: int) -> tuple[Rect, ...]:
+    """Walls beside and below the part ``_part(_, x, 10)``: its text fits only above it (change c0493)."""
+    at = (x - 10) * MM
+    return (
+        Rect(at, 10_900_000, at + 20 * MM, 12 * MM),  # below
+        Rect(at + 5 * MM, 9_400_000, at + 8_300_000, 12 * MM),  # left
+        Rect(at + 11_700_000, 9_400_000, at + 15 * MM, 12 * MM),  # right
+    )
+
+
+def test_the_rescue_finds_a_place_between_the_slots() -> None:
+    """A line rises from the middle of the part: it meets the three places above (centred and flush with
+    either end) and the walls the others. The rescue slides the text along the side and finds room."""
+    part = _part("R1", 10, 10, looks=(LOOKS[0],))
+    line = Rect(10 * MM, 7 * MM, 10 * MM, 9 * MM)
+    plan = arrange([part], {"top": _field(line, *_walls(10))}, gap=GAP)
+    assert set(plan.placed) == {"R1"} and not plan.blocked
+    choice = plan.placed["R1"]
+    assert choice.slot[0] == 0 and gap_floor(choice.rect, line) >= CLEARANCE
+
+
+def test_the_rescue_moves_a_text_that_stays() -> None:
+    """``B`` finds no slot and keeps its text, which covers every place of ``A``. The rescue places ``B``
+    (between its slots), and its old text no longer stands in ``A``'s way: both are placed."""
+    stays = INK.moved(30 * MM, 8_650_000)
+    a = _part("A", 30, 10, looks=(LOOKS[0],))
+    b = Part("B", "B", "top", _part("B", 10, 10).box, 0, (LOOKS[0],), None, ("top", stays))
+    line = Rect(10 * MM, 7 * MM, 10 * MM, 9 * MM)
+    plan = arrange([a, b], {"top": _field(line, *_walls(10), *_walls(30))}, gap=GAP)
+    assert set(plan.placed) == {"A", "B"} and not plan.blocked
+    assert gap_floor(plan.placed["A"].rect, plan.placed["B"].rect) >= CLEARANCE

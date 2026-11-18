@@ -408,7 +408,9 @@ fenolite silk build/blink --designators --keep --confirm --json   # move only th
   board (`--angles`), at the field's height or smaller ones down to `--min-size` in steps of `--size-step`
   (or `--sizes`). `--over-body` also tries places over the part itself, last. It prefers its own part's long side, the largest size and the middle of a side, and it is
   never nearer to another part than to its own. A row or a column of the same footprint at the same angle
-  gets one place for all, so their texts line up. A part without a free place keeps its text and is named
+  gets one place for all, so their texts line up. A part with no free place is tried again on a finer
+  set of places (every quarter of the text's height along each side and between the rings), and may move
+  one text in its way. A part still without a free place keeps its text and is named
   with `silk.no-place`, with the kind of what blocks it (`pad`, `mask`, `hole`, `silk`, `text`, `courtyard`,
   `edge` or `outside`).
 - **What is checked before anything is written.** Each written field is computed again: its text keeps

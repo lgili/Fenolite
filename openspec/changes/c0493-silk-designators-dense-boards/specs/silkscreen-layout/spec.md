@@ -9,6 +9,9 @@ height) in steps of `--size-step` (default 0.1 mm), largest first (change c0493)
 - `--sizes`, when given, MUST replace the height steps.
 - A height below the board's least text height MUST exit 2, as `--sizes` does today.
 - The search MUST stay deterministic: the same board and options give the same places.
+- A part left without a place SHALL be tried again, once the texts that stay are known, on places every
+  quarter of the look's height along each side and between the rings, in at most four rounds; it MAY move
+  one placed text, or the text that stays of another part without a place, which then takes that place.
 - A designator that keeps its own height and stroke, already below the board's minimum text size, MUST NOT
   stop the write: it is reported with `silk.below-minimum` (warning) and written at its new place. A text
   the search made smaller than the minimum MUST still be `silk.check-failed`.
@@ -18,6 +21,12 @@ height) in steps of `--size-step` (default 0.1 mm), largest first (change c0493)
 - **WHEN** `fenolite silk <board> --designators --dry-run` runs
 - **THEN** each placed designator keeps 0.6 mm and gets one `silk.below-minimum`, no `silk.check-failed` is
   reported, and the board is planned for writing
+
+#### Scenario: A place between the slots
+- **GIVEN** a part whose places above it, centred and flush with either end, meet a line, and walls on its
+  other sides
+- **WHEN** the search runs
+- **THEN** the designator is placed above the part, slid along the side clear of the line
 
 #### Scenario: A dense grid of small parts
 - **GIVEN** an authored board with a grid of two-pad 0402 parts at 1.2 mm pitch whose courtyards touch,

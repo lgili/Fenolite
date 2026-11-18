@@ -16,6 +16,10 @@ knows nothing of KiCad: ``silk.board`` gathers the parts, the inks and the obsta
 - **Search.** Groups of identical parts in a row or a column first, each on one common slot when every
   member is free there; then the other parts greedily, the most constrained first; then repair rounds in
   which a part without a free candidate may push one placed text to that text's next free candidate.
+- **Rescue.** A part still without a place gets a finer set of candidates (``FINE`` places per text
+  height along each side and between the rings, ``fine``) and up to ``RESCUE_ROUNDS`` more rounds, after
+  the texts that stay are known: it takes a free one, or moves one placed text, or the text that stays of
+  another part without a place (which then gets that place), out of the way (change c0493, follow-up).
 """
 
 from __future__ import annotations
@@ -38,6 +42,9 @@ NEAR: Nm = 300_000
 OVER_BODY_COST: Nm = 2 * FOREIGN_COST
 """What a text over its own part's body costs, so that it goes there only when nothing outside fits."""
 REPAIR_ROUNDS = 4
+RESCUE_ROUNDS = 4
+FINE = 4
+"""How many places per text height the rescue tries along a side and between rings (a Fenolite choice)."""
 SortKey = Callable[[str], tuple[Any, ...]]
 """How references sort (``silk.board.natural`` puts ``R2`` before ``R10``)."""
 SIDES = ("above", "below", "left", "right")
@@ -184,6 +191,37 @@ def _offsets(
     return found
 
 
+def _fine_offsets(
+    look: Look, box: Rect, gap: Nm, reach: Nm | None = None, step: Nm | None = None, over_body: bool = False
+) -> list[tuple[int, int, Point]]:
+    """The rescue's ``(side, offset, anchor)``: on rings every ``height / FINE`` from ``gap`` to ``reach``,
+    the text's centre every ``height / FINE`` from one end of the side to the other; with ``over_body`` the
+    same grid of centres over the box (side 4). ``step`` is not used: the rescue is finer than any ring."""
+    del step
+    ink = look.ink
+    pace = max(look.height // FINE, 1)
+    last = max(reach if reach is not None else gap, gap)
+
+    def run(lo: Nm, hi: Nm) -> list[Nm]:
+        return [*range(lo, hi, pace), hi]
+
+    xs = [x - (ink.x0 + ink.x1) // 2 for x in run(box.x0, box.x1)]
+    ys = [y - (ink.y0 + ink.y1) // 2 for y in run(box.y0, box.y1)]
+    found: list[tuple[int, int, Point]] = []
+    for distance in range(gap, last + 1, pace):
+        above, below = box.y0 - distance - ink.y1, box.y1 + distance - ink.y0
+        left, right = box.x0 - distance - ink.x1, box.x1 + distance - ink.x0
+        for x in xs:
+            found.append((0, len(found), Point(x, above)))
+            found.append((1, len(found), Point(x, below)))
+        for y in ys:
+            found.append((2, len(found), Point(left, y)))
+            found.append((3, len(found), Point(right, y)))
+    if over_body:
+        found.extend((4, len(found), Point(x, y)) for x in xs for y in ys)
+    return found
+
+
 def candidates(
     part: Part,
     foreign: Sequence[Rect],
@@ -192,10 +230,11 @@ def candidates(
     reach: Nm | None = None,
     step: Nm | None = None,
     over_body: bool = False,
+    fine: bool = False,
 ) -> tuple[Choice, ...]:
     """Every candidate of ``part``, cheapest first (ties in slot order). ``foreign`` are the boxes of the
-    other parts on the same side; ``reach``, ``step`` and ``over_body`` as ``_offsets`` takes them. A place
-    over the own body costs ``OVER_BODY_COST`` more."""
+    other parts on the same side; ``reach``, ``step`` and ``over_body`` as ``_offsets`` takes them, or with
+    ``fine`` as the rescue's ``_fine_offsets``. A place over the own body costs ``OVER_BODY_COST`` more."""
     if not part.looks:
         return ()
     largest = max(look.height for look in part.looks)
@@ -204,7 +243,8 @@ def candidates(
     )
     found: list[Choice] = []
     for look_index, look in enumerate(part.looks):
-        for side, offset, anchor in _offsets(look, part.box, gap, reach, step, over_body):
+        offsets = _fine_offsets if fine else _offsets
+        for side, offset, anchor in offsets(look, part.box, gap, reach, step, over_body):
             rect = look.ink.moved(anchor.x, anchor.y)
             own = gap_floor(rect, part.box)
             centre = rect.centre2
@@ -242,6 +282,8 @@ class Field:
     texts: dict[str, Rect] = field(default_factory=lambda: {})
     _index: SpatialIndex[Obstacle] | None = None
     _reach: Nm = 0
+    _seen: dict[tuple[Rect, str], str | None] = field(default_factory=lambda: {})
+    """``static_blocker`` answers, as the obstacles never change."""
 
     def __post_init__(self) -> None:
         if self.obstacles:
@@ -252,6 +294,11 @@ class Field:
     def static_blocker(self, rect: Rect, own: str = "") -> str | None:
         """What of the fixed obstacles is within the clearance of ``rect`` (``None``: nothing); the
         obstacles that ``own`` owns are passed over."""
+        if (rect, own) not in self._seen:
+            self._seen[rect, own] = self._static(rect, own)
+        return self._seen[rect, own]
+
+    def _static(self, rect: Rect, own: str) -> str | None:
         if not self.inside(rect):
             return "the board edge"
         if self._index is None:
@@ -383,7 +430,65 @@ def arrange(
         if part.key not in plan.placed:
             plan.blocked[part.key] = _blocker(part, options[part.key], fields[part.side], by_key)
     _settle(parts, options, fields, plan, by_key)
+    stuck = [part for part in sorted(todo, key=lambda p: natural(p.ref)) if part.key not in plan.placed]
+    if stuck:
+
+        def finer(key: str) -> tuple[Choice, ...]:
+            part = by_key[key]
+            foreign = [box for other, box in boxes[part.side] if other != key]
+            more = candidates(part, foreign, gap=gap, reach=reach, over_body=over_body, fine=True)
+            return tuple(sorted({*options[key], *more}, key=lambda c: (c.cost, c.slot, c.anchor)))
+
+        _rescue(stuck, _Wide(finer), fields, plan, movable, by_key)
     return plan
+
+
+class _Wide(dict[str, tuple[Choice, ...]]):
+    """Each part's candidates with the rescue's finer ones, made when first asked for: only the parts
+    without a place and the texts that a repair tries to move pay for them."""
+
+    def __init__(self, make: Callable[[str], tuple[Choice, ...]]) -> None:
+        super().__init__()
+        self._make = make
+
+    def __missing__(self, key: str) -> tuple[Choice, ...]:
+        self[key] = found = self._make(key)
+        return found
+
+
+def _rescue(
+    stuck: Sequence[Part],
+    options: Mapping[str, tuple[Choice, ...]],
+    fields: Mapping[str, Field],
+    plan: Plan,
+    movable: set[str],
+    by_key: Mapping[str, Part],
+) -> None:
+    """The second pass (see the module): the texts that stay are in the fields, so a place found here
+    keeps clear of them; ``_repair`` may move one of them, which places its part."""
+    for _ in range(RESCUE_ROUNDS):
+        moved = False
+        for part in stuck:
+            if part.key in plan.placed:
+                continue
+            here = fields[part.side]
+            best = next((choice for choice in options[part.key] if _free(here, choice, part.key)), None)
+            if best is not None:
+                plan.placed[part.key] = best
+                here.texts[part.key] = best.rect
+                moved = True
+            elif _repair(part, options, here, plan, movable):
+                moved = True
+        if not moved:
+            break
+    for part in stuck:
+        if part.key in plan.placed:
+            plan.blocked.pop(part.key, None)
+            for side, other in fields.items():  # a text that stayed on the other side has moved
+                if side != part.side:
+                    other.texts.pop(part.key, None)
+        else:
+            plan.blocked[part.key] = _blocker(part, options[part.key], fields[part.side], by_key)
 
 
 def _settle(
@@ -447,6 +552,7 @@ def _repair(
             continue
         other = blockers[0]
         held = here.texts.pop(other)
+        own = here.texts.get(part.key)  # the part's text that stays, in the rescue
         here.texts[part.key] = choice.rect
         for alternative in options[other]:
             if alternative.rect == held:
@@ -457,6 +563,8 @@ def _repair(
                 plan.placed[part.key] = choice
                 return True
         del here.texts[part.key]
+        if own is not None:
+            here.texts[part.key] = own
         here.texts[other] = held
     return False
 
@@ -477,9 +585,11 @@ def _blocker(part: Part, choices: Sequence[Choice], here: Field, by_key: Mapping
 
 __all__ = [
     "ANGLE_COST",
+    "FINE",
     "FOREIGN_COST",
     "NEAR",
     "OVER_BODY_COST",
+    "RESCUE_ROUNDS",
     "Choice",
     "Field",
     "Look",

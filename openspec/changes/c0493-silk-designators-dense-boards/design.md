@@ -121,3 +121,34 @@ read as `silk_clearance` (the Altium writer treats it as before) and is written 
 KiCad file keeps its reach (`rulemap.reaches_every_item`). `fenolite silk` keeps courtyards (D6) only under
 such a rule, so a converted board no longer widens `--gap` or blocks courtyards; `--mask-clearance` and the
 `--clip` margin come from the silkscreen-to-pad rule when there is one.
+
+## D8 Fewer unplaced designators (follow-up, 2026-11-18)
+
+After D6 the maintainer's board placed 212 of 256 designators with `--model altium` and left 44 (text 17,
+courtyard 13, hole 11, silk 2, mask 1). The kind names what blocks the cheapest candidate only; per
+candidate, the causes were:
+
+- **text (17).** 13 met the text that stays of another part without a place: `_settle` puts those texts
+  back after the greedy pass and the repair rounds, so nothing tried again around them. 4 met a placed
+  text that the one-move repair could not move to one of its twelve-slot places.
+- **courtyard (13), silk (2).** Every one of the 72 to 264 candidates met a courtyard (the board's rule
+  keeps every courtyard 0.15 mm away, D6) or silkscreen. Free room lay between the three positions per
+  side and between the rings, which step by a whole text height.
+- **hole (11), mask (1).** The cheapest candidate met a via hole or an opening; the others met courtyards,
+  silkscreen or texts, as above.
+
+Decision (maintainer, 2026-11-18): a rescue pass after `_settle`. A part still without a place gets finer
+candidates (`layout._fine_offsets`): rings every `height / FINE` (4) from `gap` to `reach`, and on each the
+text's centre every `height / FINE` from one end of the side to the other (with `--over-body` the same
+grid over the box). In up to `RESCUE_ROUNDS` (4) rounds, in reference order, it takes the cheapest free
+one, or `_repair` moves one text in its way: a placed loose text, or the text that stays of another part
+without a place, which then takes that place. The finer candidates are made only for the parts without a
+place and for the texts a repair tries to move (`_Wide`), and `Field.static_blocker` remembers its answers,
+since the obstacles never change. The board-material test skips the rings whose box does not hold the
+point. The coarse pass is unchanged, so a board that placed everything gets the same places.
+
+Not taken: a finer grid everywhere (changes the places of boards that pass today and costs time; `FINE` 8
+in the rescue placed 2 more on the maintainer's board at 4 times the time); places further than `--reach`
+(a designator far from its part reads as another's); over-body places by default (hidden under the part
+after assembly; `--over-body` on the maintainer's board placed none more); sizes below the board's minimum
+or smaller clearances (the rules stay as they are).

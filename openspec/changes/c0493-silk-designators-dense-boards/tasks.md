@@ -122,3 +122,39 @@ Rules for every task:
   courtyard), 103 naming a Reference field; `silk_over_copper` 30, all Reference. The board's Altium
   Silk To Solder Mask Clearance record is not mapped (its keys), so no pad rule is written for it and the 18
   `silk_over_copper` are ink over pad copper, which KiCad reports at any clearance.
+
+- [x] 3.4 Fewer unplaced designators (design D8): a rescue pass with finer places and a repair that may move
+  a text that stays; the coarse pass unchanged; deterministic and bounded.
+  - Proof: `uv run --extra geo --extra dev pytest tests/unit/silk/test_layout.py -q -n 0` (12 passed;
+    `test_the_rescue_finds_a_place_between_the_slots` and `test_the_rescue_moves_a_text_that_stays` fail
+    without the change), and every file of `tests/unit/silk` and `tests/kicad/silk` alone.
+
+  Decision (maintainer, 2026-11-18): design D8 (rescue after `_settle`, `FINE` 4, `RESCUE_ROUNDS` 4, no
+  new option; `--reach`, the sizes and every clearance unchanged).
+
+  Result (maintainer board, private, codes and counts only, 2026-11-18): `--model altium` exits 0 and writes
+  the board: 240 placed, 16 unplaced (courtyard 8, hole 3, text 3, silk 2), against 212 and 44 (text 17,
+  courtyard 13, hole 11, silk 2, mask 1); 0 `silk.check-failed`; `silk.below-minimum` 27 (were 17: more
+  placed texts keep their own size, already below the minimum). The 10 courtyard and silk ones have no
+  free place among 960 to 1288 finer candidates within `--reach`. Run time of the whole command, ink
+  cached, 22.1 s before and 12.8 s after (the search 15.2 s and 7.3 s). `FINE` 8 placed 242 in 50 s;
+  `--over-body` placed none more. `kicad-cli` 10.0.6 DRC (`--severity-all`), split by what the board's
+  rule judges and by side so that no run of the counted kinds reaches the report limit: findings naming a
+  placed designator against silkscreen 0, courtyards 0, pads 0, vias 0, the edge 0 (the board before the
+  command, same designators: silkscreen 118, courtyards 204, pads 104, vias 138); against what only the
+  rule's KiCad reach judges (D6): tracks at least 78, zones at least 60, fabrication fields at least 100
+  (before: 211, 147, 239). The unplaced designators keep their findings (silkscreen 10, courtyards 30,
+  pads 8). Converted to Altium (exit 0, equivalence level 5) into a new private folder for the
+  maintainer's Altium DRC; Fenolite's `silk.clearance` judge on the converted document: 0 findings name a
+  placed designator (15 name an unplaced one).
+
+- [x] 3.5 Raise `H-A-SILK-DRC-MODEL` after the Altium result of 3.2.
+  - Proof: `uv run --extra dev pytest tests/unit/test_hypotheses_register.py tests/unit/test_evidence_register.py tests/unit/test_evidence_matrix_page.py tests/unit/test_format_facts.py -q -n 0`
+
+  Decision (maintainer, 2026-11-18): the row's criterion (Altium 24's DRC reports no silk-to-silk or
+  silk-to-mask violation for the placed designators) was met by the maintainer's Altium 24.5 DRC of
+  2026-11-17, a run of the licensed tool in ordinary use with no recorded kit artefact: the label is
+  `ALTIUM-VERIFIED(author-report; AD 24.5; 2026-11-17; no artefact)`, not `kit`, and it promotes no
+  operation (the evidence matrix is unchanged; `checks.documents.SILK_EVIDENCE` and the command's reply
+  stay `INFERRED`). The result records the limits: one board, and a pass bounds the box from one side
+  only. `docs/formats/altium/pcb-records.md` carries the same label.

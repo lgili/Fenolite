@@ -259,11 +259,25 @@ def _material(rings: Sequence[EdgeRing] | None) -> Callable[[Rect], bool]:
     always true for a board without a closed edge."""
     if not rings:
         return lambda rect: True
-    polygons = [ring.points for ring in rings]
+    polygons = [
+        (
+            min(p.x for p in ring.points),
+            min(p.y for p in ring.points),
+            max(p.x for p in ring.points),
+            max(p.y for p in ring.points),
+            ring.points,
+        )
+        for ring in rings
+    ]
 
     def inside(rect: Rect) -> bool:
-        centre = Point((rect.x0 + rect.x1) // 2, (rect.y0 + rect.y1) // 2)
-        count = sum(1 for points in polygons if point_in_ring(centre, points) == Location.INSIDE)
+        x, y = (rect.x0 + rect.x1) // 2, (rect.y0 + rect.y1) // 2
+        centre = Point(x, y)
+        count = sum(
+            1
+            for x0, y0, x1, y1, points in polygons
+            if x0 <= x <= x1 and y0 <= y <= y1 and point_in_ring(centre, points) == Location.INSIDE
+        )
         return count % 2 == 1
 
     return inside
