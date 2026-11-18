@@ -75,3 +75,32 @@ Result (maintainer board, 2026-11-17): one evaluation took 1.68 s (1.54 s of who
 --strategy optimize`, 59 selected, 1 movable, budget 64, dry run: same result as before, byte for byte (2
 candidates with the same ids, scores and 126 baseline findings each, same input digest and blockers), in
 18.6 s instead of 104 s.
+
+- [x] 3.4 Prove the incremental check on a board read from an Altium PCB document: the same verdicts as the
+  whole-board check for free pads, derived courtyards, bodies, a component's keep-out, a room, a polygon, a
+  copper region and Altium's keep-out clearance.
+  - Proof: `uv run --extra geo --extra dev pytest tests/unit/cli/test_place_moved_parts.py -q -n 0`
+
+Decision (maintainer, 2026-11-18): no change to the cut. What a finding about one part reads in an Altium
+reading lies in that part or stays whole on the cut board: a free pad is a board-only footprint (its pad
+and hull are in its box) or a board hole (kept whole); a component's keep-outs are rule areas of its
+footprint (in its box; a moved part with one falls back to the whole board); a room is a board rule area
+that restricts nothing (kept whole); polygons, copper regions and fills are zones and board graphics (kept
+whole); the derived courtyard (c0489) and the extruded bodies of a footprint are its own and in its box;
+component primitives are footprint graphics, which the placement check does not read; the keep-out
+clearance (c0498) is a `clearance` rule, so the reach includes it; the placement check judges no copper
+against the board edge, and the outline is fixed before the search. Tests on `authored` written as a PCB
+document by the Altium writer and read back by the Altium import:
+`test_moved_parts_check_equals_the_whole_board_check_on_an_altium_reading` (random moves with rotation,
+side and poses near keep-outs, the room, free pads, the polygon, the region and the board edge),
+`test_an_altium_part_near_a_free_pad_or_a_components_keepout_gives_the_whole_board_verdicts` and
+`test_the_altium_optimizer_evaluations_match_the_whole_board` (`propose_altium`, every evaluation compared).
+Each deliberately broken cut, then reverted, fails at least one of them: reach without the clearances,
+footprint keep-outs left out of the boxes, extents and bodies left out, free pads never near, and no
+fallback for a moved part with a keep-out. Seen while testing, not in this change: the keep-out clearance
+also judges copper near a room, which restricts nothing.
+
+Result (maintainer board, Altium PCB document, 2026-11-18): `place --optimize` dry run, 59 selected,
+budget 64, each evaluation also checked on the whole board: 64 of 64 verdicts equal, all 64 judged on a cut
+board; 0.14 s per evaluation (0.67 s at most) against 1.29 s for the whole-board check (1.99 s at most). The
+12-part scope request has no movable part on that document (all fixed by attached copper).

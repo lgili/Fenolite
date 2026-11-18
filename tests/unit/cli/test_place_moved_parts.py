@@ -5,18 +5,26 @@
 
 import random
 from collections import Counter
+from collections.abc import Sequence
 from dataclasses import replace
 
 import pytest
 from _coppercheck import Copper, disc_entry, ident
 
 import fenolite.cli.placement_checks as placement_checks
+from fenolite.backends.altium.backend import AltiumBackend
+from fenolite.backends.altium.read.rooms import LOCATOR
+from fenolite.backends.altium.read.rules import keepout_clearance_rule
+from fenolite.backends.base import BoardFrame, DesignRules
 from fenolite.backends.kicad.backend import KicadBackend
 from fenolite.backends.kicad.pcb import read_board, write_board
-from fenolite.cli.place_optimize import propose
+from fenolite.cli.place_optimize import propose, propose_altium
 from fenolite.cli.placement_checks import MovedPartsCheck, check_placement_constraints
 from fenolite.core.coords import Point
-from fenolite.model.board import Graphic, Hole, Keepout, Outline
+from fenolite.core.provenance import Provenance
+from fenolite.geometry.shapes import BBox
+from fenolite.model import canonical
+from fenolite.model.board import ComponentBody, Graphic, Hole, Keepout, Outline, OutlineArc, placed_keepout
 from fenolite.model.design import Design
 from fenolite.placement.constrained_legality import PlacementLegality
 from fenolite.placement.constraints import PlacementConstraints
@@ -149,8 +157,8 @@ def verdicts(legality: PlacementLegality) -> tuple[object, ...]:
     )
 
 
-def _pose(rng: random.Random, design: Design) -> Point:
-    """Anywhere, on the edge, or next to a part, a hole, a rule area or a drill."""
+def _pose(rng: random.Random, design: Design, extra: Sequence[Point] = ()) -> Point:
+    """Anywhere, on the edge, or next to a part, a hole, a rule area, a drill or a point of ``extra``."""
     board = design.board
     assert board is not None
     near = [
@@ -160,6 +168,7 @@ def _pose(rng: random.Random, design: Design) -> Point:
         Point(0, rng.randrange(H)),
         Point(W, rng.randrange(H)),
         Point(22 * MM, 30 * MM),
+        *extra,
     ]
     if rng.random() < 0.3:
         return Point(rng.randrange(-2 * MM, W + 2 * MM), rng.randrange(-2 * MM, H + 2 * MM))
@@ -167,32 +176,40 @@ def _pose(rng: random.Random, design: Design) -> Point:
     return Point(at.x + rng.randrange(-3 * MM, 3 * MM), at.y + rng.randrange(-3 * MM, 3 * MM))
 
 
-@pytest.mark.parametrize("seed", [1, 2])
-def test_moved_parts_check_equals_the_whole_board_check(seed):
+def _equivalence(
+    seed: int,
+    design: Design,
+    frame: BoardFrame,
+    holder: str,
+    *,
+    rules: DesignRules | None = None,
+    extra: Sequence[Point] = (),
+) -> int:
+    """Three rounds of 12 random candidates of a few movable parts (``holder``, which holds a rule area, among
+    them in the first): each candidate's verdicts of ``MovedPartsCheck`` are those of the whole board's check.
+    The number of candidates judged on a cut board."""
     rng = random.Random(seed)
-    design = authored(seed)
     board = design.board
     assert board is not None
-    frame = KicadBackend()
     constraints = PlacementConstraints(gap=500_000, edge_clearance=500_000)
     windows = 0
     for round in range(3):
         movable = set(rng.sample([fp.id for fp in board.footprints], rng.randint(1, 3)))
         if round == 0:
-            movable.add(board.footprints[7].id)  # it holds a rule area: the whole board is checked
+            movable.add(holder)  # it holds a rule area: the whole board is checked
         fixed = replace(
             design, board=replace(board, footprints=tuple(f for f in board.footprints if f.id not in movable))
         )
-        check = MovedPartsCheck(fixed, frame, constraints)
+        check = MovedPartsCheck(fixed, frame, constraints, rules=rules)
         assert verdicts(check(fixed, set())) == verdicts(
-            check_placement_constraints(fixed, frame, constraints)
+            check_placement_constraints(fixed, frame, constraints, rules=rules)
         )
         for _ in range(12):
             placed = {ident for ident in movable if rng.random() < 0.8} or movable
             footprints = tuple(
                 replace(
                     fp,
-                    position=_pose(rng, design),
+                    position=_pose(rng, design, extra),
                     rotation=rng.choice((0, 90_000_000, 180_000_000, 270_000_000, 45_000_000, 30_500_000)),
                     side=rng.choice(("top", "bottom")),
                 )
@@ -202,10 +219,188 @@ def test_moved_parts_check_equals_the_whole_board_check(seed):
                 if fp.id not in movable or fp.id in placed
             )
             candidate = replace(design, board=replace(board, footprints=footprints))
-            full = check_placement_constraints(candidate, frame, constraints)
+            full = check_placement_constraints(candidate, frame, constraints, rules=rules)
             assert verdicts(check(candidate, placed)) == verdicts(full)
         windows += check.windows
+    return windows
+
+
+@pytest.mark.parametrize("seed", [1, 2])
+def test_moved_parts_check_equals_the_whole_board_check(seed):
+    design = authored(seed)
+    board = design.board
+    assert board is not None
+    windows = _equivalence(seed, design, KicadBackend(), board.footprints[7].id)
     assert 12 <= windows < 36  # most were judged on the cut board, some by the whole-board fallback
+
+
+def altium_authored(seed: int) -> tuple[Design, DesignRules, bytes]:
+    """``authored`` with extruded bodies, two free pads and a copper region of a net, written as an Altium PCB
+    document and read back by the Altium import, as ``place --optimize`` reads one: its outline from the
+    board's edges, its rules from the document. A room (the rule area the import makes of a room record, which
+    the writer keeps only as a record it read) and Altium's keep-out clearance (1 mm, wider than every other
+    clearance) are added to the reading. Every footprint's extent is its derived courtyard (change c0489), a
+    free pad's the hull of its pad."""
+    design = authored(seed, count=26)
+    board = design.board
+    assert board is not None
+    footprints = list(board.footprints)
+    free = {footprints[k].component_id for k in (24, 25)}
+    for k in (24, 25):  # one-pad parts without a reference: the writer writes them as free pads
+        footprints[k] = replace(
+            footprints[k], pads=footprints[k].pads[:1], lib_ref="lib:FREE_PAD", side="top"
+        )
+    for k in range(0, 24, 3):
+        fab = "F.Fab" if footprints[k].side == "top" else "B.Fab"
+        outline = _rect(-2 * MM, -3 * MM, 4 * MM, 3 * MM)
+        body = ComponentBody(id=ident("bdy", k), kind="extruded", height=2 * MM, outline=outline, layer=fab)
+        footprints[k] = replace(footprints[k], bodies=(body,))
+    region = Graphic(
+        id=ident("gra", 990),
+        kind="polygon",
+        layer="F.Cu",
+        points=_rect(2 * MM, 30 * MM, 8 * MM, 36 * MM),
+        width=0,
+        filled=True,
+        net_id=design.circuit.nets[1].id,
+    )
+    components = tuple(replace(c, ref="") if c.id in free else c for c in design.circuit.components)
+    design = replace(
+        design,
+        circuit=replace(design.circuit, components=components),
+        board=replace(board, footprints=tuple(footprints), graphics=(*board.graphics, region)),
+    )
+    backend = AltiumBackend()
+    written = backend.write(design, allow_lossy=True, bodies="extruded")
+    name = next(n for n in written.files if n.endswith(".PcbDoc"))
+    data = written.files[name]
+    read = backend.board_from_bytes(data, file=name).design
+    rules = backend.rules_from_bytes(read, data, file=name)
+    rings = backend.board_edges(read)
+    assert rings and read.board is not None
+    outline = Outline(
+        id="out_00000000-0000-0000-0000-000000000002",
+        points=rings[0].points,
+        cutouts=tuple(ring.points for ring in rings[1:]),
+        arcs=tuple(
+            OutlineArc(i, j, mid) for i, ring in enumerate(rings) for j, mid in enumerate(ring.mids) if mid
+        ),
+    )
+    corner = rings[0].points[0]
+    room = Keepout(
+        id=ident("kpo", 990),
+        provenance=Provenance("altium", name, "0" * 64, f"{LOCATOR}0"),
+        outline=_rect(corner.x + 30 * MM, corner.y + 20 * MM, corner.x + 45 * MM, corner.y + 35 * MM),
+        layers=("F.Cu",),
+        name="PWR",
+    )
+    clearance = keepout_clearance_rule(
+        {"SCOPE1EXPRESSION": "IsKeepOut", "SCOPE2EXPRESSION": "All", "GAP": "1mm"}
+    )
+    assert clearance is not None and rules.design.rules is not None
+    held = replace(rules.design.rules, rules=(*rules.design.rules.rules, clearance))
+    board = replace(read.board, outline=outline, keepouts=(*read.board.keepouts, room))
+    checked = replace(read, circuit=rules.design.circuit, rules=held, board=board)
+    return checked, replace(rules, design=checked), data
+
+
+def _altium_points(design: Design) -> list[Point]:
+    """Points to place a part near in an Altium reading: the outline's and cut-out's corners, the copper
+    regions, the polygons' fills, the free pads and the components' keep-outs."""
+    board = design.board
+    assert board is not None and board.outline is not None
+    return [
+        *board.outline.points,
+        *(p for ring in board.outline.cutouts for p in ring),
+        *(g.points[0] for g in board.graphics if g.layer.endswith(".Cu")),
+        *(fill.polygon[0] for zone in board.zones for fill in zone.fills),
+        *(fp.position for fp in board.footprints if "board_only" in fp.attributes),
+        *(placed_keepout(fp, area).outline[0] for fp in board.footprints for area in fp.keepouts),
+    ]
+
+
+@pytest.mark.parametrize("seed", [1, 2])
+def test_moved_parts_check_equals_the_whole_board_check_on_an_altium_reading(seed):
+    """The same on a board read from an Altium PCB document (follow-up 2026-11-18): free pads, derived
+    courtyards, bodies, a component's keep-out, a room, a polygon, a copper region and the keep-out
+    clearance; the poses go near each and off the board's edge."""
+    design, rules, _ = altium_authored(seed)
+    board = design.board
+    assert board is not None
+    assert sum(1 for fp in board.footprints if "board_only" in fp.attributes) == 2
+    assert sum(len(fp.bodies) for fp in board.footprints) == 8 and board.zones and board.holes
+    assert {e.source for e in AltiumBackend().placed_extents(design)} == {"derived", "pads"}
+    holder = next(fp.id for fp in board.footprints if fp.keepouts)
+    windows = _equivalence(seed, design, AltiumBackend(), holder, rules=rules, extra=_altium_points(design))
+    assert 12 <= windows < 36
+
+
+def test_an_altium_part_near_a_free_pad_or_a_components_keepout_gives_the_whole_board_verdicts():
+    """A part 0.7 mm from a component's keep-out (within the 1 mm keep-out clearance, beyond the 0.5 mm gap)
+    and a part on a free pad: the findings each depends on, as on the whole board."""
+    design, rules, _ = altium_authored(1)
+    board = design.board
+    assert board is not None
+    frame = AltiumBackend()
+    constraints = PlacementConstraints(gap=500_000, edge_clearance=500_000)
+    holder = next(fp for fp in board.footprints if fp.keepouts)
+    area = BBox.of_points(placed_keepout(holder, holder.keepouts[0]).outline)
+    pad = next(fp for fp in board.footprints if "board_only" in fp.attributes)
+    mover = next(
+        fp for fp in board.footprints if fp.attributes == ("smd",) and not fp.keepouts and not fp.bodies
+    )
+    ref = next(c.ref for c in design.circuit.components if c.id == mover.component_id)
+    fixed = replace(
+        design, board=replace(board, footprints=tuple(f for f in board.footprints if f.id != mover.id))
+    )
+    check = MovedPartsCheck(fixed, frame, constraints, rules=rules)
+    cases = (
+        (Point(area.x0 + MM, area.y0 - 1_300_000), "copper:copper.keepout-clearance:" + ref),  # a 1.2 mm pad
+        (Point(pad.position.x - 3_300_000, pad.position.y), f"copper:copper.short:{ref}-3, {pad.id}-1"),
+    )  # fmt: skip
+    for at, expected in cases:
+        moved = replace(mover, position=at, rotation=0, side="top")
+        footprints = tuple(moved if fp.id == mover.id else fp for fp in board.footprints)
+        candidate = replace(design, board=replace(board, footprints=footprints))
+        full = check_placement_constraints(candidate, frame, constraints, rules=rules)
+        assert any(key.startswith(expected) for key in full.hard), full.hard
+        assert verdicts(check(candidate, {mover.id})) == verdicts(full)
+    assert check.windows == 2
+
+
+def test_the_altium_optimizer_evaluations_match_the_whole_board(monkeypatch, tmp_path):
+    """``place --optimize`` on the PCB document (``propose_altium``): every evaluation's verdicts are those of
+    the whole board's check, and most are judged on a cut board."""
+    _, _, data = altium_authored(2)
+    document = tmp_path / "moved.PcbDoc"
+    document.write_bytes(data)
+    read = AltiumBackend().board_from_bytes(data, file=document.name).design
+    assert read.board is not None
+    movable = tuple(
+        fp.id for fp in read.board.footprints if not fp.keepouts and "board_only" not in fp.attributes
+    )
+    request = OptimizationRequest(
+        "fenolite.placement-optimization.v0",
+        movable[:3],
+        OptimizationBudget(evaluations=12, beam_width=2),
+        PlacementConstraints(max_candidates=12, pitch=MM, gap=500_000),
+    )
+    (tmp_path / "request.json").write_text(canonical.dumps(request), encoding="utf-8")
+    judged: list[bool] = []
+    windows: list[int] = []
+    incremental = MovedPartsCheck.__call__
+
+    def compared(self, design, placed):
+        found = incremental(self, design, placed)
+        judged.append(verdicts(found) == verdicts(self.full(design)))
+        windows.append(self.windows)
+        return found
+
+    monkeypatch.setattr(MovedPartsCheck, "__call__", compared)
+    result = propose_altium(document, tmp_path / "request.json")
+    work = result.result["optimization"]["work"]
+    assert work >= 6 and len(judged) == work and all(judged)
+    assert windows[-1] > work // 2
 
 
 def test_a_part_on_another_parts_drills_gives_the_whole_board_verdicts():
